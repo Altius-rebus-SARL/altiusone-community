@@ -1,0 +1,55 @@
+# Configuration pour le développement avec hot-reload
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  django:
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./apps:/app:delegated
+      - media_files:/app/media
+      - ./logs:/app/logs
+    environment:
+      - DEBUG=True
+      - DJANGO_SETTINGS_MODULE=AltiusFidu.settings
+    ports:
+      - "8000:8000"
+    stdin_open: true
+    tty: true
+
+  celery:
+    command: celery -A AltiusFidu worker --loglevel=debug --autoreload
+    volumes:
+      - ./apps:/app:delegated
+      - media_files:/app/media
+      - ./logs:/app/logs
+    environment:
+      - DEBUG=True
+      - DJANGO_SETTINGS_MODULE=AltiusFidu.settings
+
+  celery-beat:
+    command: celery -A AltiusFidu beat --loglevel=debug
+    volumes:
+      - ./apps:/app:delegated
+      - ./logs:/app/logs
+    environment:
+      - DEBUG=True
+      - DJANGO_SETTINGS_MODULE=AltiusFidu.settings
+
+  nextjs:
+    build:
+      context: .
+      dockerfile: web.Dockerfile.dev
+      target: development
+    volumes:
+      - ./web:/app:delegated
+      - /app/node_modules
+      - /app/.next
+    environment:
+      - NODE_ENV=development
+      - WATCHPACK_POLLING=true
+    command: npm run dev
+    ports:
+      - "3000:3000"
+
+volumes:
+  media_files:

@@ -1,0 +1,81 @@
+<!-- facturation/partials/ligne_facture_row.html -->
+<tr class="ligne-row" id="ligne-row-{{ index }}" data-index="{{ index }}">
+    <td>
+        {{ ligne_form.id }}
+        <select name="{{ ligne_form.prefix }}-prestation" 
+                class="form-control select2 prestation-select" 
+                id="id_{{ ligne_form.prefix }}-prestation"
+                data-row-index="{{ index }}">
+            <option value="">---------</option>
+            {% for prestation in prestations %}
+            <option value="{{ prestation.id }}" 
+                    data-prix="{{ prestation.prix_unitaire_ht }}"
+                    data-unite="{{ prestation.unite }}"
+                    data-tva="{{ prestation.taux_tva_defaut }}"
+                    data-libelle="{{ prestation.libelle }}">
+                {{ prestation.libelle }}
+            </option>
+            {% endfor %}
+        </select>
+    </td>
+    <td>
+        <input type="text" 
+               name="{{ ligne_form.prefix }}-description" 
+               class="form-control description-input" 
+               id="id_{{ ligne_form.prefix }}-description"
+               data-row-index="{{ index }}">
+    </td>
+    <td>
+        <input type="number" 
+               name="{{ ligne_form.prefix }}-quantite" 
+               value="1" 
+               step="0.01" 
+               class="form-control quantite-input" 
+               id="id_{{ ligne_form.prefix }}-quantite"
+               data-row-index="{{ index }}">
+    </td>
+    <td>
+        <input type="text" 
+               name="{{ ligne_form.prefix }}-unite" 
+               value="heure" 
+               class="form-control unite-input" 
+               id="id_{{ ligne_form.prefix }}-unite"
+               data-row-index="{{ index }}">
+    </td>
+    <td>
+        <input type="number" 
+               name="{{ ligne_form.prefix }}-prix_unitaire_ht" 
+               value="0" 
+               step="0.01" 
+               class="form-control prix-input" 
+               id="id_{{ ligne_form.prefix }}-prix_unitaire_ht"
+               data-row-index="{{ index }}">
+    </td>
+    <td>
+        <input type="number" 
+               name="{{ ligne_form.prefix }}-taux_tva" 
+               value="8.1" 
+               step="0.01" 
+               class="form-control tva-input" 
+               id="id_{{ ligne_form.prefix }}-taux_tva"
+               data-row-index="{{ index }}">
+    </td>
+    <td class="text-end">
+        <span class="ligne-total" data-row-index="{{ index }}">0.00</span> CHF
+    </td>
+    <td>
+        <input type="checkbox" 
+               name="{{ ligne_form.prefix }}-DELETE" 
+               class="d-none" 
+               id="id_{{ ligne_form.prefix }}-DELETE">
+        <button type="button" 
+                class="btn btn-sm btn-danger delete-ligne"
+                hx-delete="{% url 'facturation:ligne-delete-row' index %}"
+                hx-target="#ligne-row-{{ index }}"
+                hx-swap="outerHTML swap:1s"
+                hx-confirm="Supprimer cette ligne ?"
+                title="Supprimer">
+            <i class="ph ph-trash"></i>
+        </button>
+    </td>
+</tr>

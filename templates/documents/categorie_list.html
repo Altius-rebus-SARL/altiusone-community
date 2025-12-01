@@ -1,0 +1,445 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Catégories de documents" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Catégories de documents" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'documents:document-list' %}">
+                    <span>{% trans "Documents" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Catégories" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="row">
+    <div class="col-md-4">
+        <div class="card bg-light-primary">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar bg-primary rounded me-3">
+                        <i class="ph-duotone ph-folders text-white f-s-30"></i>
+                    </div>
+                    <div>
+                        <p class="text-muted mb-1 f-s-12">{% trans "Total catégories" %}</p>
+                        <h5 class="text-primary mb-0">{{ categories.count }}</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card bg-light-success">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar bg-success rounded me-3">
+                        <i class="ph-duotone ph-files text-white f-s-30"></i>
+                    </div>
+                    <div>
+                        <p class="text-muted mb-1 f-s-12">{% trans "Types de documents" %}</p>
+                        <h5 class="text-success mb-0">
+                            {% for cat in categories %}{{ cat.nb_types }}{% if not forloop.last %}+{% endif %}{% endfor %}
+                        </h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card bg-light-info">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar bg-info rounded me-3">
+                        <i class="ph-duotone ph-tree-structure text-white f-s-30"></i>
+                    </div>
+                    <div>
+                        <p class="text-muted mb-1 f-s-12">{% trans "Avec sous-catégories" %}</p>
+                        <h5 class="text-info mb-0">{{ categories.filter.count }}</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Liste -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">{% trans "Liste des catégories" %}</h5>
+                    <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#categorieModal">
+                        <i class="ph ph-plus me-2"></i>{% trans "Nouvelle catégorie" %}
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Catégorie" %}</th>
+                                <th>{% trans "Description" %}</th>
+                                <th>{% trans "Types de documents" %}</th>
+                                <th>{% trans "Ordre" %}</th>
+                                <th class="text-end">{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for categorie in categories %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        {% if categorie.icone %}
+                                        <div class="me-3">
+                                            <i class="{{ categorie.icone }} f-s-24" 
+                                               {% if categorie.couleur %}style="color: {{ categorie.couleur }};"{% endif %}>
+                                            </i>
+                                        </div>
+                                        {% endif %}
+                                        <div>
+                                            <p class="f-w-600 mb-0">{{ categorie.nom }}</p>
+                                            {% if categorie.parent %}
+                                            <p class="text-muted f-s-12 mb-0">
+                                                <i class="ph ph-folder-open me-1"></i>{{ categorie.parent.nom }}
+                                            </p>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if categorie.description %}
+                                    <p class="text-muted mb-0">{{ categorie.description|truncatewords:15 }}</p>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge text-light-primary">{{ categorie.nb_types }} types</span>
+                                </td>
+                                <td>
+                                    <span class="badge text-light-secondary">{{ categorie.ordre }}</span>
+                                </td>
+                                <td class="text-end">
+                                    <div class="dropdown">
+                                        <a class="text-muted" data-bs-toggle="dropdown" role="button">
+                                            <i class="ph ph-dots-three-vertical f-s-18"></i>
+                                        </a>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'documents:categorie-detail' categorie.pk %}">
+                                                    <i class="ph ph-eye me-2"></i>{% trans "Voir détails" %}
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item edit-categorie-btn" href="#" data-categorie-id="{{ categorie.pk }}">
+                                                    <i class="ph ph-pencil me-2"></i>{% trans "Modifier" %}
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'documents:categorie-update' categorie.pk %}">
+                                                    <i class="ph ph-note-pencil me-2"></i>{% trans "Modifier (page)" %}
+                                                </a>
+                                            </li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <a class="dropdown-item text-danger" href="#">
+                                                    <i class="ph ph-trash me-2"></i>{% trans "Supprimer" %}
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center py-5">
+                                    <i class="ph ph-folder-open f-s-48 text-muted d-block mb-3"></i>
+                                    <p class="text-muted mb-0">{% trans "Aucune catégorie trouvée" %}</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Création/Modification Catégorie -->
+<div class="modal fade" id="categorieModal" tabindex="-1" aria-labelledby="categorieModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary">
+                <h5 class="modal-title text-white" id="categorieModalLabel">
+                    <i class="ph ph-folder-plus me-2"></i><span id="modalTitle">{% trans "Nouvelle catégorie" %}</span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white m-0" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="categorieForm" class="app-form">
+                {% csrf_token %}
+                <input type="hidden" id="categorieId" name="categorie_id">
+                <input type="hidden" id="isUpdate" value="false">
+                
+                <div class="modal-body">
+                    <!-- Alertes -->
+                    <div id="formAlerts"></div>
+
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Nom" %} <span class="text-danger">*</span></label>
+                                <input type="text" name="nom" id="inputNom" class="form-control" placeholder="Ex: Comptabilité" required>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Ordre" %}</label>
+                                <input type="number" name="ordre" id="inputOrdre" class="form-control" value="0" min="0">
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Description" %}</label>
+                                <textarea name="description" id="inputDescription" class="form-control" rows="2" 
+                                    placeholder="{% trans 'Description de la catégorie...' %}"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Catégorie parente" %}</label>
+                                <select name="parent" id="inputParent" class="form-select">
+                                    <option value="">{% trans "Aucune (catégorie racine)" %}</option>
+                                    {% for cat in categories %}
+                                    <option value="{{ cat.pk }}">{{ cat.nom }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Icône" %}</label>
+                                <input type="text" name="icone" id="inputIcone" class="form-control" 
+                                    placeholder="ph ph-folder">
+                                <small class="text-muted">Phosphor Icons</small>
+                            </div>
+                        </div>
+
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Couleur" %}</label>
+                                <input type="color" name="couleur" id="inputCouleur" class="form-control" value="#3B82F6">
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Mots-clés pour classification (JSON)" %}</label>
+                                <textarea name="mots_cles" id="inputMotsCles" class="form-control" rows="2" 
+                                    placeholder='["facture", "comptabilité", "finance"]'></textarea>
+                                <small class="text-muted">{% trans "Format JSON: liste de mots-clés" %}</small>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Patterns regex pour détection (JSON)" %}</label>
+                                <textarea name="patterns_regex" id="inputPatterns" class="form-control" rows="2" 
+                                    placeholder='["^FAC-\\d+", "FACTURE.*\\d{4}"]'></textarea>
+                                <small class="text-muted">{% trans "Format JSON: liste de patterns regex" %}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                    </button>
+                    <button type="submit" class="btn btn-primary" id="submitBtn">
+                        <i class="ph ph-check me-2"></i><span id="submitBtnText">{% trans "Créer" %}</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Info card -->
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="card bg-light-info">
+            <div class="card-body">
+                <h6 class="text-primary mb-3">
+                    <i class="ph ph-info me-2"></i>{% trans "À propos des catégories" %}
+                </h6>
+                <ul class="mb-0 f-s-14">
+                    <li class="mb-2">{% trans "Les catégories permettent d'organiser les types de documents" %}</li>
+                    <li class="mb-2">{% trans "Chaque catégorie peut contenir plusieurs types de documents" %}</li>
+                    <li class="mb-2">{% trans "Les mots-clés permettent la classification automatique" %}</li>
+                    <li>{% trans "L'ordre définit l'affichage dans l'interface" %}</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Bouton Modifier - Charger les données
+    $('.edit-categorie-btn').on('click', function(e) {
+        e.preventDefault();
+        
+        const categorieId = $(this).data('categorie-id');
+        
+        // Charger les données
+        $.ajax({
+            url: `/documents/categories/${categorieId}/get-data/`,
+            type: 'GET',
+            success: function(response) {
+                if (response.success) {
+                    const data = response.data;
+                    
+                    // Mettre à jour le modal
+                    $('#modalTitle').html('<i class="ph ph-pencil me-2"></i>{% trans "Modifier la catégorie" %}');
+                    $('#submitBtnText').text('{% trans "Enregistrer" %}');
+                    $('#isUpdate').val('true');
+                    $('#categorieId').val(data.pk);
+                    
+                    // Remplir les champs
+                    $('#inputNom').val(data.nom);
+                    $('#inputDescription').val(data.description);
+                    $('#inputParent').val(data.parent);
+                    $('#inputIcone').val(data.icone);
+                    $('#inputCouleur').val(data.couleur || '#3B82F6');
+                    $('#inputOrdre').val(data.ordre);
+                    
+                    // JSON fields
+                    if (data.mots_cles) {
+                        $('#inputMotsCles').val(JSON.stringify(data.mots_cles));
+                    }
+                    if (data.patterns_regex) {
+                        $('#inputPatterns').val(JSON.stringify(data.patterns_regex));
+                    }
+                    
+                    // Ouvrir le modal
+                    $('#categorieModal').modal('show');
+                }
+            },
+            error: function() {
+                alert('{% trans "Erreur lors du chargement des données" %}');
+            }
+        });
+    });
+
+    // Réinitialiser pour création
+    $('#categorieModal').on('show.bs.modal', function(e) {
+        if (!$(e.relatedTarget).hasClass('edit-categorie-btn')) {
+            $('#modalTitle').html('<i class="ph ph-folder-plus me-2"></i>{% trans "Nouvelle catégorie" %}');
+            $('#submitBtnText').text('{% trans "Créer" %}');
+            $('#isUpdate').val('false');
+            $('#categorieId').val('');
+            $('#categorieForm')[0].reset();
+            $('#formAlerts').html('');
+            $('#inputCouleur').val('#3B82F6');
+        }
+    });
+
+    // Soumission du formulaire
+    $('#categorieForm').on('submit', function(e) {
+        e.preventDefault();
+        
+        const submitBtn = $('#submitBtn');
+        const originalText = submitBtn.html();
+        const isUpdate = $('#isUpdate').val() === 'true';
+        const categorieId = $('#categorieId').val();
+        
+        submitBtn.prop('disabled', true).html('<i class="ph ph-spinner-gap ph-spin me-2"></i>{% trans "Enregistrement..." %}');
+        
+        const formData = new FormData(this);
+        
+        const url = isUpdate 
+            ? `/documents/categories/${categorieId}/update-ajax/`
+            : '{% url "documents:categorie-create-ajax" %}';
+        
+        $.ajax({
+            url: url,
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                $('#formAlerts').html(`
+                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        <i class="ph ph-check-circle me-2"></i>${response.message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                `);
+                
+                setTimeout(function() {
+                    $('#categorieModal').modal('hide');
+                    window.location.reload();
+                }, 1500);
+            },
+            error: function(xhr) {
+                let errorMsg = '{% trans "Une erreur est survenue" %}';
+                
+                if (xhr.responseJSON && xhr.responseJSON.errors) {
+                    errorMsg = '<ul class="mb-0">';
+                    for (let field in xhr.responseJSON.errors) {
+                        xhr.responseJSON.errors[field].forEach(function(error) {
+                            errorMsg += `<li>${field}: ${error}</li>`;
+                        });
+                    }
+                    errorMsg += '</ul>';
+                }
+                
+                $('#formAlerts').html(`
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <i class="ph ph-x-circle me-2"></i>${errorMsg}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                `);
+            },
+            complete: function() {
+                submitBtn.prop('disabled', false).html(originalText);
+            }
+        });
+    });
+
+    // Réinitialiser au fermeture
+    $('#categorieModal').on('hidden.bs.modal', function() {
+        $('#categorieForm')[0].reset();
+        $('#formAlerts').html('');
+        $('#isUpdate').val('false');
+        $('#categorieId').val('');
+        $('#inputCouleur').val('#3B82F6');
+    });
+});
+</script>
+{% endblock %}

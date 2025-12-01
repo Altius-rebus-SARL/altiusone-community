@@ -1,0 +1,80 @@
+# Configuration pour la production
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  postgres:
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    restart: always
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  django:
+    restart: always
+    command: gunicorn AltiusFidu.wsgi:application --bind 0.0.0.0:8000 --workers 4 --threads 2 --timeout 60 --access-logfile - --error-logfile -
+    environment:
+      - DEBUG=False
+      - DJANGO_SETTINGS_MODULE=AltiusFidu.settings
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    # Ne pas monter le code source en production
+    volumes:
+      - media:/app/media
+      - static:/app/staticfiles
+      - ./logs:/app/logs
+
+  celery:
+    restart: always
+    command: celery -A AltiusFidu worker --loglevel=info --concurrency=4 --max-tasks-per-child=100
+    environment:
+      - DEBUG=False
+      - DJANGO_SETTINGS_MODULE=AltiusFidu.settings
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    volumes:
+      - media:/app/media
+      - ./logs:/app/logs
+
+  celery-beat:
+    restart: always
+    command: celery -A AltiusFidu beat --loglevel=info
+    environment:
+      - DEBUG=False
+      - DJANGO_SETTINGS_MODULE=AltiusFidu.settings
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    volumes:
+      - ./logs:/app/logs
+
+  nginx:
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  postgres_data:
+  redis_data:
+  media_files:
+  static_files:

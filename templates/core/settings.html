@@ -1,0 +1,192 @@
+<!-- core/settings.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Paramètres" %}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h4 class="text-primary mb-4">{% trans "Paramètres" %}</h4>
+
+                <div class="row">
+                    <!-- Préférences -->
+                    <div class="col-lg-6">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="text-primary mb-3">
+                                    <i class="ti ti-settings me-2"></i>{% trans "Préférences" %}
+                                </h5>
+
+                                <form method="post" action="{% url 'core:update-preferences' %}" id="preferences-form">
+                                    {% csrf_token %}
+
+                                    <!-- Langue -->
+                                    <div class="mb-3">
+                                        <label for="langue" class="form-label">{% trans "Langue" %}</label>
+                                        <select name="langue" id="langue" class="form-select">
+                                            <option value="fr" {% if preferences.langue == 'fr' %}selected{% endif %}>Français</option>
+                                            <option value="de" {% if preferences.langue == 'de' %}selected{% endif %}>Deutsch</option>
+                                            <option value="it" {% if preferences.langue == 'it' %}selected{% endif %}>Italiano</option>
+                                            <option value="en" {% if preferences.langue == 'en' %}selected{% endif %}>English</option>
+                                        </select>
+                                    </div>
+
+                                    <!-- Thème -->
+                                    <div class="mb-3">
+                                        <label for="theme" class="form-label">{% trans "Thème" %}</label>
+                                        <select name="theme" id="theme" class="form-select">
+                                            <option value="light" {% if preferences.theme == 'light' %}selected{% endif %}>{% trans "Clair" %}</option>
+                                            <option value="dark" {% if preferences.theme == 'dark' %}selected{% endif %}>{% trans "Sombre" %}</option>
+                                            <option value="auto" {% if preferences.theme == 'auto' %}selected{% endif %}>{% trans "Automatique" %}</option>
+                                        </select>
+                                    </div>
+
+                                    <!-- Notifications Email -->
+                                    <div class="mb-3">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input form-check-primary" 
+                                                   type="checkbox" 
+                                                   name="notifications_email" 
+                                                   id="notifications_email"
+                                                   {% if preferences.notifications_email %}checked{% endif %}>
+                                            <label class="form-check-label" for="notifications_email">
+                                                {% trans "Recevoir les notifications par email" %}
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <!-- Notifications Push -->
+                                    <div class="mb-3">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input form-check-primary" 
+                                                   type="checkbox" 
+                                                   name="notifications_push" 
+                                                   id="notifications_push"
+                                                   {% if preferences.notifications_push %}checked{% endif %}>
+                                            <label class="form-check-label" for="notifications_push">
+                                                {% trans "Activer les notifications push" %}
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <button type="submit" class="btn btn-primary w-100">
+                                        <i class="ti ti-check me-2"></i>{% trans "Enregistrer les préférences" %}
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sécurité -->
+                    <div class="col-lg-6">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="text-primary mb-3">
+                                    <i class="ti ti-shield me-2"></i>{% trans "Sécurité" %}
+                                </h5>
+
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1 f-w-500">{% trans "Dernière connexion" %}</h6>
+                                            <p class="text-muted mb-0 f-s-12">
+                                                {{ security.last_login|date:"d.m.Y H:i" }}
+                                            </p>
+                                        </div>
+                                        <i class="ti ti-clock text-primary f-s-24"></i>
+                                    </li>
+
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1 f-w-500">{% trans "Compte créé le" %}</h6>
+                                            <p class="text-muted mb-0 f-s-12">
+                                                {{ security.date_joined|date:"d.m.Y" }}
+                                            </p>
+                                        </div>
+                                        <i class="ti ti-calendar text-primary f-s-24"></i>
+                                    </li>
+
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1 f-w-500">{% trans "Authentification à deux facteurs" %}</h6>
+                                            <p class="text-muted mb-0 f-s-12">
+                                                {% if security.two_factor_enabled %}
+                                                    {% trans "Activée" %}
+                                                {% else %}
+                                                    {% trans "Désactivée" %}
+                                                {% endif %}
+                                            </p>
+                                        </div>
+                                        {% if security.two_factor_enabled %}
+                                            <span class="badge bg-success">{% trans "Activée" %}</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">{% trans "Désactivée" %}</span>
+                                        {% endif %}
+                                    </li>
+                                </ul>
+
+                                <div class="mt-4">
+                                    <a href="#" class="btn btn-outline-primary w-100 mb-2">
+                                        <i class="ti ti-key me-2"></i>{% trans "Changer le mot de passe" %}
+                                    </a>
+                                    <a href="#" class="btn btn-outline-secondary w-100">
+                                        <i class="ti ti-shield-lock me-2"></i>{% trans "Configurer 2FA" %}
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Autres paramètres -->
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="text-primary mb-3">
+                                    <i class="ti ti-tool me-2"></i>{% trans "Autres paramètres" %}
+                                </h5>
+
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="alert alert-info">
+                                            <h6 class="mb-2">
+                                                <i class="ti ti-download me-2"></i>{% trans "Exporter mes données" %}
+                                            </h6>
+                                            <p class="mb-2 f-s-12">
+                                                {% trans "Téléchargez une copie de toutes vos données" %}
+                                            </p>
+                                            <a href="#" class="btn btn-sm btn-info">
+                                                {% trans "Exporter" %}
+                                            </a>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <div class="alert alert-warning">
+                                            <h6 class="mb-2">
+                                                <i class="ti ti-trash me-2"></i>{% trans "Supprimer mon compte" %}
+                                            </h6>
+                                            <p class="mb-2 f-s-12">
+                                                {% trans "Cette action est irréversible" %}
+                                            </p>
+                                            <a href="#" class="btn btn-sm btn-danger">
+                                                {% trans "Supprimer" %}
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,165 @@
+{% load static %}
+{% load i18n %}
+<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE|default:'fr' }}">
+
+<head>
+    <meta content="text/html; charset=UTF-8" http-equiv="Content-Type">
+    <meta content="IE=edge" http-equiv="X-UA-Compatible">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <meta content="{% block meta_description %}AltiusFidu - Gestion fiduciaire suisse complète{% endblock %}" name="description">
+    <meta content="{% block meta_keywords %}fiduciaire, comptabilité, TVA, salaires, Suisse{% endblock %}" name="keywords">
+    <meta content="AltiusFidu" name="author">
+    
+    <link href="{% static 'assets/images/logo/favicon.png' %}" rel="icon" type="image/x-icon">
+    <link href="{% static 'assets/images/logo/favicon.png' %}" rel="shortcut icon" type="image/x-icon">
+    
+    <title>{% block title %}AltiusFidu{% endblock %} | {% trans "Gestion Fiduciaire" %}</title>
+
+    <!-- Animation css -->
+    <link href="{% static 'assets/vendor/animation/animate.min.css' %}" rel="stylesheet">
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com" rel="preconnect">
+    <link crossorigin href="https://fonts.gstatic.com" rel="preconnect">
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:ital,wght@0,300..900;1,300..900&display=swap" rel="stylesheet">
+
+    <!--flag Icon css-->
+    <link href="{% static 'assets/vendor/flag-icons-master/flag-icon.css' %}" rel="stylesheet" type="text/css">
+
+    <!-- tabler icons-->
+    <link href="{% static 'assets/vendor/tabler-icons/tabler-icons.css' %}" rel="stylesheet" type="text/css">
+
+    <!-- Bootstrap css-->
+    <link href="{% static 'assets/vendor/bootstrap/bootstrap.min.css' %}" rel="stylesheet" type="text/css">
+
+    <!-- simplebar css-->
+    <link href="{% static 'assets/vendor/simplebar/simplebar.css' %}" rel="stylesheet" type="text/css">
+
+    <!-- Selecrt css -->
+    <link href="{% static 'assets/vendor/select/select2.min.css' %}" rel="stylesheet" type="text/css">
+
+    <!-- App css-->
+    <link href="{% static 'assets/css/style.css' %}" rel="stylesheet" type="text/css">
+
+    <!-- Responsive css-->
+    <link href="{% static 'assets/css/responsive.css' %}" rel="stylesheet" type="text/css">
+
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+<div class="app-wrapper">
+
+    <div class="loader-wrapper">
+        <div class="loader_24"></div>
+    </div>
+
+    <!-- Menu Navigation -->
+    {% include 'includes/sidebar.html' %}
+
+    <div class="app-content">
+        <div class="">
+
+            <!-- Header -->
+            {% include 'includes/navbar.html' %}
+
+            <!-- Django Messages -->
+            {% if messages %}
+            <div class="container-fluid mt-3">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Body main section starts -->
+            <main>
+                <div class="container-fluid">
+                    {% block content %}{% endblock %}
+                </div>
+            </main>
+            <!-- Body main section ends -->
+
+        </div>
+    </div>
+
+    <!-- tap on top -->
+    <div class="go-top">
+        <span class="progress-value">
+            <i class="ti ti-chevron-up"></i>
+        </span>
+    </div>
+
+    <!-- Footer -->
+    {% include 'includes/footer.html' %}
+
+</div>
+
+<!--customizer-->
+<div id="customizer"></div>
+
+<!-- latest jquery-->
+<script src="{% static 'assets/js/jquery-3.6.3.min.js' %}"></script>
+
+<!-- Bootstrap js-->
+<script src="{% static 'assets/vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
+<!-- select2 -->
+<script src="{% static 'assets/vendor/select/select2.min.js' %}"></script>
+
+<!--js-->
+<script src="{% static 'assets/js/select.js' %}"></script>
+
+<!-- Simple bar js-->
+<script src="{% static 'assets/vendor/simplebar/simplebar.js' %}"></script>
+
+<!-- phosphor js -->
+<script src="{% static 'assets/vendor/phosphor/phosphor.js' %}"></script>
+
+<!-- Customizer js-->
+<script src="{% static 'assets/js/customizer.js' %}"></script>
+
+<!-- App js-->
+<script src="{% static 'assets/js/script.js' %}"></script>
+
+<!-- HTMX -->
+<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+
+<!-- Alpine.js (optionnel mais pratique) -->
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+<script>
+document.body.addEventListener('htmx:configRequest', function(evt) {
+    // Récupérer le token CSRF
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value 
+                   || document.querySelector('meta[name="csrf-token"]')?.content
+                   || getCookie('csrftoken');
+    
+    if (csrfToken) {
+        evt.detail.headers['X-CSRFToken'] = csrfToken;
+    }
+});
+
+// Helper pour récupérer le cookie CSRF
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% block extra_js %}{% endblock %}
+
+</body>
+</html>

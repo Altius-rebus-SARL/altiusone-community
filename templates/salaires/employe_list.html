@@ -1,0 +1,323 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{% trans "Employés" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Gestion des employés" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Employés" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <p class="text-muted mb-1 f-s-12">{% trans "Total employés" %}</p>
+                        <h4 class="mb-0">{{ stats.total }}</h4>
+                    </div>
+                    <div class="avatar bg-light-primary rounded">
+                        <i class="ph-duotone ph-users text-primary f-s-30"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <p class="text-muted mb-1 f-s-12">{% trans "Actifs" %}</p>
+                        <h4 class="mb-0 text-success">{{ stats.actifs }}</h4>
+                    </div>
+                    <div class="avatar bg-light-success rounded">
+                        <i class="ph-duotone ph-user-check text-success f-s-30"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <p class="text-muted mb-1 f-s-12">{% trans "CDI" %}</p>
+                        <h4 class="mb-0 text-info">{{ stats.cdi }}</h4>
+                    </div>
+                    <div class="avatar bg-light-info rounded">
+                        <i class="ph-duotone ph-file-text text-info f-s-30"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <p class="text-muted mb-1 f-s-12">{% trans "Masse salariale" %}</p>
+                        <h4 class="mb-0 text-warning">{{ stats.masse_salariale|floatformat:0|intcomma }}</h4>
+                        <span class="f-s-12 text-muted">CHF</span>
+                    </div>
+                    <div class="avatar bg-light-warning rounded">
+                        <i class="ph-duotone ph-currency-circle-dollar text-warning f-s-30"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Actions -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">{% trans "Liste des employés" %}</h5>
+                    <a href="{% url 'salaires:employe-create' %}" class="btn btn-primary">
+                        <i class="ph ph-plus me-2"></i>{% trans "Nouvel employé" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtres -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <button class="btn btn-link w-100 text-start p-0" type="button" data-bs-toggle="collapse" data-bs-target="#filtres-collapse">
+                    <i class="ph ph-funnel me-2"></i>{% trans "Filtres" %}
+                    <i class="ph ph-caret-down float-end"></i>
+                </button>
+            </div>
+            <div class="collapse" id="filtres-collapse">
+                <div class="card-body">
+                    <form method="get" class="app-form">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">{% trans "Nom" %}</label>
+                                    {{ filter.form.nom }}
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">{% trans "Prénom" %}</label>
+                                    {{ filter.form.prenom }}
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">{% trans "Mandat" %}</label>
+                                    {{ filter.form.mandat }}
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">{% trans "Statut" %}</label>
+                                    {{ filter.form.statut }}
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">{% trans "Type contrat" %}</label>
+                                    {{ filter.form.type_contrat }}
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">{% trans "Fonction" %}</label>
+                                    {{ filter.form.fonction }}
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">{% trans "Date entrée depuis" %}</label>
+                                    {{ filter.form.date_entree__gte }}
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">{% trans "Date entrée jusqu'à" %}</label>
+                                    {{ filter.form.date_entree__lte }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <a href="{% url 'salaires:employe-list' %}" class="btn btn-secondary">
+                                <i class="ph ph-x me-2"></i>{% trans "Réinitialiser" %}
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="ph ph-funnel me-2"></i>{% trans "Filtrer" %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Liste -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body p-0">
+                {% if employes %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Matricule" %}</th>
+                                <th>{% trans "Nom" %}</th>
+                                <th>{% trans "Fonction" %}</th>
+                                <th>{% trans "Mandat" %}</th>
+                                <th>{% trans "Type contrat" %}</th>
+                                <th>{% trans "Date entrée" %}</th>
+                                <th class="text-end">{% trans "Salaire brut" %}</th>
+                                <th>{% trans "Statut" %}</th>
+                                <th class="text-end">{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for employe in employes %}
+                            <tr>
+                                <td><strong>{{ employe.matricule }}</strong></td>
+                                <td>
+                                    <a href="{% url 'salaires:employe-detail' employe.pk %}" class="text-primary">
+                                        {{ employe.prenom }} {{ employe.nom }}
+                                    </a>
+                                </td>
+                                <td>{{ employe.fonction }}</td>
+                                <td>
+                                    <span class="txt-ellipsis-1" title="{{ employe.mandat.client.raison_sociale }}">
+                                        {{ employe.mandat.client.raison_sociale }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge text-light-secondary">
+                                        {{ employe.get_type_contrat_display }}
+                                    </span>
+                                </td>
+                                <td>{{ employe.date_entree|date:"d.m.Y" }}</td>
+                                <td class="text-end">{{ employe.salaire_brut_mensuel|floatformat:2 }} CHF</td>
+                                <td>
+                                    {% if employe.statut == 'ACTIF' %}
+                                    <span class="badge text-light-success">
+                                        <i class="ph ph-check-circle me-1"></i>{% trans "Actif" %}
+                                    </span>
+                                    {% elif employe.statut == 'SUSPENDU' %}
+                                    <span class="badge text-light-warning">
+                                        <i class="ph ph-pause-circle me-1"></i>{% trans "Suspendu" %}
+                                    </span>
+                                    {% else %}
+                                    <span class="badge text-light-secondary">
+                                        {{ employe.get_statut_display }}
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <div class="btn-group" role="group">
+                                        <a href="{% url 'salaires:employe-detail' employe.pk %}" 
+                                           class="btn btn-sm btn-primary" 
+                                           data-bs-toggle="tooltip"
+                                           title="{% trans 'Voir' %}">
+                                            <i class="ph ph-eye"></i>
+                                        </a>
+                                        <a href="{% url 'salaires:employe-update' employe.pk %}" 
+                                           class="btn btn-sm btn-warning" 
+                                           data-bs-toggle="tooltip"
+                                           title="{% trans 'Modifier' %}">
+                                            <i class="ph ph-pencil"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if is_paginated %}
+                <div class="card-footer">
+                    <nav>
+                        <ul class="pagination justify-content-center mb-0">
+                            {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1">
+                                    <i class="ph ph-caret-double-left"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                                    <i class="ph ph-caret-left"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+
+                            <li class="page-item active">
+                                <span class="page-link">
+                                    {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+                                </span>
+                            </li>
+
+                            {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                                    <i class="ph ph-caret-right"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">
+                                    <i class="ph ph-caret-double-right"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+                {% endif %}
+
+                {% else %}
+                <div class="p-5 text-center">
+                    <i class="ph-duotone ph-users f-s-60 text-muted"></i>
+                    <h5 class="mt-3 text-muted">{% trans "Aucun employé trouvé" %}</h5>
+                    <p class="text-secondary">{% trans "Commencez par créer votre premier employé" %}</p>
+                    <a href="{% url 'salaires:employe-create' %}" class="btn btn-primary mt-2">
+                        <i class="ph ph-plus me-2"></i>{% trans "Créer le premier employé" %}
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

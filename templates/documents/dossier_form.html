@@ -1,0 +1,183 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load widget_tweaks %}
+
+{% block title %}
+{% if object %}{% trans "Modifier le dossier" %}{% else %}{% trans "Nouveau dossier" %}{% endif %}
+{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">
+            {% if object %}{% trans "Modifier le dossier" %}{% else %}{% trans "Nouveau dossier" %}{% endif %}
+        </h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'documents:dossier-list' %}">
+                    <span>{% trans "Dossiers" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">
+                    {% if object %}{% trans "Modifier" %}{% else %}{% trans "Nouveau" %}{% endif %}
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<form method="post" class="app-form">
+    {% csrf_token %}
+    
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                {{ form.non_field_errors }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endif %}
+
+            <!-- Informations générales -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-folder me-2"></i>{% trans "Informations générales" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Nom" %} <span class="text-danger">*</span></label>
+                                {{ form.nom|add_class:"form-control" }}
+                                {% if form.nom.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.nom.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Type" %} <span class="text-danger">*</span></label>
+                                {{ form.type_dossier|add_class:"form-select" }}
+                                {% if form.type_dossier.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.type_dossier.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Dossier parent" %}</label>
+                                {{ form.parent|add_class:"form-select" }}
+                                {% if form.parent.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.parent.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Client" %}</label>
+                                {{ form.client|add_class:"form-select" }}
+                                {% if form.client.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.client.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Mandat" %}</label>
+                                {{ form.mandat|add_class:"form-select" }}
+                                {% if form.mandat.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.mandat.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Description" %}</label>
+                                {{ form.description|add_class:"form-control" }}
+                                {% if form.description.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.description.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Tags" %}</label>
+                                {{ form.tags|add_class:"form-control" }}
+                                <small class="text-muted">{% trans "Format JSON: [\"tag1\", \"tag2\"]" %}</small>
+                                {% if form.tags.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.tags.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sécurité -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-lock me-2"></i>{% trans "Sécurité et accès" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    {{ form.acces_restreint|add_class:"form-check-input" }}
+                                    <label class="form-check-label">{% trans "Accès restreint" %}</label>
+                                </div>
+                                <small class="text-muted">
+                                    {% trans "Si activé, seuls les utilisateurs autorisés pourront accéder à ce dossier" %}
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Utilisateurs autorisés" %}</label>
+                                {{ form.utilisateurs_autorises|add_class:"form-select" }}
+                                <small class="text-muted">
+                                    {% trans "Maintenez Ctrl/Cmd pour sélectionner plusieurs utilisateurs" %}
+                                </small>
+                                {% if form.utilisateurs_autorises.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.utilisateurs_autorises.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'documents:dossier-list' %}" class="btn btn-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ph ph-check me-2"></i>
+                            {% if object %}{% trans "Enregistrer" %}{% else %}{% trans "Créer" %}{% endif %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}

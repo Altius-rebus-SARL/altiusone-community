@@ -1,0 +1,1218 @@
+# apps/tva/models.py
+from django.db import models
+from core.models import BaseModel, Mandat, User
+from decimal import Decimal
+from django.db.models import Q
+
+
+class ConfigurationTVA(BaseModel):
+    """Configuration TVA d'un mandat"""
+
+    METHODE_CHOICES = [
+        ('EFFECTIVE', 'Méthode effective'),
+        ('TAUX_DETTE', 'Méthode des taux de la dette fiscale nette'),
+        ('TAUX_FORFAITAIRE', 'Méthode des taux forfaitaires'),
+        ('FORFAIT_BRANCHE', 'Forfait selon la branche'),
+    ]
+
+    PERIODICITE_CHOICES = [
+        ('TRIMESTRIEL', 'Trimestriel'),
+        ('SEMESTRIEL', 'Semestriel'),
+    ]
+
+    mandat = models.OneToOneField(Mandat, on_delete=models.CASCADE,
+                                  related_name='config_tva')
+
+    # Assujettissement
+    assujetti_tva = models.BooleanField(default=True)
+    numero_tva = models.CharField('Numéro TVA', max_length=20, blank=True)
+    date_debut_assujettissement = models.DateField(null=True, blank=True)
+    date_fin_assujettissement = models.DateField(null=True, blank=True)
+
+    # Méthode
+    methode_calcul = models.CharField(max_length=20, choices=METHODE_CHOICES,
+                                      default='EFFECTIVE')
+    periodicite = models.CharField(max_length=20, choices=PERIODICITE_CHOICES,
+                                   default='TRIMESTRIEL')
+
+    # Taux forfaitaires (si applicable)
+    taux_forfaitaire_ventes = models.DecimalField(max_digits=5, decimal_places=2,
+                                                  null=True, blank=True,
+                                                  help_text='Taux en %')
+    taux_forfaitaire_achats = models.DecimalField(max_digits=5, decimal_places=2,
+                                                  null=True, blank=True,
+                                                  help_text='Taux en %')
+
+    # Options
+    option_imposition_prestations = models.BooleanField(default=False,
+                                                        help_text="Option pour l'imposition de prestations exclues du champ de l'impôt")
+    option_reduction_deduction = models.BooleanField(default=False,
+                                                     help_text="Option pour la réduction de la déduction de l'impôt préalable")
+
+    # Comptes de liaison
+    compte_tva_due = models.ForeignKey('comptabilite.Compte', on_delete=models.SET_NULL,
+                                       null=True, related_name='+',
+                                       help_text='Compte 2200')
+    compte_tva_prealable = models.ForeignKey('comptabilite.Compte', on_delete=models.SET_NULL,
+                                             null=True, related_name='+',
+                                             help_text='Compte 1170')
+
+    class Meta:
+        db_table = 'configurations_tva'
+        verbose_name = 'Configuration TVA'
+
+    def __str__(self):
+        return f"Config TVA - {self.mandat.numero}"
+
+
+class TauxTVA(BaseModel):
+    """Taux de TVA en vigueur"""
+
+    TYPE_CHOICES = [
+        ('NORMAL', 'Taux normal'),
+        ('REDUIT', 'Taux réduit'),
+        ('SPECIAL', 'Taux spécial hébergement'),
+    ]
+
+    type_taux = models.CharField(max_length=10, choices=TYPE_CHOICES)
+    taux = models.DecimalField(max_digits=5, decimal_places=2, help_text='En %')
+
+    date_debut = models.DateField()
+    date_fin = models.DateField(null=True, blank=True)
+
+    description = models.CharField(max_length=255)
+
+    class Meta:
+        db_table = 'taux_tva'
+        verbose_name = 'Taux TVA'
+        verbose_name_plural = 'Taux TVA'
+        ordering = ['-date_debut', 'type_taux']
+
+    def __str__(self):
+        return f"{self.get_type_taux_display()} - {self.taux}%"
+
+    @classmethod
+    def get_taux_actif(cls, date, type_taux='NORMAL'):
+        """Récupère le taux applicable à une date donnée"""
+        return cls.objects.filter(
+            type_taux=type_taux,
+            date_debut__lte=date,
+        ).filter(
+            Q(date_fin__gte=date) | Q(date_fin__isnull=True)
+        ).first()
+
+
+class CodeTVA(BaseModel):
+    """Codes TVA (chiffres du décompte AFC)"""
+
+    CATEGORIE_CHOICES = [
+        ('CHIFFRE_AFFAIRES', 'Chiffre d\'affaires'),
+        ('PRESTATIONS_IMPOSABLES', 'Prestations imposables'),
+        ('PRESTATIONS_EXCLUES', 'Prestations exclues'),
+        ('TVA_DUE', 'TVA due'),
+        ('TVA_PREALABLE', 'Impôt préalable'),
+        ('DEDUCTIONS', 'Déductions'),
+        ('CORRECTIONS', 'Corrections'),
+    ]
+
+    code = models.CharField(max_length=10, unique=True, db_index=True)
+    libelle = models.CharField(max_length=255)
+    categorie = models.CharField(max_length=30, choices=CATEGORIE_CHOICES)
+
+    ordre_affichage = models.IntegerField(default=0)
+
+    # Calcul automatique
+    taux_applicable = models.ForeignKey(TauxTVA, on_delete=models.SET_NULL,
+                                        null=True, blank=True)
+    formule = models.CharField(max_length=255, blank=True,
+                               help_text="Ex: 'base * taux / 100'")
+
+    # Compte(s) de liaison
+    comptes_associes = models.ManyToManyField('comptabilite.Compte', blank=True)
+
+    actif = models.BooleanField(default=True)
+    description = models.TextField(blank=True)
+
+    class Meta:
+        db_table = 'codes_tva'
+        verbose_name = 'Code TVA'
+        ordering = ['categorie', 'ordre_affichage', 'code']
+
+    def __str__(self):
+        return f"{self.code} - {self.libelle}"
+
+
+class DeclarationTVA(BaseModel):
+    """Décompte TVA trimestriel/semestriel"""
+
+    STATUT_CHOICES = [
+        ('BROUILLON', 'Brouillon'),
+        ('EN_COURS', 'En cours de préparation'),
+        ('A_VALIDER', 'À valider'),
+        ('VALIDE', 'Validé'),
+        ('SOUMIS', 'Soumis à l\'AFC'),
+        ('ACCEPTE', 'Accepté par l\'AFC'),
+        ('PAYE', 'Payé'),
+        ('CLOTURE', 'Clôturé'),
+    ]
+
+    TYPE_DECOMPTE_CHOICES = [
+        ('NORMAL', 'Décompte normal'),
+        ('FINAL', 'Décompte final'),
+        ('COMPLEMENTAIRE', 'Décompte complémentaire'),
+        ('RECTIFICATIF', 'Décompte rectificatif'),
+    ]
+
+    # Identification
+    mandat = models.ForeignKey(Mandat, on_delete=models.CASCADE,
+                               related_name='declarations_tva')
+    numero_declaration = models.CharField(max_length=50, unique=True, db_index=True)
+
+    # Période
+    annee = models.IntegerField(db_index=True)
+    trimestre = models.IntegerField(null=True, blank=True,
+                                    help_text='1, 2, 3 ou 4')
+    semestre = models.IntegerField(null=True, blank=True,
+                                   help_text='1 ou 2')
+    periode_debut = models.DateField()
+    periode_fin = models.DateField()
+
+    # Type
+    type_decompte = models.CharField(max_length=20, choices=TYPE_DECOMPTE_CHOICES,
+                                     default='NORMAL')
+    methode = models.CharField(max_length=20)  # Copie de la méthode utilisée
+
+    # Montants globaux (dénormalisé pour performance)
+    chiffre_affaires_total = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    chiffre_affaires_imposable = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+
+    tva_due_total = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    tva_prealable_total = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+
+    deductions_total = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    corrections_total = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+
+    solde_tva = models.DecimalField(max_digits=15, decimal_places=2, default=0,
+                                    help_text='Positif = à payer, Négatif = remboursement')
+
+    # Statut et soumission
+    statut = models.CharField(max_length=20, choices=STATUT_CHOICES,
+                              default='BROUILLON', db_index=True)
+
+    date_creation_decompte = models.DateField(auto_now_add=True)
+    date_validation = models.DateTimeField(null=True, blank=True)
+    valide_par = models.ForeignKey(User, on_delete=models.SET_NULL,
+                                   null=True, related_name='+')
+
+    date_soumission = models.DateTimeField(null=True, blank=True)
+    soumis_par = models.ForeignKey(User, on_delete=models.SET_NULL,
+                                   null=True, related_name='+')
+
+    numero_reference_afc = models.CharField(max_length=50, blank=True,
+                                            help_text='Numéro de référence AFC')
+
+    date_echeance_paiement = models.DateField(null=True, blank=True)
+    date_paiement = models.DateField(null=True, blank=True)
+
+    # Fichiers
+    fichier_xml = models.FileField(upload_to='tva/xml/', null=True, blank=True)
+    fichier_pdf = models.FileField(upload_to='tva/pdf/', null=True, blank=True)
+
+    # Notes
+    remarques_internes = models.TextField(blank=True)
+    commentaires_afc = models.TextField(blank=True)
+
+    class Meta:
+        db_table = 'declarations_tva'
+        verbose_name = 'Déclaration TVA'
+        ordering = ['-annee', '-trimestre', '-semestre']
+        indexes = [
+            models.Index(fields=['mandat', 'annee', 'trimestre']),
+            models.Index(fields=['statut']),
+        ]
+
+    def __str__(self):
+        if self.trimestre:
+            return f"TVA {self.annee} T{self.trimestre} - {self.mandat.numero}"
+        else:
+            return f"TVA {self.annee} S{self.semestre} - {self.mandat.numero}"
+
+    def save(self, *args, **kwargs):
+        if not self.numero_declaration:
+            # Format: TVA-2025-T1-001
+            periode = f"T{self.trimestre}" if self.trimestre else f"S{self.semestre}"
+            last = DeclarationTVA.objects.filter(
+                mandat=self.mandat,
+                annee=self.annee
+            ).order_by('numero_declaration').last()
+
+            seq = 1 if not last else int(last.numero_declaration.split('-')[-1]) + 1
+            self.numero_declaration = f"TVA-{self.annee}-{periode}-{seq:03d}"
+
+        super().save(*args, **kwargs)
+
+    def calculer_solde(self):
+        """Calcule le solde TVA à payer ou à récupérer"""
+        self.solde_tva = (
+                self.tva_due_total
+                - self.tva_prealable_total
+                - self.deductions_total
+                + self.corrections_total
+        )
+        self.save(update_fields=['solde_tva'])
+        return self.solde_tva
+
+
+class LigneTVA(BaseModel):
+    """Ligne de décompte TVA"""
+
+    declaration = models.ForeignKey(DeclarationTVA, on_delete=models.CASCADE,
+                                    related_name='lignes')
+    code_tva = models.ForeignKey(CodeTVA, on_delete=models.PROTECT)
+
+    # Montants
+    base_imposable = models.DecimalField(max_digits=15, decimal_places=2, default=0,
+                                         help_text='Montant HT')
+    taux_tva = models.DecimalField(max_digits=5, decimal_places=2, default=0,
+                                   help_text='Taux en %')
+    montant_tva = models.DecimalField(max_digits=15, decimal_places=2, default=0,
+                                      help_text='Montant TVA calculé')
+
+    # Détails
+    libelle = models.CharField(max_length=255, blank=True)
+    description = models.TextField(blank=True)
+
+    # Calcul automatique ou manuel
+    calcul_automatique = models.BooleanField(default=True)
+
+    # Ordre d'affichage
+    ordre = models.IntegerField(default=0)
+
+    class Meta:
+        db_table = 'lignes_tva'
+        verbose_name = 'Ligne TVA'
+        ordering = ['declaration', 'ordre', 'code_tva']
+
+    def __str__(self):
+        return f"{self.code_tva.code} - {self.montant_tva}"
+
+    def calculer_montant(self):
+        """Calcule automatiquement le montant de TVA"""
+        if self.calcul_automatique and self.base_imposable and self.taux_tva:
+            self.montant_tva = (self.base_imposable * self.taux_tva / 100).quantize(
+                Decimal('0.01')
+            )
+            self.save(update_fields=['montant_tva'])
+        return self.montant_tva
+
+
+class OperationTVA(BaseModel):
+    """Opération soumise à TVA (liée aux écritures comptables)"""
+
+    TYPE_OPERATION_CHOICES = [
+        ('VENTE', 'Vente'),
+        ('ACHAT', 'Achat'),
+        ('IMPORT', 'Importation'),
+        ('EXPORT', 'Exportation'),
+        ('INTRA_COM', 'Intracommunautaire'),
+        ('AUTRE', 'Autre'),
+    ]
+
+    mandat = models.ForeignKey(Mandat, on_delete=models.CASCADE)
+    declaration_tva = models.ForeignKey(DeclarationTVA, on_delete=models.CASCADE,
+                                        related_name='operations',
+                                        null=True, blank=True)
+
+    # Lien avec comptabilité
+    ecriture_comptable = models.ForeignKey('comptabilite.EcritureComptable',
+                                           on_delete=models.SET_NULL,
+                                           null=True, blank=True,
+                                           related_name='operations_tva')
+
+    # Détails opération
+    date_operation = models.DateField(db_index=True)
+    type_operation = models.CharField(max_length=20, choices=TYPE_OPERATION_CHOICES)
+
+    # Montants
+    montant_ht = models.DecimalField(max_digits=15, decimal_places=2)
+    code_tva = models.ForeignKey(CodeTVA, on_delete=models.PROTECT)
+    taux_tva = models.DecimalField(max_digits=5, decimal_places=2)
+    montant_tva = models.DecimalField(max_digits=15, decimal_places=2)
+    montant_ttc = models.DecimalField(max_digits=15, decimal_places=2)
+
+    # Tiers
+    tiers = models.CharField(max_length=255, blank=True, help_text='Nom du client/fournisseur')
+    numero_tva_tiers = models.CharField(max_length=20, blank=True)
+
+    # Justification
+    numero_facture = models.CharField(max_length=50, blank=True)
+    libelle = models.TextField()
+
+    # Traitement
+    integre_declaration = models.BooleanField(default=False, db_index=True)
+    date_integration = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'operations_tva'
+        verbose_name = 'Opération TVA'
+        ordering = ['-date_operation']
+        indexes = [
+            models.Index(fields=['mandat', 'date_operation']),
+            models.Index(fields=['declaration_tva']),
+            models.Index(fields=['integre_declaration']),
+        ]
+
+    def __str__(self):
+        return f"{self.date_operation} - {self.libelle[:50]} - {self.montant_tva} CHF"
+
+
+class CorrectionTVA(BaseModel):
+    """Corrections TVA (ex: autoconsommation, usage privé)"""
+
+    TYPE_CORRECTION_CHOICES = [
+        ('AUTOCONSOMMATION', 'Autoconsommation'),
+        ('USAGE_PRIVE', 'Usage privé'),
+        ('CORRECTION_DEDUCTION', 'Correction déduction impôt préalable'),
+        ('SUBVENTION', 'Correction subventions'),
+        ('AUTRE', 'Autre correction'),
+    ]
+
+    declaration = models.ForeignKey(DeclarationTVA, on_delete=models.CASCADE,
+                                    related_name='corrections')
+
+    type_correction = models.CharField(max_length=30, choices=TYPE_CORRECTION_CHOICES)
+    code_tva = models.ForeignKey(CodeTVA, on_delete=models.PROTECT)
+
+    base_calcul = models.DecimalField(max_digits=15, decimal_places=2)
+    taux = models.DecimalField(max_digits=5, decimal_places=2)
+    montant_correction = models.DecimalField(max_digits=15, decimal_places=2)
+
+    description = models.TextField()
+    justification = models.TextField(blank=True)
+
+    class Meta:
+        db_table = 'corrections_tva'
+        verbose_name = 'Correction TVA'
+
+    def __str__(self):
+        return f"Correction {self.get_type_correction_display()} - {self.montant_correction} CHF"# tva/filters.py
+import django_filters
+from django import forms
+from django.utils.translation import gettext_lazy as _
+from .models import DeclarationTVA, OperationTVA, CodeTVA
+from core.models import Mandat
+
+
+class DeclarationTVAFilter(django_filters.FilterSet):
+    """Filtres pour les déclarations TVA"""
+
+    mandat = django_filters.ModelChoiceFilter(
+        queryset=Mandat.objects.filter(statut="ACTIF"), label=_("Mandat")
+    )
+
+    annee = django_filters.NumberFilter(label=_("Année"))
+
+    trimestre = django_filters.NumberFilter(label=_("Trimestre"))
+
+    semestre = django_filters.NumberFilter(label=_("Semestre"))
+
+    statut = django_filters.ChoiceFilter(
+        choices=DeclarationTVA.STATUT_CHOICES, label=_("Statut")
+    )
+
+    type_decompte = django_filters.ChoiceFilter(
+        choices=DeclarationTVA.TYPE_DECOMPTE_CHOICES, label=_("Type de décompte")
+    )
+
+    methode = django_filters.CharFilter(lookup_expr="icontains", label=_("Méthode"))
+
+    class Meta:
+        model = DeclarationTVA
+        fields = [
+            "mandat",
+            "annee",
+            "trimestre",
+            "semestre",
+            "statut",
+            "type_decompte",
+            "methode",
+        ]
+
+
+class OperationTVAFilter(django_filters.FilterSet):
+    """Filtres pour les opérations TVA"""
+
+    mandat = django_filters.ModelChoiceFilter(
+        queryset=Mandat.objects.filter(statut="ACTIF"), label=_("Mandat")
+    )
+
+    type_operation = django_filters.ChoiceFilter(
+        choices=OperationTVA.TYPE_OPERATION_CHOICES, label=_("Type d'opération")
+    )
+
+    date_operation = django_filters.DateFromToRangeFilter(label=_("Date opération"))
+
+    code_tva = django_filters.ModelChoiceFilter(
+        queryset=CodeTVA.objects.filter(actif=True), label=_("Code TVA")
+    )
+
+    integre_declaration = django_filters.BooleanFilter(
+        label=_("Intégré dans déclaration"), widget=forms.CheckboxInput()
+    )
+
+    declaration_tva = django_filters.ModelChoiceFilter(
+        queryset=DeclarationTVA.objects.all(), label=_("Déclaration TVA")
+    )
+
+    tiers = django_filters.CharFilter(lookup_expr="icontains", label=_("Tiers"))
+
+    montant_min = django_filters.NumberFilter(
+        field_name="montant_ttc", lookup_expr="gte", label=_("Montant TTC minimum")
+    )
+
+    montant_max = django_filters.NumberFilter(
+        field_name="montant_ttc", lookup_expr="lte", label=_("Montant TTC maximum")
+    )
+
+    class Meta:
+        model = OperationTVA
+        fields = [
+            "mandat",
+            "type_operation",
+            "date_operation",
+            "code_tva",
+            "integre_declaration",
+            "declaration_tva",
+            "tiers",
+        ]
+# tva/forms.py
+from django import forms
+from django.utils.translation import gettext_lazy as _
+from decimal import Decimal
+
+from .models import (
+    ConfigurationTVA,
+    DeclarationTVA,
+    LigneTVA,
+    OperationTVA,
+    CorrectionTVA,
+    CodeTVA,
+)
+from core.models import Mandat
+
+
+class ConfigurationTVAForm(forms.ModelForm):
+    """Formulaire pour la configuration TVA"""
+
+    class Meta:
+        model = ConfigurationTVA
+        fields = [
+            "mandat",
+            "assujetti_tva",
+            "numero_tva",
+            "date_debut_assujettissement",
+            "date_fin_assujettissement",
+            "methode_calcul",
+            "periodicite",
+            "taux_forfaitaire_ventes",
+            "taux_forfaitaire_achats",
+            "option_imposition_prestations",
+            "option_reduction_deduction",
+            "compte_tva_due",
+            "compte_tva_prealable",
+        ]
+        widgets = {
+            "mandat": forms.Select(attrs={"class": "form-control"}),
+            "assujetti_tva": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "numero_tva": forms.TextInput(attrs={"class": "form-control"}),
+            "date_debut_assujettissement": forms.DateInput(
+                attrs={"class": "form-control", "type": "date"}
+            ),
+            "date_fin_assujettissement": forms.DateInput(
+                attrs={"class": "form-control", "type": "date"}
+            ),
+            "methode_calcul": forms.Select(attrs={"class": "form-control"}),
+            "periodicite": forms.Select(attrs={"class": "form-control"}),
+            "taux_forfaitaire_ventes": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01"}
+            ),
+            "taux_forfaitaire_achats": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01"}
+            ),
+            "option_imposition_prestations": forms.CheckboxInput(
+                attrs={"class": "form-check-input"}
+            ),
+            "option_reduction_deduction": forms.CheckboxInput(
+                attrs={"class": "form-check-input"}
+            ),
+            "compte_tva_due": forms.Select(attrs={"class": "form-control"}),
+            "compte_tva_prealable": forms.Select(attrs={"class": "form-control"}),
+        }
+
+
+class DeclarationTVAForm(forms.ModelForm):
+    """Formulaire pour une déclaration TVA"""
+
+    class Meta:
+        model = DeclarationTVA
+        fields = [
+            "mandat",
+            "annee",
+            "trimestre",
+            "semestre",
+            "type_decompte",
+            "methode",
+            "remarques_internes",
+        ]
+        widgets = {
+            "mandat": forms.Select(attrs={"class": "form-control"}),
+            "annee": forms.NumberInput(attrs={"class": "form-control"}),
+            "trimestre": forms.NumberInput(
+                attrs={"class": "form-control", "min": "1", "max": "4"}
+            ),
+            "semestre": forms.NumberInput(
+                attrs={"class": "form-control", "min": "1", "max": "2"}
+            ),
+            "type_decompte": forms.Select(attrs={"class": "form-control"}),
+            "methode": forms.Select(attrs={"class": "form-control"}),
+            "remarques_internes": forms.Textarea(
+                attrs={"class": "form-control", "rows": 3}
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Rendre trimestre ou semestre obligatoire selon la périodicité
+        if self.instance and self.instance.mandat:
+            config = self.instance.mandat.config_tva
+            if config.periodicite == "TRIMESTRIEL":
+                self.fields["trimestre"].required = True
+                self.fields["semestre"].required = False
+            else:
+                self.fields["trimestre"].required = False
+                self.fields["semestre"].required = True
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        trimestre = cleaned_data.get("trimestre")
+        semestre = cleaned_data.get("semestre")
+        annee = cleaned_data.get("annee")
+
+        # Au moins trimestre ou semestre doit être rempli
+        if not trimestre and not semestre:
+            raise forms.ValidationError(
+                _("Vous devez indiquer soit le trimestre, soit le semestre")
+            )
+
+        # Calculer les dates de début et fin de période
+        if trimestre:
+            mois_debut = (trimestre - 1) * 3 + 1
+            mois_fin = trimestre * 3
+            from datetime import date
+
+            cleaned_data["periode_debut"] = date(annee, mois_debut, 1)
+
+            # Dernier jour du mois
+            if mois_fin == 12:
+                cleaned_data["periode_fin"] = date(annee, 12, 31)
+            else:
+                from calendar import monthrange
+
+                jour_fin = monthrange(annee, mois_fin)[1]
+                cleaned_data["periode_fin"] = date(annee, mois_fin, jour_fin)
+
+        elif semestre:
+            from datetime import date
+
+            if semestre == 1:
+                cleaned_data["periode_debut"] = date(annee, 1, 1)
+                cleaned_data["periode_fin"] = date(annee, 6, 30)
+            else:
+                cleaned_data["periode_debut"] = date(annee, 7, 1)
+                cleaned_data["periode_fin"] = date(annee, 12, 31)
+
+        return cleaned_data
+
+
+class LigneTVAForm(forms.ModelForm):
+    """Formulaire pour une ligne de déclaration TVA"""
+
+    class Meta:
+        model = LigneTVA
+        fields = [
+            "code_tva",
+            "base_imposable",
+            "taux_tva",
+            "montant_tva",
+            "libelle",
+            "description",
+            "calcul_automatique",
+        ]
+        widgets = {
+            "code_tva": forms.Select(attrs={"class": "form-control"}),
+            "base_imposable": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01"}
+            ),
+            "taux_tva": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01"}
+            ),
+            "montant_tva": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01"}
+            ),
+            "libelle": forms.TextInput(attrs={"class": "form-control"}),
+            "description": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+            "calcul_automatique": forms.CheckboxInput(
+                attrs={"class": "form-check-input"}
+            ),
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        # Si calcul automatique, calculer le montant TVA
+        if cleaned_data.get("calcul_automatique"):
+            base = cleaned_data.get("base_imposable", Decimal("0"))
+            taux = cleaned_data.get("taux_tva", Decimal("0"))
+
+            cleaned_data["montant_tva"] = (base * taux / 100).quantize(Decimal("0.01"))
+
+        return cleaned_data
+
+
+class OperationTVAForm(forms.ModelForm):
+    """Formulaire pour une opération TVA"""
+
+    class Meta:
+        model = OperationTVA
+        fields = [
+            "mandat",
+            "date_operation",
+            "type_operation",
+            "montant_ht",
+            "code_tva",
+            "taux_tva",
+            "montant_tva",
+            "tiers",
+            "numero_tva_tiers",
+            "numero_facture",
+            "libelle",
+        ]
+        widgets = {
+            "mandat": forms.Select(attrs={"class": "form-control"}),
+            "date_operation": forms.DateInput(
+                attrs={"class": "form-control", "type": "date"}
+            ),
+            "type_operation": forms.Select(attrs={"class": "form-control"}),
+            "montant_ht": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01"}
+            ),
+            "code_tva": forms.Select(attrs={"class": "form-control"}),
+            "taux_tva": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01"}
+            ),
+            "montant_tva": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01"}
+            ),
+            "tiers": forms.TextInput(attrs={"class": "form-control"}),
+            "numero_tva_tiers": forms.TextInput(attrs={"class": "form-control"}),
+            "numero_facture": forms.TextInput(attrs={"class": "form-control"}),
+            "libelle": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        # Calculer le montant TVA
+        montant_ht = cleaned_data.get("montant_ht", Decimal("0"))
+        taux_tva = cleaned_data.get("taux_tva", Decimal("0"))
+
+        cleaned_data["montant_tva"] = (montant_ht * taux_tva / 100).quantize(
+            Decimal("0.01")
+        )
+        cleaned_data["montant_ttc"] = montant_ht + cleaned_data["montant_tva"]
+
+        return cleaned_data
+
+
+class CorrectionTVAForm(forms.ModelForm):
+    """Formulaire pour une correction TVA"""
+
+    class Meta:
+        model = CorrectionTVA
+        fields = [
+            "type_correction",
+            "code_tva",
+            "base_calcul",
+            "taux",
+            "montant_correction",
+            "description",
+            "justification",
+        ]
+        widgets = {
+            "type_correction": forms.Select(attrs={"class": "form-control"}),
+            "code_tva": forms.Select(attrs={"class": "form-control"}),
+            "base_calcul": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01"}
+            ),
+            "taux": forms.NumberInput(attrs={"class": "form-control", "step": "0.01"}),
+            "montant_correction": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01"}
+            ),
+            "description": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+            "justification": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+        }
+# tva/views.py
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.views.generic import ListView, DetailView, CreateView, UpdateView
+from django.db.models import Q, Count, Sum, F, Max
+from django.urls import reverse_lazy
+from django.contrib import messages
+from django.http import JsonResponse, HttpResponse
+from django.utils.translation import gettext_lazy as _
+from django.views.decorators.http import require_http_methods
+from datetime import datetime, timedelta
+from decimal import Decimal
+import json
+import csv
+from io import BytesIO
+
+from .models import (
+    ConfigurationTVA,
+    TauxTVA,
+    CodeTVA,
+    DeclarationTVA,
+    LigneTVA,
+    OperationTVA,
+    CorrectionTVA,
+)
+from .forms import (
+    ConfigurationTVAForm,
+    DeclarationTVAForm,
+    LigneTVAForm,
+    OperationTVAForm,
+    CorrectionTVAForm,
+)
+from .filters import DeclarationTVAFilter, OperationTVAFilter
+from core.models import Mandat
+
+
+# ============ CONFIGURATION TVA ============
+
+
+class ConfigurationTVAListView(LoginRequiredMixin, ListView):
+    """Liste des configurations TVA"""
+
+    model = ConfigurationTVA
+    template_name = "tva/configuration_list.html"
+    context_object_name = "configurations"
+
+    def get_queryset(self):
+        return ConfigurationTVA.objects.select_related("mandat__client")
+
+
+class ConfigurationTVADetailView(LoginRequiredMixin, DetailView):
+    """Détail d'une configuration TVA"""
+
+    model = ConfigurationTVA
+    template_name = "tva/configuration_detail.html"
+    context_object_name = "configuration"
+
+
+class ConfigurationTVAUpdateView(
+    LoginRequiredMixin, PermissionRequiredMixin, UpdateView
+):
+    """Modification d'une configuration TVA"""
+
+    model = ConfigurationTVA
+    form_class = ConfigurationTVAForm
+    template_name = "tva/configuration_form.html"
+    permission_required = "tva.change_configurationtva"
+
+    def get_success_url(self):
+        return reverse_lazy("tva:configuration-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, _("Configuration TVA modifiée avec succès"))
+        return super().form_valid(form)
+
+
+# ============ DÉCLARATIONS TVA ============
+
+
+class DeclarationTVAListView(LoginRequiredMixin, ListView):
+    """Liste des déclarations TVA"""
+
+    model = DeclarationTVA
+    template_name = "tva/declaration_list.html"
+    context_object_name = "declarations"
+    paginate_by = 50
+
+    def get_queryset(self):
+        queryset = DeclarationTVA.objects.select_related(
+            "mandat__client"
+        ).prefetch_related("lignes")
+
+        # Filtrer selon le rôle
+        user = self.request.user
+        if user.role not in ["ADMIN", "MANAGER"]:
+            queryset = queryset.filter(
+                Q(mandat__responsable=user) | Q(mandat__equipe=user)
+            ).distinct()
+
+        # Appliquer les filtres
+        self.filterset = DeclarationTVAFilter(self.request.GET, queryset=queryset)
+        return self.filterset.qs.order_by("-annee", "-trimestre", "-semestre")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["filter"] = self.filterset
+
+        # Statistiques
+        queryset = self.get_queryset()
+        context["stats"] = {
+            "total": queryset.count(),
+            "brouillon": queryset.filter(statut="BROUILLON").count(),
+            "soumis": queryset.filter(statut="SOUMIS").count(),
+            "accepte": queryset.filter(statut="ACCEPTE").count(),
+            "paye": queryset.filter(statut="PAYE").count(),
+            "tva_due_annee": queryset.filter(annee=datetime.now().year).aggregate(
+                Sum("solde_tva")
+            )["solde_tva__sum"]
+            or 0,
+        }
+
+        return context
+
+
+class DeclarationTVADetailView(LoginRequiredMixin, DetailView):
+    """Détail d'une déclaration TVA"""
+
+    model = DeclarationTVA
+    template_name = "tva/declaration_detail.html"
+    context_object_name = "declaration"
+
+    def get_queryset(self):
+        return (
+            super()
+            .get_queryset()
+            .select_related("mandat__client", "valide_par", "soumis_par")
+            .prefetch_related("lignes__code_tva", "operations", "corrections")
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        declaration = self.object
+
+        # Lignes groupées par catégorie
+        lignes_par_categorie = {}
+        for ligne in declaration.lignes.all():
+            categorie = ligne.code_tva.categorie
+            if categorie not in lignes_par_categorie:
+                lignes_par_categorie[categorie] = []
+            lignes_par_categorie[categorie].append(ligne)
+
+        context["lignes_par_categorie"] = lignes_par_categorie
+
+        # Opérations TVA de la période
+        context["operations"] = declaration.operations.select_related(
+            "code_tva", "ecriture_comptable"
+        ).order_by("date_operation")
+
+        # Corrections
+        context["corrections"] = declaration.corrections.select_related("code_tva")
+
+        return context
+
+
+class DeclarationTVACreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    """Création d'une déclaration TVA"""
+
+    model = DeclarationTVA
+    form_class = DeclarationTVAForm
+    template_name = "tva/declaration_form.html"
+    permission_required = "tva.add_declarationtva"
+
+    def get_initial(self):
+        initial = super().get_initial()
+
+        # Préremplir avec le mandat si fourni
+        mandat_id = self.request.GET.get("mandat")
+        if mandat_id:
+            mandat = get_object_or_404(Mandat, pk=mandat_id)
+            initial["mandat"] = mandat
+
+            # Configuration TVA
+            config = mandat.config_tva
+            initial["methode"] = config.methode_calcul
+
+        # Période par défaut: trimestre en cours
+        today = datetime.now().date()
+        initial["annee"] = today.year
+        initial["trimestre"] = (today.month - 1) // 3 + 1
+
+        return initial
+
+    def get_success_url(self):
+        return reverse_lazy("tva:declaration-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        messages.success(self.request, _("Déclaration TVA créée avec succès"))
+        return super().form_valid(form)
+
+
+@login_required
+@require_http_methods(["POST"])
+def declaration_calculer(request, pk):
+    """Calcule automatiquement les montants de la déclaration"""
+    declaration = get_object_or_404(DeclarationTVA, pk=pk, statut="BROUILLON")
+
+    # Supprimer les lignes existantes
+    declaration.lignes.all().delete()
+
+    # Récupérer les opérations TVA de la période
+    operations = OperationTVA.objects.filter(
+        mandat=declaration.mandat,
+        date_operation__gte=declaration.periode_debut,
+        date_operation__lte=declaration.periode_fin,
+        integre_declaration=False,
+    )
+
+    # Grouper par code TVA
+    operations_par_code = {}
+    for op in operations:
+        code = op.code_tva.code
+        if code not in operations_par_code:
+            operations_par_code[code] = {
+                "code_tva": op.code_tva,
+                "base_imposable": Decimal("0"),
+                "montant_tva": Decimal("0"),
+            }
+
+        operations_par_code[code]["base_imposable"] += op.montant_ht
+        operations_par_code[code]["montant_tva"] += op.montant_tva
+
+    # Créer les lignes
+    ordre = 0
+    for code, data in operations_par_code.items():
+        ordre += 1
+        LigneTVA.objects.create(
+            declaration=declaration,
+            code_tva=data["code_tva"],
+            base_imposable=data["base_imposable"],
+            taux_tva=data["code_tva"].taux_applicable.taux
+            if data["code_tva"].taux_applicable
+            else Decimal("0"),
+            montant_tva=data["montant_tva"],
+            libelle=f"Opérations période {declaration.periode_debut} - {declaration.periode_fin}",
+            calcul_automatique=True,
+            ordre=ordre,
+        )
+
+    # Recalculer les totaux
+    declaration.tva_due_total = (
+        declaration.lignes.filter(code_tva__categorie="TVA_DUE").aggregate(
+            Sum("montant_tva")
+        )["montant_tva__sum"]
+        or 0
+    )
+
+    declaration.tva_prealable_total = (
+        declaration.lignes.filter(code_tva__categorie="TVA_PREALABLE").aggregate(
+            Sum("montant_tva")
+        )["montant_tva__sum"]
+        or 0
+    )
+
+    declaration.calculer_solde()
+
+    # Marquer les opérations comme intégrées
+    operations.update(
+        integre_declaration=True,
+        declaration_tva=declaration,
+        date_integration=datetime.now(),
+    )
+
+    messages.success(request, _("Déclaration calculée avec succès"))
+    return redirect("tva:declaration-detail", pk=pk)
+
+
+@login_required
+@require_http_methods(["POST"])
+def declaration_valider(request, pk):
+    """Valide une déclaration TVA"""
+    declaration = get_object_or_404(DeclarationTVA, pk=pk, statut="BROUILLON")
+
+    # Vérifier que la déclaration a des lignes
+    if not declaration.lignes.exists():
+        messages.error(request, _("La déclaration doit avoir au moins une ligne"))
+        return redirect("tva:declaration-detail", pk=pk)
+
+    # Recalculer le solde
+    declaration.calculer_solde()
+
+    # Changer le statut
+    declaration.statut = "VALIDE"
+    declaration.valide_par = request.user
+    declaration.date_validation = datetime.now()
+    declaration.save()
+
+    messages.success(request, _("Déclaration validée avec succès"))
+    return redirect("tva:declaration-detail", pk=pk)
+
+
+@login_required
+def declaration_exporter_xml(request, pk):
+    """Exporte la déclaration au format XML AFC"""
+    declaration = get_object_or_404(DeclarationTVA, pk=pk)
+
+    # TODO: Générer le XML selon le format AFC
+    # Format spécifique à la Suisse
+
+    messages.info(request, _("Export XML en cours de développement"))
+    return redirect("tva:declaration-detail", pk=pk)
+
+
+@login_required
+def declaration_exporter_pdf(request, pk):
+    """Génère un PDF de la déclaration"""
+    declaration = get_object_or_404(DeclarationTVA, pk=pk)
+
+    # TODO: Générer le PDF
+
+    messages.info(request, _("Export PDF en cours de développement"))
+    return redirect("tva:declaration-detail", pk=pk)
+
+
+# ============ OPÉRATIONS TVA ============
+
+
+class OperationTVAListView(LoginRequiredMixin, ListView):
+    """Liste des opérations TVA"""
+
+    model = OperationTVA
+    template_name = "tva/operation_list.html"
+    context_object_name = "operations"
+    paginate_by = 100
+
+    def get_queryset(self):
+        queryset = OperationTVA.objects.select_related(
+            "mandat", "declaration_tva", "code_tva", "ecriture_comptable"
+        )
+
+        # Filtrer selon le rôle
+        user = self.request.user
+        if user.role not in ["ADMIN", "MANAGER"]:
+            queryset = queryset.filter(
+                Q(mandat__responsable=user) | Q(mandat__equipe=user)
+            ).distinct()
+
+        # Appliquer les filtres
+        self.filterset = OperationTVAFilter(self.request.GET, queryset=queryset)
+        return self.filterset.qs.order_by("-date_operation")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["filter"] = self.filterset
+
+        # Statistiques
+        queryset = self.get_queryset()
+        context["stats"] = {
+            "total": queryset.count(),
+            "non_integrees": queryset.filter(integre_declaration=False).count(),
+            "tva_due": queryset.filter(type_operation="VENTE").aggregate(
+                Sum("montant_tva")
+            )["montant_tva__sum"]
+            or 0,
+            "tva_prealable": queryset.filter(type_operation="ACHAT").aggregate(
+                Sum("montant_tva")
+            )["montant_tva__sum"]
+            or 0,
+        }
+
+        return context
+
+
+class OperationTVACreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    """Création manuelle d'une opération TVA"""
+
+    model = OperationTVA
+    form_class = OperationTVAForm
+    template_name = "tva/operation_form.html"
+    permission_required = "tva.add_operationtva"
+    success_url = reverse_lazy("tva:operation-list")
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        messages.success(self.request, _("Opération TVA créée avec succès"))
+        return super().form_valid(form)
+# tva/urls.py
+from django.urls import path
+from django.views.decorators.http import require_http_methods
+from . import views
+
+app_name = "tva"
+
+urlpatterns = [
+    # Configuration TVA
+    path(
+        "configurations/",
+        views.ConfigurationTVAListView.as_view(),
+        name="configuration-list",
+    ),
+    path(
+        "configurations/<uuid:pk>/",
+        views.ConfigurationTVADetailView.as_view(),
+        name="configuration-detail",
+    ),
+    path(
+        "configurations/<uuid:pk>/modifier/",
+        views.ConfigurationTVAUpdateView.as_view(),
+        name="configuration-update",
+    ),
+    # Déclarations TVA
+    path(
+        "declarations/", views.DeclarationTVAListView.as_view(), name="declaration-list"
+    ),
+    path(
+        "declarations/nouvelle/",
+        views.DeclarationTVACreateView.as_view(),
+        name="declaration-create",
+    ),
+    path(
+        "declarations/<uuid:pk>/",
+        views.DeclarationTVADetailView.as_view(),
+        name="declaration-detail",
+    ),
+    path(
+        "declarations/<uuid:pk>/calculer/",
+        views.declaration_calculer,
+        name="declaration-calculer",
+    ),
+    path(
+        "declarations/<uuid:pk>/valider/",
+        views.declaration_valider,
+        name="declaration-valider",
+    ),
+    path(
+        "declarations/<uuid:pk>/xml/",
+        views.declaration_exporter_xml,
+        name="declaration-xml",
+    ),
+    path(
+        "declarations/<uuid:pk>/pdf/",
+        views.declaration_exporter_pdf,
+        name="declaration-pdf",
+    ),
+    # Opérations TVA
+    path("operations/", views.OperationTVAListView.as_view(), name="operation-list"),
+    path(
+        "operations/nouvelle/",
+        views.OperationTVACreateView.as_view(),
+        name="operation-create",
+    ),
+]

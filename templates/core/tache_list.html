@@ -1,0 +1,302 @@
+<!-- core/tache_list.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Liste des tâches" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Tâches" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Liste des tâches" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<div class="row">
+    <!-- Statistics Cards -->
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-primary mb-0">{{ stats.a_faire }}</h3>
+                        <p class="text-muted mb-0">{% trans "À faire" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-primary">
+                        <i class="ti ti-clipboard f-s-24 text-primary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-info mb-0">{{ stats.en_cours }}</h3>
+                        <p class="text-muted mb-0">{% trans "En cours" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-info">
+                        <i class="ti ti-loader f-s-24 text-info"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-danger mb-0">{{ stats.en_retard }}</h3>
+                        <p class="text-muted mb-0">{% trans "En retard" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-danger">
+                        <i class="ti ti-alert-circle f-s-24 text-danger"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-success mb-0">{{ stats.terminees_semaine }}</h3>
+                        <p class="text-muted mb-0">{% trans "Terminées (7j)" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-success">
+                        <i class="ti ti-check-circle f-s-24 text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Liste des tâches" %}</h5>
+            </div>
+            <div class="card-body">
+                <div id="tachesTable">
+                    <!-- Header with Add button and Search -->
+                    <div class="list-table-header d-flex justify-content-between align-items-center mb-3">
+                        <a href="{% url 'core:tache-create' %}" class="btn btn-primary">
+                            <i class="ti ti-plus me-2"></i>{% trans "Nouvelle tâche" %}
+                        </a>
+
+                        <form method="get" class="app-form app-icon-form">
+                            <div class="position-relative">
+                                <input aria-label="Search" 
+                                       class="form-control search" 
+                                       placeholder="{% trans 'Rechercher...' %}"
+                                       type="search"
+                                       name="q"
+                                       value="{{ request.GET.q }}">
+                                <i class="ti ti-search text-dark"></i>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Filters Row -->
+                    <form method="get" class="mb-3">
+                        <div class="row app-form">
+                            <div class="col-md-3">
+                                <select name="statut" class="form-select select-basic" onchange="this.form.submit()">
+                                    <option value="">{% trans "Tous les statuts" %}</option>
+                                    <option value="A_FAIRE" {% if request.GET.statut == 'A_FAIRE' %}selected{% endif %}>{% trans "À faire" %}</option>
+                                    <option value="EN_COURS" {% if request.GET.statut == 'EN_COURS' %}selected{% endif %}>{% trans "En cours" %}</option>
+                                    <option value="TERMINEE" {% if request.GET.statut == 'TERMINEE' %}selected{% endif %}>{% trans "Terminée" %}</option>
+                                    <option value="ANNULEE" {% if request.GET.statut == 'ANNULEE' %}selected{% endif %}>{% trans "Annulée" %}</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <select name="priorite" class="form-select select-basic" onchange="this.form.submit()">
+                                    <option value="">{% trans "Toutes les priorités" %}</option>
+                                    <option value="URGENTE" {% if request.GET.priorite == 'URGENTE' %}selected{% endif %}>{% trans "Urgente" %}</option>
+                                    <option value="HAUTE" {% if request.GET.priorite == 'HAUTE' %}selected{% endif %}>{% trans "Haute" %}</option>
+                                    <option value="NORMALE" {% if request.GET.priorite == 'NORMALE' %}selected{% endif %}>{% trans "Normale" %}</option>
+                                    <option value="BASSE" {% if request.GET.priorite == 'BASSE' %}selected{% endif %}>{% trans "Basse" %}</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                {% if request.GET.statut or request.GET.priorite or request.GET.q %}
+                                <a href="{% url 'core:tache-list' %}" class="btn btn-secondary">
+                                    <i class="ti ti-x me-2"></i>{% trans "Réinitialiser" %}
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </form>
+
+                    <!-- Table -->
+                    <div class="overflow-auto app-scroll">
+                        <table class="table table-bottom-border align-middle mb-0">
+                            <thead>
+                                <tr class="app-sort">
+                                    <th>
+                                        <input class="form-check-input checkAll" name="checkAll" type="checkbox">
+                                    </th>
+                                    <th scope="col">{% trans "Titre" %}</th>
+                                    <th scope="col">{% trans "Mandat" %}</th>
+                                    <th scope="col">{% trans "Assigné à" %}</th>
+                                    <th scope="col">{% trans "Échéance" %}</th>
+                                    <th scope="col">{% trans "Priorité" %}</th>
+                                    <th scope="col">{% trans "Statut" %}</th>
+                                    <th scope="col">{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="list">
+                                {% for tache in taches %}
+                                <tr>
+                                    <th scope="row">
+                                        <input class="form-check-input mt-0 ms-2" name="item" type="checkbox">
+                                    </th>
+                                    <td>
+                                        <a href="{% url 'core:tache-detail' tache.pk %}" class="f-w-500 text-dark">
+                                            {{ tache.titre }}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        {% if tache.mandat %}
+                                            <a href="{% url 'core:mandat-detail' tache.mandat.pk %}">
+                                                {{ tache.mandat.client.raison_sociale }}
+                                            </a>
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ tache.assigne_a.get_full_name|default:tache.assigne_a.username }}</td>
+                                    <td>{{ tache.date_echeance|date:"d.m.Y"|default:"-" }}</td>
+                                    <td>
+                                        {% if tache.priorite == 'URGENTE' %}
+                                            <span class="badge bg-danger-subtle text-danger text-uppercase">
+                                                {{ tache.get_priorite_display }}
+                                            </span>
+                                        {% elif tache.priorite == 'HAUTE' %}
+                                            <span class="badge bg-warning-subtle text-warning text-uppercase">
+                                                {{ tache.get_priorite_display }}
+                                            </span>
+                                        {% elif tache.priorite == 'NORMALE' %}
+                                            <span class="badge bg-info-subtle text-info text-uppercase">
+                                                {{ tache.get_priorite_display }}
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-secondary-subtle text-secondary text-uppercase">
+                                                {{ tache.get_priorite_display }}
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if tache.statut == 'TERMINEE' %}
+                                            <span class="badge bg-success-subtle text-success text-uppercase">
+                                                {{ tache.get_statut_display }}
+                                            </span>
+                                        {% elif tache.statut == 'EN_COURS' %}
+                                            <span class="badge bg-info-subtle text-info text-uppercase">
+                                                {{ tache.get_statut_display }}
+                                            </span>
+                                        {% elif tache.statut == 'A_FAIRE' %}
+                                            <span class="badge bg-primary-subtle text-primary text-uppercase">
+                                                {{ tache.get_statut_display }}
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-secondary-subtle text-secondary text-uppercase">
+                                                {{ tache.get_statut_display }}
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'core:tache-detail' tache.pk %}" 
+                                           class="btn btn-sm btn-light-primary"
+                                           data-bs-toggle="tooltip"
+                                           title="{% trans 'Voir' %}">
+                                            <i class="ti ti-eye"></i>
+                                        </a>
+                                        <a href="{% url 'core:tache-update' tache.pk %}" 
+                                           class="btn btn-sm btn-success"
+                                           data-bs-toggle="tooltip"
+                                           title="{% trans 'Modifier' %}">
+                                            <i class="ti ti-edit"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="8" class="text-center py-5">
+                                        <i class="ti ti-clipboard-off f-s-50 text-muted"></i>
+                                        <p class="text-muted mt-2">{% trans "Aucune tâche trouvée" %}</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if is_paginated %}
+                    <div class="list-pagination mt-3">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                                    <i class="ti ti-chevrons-left"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                                    <i class="ti ti-chevron-left"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+
+                            {% for num in page_obj.paginator.page_range %}
+                                {% if page_obj.number == num %}
+                                <li class="page-item active"><a class="page-link">{{ num }}</a></li>
+                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                <li class="page-item"><a class="page-link" href="?page={{ num }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">{{ num }}</a></li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                                    <i class="ti ti-chevron-right"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                                    <i class="ti ti-chevrons-right"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

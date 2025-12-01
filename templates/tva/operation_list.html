@@ -1,0 +1,233 @@
+<!-- tva/operation_list.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Opérations TVA" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Opérations TVA" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Opérations TVA" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-primary mb-0">{{ stats.total }}</h3>
+                        <p class="text-muted mb-0">{% trans "Total" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-primary">
+                        <i class="ph ph-receipt f-s-24 text-primary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-warning mb-0">{{ stats.non_integrees }}</h3>
+                        <p class="text-muted mb-0">{% trans "Non intégrées" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-warning">
+                        <i class="ph ph-clock f-s-24 text-warning"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-danger mb-0">{{ stats.tva_due|floatformat:2 }}</h3>
+                        <p class="text-muted mb-0">{% trans "TVA due" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-danger">
+                        <i class="ph ph-arrow-up f-s-24 text-danger"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-success mb-0">{{ stats.tva_prealable|floatformat:2 }}</h3>
+                        <p class="text-muted mb-0">{% trans "TVA préalable" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-success">
+                        <i class="ph ph-arrow-down f-s-24 text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Liste des opérations TVA" %}</h5>
+            </div>
+            <div class="card-body">
+                <!-- Header -->
+                <div class="list-table-header d-flex justify-content-between align-items-center mb-3">
+                    <a href="{% url 'tva:operation-create' %}" class="btn btn-primary">
+                        <i class="ph ph-plus me-2"></i>{% trans "Nouvelle opération" %}
+                    </a>
+                    <form method="get" class="d-flex gap-2">
+                        <select name="type_operation" class="form-select select-basic" onchange="this.form.submit()">
+                            <option value="">{% trans "Tous les types" %}</option>
+                            <option value="VENTE" {% if request.GET.type_operation == 'VENTE' %}selected{% endif %}>{% trans "Vente" %}</option>
+                            <option value="ACHAT" {% if request.GET.type_operation == 'ACHAT' %}selected{% endif %}>{% trans "Achat" %}</option>
+                            <option value="IMPORT" {% if request.GET.type_operation == 'IMPORT' %}selected{% endif %}>{% trans "Importation" %}</option>
+                            <option value="EXPORT" {% if request.GET.type_operation == 'EXPORT' %}selected{% endif %}>{% trans "Exportation" %}</option>
+                        </select>
+                        <select name="integre_declaration" class="form-select select-basic" onchange="this.form.submit()">
+                            <option value="">{% trans "Toutes" %}</option>
+                            <option value="false" {% if request.GET.integre_declaration == 'false' %}selected{% endif %}>{% trans "Non intégrées" %}</option>
+                            <option value="true" {% if request.GET.integre_declaration == 'true' %}selected{% endif %}>{% trans "Intégrées" %}</option>
+                        </select>
+                        {% if request.GET.type_operation or request.GET.integre_declaration %}
+                        <a href="{% url 'tva:operation-list' %}" class="btn btn-secondary">
+                            <i class="ph ph-x"></i>
+                        </a>
+                        {% endif %}
+                    </form>
+                </div>
+
+                <!-- Table -->
+                <div class="overflow-auto app-scroll">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Date" %}</th>
+                                <th>{% trans "Type" %}</th>
+                                <th>{% trans "Libellé" %}</th>
+                                <th>{% trans "Tiers" %}</th>
+                                <th>{% trans "Code TVA" %}</th>
+                                <th class="text-end">{% trans "HT" %}</th>
+                                <th class="text-end">{% trans "TVA" %}</th>
+                                <th class="text-end">{% trans "TTC" %}</th>
+                                <th>{% trans "Déclaration" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for operation in operations %}
+                            <tr>
+                                <td>{{ operation.date_operation|date:"d.m.Y" }}</td>
+                                <td>
+                                    {% if operation.type_operation == 'VENTE' %}
+                                    <span class="badge bg-light-success">{% trans "Vente" %}</span>
+                                    {% elif operation.type_operation == 'ACHAT' %}
+                                    <span class="badge bg-light-danger">{% trans "Achat" %}</span>
+                                    {% elif operation.type_operation == 'IMPORT' %}
+                                    <span class="badge bg-light-info">{% trans "Import" %}</span>
+                                    {% elif operation.type_operation == 'EXPORT' %}
+                                    <span class="badge bg-light-warning">{% trans "Export" %}</span>
+                                    {% else %}
+                                    <span class="badge bg-light-secondary">{{ operation.get_type_operation_display }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ operation.libelle|truncatewords:8 }}</td>
+                                <td>{{ operation.tiers|default:"—" }}</td>
+                                <td><span class="badge bg-light-dark">{{ operation.code_tva.code }}</span></td>
+                                <td class="text-end">{{ operation.montant_ht|floatformat:2 }}</td>
+                                <td class="text-end f-w-600">{{ operation.montant_tva|floatformat:2 }}</td>
+                                <td class="text-end f-w-600">{{ operation.montant_ttc|floatformat:2 }}</td>
+                                <td>
+                                    {% if operation.integre_declaration %}
+                                        {% if operation.declaration_tva %}
+                                        <a href="{% url 'tva:declaration-detail' operation.declaration_tva.pk %}">
+                                            {{ operation.declaration_tva.numero_declaration }}
+                                        </a>
+                                        {% else %}
+                                        <span class="badge bg-success">{% trans "Intégré" %}</span>
+                                        {% endif %}
+                                    {% else %}
+                                    <span class="badge bg-warning">{% trans "À intégrer" %}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="9" class="text-center py-5">
+                                    <i class="ph ph-receipt f-s-50 text-muted"></i>
+                                    <p class="text-muted mt-2">{% trans "Aucune opération TVA trouvée" %}</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if is_paginated %}
+                <div class="list-pagination mt-3">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1{% if request.GET.type_operation %}&type_operation={{ request.GET.type_operation }}{% endif %}{% if request.GET.integre_declaration %}&integre_declaration={{ request.GET.integre_declaration }}{% endif %}">
+                                <i class="ph ph-caret-double-left"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.type_operation %}&type_operation={{ request.GET.type_operation }}{% endif %}{% if request.GET.integre_declaration %}&integre_declaration={{ request.GET.integre_declaration }}{% endif %}">
+                                <i class="ph ph-caret-left"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                            <li class="page-item active"><a class="page-link">{{ num }}</a></li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item"><a class="page-link" href="?page={{ num }}{% if request.GET.type_operation %}&type_operation={{ request.GET.type_operation }}{% endif %}{% if request.GET.integre_declaration %}&integre_declaration={{ request.GET.integre_declaration }}{% endif %}">{{ num }}</a></li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.type_operation %}&type_operation={{ request.GET.type_operation }}{% endif %}{% if request.GET.integre_declaration %}&integre_declaration={{ request.GET.integre_declaration }}{% endif %}">
+                                <i class="ph ph-caret-right"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.type_operation %}&type_operation={{ request.GET.type_operation }}{% endif %}{% if request.GET.integre_declaration %}&integre_declaration={{ request.GET.integre_declaration }}{% endif %}">
+                                <i class="ph ph-caret-double-right"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

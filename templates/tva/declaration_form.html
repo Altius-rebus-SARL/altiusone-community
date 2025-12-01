@@ -1,0 +1,120 @@
+<!-- tva/declaration_form.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load widget_tweaks %}
+
+{% block title %}{% trans "Nouvelle déclaration TVA" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Nouvelle déclaration TVA" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'tva:declaration-list' %}">
+                    <span>{% trans "Déclarations TVA" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Nouvelle" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Form -->
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Informations de la déclaration" %}</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" class="app-form">
+                    {% csrf_token %}
+                    
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {{ form.non_field_errors }}
+                    </div>
+                    {% endif %}
+
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label">{% trans "Mandat" %} *</label>
+                            {{ form.mandat|add_class:"form-control select2" }}
+                            {% if form.mandat.errors %}
+                            <div class="text-danger f-s-12">{{ form.mandat.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Année" %} *</label>
+                            {{ form.annee|add_class:"form-control" }}
+                            {% if form.annee.errors %}
+                            <div class="text-danger f-s-12">{{ form.annee.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Trimestre" %}</label>
+                            {{ form.trimestre|add_class:"form-control" }}
+                            {% if form.trimestre.errors %}
+                            <div class="text-danger f-s-12">{{ form.trimestre.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Semestre" %}</label>
+                            {{ form.semestre|add_class:"form-control" }}
+                            {% if form.semestre.errors %}
+                            <div class="text-danger f-s-12">{{ form.semestre.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Type de décompte" %} *</label>
+                            {{ form.type_decompte|add_class:"form-control select-basic" }}
+                            {% if form.type_decompte.errors %}
+                            <div class="text-danger f-s-12">{{ form.type_decompte.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Méthode" %} *</label>
+                            {{ form.methode|add_class:"form-control" }}
+                            {% if form.methode.errors %}
+                            <div class="text-danger f-s-12">{{ form.methode.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-12 mb-3">
+                            <label class="form-label">{% trans "Remarques internes" %}</label>
+                            {{ form.remarques_internes|add_class:"form-control" }}
+                            {% if form.remarques_internes.errors %}
+                            <div class="text-danger f-s-12">{{ form.remarques_internes.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'tva:declaration-list' %}" class="btn btn-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ph ph-check me-2"></i>{% trans "Créer" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

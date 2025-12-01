@@ -1,0 +1,113 @@
+<!-- registration/login.html -->
+{% extends 'auth_base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Connexion" %}{% endblock %}
+
+{% block content %}
+<form method="post" class="app-form">
+    {% csrf_token %}
+    
+    <div class="mb-3 text-center">
+        <h3>{% trans "Connexion à votre compte" %}</h3>
+        <p class="f-s-12 text-secondary">
+            {% trans "Connectez-vous pour accéder à votre espace fiduciaire" %}
+        </p>
+    </div>
+
+    <!-- Erreurs du formulaire -->
+    {% if form.non_field_errors %}
+    <div class="alert alert-danger">
+        {{ form.non_field_errors }}
+    </div>
+    {% endif %}
+
+    <!-- Email/Username -->
+    <div class="mb-3">
+        <label class="form-label" for="{{ form.username.id_for_label }}">
+            {% trans "Email ou nom d'utilisateur" %}
+        </label>
+        <input class="form-control {% if form.username.errors %}is-invalid{% endif %}" 
+               type="text" 
+               name="username" 
+               id="{{ form.username.id_for_label }}"
+               value="{{ form.username.value|default:'' }}"
+               required>
+        {% if form.username.errors %}
+        <div class="invalid-feedback">
+            {{ form.username.errors }}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Password -->
+    <div class="mb-3">
+        <label class="form-label" for="{{ form.password.id_for_label }}">
+            {% trans "Mot de passe" %}
+        </label>
+        <input class="form-control {% if form.password.errors %}is-invalid{% endif %}" 
+               type="password" 
+               name="password" 
+               id="{{ form.password.id_for_label }}"
+               required>
+        {% if form.password.errors %}
+        <div class="invalid-feedback">
+            {{ form.password.errors }}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Remember me -->
+    <div class="mb-3 form-check">
+        <input class="form-check-input" id="rememberMe" name="remember" type="checkbox">
+        <label class="form-check-label" for="rememberMe">
+            {% trans "Se souvenir de moi" %}
+        </label>
+    </div>
+
+    <!-- Submit button -->
+    <div class="mb-3">
+        <button class="btn btn-primary w-100" type="submit">
+            {% trans "Se connecter" %}
+        </button>
+    </div>
+
+    <!-- Forgot password -->
+    <div class="text-center mb-3">
+        <a class="text-secondary text-decoration-underline" href="{% url 'core:password-reset' %}">
+            {% trans "Mot de passe oublié ?" %}
+        </a>
+    </div>
+
+    <!-- OR divider -->
+    <div class="app-divider-v justify-content-center">
+        <p>OU</p>
+    </div>
+
+    <!-- Social login (optional) -->
+    <div class="mb-3">
+        <div class="text-center">
+            <button class="btn btn-primary icon-btn b-r-5 m-1" type="button" disabled>
+                <i class="ti ti-brand-microsoft text-white"></i>
+            </button>
+            <button class="btn btn-danger icon-btn b-r-5 m-1" type="button" disabled>
+                <i class="ti ti-brand-google text-white"></i>
+            </button>
+        </div>
+        <p class="text-center text-muted f-s-12 mt-2">
+            {% trans "Authentification unique disponible prochainement" %}
+        </p>
+    </div>
+
+    <!-- Signup link -->
+    <div class="text-center">
+        <p class="text-muted">
+            {% trans "Pas encore de compte ?" %}
+            <a class="text-primary text-decoration-underline" href="{% url 'core:signup' %}">
+                {% trans "Créer un compte" %}
+            </a>
+        </p>
+    </div>
+</form>
+{% endblock %}

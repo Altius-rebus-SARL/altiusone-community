@@ -1,0 +1,171 @@
+services:
+  # Base de données PostgreSQL avec PostGIS et pgvector
+  altiusfidu_postgres:
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
+    image: altiusfidu-postgres
+    container_name: altiusfidu_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-altiusfidu}
+      POSTGRES_USER: ${POSTGRES_USER:-MainFiDuUser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-Z@mbie92FiDu}
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-extensions.sql:/docker-entrypoint-initdb.d/init-extensions.sql
+    ports:
+      - "${POSTGRES_PORT:-5439}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-MainFiDuUser} -d ${POSTGRES_DB:-altiusfidu}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - altiusfidu_network
+
+  # Redis pour le cache et Celery
+  redis:
+    image: redis:7-alpine
+    container_name: altiusfidu_redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - altiusfidu_network
+
+  # Backend Django
+  django:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: altiusfidu-django
+    container_name: altiusfidu_django
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=altiusfidu_postgres
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-MainFiDuUser}:${POSTGRES_PASSWORD:-Z@mbie92FiDu}@altiusfidu_postgres:5432/${POSTGRES_DB:-altiusfidu}
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    command: /app/entrypoint.sh
+    volumes:
+      - .:/app
+      - media:/app/media
+      - static:/app/staticfiles
+      - ./logs:/app/logs
+    ports:
+      - "${DJANGO_PORT:-8011}:8000"
+    depends_on:
+      altiusfidu_postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      # test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - altiusfidu_network
+
+  # Celery Worker
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: altiusfidu-django
+    container_name: altiusfidu_celery
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=altiusfidu_postgres
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-MainFiDuUser}:${POSTGRES_PASSWORD:-Z@mbie92FiDu}@altiusfidu_postgres:5432/${POSTGRES_DB:-altiusfidu}
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    command: celery -A AltiusFidu worker --loglevel=info --concurrency=4
+    volumes:
+      - .:/app
+      - media:/app/media
+      - ./logs:/app/logs
+    depends_on:
+      altiusfidu_postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - altiusfidu_network
+
+  # Celery Beat (pour les tâches planifiées)
+  celery-beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: altiusfidu-django
+    container_name: altiusfidu_celery_beat
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=altiusfidu_postgres
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-MainFiDuUser}:${POSTGRES_PASSWORD:-Z@mbie92FiDu}@altiusfidu_postgres:5432/${POSTGRES_DB:-altiusfidu}
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    command: celery -A AltiusFidu beat --loglevel=info
+    volumes:
+      - .:/app
+      - ./logs:/app/logs
+    depends_on:
+      altiusfidu_postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - altiusfidu_network
+
+  # Nginx comme reverse proxy
+  nginx:
+    image: nginx:alpine
+    container_name: altiusfidu_nginx
+    restart: unless-stopped
+    ports:
+      - "${NGINX_HTTP_PORT:-8080}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - static:/app/staticfiles:ro
+      - media:/app/media:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - django
+    networks:
+      - altiusfidu_network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  media_files:
+    driver: local
+  static_files:
+    driver: local
+
+networks:
+  altiusfidu_network:
+    driver: bridge

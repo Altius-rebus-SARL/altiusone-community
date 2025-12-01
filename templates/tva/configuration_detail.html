@@ -1,0 +1,179 @@
+<!-- tva/configuration_detail.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Configuration TVA" %} - {{ configuration.mandat.client.raison_sociale }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Configuration TVA" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'tva:configuration-list' %}">
+                    <span>{% trans "Configurations TVA" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{{ configuration.mandat.client.raison_sociale }}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Action buttons -->
+<div class="row mb-3">
+    <div class="col-12 text-end">
+        <a href="{% url 'tva:configuration-update' configuration.pk %}" class="btn btn-warning">
+            <i class="ph ph-pencil me-2"></i>{% trans "Modifier" %}
+        </a>
+    </div>
+</div>
+
+<!-- Info Cards -->
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Informations générales" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <label class="text-muted f-s-12">{% trans "Mandat" %}</label>
+                        <h6>
+                            <a href="{% url 'core:mandat-detail' configuration.mandat.pk %}">
+                                {{ configuration.mandat.client.raison_sociale }}
+                            </a>
+                        </h6>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <label class="text-muted f-s-12">{% trans "Assujetti TVA" %}</label>
+                        <h6>
+                            {% if configuration.assujetti_tva %}
+                            <span class="badge bg-success">{% trans "Oui" %}</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{% trans "Non" %}</span>
+                            {% endif %}
+                        </h6>
+                    </div>
+                    <div class="col-6">
+                        <label class="text-muted f-s-12">{% trans "Numéro TVA" %}</label>
+                        <h6>{{ configuration.numero_tva|default:"—" }}</h6>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <label class="text-muted f-s-12">{% trans "Date début" %}</label>
+                        <h6>{{ configuration.date_debut_assujettissement|date:"d.m.Y"|default:"—" }}</h6>
+                    </div>
+                    <div class="col-6">
+                        <label class="text-muted f-s-12">{% trans "Date fin" %}</label>
+                        <h6>{{ configuration.date_fin_assujettissement|date:"d.m.Y"|default:"—" }}</h6>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Paramètres de calcul" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <label class="text-muted f-s-12">{% trans "Méthode" %}</label>
+                        <h6><span class="badge bg-light-primary">{{ configuration.get_methode_calcul_display }}</span></h6>
+                    </div>
+                    <div class="col-6">
+                        <label class="text-muted f-s-12">{% trans "Périodicité" %}</label>
+                        <h6><span class="badge bg-light-info">{{ configuration.get_periodicite_display }}</span></h6>
+                    </div>
+                </div>
+
+                {% if configuration.methode_calcul == 'TAUX_FORFAITAIRE' %}
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <label class="text-muted f-s-12">{% trans "Taux ventes" %}</label>
+                        <h6>{{ configuration.taux_forfaitaire_ventes|floatformat:2 }}%</h6>
+                    </div>
+                    <div class="col-6">
+                        <label class="text-muted f-s-12">{% trans "Taux achats" %}</label>
+                        <h6>{{ configuration.taux_forfaitaire_achats|floatformat:2 }}%</h6>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="row">
+                    <div class="col-12">
+                        <label class="text-muted f-s-12">{% trans "Options" %}</label>
+                        <div>
+                            {% if configuration.option_imposition_prestations %}
+                            <span class="badge bg-info me-1">{% trans "Imposition prestations" %}</span>
+                            {% endif %}
+                            {% if configuration.option_reduction_deduction %}
+                            <span class="badge bg-warning">{% trans "Réduction déduction" %}</span>
+                            {% endif %}
+                            {% if not configuration.option_imposition_prestations and not configuration.option_reduction_deduction %}
+                            <span class="text-muted">{% trans "Aucune option" %}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Comptes de liaison -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Comptes de liaison" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Compte TVA due" %}</label>
+                        <h6>
+                            {% if configuration.compte_tva_due %}
+                            <a href="{% url 'comptabilite:compte-detail' configuration.compte_tva_due.pk %}">
+                                {{ configuration.compte_tva_due.numero }} - {{ configuration.compte_tva_due.libelle }}
+                            </a>
+                            {% else %}
+                            <span class="text-muted">{% trans "Non configuré" %}</span>
+                            {% endif %}
+                        </h6>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Compte TVA préalable" %}</label>
+                        <h6>
+                            {% if configuration.compte_tva_prealable %}
+                            <a href="{% url 'comptabilite:compte-detail' configuration.compte_tva_prealable.pk %}">
+                                {{ configuration.compte_tva_prealable.numero }} - {{ configuration.compte_tva_prealable.libelle }}
+                            </a>
+                            {% else %}
+                            <span class="text-muted">{% trans "Non configuré" %}</span>
+                            {% endif %}
+                        </h6>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

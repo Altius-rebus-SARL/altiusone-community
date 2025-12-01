@@ -1,0 +1,148 @@
+<!-- core/about.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "À propos" %}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <img src="{% static 'assets/images/logo/1.png' %}" alt="AltiusFidu" class="mb-4" style="max-width: 200px;">
+                
+                <h2 class="text-primary mb-2">{{ app_info.name }}</h2>
+                <p class="text-muted mb-4">{{ app_info.description }}</p>
+                
+                <div class="d-flex justify-content-center gap-3 mb-4">
+                    <span class="badge bg-light-primary f-s-16 px-3 py-2">
+                        {% trans "Version" %} {{ app_info.version }}
+                    </span>
+                    <span class="badge bg-light-success f-s-16 px-3 py-2">
+                        <i class="ti ti-check-circle me-1"></i>{% trans "Production" %}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Informations de l'entreprise -->
+        <div class="card mt-4">
+            <div class="card-body">
+                <h5 class="text-primary mb-4">
+                    <i class="ti ti-building me-2"></i>{% trans "À propos de l'entreprise" %}
+                </h5>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">{% trans "Société" %}</span>
+                                <span class="f-w-500">{{ app_info.company }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">{% trans "Année" %}</span>
+                                <span class="f-w-500">{{ app_info.year }}</span>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">{% trans "Site web" %}</span>
+                                <a href="https://altiusfidu.ch" target="_blank" class="f-w-500">altiusfidu.ch</a>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">{% trans "Support" %}</span>
+                                <a href="{% url 'core:support' %}" class="f-w-500">{% trans "Contactez-nous" %}</a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistiques globales (admin uniquement) -->
+        {% if global_stats %}
+        <div class="card mt-4">
+            <div class="card-body">
+                <h5 class="text-primary mb-4">
+                    <i class="ti ti-chart-bar me-2"></i>{% trans "Statistiques globales" %}
+                </h5>
+                
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="alert alert-primary text-center mb-0">
+                            <h3 class="mb-1">{{ global_stats.clients }}</h3>
+                            <small>{% trans "Clients" %}</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="alert alert-success text-center mb-0">
+                            <h3 class="mb-1">{{ global_stats.mandats }}</h3>
+                            <small>{% trans "Mandats" %}</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="alert alert-info text-center mb-0">
+                            <h3 class="mb-1">{{ global_stats.users }}</h3>
+                            <small>{% trans "Utilisateurs" %}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Technologies -->
+        <div class="card mt-4">
+            <div class="card-body">
+                <h5 class="text-primary mb-4">
+                    <i class="ti ti-code me-2"></i>{% trans "Technologies utilisées" %}
+                </h5>
+                
+                <div class="row">
+                    <div class="col-md-3 col-6 text-center mb-3">
+                        <div class="alert alert-light-primary mb-0">
+                            <i class="ti ti-brand-python f-s-30 text-primary mb-2"></i>
+                            <p class="mb-0 f-w-500">Django</p>
+                            <small class="text-muted">5.1+</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3 col-6 text-center mb-3">
+                        <div class="alert alert-light-info mb-0">
+                            <i class="ti ti-database f-s-30 text-info mb-2"></i>
+                            <p class="mb-0 f-w-500">PostgreSQL</p>
+                            <small class="text-muted">16+</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3 col-6 text-center mb-3">
+                        <div class="alert alert-light-success mb-0">
+                            <i class="ti ti-brand-bootstrap f-s-30 text-success mb-2"></i>
+                            <p class="mb-0 f-w-500">Bootstrap</p>
+                            <small class="text-muted">5.3</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3 col-6 text-center mb-3">
+                        <div class="alert alert-light-warning mb-0">
+                            <i class="ti ti-cloud f-s-30 text-warning mb-2"></i>
+                            <p class="mb-0 f-w-500">Docker</p>
+                            <small class="text-muted">Latest</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Copyright -->
+        <div class="card mt-4">
+            <div class="card-body text-center">
+                <p class="text-muted mb-0">
+                    {% trans "Copyright" %} © {{ app_info.year }} {{ app_info.company }}. {% trans "Tous droits réservés" %} 💖
+                </p>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

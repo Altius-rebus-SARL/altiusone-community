@@ -1,0 +1,152 @@
+<!-- core/profile_edit.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Modifier mon profil" %}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card">
+            <div class="card-body">
+                <h4 class="text-primary mb-4">{% trans "Modifier mon profil" %}</h4>
+
+                <form method="post" class="app-form" enctype="multipart/form-data">
+                    {% csrf_token %}
+
+                    <div class="row">
+                        <!-- Photo de profil -->
+                        <div class="col-12 mb-4">
+                            <div class="text-center">
+                                <div class="h-100 w-100 d-flex-center b-r-12 overflow-hidden bg-light-primary mx-auto" style="max-width: 150px; max-height: 150px;">
+                                    <h1 class="text-primary mb-0">{{ user.first_name.0|default:user.username.0|upper }}{{ user.last_name.0|default:''|upper }}</h1>
+                                </div>
+                                <p class="text-muted mt-2 mb-0">{{ user.email }}</p>
+                            </div>
+                        </div>
+
+                        <!-- Prénom -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="id_first_name" class="form-label">
+                                    {% trans "Prénom" %}
+                                </label>
+                                <input type="text" 
+                                       name="first_name" 
+                                       class="form-control" 
+                                       id="id_first_name" 
+                                       value="{{ user.first_name }}">
+                                {% if form.first_name.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.first_name.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Nom -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="id_last_name" class="form-label">
+                                    {% trans "Nom" %}
+                                </label>
+                                <input type="text" 
+                                       name="last_name" 
+                                       class="form-control" 
+                                       id="id_last_name" 
+                                       value="{{ user.last_name }}">
+                                {% if form.last_name.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.last_name.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Email -->
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label for="id_email" class="form-label">
+                                    {% trans "Email" %} <span class="text-danger">*</span>
+                                </label>
+                                <input type="email" 
+                                       name="email" 
+                                       class="form-control" 
+                                       id="id_email" 
+                                       value="{{ user.email }}" 
+                                       required>
+                                {% if form.email.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.email.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Téléphone -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="id_phone" class="form-label">
+                                    {% trans "Téléphone" %}
+                                </label>
+                                <input type="text" 
+                                       name="phone" 
+                                       class="form-control" 
+                                       id="id_phone" 
+                                       value="{{ user.phone|default:'' }}">
+                            </div>
+                        </div>
+
+                        <!-- Mobile -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="id_mobile" class="form-label">
+                                    {% trans "Mobile" %}
+                                </label>
+                                <input type="text" 
+                                       name="mobile" 
+                                       class="form-control" 
+                                       id="id_mobile" 
+                                       value="{{ user.mobile|default:'' }}">
+                            </div>
+                        </div>
+
+                        <!-- Informations en lecture seule -->
+                        <div class="col-12">
+                            <hr class="my-4">
+                            <h6 class="text-muted mb-3">{% trans "Informations du compte" %}</h6>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Nom d'utilisateur" %}</label>
+                                <input type="text" class="form-control" value="{{ user.username }}" disabled>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Rôle" %}</label>
+                                <input type="text" class="form-control" value="{{ user.get_role_display }}" disabled>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <a href="{% url 'core:profile' %}" class="btn btn-secondary">
+                            <i class="ti ti-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ti ti-check me-2"></i>{% trans "Enregistrer" %}
+                        </button>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

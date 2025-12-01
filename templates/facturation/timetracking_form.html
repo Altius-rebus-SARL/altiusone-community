@@ -1,0 +1,229 @@
+<!-- facturation/timetracking_form.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load widget_tweaks %}
+
+{% block title %}{% trans "Saisir du temps" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Saisir du temps" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'facturation:timetracking-list' %}">
+                    <span>{% trans "Suivi du temps" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Nouveau" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Form -->
+<div class="row">
+    <div class="col-md-10 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Saisie du temps de travail" %}</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" class="app-form">
+                    {% csrf_token %}
+                    
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {{ form.non_field_errors }}
+                    </div>
+                    {% endif %}
+
+                    <!-- Rattachement -->
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <h6 class="text-muted f-w-600">{% trans "Rattachement" %}</h6>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Mandat" %} *</label>
+                            {{ form.mandat|add_class:"form-control select2" }}
+                            {% if form.mandat.errors %}
+                            <div class="text-danger f-s-12">{{ form.mandat.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Prestation" %} *</label>
+                            {{ form.prestation|add_class:"form-control select2" }}
+                            {% if form.prestation.errors %}
+                            <div class="text-danger f-s-12">{{ form.prestation.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Utilisateur" %} *</label>
+                            {{ form.utilisateur|add_class:"form-control select2" }}
+                            {% if form.utilisateur.errors %}
+                            <div class="text-danger f-s-12">{{ form.utilisateur.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Date" %} *</label>
+                            {{ form.date_travail|add_class:"form-control" }}
+                            {% if form.date_travail.errors %}
+                            <div class="text-danger f-s-12">{{ form.date_travail.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Durée -->
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <h6 class="text-muted f-w-600">{% trans "Durée" %}</h6>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Heure début" %}</label>
+                            {{ form.heure_debut_time|add_class:"form-control" }}
+                            {% if form.heure_debut_time.errors %}
+                            <div class="text-danger f-s-12">{{ form.heure_debut_time.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Heure fin" %}</label>
+                            {{ form.heure_fin_time|add_class:"form-control" }}
+                            {% if form.heure_fin_time.errors %}
+                            <div class="text-danger f-s-12">{{ form.heure_fin_time.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Durée (minutes)" %} *</label>
+                            {{ form.duree_minutes|add_class:"form-control" }}
+                            {% if form.duree_minutes.errors %}
+                            <div class="text-danger f-s-12">{{ form.duree_minutes.errors.0 }}</div>
+                            {% endif %}
+                            <small class="text-muted">{% trans "Calculé automatiquement si heures saisies" %}</small>
+                        </div>
+                    </div>
+
+                    <!-- Quick duration buttons -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label">{% trans "Durées rapides" %}</label>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setDuree(15)">15min</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setDuree(30)">30min</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setDuree(60)">1h</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setDuree(120)">2h</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setDuree(240)">4h</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setDuree(480)">8h</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label">{% trans "Description" %} *</label>
+                            {{ form.description|add_class:"form-control" }}
+                            {% if form.description.errors %}
+                            <div class="text-danger f-s-12">{{ form.description.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label">{% trans "Notes internes" %}</label>
+                            {{ form.notes_internes|add_class:"form-control" }}
+                            {% if form.notes_internes.errors %}
+                            <div class="text-danger f-s-12">{{ form.notes_internes.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Facturation -->
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <h6 class="text-muted f-w-600">{% trans "Facturation" %}</h6>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <div class="form-check">
+                                {{ form.facturable }}
+                                <label class="form-check-label" for="{{ form.facturable.id_for_label }}">
+                                    {% trans "Temps facturable" %}
+                                </label>
+                            </div>
+                            {% if form.facturable.errors %}
+                            <div class="text-danger f-s-12">{{ form.facturable.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Taux horaire (CHF/h)" %} *</label>
+                            {{ form.taux_horaire|add_class:"form-control" }}
+                            {% if form.taux_horaire.errors %}
+                            <div class="text-danger f-s-12">{{ form.taux_horaire.errors.0 }}</div>
+                            {% endif %}
+                            <small class="text-muted">{% trans "Rempli automatiquement depuis la prestation" %}</small>
+                        </div>
+                    </div>
+
+                    <!-- Boutons -->
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'facturation:timetracking-list' %}" class="btn btn-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ph ph-check me-2"></i>{% trans "Enregistrer" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Aide -->
+        <div class="card mt-3">
+            <div class="card-body">
+                <h6 class="text-primary mb-3">
+                    <i class="ph ph-info me-2"></i>{% trans "Conseils de saisie" %}
+                </h6>
+                <ul class="mb-0 f-s-14">
+                    <li class="mb-2">
+                        <strong>{% trans "Durée" %}:</strong> {% trans "Saisissez soit les heures de début/fin, soit la durée directement" %}
+                    </li>
+                    <li class="mb-2">
+                        <strong>{% trans "Description" %}:</strong> {% trans "Soyez précis sur le travail effectué pour faciliter la facturation" %}
+                    </li>
+                    <li class="mb-2">
+                        <strong>{% trans "Facturable" %}:</strong> {% trans "Décochez si c'est du temps interne non facturable au client" %}
+                    </li>
+                    <li>
+                        <strong>{% trans "Taux horaire" %}:</strong> {% trans "Le taux de la prestation s'applique automatiquement mais peut être modifié" %}
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Quick duration buttons
+function setDuree(minutes) {
+    $('#id_duree_minutes').val(minutes);
+}
+</script>
+{% endblock %}

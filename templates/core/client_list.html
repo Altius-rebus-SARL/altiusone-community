@@ -1,0 +1,264 @@
+<!-- core/client_list.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Liste des clients" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Clients" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Liste des clients" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<div class="row">
+    <!-- Statistics Cards -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-primary mb-0">{{ stats.total }}</h3>
+                        <p class="text-muted mb-0">{% trans "Total" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-primary">
+                        <i class="ti ti-users f-s-24 text-primary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-success mb-0">{{ stats.actifs }}</h3>
+                        <p class="text-muted mb-0">{% trans "Actifs" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-success">
+                        <i class="ti ti-check-circle f-s-24 text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-warning mb-0">{{ stats.prospects }}</h3>
+                        <p class="text-muted mb-0">{% trans "Prospects" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-warning">
+                        <i class="ti ti-clock f-s-24 text-warning"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Liste des clients" %}</h5>
+            </div>
+            <div class="card-body">
+                <div id="clientsTable">
+                    <!-- Header with Add button and Search -->
+                    <div class="list-table-header d-flex justify-content-between align-items-center mb-3">
+                        <a href="{% url 'core:client-create' %}" class="btn btn-primary">
+                            <i class="ti ti-plus me-2"></i>{% trans "Nouveau client" %}
+                        </a>
+
+                        <form method="get" class="app-form app-icon-form">
+                            <div class="position-relative">
+                                <input aria-label="Search" 
+                                       class="form-control search" 
+                                       placeholder="{% trans 'Rechercher...' %}"
+                                       type="search"
+                                       name="q"
+                                       value="{{ request.GET.q }}">
+                                <i class="ti ti-search text-dark"></i>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Filters Row -->
+                    <form method="get" class="mb-3">
+                        <div class="row app-form">
+                            <div class="col-md-3">
+                                <select name="statut" class="form-select select-basic" onchange="this.form.submit()">
+                                    <option value="">{% trans "Tous les statuts" %}</option>
+                                    <option value="ACTIF" {% if request.GET.statut == 'ACTIF' %}selected{% endif %}>{% trans "Actif" %}</option>
+                                    <option value="PROSPECT" {% if request.GET.statut == 'PROSPECT' %}selected{% endif %}>{% trans "Prospect" %}</option>
+                                    <option value="SUSPENDU" {% if request.GET.statut == 'SUSPENDU' %}selected{% endif %}>{% trans "Suspendu" %}</option>
+                                    <option value="RESILIE" {% if request.GET.statut == 'RESILIE' %}selected{% endif %}>{% trans "Résilié" %}</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <select name="forme_juridique" class="form-select select-basic" onchange="this.form.submit()">
+                                    <option value="">{% trans "Toutes les formes" %}</option>
+                                    <option value="SA" {% if request.GET.forme_juridique == 'SA' %}selected{% endif %}>SA</option>
+                                    <option value="SARL" {% if request.GET.forme_juridique == 'SARL' %}selected{% endif %}>SARL</option>
+                                    <option value="EI" {% if request.GET.forme_juridique == 'EI' %}selected{% endif %}>EI</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                {% if request.GET.statut or request.GET.forme_juridique or request.GET.q %}
+                                <a href="{% url 'core:client-list' %}" class="btn btn-secondary">
+                                    <i class="ti ti-x me-2"></i>{% trans "Réinitialiser" %}
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </form>
+
+                    <!-- Table -->
+                    <div class="overflow-auto app-scroll">
+                        <table class="table table-bottom-border align-middle mb-0">
+                            <thead>
+                                <tr class="app-sort">
+                                    <th>
+                                        <input class="form-check-input checkAll" name="checkAll" type="checkbox">
+                                    </th>
+                                    <th scope="col">{% trans "Raison sociale" %}</th>
+                                    <th scope="col">{% trans "IDE" %}</th>
+                                    <th scope="col">{% trans "Forme" %}</th>
+                                    <th scope="col">{% trans "Email" %}</th>
+                                    <th scope="col">{% trans "Mandats" %}</th>
+                                    <th scope="col">{% trans "Statut" %}</th>
+                                    <th scope="col">{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="list">
+                                {% for client in clients %}
+                                <tr>
+                                    <th scope="row">
+                                        <input class="form-check-input mt-0 ms-2" name="item" type="checkbox">
+                                    </th>
+                                    <td>
+                                        <a href="{% url 'core:client-detail' client.pk %}" class="f-w-500 text-dark">
+                                            {{ client.raison_sociale }}
+                                        </a>
+                                    </td>
+                                    <td>{{ client.ide_number }}</td>
+                                    <td>
+                                        <span class="badge bg-light-primary">
+                                            {{ client.get_forme_juridique_display }}
+                                        </span>
+                                    </td>
+                                    <td>{{ client.email }}</td>
+                                    <td>
+                                        <span class="badge bg-light-info">
+                                            {{ client.nb_mandats_actifs }}/{{ client.nb_mandats }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if client.statut == 'ACTIF' %}
+                                            <span class="badge bg-success-subtle text-success text-uppercase">
+                                                {{ client.get_statut_display }}
+                                            </span>
+                                        {% elif client.statut == 'PROSPECT' %}
+                                            <span class="badge bg-warning-subtle text-warning text-uppercase">
+                                                {{ client.get_statut_display }}
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-danger-subtle text-danger text-uppercase">
+                                                {{ client.get_statut_display }}
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'core:client-detail' client.pk %}" 
+                                           class="btn btn-sm btn-light-primary"
+                                           data-bs-toggle="tooltip"
+                                           title="{% trans 'Voir' %}">
+                                            <i class="ti ti-eye"></i>
+                                        </a>
+                                        <a href="{% url 'core:client-update' client.pk %}" 
+                                           class="btn btn-sm btn-success"
+                                           data-bs-toggle="tooltip"
+                                           title="{% trans 'Modifier' %}">
+                                            <i class="ti ti-edit"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="8" class="text-center py-5">
+                                        <i class="ti ti-folder-off f-s-50 text-muted"></i>
+                                        <p class="text-muted mt-2">{% trans "Aucun client trouvé" %}</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if is_paginated %}
+                    <div class="list-pagination mt-3">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                                    <i class="ti ti-chevrons-left"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                                    <i class="ti ti-chevron-left"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+
+                            {% for num in page_obj.paginator.page_range %}
+                                {% if page_obj.number == num %}
+                                <li class="page-item active"><a class="page-link">{{ num }}</a></li>
+                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                <li class="page-item"><a class="page-link" href="?page={{ num }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">{{ num }}</a></li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                                    <i class="ti ti-chevron-right"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                                    <i class="ti ti-chevrons-right"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

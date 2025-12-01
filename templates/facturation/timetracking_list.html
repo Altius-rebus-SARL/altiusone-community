@@ -1,0 +1,281 @@
+<!-- facturation/timetracking_list.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Suivi du temps" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Suivi du temps" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Suivi du temps" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-primary mb-0">{{ stats.total_heures_display|floatformat:1 }}h</h3>
+                        <p class="text-muted mb-0">{% trans "Total heures" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-primary">
+                        <i class="ph ph-clock f-s-24 text-primary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-warning mb-0">{{ stats.non_facture }}</h3>
+                        <p class="text-muted mb-0">{% trans "Non facturées" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-warning">
+                        <i class="ph ph-hourglass f-s-24 text-warning"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-success mb-0">{{ stats.montant_non_facture|floatformat:0 }}</h3>
+                        <p class="text-muted mb-0">{% trans "À facturer" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-success">
+                        <i class="ph ph-currency-chf f-s-24 text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-info mb-0">{{ temps_par_utilisateur.count }}</h3>
+                        <p class="text-muted mb-0">{% trans "Collaborateurs" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-info">
+                        <i class="ph ph-users f-s-24 text-info"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Liste des temps de travail" %}</h5>
+            </div>
+            <div class="card-body">
+                <!-- Header -->
+                <div class="list-table-header d-flex justify-content-between align-items-center mb-3">
+                    <a href="{% url 'facturation:timetracking-create' %}" class="btn btn-primary">
+                        <i class="ph ph-plus me-2"></i>{% trans "Saisir du temps" %}
+                    </a>
+                    <form method="get" class="d-flex gap-2">
+                        <input type="date" name="date_debut" class="form-control" 
+                               value="{{ request.GET.date_debut }}"
+                               placeholder="{% trans 'Date début' %}">
+                        <input type="date" name="date_fin" class="form-control" 
+                               value="{{ request.GET.date_fin }}"
+                               placeholder="{% trans 'Date fin' %}">
+                        <select name="facturable" class="form-select select-basic" onchange="this.form.submit()">
+                            <option value="">{% trans "Tous" %}</option>
+                            <option value="false" {% if request.GET.facturable == 'false' %}selected{% endif %}>{% trans "Non facturées" %}</option>
+                            <option value="true" {% if request.GET.facturable == 'true' %}selected{% endif %}>{% trans "Facturées" %}</option>
+                        </select>
+                        {% if request.GET.date_debut or request.GET.date_fin or request.GET.facturable %}
+                        <a href="{% url 'facturation:timetracking-list' %}" class="btn btn-secondary">
+                            <i class="ph ph-x"></i>
+                        </a>
+                        {% endif %}
+                    </form>
+                </div>
+
+                <!-- Table -->
+                <div class="overflow-auto app-scroll">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Date" %}</th>
+                                <th>{% trans "Utilisateur" %}</th>
+                                <th>{% trans "Mandat" %}</th>
+                                <th>{% trans "Prestation" %}</th>
+                                <th>{% trans "Description" %}</th>
+                                <th>{% trans "Durée" %}</th>
+                                <th class="text-end">{% trans "Taux" %}</th>
+                                <th class="text-end">{% trans "Montant" %}</th>
+                                <th>{% trans "Statut" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for temps in temps %}
+                            <tr>
+                                <td>{{ temps.date_travail|date:"d.m.Y" }}</td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <span class="h-35 w-35 d-flex-center b-r-50 bg-light-primary me-2">
+                                            <span class="f-w-600 text-primary">{{ temps.utilisateur.first_name.0 }}{{ temps.utilisateur.last_name.0 }}</span>
+                                        </span>
+                                        <span>{{ temps.utilisateur.get_full_name }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <a href="{% url 'core:mandat-detail' temps.mandat.pk %}">
+                                        {{ temps.mandat.numero }}
+                                    </a>
+                                </td>
+                                <td>{{ temps.prestation.libelle|truncatewords:3 }}</td>
+                                <td>
+                                    <span class="text-muted">{{ temps.description|truncatewords:8 }}</span>
+                                </td>
+                                <td>
+                                    {% if temps.heure_debut and temps.heure_fin %}
+                                    <span class="badge bg-light-info">
+                                        {{ temps.heure_debut|time:"H:i" }} - {{ temps.heure_fin|time:"H:i" }}
+                                    </span>
+                                    {% endif %}
+                                    <br>
+                                    <span class="f-w-600">{{ temps.duree_heures|floatformat:2 }}h</span>
+                                </td>
+                                <td class="text-end">{{ temps.taux_horaire|floatformat:2 }}</td>
+                                <td class="text-end f-w-600">{{ temps.montant_ht|floatformat:2 }}</td>
+                                <td>
+                                    {% if temps.facture %}
+                                    <a href="{% url 'facturation:facture-detail' temps.facture.pk %}">
+                                        <span class="badge bg-success">{% trans "Facturé" %}</span>
+                                    </a>
+                                    {% elif temps.facturable %}
+                                    <span class="badge bg-warning">{% trans "À facturer" %}</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">{% trans "Non facturable" %}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="9" class="text-center py-5">
+                                    <i class="ph ph-clock f-s-50 text-muted"></i>
+                                    <p class="text-muted mt-2">{% trans "Aucun temps enregistré" %}</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if is_paginated %}
+                <div class="list-pagination mt-3">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1">
+                                <i class="ph ph-caret-double-left"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                                <i class="ph ph-caret-left"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                            <li class="page-item active"><a class="page-link">{{ num }}</a></li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                                <i class="ph ph-caret-right"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">
+                                <i class="ph ph-caret-double-right"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Temps par utilisateur (si admin/manager) -->
+{% if temps_par_utilisateur %}
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Temps par collaborateur" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bottom-border">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Collaborateur" %}</th>
+                                <th class="text-end">{% trans "Total heures" %}</th>
+                                <th class="text-end">{% trans "Total montant" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in temps_par_utilisateur %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <span class="h-35 w-35 d-flex-center b-r-50 bg-light-primary me-2">
+                                            <span class="f-w-600 text-primary">{{ item.utilisateur__first_name.0 }}{{ item.utilisateur__last_name.0 }}</span>
+                                        </span>
+                                        <span>{{ item.utilisateur__first_name }} {{ item.utilisateur__last_name }}</span>
+                                    </div>
+                                </td>
+                                <td class="text-end f-w-600">{{ item.total_minutes|floatformat:0 }} min ({{ item.total_minutes|divisibleby:60 }}h)</td>
+                                <td class="text-end f-w-600 text-success">{{ item.total_montant|floatformat:2 }} CHF</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

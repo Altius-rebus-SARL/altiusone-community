@@ -1,0 +1,296 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load widget_tweaks %}
+
+{% block title %}{% trans "Nouvelle déclaration fiscale" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Nouvelle déclaration fiscale" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'fiscalite:declaration-list' %}">
+                    <span>{% trans "Déclarations" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Nouvelle" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<form method="post" class="app-form">
+    {% csrf_token %}
+    
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                {{ form.non_field_errors }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endif %}
+
+            <!-- Informations générales -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-info me-2"></i>{% trans "Informations générales" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Mandat" %} <span class="text-danger">*</span></label>
+                                {{ form.mandat|add_class:"form-select" }}
+                                {% if form.mandat.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.mandat.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Exercice comptable" %}</label>
+                                {{ form.exercice_comptable|add_class:"form-select" }}
+                                {% if form.exercice_comptable.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.exercice_comptable.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Type de déclaration" %} <span class="text-danger">*</span></label>
+                                {{ form.type_declaration|add_class:"form-select" }}
+                                {% if form.type_declaration.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.type_declaration.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Type d'impôt" %} <span class="text-danger">*</span></label>
+                                {{ form.type_impot|add_class:"form-select" }}
+                                {% if form.type_impot.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.type_impot.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Période fiscale -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-calendar me-2"></i>{% trans "Période fiscale" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Année fiscale" %} <span class="text-danger">*</span></label>
+                                {{ form.annee_fiscale|add_class:"form-control" }}
+                                {% if form.annee_fiscale.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.annee_fiscale.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Date début" %} <span class="text-danger">*</span></label>
+                                {{ form.periode_debut|add_class:"form-control" }}
+                                {% if form.periode_debut.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.periode_debut.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Date fin" %} <span class="text-danger">*</span></label>
+                                {{ form.periode_fin|add_class:"form-control" }}
+                                {% if form.periode_fin.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.periode_fin.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Autorité fiscale -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-map-pin me-2"></i>{% trans "Autorité fiscale" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Canton" %} <span class="text-danger">*</span></label>
+                                {{ form.canton|add_class:"form-select" }}
+                                {% if form.canton.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.canton.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Commune" %}</label>
+                                {{ form.commune|add_class:"form-control" }}
+                                {% if form.commune.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.commune.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Numéro contribuable" %}</label>
+                                {{ form.numero_contribuable|add_class:"form-control" }}
+                                {% if form.numero_contribuable.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.numero_contribuable.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bases imposables -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-currency-chf me-2"></i>{% trans "Bases imposables" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Bénéfice avant impôts" %}</label>
+                                {{ form.benefice_avant_impots|add_class:"form-control" }}
+                                {% if form.benefice_avant_impots.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.benefice_avant_impots.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Bénéfice imposable" %}</label>
+                                {{ form.benefice_imposable|add_class:"form-control" }}
+                                {% if form.benefice_imposable.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.benefice_imposable.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Capital propre" %}</label>
+                                {{ form.capital_propre|add_class:"form-control" }}
+                                {% if form.capital_propre.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.capital_propre.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Capital imposable" %}</label>
+                                {{ form.capital_imposable|add_class:"form-control" }}
+                                {% if form.capital_imposable.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.capital_imposable.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Impôts -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-receipt me-2"></i>{% trans "Montants d'impôts" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Impôt fédéral" %}</label>
+                                {{ form.impot_federal|add_class:"form-control" }}
+                                {% if form.impot_federal.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.impot_federal.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Impôt cantonal" %}</label>
+                                {{ form.impot_cantonal|add_class:"form-control" }}
+                                {% if form.impot_cantonal.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.impot_cantonal.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Impôt communal" %}</label>
+                                {{ form.impot_communal|add_class:"form-control" }}
+                                {% if form.impot_communal.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.impot_communal.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Remarques -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-note me-2"></i>{% trans "Remarques" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Remarques" %}</label>
+                        {{ form.remarques|add_class:"form-control" }}
+                        {% if form.remarques.errors %}
+                        <div class="text-danger f-s-12 mt-1">{{ form.remarques.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'fiscalite:declaration-list' %}" class="btn btn-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ph ph-check me-2"></i>{% trans "Créer la déclaration" %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}

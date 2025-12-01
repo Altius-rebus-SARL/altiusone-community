@@ -1,0 +1,262 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Pièces comptables" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Pièces comptables" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Pièces" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<!-- Statistics Cards -->
+<div class="row">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-primary mb-0">{{ stats.total }}</h3>
+                        <p class="text-muted mb-0">{% trans "Total pièces" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-primary">
+                        <i class="ph ph-file-text f-s-24 text-primary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-success mb-0">{{ stats.equilibrees }}</h3>
+                        <p class="text-muted mb-0">{% trans "Équilibrées" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-success">
+                        <i class="ph ph-check-circle f-s-24 text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-danger mb-0">{{ stats.non_equilibrees }}</h3>
+                        <p class="text-muted mb-0">{% trans "Non équilibrées" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-danger">
+                        <i class="ph ph-warning f-s-24 text-danger"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-warning mb-0">{{ stats.brouillon }}</h3>
+                        <p class="text-muted mb-0">{% trans "Brouillon" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-warning">
+                        <i class="ph ph-note-pencil f-s-24 text-warning"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Liste des pièces comptables" %}</h5>
+            </div>
+            <div class="card-body">
+                <div id="piecesTable">
+                    <!-- Header with Search -->
+                    <div class="list-table-header d-flex justify-content-end align-items-center mb-3">
+                        <form method="get" class="app-form app-icon-form">
+                            <div class="position-relative">
+                                <input aria-label="Search" 
+                                       class="form-control search" 
+                                       placeholder="{% trans 'Rechercher...' %}"
+                                       type="search"
+                                       name="q"
+                                       value="{{ request.GET.q }}">
+                                <i class="ph ph-magnifying-glass text-dark"></i>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Filters Row -->
+                    <form method="get" class="mb-3">
+                        <div class="row app-form">
+                            <div class="col-md-3">
+                                <select name="equilibree" class="form-select select-basic" onchange="this.form.submit()">
+                                    <option value="">{% trans "Toutes" %}</option>
+                                    <option value="true" {% if request.GET.equilibree == 'true' %}selected{% endif %}>{% trans "Équilibrées" %}</option>
+                                    <option value="false" {% if request.GET.equilibree == 'false' %}selected{% endif %}>{% trans "Non équilibrées" %}</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <select name="statut" class="form-select select-basic" onchange="this.form.submit()">
+                                    <option value="">{% trans "Tous les statuts" %}</option>
+                                    <option value="BROUILLON" {% if request.GET.statut == 'BROUILLON' %}selected{% endif %}>{% trans "Brouillon" %}</option>
+                                    <option value="VALIDE" {% if request.GET.statut == 'VALIDE' %}selected{% endif %}>{% trans "Validé" %}</option>
+                                    <option value="COMPTABILISE" {% if request.GET.statut == 'COMPTABILISE' %}selected{% endif %}>{% trans "Comptabilisé" %}</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                {% if request.GET.equilibree or request.GET.statut or request.GET.q %}
+                                <a href="{% url 'comptabilite:piece-list' %}" class="btn btn-secondary">
+                                    <i class="ph ph-x me-2"></i>{% trans "Réinitialiser" %}
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </form>
+
+                    <!-- Table -->
+                    <div class="overflow-auto app-scroll">
+                        <table class="table table-bottom-border align-middle mb-0">
+                            <thead>
+                                <tr class="app-sort">
+                                    <th scope="col">{% trans "Numéro" %}</th>
+                                    <th scope="col">{% trans "Date" %}</th>
+                                    <th scope="col">{% trans "Journal" %}</th>
+                                    <th scope="col">{% trans "Libellé" %}</th>
+                                    <th scope="col" class="text-end">{% trans "Total débit" %}</th>
+                                    <th scope="col" class="text-end">{% trans "Total crédit" %}</th>
+                                    <th scope="col" class="text-center">{% trans "Équilibre" %}</th>
+                                    <th scope="col">{% trans "Statut" %}</th>
+                                    <th scope="col">{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="list">
+                                {% for piece in pieces %}
+                                <tr>
+                                    <td>
+                                        <span class="badge bg-light-dark f-w-600">{{ piece.numero_piece }}</span>
+                                    </td>
+                                    <td>{{ piece.date_piece|date:"d.m.Y" }}</td>
+                                    <td>
+                                        <a href="{% url 'comptabilite:journal-detail' piece.journal.pk %}">
+                                            {{ piece.journal.code }}
+                                        </a>
+                                    </td>
+                                    <td>{{ piece.libelle|truncatewords:10 }}</td>
+                                    <td class="text-end">
+                                        <span class="text-success">{{ piece.total_debit|floatformat:2 }}</span>
+                                    </td>
+                                    <td class="text-end">
+                                        <span class="text-danger">{{ piece.total_credit|floatformat:2 }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        {% if piece.equilibree %}
+                                        <i class="ph ph-check-circle text-success f-s-20"></i>
+                                        {% else %}
+                                        <i class="ph ph-warning text-danger f-s-20"></i>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if piece.statut == 'VALIDE' %}
+                                        <span class="badge bg-success-subtle text-success">{% trans "Validé" %}</span>
+                                        {% elif piece.statut == 'BROUILLON' %}
+                                        <span class="badge bg-secondary-subtle text-secondary">{% trans "Brouillon" %}</span>
+                                        {% elif piece.statut == 'COMPTABILISE' %}
+                                        <span class="badge bg-info-subtle text-info">{% trans "Comptabilisé" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'comptabilite:piece-detail' piece.pk %}" 
+                                           class="btn btn-sm btn-light-primary"
+                                           data-bs-toggle="tooltip"
+                                           title="{% trans 'Voir' %}">
+                                            <i class="ph ph-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="9" class="text-center py-5">
+                                        <i class="ph ph-file-text f-s-50 text-muted"></i>
+                                        <p class="text-muted mt-2">{% trans "Aucune pièce trouvée" %}</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if is_paginated %}
+                    <div class="list-pagination mt-3">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1">
+                                    <i class="ph ph-caret-double-left"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                                    <i class="ph ph-caret-left"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+
+                            {% for num in page_obj.paginator.page_range %}
+                                {% if page_obj.number == num %}
+                                <li class="page-item active"><a class="page-link">{{ num }}</a></li>
+                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                                    <i class="ph ph-caret-right"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">
+                                    <i class="ph ph-caret-double-right"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

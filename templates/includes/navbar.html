@@ -1,0 +1,141 @@
+<!-- includes/navbar.html -->
+{% load static %}
+{% load i18n %}
+
+<!-- Header Section starts -->
+<header class="header-main">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-8 col-sm-6 d-flex align-items-center header-left p-0">
+                <span class="header-toggle">
+                    <i class="ph ph-squares-four"></i>
+                </span>
+
+                <div class="header-searchbar w-100">
+                    <form action="{% url 'core:global-search' %}" class="mx-sm-3 app-form app-icon-form">
+                        <div class="position-relative">
+                            <input aria-label="Search" class="form-control" placeholder="{% trans 'Rechercher...' %}" type="search" name="q">
+                            <i class="ti ti-search text-dark"></i>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="col-4 col-sm-6 d-flex align-items-center justify-content-end header-right p-0">
+                <ul class="d-flex align-items-center">
+
+                    <!-- Language Selector -->
+                    <li class="header-language">
+                        <div class="flex-shrink-0 dropdown" id="lang_selector">
+                            <a aria-expanded="false" class="d-block head-icon ps-0" data-bs-toggle="dropdown" href="#">
+                                <div class="lang-flag lang-{{ LANGUAGE_CODE|default:'fr' }}">
+                                    <span class="flag rounded-circle overflow-hidden">
+                                        <i class="flag-icon flag-icon-{{ LANGUAGE_CODE|default:'fr' }} flag-icon-squared"></i>
+                                    </span>
+                                </div>
+                            </a>
+                            <ul class="dropdown-menu language-dropdown header-card border-0">
+                                <li class="lang lang-fr {% if LANGUAGE_CODE == 'fr' %}selected{% endif %} dropdown-item p-2">
+                                    <a href="{% url 'set_language' %}?language=fr" class="d-flex align-items-center">
+                                        <i class="flag-icon flag-icon-fra flag-icon-squared rounded-circle f-s-20"></i>
+                                        <span class="ps-2">Français</span>
+                                    </a>
+                                </li>
+                                <li class="lang lang-de {% if LANGUAGE_CODE == 'de' %}selected{% endif %} dropdown-item p-2">
+                                    <a href="{% url 'set_language' %}?language=de" class="d-flex align-items-center">
+                                        <i class="flag-icon flag-icon-deu flag-icon-squared rounded-circle f-s-20"></i>
+                                        <span class="ps-2">Deutsch</span>
+                                    </a>
+                                </li>
+                                <li class="lang lang-it {% if LANGUAGE_CODE == 'it' %}selected{% endif %} dropdown-item p-2">
+                                    <a href="{% url 'set_language' %}?language=it" class="d-flex align-items-center">
+                                        <i class="flag-icon flag-icon-ita flag-icon-squared rounded-circle f-s-20"></i>
+                                        <span class="ps-2">Italiano</span>
+                                    </a>
+                                </li>
+                                <li class="lang lang-en {% if LANGUAGE_CODE == 'en' %}selected{% endif %} dropdown-item p-2">
+                                    <a href="{% url 'set_language' %}?language=en" class="d-flex align-items-center">
+                                        <i class="flag-icon flag-icon-gbr flag-icon-squared rounded-circle f-s-20"></i>
+                                        <span class="ps-2">English</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </li>
+
+                    <!-- Apps Shortcut -->
+                    <li class="header-apps">
+                        <a aria-controls="appscanvasRights" class="d-block head-icon bg-light-dark rounded-circle f-s-22 p-2" 
+                           data-bs-target="#appscanvasRights" data-bs-toggle="offcanvas" href="#" role="button">
+                            <i class="ph ph-bounding-box"></i>
+                        </a>
+                    </li>
+
+                    <!-- Dark Mode Toggle -->
+                    <li class="header-dark">
+                        <div class="sun-logo head-icon bg-light-dark rounded-circle f-s-22 p-2">
+                            <i class="ph ph-moon-stars"></i>
+                        </div>
+                        <div class="moon-logo head-icon bg-light-dark rounded-circle f-s-22 p-2">
+                            <i class="ph ph-sun-dim"></i>
+                        </div>
+                    </li>
+
+                    <!-- Notifications -->
+                    <li class="header-notification">
+                        <a aria-controls="notificationcanvasRight" 
+                           class="d-block head-icon position-relative bg-light-dark rounded-circle f-s-22 p-2" 
+                           data-bs-target="#notificationcanvasRight" data-bs-toggle="offcanvas" href="#" role="button">
+                            <i class="ph ph-bell"></i>
+                            {% if unread_notifications_count > 0 %}
+                            <span class="position-absolute translate-middle p-1 bg-primary border border-light rounded-circle animate__animated animate__fadeIn animate__infinite animate__slower"></span>
+                            {% endif %}
+                        </a>
+
+                        <!-- Notification Offcanvas -->
+                        <div aria-labelledby="notificationcanvasRightLabel" class="offcanvas offcanvas-end header-notification-canvas" 
+                             id="notificationcanvasRight" tabindex="-1">
+                            <div class="offcanvas-header">
+                                <h5 class="offcanvas-title" id="notificationcanvasRightLabel">{% trans "Notifications" %}</h5>
+                                <button aria-label="Close" class="btn-close" data-bs-dismiss="offcanvas" type="button"></button>
+                            </div>
+                            <div class="offcanvas-body app-scroll p-0">
+                                <div class="head-container">
+                                    {% if notifications %}
+                                        {% for notification in notifications %}
+                                        <div class="notification-message head-box">
+                                            <div class="message-content-box flex-grow-1 pe-2">
+                                                <a class="f-s-15 text-dark mb-0" href="{{ notification.get_absolute_url }}">
+                                                    {{ notification.message }}
+                                                </a>
+                                            </div>
+                                            <div class="text-end">
+                                                <i class="ph ph-trash f-s-18 text-danger close-btn"></i>
+                                                <div>
+                                                    <span class="badge text-light-primary">{{ notification.created_at|timesince }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    {% else %}
+                                        <div class="hidden-massage py-4 px-3">
+                                            <div>
+                                                <i class="ph-duotone ph-bell-ringing f-s-50 text-primary"></i>
+                                            </div>
+                                            <div>
+                                                <h6 class="mb-0">{% trans "Aucune notification" %}</h6>
+                                                <p class="text-dark">{% trans "Aucune notification pour le moment" %}</p>
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </li>
+
+                </ul>
+            </div>
+        </div>
+    </div>
+</header>
+<!-- Header Section ends -->

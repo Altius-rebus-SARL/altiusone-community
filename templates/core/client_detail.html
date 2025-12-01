@@ -1,0 +1,187 @@
+<!-- core/client_detail.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ client.raison_sociale }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <!-- Header -->
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h4 class="text-primary mb-1">{{ client.raison_sociale }}</h4>
+                        <p class="text-muted mb-0">{{ client.ide_number }}</p>
+                    </div>
+                    <div>
+                        <a href="{% url 'core:client-update' client.pk %}" class="btn btn-primary me-2">
+                            <i class="ti ti-edit me-2"></i>{% trans "Modifier" %}
+                        </a>
+                        <a href="{% url 'core:client-list' %}" class="btn btn-secondary">
+                            <i class="ti ti-arrow-left me-2"></i>{% trans "Retour" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <!-- Informations générales -->
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="text-primary mb-3">{% trans "Informations générales" %}</h5>
+                        
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">{% trans "Forme juridique" %}</span>
+                                <span class="f-w-500">{{ client.get_forme_juridique_display }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">{% trans "Statut" %}</span>
+                                <span class="badge bg-{{ client.statut|lower }}">{{ client.get_statut_display }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">{% trans "Date création" %}</span>
+                                <span class="f-w-500">{{ client.date_creation }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">{% trans "Email" %}</span>
+                                <span class="f-w-500">{{ client.email }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">{% trans "Téléphone" %}</span>
+                                <span class="f-w-500">{{ client.telephone }}</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistiques financières -->
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="text-primary mb-3">{% trans "Statistiques financières" %}</h5>
+                        
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="alert alert-primary text-center">
+                                    <h4 class="mb-0">{{ stats_financieres.ca_total|floatformat:2 }} CHF</h4>
+                                    <small>{% trans "CA total" %}</small>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="alert alert-success text-center">
+                                    <h4 class="mb-0">{{ stats_financieres.ca_annee_courante|floatformat:2 }} CHF</h4>
+                                    <small>{% trans "CA année courante" %}</small>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="alert alert-warning text-center">
+                                    <h4 class="mb-0">{{ stats_financieres.impaye|floatformat:2 }} CHF</h4>
+                                    <small>{% trans "Impayé" %}</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mandats -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="text-primary mb-0">{% trans "Mandats" %}</h5>
+                            <a href="{% url 'core:mandat-create' %}?client={{ client.pk }}" class="btn btn-sm btn-primary">
+                                <i class="ti ti-plus me-2"></i>{% trans "Nouveau mandat" %}
+                            </a>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>{% trans "Numéro" %}</th>
+                                        <th>{% trans "Type" %}</th>
+                                        <th>{% trans "Date début" %}</th>
+                                        <th>{% trans "Statut" %}</th>
+                                        <th>{% trans "Actions" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for mandat in mandats %}
+                                    <tr>
+                                        <td>
+                                            <a href="{% url 'core:mandat-detail' mandat.pk %}">
+                                                {{ mandat.numero }}
+                                            </a>
+                                        </td>
+                                        <td>{{ mandat.get_type_mandat_display }}</td>
+                                        <td>{{ mandat.date_debut }}</td>
+                                        <td>
+                                            <span class="badge bg-{{ mandat.statut|lower }}">
+                                                {{ mandat.get_statut_display }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <a href="{% url 'core:mandat-detail' mandat.pk %}" 
+                                               class="btn btn-sm btn-light-primary">
+                                                <i class="ti ti-eye"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="5" class="text-center py-3 text-muted">
+                                            {% trans "Aucun mandat" %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contacts -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="text-primary mb-3">{% trans "Contacts" %}</h5>
+                        
+                        <ul class="box-list">
+                            {% for contact in contacts %}
+                            <li class="d-flex align-items-center justify-content-between">
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-0 f-w-500">{{ contact.prenom }} {{ contact.nom }}</h6>
+                                    <p class="text-muted mb-0">{{ contact.get_fonction_display }}</p>
+                                </div>
+                                <div class="text-end">
+                                    <p class="mb-0">{{ contact.email }}</p>
+                                    <p class="mb-0 text-muted">{{ contact.telephone }}</p>
+                                </div>
+                            </li>
+                            {% empty %}
+                            <li class="text-center py-3 text-muted">
+                                {% trans "Aucun contact" %}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,3139 @@
+# comptabilite/admin.py
+from django.contrib import admin
+from .models import (
+    PlanComptable,
+    Compte,
+    Journal,
+    EcritureComptable,
+    PieceComptable,
+    Lettrage,
+)
+
+
+@admin.register(PlanComptable)
+class PlanComptableAdmin(admin.ModelAdmin):
+    list_display = ["nom", "type_plan", "mandat", "is_template"]
+    list_filter = ["type_plan", "is_template"]
+    search_fields = ["nom"]
+
+
+@admin.register(Compte)
+class CompteAdmin(admin.ModelAdmin):
+    list_display = ["numero", "libelle", "type_compte", "classe", "solde"]
+    list_filter = ["type_compte", "classe", "imputable"]
+    search_fields = ["numero", "libelle"]
+    ordering = ["numero"]
+
+
+@admin.register(Journal)
+class JournalAdmin(admin.ModelAdmin):
+    list_display = ["code", "libelle", "type_journal", "mandat"]
+    list_filter = ["type_journal"]
+    search_fields = ["code", "libelle"]
+
+
+@admin.register(EcritureComptable)
+class EcritureComptableAdmin(admin.ModelAdmin):
+    list_display = [
+        "numero_piece",
+        "date_ecriture",
+        "compte",
+        "libelle",
+        "montant_debit",
+        "montant_credit",
+        "statut",
+    ]
+    list_filter = ["statut", "journal"]
+    search_fields = ["numero_piece", "libelle"]
+    date_hierarchy = "date_ecriture"
+
+
+admin.site.register(PieceComptable)
+admin.site.register(Lettrage)
+# apps/comptabilite/urls.py
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .viewset import (
+    PlanComptableViewSet,
+    CompteViewSet,
+    JournalViewSet,
+    EcritureComptableViewSet,
+    PieceComptableViewSet,
+    LettrageViewSet,
+    RapportsViewSet,
+)
+
+app_name = "comptabilite"
+
+router = DefaultRouter()
+router.register(r"plans-comptables", PlanComptableViewSet, basename="plan-comptable")
+router.register(r"comptes", CompteViewSet, basename="compte")
+router.register(r"journaux", JournalViewSet, basename="journal")
+router.register(r"ecritures", EcritureComptableViewSet, basename="ecriture")
+router.register(r"pieces", PieceComptableViewSet, basename="piece")
+router.register(r"lettrages", LettrageViewSet, basename="lettrage")
+router.register(r"rapports", RapportsViewSet, basename="rapport")
+
+urlpatterns = [
+    path("", include(router.urls)),
+]
+
+"""
+API Endpoints:
+
+PLANS COMPTABLES:
+- GET    /api/v1/comptabilite/plans-comptables/          Liste plans comptables
+- POST   /api/v1/comptabilite/plans-comptables/          Créer plan comptable
+- GET    /api/v1/comptabilite/plans-comptables/{id}/     Détail plan
+- PUT    /api/v1/comptabilite/plans-comptables/{id}/     Modifier plan
+- DELETE /api/v1/comptabilite/plans-comptables/{id}/     Supprimer plan
+- GET    /api/v1/comptabilite/plans-comptables/templates/  Plans templates
+- POST   /api/v1/comptabilite/plans-comptables/{id}/dupliquer/  Dupliquer plan
+
+COMPTES:
+- GET    /api/v1/comptabilite/comptes/                   Liste des comptes
+- POST   /api/v1/comptabilite/comptes/                   Créer un compte
+- GET    /api/v1/comptabilite/comptes/{id}/              Détail compte
+- PUT    /api/v1/comptabilite/comptes/{id}/              Modifier compte
+- DELETE /api/v1/comptabilite/comptes/{id}/              Supprimer compte
+- GET    /api/v1/comptabilite/comptes/tree/              Arbre hiérarchique
+- GET    /api/v1/comptabilite/comptes/{id}/solde/        Solde détaillé
+
+JOURNAUX:
+- GET    /api/v1/comptabilite/journaux/                  Liste des journaux
+- POST   /api/v1/comptabilite/journaux/                  Créer un journal
+- GET    /api/v1/comptabilite/journaux/{id}/             Détail journal
+- PUT    /api/v1/comptabilite/journaux/{id}/             Modifier journal
+- DELETE /api/v1/comptabilite/journaux/{id}/             Supprimer journal
+- POST   /api/v1/comptabilite/journaux/{id}/generer_numero/  Générer n° pièce
+
+ÉCRITURES COMPTABLES:
+- GET    /api/v1/comptabilite/ecritures/                 Liste des écritures
+- POST   /api/v1/comptabilite/ecritures/                 Créer une écriture
+- GET    /api/v1/comptabilite/ecritures/{id}/            Détail écriture
+- PUT    /api/v1/comptabilite/ecritures/{id}/            Modifier écriture
+- DELETE /api/v1/comptabilite/ecritures/{id}/            Supprimer écriture
+- GET    /api/v1/comptabilite/ecritures/par_periode/     Écritures par période
+- POST   /api/v1/comptabilite/ecritures/{id}/valider/    Valider écriture
+- POST   /api/v1/comptabilite/ecritures/{id}/lettrer/    Lettrer écriture
+
+PIÈCES COMPTABLES:
+- GET    /api/v1/comptabilite/pieces/                    Liste des pièces
+- POST   /api/v1/comptabilite/pieces/                    Créer une pièce
+- GET    /api/v1/comptabilite/pieces/{id}/               Détail pièce
+- PUT    /api/v1/comptabilite/pieces/{id}/               Modifier pièce
+- DELETE /api/v1/comptabilite/pieces/{id}/               Supprimer pièce
+- POST   /api/v1/comptabilite/pieces/{id}/recalculer/    Recalculer équilibre
+
+LETTRAGES:
+- GET    /api/v1/comptabilite/lettrages/                 Liste des lettrages
+- POST   /api/v1/comptabilite/lettrages/                 Créer un lettrage
+- GET    /api/v1/comptabilite/lettrages/{id}/            Détail lettrage
+- DELETE /api/v1/comptabilite/lettrages/{id}/            Supprimer lettrage
+- GET    /api/v1/comptabilite/lettrages/{id}/ecritures/  Écritures lettrées
+
+RAPPORTS:
+- GET    /api/v1/comptabilite/rapports/balance/          Balance des comptes
+- GET    /api/v1/comptabilite/rapports/bilan/            Bilan
+- GET    /api/v1/comptabilite/rapports/compte_resultats/ Compte de résultats
+"""
+from django.apps import AppConfig
+
+
+class ComptabiliteConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'comptabilite'
+# comptabilite/filters.py
+import django_filters
+from django import forms
+from django.utils.translation import gettext_lazy as _
+from .models import Compte, EcritureComptable, PieceComptable, Journal, PlanComptable
+from core.models import Mandat
+
+
+# comptabilite/filters.py
+
+
+class PlanComptableFilter(django_filters.FilterSet):
+    """Filtres pour les plans comptables"""
+
+    nom = django_filters.CharFilter(
+        field_name="nom", lookup_expr="icontains", label=_("Rechercher")
+    )
+
+    type_plan = django_filters.ChoiceFilter(
+        choices=PlanComptable.TYPE_CHOICES,
+        label=_("Type de plan"),
+        empty_label=_("Type de plan"),
+    )
+
+    is_template = django_filters.ChoiceFilter(
+        choices=[
+            ("", _("Tous les plans")),
+            ("true", _("Templates uniquement")),
+            ("false", _("Instances uniquement")),
+        ],
+        label=_("Filtrer par type"),
+        empty_label=None,
+        method="filter_is_template",
+    )
+
+    class Meta:
+        model = PlanComptable
+        fields = ["nom", "type_plan", "is_template"]
+
+    def filter_is_template(self, queryset, name, value):
+        if value == "true":
+            return queryset.filter(is_template=True)
+        elif value == "false":
+            return queryset.filter(is_template=False)
+        return queryset
+    
+
+class CompteFilter(django_filters.FilterSet):
+    """Filtres pour les comptes"""
+
+    numero = django_filters.CharFilter(lookup_expr="icontains", label=_("Numéro"))
+
+    libelle = django_filters.CharFilter(lookup_expr="icontains", label=_("Libellé"))
+
+    type_compte = django_filters.ChoiceFilter(
+        choices=Compte.TYPE_COMPTE_CHOICES, label=_("Type de compte")
+    )
+
+    classe = django_filters.ChoiceFilter(
+        choices=Compte.CLASSE_CHOICES, label=_("Classe")
+    )
+
+    imputable = django_filters.BooleanFilter(
+        label=_("Imputable"), widget=forms.CheckboxInput()
+    )
+
+    lettrable = django_filters.BooleanFilter(
+        label=_("Lettrable"), widget=forms.CheckboxInput()
+    )
+
+    est_collectif = django_filters.BooleanFilter(
+        label=_("Collectif"), widget=forms.CheckboxInput()
+    )
+
+    class Meta:
+        model = Compte
+        fields = [
+            "numero",
+            "libelle",
+            "type_compte",
+            "classe",
+            "imputable",
+            "lettrable",
+            "est_collectif",
+        ]
+
+
+class EcritureComptableFilter(django_filters.FilterSet):
+    """Filtres pour les écritures comptables"""
+
+    mandat = django_filters.ModelChoiceFilter(
+        queryset=Mandat.objects.filter(statut="ACTIF"), label=_("Mandat")
+    )
+
+    journal = django_filters.ModelChoiceFilter(
+        queryset=Journal.objects.all(), label=_("Journal")
+    )
+
+    compte__numero = django_filters.CharFilter(
+        lookup_expr="icontains", label=_("Numéro de compte")
+    )
+
+    numero_piece = django_filters.CharFilter(
+        lookup_expr="icontains", label=_("Numéro de pièce")
+    )
+
+    libelle = django_filters.CharFilter(lookup_expr="icontains", label=_("Libellé"))
+
+    date_ecriture = django_filters.DateFromToRangeFilter(label=_("Date"))
+
+    statut = django_filters.ChoiceFilter(
+        choices=EcritureComptable.STATUT_CHOICES, label=_("Statut")
+    )
+
+    code_lettrage = django_filters.CharFilter(
+        lookup_expr="iexact", label=_("Code lettrage")
+    )
+
+    montant_min = django_filters.NumberFilter(
+        method="filter_montant_min", label=_("Montant minimum")
+    )
+
+    montant_max = django_filters.NumberFilter(
+        method="filter_montant_max", label=_("Montant maximum")
+    )
+
+    class Meta:
+        model = EcritureComptable
+        fields = [
+            "mandat",
+            "journal",
+            "compte__numero",
+            "numero_piece",
+            "libelle",
+            "date_ecriture",
+            "statut",
+            "code_lettrage",
+        ]
+
+    def filter_montant_min(self, queryset, name, value):
+        from django.db.models import Q
+
+        return queryset.filter(
+            Q(montant_debit__gte=value) | Q(montant_credit__gte=value)
+        )
+
+    def filter_montant_max(self, queryset, name, value):
+        from django.db.models import Q
+
+        return queryset.filter(
+            Q(montant_debit__lte=value) | Q(montant_credit__lte=value)
+        )
+
+
+class PieceComptableFilter(django_filters.FilterSet):
+    """Filtres pour les pièces comptables"""
+
+    mandat = django_filters.ModelChoiceFilter(
+        queryset=Mandat.objects.filter(statut="ACTIF"), label=_("Mandat")
+    )
+
+    journal = django_filters.ModelChoiceFilter(
+        queryset=Journal.objects.all(), label=_("Journal")
+    )
+
+    numero_piece = django_filters.CharFilter(
+        lookup_expr="icontains", label=_("Numéro de pièce")
+    )
+
+    libelle = django_filters.CharFilter(lookup_expr="icontains", label=_("Libellé"))
+
+    date_piece = django_filters.DateFromToRangeFilter(label=_("Date"))
+
+    equilibree = django_filters.BooleanFilter(
+        label=_("Équilibrée"), widget=forms.CheckboxInput()
+    )
+
+    statut = django_filters.ChoiceFilter(
+        choices=PieceComptable.STATUT_CHOICES, label=_("Statut")
+    )
+
+    class Meta:
+        model = PieceComptable
+        fields = [
+            "mandat",
+            "journal",
+            "numero_piece",
+            "libelle",
+            "date_piece",
+            "equilibree",
+            "statut",
+        ]
+# comptabilite/forms.py
+from django import forms
+from django.utils.translation import gettext_lazy as _
+from django.db.models import Q
+from decimal import Decimal
+from .models import (
+    PlanComptable,
+    Compte,
+    Journal,
+    EcritureComptable,
+    PieceComptable,
+    Lettrage,
+)
+from core.models import Mandat, ExerciceComptable
+
+
+class PlanComptableForm(forms.ModelForm):
+    """Formulaire pour un plan comptable"""
+
+    class Meta:
+        model = PlanComptable
+        fields = [
+            "nom_fr",
+            "nom_de",
+            "nom_it",
+            "nom_en",
+            "type_plan",
+            "description_fr",
+            "description_de",
+            "description_it",
+            "description_en",
+            "is_template",
+            "mandat",
+            "base_sur",
+        ]
+        widgets = {
+            "nom_fr": forms.TextInput(attrs={"class": "form-control"}),
+            "nom_de": forms.TextInput(attrs={"class": "form-control"}),
+            "nom_it": forms.TextInput(attrs={"class": "form-control"}),
+            "nom_en": forms.TextInput(attrs={"class": "form-control"}),
+            "type_plan": forms.Select(attrs={"class": "form-control select-basic"}),
+            "description_fr": forms.Textarea(
+                attrs={"class": "form-control", "rows": 3}
+            ),
+            "description_de": forms.Textarea(
+                attrs={"class": "form-control", "rows": 3}
+            ),
+            "description_it": forms.Textarea(
+                attrs={"class": "form-control", "rows": 3}
+            ),
+            "description_en": forms.Textarea(
+                attrs={"class": "form-control", "rows": 3}
+            ),
+            "is_template": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "mandat": forms.Select(attrs={"class": "form-control select2"}),
+            "base_sur": forms.Select(attrs={"class": "form-control select2"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Si c'est un template, pas de mandat
+        if self.instance and self.instance.is_template:
+            self.fields["mandat"].required = False
+
+        # Limiter les plans de base aux templates
+        self.fields["base_sur"].queryset = PlanComptable.objects.filter(
+            is_template=True
+        )
+
+
+class CompteForm(forms.ModelForm):
+    """Formulaire pour un compte"""
+
+    class Meta:
+        model = Compte
+        fields = [
+            "plan_comptable",
+            "numero",
+            "libelle_fr",
+            "libelle_de",
+            "libelle_it",
+            "libelle_en",
+            "libelle_court_fr",
+            "libelle_court_de",
+            "libelle_court_it",
+            "libelle_court_en",
+            "type_compte",
+            "classe",
+            "niveau",
+            "compte_parent",
+            "est_collectif",
+            "imputable",
+            "lettrable",
+            "obligatoire_tiers",
+            "soumis_tva",
+            "code_tva_defaut",
+        ]
+        widgets = {
+            "plan_comptable": forms.Select(attrs={"class": "form-control select2"}),
+            "numero": forms.TextInput(attrs={"class": "form-control"}),
+            "libelle_fr": forms.TextInput(attrs={"class": "form-control"}),
+            "libelle_de": forms.TextInput(attrs={"class": "form-control"}),
+            "libelle_it": forms.TextInput(attrs={"class": "form-control"}),
+            "libelle_en": forms.TextInput(attrs={"class": "form-control"}),
+            "libelle_court_fr": forms.TextInput(attrs={"class": "form-control"}),
+            "libelle_court_de": forms.TextInput(attrs={"class": "form-control"}),
+            "libelle_court_it": forms.TextInput(attrs={"class": "form-control"}),
+            "libelle_court_en": forms.TextInput(attrs={"class": "form-control"}),
+            "type_compte": forms.Select(attrs={"class": "form-control select-basic"}),
+            "classe": forms.Select(attrs={"class": "form-control select-basic"}),
+            "niveau": forms.NumberInput(attrs={"class": "form-control"}),
+            "compte_parent": forms.Select(attrs={"class": "form-control select2"}),
+            "est_collectif": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "imputable": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "lettrable": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "obligatoire_tiers": forms.CheckboxInput(
+                attrs={"class": "form-check-input"}
+            ),
+            "soumis_tva": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "code_tva_defaut": forms.TextInput(attrs={"class": "form-control"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Limiter les comptes parents au même plan
+        if self.instance and self.instance.plan_comptable:
+            self.fields["compte_parent"].queryset = Compte.objects.filter(
+                plan_comptable=self.instance.plan_comptable
+            ).exclude(pk=self.instance.pk)
+
+    def clean(self):
+        cleaned_data = super().clean()
+        # Validation du numéro de compte selon la classe
+        numero = cleaned_data.get("numero")
+        classe = cleaned_data.get("classe")
+
+        if numero and classe:
+            if not numero.startswith(str(classe)):
+                raise forms.ValidationError(
+                    _("Le numéro de compte doit commencer par le chiffre de la classe")
+                )
+
+        # Un compte collectif ne peut pas être imputable
+        if cleaned_data.get("est_collectif") and cleaned_data.get("imputable"):
+            raise forms.ValidationError(
+                _("Un compte collectif ne peut pas être imputable")
+            )
+
+        return cleaned_data
+
+
+class JournalForm(forms.ModelForm):
+    """Formulaire pour un journal"""
+
+    class Meta:
+        model = Journal
+        fields = [
+            "mandat",
+            "code",
+            "libelle",
+            "type_journal",
+            "compte_contrepartie_defaut",
+            "numerotation_auto",
+            "prefixe_piece",
+            "dernier_numero",
+        ]
+        widgets = {
+            "mandat": forms.Select(attrs={"class": "form-control select2"}),
+            "code": forms.TextInput(attrs={"class": "form-control"}),
+            "libelle": forms.TextInput(attrs={"class": "form-control"}),
+            "type_journal": forms.Select(attrs={"class": "form-control select-basic"}),
+            "compte_contrepartie_defaut": forms.Select(
+                attrs={"class": "form-control select2"}
+            ),
+            "numerotation_auto": forms.CheckboxInput(
+                attrs={"class": "form-check-input"}
+            ),
+            "prefixe_piece": forms.TextInput(attrs={"class": "form-control"}),
+            "dernier_numero": forms.NumberInput(attrs={"class": "form-control"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Limiter les comptes au plan du mandat
+        if self.instance and self.instance.mandat:
+            plan = self.instance.mandat.plans_comptables.first()
+            if plan:
+                self.fields[
+                    "compte_contrepartie_defaut"
+                ].queryset = Compte.objects.filter(plan_comptable=plan)
+
+
+class EcritureComptableForm(forms.ModelForm):
+    """Formulaire pour une écriture comptable"""
+
+    class Meta:
+        model = EcritureComptable
+        fields = [
+            "mandat",
+            "exercice",
+            "journal",
+            "numero_piece",
+            "numero_ligne",
+            "date_ecriture",
+            "date_valeur",
+            "date_echeance",
+            "compte",
+            "compte_auxiliaire",
+            "libelle",
+            "libelle_complement",
+            "montant_debit",
+            "montant_credit",
+            "devise",
+            "taux_change",
+            "code_tva",
+            "montant_tva",
+            "piece_justificative",
+        ]
+        widgets = {
+            "mandat": forms.Select(attrs={"class": "form-control select2"}),
+            "exercice": forms.Select(attrs={"class": "form-control select2"}),
+            "journal": forms.Select(attrs={"class": "form-control select2"}),
+            "numero_piece": forms.TextInput(attrs={"class": "form-control"}),
+            "numero_ligne": forms.NumberInput(attrs={"class": "form-control"}),
+            "date_ecriture": forms.DateInput(
+                attrs={"class": "form-control", "type": "date"}
+            ),
+            "date_valeur": forms.DateInput(
+                attrs={"class": "form-control", "type": "date"}
+            ),
+            "date_echeance": forms.DateInput(
+                attrs={"class": "form-control", "type": "date"}
+            ),
+            "compte": forms.Select(attrs={"class": "form-control select2"}),
+            "compte_auxiliaire": forms.TextInput(attrs={"class": "form-control"}),
+            "libelle": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+            "libelle_complement": forms.TextInput(attrs={"class": "form-control"}),
+            "montant_debit": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01"}
+            ),
+            "montant_credit": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01"}
+            ),
+            "devise": forms.TextInput(attrs={"class": "form-control"}),
+            "taux_change": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.000001"}
+            ),
+            "code_tva": forms.TextInput(attrs={"class": "form-control"}),
+            "montant_tva": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01"}
+            ),
+            "piece_justificative": forms.Select(
+                attrs={"class": "form-control select2"}
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Limiter les choix selon le mandat - SEULEMENT si l'instance a un PK (modification)
+        if self.instance.pk:
+            try:
+                mandat = self.instance.mandat
+
+                # Exercices du mandat
+                self.fields["exercice"].queryset = ExerciceComptable.objects.filter(
+                    mandat=mandat
+                )
+
+                # Journaux du mandat
+                self.fields["journal"].queryset = Journal.objects.filter(mandat=mandat)
+
+                # Comptes du plan
+                plan = mandat.plans_comptables.first()
+                if plan:
+                    self.fields["compte"].queryset = Compte.objects.filter(
+                        plan_comptable=plan, imputable=True
+                    ).order_by("numero")
+
+                # Documents du mandat
+                from documents.models import Document
+
+                self.fields["piece_justificative"].queryset = Document.objects.filter(
+                    mandat=mandat
+                )
+            except:
+                # Si pas de mandat, laisser les querysets par défaut
+                pass
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        # Validation: soit débit, soit crédit (pas les deux)
+        debit = cleaned_data.get("montant_debit", Decimal("0"))
+        credit = cleaned_data.get("montant_credit", Decimal("0"))
+
+        if debit > 0 and credit > 0:
+            raise forms.ValidationError(
+                _("Une écriture ne peut pas avoir un montant au débit ET au crédit")
+            )
+
+        if debit == 0 and credit == 0:
+            raise forms.ValidationError(
+                _("Une écriture doit avoir un montant (débit ou crédit)")
+            )
+
+        # Vérifier que la date est dans l'exercice
+        date_ecriture = cleaned_data.get("date_ecriture")
+        exercice = cleaned_data.get("exercice")
+
+        if date_ecriture and exercice:
+            if not (exercice.date_debut <= date_ecriture <= exercice.date_fin):
+                raise forms.ValidationError(
+                    _(
+                        "La date de l'écriture doit être comprise dans l'exercice comptable"
+                    )
+                )
+
+        # Validation compte auxiliaire si obligatoire
+        compte = cleaned_data.get("compte")
+        compte_auxiliaire = cleaned_data.get("compte_auxiliaire")
+
+        if compte and compte.obligatoire_tiers and not compte_auxiliaire:
+            raise forms.ValidationError(
+                _("Un compte auxiliaire est obligatoire pour ce compte")
+            )
+
+        return cleaned_data
+
+
+class PieceComptableForm(forms.ModelForm):
+    """Formulaire pour une pièce comptable"""
+
+    class Meta:
+        model = PieceComptable
+        fields = ["mandat", "journal", "numero_piece", "date_piece", "libelle"]
+        widgets = {
+            "mandat": forms.Select(attrs={"class": "form-control select2"}),
+            "journal": forms.Select(attrs={"class": "form-control select2"}),
+            "numero_piece": forms.TextInput(attrs={"class": "form-control"}),
+            "date_piece": forms.DateInput(
+                attrs={"class": "form-control", "type": "date"}
+            ),
+            "libelle": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+        }
+
+
+class LettrageForm(forms.ModelForm):
+    """Formulaire pour un lettrage"""
+
+    class Meta:
+        model = Lettrage
+        fields = ["mandat", "compte", "code_lettrage", "montant_total", "date_lettrage"]
+        widgets = {
+            "mandat": forms.Select(attrs={"class": "form-control select2"}),
+            "compte": forms.Select(attrs={"class": "form-control select2"}),
+            "code_lettrage": forms.TextInput(attrs={"class": "form-control"}),
+            "montant_total": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01"}
+            ),
+            "date_lettrage": forms.DateInput(
+                attrs={"class": "form-control", "type": "date"}
+            ),
+        }
+
+
+class SaisieRapideForm(forms.Form):
+    """Formulaire de saisie rapide d'écritures (OD)"""
+
+    mandat = forms.ModelChoiceField(
+        queryset=Mandat.objects.filter(statut="ACTIF"),
+        label=_("Mandat"),
+        widget=forms.Select(attrs={"class": "form-control select2"}),
+    )
+
+    date_ecriture = forms.DateField(
+        label=_("Date"),
+        widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+    )
+
+    libelle = forms.CharField(
+        label=_("Libellé"), widget=forms.TextInput(attrs={"class": "form-control"})
+    )
+
+    # Ligne 1 (débit)
+    compte_debit = forms.ModelChoiceField(
+        queryset=Compte.objects.none(),
+        label=_("Compte au débit"),
+        widget=forms.Select(attrs={"class": "form-control select2"}),
+    )
+    montant_debit = forms.DecimalField(
+        label=_("Montant débit"),
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.01"}),
+    )
+
+    # Ligne 2 (crédit)
+    compte_credit = forms.ModelChoiceField(
+        queryset=Compte.objects.none(),
+        label=_("Compte au crédit"),
+        widget=forms.Select(attrs={"class": "form-control select2"}),
+    )
+    montant_credit = forms.DecimalField(
+        label=_("Montant crédit"),
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.01"}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop("user", None)
+        super().__init__(*args, **kwargs)
+
+        # Limiter les mandats selon l'utilisateur
+        if user and user.role not in ["ADMIN", "MANAGER"]:
+            self.fields["mandat"].queryset = Mandat.objects.filter(
+                Q(responsable=user) | Q(equipe=user), statut="ACTIF"
+            ).distinct()
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        # Vérifier l'équilibre
+        debit = cleaned_data.get("montant_debit", Decimal("0"))
+        credit = cleaned_data.get("montant_credit", Decimal("0"))
+
+        if debit != credit:
+            raise forms.ValidationError(
+                _("Les montants doivent être équilibrés (débit = crédit)")
+            )
+
+        return cleaned_data
+
+
+class ImportEcrituresForm(forms.Form):
+    """Formulaire d'import d'écritures depuis un fichier"""
+
+    SEPARATEUR_CHOICES = [
+        (",", _("Virgule")),
+        (";", _("Point-virgule")),
+        ("\t", _("Tabulation")),
+    ]
+
+    mandat = forms.ModelChoiceField(
+        queryset=Mandat.objects.filter(statut="ACTIF"),
+        label=_("Mandat"),
+        widget=forms.Select(attrs={"class": "form-control select2"}),
+    )
+
+    fichier = forms.FileField(
+        label=_("Fichier CSV"),
+        help_text=_("Format attendu: date;journal;compte;libelle;debit;credit"),
+        widget=forms.FileInput(attrs={"class": "form-control"}),
+    )
+
+    separateur = forms.ChoiceField(
+        choices=SEPARATEUR_CHOICES,
+        initial=";",
+        label=_("Séparateur"),
+        widget=forms.Select(attrs={"class": "form-control select-basic"}),
+    )
+
+    premiere_ligne_entete = forms.BooleanField(
+        required=False,
+        initial=True,
+        label=_("La première ligne contient les en-têtes"),
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
+    )
+# apps/comptabilite/models.py
+from django.db import models
+from core.models import BaseModel, Mandat, User, ExerciceComptable
+from decimal import Decimal
+
+
+class PlanComptable(BaseModel):
+    """Plan comptable de référence"""
+
+    TYPE_CHOICES = [
+        ('PME', 'Plan comptable PME'),
+        ('GENERAL', 'Plan comptable général'),
+        ('ENTREPRISE', 'Plan comptable entreprise'),
+        ('PERSONNALISE', 'Personnalisé'),
+        ('OHADA', 'Plan comptable OHADA'),
+        ('SWISSGAAP', 'Plan comptable Swiss GAAP') ,
+    ]
+
+    nom = models.CharField(max_length=300)
+    type_plan = models.CharField(max_length=20, choices=TYPE_CHOICES)
+    description = models.TextField(blank=True)
+
+    # Template de base ou instance spécifique
+    is_template = models.BooleanField(default=False, db_index=True)
+    mandat = models.ForeignKey(Mandat, on_delete=models.CASCADE,
+                               related_name='plans_comptables',
+                               null=True, blank=True)
+    base_sur = models.ForeignKey('self', on_delete=models.SET_NULL,
+                                 null=True, blank=True,
+                                 related_name='derives')
+
+    class Meta:
+        db_table = 'plans_comptables'
+        verbose_name = 'Plan comptable'
+
+    def __str__(self):
+        return f"{self.nom} ({self.get_type_plan_display()})"
+
+
+class Compte(BaseModel):
+    """Compte du plan comptable"""
+
+    TYPE_COMPTE_CHOICES = [
+        ('ACTIF', 'Actif'),
+        ('PASSIF', 'Passif'),
+        ('CHARGE', 'Charge'),
+        ('PRODUIT', 'Produit'),
+    ]
+
+    CLASSE_CHOICES = [
+        (1, 'Classe 1 - Actifs circulants'),
+        (2, 'Classe 2 - Actifs immobilisés'),
+        (3, 'Classe 3 - Capitaux de tiers à court terme'),
+        (4, 'Classe 4 - Capitaux de tiers à long terme'),
+        (5, 'Classe 5 - Capitaux propres'),
+        (6, 'Classe 6 - Charges'),
+        (7, 'Classe 7 - Produits'),
+        (8, 'Classe 8 - Résultats'),
+        (9, 'Classe 9 - Comptes de bouclements'),
+    ]
+
+    plan_comptable = models.ForeignKey(PlanComptable, on_delete=models.CASCADE,
+                                       related_name='comptes')
+
+    # Numérotation
+    numero = models.CharField(max_length=20, db_index=True)
+    libelle = models.CharField(max_length=255)
+    libelle_court = models.CharField(max_length=100, blank=True)
+
+    # Classification
+    type_compte = models.CharField(max_length=10, choices=TYPE_COMPTE_CHOICES)
+    classe = models.IntegerField(choices=CLASSE_CHOICES)
+    niveau = models.IntegerField(default=1, help_text="Niveau hiérarchique")
+
+    # Hiérarchie
+    compte_parent = models.ForeignKey('self', on_delete=models.CASCADE,
+                                      null=True, blank=True,
+                                      related_name='sous_comptes')
+
+    # Propriétés
+    est_collectif = models.BooleanField(default=False, help_text="Compte collectif (total)")
+    imputable = models.BooleanField(default=True, help_text="Peut recevoir des écritures")
+    lettrable = models.BooleanField(default=False, help_text="Lettrage possible")
+    obligatoire_tiers = models.BooleanField(default=False)
+
+    # TVA
+    soumis_tva = models.BooleanField(default=False)
+    code_tva_defaut = models.CharField(max_length=10, blank=True,
+                                       help_text="Code TVA par défaut (200, 205, etc.)")
+
+    # Soldes
+    solde_debit = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    solde_credit = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+
+    class Meta:
+        db_table = 'comptes'
+        verbose_name = 'Compte'
+        unique_together = [['plan_comptable', 'numero']]
+        ordering = ['numero']
+        indexes = [
+            models.Index(fields=['plan_comptable', 'numero']),
+            models.Index(fields=['type_compte', 'classe']),
+        ]
+
+    def __str__(self):
+        return f"{self.numero} - {self.libelle}"
+
+    @property
+    def solde(self):
+        """Calcul du solde"""
+        if self.type_compte in ['ACTIF', 'CHARGE']:
+            return self.solde_debit - self.solde_credit
+        else:  # PASSIF, PRODUIT
+            return self.solde_credit - self.solde_debit
+
+    def get_solde_display(self):
+        """Affichage du solde avec signe"""
+        solde = self.solde
+        if solde >= 0:
+            return f"{solde:,.2f} CHF"
+        else:
+            return f"-{abs(solde):,.2f} CHF"
+
+
+class Journal(BaseModel):
+    """Journal comptable"""
+
+    TYPE_CHOICES = [
+        ('VTE', 'Ventes'),
+        ('ACH', 'Achats'),
+        ('BNQ', 'Banque'),
+        ('CAS', 'Caisse'),
+        ('OD', 'Opérations diverses'),
+        ('ANO', 'A-nouveaux'),
+        ('EXT', 'Extourne'),
+    ]
+
+    mandat = models.ForeignKey(Mandat, on_delete=models.CASCADE, related_name='journaux')
+
+    code = models.CharField(max_length=10, db_index=True)
+    libelle = models.CharField(max_length=100)
+    type_journal = models.CharField(max_length=10, choices=TYPE_CHOICES)
+
+    compte_contrepartie_defaut = models.ForeignKey(Compte, on_delete=models.SET_NULL,
+                                                   null=True, blank=True,
+                                                   related_name='+')
+
+    numerotation_auto = models.BooleanField(default=True)
+    prefixe_piece = models.CharField(max_length=10, blank=True)
+    dernier_numero = models.IntegerField(default=0)
+
+    class Meta:
+        db_table = 'journaux'
+        verbose_name = 'Journal'
+        unique_together = [['mandat', 'code']]
+        ordering = ['code']
+
+    def __str__(self):
+        return f"{self.code} - {self.libelle}"
+
+    def get_next_numero(self):
+        """Génère le prochain numéro de pièce"""
+        self.dernier_numero += 1
+        self.save(update_fields=['dernier_numero'])
+        return f"{self.prefixe_piece}{self.dernier_numero:05d}"
+
+
+class EcritureComptable(BaseModel):
+    """Écriture comptable (ligne)"""
+
+    STATUT_CHOICES = [
+        ('BROUILLON', 'Brouillon'),
+        ('VALIDE', 'Validée'),
+        ('LETTRE', 'Lettrée'),
+        ('CLOTURE', 'Clôturée'),
+        ('EXTOURNE', 'Extournée'),
+    ]
+
+    # Identification
+    mandat = models.ForeignKey(Mandat, on_delete=models.CASCADE,
+                               related_name='ecritures')
+    exercice = models.ForeignKey(ExerciceComptable, on_delete=models.PROTECT,
+                                 related_name='ecritures')
+    journal = models.ForeignKey(Journal, on_delete=models.PROTECT)
+
+    numero_piece = models.CharField(max_length=50, db_index=True)
+    numero_ligne = models.IntegerField(default=1)
+
+    # Dates
+    date_ecriture = models.DateField(db_index=True)
+    date_valeur = models.DateField(null=True, blank=True)
+    date_echeance = models.DateField(null=True, blank=True)
+
+    # Comptes
+    compte = models.ForeignKey(Compte, on_delete=models.PROTECT,
+                               related_name='ecritures')
+    compte_auxiliaire = models.CharField(max_length=50, blank=True)
+
+    # Libellé
+    libelle = models.TextField()
+    libelle_complement = models.CharField(max_length=255, blank=True)
+
+    # Montants
+    montant_debit = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    montant_credit = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    devise = models.CharField(max_length=3, default='CHF')
+    taux_change = models.DecimalField(max_digits=10, decimal_places=6, default=1)
+
+    # TVA
+    code_tva = models.CharField(max_length=10, blank=True)
+    montant_tva = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+
+    # Lettrage
+    code_lettrage = models.CharField(max_length=20, blank=True, db_index=True)
+    date_lettrage = models.DateField(null=True, blank=True)
+
+    # Statut et validation
+    statut = models.CharField(max_length=20, choices=STATUT_CHOICES,
+                              default='BROUILLON', db_index=True)
+    valide_par = models.ForeignKey(User, on_delete=models.SET_NULL,
+                                   null=True, related_name='+')
+    date_validation = models.DateTimeField(null=True, blank=True)
+
+    # Document justificatif
+    piece_justificative = models.ForeignKey('documents.Document',
+                                            on_delete=models.SET_NULL,
+                                            null=True, blank=True,
+                                            related_name='ecritures')
+
+    # Extourne
+    ecriture_extournee = models.ForeignKey('self', on_delete=models.SET_NULL,
+                                           null=True, blank=True,
+                                           related_name='extournes')
+
+    class Meta:
+        db_table = 'ecritures_comptables'
+        verbose_name = 'Écriture comptable'
+        ordering = ['date_ecriture', 'numero_piece', 'numero_ligne']
+        indexes = [
+            models.Index(fields=['mandat', 'date_ecriture']),
+            models.Index(fields=['compte', 'date_ecriture']),
+            models.Index(fields=['numero_piece']),
+            models.Index(fields=['code_lettrage']),
+            models.Index(fields=['statut']),
+        ]
+
+    def __str__(self):
+        return f"{self.numero_piece}-{self.numero_ligne} - {self.libelle[:50]}"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        # Une écriture doit être soit au débit, soit au crédit
+        if self.montant_debit and self.montant_credit:
+            raise ValidationError("Une écriture ne peut pas avoir débit ET crédit")
+
+        if not self.montant_debit and not self.montant_credit:
+            raise ValidationError("Une écriture doit avoir un montant")
+
+    @property
+    def sens(self):
+        return 'D' if self.montant_debit > 0 else 'C'
+
+    @property
+    def montant(self):
+        return self.montant_debit if self.montant_debit > 0 else self.montant_credit
+
+
+# comptabilite/models.py - Modifier la classe PieceComptable
+
+
+class PieceComptable(BaseModel):
+    """Regroupement d'écritures (pièce comptable)"""
+
+    STATUT_CHOICES = [
+        ("BROUILLON", "Brouillon"),
+        ("VALIDE", "Validé"),
+        ("COMPTABILISE", "Comptabilisé"),
+    ]
+
+    mandat = models.ForeignKey(Mandat, on_delete=models.CASCADE)
+    journal = models.ForeignKey(Journal, on_delete=models.PROTECT)
+    numero_piece = models.CharField(max_length=50, unique=True, db_index=True)
+    date_piece = models.DateField(db_index=True)
+    libelle = models.TextField()
+
+    # Totaux (dénormalisé pour perf)
+    total_debit = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    total_credit = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    equilibree = models.BooleanField(default=True, db_index=True)
+
+    statut = models.CharField(
+        max_length=20, choices=STATUT_CHOICES, default="BROUILLON", db_index=True
+    )
+
+    class Meta:
+        db_table = "pieces_comptables"
+        verbose_name = "Pièce comptable"
+        verbose_name_plural = "Pièces comptables"
+        ordering = ["-date_piece", "numero_piece"]
+        indexes = [
+            models.Index(fields=["mandat", "date_piece"]),
+            models.Index(fields=["journal", "date_piece"]),
+        ]
+
+    def __str__(self):
+        return f"{self.numero_piece} - {self.date_piece}"
+
+    def calculer_equilibre(self):
+        """Vérifie l'équilibre débit/crédit"""
+        ecritures = self.mandat.ecritures.filter(numero_piece=self.numero_piece)
+        self.total_debit = sum(e.montant_debit for e in ecritures)
+        self.total_credit = sum(e.montant_credit for e in ecritures)
+        self.equilibree = self.total_debit == self.total_credit
+        self.save()
+        return self.equilibree
+
+
+class Lettrage(BaseModel):
+    """Lettrage de comptes (rapprochement)"""
+    STATUT_CHOICES = [
+        ("ACTIF", "Actif"),
+        ("ANNULE", "Annulé"),
+    ]
+
+    mandat = models.ForeignKey(Mandat, on_delete=models.CASCADE)
+    compte = models.ForeignKey(Compte, on_delete=models.PROTECT)
+    code_lettrage = models.CharField(max_length=20, unique=True)
+
+    montant_total = models.DecimalField(max_digits=15, decimal_places=2)
+    solde = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+
+    date_lettrage = models.DateField()
+    lettre_par = models.ForeignKey(User, on_delete=models.PROTECT)
+
+    complet = models.BooleanField(default=False)
+
+    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default="ACTIF")
+
+    class Meta:
+        db_table = "lettrages"
+        verbose_name = "Lettrage"
+        verbose_name_plural = "Lettrages"
+        unique_together = [["mandat", "compte", "code_lettrage"]]
+
+    def __str__(self):
+        return f"{self.code_lettrage} - {self.compte.numero}"# comptabilite/serializers.py
+from rest_framework import serializers
+from decimal import Decimal
+from .models import (
+    PlanComptable,
+    Compte,
+    Journal,
+    EcritureComptable,
+    PieceComptable,
+    Lettrage,
+)
+from core.serializers import MandatListSerializer, UserSerializer
+
+
+class PlanComptableSerializer(serializers.ModelSerializer):
+    """Serializer pour les plans comptables"""
+
+    type_plan_display = serializers.CharField(
+        source="get_type_plan_display", read_only=True
+    )
+    mandat_numero = serializers.CharField(source="mandat.numero", read_only=True)
+    nombre_comptes = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PlanComptable
+        fields = [
+            "id",
+            "nom",
+            "type_plan",
+            "type_plan_display",
+            "description",
+            "is_template",
+            "mandat",
+            "mandat_numero",
+            "base_sur",
+            "nombre_comptes",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_nombre_comptes(self, obj):
+        return obj.comptes.count()
+
+
+class CompteListSerializer(serializers.ModelSerializer):
+    """Serializer léger pour liste de comptes"""
+
+    type_compte_display = serializers.CharField(
+        source="get_type_compte_display", read_only=True
+    )
+    classe_display = serializers.CharField(source="get_classe_display", read_only=True)
+    solde_formatted = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Compte
+        fields = [
+            "id",
+            "numero",
+            "libelle",
+            "libelle_court",
+            "type_compte",
+            "type_compte_display",
+            "classe",
+            "classe_display",
+            "niveau",
+            "est_collectif",
+            "imputable",
+            "solde_debit",
+            "solde_credit",
+            "solde_formatted",
+        ]
+
+    def get_solde_formatted(self, obj):
+        return obj.get_solde_display()
+
+
+class CompteDetailSerializer(serializers.ModelSerializer):
+    """Serializer détaillé pour un compte"""
+
+    type_compte_display = serializers.CharField(
+        source="get_type_compte_display", read_only=True
+    )
+    classe_display = serializers.CharField(source="get_classe_display", read_only=True)
+    plan_comptable_nom = serializers.CharField(
+        source="plan_comptable.nom", read_only=True
+    )
+    compte_parent_libelle = serializers.CharField(
+        source="compte_parent.libelle", read_only=True
+    )
+    solde_formatted = serializers.SerializerMethodField()
+    sous_comptes_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Compte
+        fields = "__all__"
+
+    def get_solde_formatted(self, obj):
+        return obj.get_solde_display()
+
+    def get_sous_comptes_count(self, obj):
+        return obj.sous_comptes.count()
+
+
+class JournalSerializer(serializers.ModelSerializer):
+    """Serializer pour les journaux"""
+
+    type_journal_display = serializers.CharField(
+        source="get_type_journal_display", read_only=True
+    )
+    mandat_numero = serializers.CharField(source="mandat.numero", read_only=True)
+    compte_contrepartie = CompteListSerializer(
+        source="compte_contrepartie_defaut", read_only=True
+    )
+
+    class Meta:
+        model = Journal
+        fields = [
+            "id",
+            "mandat",
+            "mandat_numero",
+            "code",
+            "libelle",
+            "type_journal",
+            "type_journal_display",
+            "compte_contrepartie",
+            "numerotation_auto",
+            "prefixe_piece",
+            "dernier_numero",
+            "created_at",
+            "updated_at",
+        ]
+
+
+class EcritureComptableListSerializer(serializers.ModelSerializer):
+    """Serializer léger pour liste d'écritures"""
+
+    statut_display = serializers.CharField(source="get_statut_display", read_only=True)
+    compte_numero = serializers.CharField(source="compte.numero", read_only=True)
+    compte_libelle = serializers.CharField(source="compte.libelle", read_only=True)
+    journal_code = serializers.CharField(source="journal.code", read_only=True)
+    sens = serializers.CharField(read_only=True)
+    montant = serializers.DecimalField(max_digits=15, decimal_places=2, read_only=True)
+
+    class Meta:
+        model = EcritureComptable
+        fields = [
+            "id",
+            "numero_piece",
+            "numero_ligne",
+            "date_ecriture",
+            "journal",
+            "journal_code",
+            "compte",
+            "compte_numero",
+            "compte_libelle",
+            "libelle",
+            "montant_debit",
+            "montant_credit",
+            "sens",
+            "montant",
+            "code_lettrage",
+            "statut",
+            "statut_display",
+            "created_at",
+        ]
+
+
+class EcritureComptableDetailSerializer(serializers.ModelSerializer):
+    """Serializer détaillé pour une écriture"""
+
+    statut_display = serializers.CharField(source="get_statut_display", read_only=True)
+    mandat = MandatListSerializer(read_only=True)
+    journal = JournalSerializer(read_only=True)
+    compte = CompteDetailSerializer(read_only=True)
+    valide_par_name = serializers.CharField(
+        source="valide_par.get_full_name", read_only=True
+    )
+    sens = serializers.CharField(read_only=True)
+    montant = serializers.DecimalField(max_digits=15, decimal_places=2, read_only=True)
+
+    class Meta:
+        model = EcritureComptable
+        fields = "__all__"
+
+
+class EcritureComptableCreateSerializer(serializers.ModelSerializer):
+    """Serializer pour créer une écriture"""
+
+    class Meta:
+        model = EcritureComptable
+        fields = [
+            "mandat",
+            "exercice",
+            "journal",
+            "numero_piece",
+            "numero_ligne",
+            "date_ecriture",
+            "date_valeur",
+            "date_echeance",
+            "compte",
+            "compte_auxiliaire",
+            "libelle",
+            "libelle_complement",
+            "montant_debit",
+            "montant_credit",
+            "devise",
+            "taux_change",
+            "code_tva",
+            "montant_tva",
+            "piece_justificative",
+        ]
+
+    def validate(self, attrs):
+        # Vérifier qu'une écriture a soit débit soit crédit
+        if attrs.get("montant_debit", 0) and attrs.get("montant_credit", 0):
+            raise serializers.ValidationError(
+                "Une écriture ne peut pas avoir à la fois un débit et un crédit"
+            )
+
+        if not attrs.get("montant_debit", 0) and not attrs.get("montant_credit", 0):
+            raise serializers.ValidationError(
+                "Une écriture doit avoir soit un débit soit un crédit"
+            )
+
+        return attrs
+
+
+class PieceComptableSerializer(serializers.ModelSerializer):
+    """Serializer pour les pièces comptables"""
+
+    mandat_numero = serializers.CharField(source="mandat.numero", read_only=True)
+    journal = JournalSerializer(read_only=True)
+    ecritures = EcritureComptableListSerializer(
+        many=True, read_only=True, source="mandat.ecritures"
+    )
+    nombre_ecritures = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PieceComptable
+        fields = [
+            "id",
+            "mandat",
+            "mandat_numero",
+            "journal",
+            "numero_piece",
+            "date_piece",
+            "libelle",
+            "total_debit",
+            "total_credit",
+            "equilibree",
+            "statut",
+            "ecritures",
+            "nombre_ecritures",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_nombre_ecritures(self, obj):
+        return obj.mandat.ecritures.filter(numero_piece=obj.numero_piece).count()
+
+
+class LettrageSerializer(serializers.ModelSerializer):
+    """Serializer pour les lettrages"""
+
+    mandat_numero = serializers.CharField(source="mandat.numero", read_only=True)
+    compte = CompteListSerializer(read_only=True)
+    lettre_par_name = serializers.CharField(
+        source="lettre_par.get_full_name", read_only=True
+    )
+    nombre_ecritures = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Lettrage
+        fields = [
+            "id",
+            "mandat",
+            "mandat_numero",
+            "compte",
+            "code_lettrage",
+            "montant_total",
+            "solde",
+            "date_lettrage",
+            "lettre_par",
+            "lettre_par_name",
+            "complet",
+            "nombre_ecritures",
+            "created_at",
+        ]
+
+    def get_nombre_ecritures(self, obj):
+        return EcritureComptable.objects.filter(code_lettrage=obj.code_lettrage).count()
+
+
+class BalanceSerializer(serializers.Serializer):
+    """Serializer pour la balance comptable"""
+
+    compte = CompteListSerializer()
+    solde_debit_initial = serializers.DecimalField(max_digits=15, decimal_places=2)
+    solde_credit_initial = serializers.DecimalField(max_digits=15, decimal_places=2)
+    mouvements_debit = serializers.DecimalField(max_digits=15, decimal_places=2)
+    mouvements_credit = serializers.DecimalField(max_digits=15, decimal_places=2)
+    solde_debit_final = serializers.DecimalField(max_digits=15, decimal_places=2)
+    solde_credit_final = serializers.DecimalField(max_digits=15, decimal_places=2)
+    solde = serializers.DecimalField(max_digits=15, decimal_places=2)
+
+
+class BilanSerializer(serializers.Serializer):
+    """Serializer pour le bilan"""
+
+    actif_circulant = serializers.DecimalField(max_digits=15, decimal_places=2)
+    actif_immobilise = serializers.DecimalField(max_digits=15, decimal_places=2)
+    total_actif = serializers.DecimalField(max_digits=15, decimal_places=2)
+
+    capitaux_tiers_ct = serializers.DecimalField(max_digits=15, decimal_places=2)
+    capitaux_tiers_lt = serializers.DecimalField(max_digits=15, decimal_places=2)
+    capitaux_propres = serializers.DecimalField(max_digits=15, decimal_places=2)
+    total_passif = serializers.DecimalField(max_digits=15, decimal_places=2)
+
+    details = serializers.JSONField()
+
+
+class CompteResultatsSerializer(serializers.Serializer):
+    """Serializer pour le compte de résultats"""
+
+    produits_exploitation = serializers.DecimalField(max_digits=15, decimal_places=2)
+    charges_exploitation = serializers.DecimalField(max_digits=15, decimal_places=2)
+    resultat_exploitation = serializers.DecimalField(max_digits=15, decimal_places=2)
+
+    produits_financiers = serializers.DecimalField(max_digits=15, decimal_places=2)
+    charges_financieres = serializers.DecimalField(max_digits=15, decimal_places=2)
+    resultat_financier = serializers.DecimalField(max_digits=15, decimal_places=2)
+
+    resultat_avant_impots = serializers.DecimalField(max_digits=15, decimal_places=2)
+    impots = serializers.DecimalField(max_digits=15, decimal_places=2)
+    resultat_net = serializers.DecimalField(max_digits=15, decimal_places=2)
+
+    details = serializers.JSONField()
+# apps/comptabilite/signals.py
+from django.db.models.signals import post_save, pre_save
+from django.dispatch import receiver
+from .models import EcritureComptable, Compte, PieceComptable
+
+
+@receiver(pre_save, sender=EcritureComptable)
+def valider_ecriture(sender, instance, **kwargs):
+    """Validation avant sauvegarde d'une écriture"""
+    from django.core.exceptions import ValidationError
+
+    # Une écriture doit être soit au débit, soit au crédit
+    if instance.montant_debit > 0 and instance.montant_credit > 0:
+        raise ValidationError("Une écriture ne peut pas avoir débit ET crédit")
+
+    if instance.montant_debit == 0 and instance.montant_credit == 0:
+        raise ValidationError("Une écriture doit avoir un montant")
+
+
+@receiver(post_save, sender=EcritureComptable)
+def mettre_a_jour_soldes(sender, instance, created, **kwargs):
+    """Met à jour les soldes des comptes après une écriture"""
+    if instance.statut == 'VALIDE':
+        compte = instance.compte
+
+        # Recalculer les soldes
+        ecritures_validees = EcritureComptable.objects.filter(
+            compte=compte,
+            statut__in=['VALIDE', 'LETTRE', 'CLOTURE']
+        )
+
+        compte.solde_debit = sum(e.montant_debit for e in ecritures_validees)
+        compte.solde_credit = sum(e.montant_credit for e in ecritures_validees)
+        compte.save(update_fields=['solde_debit', 'solde_credit'])
+
+
+@receiver(post_save, sender=EcritureComptable)
+def verifier_equilibre_piece(sender, instance, **kwargs):
+    """Vérifie l'équilibre de la pièce comptable"""
+    if instance.numero_piece:
+        piece, created = PieceComptable.objects.get_or_create(
+            mandat=instance.mandat,
+            numero_piece=instance.numero_piece,
+            defaults={
+                'journal': instance.journal,
+                'date_piece': instance.date_ecriture,
+                'libelle': instance.libelle,
+                'statut': 'BROUILLON'
+            }
+        )
+        piece.calculer_equilibre()
+
+
+@receiver(post_save, sender=EcritureComptable)
+def creer_operation_tva(sender, instance, created, **kwargs):
+    """Crée automatiquement une opération TVA si code TVA présent"""
+    if created and instance.code_tva and instance.montant_tva > 0:
+        from tva.models import OperationTVA, CodeTVA
+
+        code_tva_obj = CodeTVA.objects.filter(code=instance.code_tva).first()
+        if code_tva_obj:
+            type_op = 'VENTE' if instance.montant_credit > 0 else 'ACHAT'
+            montant_base = instance.montant_credit or instance.montant_debit
+
+            OperationTVA.objects.create(
+                mandat=instance.mandat,
+                ecriture_comptable=instance,
+                date_operation=instance.date_ecriture,
+                type_operation=type_op,
+                montant_ht=montant_base,
+                code_tva=code_tva_obj,
+                taux_tva=Decimal(instance.code_tva.split('_')[-1]) if '_' in instance.code_tva else Decimal('8.1'),
+                montant_tva=instance.montant_tva,
+                montant_ttc=montant_base + instance.montant_tva,
+                libelle=instance.libelle
+            )from django.test import TestCase
+
+# Create your tests here.
+# comptabilite/translation.py
+from modeltranslation.translator import register, TranslationOptions
+from .models import PlanComptable, Compte
+
+
+@register(PlanComptable)
+class PlanComptableTranslationOptions(TranslationOptions):
+    fields = ("nom", "description")
+
+
+@register(Compte)
+class CompteTranslationOptions(TranslationOptions):
+    fields = ("libelle", "libelle_court")
+# comptabilite/urls.py
+from django.urls import path
+from . import views
+
+app_name = "comptabilite"
+
+urlpatterns = [
+    # Plans comptables
+    path("plans/", views.PlanComptableListView.as_view(), name="plan-list"),
+    path("plans/nouveau/", views.PlanComptableCreateView.as_view(), name="plan-create"),
+    path(
+        "plans/<uuid:pk>/", views.PlanComptableDetailView.as_view(), name="plan-detail"
+    ),
+    path(
+        "plans/<uuid:pk>/modifier/",
+        views.PlanComptableUpdateView.as_view(),
+        name="plan-update",
+    ),
+    # Comptes
+    path("comptes/", views.CompteListView.as_view(), name="compte-list"),
+    path(
+        "comptes/plan/<uuid:plan_pk>/",
+        views.CompteListView.as_view(),
+        name="compte-list-plan",
+    ),
+    path("comptes/nouveau/", views.CompteCreateView.as_view(), name="compte-create"),
+    path(
+        "comptes/plan/<uuid:plan_pk>/nouveau/",
+        views.CompteCreateView.as_view(),
+        name="compte-create-plan",
+    ),
+    path("comptes/<uuid:pk>/", views.CompteDetailView.as_view(), name="compte-detail"),
+    path(
+        "comptes/<uuid:pk>/modifier/",
+        views.CompteUpdateView.as_view(),
+        name="compte-update",
+    ),
+    path("comptes/<uuid:pk>/grand-livre/", views.grand_livre, name="grand-livre"),
+    # Journaux
+    path("journaux/", views.JournalListView.as_view(), name="journal-list"),
+    path("journaux/nouveau/", views.JournalCreateView.as_view(), name="journal-create"),
+    path(
+        "journaux/<uuid:pk>/", views.JournalDetailView.as_view(), name="journal-detail"
+    ),
+    path(
+        "journaux/<uuid:pk>/modifier/",
+        views.JournalUpdateView.as_view(),
+        name="journal-update",
+    ),
+    # Écritures comptables
+    path("ecritures/", views.EcritureComptableListView.as_view(), name="ecriture-list"),
+    path(
+        "ecritures/nouvelle/",
+        views.EcritureComptableCreateView.as_view(),
+        name="ecriture-create",
+    ),
+    path(
+        "ecritures/<uuid:pk>/",
+        views.EcritureComptableDetailView.as_view(),
+        name="ecriture-detail",
+    ),
+    path(
+        "ecritures/<uuid:pk>/modifier/",
+        views.EcritureComptableUpdateView.as_view(),
+        name="ecriture-update",
+    ),
+    # Pièces comptables
+    path("pieces/", views.PieceComptableListView.as_view(), name="piece-list"),
+    path(
+        "pieces/<uuid:pk>/",
+        views.PieceComptableDetailView.as_view(),
+        name="piece-detail",
+    ),
+    # Lettrage
+    path("lettrages/", views.LettrageListView.as_view(), name="lettrage-list"),
+    path(
+        "lettrages/compte/<uuid:compte_pk>/",
+        views.lettrage_compte,
+        name="lettrage-compte",
+    ),
+    # Rapports
+    path(
+        "rapports/balance/<uuid:mandat_pk>/",
+        views.balance_generale,
+        name="balance-generale",
+    ),
+]
+# comptabilite/viewset.py
+from rest_framework import viewsets, status, filters
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from django_filters.rest_framework import DjangoFilterBackend
+from django.db.models import Q, Sum, F
+from decimal import Decimal
+from datetime import date
+
+from .models import (
+    PlanComptable,
+    Compte,
+    Journal,
+    EcritureComptable,
+    PieceComptable,
+    Lettrage,
+)
+from .serializers import (
+    PlanComptableSerializer,
+    CompteListSerializer,
+    CompteDetailSerializer,
+    JournalSerializer,
+    EcritureComptableListSerializer,
+    EcritureComptableDetailSerializer,
+    EcritureComptableCreateSerializer,
+    PieceComptableSerializer,
+    LettrageSerializer,
+    BalanceSerializer,
+    BilanSerializer,
+    CompteResultatsSerializer,
+)
+
+
+class PlanComptableViewSet(viewsets.ModelViewSet):
+    """ViewSet pour les plans comptables"""
+
+    queryset = PlanComptable.objects.all()
+    serializer_class = PlanComptableSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    filterset_fields = ["type_plan", "is_template", "mandat"]
+    search_fields = ["nom", "description"]
+    ordering = ["nom"]
+
+    @action(detail=False, methods=["get"])
+    def templates(self, request):
+        """Récupérer les plans comptables templates"""
+        templates = self.queryset.filter(is_template=True)
+        serializer = self.get_serializer(templates, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["post"])
+    def dupliquer(self, request, pk=None):
+        """Dupliquer un plan comptable pour un mandat"""
+        plan_source = self.get_object()
+        mandat_id = request.data.get("mandat_id")
+
+        if not mandat_id:
+            return Response(
+                {"error": "mandat_id requis"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Créer le nouveau plan
+        nouveau_plan = PlanComptable.objects.create(
+            nom=f"{plan_source.nom} - Copie",
+            type_plan=plan_source.type_plan,
+            mandat_id=mandat_id,
+            base_sur=plan_source,
+            is_template=False,
+        )
+
+        # Copier les comptes
+        comptes_mapping = {}
+        for compte in plan_source.comptes.all():
+            nouveau_compte = Compte.objects.create(
+                plan_comptable=nouveau_plan,
+                numero=compte.numero,
+                libelle=compte.libelle,
+                libelle_court=compte.libelle_court,
+                type_compte=compte.type_compte,
+                classe=compte.classe,
+                niveau=compte.niveau,
+                est_collectif=compte.est_collectif,
+                imputable=compte.imputable,
+                lettrable=compte.lettrable,
+                obligatoire_tiers=compte.obligatoire_tiers,
+                soumis_tva=compte.soumis_tva,
+                code_tva_defaut=compte.code_tva_defaut,
+            )
+            comptes_mapping[compte.id] = nouveau_compte
+
+        # Mettre à jour les parents
+        for ancien_id, nouveau_compte in comptes_mapping.items():
+            ancien_compte = Compte.objects.get(id=ancien_id)
+            if ancien_compte.compte_parent:
+                nouveau_compte.compte_parent = comptes_mapping[
+                    ancien_compte.compte_parent.id
+                ]
+                nouveau_compte.save()
+
+        serializer = self.get_serializer(nouveau_plan)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class CompteViewSet(viewsets.ModelViewSet):
+    """ViewSet pour les comptes"""
+
+    permission_classes = [IsAuthenticated]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    filterset_fields = [
+        "plan_comptable",
+        "type_compte",
+        "classe",
+        "imputable",
+        "lettrable",
+    ]
+    search_fields = ["numero", "libelle", "libelle_court"]
+    ordering = ["numero"]
+
+    def get_queryset(self):
+        return Compte.objects.select_related(
+            "plan_comptable", "compte_parent"
+        ).prefetch_related("sous_comptes")
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return CompteListSerializer
+        return CompteDetailSerializer
+
+    @action(detail=False, methods=["get"])
+    def tree(self, request):
+        """Récupérer l'arbre hiérarchique des comptes"""
+        plan_comptable_id = request.query_params.get("plan_comptable")
+
+        if not plan_comptable_id:
+            return Response(
+                {"error": "plan_comptable requis"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Récupérer les comptes racines
+        comptes_racines = self.get_queryset().filter(
+            plan_comptable_id=plan_comptable_id, compte_parent__isnull=True
+        )
+
+        def build_tree(compte):
+            data = CompteListSerializer(compte).data
+            sous_comptes = compte.sous_comptes.all()
+            if sous_comptes:
+                data["children"] = [build_tree(sc) for sc in sous_comptes]
+            return data
+
+        tree = [build_tree(compte) for compte in comptes_racines]
+        return Response(tree)
+
+    @action(detail=True, methods=["get"])
+    def solde(self, request, pk=None):
+        """Récupérer le solde détaillé d'un compte"""
+        compte = self.get_object()
+
+        date_debut = request.query_params.get("date_debut")
+        date_fin = request.query_params.get("date_fin")
+
+        ecritures = EcritureComptable.objects.filter(compte=compte, statut="VALIDE")
+
+        if date_debut:
+            ecritures = ecritures.filter(date_ecriture__gte=date_debut)
+        if date_fin:
+            ecritures = ecritures.filter(date_ecriture__lte=date_fin)
+
+        totaux = ecritures.aggregate(
+            total_debit=Sum("montant_debit"), total_credit=Sum("montant_credit")
+        )
+
+        return Response(
+            {
+                "compte": CompteListSerializer(compte).data,
+                "total_debit": totaux["total_debit"] or Decimal("0"),
+                "total_credit": totaux["total_credit"] or Decimal("0"),
+                "solde": compte.solde,
+                "periode": {"date_debut": date_debut, "date_fin": date_fin},
+            }
+        )
+
+
+class JournalViewSet(viewsets.ModelViewSet):
+    """ViewSet pour les journaux"""
+
+    queryset = Journal.objects.all()
+    serializer_class = JournalSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    filterset_fields = ["mandat", "type_journal"]
+    search_fields = ["code", "libelle"]
+    ordering = ["code"]
+
+    @action(detail=True, methods=["post"])
+    def generer_numero(self, request, pk=None):
+        """Générer un nouveau numéro de pièce"""
+        journal = self.get_object()
+        numero = journal.get_next_numero()
+        return Response({"numero_piece": numero})
+
+
+class EcritureComptableViewSet(viewsets.ModelViewSet):
+    """ViewSet pour les écritures comptables"""
+
+    permission_classes = [IsAuthenticated]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    filterset_fields = ["mandat", "journal", "compte", "statut", "exercice"]
+    search_fields = ["numero_piece", "libelle", "compte__numero", "compte__libelle"]
+    ordering = ["-date_ecriture", "numero_piece", "numero_ligne"]
+
+    def get_queryset(self):
+        return EcritureComptable.objects.select_related(
+            "mandat", "journal", "compte", "exercice", "valide_par"
+        )
+
+    def get_serializer_class(self):
+        if self.action == "create":
+            return EcritureComptableCreateSerializer
+        elif self.action == "list":
+            return EcritureComptableListSerializer
+        return EcritureComptableDetailSerializer
+
+    @action(detail=False, methods=["get"])
+    def par_periode(self, request):
+        """Récupérer les écritures pour une période"""
+        date_debut = request.query_params.get("date_debut")
+        date_fin = request.query_params.get("date_fin")
+
+        if not date_debut or not date_fin:
+            return Response(
+                {"error": "date_debut et date_fin requis"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        ecritures = self.get_queryset().filter(
+            date_ecriture__gte=date_debut, date_ecriture__lte=date_fin
+        )
+
+        serializer = self.get_serializer(ecritures, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["post"])
+    def valider(self, request, pk=None):
+        """Valider une écriture"""
+        ecriture = self.get_object()
+
+        if ecriture.statut == "VALIDE":
+            return Response(
+                {"error": "Écriture déjà validée"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        from django.utils import timezone
+
+        ecriture.statut = "VALIDE"
+        ecriture.valide_par = request.user
+        ecriture.date_validation = timezone.now()
+        ecriture.save()
+
+        # Mettre à jour les soldes du compte
+        compte = ecriture.compte
+        compte.solde_debit += ecriture.montant_debit
+        compte.solde_credit += ecriture.montant_credit
+        compte.save()
+
+        serializer = self.get_serializer(ecriture)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["post"])
+    def lettrer(self, request, pk=None):
+        """Lettrer une écriture"""
+        ecriture = self.get_object()
+        code_lettrage = request.data.get("code_lettrage")
+
+        if not code_lettrage:
+            return Response(
+                {"error": "code_lettrage requis"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        from django.utils import timezone
+
+        ecriture.code_lettrage = code_lettrage
+        ecriture.date_lettrage = timezone.now().date()
+        ecriture.statut = "LETTRE"
+        ecriture.save()
+
+        serializer = self.get_serializer(ecriture)
+        return Response(serializer.data)
+
+
+class PieceComptableViewSet(viewsets.ModelViewSet):
+    """ViewSet pour les pièces comptables"""
+
+    queryset = PieceComptable.objects.all()
+    serializer_class = PieceComptableSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    filterset_fields = ["mandat", "journal", "equilibree", "statut"]
+    search_fields = ["numero_piece", "libelle"]
+    ordering = ["-date_piece"]
+
+    @action(detail=True, methods=["post"])
+    def recalculer(self, request, pk=None):
+        """Recalculer l'équilibre d'une pièce"""
+        piece = self.get_object()
+        equilibree = piece.calculer_equilibre()
+
+        return Response(
+            {
+                "equilibree": equilibree,
+                "total_debit": piece.total_debit,
+                "total_credit": piece.total_credit,
+            }
+        )
+
+
+class LettrageViewSet(viewsets.ModelViewSet):
+    """ViewSet pour les lettrages"""
+
+    queryset = Lettrage.objects.all()
+    serializer_class = LettrageSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ["mandat", "compte", "complet"]
+    ordering = ["-date_lettrage"]
+
+    @action(detail=True, methods=["get"])
+    def ecritures(self, request, pk=None):
+        """Récupérer les écritures lettrées"""
+        lettrage = self.get_object()
+        ecritures = EcritureComptable.objects.filter(
+            code_lettrage=lettrage.code_lettrage
+        )
+        serializer = EcritureComptableListSerializer(ecritures, many=True)
+        return Response(serializer.data)
+
+
+class RapportsViewSet(viewsets.ViewSet):
+    """ViewSet pour les rapports comptables"""
+
+    permission_classes = [IsAuthenticated]
+
+    @action(detail=False, methods=["get"])
+    def balance(self, request):
+        """Générer la balance des comptes"""
+        mandat_id = request.query_params.get("mandat")
+        date_debut = request.query_params.get("date_debut")
+        date_fin = request.query_params.get("date_fin")
+
+        if not mandat_id or not date_debut or not date_fin:
+            return Response(
+                {"error": "mandat, date_debut et date_fin requis"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Récupérer tous les comptes du mandat
+        comptes = Compte.objects.filter(
+            plan_comptable__mandat_id=mandat_id, imputable=True
+        )
+
+        balance_data = []
+        for compte in comptes:
+            ecritures = EcritureComptable.objects.filter(
+                compte=compte,
+                mandat_id=mandat_id,
+                date_ecriture__gte=date_debut,
+                date_ecriture__lte=date_fin,
+                statut="VALIDE",
+            )
+
+            totaux = ecritures.aggregate(
+                total_debit=Sum("montant_debit"), total_credit=Sum("montant_credit")
+            )
+
+            balance_data.append(
+                {
+                    "compte": CompteListSerializer(compte).data,
+                    "solde_debit_initial": compte.solde_debit,
+                    "solde_credit_initial": compte.solde_credit,
+                    "mouvements_debit": totaux["total_debit"] or Decimal("0"),
+                    "mouvements_credit": totaux["total_credit"] or Decimal("0"),
+                    "solde_debit_final": compte.solde_debit
+                    + (totaux["total_debit"] or Decimal("0")),
+                    "solde_credit_final": compte.solde_credit
+                    + (totaux["total_credit"] or Decimal("0")),
+                    "solde": compte.solde,
+                }
+            )
+
+        serializer = BalanceSerializer(balance_data, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"])
+    def bilan(self, request):
+        """Générer le bilan"""
+        mandat_id = request.query_params.get("mandat")
+        date = request.query_params.get("date")
+
+        if not mandat_id or not date:
+            return Response(
+                {"error": "mandat et date requis"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Calculs simplifiés pour l'exemple
+        actif_circulant = Decimal("0")
+        actif_immobilise = Decimal("0")
+        capitaux_tiers_ct = Decimal("0")
+        capitaux_tiers_lt = Decimal("0")
+        capitaux_propres = Decimal("0")
+
+        # TODO: Implémenter la logique réelle de calcul
+
+        bilan_data = {
+            "actif_circulant": actif_circulant,
+            "actif_immobilise": actif_immobilise,
+            "total_actif": actif_circulant + actif_immobilise,
+            "capitaux_tiers_ct": capitaux_tiers_ct,
+            "capitaux_tiers_lt": capitaux_tiers_lt,
+            "capitaux_propres": capitaux_propres,
+            "total_passif": capitaux_tiers_ct + capitaux_tiers_lt + capitaux_propres,
+            "details": {},
+        }
+
+        serializer = BilanSerializer(bilan_data)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"])
+    def compte_resultats(self, request):
+        """Générer le compte de résultats"""
+        mandat_id = request.query_params.get("mandat")
+        date_debut = request.query_params.get("date_debut")
+        date_fin = request.query_params.get("date_fin")
+
+        if not mandat_id or not date_debut or not date_fin:
+            return Response(
+                {"error": "mandat, date_debut et date_fin requis"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Calculs simplifiés pour l'exemple
+        produits_exploitation = Decimal("0")
+        charges_exploitation = Decimal("0")
+        produits_financiers = Decimal("0")
+        charges_financieres = Decimal("0")
+        impots = Decimal("0")
+
+        # TODO: Implémenter la logique réelle de calcul
+
+        resultat_exploitation = produits_exploitation - charges_exploitation
+        resultat_financier = produits_financiers - charges_financieres
+        resultat_avant_impots = resultat_exploitation + resultat_financier
+        resultat_net = resultat_avant_impots - impots
+
+        cr_data = {
+            "produits_exploitation": produits_exploitation,
+            "charges_exploitation": charges_exploitation,
+            "resultat_exploitation": resultat_exploitation,
+            "produits_financiers": produits_financiers,
+            "charges_financieres": charges_financieres,
+            "resultat_financier": resultat_financier,
+            "resultat_avant_impots": resultat_avant_impots,
+            "impots": impots,
+            "resultat_net": resultat_net,
+            "details": {},
+        }
+
+        serializer = CompteResultatsSerializer(cr_data)
+        return Response(serializer.data)
+# comptabilite/views.py
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.views.generic import (
+    ListView,
+    DetailView,
+    CreateView,
+    UpdateView,
+    DeleteView,
+)
+from django_filters.views import FilterView
+from django.db.models import Q, Count, Sum, Avg, F, Max, Min, Prefetch
+from django.urls import reverse_lazy
+from django.contrib import messages
+from django.http import JsonResponse, HttpResponse
+from django.utils.translation import gettext_lazy as _
+from datetime import datetime, timedelta
+from decimal import Decimal
+import json
+import csv
+from io import BytesIO
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import cm
+
+from .models import (
+    PlanComptable,
+    Compte,
+    Journal,
+    EcritureComptable,
+    PieceComptable,
+    Lettrage,
+)
+from .forms import (
+    PlanComptableForm,
+    CompteForm,
+    JournalForm,
+    EcritureComptableForm,
+    PieceComptableForm,
+    LettrageForm,
+)
+from .filters import (
+    CompteFilter,
+    EcritureComptableFilter,
+    PieceComptableFilter,
+    PlanComptableFilter,
+)
+from core.models import Mandat, ExerciceComptable
+
+
+# ============ PLANS COMPTABLES ============
+
+
+from .filters import PlanComptableFilter
+
+
+class PlanComptableListView(
+    LoginRequiredMixin, FilterView
+):  # ← FilterView au lieu de ListView
+    """Liste des plans comptables"""
+
+    model = PlanComptable
+    template_name = "comptabilite/plan_list.html"
+    context_object_name = "plans"
+    paginate_by = 25
+    filterset_class = PlanComptableFilter
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        queryset = queryset.select_related("mandat").annotate(
+            nb_comptes=Count("comptes")
+        )
+
+        # Filtrer selon le rôle
+        user = self.request.user
+        if user.role not in ["ADMIN", "MANAGER"]:
+            queryset = queryset.filter(
+                Q(mandat__responsable=user) | Q(mandat__equipe=user)
+            ).distinct()
+
+        return queryset.order_by("-created_at")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Stats sur le queryset filtré
+        filtered_qs = (
+            self.filterset.qs if hasattr(self, "filterset") else self.get_queryset()
+        )
+
+        context["stats"] = {
+            "total": filtered_qs.count(),
+            "templates": filtered_qs.filter(is_template=True).count(),
+            "instances": filtered_qs.filter(is_template=False).count(),
+        }
+
+        return context
+
+
+class PlanComptableDetailView(LoginRequiredMixin, DetailView):
+    """Détail d'un plan comptable avec tous ses comptes"""
+
+    model = PlanComptable
+    template_name = "comptabilite/plan_detail.html"
+    context_object_name = "plan"
+
+    def get_queryset(self):
+        return (
+            super()
+            .get_queryset()
+            .prefetch_related(
+                Prefetch(
+                    "comptes",
+                    queryset=Compte.objects.select_related("compte_parent").order_by(
+                        "numero"
+                    ),
+                )
+            )
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        plan = self.object
+
+        # Organiser les comptes par classe - NE PAS inclure les classes vides
+        comptes_par_classe = {}
+        for classe in range(1, 10):
+            comptes = plan.comptes.filter(classe=classe).order_by("numero")
+            if comptes.exists():  # ✅ AJOUTER CETTE CONDITION
+                comptes_par_classe[classe] = comptes
+
+        context["comptes_par_classe"] = comptes_par_classe
+
+        # Statistiques
+        context["stats"] = {
+            "total_comptes": plan.comptes.count(),
+            "comptes_imputables": plan.comptes.filter(imputable=True).count(),
+            "comptes_collectifs": plan.comptes.filter(est_collectif=True).count(),
+            "comptes_lettrables": plan.comptes.filter(lettrable=True).count(),
+        }
+
+        # Soldes par classe - UTILISER comptes_par_classe au lieu de refiltrer
+        context["soldes_classe"] = []
+        for classe, comptes in comptes_par_classe.items():
+            total_debit = sum(c.solde_debit for c in comptes)
+            total_credit = sum(c.solde_credit for c in comptes)
+            context["soldes_classe"].append(
+                {
+                    "classe": classe,
+                    "libelle": dict(Compte.CLASSE_CHOICES).get(classe, f"Classe {classe}"),
+                    "debit": total_debit,
+                    "credit": total_credit,
+                    "solde": total_debit - total_credit,
+                }
+            )
+
+        return context
+
+class PlanComptableCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    """Création d'un nouveau plan comptable"""
+
+    model = PlanComptable
+    form_class = PlanComptableForm
+    template_name = "comptabilite/plan_form.html"
+    permission_required = "comptabilite.add_plancomptable"
+
+    def get_success_url(self):
+        return reverse_lazy("comptabilite:plan-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        messages.success(self.request, _("Plan comptable créé avec succès"))
+        return super().form_valid(form)
+
+
+
+class PlanComptableUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+    """Modification d'un plan comptable"""
+
+    model = PlanComptable
+    form_class = PlanComptableForm
+    template_name = "comptabilite/plan_form.html"
+    permission_required = "comptabilite.change_plancomptable"
+
+    def get_success_url(self):
+        return reverse_lazy("comptabilite:plan-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, _("Plan comptable modifié avec succès"))
+        return super().form_valid(form)
+    
+# ============ COMPTES ============
+
+
+class CompteListView(LoginRequiredMixin, ListView):
+    """Liste des comptes avec filtres avancés"""
+
+    model = Compte
+    template_name = "comptabilite/compte_list.html"
+    context_object_name = "comptes"
+    paginate_by = 50
+
+    def get_queryset(self):
+        # Récupérer le plan comptable depuis l'URL ou les paramètres
+        plan_id = self.kwargs.get("plan_pk") or self.request.GET.get("plan")
+
+        queryset = Compte.objects.select_related(
+            "plan_comptable", "compte_parent"
+        ).annotate(nb_ecritures=Count("ecritures"))
+
+        if plan_id:
+            queryset = queryset.filter(plan_comptable_id=plan_id)
+
+        # Appliquer les filtres
+        self.filterset = CompteFilter(self.request.GET, queryset=queryset)
+        return self.filterset.qs.order_by("numero")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["filter"] = self.filterset
+
+        # Plans comptables disponibles
+        context["plans"] = PlanComptable.objects.filter(is_template=False)
+
+        # Statistiques
+        queryset = self.get_queryset()
+        context["stats"] = {
+            "total": queryset.count(),
+            "imputables": queryset.filter(imputable=True).count(),
+            "lettrables": queryset.filter(lettrable=True).count(),
+            "solde_total_debit": queryset.aggregate(Sum("solde_debit"))[
+                "solde_debit__sum"
+            ]
+            or 0,
+            "solde_total_credit": queryset.aggregate(Sum("solde_credit"))[
+                "solde_credit__sum"
+            ]
+            or 0,
+        }
+
+        return context
+
+
+class CompteDetailView(LoginRequiredMixin, DetailView):
+    """Détail d'un compte avec historique des écritures"""
+
+    model = Compte
+    template_name = "comptabilite/compte_detail.html"
+    context_object_name = "compte"
+
+    def get_queryset(self):
+        return (
+            super()
+            .get_queryset()
+            .select_related("plan_comptable__mandat", "compte_parent")
+            .prefetch_related("sous_comptes")
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        compte = self.object
+
+        # Période à afficher (par défaut: exercice en cours)
+        exercice_id = self.request.GET.get("exercice")
+        exercice = None
+        
+        if exercice_id:
+            exercice = get_object_or_404(ExerciceComptable, pk=exercice_id)
+        else:
+            # Vérifier si le plan a un mandat
+            if compte.plan_comptable.mandat:
+                exercice = compte.plan_comptable.mandat.exercices.filter(
+                    statut="OUVERT"
+                ).first()
+
+        # Écritures
+        ecritures_qs = compte.ecritures.select_related("journal", "exercice").order_by(
+            "-date_ecriture", "numero_piece", "numero_ligne"
+        )
+
+        if exercice:
+            ecritures_qs = ecritures_qs.filter(exercice=exercice)
+            context["exercice"] = exercice
+
+        context["ecritures"] = ecritures_qs[:100]
+
+        # Sous-comptes
+        context["sous_comptes"] = compte.sous_comptes.all()
+
+        # Statistiques de l'exercice
+        if exercice:
+            context["stats_exercice"] = {
+                "nb_ecritures": ecritures_qs.count(),
+                "total_debit": ecritures_qs.aggregate(Sum("montant_debit"))["montant_debit__sum"] or 0,
+                "total_credit": ecritures_qs.aggregate(Sum("montant_credit"))["montant_credit__sum"] or 0,
+            }
+
+        # Exercices disponibles (seulement si mandat existe)
+        if compte.plan_comptable.mandat:
+            context["exercices"] = compte.plan_comptable.mandat.exercices.all()
+
+        return context
+
+
+class CompteCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    """Création d'un nouveau compte"""
+
+    model = Compte
+    form_class = CompteForm
+    template_name = "comptabilite/compte_form.html"
+    permission_required = "comptabilite.add_compte"
+
+    def get_initial(self):
+        initial = super().get_initial()
+        plan_pk = self.kwargs.get("plan_pk")
+        if plan_pk:
+            initial["plan_comptable"] = get_object_or_404(PlanComptable, pk=plan_pk)
+        return initial
+
+    def get_success_url(self):
+        return reverse_lazy("comptabilite:compte-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        messages.success(self.request, _("Compte créé avec succès"))
+        return super().form_valid(form)
+
+
+class CompteUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+    """Modification d'un compte"""
+
+    model = Compte
+    form_class = CompteForm
+    template_name = "comptabilite/compte_form.html"
+    permission_required = "comptabilite.change_compte"
+
+    def get_success_url(self):
+        return reverse_lazy("comptabilite:compte-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, _("Compte modifié avec succès"))
+        return super().form_valid(form)
+
+
+# ============ JOURNAUX ============
+
+
+class JournalListView(LoginRequiredMixin, ListView):
+    """Liste des journaux"""
+
+    model = Journal
+    template_name = "comptabilite/journal_list.html"
+    context_object_name = "journaux"
+
+    def get_queryset(self):
+        queryset = Journal.objects.select_related("mandat").annotate(
+            nb_ecritures=Count("ecriturecomptable")
+        )
+
+        # Filtrer selon mandat
+        mandat_id = self.request.GET.get("mandat")
+        if mandat_id:
+            queryset = queryset.filter(mandat_id=mandat_id)
+
+        return queryset.order_by("code")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Mandats disponibles
+        user = self.request.user
+        if user.role in ["ADMIN", "MANAGER"]:
+            context["mandats"] = Mandat.objects.filter(statut="ACTIF")
+        else:
+            context["mandats"] = Mandat.objects.filter(
+                Q(responsable=user) | Q(equipe=user), statut="ACTIF"
+            ).distinct()
+
+        return context
+
+
+class JournalDetailView(LoginRequiredMixin, DetailView):
+    """Détail d'un journal avec ses écritures"""
+
+    model = Journal
+    template_name = "comptabilite/journal_detail.html"
+    context_object_name = "journal"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        journal = self.object
+
+        # Période
+        date_debut = self.request.GET.get("date_debut")
+        date_fin = self.request.GET.get("date_fin")
+
+        ecritures_qs = journal.ecriturecomptable_set.select_related(
+            "compte", "exercice"
+        ).order_by("-date_ecriture", "numero_piece", "numero_ligne")
+
+        if date_debut:
+            ecritures_qs = ecritures_qs.filter(date_ecriture__gte=date_debut)
+        if date_fin:
+            ecritures_qs = ecritures_qs.filter(date_ecriture__lte=date_fin)
+
+        context["ecritures"] = ecritures_qs[:200]
+
+        # Statistiques
+        context["stats"] = {
+            "nb_ecritures": ecritures_qs.count(),
+            "total_debit": ecritures_qs.aggregate(Sum("montant_debit"))[
+                "montant_debit__sum"
+            ]
+            or 0,
+            "total_credit": ecritures_qs.aggregate(Sum("montant_credit"))[
+                "montant_credit__sum"
+            ]
+            or 0,
+            "pieces_non_equilibrees": PieceComptable.objects.filter(
+                journal=journal, equilibree=False
+            ).count(),
+        }
+
+        return context
+
+
+class JournalCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    """Création d'un nouveau journal"""
+
+    model = Journal
+    form_class = JournalForm
+    template_name = "comptabilite/journal_form.html"
+    permission_required = "comptabilite.add_journal"
+
+    def get_success_url(self):
+        return reverse_lazy(
+            "comptabilite:journal-detail", kwargs={"pk": self.object.pk}
+        )
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        messages.success(self.request, _("Journal créé avec succès"))
+        return super().form_valid(form)
+
+
+class JournalUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+    """Modification d'un journal"""
+
+    model = Journal
+    form_class = JournalForm
+    template_name = "comptabilite/journal_form.html"
+    permission_required = "comptabilite.change_journal"
+
+    def get_success_url(self):
+        return reverse_lazy(
+            "comptabilite:journal-detail", kwargs={"pk": self.object.pk}
+        )
+
+    def form_valid(self, form):
+        messages.success(self.request, _("Journal modifié avec succès"))
+        return super().form_valid(form)
+
+# ============ ÉCRITURES COMPTABLES ============
+
+
+class EcritureComptableListView(LoginRequiredMixin, ListView):
+    """Liste des écritures comptables"""
+
+    model = EcritureComptable
+    template_name = "comptabilite/ecriture_list.html"
+    context_object_name = "ecritures"
+    paginate_by = 100
+
+    def get_queryset(self):
+        queryset = EcritureComptable.objects.select_related(
+            "mandat", "exercice", "journal", "compte"
+        )
+
+        # Filtrer selon le rôle
+        user = self.request.user
+        if user.role not in ["ADMIN", "MANAGER"]:
+            queryset = queryset.filter(
+                Q(mandat__responsable=user) | Q(mandat__equipe=user)
+            ).distinct()
+
+        # Appliquer les filtres
+        self.filterset = EcritureComptableFilter(self.request.GET, queryset=queryset)
+        return self.filterset.qs.order_by(
+            "-date_ecriture", "numero_piece", "numero_ligne"
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["filter"] = self.filterset
+
+        # Statistiques
+        queryset = self.get_queryset()
+        context["stats"] = {
+            "total": queryset.count(),
+            "total_debit": queryset.aggregate(Sum("montant_debit"))[
+                "montant_debit__sum"
+            ]
+            or 0,
+            "total_credit": queryset.aggregate(Sum("montant_credit"))[
+                "montant_credit__sum"
+            ]
+            or 0,
+            "brouillon": queryset.filter(statut="BROUILLON").count(),
+            "valide": queryset.filter(statut="VALIDE").count(),
+        }
+
+        return context
+
+
+class EcritureComptableDetailView(LoginRequiredMixin, DetailView):
+    """Détail d'une écriture comptable"""
+
+    model = EcritureComptable
+    template_name = "comptabilite/ecriture_detail.html"
+    context_object_name = "ecriture"
+
+    def get_queryset(self):
+        return (
+            super()
+            .get_queryset()
+            .select_related(
+                "mandat__client",
+                "exercice",
+                "journal",
+                "compte",
+                "piece_justificative",
+                "valide_par",
+            )
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        ecriture = self.object
+
+        # Autres écritures de la même pièce
+        context["ecritures_piece"] = (
+            EcritureComptable.objects.filter(
+                numero_piece=ecriture.numero_piece, journal=ecriture.journal
+            )
+            .exclude(pk=ecriture.pk)
+            .select_related("compte")
+        )
+
+        # Vérifier l'équilibre de la pièce
+        piece = PieceComptable.objects.filter(
+            numero_piece=ecriture.numero_piece
+        ).first()
+        context["piece"] = piece
+
+        return context
+
+
+class EcritureComptableCreateView(
+    LoginRequiredMixin, PermissionRequiredMixin, CreateView
+):
+    """Création d'une nouvelle écriture comptable"""
+
+    model = EcritureComptable
+    form_class = EcritureComptableForm
+    template_name = "comptabilite/ecriture_form.html"
+    permission_required = "comptabilite.add_ecriturecomptable"
+
+    def get_initial(self):
+        initial = super().get_initial()
+
+        # Préremplir avec le mandat si fourni
+        mandat_id = self.request.GET.get("mandat")
+        if mandat_id:
+            mandat = get_object_or_404(Mandat, pk=mandat_id)
+            initial["mandat"] = mandat
+            initial["exercice"] = mandat.exercices.filter(statut="OUVERT").first()
+
+        # Préremplir la date
+        initial["date_ecriture"] = datetime.now().date()
+
+        return initial
+
+    def get_success_url(self):
+        return reverse_lazy(
+            "comptabilite:ecriture-detail", kwargs={"pk": self.object.pk}
+        )
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        messages.success(self.request, _("Écriture créée avec succès"))
+        return super().form_valid(form)
+
+
+class EcritureComptableUpdateView(
+    LoginRequiredMixin, PermissionRequiredMixin, UpdateView
+):
+    """Modification d'une écriture comptable"""
+
+    model = EcritureComptable
+    form_class = EcritureComptableForm
+    template_name = "comptabilite/ecriture_form.html"
+    permission_required = "comptabilite.change_ecriturecomptable"
+
+    def get_queryset(self):
+        # Ne peut modifier que les écritures en brouillon
+        return super().get_queryset().filter(statut="BROUILLON")
+
+    def get_success_url(self):
+        return reverse_lazy(
+            "comptabilite:ecriture-detail", kwargs={"pk": self.object.pk}
+        )
+
+    def form_valid(self, form):
+        messages.success(self.request, _("Écriture modifiée avec succès"))
+        return super().form_valid(form)
+
+
+# ============ PIÈCES COMPTABLES ============
+
+
+class PieceComptableListView(LoginRequiredMixin, ListView):
+    """Liste des pièces comptables"""
+
+    model = PieceComptable
+    template_name = "comptabilite/piece_list.html"
+    context_object_name = "pieces"
+    paginate_by = 50
+
+    def get_queryset(self):
+        queryset = PieceComptable.objects.select_related("mandat", "journal").annotate(
+            nb_ecritures=Count(
+                "mandat__ecritures",
+                filter=Q(mandat__ecritures__numero_piece=F("numero_piece")),
+            )
+        )
+
+        # Filtrer selon le rôle
+        user = self.request.user
+        if user.role not in ["ADMIN", "MANAGER"]:
+            queryset = queryset.filter(
+                Q(mandat__responsable=user) | Q(mandat__equipe=user)
+            ).distinct()
+
+        # Appliquer les filtres
+        self.filterset = PieceComptableFilter(self.request.GET, queryset=queryset)
+        return self.filterset.qs.order_by("-date_piece", "numero_piece")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["filter"] = self.filterset
+
+        # Statistiques
+        queryset = self.get_queryset()
+        context["stats"] = {
+            "total": queryset.count(),
+            "equilibrees": queryset.filter(equilibree=True).count(),
+            "non_equilibrees": queryset.filter(equilibree=False).count(),
+            "brouillon": queryset.filter(statut="BROUILLON").count(),
+        }
+
+        return context
+
+
+class PieceComptableDetailView(LoginRequiredMixin, DetailView):
+    """Détail d'une pièce comptable"""
+
+    model = PieceComptable
+    template_name = "comptabilite/piece_detail.html"
+    context_object_name = "piece"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        piece = self.object
+
+        # Toutes les écritures de la pièce
+        context["ecritures"] = (
+            EcritureComptable.objects.filter(
+                numero_piece=piece.numero_piece, mandat=piece.mandat
+            )
+            .select_related("compte")
+            .order_by("numero_ligne")
+        )
+
+        # Recalculer l'équilibre
+        piece.calculer_equilibre()
+
+        return context
+
+
+# ============ LETTRAGE ============
+
+
+class LettrageListView(LoginRequiredMixin, ListView):
+    """Liste des lettrages"""
+
+    model = Lettrage
+    template_name = "comptabilite/lettrage_list.html"
+    context_object_name = "lettrages"
+    paginate_by = 50
+
+    def get_queryset(self):
+        return Lettrage.objects.select_related(
+            "mandat", "compte", "lettre_par"
+        ).order_by("-date_lettrage")
+
+
+@login_required
+def lettrage_compte(request, compte_pk):
+    """Interface de lettrage d'un compte"""
+    compte = get_object_or_404(Compte, pk=compte_pk, lettrable=True)
+
+    # Écritures non lettrées du compte
+    ecritures = EcritureComptable.objects.filter(
+        compte=compte, statut="VALIDE", code_lettrage=""
+    ).order_by("date_ecriture")
+
+    if request.method == "POST":
+        # Traiter le lettrage
+        ecriture_ids = request.POST.getlist("ecritures")
+
+        if ecriture_ids:
+            ecritures_a_lettrer = EcritureComptable.objects.filter(
+                pk__in=ecriture_ids, compte=compte
+            )
+
+            # Vérifier l'équilibre
+            total_debit = sum(e.montant_debit for e in ecritures_a_lettrer)
+            total_credit = sum(e.montant_credit for e in ecritures_a_lettrer)
+
+            if total_debit == total_credit:
+                # Générer code de lettrage
+                dernier_lettrage = (
+                    Lettrage.objects.filter(mandat=compte.plan_comptable.mandat)
+                    .order_by("code_lettrage")
+                    .last()
+                )
+
+                if dernier_lettrage:
+                    # Incrémenter
+                    last_num = int(dernier_lettrage.code_lettrage[1:])
+                    code_lettrage = f"L{last_num + 1:06d}"
+                else:
+                    code_lettrage = "L000001"
+
+                # Créer le lettrage
+                lettrage = Lettrage.objects.create(
+                    mandat=compte.plan_comptable.mandat,
+                    compte=compte,
+                    code_lettrage=code_lettrage,
+                    montant_total=total_debit,
+                    solde=0,
+                    date_lettrage=datetime.now().date(),
+                    lettre_par=request.user,
+                    complet=True,
+                )
+
+                # Appliquer le code aux écritures
+                ecritures_a_lettrer.update(
+                    code_lettrage=code_lettrage,
+                    date_lettrage=datetime.now().date(),
+                    statut="LETTRE",
+                )
+
+                messages.success(request, _("Lettrage effectué avec succès"))
+                return redirect("comptabilite:compte-detail", pk=compte.pk)
+            else:
+                messages.error(
+                    request, _("Les écritures sélectionnées ne sont pas équilibrées")
+                )
+
+    context = {
+        "compte": compte,
+        "ecritures": ecritures,
+    }
+
+    return render(request, "comptabilite/lettrage_form.html", context)
+
+
+# ============ RAPPORTS ============
+
+
+@login_required
+def balance_generale(request, mandat_pk):
+    """Balance générale d'un mandat"""
+    mandat = get_object_or_404(Mandat, pk=mandat_pk)
+
+    # Exercice
+    exercice_id = request.GET.get("exercice")
+    if exercice_id:
+        exercice = get_object_or_404(ExerciceComptable, pk=exercice_id)
+    else:
+        exercice = mandat.exercices.filter(statut="OUVERT").first()
+
+    # Plan comptable
+    plan = mandat.plans_comptables.first()
+    if not plan:
+        messages.error(request, _("Aucun plan comptable trouvé pour ce mandat"))
+        return redirect("core:mandat-detail", pk=mandat.pk)
+
+    # Récupérer tous les comptes avec leurs soldes
+    comptes = Compte.objects.filter(plan_comptable=plan, imputable=True).order_by(
+        "numero"
+    )
+
+    balance = []
+    total_debit = Decimal("0")
+    total_credit = Decimal("0")
+
+    for compte in comptes:
+        # Soldes de l'exercice
+        ecritures = compte.ecritures.filter(
+            exercice=exercice, statut__in=["VALIDE", "LETTRE", "CLOTURE"]
+        )
+
+        solde_debit = (
+            ecritures.aggregate(Sum("montant_debit"))["montant_debit__sum"] or 0
+        )
+        solde_credit = (
+            ecritures.aggregate(Sum("montant_credit"))["montant_credit__sum"] or 0
+        )
+
+        if solde_debit != 0 or solde_credit != 0:
+            balance.append(
+                {
+                    "compte": compte,
+                    "solde_debit": solde_debit,
+                    "solde_credit": solde_credit,
+                }
+            )
+
+            total_debit += solde_debit
+            total_credit += solde_credit
+
+    # Format de sortie
+    format_export = request.GET.get("format", "html")
+
+    if format_export == "pdf":
+        return generer_balance_pdf(mandat, exercice, balance, total_debit, total_credit)
+    elif format_export == "csv":
+        return generer_balance_csv(mandat, exercice, balance, total_debit, total_credit)
+
+    context = {
+        "mandat": mandat,
+        "exercice": exercice,
+        "exercices": mandat.exercices.all(),
+        "balance": balance,
+        "total_debit": total_debit,
+        "total_credit": total_credit,
+        "equilibre": total_debit == total_credit,
+    }
+
+    return render(request, "comptabilite/balance_generale.html", context)
+
+
+def generer_balance_pdf(mandat, exercice, balance, total_debit, total_credit):
+    """Génère un PDF de la balance"""
+    buffer = BytesIO()
+    p = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+
+    # En-tête
+    p.setFont("Helvetica-Bold", 16)
+    p.drawString(
+        2 * cm, height - 2 * cm, f"Balance générale - {mandat.client.raison_sociale}"
+    )
+
+    p.setFont("Helvetica", 12)
+    p.drawString(2 * cm, height - 3 * cm, f"Exercice: {exercice.annee}")
+    p.drawString(
+        2 * cm,
+        height - 3.5 * cm,
+        f"Période: {exercice.date_debut} au {exercice.date_fin}",
+    )
+
+    # Tableau
+    y = height - 5 * cm
+    p.setFont("Helvetica-Bold", 10)
+    p.drawString(2 * cm, y, "Compte")
+    p.drawString(8 * cm, y, "Libellé")
+    p.drawString(14 * cm, y, "Débit")
+    p.drawString(17 * cm, y, "Crédit")
+
+    y -= 0.5 * cm
+    p.line(2 * cm, y, 19 * cm, y)
+    y -= 0.5 * cm
+
+    p.setFont("Helvetica", 9)
+    for item in balance:
+        if y < 3 * cm:
+            p.showPage()
+            y = height - 2 * cm
+
+        p.drawString(2 * cm, y, item["compte"].numero)
+        p.drawString(8 * cm, y, item["compte"].libelle[:30])
+        p.drawRightString(16 * cm, y, f"{item['solde_debit']:,.2f}")
+        p.drawRightString(19 * cm, y, f"{item['solde_credit']:,.2f}")
+        y -= 0.5 * cm
+
+    # Totaux
+    y -= 0.5 * cm
+    p.line(2 * cm, y, 19 * cm, y)
+    y -= 0.5 * cm
+    p.setFont("Helvetica-Bold", 10)
+    p.drawString(8 * cm, y, "TOTAUX")
+    p.drawRightString(16 * cm, y, f"{total_debit:,.2f}")
+    p.drawRightString(19 * cm, y, f"{total_credit:,.2f}")
+
+    p.showPage()
+    p.save()
+
+    buffer.seek(0)
+    response = HttpResponse(buffer, content_type="application/pdf")
+    response["Content-Disposition"] = (
+        f'attachment; filename="balance_{mandat.numero}_{exercice.annee}.pdf"'
+    )
+    return response
+
+
+def generer_balance_csv(mandat, exercice, balance, total_debit, total_credit):
+    """Génère un CSV de la balance"""
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = (
+        f'attachment; filename="balance_{mandat.numero}_{exercice.annee}.csv"'
+    )
+
+    writer = csv.writer(response)
+    writer.writerow(["Compte", "Libellé", "Débit", "Crédit"])
+
+    for item in balance:
+        writer.writerow(
+            [
+                item["compte"].numero,
+                item["compte"].libelle,
+                f"{item['solde_debit']:.2f}",
+                f"{item['solde_credit']:.2f}",
+            ]
+        )
+
+    writer.writerow(["", "TOTAUX", f"{total_debit:.2f}", f"{total_credit:.2f}"])
+
+    return response
+
+
+@login_required
+def grand_livre(request, compte_pk):
+    """Grand livre d'un compte"""
+    compte = get_object_or_404(Compte, pk=compte_pk)
+
+    # Période
+    date_debut = request.GET.get("date_debut")
+    date_fin = request.GET.get("date_fin")
+
+    ecritures = (
+        compte.ecritures.filter(statut__in=["VALIDE", "LETTRE", "CLOTURE"])
+        .select_related("journal")
+        .order_by("date_ecriture", "numero_piece")
+    )
+
+    if date_debut:
+        ecritures = ecritures.filter(date_ecriture__gte=date_debut)
+    if date_fin:
+        ecritures = ecritures.filter(date_ecriture__lte=date_fin)
+
+    # Calcul des soldes cumulés
+    solde_cumule = Decimal("0")
+    ecritures_avec_solde = []
+
+    for ecriture in ecritures:
+        if compte.type_compte in ["ACTIF", "CHARGE"]:
+            solde_cumule += ecriture.montant_debit - ecriture.montant_credit
+        else:
+            solde_cumule += ecriture.montant_credit - ecriture.montant_debit
+
+        ecritures_avec_solde.append({"ecriture": ecriture, "solde": solde_cumule})
+
+    context = {
+        "compte": compte,
+        "ecritures_avec_solde": ecritures_avec_solde,
+        "date_debut": date_debut,
+        "date_fin": date_fin,
+    }
+
+    return render(request, "comptabilite/grand_livre.html", context)

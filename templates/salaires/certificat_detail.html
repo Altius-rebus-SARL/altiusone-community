@@ -1,0 +1,187 @@
+<!-- salaires/certificat_detail.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{% trans "Certificat de salaire" %} {{ certificat.annee }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Certificat de salaire" %} {{ certificat.annee }}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'salaires:certificat-list' %}">
+                    <span>{% trans "Certificats" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{{ certificat.annee }}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Actions -->
+<div class="row mb-3">
+    <div class="col-12 text-end">
+        <button class="btn btn-secondary" onclick="window.print()">
+            <i class="ph ph-printer me-2"></i>{% trans "Imprimer" %}
+        </button>
+        <button class="btn btn-primary">
+            <i class="ph ph-file-pdf me-2"></i>{% trans "Télécharger PDF" %}
+        </button>
+    </div>
+</div>
+
+<!-- Certificat -->
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <!-- En-tête -->
+                    <div class="text-center mb-4">
+                        <h3>{% trans "CERTIFICAT DE SALAIRE" %}</h3>
+                        <h4>{% trans "Année" %} {{ certificat.annee }}</h4>
+                    </div>
+
+                    <hr>
+
+                    <!-- Employeur -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="fw-bold">{% trans "Employeur" %}</h6>
+                            <p>
+                                <strong>{{ certificat.employe.mandat.client.raison_sociale }}</strong><br>
+                                {{ certificat.employe.mandat.client.adresse }}<br>
+                                {{ certificat.employe.mandat.client.code_postal }} {{ certificat.employe.mandat.client.ville }}
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Employé -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h6 class="fw-bold">{% trans "Employé" %}</h6>
+                            <p>
+                                <strong>{{ certificat.employe.prenom }} {{ certificat.employe.nom }}</strong><br>
+                                {{ certificat.employe.adresse.rue }} {{ certificat.employe.adresse.numero }}<br>
+                                {{ certificat.employe.adresse.npa }} {{ certificat.employe.adresse.localite }}<br>
+                                {% trans "AVS" %}: {{ certificat.employe.avs_number }}
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="fw-bold">{% trans "Période d'emploi" %}</h6>
+                            <p>
+                                {% trans "Du" %} {{ certificat.date_debut|date:"d.m.Y" }} 
+                                {% trans "au" %} {{ certificat.date_fin|date:"d.m.Y" }}
+                            </p>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <!-- Détails salaire -->
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>{% trans "Rubrique" %}</th>
+                                    <th class="text-end">{% trans "Montant annuel (CHF)" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>{% trans "Salaire brut" %}</strong></td>
+                                    <td class="text-end"><strong>{{ certificat.salaire_brut_annuel|floatformat:2 }}</strong></td>
+                                </tr>
+                                {% if certificat.treizieme_salaire_annuel > 0 %}
+                                <tr>
+                                    <td>{% trans "13ème salaire" %}</td>
+                                    <td class="text-end">{{ certificat.treizieme_salaire_annuel|floatformat:2 }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if certificat.primes_annuelles > 0 %}
+                                <tr>
+                                    <td>{% trans "Primes" %}</td>
+                                    <td class="text-end">{{ certificat.primes_annuelles|floatformat:2 }}</td>
+                                </tr>
+                                {% endif %}
+                                
+                                <tr><td colspan="2" class="pt-3"><strong>{% trans "Cotisations sociales" %}</strong></td></tr>
+                                <tr>
+                                    <td>{% trans "AVS/AI/APG" %}</td>
+                                    <td class="text-end">{{ certificat.avs_annuel|floatformat:2 }}</td>
+                                </tr>
+                                <tr>
+                                    <td>{% trans "Assurance chômage (AC)" %}</td>
+                                    <td class="text-end">{{ certificat.ac_annuel|floatformat:2 }}</td>
+                                </tr>
+                                <tr>
+                                    <td>{% trans "LPP (2e pilier)" %}</td>
+                                    <td class="text-end">{{ certificat.lpp_annuel|floatformat:2 }}</td>
+                                </tr>
+                                
+                                {% if certificat.allocations_familiales_annuel > 0 %}
+                                <tr><td colspan="2" class="pt-3"><strong>{% trans "Allocations" %}</strong></td></tr>
+                                <tr>
+                                    <td>{% trans "Allocations familiales" %}</td>
+                                    <td class="text-end">{{ certificat.allocations_familiales_annuel|floatformat:2 }}</td>
+                                </tr>
+                                {% endif %}
+                                
+                                {% if certificat.frais_deplacement > 0 or certificat.frais_repas > 0 %}
+                                <tr><td colspan="2" class="pt-3"><strong>{% trans "Frais" %}</strong></td></tr>
+                                {% if certificat.frais_deplacement > 0 %}
+                                <tr>
+                                    <td>{% trans "Frais de déplacement" %}</td>
+                                    <td class="text-end">{{ certificat.frais_deplacement|floatformat:2 }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if certificat.frais_repas > 0 %}
+                                <tr>
+                                    <td>{% trans "Frais de repas" %}</td>
+                                    <td class="text-end">{{ certificat.frais_repas|floatformat:2 }}</td>
+                                </tr>
+                                {% endif %}
+                                {% endif %}
+                                
+                                {% if certificat.impot_source_annuel > 0 %}
+                                <tr><td colspan="2" class="pt-3"><strong>{% trans "Impôts" %}</strong></td></tr>
+                                <tr>
+                                    <td>{% trans "Impôt à la source" %}</td>
+                                    <td class="text-end">{{ certificat.impot_source_annuel|floatformat:2 }}</td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <hr>
+
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            <p>{% trans "Date de génération" %}: {{ certificat.date_generation|date:"d.m.Y" }}</p>
+                            <p>{% trans "Généré par" %}: {{ certificat.genere_par.get_full_name }}</p>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <p class="mt-5">
+                                _________________________<br>
+                                {% trans "Signature employeur" %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

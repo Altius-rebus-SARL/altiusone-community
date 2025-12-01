@@ -1,0 +1,254 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Écriture" %} {{ ecriture.numero_piece }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Écriture" %} {{ ecriture.numero_piece }}-{{ ecriture.numero_ligne }}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'comptabilite:ecriture-list' %}">
+                    <span>{% trans "Écritures" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{{ ecriture.numero_piece }}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<!-- Action buttons -->
+<div class="row mb-3">
+    <div class="col-12 text-end">
+        {% if ecriture.statut == 'BROUILLON' %}
+        <a href="{% url 'comptabilite:ecriture-update' ecriture.pk %}" class="btn btn-warning">
+            <i class="ph ph-pencil me-2"></i>{% trans "Modifier" %}
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Info Card -->
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Détails de l'écriture" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Numéro de pièce" %}</label>
+                        <h6 class="mb-0">
+                            <span class="badge bg-light-dark f-w-600">{{ ecriture.numero_piece }}</span>
+                        </h6>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Ligne" %}</label>
+                        <h6 class="mb-0">{{ ecriture.numero_ligne }}</h6>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Date écriture" %}</label>
+                        <h6 class="mb-0">{{ ecriture.date_ecriture|date:"d.m.Y" }}</h6>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Journal" %}</label>
+                        <h6 class="mb-0">
+                            <a href="{% url 'comptabilite:journal-detail' ecriture.journal.pk %}">
+                                {{ ecriture.journal.code }} - {{ ecriture.journal.libelle }}
+                            </a>
+                        </h6>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Compte" %}</label>
+                        <h6 class="mb-0">
+                            <a href="{% url 'comptabilite:compte-detail' ecriture.compte.pk %}">
+                                {{ ecriture.compte.numero }} - {{ ecriture.compte.libelle }}
+                            </a>
+                        </h6>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Exercice" %}</label>
+                        <h6 class="mb-0">{{ ecriture.exercice.annee }}</h6>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Montant débit" %}</label>
+                        <h6 class="mb-0">
+                            {% if ecriture.montant_debit > 0 %}
+                            <span class="text-success f-w-600">{{ ecriture.montant_debit|floatformat:2 }} CHF</span>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </h6>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Montant crédit" %}</label>
+                        <h6 class="mb-0">
+                            {% if ecriture.montant_credit > 0 %}
+                            <span class="text-danger f-w-600">{{ ecriture.montant_credit|floatformat:2 }} CHF</span>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </h6>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <label class="text-muted f-s-12">{% trans "Libellé" %}</label>
+                        <p class="mb-0">{{ ecriture.libelle }}</p>
+                    </div>
+                </div>
+
+                {% if ecriture.libelle_complement %}
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <label class="text-muted f-s-12">{% trans "Complément" %}</label>
+                        <p class="mb-0 text-muted">{{ ecriture.libelle_complement }}</p>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Statut" %}</label>
+                        <h6 class="mb-0">
+                            {% if ecriture.statut == 'VALIDE' %}
+                            <span class="badge bg-success">{% trans "Validé" %}</span>
+                            {% elif ecriture.statut == 'BROUILLON' %}
+                            <span class="badge bg-secondary">{% trans "Brouillon" %}</span>
+                            {% elif ecriture.statut == 'LETTRE' %}
+                            <span class="badge bg-warning">{% trans "Lettré" %}</span>
+                            {% elif ecriture.statut == 'CLOTURE' %}
+                            <span class="badge bg-info">{% trans "Clôturé" %}</span>
+                            {% endif %}
+                        </h6>
+                    </div>
+                    {% if ecriture.code_lettrage %}
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Code lettrage" %}</label>
+                        <h6 class="mb-0">
+                            <span class="badge bg-warning">{{ ecriture.code_lettrage }}</span>
+                        </h6>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">{% trans "Informations" %}</h6>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="text-muted f-s-12">{% trans "Mandat" %}</label>
+                    <p class="mb-0">
+                        <a href="{% url 'core:mandat-detail' ecriture.mandat.pk %}">
+                            {{ ecriture.mandat.client.raison_sociale }}
+                        </a>
+                    </p>
+                </div>
+
+                {% if ecriture.valide_par %}
+                <div class="mb-3">
+                    <label class="text-muted f-s-12">{% trans "Validé par" %}</label>
+                    <p class="mb-0">{{ ecriture.valide_par.get_full_name }}</p>
+                    <p class="text-muted f-s-10 mb-0">{{ ecriture.date_validation|date:"d.m.Y H:i" }}</p>
+                </div>
+                {% endif %}
+
+                <div>
+                    <label class="text-muted f-s-12">{% trans "Créé par" %}</label>
+                    {% if ecriture.created_by %}
+                        <p class="mb-0">{{ ecriture.created_by.get_full_name|default:ecriture.created_by.username }}</p>
+                    {% else %}
+                        <p class="mb-0 text-muted">{% trans "Non renseigné" %}</p>
+                    {% endif %}
+                    <p class="text-muted f-s-10 mb-0">{{ ecriture.created_at|date:"d.m.Y H:i" }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Autres écritures de la pièce -->
+{% if ecritures_piece %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Autres écritures de la pièce" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="overflow-auto app-scroll">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Ligne" %}</th>
+                                <th>{% trans "Compte" %}</th>
+                                <th>{% trans "Libellé" %}</th>
+                                <th class="text-end">{% trans "Débit" %}</th>
+                                <th class="text-end">{% trans "Crédit" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ecr in ecritures_piece %}
+                            <tr>
+                                <td>{{ ecr.numero_ligne }}</td>
+                                <td>
+                                    <a href="{% url 'comptabilite:compte-detail' ecr.compte.pk %}">
+                                        {{ ecr.compte.numero }}
+                                    </a>
+                                </td>
+                                <td>{{ ecr.libelle|truncatewords:10 }}</td>
+                                <td class="text-end">
+                                    {% if ecr.montant_debit > 0 %}
+                                    <span class="text-success">{{ ecr.montant_debit|floatformat:2 }}</span>
+                                    {% else %}
+                                    <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    {% if ecr.montant_credit > 0 %}
+                                    <span class="text-danger">{{ ecr.montant_credit|floatformat:2 }}</span>
+                                    {% else %}
+                                    <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

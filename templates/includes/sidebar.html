@@ -1,0 +1,300 @@
+<!-- includes/sidebar.html-->
+{% load static %}
+{% load i18n %}
+
+<!-- Menu Navigation starts -->
+<nav>
+    <div class="app-logo">
+        <a class="logo d-inline-block" href="{% url 'core:dashboard' %}">
+            <img alt="AltiusFidu" src="{% static 'assets/images/logo/1.png' %}">
+        </a>
+
+        <span class="bg-light-primary toggle-semi-nav d-flex-center">
+            <i class="ti ti-chevron-right"></i>
+        </span>
+
+        <div class="d-flex align-items-center nav-profile p-3">
+            <span class="h-45 w-45 d-flex-center b-r-10 position-relative bg-danger m-auto">
+                {% if user.profile.avatar %}
+                    <img alt="avatar" class="img-fluid b-r-10" src="{{ user.profile.avatar.url }}">
+                {% else %}
+                    <img alt="avatar" class="img-fluid b-r-10" src="{% static 'assets/images/avatar/woman.jpg' %}">
+                {% endif %}
+                <span class="position-absolute top-0 end-0 p-1 bg-success border border-light rounded-circle"></span>
+            </span>
+            <div class="flex-grow-1 ps-2">
+                <h6 class="text-primary mb-0">{{ user.get_full_name|default:user.username }}</h6>
+                <p class="text-muted f-s-12 mb-0">{{ user.get_role_display|default:'Utilisateur' }}</p>
+            </div>
+
+            <div class="dropdown profile-menu-dropdown">
+                <a aria-expanded="false" data-bs-auto-close="true" data-bs-placement="top" data-bs-toggle="dropdown" role="button">
+                    <i class="ti ti-settings fs-5"></i>
+                </a>
+                <ul class="dropdown-menu">
+                    <li class="dropdown-item">
+                        <a class="f-w-500" href="{% url 'core:profile' %}">
+                            <i class="ph-duotone ph-user-circle pe-1 f-s-20"></i> {% trans "Profil" %}
+                        </a>
+                    </li>
+                    <li class="dropdown-item">
+                        <a class="f-w-500" href="{% url 'core:settings' %}">
+                            <i class="ph-duotone ph-gear pe-1 f-s-20"></i> {% trans "Paramètres" %}
+                        </a>
+                    </li>
+                    <li class="app-divider-v dotted py-1"></li>
+                    <li class="dropdown-item">
+                        <a class="mb-0 text-danger" href="{% url 'core:logout' %}">
+                            <i class="ph-duotone ph-sign-out pe-1 f-s-20"></i> {% trans "Déconnexion" %}
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="app-nav" id="app-simple-bar">
+        <ul class="main-nav p-0 mt-2">
+            
+            <li class="menu-title">
+                <span>{% trans "Dashboard" %}</span>
+            </li>
+            
+            <li class="no-sub {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                <a href="{% url 'core:dashboard' %}">
+                    <svg stroke="currentColor" stroke-width="1.5">
+                        <use xlink:href="{% static 'assets/svg/_sprite.svg#home' %}"></use>
+                    </svg>
+                    {% trans "Tableau de bord" %}
+                </a>
+            </li>
+
+            <li class="menu-title"><span>{% trans "Gestion" %}</span></li>
+
+            <!-- CORE Module -->
+            <li class="{% if request.resolver_match.app_name == 'core' and request.resolver_match.url_name != 'dashboard' %}active{% endif %}">
+                <a aria-expanded="{% if request.resolver_match.app_name == 'core' and request.resolver_match.url_name != 'dashboard' %}true{% else %}false{% endif %}" 
+                   data-bs-toggle="collapse" 
+                   href="#coreMenu">
+                    <svg stroke="currentColor" stroke-width="1.5">
+                        <use xlink:href="{% static 'assets/svg/_sprite.svg#briefcase' %}"></use>
+                    </svg>
+                    {% trans "Gestion de base" %}
+                </a>
+                <ul class="collapse {% if request.resolver_match.app_name == 'core' and request.resolver_match.url_name != 'dashboard' %}show{% endif %}" 
+                    id="coreMenu">
+                    <li class="{% if 'client' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'core:client-list' %}">{% trans "Clients" %}</a>
+                    </li>
+                    <li class="{% if 'mandat' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'core:mandat-list' %}">{% trans "Mandats" %}</a>
+                    </li>
+                    <li class="{% if 'exercice' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'core:exercice-list' %}">{% trans "Exercices comptables" %}</a>
+                    </li>
+                    <li class="{% if 'tache' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'core:tache-list' %}">{% trans "Tâches" %}</a>
+                    </li>
+                </ul>
+            </li>
+
+            <!-- COMPTABILITÉ Module -->
+            {% if perms.comptabilite.view_ecriture %}
+            <li class="{% if request.resolver_match.app_name == 'comptabilite' %}active{% endif %}">
+                <a aria-expanded="{% if request.resolver_match.app_name == 'comptabilite' %}true{% else %}false{% endif %}" 
+                   data-bs-toggle="collapse" 
+                   href="#comptabiliteMenu">
+                    <svg stroke="currentColor" stroke-width="1.5">
+                        <use xlink:href="{% static 'assets/svg/_sprite.svg#wallet' %}"></use>
+                    </svg>
+                    {% trans "Comptabilité" %}
+                </a>
+                <ul class="collapse {% if request.resolver_match.app_name == 'comptabilite' %}show{% endif %}" 
+                    id="comptabiliteMenu">
+                    <li class="{% if 'plan' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'comptabilite:plan-list' %}">{% trans "Plans comptables" %}</a>
+                    </li>
+                    <li class="{% if 'compte' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'comptabilite:compte-list' %}">{% trans "Comptes" %}</a>
+                    </li>
+                    <li class="{% if 'ecriture' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'comptabilite:ecriture-list' %}">{% trans "Écritures" %}</a>
+                    </li>
+                    <li class="{% if 'journal' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'comptabilite:journal-list' %}">{% trans "Journaux" %}</a>
+                    </li>
+                </ul>
+            </li>
+            {% endif %}
+
+            <!-- TVA Module -->
+            {% if perms.tva.view_declaration %}
+            <li class="{% if request.resolver_match.app_name == 'tva' %}active{% endif %}">
+                <a aria-expanded="{% if request.resolver_match.app_name == 'tva' %}true{% else %}false{% endif %}" 
+                   data-bs-toggle="collapse" 
+                   href="#tvaMenu">
+                    <svg stroke="currentColor" stroke-width="1.5">
+                        <use xlink:href="{% static 'assets/svg/_sprite.svg#document' %}"></use>
+                    </svg>
+                    {% trans "TVA" %}
+                </a>
+                <ul class="collapse {% if request.resolver_match.app_name == 'tva' %}show{% endif %}" 
+                    id="tvaMenu">
+                    <li class="{% if 'declaration' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'tva:declaration-list' %}">{% trans "Déclarations" %}</a>
+                    </li>
+                    <li class="{% if 'operation' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'tva:operation-list' %}">{% trans "Opérations TVA" %}</a>
+                    </li>
+                    <li class="{% if 'configuration' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'tva:configuration-list' %}">{% trans "Configurations" %}</a>
+                    </li>
+                </ul>
+            </li>
+            {% endif %}
+
+            <!-- FACTURATION Module -->
+            {% if perms.facturation.view_facture %}
+            <li class="{% if request.resolver_match.app_name == 'facturation' %}active{% endif %}">
+                <a aria-expanded="{% if request.resolver_match.app_name == 'facturation' %}true{% else %}false{% endif %}" 
+                   data-bs-toggle="collapse" 
+                   href="#facturationMenu">
+                    <svg stroke="currentColor" stroke-width="1.5">
+                        <use xlink:href="{% static 'assets/svg/_sprite.svg#newspaper' %}"></use>
+                    </svg>
+                    {% trans "Facturation" %}
+                </a>
+                <ul class="collapse {% if request.resolver_match.app_name == 'facturation' %}show{% endif %}" 
+                    id="facturationMenu">
+                    <li class="{% if 'facture' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'facturation:facture-list' %}">{% trans "Factures" %}</a>
+                    </li>
+                    <li class="{% if 'prestation' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'facturation:prestation-list' %}">{% trans "Prestations" %}</a>
+                    </li>
+                    <li class="{% if 'timetracking' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'facturation:timetracking-list' %}">{% trans "Time tracking" %}</a>
+                    </li>
+                </ul>
+            </li>
+            {% endif %}
+
+            <!-- SALAIRES Module -->
+            {% if perms.salaires.view_fiche %}
+            <li class="{% if request.resolver_match.app_name == 'salaires' %}active{% endif %}">
+                <a aria-expanded="{% if request.resolver_match.app_name == 'salaires' %}true{% else %}false{% endif %}" 
+                   data-bs-toggle="collapse" 
+                   href="#salairesMenu">
+                    <svg stroke="currentColor" stroke-width="1.5">
+                        <use xlink:href="{% static 'assets/svg/_sprite.svg#gift' %}"></use>
+                    </svg>
+                    {% trans "Salaires" %}
+                </a>
+                <ul class="collapse {% if request.resolver_match.app_name == 'salaires' %}show{% endif %}" 
+                    id="salairesMenu">
+                    <li class="{% if 'employe' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'salaires:employe-list' %}">{% trans "Employés" %}</a>
+                    </li>
+                    <li class="{% if 'fiche' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'salaires:fiche-list' %}">{% trans "Fiches de salaire" %}</a>
+                    </li>
+                </ul>
+            </li>
+            {% endif %}
+
+            <!-- DOCUMENTS Module -->
+            {% if perms.documents.view_document %}
+            <li class="{% if request.resolver_match.app_name == 'documents' %}active{% endif %}">
+                <a aria-expanded="{% if request.resolver_match.app_name == 'documents' %}true{% else %}false{% endif %}" 
+                   data-bs-toggle="collapse" 
+                   href="#documentsMenu">
+                    <svg stroke="currentColor" stroke-width="1.5">
+                        <use xlink:href="{% static 'assets/svg/_sprite.svg#document-text' %}"></use>
+                    </svg>
+                    {% trans "Documents" %}
+                </a>
+                <ul class="collapse {% if request.resolver_match.app_name == 'documents' %}show{% endif %}" 
+                    id="documentsMenu">
+                    <li class="{% if 'document-list' in request.path %}active{% endif %}">
+                        <a href="{% url 'documents:document-list' %}">{% trans "Tous les documents" %}</a>
+                    </li>
+                    <li class="{% if 'dossier' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'documents:dossier-list' %}">{% trans "Dossiers" %}</a>
+                    </li>
+                    <li class="{% if 'type' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'documents:type-list' %}">{% trans "Types" %}</a>
+                    </li>
+                </ul>
+            </li>
+            {% endif %}
+
+            <!-- FISCALITÉ Module -->
+            {% if perms.fiscalite.view_declaration %}
+            <li class="{% if request.resolver_match.app_name == 'fiscalite' %}active{% endif %}">
+                <a aria-expanded="{% if request.resolver_match.app_name == 'fiscalite' %}true{% else %}false{% endif %}" 
+                   data-bs-toggle="collapse" 
+                   href="#fiscaliteMenu">
+                    <svg stroke="currentColor" stroke-width="1.5">
+                        <use xlink:href="{% static 'assets/svg/_sprite.svg#calculator' %}"></use>
+                    </svg>
+                    {% trans "Fiscalité" %}
+                </a>
+                <ul class="collapse {% if request.resolver_match.app_name == 'fiscalite' %}show{% endif %}" 
+                    id="fiscaliteMenu">
+                    <li class="{% if 'declaration' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'fiscalite:declaration-list' %}">{% trans "Déclarations fiscales" %}</a>
+                    </li>
+                    <li class="{% if 'report-perte' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'fiscalite:report-perte-list' %}">{% trans "Reports de pertes" %}</a>
+                    </li>
+                    <li class="{% if 'reclamation' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'fiscalite:reclamation-list' %}">{% trans "Réclamations" %}</a>
+                    </li>
+                    <li class="{% if 'optimisation' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'fiscalite:optimisation-list' %}">{% trans "Optimisations" %}</a>
+                    </li>
+                    <li class="{% if 'taux-imposition' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'fiscalite:taux-imposition-list' %}">{% trans "Taux d'imposition" %}</a>
+                    </li>
+                </ul>
+            </li>
+            {% endif %}
+
+            <li class="menu-title"><span>{% trans "Analyse" %}</span></li>
+
+            <!-- ANALYTICS Module -->
+            {% if perms.analytics.view_dashboard %}
+            <li class="{% if request.resolver_match.app_name == 'analytics' %}active{% endif %}">
+                <a aria-expanded="{% if request.resolver_match.app_name == 'analytics' %}true{% else %}false{% endif %}" 
+                   data-bs-toggle="collapse" 
+                   href="#analyticsMenu">
+                    <svg stroke="currentColor" stroke-width="1.5">
+                        <use xlink:href="{% static 'assets/svg/_sprite.svg#chart' %}"></use>
+                    </svg>
+                    {% trans "Analytics" %}
+                </a>
+                <ul class="collapse {% if request.resolver_match.app_name == 'analytics' %}show{% endif %}" 
+                    id="analyticsMenu">
+                    <li class="{% if 'tableau-bord' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'analytics:tableau-bord-list' %}">{% trans "Tableaux de bord" %}</a>
+                    </li>
+                    <li class="{% if 'rapport' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'analytics:rapport-list' %}">{% trans "Rapports" %}</a>
+                    </li>
+                    <li class="{% if 'alerte' in request.resolver_match.url_name %}active{% endif %}">
+                        <a href="{% url 'analytics:alerte-list' %}">{% trans "Alertes" %}</a>
+                    </li>
+                </ul>
+            </li>
+            {% endif %}
+
+        </ul>
+    </div>
+
+    <div class="menu-navs">
+        <span class="menu-previous"><i class="ti ti-chevron-left"></i></span>
+        <span class="menu-next"><i class="ti ti-chevron-right"></i></span>
+    </div>
+
+</nav>
+<!-- Menu Navigation ends -->

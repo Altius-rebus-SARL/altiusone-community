@@ -1,0 +1,181 @@
+<!-- core/tache_form.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}
+    {% if form.instance.pk %}{% trans "Modifier tâche" %}{% else %}{% trans "Nouvelle tâche" %}{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h4 class="text-primary mb-4">
+                    {% if form.instance.pk %}
+                        {% trans "Modifier tâche" %}
+                    {% else %}
+                        {% trans "Nouvelle tâche" %}
+                    {% endif %}
+                </h4>
+
+                <form method="post" class="app-form">
+                    {% csrf_token %}
+
+                    <div class="row">
+                        <!-- Titre -->
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label for="{{ form.titre.id_for_label }}" class="form-label">
+                                    {{ form.titre.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.titre }}
+                                {% if form.titre.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.titre.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Description -->
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label for="{{ form.description.id_for_label }}" class="form-label">
+                                    {{ form.description.label }}
+                                </label>
+                                {{ form.description }}
+                                {% if form.description.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.description.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Mandat -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.mandat.id_for_label }}" class="form-label">
+                                    {{ form.mandat.label }}
+                                </label>
+                                {{ form.mandat }}
+                                {% if form.mandat.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.mandat.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Assigné à -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.assigne_a.id_for_label }}" class="form-label">
+                                    {{ form.assigne_a.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.assigne_a }}
+                                {% if form.assigne_a.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.assigne_a.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Priorité -->
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ form.priorite.id_for_label }}" class="form-label">
+                                    {{ form.priorite.label }}
+                                </label>
+                                {{ form.priorite }}
+                                {% if form.priorite.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.priorite.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Statut -->
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ form.statut.id_for_label }}" class="form-label">
+                                    {{ form.statut.label }}
+                                </label>
+                                {{ form.statut }}
+                                {% if form.statut.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.statut.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Date échéance -->
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ form.date_echeance.id_for_label }}" class="form-label">
+                                    {{ form.date_echeance.label }}
+                                </label>
+                                {{ form.date_echeance }}
+                                {% if form.date_echeance.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.date_echeance.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Temps estimé -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.temps_estime_heures.id_for_label }}" class="form-label">
+                                    {{ form.temps_estime_heures.label }}
+                                </label>
+                                {{ form.temps_estime_heures }}
+                                <small class="text-muted">{% trans "En heures" %}</small>
+                                {% if form.temps_estime_heures.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.temps_estime_heures.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Temps réel -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.temps_reel_heures.id_for_label }}" class="form-label">
+                                    {{ form.temps_reel_heures.label }}
+                                </label>
+                                {{ form.temps_reel_heures }}
+                                <small class="text-muted">{% trans "En heures" %}</small>
+                                {% if form.temps_reel_heures.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.temps_reel_heures.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <a href="{% if form.instance.pk %}{% url 'core:tache-detail' form.instance.pk %}{% else %}{% url 'core:tache-list' %}{% endif %}" 
+                           class="btn btn-secondary">
+                            <i class="ti ti-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ti ti-check me-2"></i>{% trans "Enregistrer" %}
+                        </button>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

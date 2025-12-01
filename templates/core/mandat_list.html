@@ -1,0 +1,270 @@
+<!-- core/mandat_list.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Liste des mandats" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Mandats" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Liste des mandats" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<div class="row">
+    <!-- Statistics Cards -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-primary mb-0">{{ stats.total }}</h3>
+                        <p class="text-muted mb-0">{% trans "Total" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-primary">
+                        <i class="ti ti-briefcase f-s-24 text-primary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-success mb-0">{{ stats.actifs }}</h3>
+                        <p class="text-muted mb-0">{% trans "Actifs" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-success">
+                        <i class="ti ti-check-circle f-s-24 text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-info mb-0">{{ stats.par_type|length }}</h3>
+                        <p class="text-muted mb-0">{% trans "Types" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-info">
+                        <i class="ti ti-category f-s-24 text-info"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Liste des mandats" %}</h5>
+            </div>
+            <div class="card-body">
+                <div id="mandatsTable">
+                    <!-- Header with Add button and Search -->
+                    <div class="list-table-header d-flex justify-content-between align-items-center mb-3">
+                        <a href="{% url 'core:mandat-create' %}" class="btn btn-primary">
+                            <i class="ti ti-plus me-2"></i>{% trans "Nouveau mandat" %}
+                        </a>
+
+                        <form method="get" class="app-form app-icon-form">
+                            <div class="position-relative">
+                                <input aria-label="Search" 
+                                       class="form-control search" 
+                                       placeholder="{% trans 'Rechercher...' %}"
+                                       type="search"
+                                       name="q"
+                                       value="{{ request.GET.q }}">
+                                <i class="ti ti-search text-dark"></i>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Filters Row -->
+                    <form method="get" class="mb-3">
+                        <div class="row app-form">
+                            <div class="col-md-3">
+                                <select name="type_mandat" class="form-select select-basic" onchange="this.form.submit()">
+                                    <option value="">{% trans "Tous les types" %}</option>
+                                    <option value="COMPTA" {% if request.GET.type_mandat == 'COMPTA' %}selected{% endif %}>{% trans "Comptabilité" %}</option>
+                                    <option value="TVA" {% if request.GET.type_mandat == 'TVA' %}selected{% endif %}>{% trans "TVA" %}</option>
+                                    <option value="SALAIRES" {% if request.GET.type_mandat == 'SALAIRES' %}selected{% endif %}>{% trans "Salaires" %}</option>
+                                    <option value="GLOBAL" {% if request.GET.type_mandat == 'GLOBAL' %}selected{% endif %}>{% trans "Global" %}</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <select name="statut" class="form-select select-basic" onchange="this.form.submit()">
+                                    <option value="">{% trans "Tous les statuts" %}</option>
+                                    <option value="ACTIF" {% if request.GET.statut == 'ACTIF' %}selected{% endif %}>{% trans "Actif" %}</option>
+                                    <option value="BROUILLON" {% if request.GET.statut == 'BROUILLON' %}selected{% endif %}>{% trans "Brouillon" %}</option>
+                                    <option value="SUSPENDU" {% if request.GET.statut == 'SUSPENDU' %}selected{% endif %}>{% trans "Suspendu" %}</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                {% if request.GET.type_mandat or request.GET.statut or request.GET.q %}
+                                <a href="{% url 'core:mandat-list' %}" class="btn btn-secondary">
+                                    <i class="ti ti-x me-2"></i>{% trans "Réinitialiser" %}
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </form>
+
+                    <!-- Table -->
+                    <div class="overflow-auto app-scroll">
+                        <table class="table table-bottom-border align-middle mb-0">
+                            <thead>
+                                <tr class="app-sort">
+                                    <th>
+                                        <input class="form-check-input checkAll" name="checkAll" type="checkbox">
+                                    </th>
+                                    <th scope="col">{% trans "Numéro" %}</th>
+                                    <th scope="col">{% trans "Client" %}</th>
+                                    <th scope="col">{% trans "Type" %}</th>
+                                    <th scope="col">{% trans "Responsable" %}</th>
+                                    <th scope="col">{% trans "Tâches" %}</th>
+                                    <th scope="col">{% trans "Date début" %}</th>
+                                    <th scope="col">{% trans "Statut" %}</th>
+                                    <th scope="col">{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="list">
+                                {% for mandat in mandats %}
+                                <tr>
+                                    <th scope="row">
+                                        <input class="form-check-input mt-0 ms-2" name="item" type="checkbox">
+                                    </th>
+                                    <td>
+                                        <a href="{% url 'core:mandat-detail' mandat.pk %}" class="f-w-500 text-dark">
+                                            {{ mandat.numero }}
+                                        </a>
+                                    </td>
+                                    <td>{{ mandat.client.raison_sociale }}</td>
+                                    <td>
+                                        <span class="badge bg-light-primary">
+                                            {{ mandat.get_type_mandat_display }}
+                                        </span>
+                                    </td>
+                                    <td>{{ mandat.responsable.get_full_name|default:mandat.responsable.username }}</td>
+                                    <td>
+                                        <span class="badge bg-light-warning">
+                                            {{ mandat.nb_taches_en_cours }}/{{ mandat.nb_taches }}
+                                        </span>
+                                    </td>
+                                    <td>{{ mandat.date_debut|date:"d.m.Y" }}</td>
+                                    <td>
+                                        {% if mandat.statut == 'ACTIF' %}
+                                            <span class="badge bg-success-subtle text-success text-uppercase">
+                                                {{ mandat.get_statut_display }}
+                                            </span>
+                                        {% elif mandat.statut == 'BROUILLON' %}
+                                            <span class="badge bg-secondary-subtle text-secondary text-uppercase">
+                                                {{ mandat.get_statut_display }}
+                                            </span>
+                                        {% elif mandat.statut == 'SUSPENDU' %}
+                                            <span class="badge bg-warning-subtle text-warning text-uppercase">
+                                                {{ mandat.get_statut_display }}
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-danger-subtle text-danger text-uppercase">
+                                                {{ mandat.get_statut_display }}
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'core:mandat-detail' mandat.pk %}" 
+                                           class="btn btn-sm btn-light-primary"
+                                           data-bs-toggle="tooltip"
+                                           title="{% trans 'Voir' %}">
+                                            <i class="ti ti-eye"></i>
+                                        </a>
+                                        <a href="{% url 'core:mandat-update' mandat.pk %}" 
+                                           class="btn btn-sm btn-success"
+                                           data-bs-toggle="tooltip"
+                                           title="{% trans 'Modifier' %}">
+                                            <i class="ti ti-edit"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="9" class="text-center py-5">
+                                        <i class="ti ti-folder-off f-s-50 text-muted"></i>
+                                        <p class="text-muted mt-2">{% trans "Aucun mandat trouvé" %}</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if is_paginated %}
+                    <div class="list-pagination mt-3">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                                    <i class="ti ti-chevrons-left"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                                    <i class="ti ti-chevron-left"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+
+                            {% for num in page_obj.paginator.page_range %}
+                                {% if page_obj.number == num %}
+                                <li class="page-item active"><a class="page-link">{{ num }}</a></li>
+                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                <li class="page-item"><a class="page-link" href="?page={{ num }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">{{ num }}</a></li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                                    <i class="ti ti-chevron-right"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                                    <i class="ti ti-chevrons-right"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

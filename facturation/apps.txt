@@ -1,0 +1,2640 @@
+# facturation/admin.py
+from django.contrib import admin
+from .models import Prestation, TimeTracking, Facture, LigneFacture, Paiement, Relance
+
+
+@admin.register(Prestation)
+class PrestationAdmin(admin.ModelAdmin):
+    list_display = ["code", "libelle", "type_prestation", "prix_unitaire_ht", "actif"]
+    list_filter = ["type_prestation", "actif", "soumis_tva"]
+    search_fields = ["code", "libelle"]
+
+
+@admin.register(Facture)
+class FactureAdmin(admin.ModelAdmin):
+    list_display = [
+        "numero_facture",
+        "client",
+        "date_emission",
+        "montant_ttc",
+        "statut",
+        "montant_restant",
+    ]
+    list_filter = ["statut", "type_facture"]
+    search_fields = ["numero_facture", "client__raison_sociale"]
+    date_hierarchy = "date_emission"
+
+
+class LigneFactureInline(admin.TabularInline):
+    model = LigneFacture
+    extra = 1
+
+
+@admin.register(TimeTracking)
+class TimeTrackingAdmin(admin.ModelAdmin):
+    list_display = [
+        "date_travail",
+        "utilisateur",
+        "mandat",
+        "duree_minutes",
+        "facturable",
+    ]
+    list_filter = ["facturable", "valide"]
+    date_hierarchy = "date_travail"
+
+
+@admin.register(Paiement)
+class PaiementAdmin(admin.ModelAdmin):
+    list_display = ["facture", "montant", "date_paiement", "mode_paiement", "valide"]
+    list_filter = ["mode_paiement", "valide"]
+    date_hierarchy = "date_paiement"
+
+
+admin.site.register(LigneFacture)
+admin.site.register(Relance)
+# apps/facturation/urls.py
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .viewset import (
+    PrestationViewSet,
+    TimeTrackingViewSet,
+    FactureViewSet,
+    LigneFactureViewSet,
+    PaiementViewSet,
+    RelanceViewSet,
+)
+
+app_name = "facturation"
+
+router = DefaultRouter()
+router.register(r"prestations", PrestationViewSet, basename="prestation")
+router.register(r"temps", TimeTrackingViewSet, basename="temps")
+router.register(r"factures", FactureViewSet, basename="facture")
+router.register(r"lignes", LigneFactureViewSet, basename="ligne")
+router.register(r"paiements", PaiementViewSet, basename="paiement")
+router.register(r"relances", RelanceViewSet, basename="relance")
+
+urlpatterns = [
+    path("", include(router.urls)),
+]
+
+"""
+API Endpoints:
+
+PRESTATIONS:
+- GET    /api/v1/facturation/prestations/              Liste prestations
+- POST   /api/v1/facturation/prestations/              Créer prestation
+- GET    /api/v1/facturation/prestations/{id}/         Détail prestation
+- PUT    /api/v1/facturation/prestations/{id}/         Modifier prestation
+- DELETE /api/v1/facturation/prestations/{id}/         Supprimer prestation
+
+TIME TRACKING:
+- GET    /api/v1/facturation/temps/                    Liste temps
+- POST   /api/v1/facturation/temps/                    Créer entrée temps
+- GET    /api/v1/facturation/temps/{id}/               Détail temps
+- PUT    /api/v1/facturation/temps/{id}/               Modifier temps
+- DELETE /api/v1/facturation/temps/{id}/               Supprimer temps
+- GET    /api/v1/facturation/temps/non_factures/       Temps non facturés
+- POST   /api/v1/facturation/temps/{id}/valider/       Valider temps
+
+FACTURES:
+- GET    /api/v1/facturation/factures/                 Liste factures
+- POST   /api/v1/facturation/factures/                 Créer facture
+- GET    /api/v1/facturation/factures/{id}/            Détail facture
+- PUT    /api/v1/facturation/factures/{id}/            Modifier facture
+- DELETE /api/v1/facturation/factures/{id}/            Supprimer facture
+- GET    /api/v1/facturation/factures/{id}/lignes/     Lignes de la facture
+- POST   /api/v1/facturation/factures/{id}/calculer/   Recalculer totaux
+- POST   /api/v1/facturation/factures/{id}/valider/    Valider facture
+- POST   /api/v1/facturation/factures/{id}/envoyer/    Envoyer facture
+- POST   /api/v1/facturation/factures/{id}/generer_pdf/ Générer PDF
+- POST   /api/v1/facturation/factures/{id}/generer_qr/  Générer QR-Bill
+- GET    /api/v1/facturation/factures/impayees/        Factures impayées
+- GET    /api/v1/facturation/factures/en_retard/       Factures en retard
+
+LIGNES FACTURE:
+- GET    /api/v1/facturation/lignes/                   Liste lignes
+- POST   /api/v1/facturation/lignes/                   Créer ligne
+- GET    /api/v1/facturation/lignes/{id}/              Détail ligne
+- PUT    /api/v1/facturation/lignes/{id}/              Modifier ligne
+- DELETE /api/v1/facturation/lignes/{id}/              Supprimer ligne
+
+PAIEMENTS:
+- GET    /api/v1/facturation/paiements/                Liste paiements
+- POST   /api/v1/facturation/paiements/                Enregistrer paiement
+- GET    /api/v1/facturation/paiements/{id}/           Détail paiement
+- PUT    /api/v1/facturation/paiements/{id}/           Modifier paiement
+- DELETE /api/v1/facturation/paiements/{id}/           Supprimer paiement
+- POST   /api/v1/facturation/paiements/{id}/valider/   Valider paiement
+
+RELANCES:
+- GET    /api/v1/facturation/relances/                 Liste relances
+- POST   /api/v1/facturation/relances/                 Créer relance
+- GET    /api/v1/facturation/relances/{id}/            Détail relance
+- PUT    /api/v1/facturation/relances/{id}/            Modifier relance
+- DELETE /api/v1/facturation/relances/{id}/            Supprimer relance
+- POST   /api/v1/facturation/relances/{id}/envoyer/    Envoyer relance
+"""
+from django.apps import AppConfig
+
+
+class FacturationConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'facturation'
+# facturation/filters.py
+import django_filters
+from django import forms
+from django.utils.translation import gettext_lazy as _
+from .models import Facture, TimeTracking, Paiement, Prestation
+from core.models import Mandat, Client, User
+
+
+class FactureFilter(django_filters.FilterSet):
+    """Filtres pour les factures"""
+
+    numero_facture = django_filters.CharFilter(
+        lookup_expr="icontains", label=_("Numéro")
+    )
+
+    client = django_filters.ModelChoiceFilter(
+        queryset=Client.objects.filter(statut="ACTIF"), label=_("Client")
+    )
+
+    mandat = django_filters.ModelChoiceFilter(
+        queryset=Mandat.objects.filter(statut="ACTIF"), label=_("Mandat")
+    )
+
+    type_facture = django_filters.ChoiceFilter(
+        choices=Facture.TYPE_CHOICES, label=_("Type")
+    )
+
+    statut = django_filters.ChoiceFilter(
+        choices=Facture.STATUT_CHOICES, label=_("Statut")
+    )
+
+    date_emission = django_filters.DateFromToRangeFilter(label=_("Date émission"))
+
+    date_echeance = django_filters.DateFromToRangeFilter(label=_("Date échéance"))
+
+    montant_min = django_filters.NumberFilter(
+        field_name="montant_ttc", lookup_expr="gte", label=_("Montant minimum")
+    )
+
+    montant_max = django_filters.NumberFilter(
+        field_name="montant_ttc", lookup_expr="lte", label=_("Montant maximum")
+    )
+
+    en_retard = django_filters.BooleanFilter(
+        method="filter_en_retard", label=_("En retard"), widget=forms.CheckboxInput()
+    )
+
+    class Meta:
+        model = Facture
+        fields = [
+            "numero_facture",
+            "client",
+            "mandat",
+            "type_facture",
+            "statut",
+            "date_emission",
+            "date_echeance",
+        ]
+
+    def filter_en_retard(self, queryset, name, value):
+        from datetime import date
+
+        if value:
+            return queryset.filter(
+                date_echeance__lt=date.today(),
+                statut__in=["EMISE", "ENVOYEE", "RELANCEE", "EN_RETARD"],
+            )
+        return queryset
+
+
+class TimeTrackingFilter(django_filters.FilterSet):
+    """Filtres pour le time tracking"""
+
+    mandat = django_filters.ModelChoiceFilter(
+        queryset=Mandat.objects.filter(statut="ACTIF"), label=_("Mandat")
+    )
+
+    utilisateur = django_filters.ModelChoiceFilter(
+        queryset=User.objects.filter(is_active=True), label=_("Utilisateur")
+    )
+
+    prestation = django_filters.ModelChoiceFilter(
+        queryset=Prestation.objects.filter(actif=True), label=_("Prestation")
+    )
+
+    date_travail = django_filters.DateFromToRangeFilter(label=_("Date"))
+
+    facturable = django_filters.BooleanFilter(
+        label=_("Facturable"), widget=forms.CheckboxInput()
+    )
+
+    facture = django_filters.BooleanFilter(
+        method="filter_facture", label=_("Facturé"), widget=forms.CheckboxInput()
+    )
+
+    valide = django_filters.BooleanFilter(
+        label=_("Validé"), widget=forms.CheckboxInput()
+    )
+
+    class Meta:
+        model = TimeTracking
+        fields = [
+            "mandat",
+            "utilisateur",
+            "prestation",
+            "date_travail",
+            "facturable",
+            "valide",
+        ]
+
+    def filter_facture(self, queryset, name, value):
+        if value:
+            return queryset.filter(facture__isnull=False)
+        else:
+            return queryset.filter(facture__isnull=True)
+
+
+class PaiementFilter(django_filters.FilterSet):
+    """Filtres pour les paiements"""
+
+    facture__numero_facture = django_filters.CharFilter(
+        lookup_expr="icontains", label=_("Numéro facture")
+    )
+
+    facture__client = django_filters.ModelChoiceFilter(
+        queryset=Client.objects.filter(statut="ACTIF"), label=_("Client")
+    )
+
+    mode_paiement = django_filters.ChoiceFilter(
+        choices=Paiement.MODE_PAIEMENT_CHOICES, label=_("Mode de paiement")
+    )
+
+    date_paiement = django_filters.DateFromToRangeFilter(label=_("Date paiement"))
+
+    valide = django_filters.BooleanFilter(
+        label=_("Validé"), widget=forms.CheckboxInput()
+    )
+
+    montant_min = django_filters.NumberFilter(
+        field_name="montant", lookup_expr="gte", label=_("Montant minimum")
+    )
+
+    montant_max = django_filters.NumberFilter(
+        field_name="montant", lookup_expr="lte", label=_("Montant maximum")
+    )
+
+    class Meta:
+        model = Paiement
+        fields = [
+            "facture__numero_facture",
+            "facture__client",
+            "mode_paiement",
+            "date_paiement",
+            "valide",
+        ]
+# facturation/forms.py
+from django import forms
+from django.utils.translation import gettext_lazy as _
+from decimal import Decimal
+from datetime import datetime, timedelta
+
+from .models import Prestation, TimeTracking, Facture, LigneFacture, Paiement, Relance
+from core.models import Mandat, Client, User
+
+
+class PrestationForm(forms.ModelForm):
+    """Formulaire pour une prestation"""
+
+    class Meta:
+        model = Prestation
+        fields = [
+            "code",
+            "libelle",
+            "description",
+            "type_prestation",
+            "prix_unitaire_ht",
+            "unite",
+            "taux_horaire",
+            "soumis_tva",
+            "taux_tva_defaut",
+            "compte_produit",
+            "actif",
+        ]
+        widgets = {
+            "code": forms.TextInput(attrs={"class": "form-control"}),
+            "libelle": forms.TextInput(attrs={"class": "form-control"}),
+            "description": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+            "type_prestation": forms.Select(attrs={"class": "form-control"}),
+            "prix_unitaire_ht": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01"}
+            ),
+            "unite": forms.TextInput(attrs={"class": "form-control"}),
+            "taux_horaire": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01"}
+            ),
+            "soumis_tva": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "taux_tva_defaut": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01"}
+            ),
+            "compte_produit": forms.Select(attrs={"class": "form-control select2"}),
+            "actif": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        }
+
+
+class TimeTrackingForm(forms.ModelForm):
+    """Formulaire pour le suivi du temps"""
+
+    # Champs calculés
+    heure_debut_time = forms.TimeField(
+        required=False,
+        label=_("Heure début"),
+        widget=forms.TimeInput(attrs={"class": "form-control", "type": "time"}),
+    )
+
+    heure_fin_time = forms.TimeField(
+        required=False,
+        label=_("Heure fin"),
+        widget=forms.TimeInput(attrs={"class": "form-control", "type": "time"}),
+    )
+
+    class Meta:
+        model = TimeTracking
+        fields = [
+            "mandat",
+            "utilisateur",
+            "prestation",
+            "date_travail",
+            "duree_minutes",
+            "description",
+            "notes_internes",
+            "facturable",
+            "taux_horaire",
+        ]
+        widgets = {
+            "mandat": forms.Select(attrs={"class": "form-control select2"}),
+            "utilisateur": forms.Select(attrs={"class": "form-control select2"}),
+            "prestation": forms.Select(attrs={"class": "form-control select2"}),
+            "date_travail": forms.DateInput(
+                attrs={"class": "form-control", "type": "date"}
+            ),
+            "duree_minutes": forms.NumberInput(attrs={"class": "form-control"}),
+            "description": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+            "notes_internes": forms.Textarea(
+                attrs={"class": "form-control", "rows": 2}
+            ),
+            "facturable": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "taux_horaire": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01"}
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Si on a des heures début/fin, calculer la durée
+        if self.instance and self.instance.heure_debut and self.instance.heure_fin:
+            self.fields["heure_debut_time"].initial = self.instance.heure_debut
+            self.fields["heure_fin_time"].initial = self.instance.heure_fin
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        # Calculer la durée depuis les heures si fournies
+        heure_debut = cleaned_data.get("heure_debut_time")
+        heure_fin = cleaned_data.get("heure_fin_time")
+        duree_minutes = cleaned_data.get("duree_minutes")
+
+        if heure_debut and heure_fin:
+            # Calculer la durée
+            from datetime import datetime, timedelta
+
+            debut = datetime.combine(datetime.today(), heure_debut)
+            fin = datetime.combine(datetime.today(), heure_fin)
+
+            if fin < debut:
+                raise forms.ValidationError(
+                    _("L'heure de fin doit être après l'heure de début")
+                )
+
+            duree = fin - debut
+            cleaned_data["duree_minutes"] = int(duree.total_seconds() / 60)
+
+            # Sauvegarder les heures
+            cleaned_data["heure_debut"] = heure_debut
+            cleaned_data["heure_fin"] = heure_fin
+
+        elif not duree_minutes:
+            raise forms.ValidationError(
+                _("Veuillez fournir soit la durée, soit les heures de début et fin")
+            )
+
+        # Vérifier que le taux horaire est défini
+        if not cleaned_data.get("taux_horaire"):
+            # Prendre le taux de la prestation
+            prestation = cleaned_data.get("prestation")
+            if prestation and prestation.taux_horaire:
+                cleaned_data["taux_horaire"] = prestation.taux_horaire
+            else:
+                raise forms.ValidationError(_("Un taux horaire doit être défini"))
+
+        return cleaned_data
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+
+        # Sauvegarder les heures si calculées
+        if hasattr(self, "cleaned_data"):
+            instance.heure_debut = self.cleaned_data.get("heure_debut")
+            instance.heure_fin = self.cleaned_data.get("heure_fin")
+
+        if commit:
+            instance.save()
+
+        return instance
+
+
+class FactureForm(forms.ModelForm):
+    """Formulaire pour une facture"""
+
+    class Meta:
+        model = Facture
+        fields = [
+            "mandat",
+            "client",
+            "type_facture",
+            "date_emission",
+            "date_service_debut",
+            "date_service_fin",
+            "delai_paiement_jours",
+            "conditions_paiement",
+            "remise_pourcent",
+            "introduction",
+            "conclusion",
+            "notes",
+        ]
+        widgets = {
+            "mandat": forms.Select(attrs={"class": "form-control"}),
+            "client": forms.Select(attrs={"class": "form-control"}),
+            "type_facture": forms.Select(attrs={"class": "form-control"}),
+            "date_emission": forms.DateInput(
+                attrs={"class": "form-control", "type": "date"}
+            ),
+            "date_service_debut": forms.DateInput(
+                attrs={"class": "form-control", "type": "date"}
+            ),
+            "date_service_fin": forms.DateInput(
+                attrs={"class": "form-control", "type": "date"}
+            ),
+            "delai_paiement_jours": forms.NumberInput(attrs={"class": "form-control"}),
+            "conditions_paiement": forms.Textarea(
+                attrs={"class": "form-control", "rows": 2}
+            ),
+            "remise_pourcent": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01"}
+            ),
+            "introduction": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+            "conclusion": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Calculer la date d'échéance automatiquement
+        if self.instance and self.instance.date_emission:
+            delai = self.instance.delai_paiement_jours or 30
+            self.instance.date_echeance = self.instance.date_emission + timedelta(
+                days=delai
+            )
+
+
+class LigneFactureForm(forms.ModelForm):
+    """Formulaire pour une ligne de facture"""
+
+    class Meta:
+        model = LigneFacture
+        fields = [
+            "prestation",
+            "description",
+            "description_detaillee",
+            "quantite",
+            "unite",
+            "prix_unitaire_ht",
+            "taux_tva",
+            "remise_pourcent",
+        ]
+        widgets = {
+            "prestation": forms.Select(attrs={"class": "form-control select2"}),
+            "description": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+            "description_detaillee": forms.Textarea(
+                attrs={"class": "form-control", "rows": 3}
+            ),
+            "quantite": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01"}
+            ),
+            "unite": forms.TextInput(attrs={"class": "form-control"}),
+            "prix_unitaire_ht": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01"}
+            ),
+            "taux_tva": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01"}
+            ),
+            "remise_pourcent": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01"}
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Si une prestation est sélectionnée, préremplir les champs
+        if self.instance and self.instance.prestation:
+            prestation = self.instance.prestation
+            if not self.instance.pk:  # Nouvelle ligne
+                self.fields["description"].initial = prestation.libelle
+                self.fields["prix_unitaire_ht"].initial = prestation.prix_unitaire_ht
+                self.fields["unite"].initial = prestation.unite
+                self.fields["taux_tva"].initial = prestation.taux_tva_defaut
+
+
+class PaiementForm(forms.ModelForm):
+    """Formulaire pour un paiement"""
+
+    class Meta:
+        model = Paiement
+        fields = [
+            "montant",
+            "devise",
+            "date_paiement",
+            "mode_paiement",
+            "reference",
+            "notes",
+        ]
+        widgets = {
+            "montant": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01"}
+            ),
+            "devise": forms.TextInput(attrs={"class": "form-control"}),
+            "date_paiement": forms.DateInput(
+                attrs={"class": "form-control", "type": "date"}
+            ),
+            "mode_paiement": forms.Select(attrs={"class": "form-control"}),
+            "reference": forms.TextInput(attrs={"class": "form-control"}),
+            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+        }
+
+
+class RelanceForm(forms.ModelForm):
+    """Formulaire pour une relance"""
+
+    class Meta:
+        model = Relance
+        fields = ["date_echeance", "montant_frais", "montant_interets", "notes"]
+        widgets = {
+            "date_echeance": forms.DateInput(
+                attrs={"class": "form-control", "type": "date"}
+            ),
+            "montant_frais": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01"}
+            ),
+            "montant_interets": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01"}
+            ),
+            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+        }
+
+
+class FacturationGroupeeForm(forms.Form):
+    """Formulaire pour facturer du temps en groupe"""
+
+    mandat = forms.ModelChoiceField(
+        queryset=Mandat.objects.filter(statut="ACTIF"),
+        label=_("Mandat"),
+        widget=forms.Select(attrs={"class": "form-control select2"}),
+    )
+
+    periode_debut = forms.DateField(
+        label=_("Période début"),
+        widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+    )
+
+    periode_fin = forms.DateField(
+        label=_("Période fin"),
+        widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+    )
+
+    grouper_par = forms.ChoiceField(
+        choices=[
+            ("prestation", _("Par prestation")),
+            ("utilisateur", _("Par utilisateur")),
+            ("jour", _("Par jour")),
+        ],
+        label=_("Grouper par"),
+        widget=forms.Select(attrs={"class": "form-control"}),
+    )
+
+    inclure_detail = forms.BooleanField(
+        required=False,
+        initial=True,
+        label=_("Inclure le détail dans la description"),
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
+    )
+# apps/facturation/models.py
+from django.db import models
+from core.models import BaseModel, Mandat, Client, User
+from decimal import Decimal
+from datetime import datetime, date, timedelta
+
+
+class Prestation(BaseModel):
+    """Prestation/Service fourni"""
+
+    TYPE_CHOICES = [
+        ('COMPTABILITE', 'Comptabilité'),
+        ('TVA', 'TVA'),
+        ('SALAIRES', 'Salaires'),
+        ('CONSEIL', 'Conseil'),
+        ('AUDIT', 'Audit'),
+        ('FISCALITE', 'Fiscalité'),
+        ('JURIDIQUE', 'Juridique'),
+        ('CREATION', 'Création entreprise'),
+        ('AUTRE', 'Autre'),
+    ]
+
+    # Identification
+    code = models.CharField(max_length=50, unique=True, db_index=True)
+    libelle = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+
+    type_prestation = models.CharField(max_length=20, choices=TYPE_CHOICES)
+
+    # Tarification par défaut
+    prix_unitaire_ht = models.DecimalField(max_digits=10, decimal_places=2,
+                                           null=True, blank=True)
+    unite = models.CharField(max_length=50, default='heure',
+                             help_text='heure, jour, forfait, unité')
+
+    taux_horaire = models.DecimalField(max_digits=10, decimal_places=2,
+                                       null=True, blank=True)
+
+    # TVA
+    soumis_tva = models.BooleanField(default=True)
+    taux_tva_defaut = models.DecimalField(max_digits=5, decimal_places=2, default=8.1)
+
+    # Compte comptable
+    compte_produit = models.ForeignKey('comptabilite.Compte',
+                                       on_delete=models.SET_NULL,
+                                       null=True, blank=True,
+                                       related_name='+')
+
+    actif = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'prestations'
+        verbose_name = 'Prestation'
+        ordering = ['code']
+
+    def __str__(self):
+        return f"{self.code} - {self.libelle}"
+
+
+class TimeTracking(BaseModel):
+    """Suivi du temps de travail sur les prestations"""
+
+    # Rattachement
+    mandat = models.ForeignKey(Mandat, on_delete=models.CASCADE,
+                               related_name='temps_travail')
+    utilisateur = models.ForeignKey(User, on_delete=models.PROTECT,
+                                    related_name='temps_travail')
+    prestation = models.ForeignKey(Prestation, on_delete=models.PROTECT,
+                                   related_name='temps_travail')
+
+    # Temps
+    date_travail = models.DateField(db_index=True)
+    heure_debut = models.TimeField(null=True, blank=True)
+    heure_fin = models.TimeField(null=True, blank=True)
+    duree_minutes = models.IntegerField(help_text='Durée en minutes')
+
+    # Description
+    description = models.TextField()
+    notes_internes = models.TextField(blank=True)
+
+    # Facturation
+    facturable = models.BooleanField(default=True)
+    taux_horaire = models.DecimalField(max_digits=10, decimal_places=2)
+    montant_ht = models.DecimalField(max_digits=10, decimal_places=2)
+
+    facture = models.ForeignKey('Facture', on_delete=models.SET_NULL,
+                                null=True, blank=True,
+                                related_name='temps_factures')
+    date_facturation = models.DateField(null=True, blank=True)
+
+    # Validation
+    valide = models.BooleanField(default=False)
+    valide_par = models.ForeignKey(User, on_delete=models.SET_NULL,
+                                   null=True, blank=True,
+                                   related_name='+')
+
+    class Meta:
+        db_table = 'time_tracking'
+        verbose_name = 'Suivi du temps'
+        ordering = ['-date_travail', 'utilisateur']
+        indexes = [
+            models.Index(fields=['mandat', 'date_travail']),
+            models.Index(fields=['utilisateur', 'date_travail']),
+            models.Index(fields=['facturable', 'facture']),
+        ]
+
+    def __str__(self):
+        return f"{self.date_travail} - {self.utilisateur.username} - {self.duree_minutes}min"
+
+    @property
+    def duree_heures(self):
+        """Retourne la durée en heures décimales"""
+        return Decimal(self.duree_minutes) / Decimal('60')
+
+    def calculer_montant(self):
+        """Calcule le montant HT basé sur durée et taux"""
+        heures = Decimal(self.duree_minutes) / Decimal("60")
+        self.montant_ht = (heures * self.taux_horaire).quantize(Decimal("0.01"))
+        self.save(update_fields=["montant_ht"])
+        return self.montant_ht
+
+    def ajouter_a_facture(self, facture):
+        """Ajoute ce temps à une facture existante"""
+        # Trouver ou créer la ligne correspondante
+        ligne = facture.lignes.filter(prestation=self.prestation).first()
+
+        if ligne:
+            # Ajouter au temps existant
+            ligne.quantite += self.duree_heures
+            ligne.save()
+        else:
+            # Créer nouvelle ligne
+            ordre = facture.lignes.aggregate(models.Max("ordre"))["ordre__max"] or 0
+            ligne = LigneFacture.objects.create(
+                facture=facture,
+                ordre=ordre + 1,
+                prestation=self.prestation,
+                description=self.description,
+                quantite=self.duree_heures,
+                unite="heure",
+                prix_unitaire_ht=self.taux_horaire,
+                taux_tva=self.prestation.taux_tva_defaut
+                if self.prestation
+                else Decimal("8.1"),
+            )
+
+        # Lier le temps à la ligne
+        ligne.temps_factures.add(self)
+
+        # Marquer comme facturé
+        self.facture = facture
+        self.date_facturation = date.today()
+        self.save()
+
+        # Recalculer la facture
+        facture.calculer_totaux()
+
+        return ligne
+
+class Facture(BaseModel):
+    """Facture client"""
+
+    STATUT_CHOICES = [
+        ('BROUILLON', 'Brouillon'),
+        ('PROFORMA', 'Pro forma'),
+        ('EMISE', 'Émise'),
+        ('ENVOYEE', 'Envoyée'),
+        ('RELANCEE', 'Relancée'),
+        ('PARTIELLEMENT_PAYEE', 'Partiellement payée'),
+        ('PAYEE', 'Payée'),
+        ('EN_RETARD', 'En retard'),
+        ('ANNULEE', 'Annulée'),
+        ('AVOIR', 'Avoir'),
+    ]
+
+    TYPE_CHOICES = [
+        ('FACTURE', 'Facture'),
+        ('AVOIR', 'Avoir'),
+        ('ACOMPTE', 'Facture d\'acompte'),
+    ]
+
+    # Identification
+    numero_facture = models.CharField(max_length=50, unique=True, db_index=True)
+    mandat = models.ForeignKey(Mandat, on_delete=models.CASCADE,
+                               related_name='factures')
+    client = models.ForeignKey(Client, on_delete=models.PROTECT,
+                               related_name='factures')
+
+    type_facture = models.CharField(max_length=20, choices=TYPE_CHOICES,
+                                    default='FACTURE')
+
+    # Dates
+    date_emission = models.DateField(db_index=True)
+    date_echeance = models.DateField(db_index=True)
+    date_service_debut = models.DateField(null=True, blank=True,
+                                          help_text='Début période facturée')
+    date_service_fin = models.DateField(null=True, blank=True,
+                                        help_text='Fin période facturée')
+
+    # Montants
+    montant_ht = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    montant_tva = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    montant_ttc = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+
+    # Remises
+    remise_pourcent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    remise_montant = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    # Paiement
+    delai_paiement_jours = models.IntegerField(default=30)
+    conditions_paiement = models.TextField(blank=True)
+
+    # QR-Bill Suisse
+    qr_reference = models.CharField(max_length=27, 
+                                    blank=True,
+                                    null=True, 
+                                    unique=True,
+                                    help_text='Référence QR structurée')
+    qr_iban = models.CharField(max_length=34, blank=True)
+    qr_code_image = models.ImageField(upload_to='factures/qr/',
+                                      null=True, blank=True)
+
+    # Statut
+    statut = models.CharField(max_length=30, choices=STATUT_CHOICES,
+                              default='BROUILLON', db_index=True)
+
+    # Paiements
+    montant_paye = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    montant_restant = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+
+    date_paiement_complet = models.DateField(null=True, blank=True)
+
+    # Relances
+    nombre_relances = models.IntegerField(default=0)
+    date_derniere_relance = models.DateField(null=True, blank=True)
+
+    # Avoir / Annulation
+    facture_origine = models.ForeignKey('self', on_delete=models.SET_NULL,
+                                        null=True, blank=True,
+                                        related_name='avoirs')
+    motif_annulation = models.TextField(blank=True)
+
+    # Fichiers
+    fichier_pdf = models.FileField(upload_to='factures/pdf/',
+                                   null=True, blank=True)
+
+    # Comptabilité
+    ecriture_comptable = models.ForeignKey('comptabilite.PieceComptable',
+                                           on_delete=models.SET_NULL,
+                                           null=True, blank=True,
+                                           related_name='factures')
+
+    # Textes
+    introduction = models.TextField(blank=True,
+                                    help_text='Texte introduction facture')
+    conclusion = models.TextField(blank=True,
+                                  help_text='Texte conclusion/remerciements')
+    notes = models.TextField(blank=True, help_text='Notes internes')
+
+    # Création/validation
+    creee_par = models.ForeignKey(User, on_delete=models.PROTECT,
+                                  related_name='factures_creees')
+    date_validation = models.DateTimeField(null=True, blank=True)
+    validee_par = models.ForeignKey(User, on_delete=models.SET_NULL,
+                                    null=True, blank=True,
+                                    related_name='factures_validees')
+
+    class Meta:
+        db_table = 'factures'
+        verbose_name = 'Facture'
+        ordering = ['-date_emission', 'numero_facture']
+        indexes = [
+            models.Index(fields=['client', 'statut']),
+            models.Index(fields=['date_emission']),
+            models.Index(fields=['date_echeance', 'statut']),
+            models.Index(fields=['numero_facture']),
+        ]
+
+    def __str__(self):
+        return f"{self.numero_facture} - {self.client.raison_sociale} - {self.montant_ttc} CHF"
+
+    def save(self, *args, **kwargs):
+        # Génération numéro facture
+        if not self.numero_facture:
+            year = self.date_emission.year
+            last = Facture.objects.filter(
+                numero_facture__startswith=f'FAC-{year}'
+            ).order_by('numero_facture').last()
+
+            if last:
+                last_num = int(last.numero_facture.split('-')[-1])
+                self.numero_facture = f'FAC-{year}-{last_num + 1:04d}'
+            else:
+                self.numero_facture = f'FAC-{year}-0001'
+
+        # Calcul montant restant
+        self.montant_restant = self.montant_ttc - self.montant_paye
+
+        # Mise à jour statut basé sur paiement
+        if self.montant_paye >= self.montant_ttc and self.statut != 'PAYEE':
+            self.statut = 'PAYEE'
+            if not self.date_paiement_complet:
+                self.date_paiement_complet = models.functions.Now()
+        elif self.montant_paye > 0 and self.statut == 'EMISE':
+            self.statut = 'PARTIELLEMENT_PAYEE'
+
+        super().save(*args, **kwargs)
+
+    def generer_qr_reference(self):
+        """Génère la référence QR structurée selon norme suisse"""
+        # Référence QR : 27 chiffres avec checksum
+        # Format: [ID Créancier 6 digits][ID Facture 14 digits][Checksum 1 digit]
+
+        # ID créancier (à adapter selon votre système)
+        id_creancier = str(self.mandat.id)[:6].zfill(6)
+
+        # ID facture unique
+        id_facture = str(self.id).zfill(14)
+
+        # Référence de base (26 digits)
+        ref_base = id_creancier + id_facture
+
+        # Calcul checksum modulo 10 récursif
+        checksum = self._calcul_checksum_modulo10(ref_base)
+
+        # Référence complète (27 digits)
+        self.qr_reference = ref_base + str(checksum)
+        self.save(update_fields=["qr_reference"])
+
+        return self.qr_reference
+
+    def _calcul_checksum_modulo10(self, reference):
+        """Calcul checksum modulo 10 récursif (norme suisse)"""
+        table = [0, 9, 4, 6, 8, 2, 7, 1, 3, 5]
+        carry = 0
+        for char in reference:
+            carry = table[(carry + int(char)) % 10]
+        return (10 - carry) % 10
+
+    def generer_qr_bill(self):
+        """Génère le QR-Bill SVG avec la librairie qrbill"""
+        from qrbill import QRBill
+        from django.core.files.base import ContentFile
+        import tempfile
+
+        # Configuration du QR-Bill
+        creditor_info = {
+            "name": self.mandat.client.raison_sociale or self.mandat.client.nom_complet,
+            "street": self.mandat.client.adresse_ligne1 or "",
+            "pcode": self.mandat.client.code_postal or "",
+            "city": self.mandat.client.ville or "",
+            "country": self.mandat.client.pays or "CH",
+        }
+
+        debtor_info = None
+        if hasattr(self, "client") and self.client:
+            debtor_info = {
+                "name": self.client.raison_sociale or self.client.nom_complet,
+                "street": self.client.adresse_ligne1 or "",
+                "pcode": self.client.code_postal or "",
+                "city": self.client.ville or "",
+                "country": self.client.pays or "CH",
+            }
+
+        # IBAN du compte (à configurer dans le mandat ou settings)
+        iban = self.qr_iban or getattr(self.mandat, "iban_qr", "CH5800791123000889012")
+
+        # Créer le QR-Bill
+        qr_bill = QRBill(
+            account=iban,
+            creditor=creditor_info,
+            debtor=debtor_info,
+            amount=str(self.montant_ttc),
+            reference_number=self.qr_reference,
+            additional_information=f"Facture {self.numero_facture}",
+            language="fr",  # ou 'de', 'it' selon la langue
+        )
+
+        # Générer le SVG dans un fichier temporaire
+        with tempfile.NamedTemporaryFile(
+            suffix=".svg", delete=False, mode="w"
+        ) as temp_svg:
+            qr_bill.as_svg(temp_svg.name)
+
+            # Lire le contenu
+            with open(temp_svg.name, "rb") as f:
+                svg_content = f.read()
+
+            # Sauvegarder comme fichier Django
+            self.qr_code_image.save(
+                f"qr_bill_{self.numero_facture}.svg",
+                ContentFile(svg_content),
+                save=True,
+            )
+
+        return self.qr_code_image
+
+    def generer_pdf(self):
+        """Génère le PDF complet de la facture avec QR-Bill"""
+        import io
+        import tempfile
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.units import cm
+        from reportlab.pdfgen import canvas as pdf_canvas
+        from reportlab.lib import colors
+        from svglib.svglib import svg2rlg
+        from reportlab.graphics import renderPDF
+        from django.core.files.base import ContentFile
+
+        # Buffer pour le PDF
+        buffer = io.BytesIO()
+
+        # Créer le canvas PDF
+        p = pdf_canvas.Canvas(buffer, pagesize=A4)
+        width, height = A4
+
+        # ===== EN-TÊTE FACTURE =====
+        p.setFont("Helvetica-Bold", 16)
+        p.drawString(2 * cm, height - 2 * cm, "FACTURE")
+
+        # Logo entreprise (si disponible)
+        # if self.mandat.logo:
+        #     p.drawImage(self.mandat.logo.path, 15*cm, height - 3*cm, width=4*cm, height=2*cm)
+
+        # Informations créancier
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(2 * cm, height - 4 * cm, self.mandat.client.raison_sociale)
+        p.setFont("Helvetica", 9)
+        y = height - 4.5 * cm
+        if self.mandat.client.adresse_ligne1:
+            p.drawString(2 * cm, y, self.mandat.client.adresse_ligne1)
+            y -= 0.4 * cm
+        p.drawString(
+            2 * cm, y, f"{self.mandat.client.code_postal} {self.mandat.client.ville}"
+        )
+
+        # Informations débiteur
+        y = height - 6.5 * cm
+        p.setFont("Helvetica-Bold", 9)
+        p.drawString(12 * cm, y, "Facture adressée à:")
+        y -= 0.5 * cm
+        p.setFont("Helvetica", 9)
+        p.drawString(12 * cm, y, self.client.raison_sociale or self.client.nom_complet)
+        y -= 0.4 * cm
+        if self.client.adresse_ligne1:
+            p.drawString(12 * cm, y, self.client.adresse_ligne1)
+            y -= 0.4 * cm
+        p.drawString(12 * cm, y, f"{self.client.code_postal} {self.client.ville}")
+
+        # Informations facture
+        y = height - 9 * cm
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(2 * cm, y, f"Facture N° {self.numero_facture}")
+        y -= 0.6 * cm
+        p.setFont("Helvetica", 9)
+        p.drawString(
+            2 * cm, y, f"Date d'émission: {self.date_emission.strftime('%d.%m.%Y')}"
+        )
+        y -= 0.4 * cm
+        p.drawString(
+            2 * cm, y, f"Date d'échéance: {self.date_echeance.strftime('%d.%m.%Y')}"
+        )
+
+        # ===== LIGNES DE FACTURE =====
+        y = height - 11 * cm
+
+        # En-tête tableau
+        p.setFont("Helvetica-Bold", 9)
+        p.drawString(2 * cm, y, "Description")
+        p.drawRightString(12 * cm, y, "Qté")
+        p.drawRightString(14 * cm, y, "Prix unit.")
+        p.drawRightString(16 * cm, y, "TVA")
+        p.drawRightString(19 * cm, y, "Total HT")
+
+        y -= 0.2 * cm
+        p.line(2 * cm, y, 19 * cm, y)
+        y -= 0.5 * cm
+
+        # Lignes
+        p.setFont("Helvetica", 9)
+        for ligne in self.lignes.all().order_by("ordre"):
+            # Description
+            desc = ligne.description[:60]
+            p.drawString(2 * cm, y, desc)
+
+            # Quantité
+            p.drawRightString(12 * cm, y, f"{ligne.quantite:.2f}")
+
+            # Prix unitaire
+            p.drawRightString(14 * cm, y, f"{ligne.prix_unitaire_ht:.2f}")
+
+            # TVA
+            p.drawRightString(16 * cm, y, f"{ligne.taux_tva:.1f}%")
+
+            # Total HT
+            p.drawRightString(19 * cm, y, f"{ligne.montant_ht:.2f}")
+
+            y -= 0.5 * cm
+
+            # Nouvelle page si nécessaire
+            if y < 8 * cm:
+                p.showPage()
+                y = height - 2 * cm
+
+        # ===== TOTAUX =====
+        y -= 0.5 * cm
+        p.line(14 * cm, y, 19 * cm, y)
+        y -= 0.5 * cm
+
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(14 * cm, y, "Total HT:")
+        p.drawRightString(19 * cm, y, f"{self.montant_ht:.2f} CHF")
+        y -= 0.5 * cm
+
+        p.drawString(14 * cm, y, "TVA:")
+        p.drawRightString(19 * cm, y, f"{self.montant_tva:.2f} CHF")
+        y -= 0.5 * cm
+
+        p.setFont("Helvetica-Bold", 12)
+        p.drawString(14 * cm, y, "Total TTC:")
+        p.drawRightString(19 * cm, y, f"{self.montant_ttc:.2f} CHF")
+
+        # Finaliser la page principale
+        p.showPage()
+
+        # ===== PAGE QR-BILL =====
+        # Générer le QR-Bill si pas encore fait
+        if not self.qr_reference:
+            self.generer_qr_reference()
+
+        if not self.qr_code_image:
+            self.generer_qr_bill()
+
+        # Intégrer le QR-Bill dans le PDF
+        if self.qr_code_image:
+            # Convertir SVG en ReportLab drawing
+            drawing = svg2rlg(self.qr_code_image.path)
+
+            # Redimensionner pour tenir sur la page
+            drawing.scale(0.8, 0.8)
+
+            # Positionner en bas de page (section paiement)
+            renderPDF.draw(drawing, p, 0, 0)
+
+        # Finaliser le PDF
+        p.save()
+
+        # Sauvegarder
+        pdf_content = buffer.getvalue()
+        buffer.close()
+
+        self.fichier_pdf.save(
+            f"facture_{self.numero_facture}.pdf", ContentFile(pdf_content), save=True
+        )
+
+        return self.fichier_pdf
+
+    def calculer_totaux(self):
+        """Recalcule tous les totaux à partir des lignes"""
+        from django.db.models import Sum
+
+        lignes = self.lignes.all()
+
+        # Total HT
+        self.montant_ht = lignes.aggregate(Sum("montant_ht"))[
+            "montant_ht__sum"
+        ] or Decimal("0")
+
+        # Application remise globale
+        if self.remise_pourcent:
+            self.remise_montant = (
+                self.montant_ht * self.remise_pourcent / 100
+            ).quantize(Decimal("0.01"))
+
+        montant_ht_net = self.montant_ht - self.remise_montant
+
+        # TVA
+        self.montant_tva = lignes.aggregate(Sum("montant_tva"))[
+            "montant_tva__sum"
+        ] or Decimal("0")
+
+        # TTC
+        self.montant_ttc = montant_ht_net + self.montant_tva
+
+        # Montant restant
+        self.montant_restant = self.montant_ttc - self.montant_paye
+
+        self.save(
+            update_fields=[
+                "montant_ht",
+                "montant_tva",
+                "montant_ttc",
+                "remise_montant",
+                "montant_restant",
+            ]
+        )
+
+        return self
+
+    def valider(self, user):
+        """Valide la facture"""
+        if not self.lignes.exists():
+            raise ValueError("La facture doit avoir au moins une ligne")
+
+        # Recalculer les totaux
+        self.calculer_totaux()
+
+        # Générer QR-Bill
+        if not self.qr_reference:
+            self.generer_qr_reference()
+
+        # Changer le statut
+        self.statut = "EMISE"
+        self.validee_par = user
+        self.date_validation = datetime.now()
+        self.save()
+
+        return self
+
+    def enregistrer_paiement(
+        self, montant, date_paiement, mode_paiement, reference="", user=None
+    ):
+        """Enregistre un paiement pour cette facture"""
+        paiement = Paiement.objects.create(
+            facture=self,
+            montant=montant,
+            date_paiement=date_paiement,
+            mode_paiement=mode_paiement,
+            reference=reference,
+            valide=True,
+            valide_par=user,
+            date_validation=datetime.now() if user else None,
+        )
+
+        return paiement
+
+    def creer_avoir(self, montant=None, motif="", user=None):
+        """Crée un avoir pour cette facture"""
+        montant_avoir = montant or self.montant_ttc
+
+        avoir = Facture.objects.create(
+            mandat=self.mandat,
+            client=self.client,
+            type_facture="AVOIR",
+            facture_origine=self,
+            date_emission=date.today(),
+            date_echeance=date.today() + timedelta(days=30),
+            montant_ht=-abs(montant_avoir),
+            montant_ttc=-abs(montant_avoir),
+            statut="EMISE",
+            motif_annulation=motif,
+            creee_par=user or self.creee_par,
+        )
+
+        # Copier les lignes (en négatif)
+        for ligne in self.lignes.all():
+            LigneFacture.objects.create(
+                facture=avoir,
+                ordre=ligne.ordre,
+                prestation=ligne.prestation,
+                description=ligne.description,
+                quantite=-ligne.quantite,
+                unite=ligne.unite,
+                prix_unitaire_ht=ligne.prix_unitaire_ht,
+                taux_tva=ligne.taux_tva,
+            )
+
+        return avoir
+
+    def creer_relance(self, niveau=None, user=None):
+        """Crée une relance pour cette facture"""
+        niveau_relance = niveau or (self.nombre_relances + 1)
+
+        # Frais selon le niveau
+        frais = Decimal("0")
+        if niveau_relance == 2:
+            frais = Decimal("20.00")
+        elif niveau_relance >= 3:
+            frais = Decimal("40.00")
+
+        relance = Relance.objects.create(
+            facture=self,
+            niveau=niveau_relance,
+            date_echeance=date.today() + timedelta(days=15),
+            montant_frais=frais,
+        )
+
+        # Mettre à jour la facture
+        self.nombre_relances += 1
+        self.date_derniere_relance = date.today()
+        if self.statut not in ["EN_RETARD", "ANNULEE"]:
+            self.statut = "RELANCEE"
+        self.save()
+
+        return relance
+
+    def est_en_retard(self):
+        """Vérifie si la facture est en retard"""
+        return (
+            self.date_echeance < date.today()
+            and self.montant_restant > 0
+            and self.statut not in ["PAYEE", "ANNULEE", "AVOIR"]
+        )
+
+    def jours_retard(self):
+        """Retourne le nombre de jours de retard"""
+        if self.est_en_retard():
+            return (date.today() - self.date_echeance).days
+        return 0
+
+
+class LigneFacture(BaseModel):
+    """Ligne de facture"""
+
+    facture = models.ForeignKey(Facture, on_delete=models.CASCADE,
+                                related_name='lignes')
+
+    # Ordre d'affichage
+    ordre = models.IntegerField(default=0)
+
+    # Prestation/Produit
+    prestation = models.ForeignKey(Prestation, on_delete=models.SET_NULL,
+                                   null=True, blank=True)
+
+    # Description
+    description = models.TextField()
+    description_detaillee = models.TextField(blank=True)
+
+    # Quantité et prix
+    quantite = models.DecimalField(max_digits=10, decimal_places=2, default=1)
+    unite = models.CharField(max_length=50, default='heure')
+    prix_unitaire_ht = models.DecimalField(max_digits=10, decimal_places=2)
+
+    # Montants
+    montant_ht = models.DecimalField(max_digits=15, decimal_places=2)
+
+    # TVA
+    taux_tva = models.DecimalField(max_digits=5, decimal_places=2, default=8.1)
+    montant_tva = models.DecimalField(max_digits=15, decimal_places=2)
+    montant_ttc = models.DecimalField(max_digits=15, decimal_places=2)
+
+    # Remise spécifique ligne
+    remise_pourcent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+
+    # Lien time tracking
+    temps_factures = models.ManyToManyField(TimeTracking, blank=True,
+                                            related_name='lignes_facture')
+
+    class Meta:
+        db_table = 'lignes_facture'
+        verbose_name = 'Ligne de facture'
+        ordering = ['facture', 'ordre']
+
+    def __str__(self):
+        return f"{self.facture.numero_facture} - {self.description[:50]}"
+
+    def save(self, *args, **kwargs):
+        # Calcul automatique des montants
+        montant_brut = self.quantite * self.prix_unitaire_ht
+
+        # Application remise ligne
+        if self.remise_pourcent:
+            montant_brut = montant_brut * (1 - self.remise_pourcent / 100)
+
+        self.montant_ht = montant_brut.quantize(Decimal('0.01'))
+        self.montant_tva = (self.montant_ht * self.taux_tva / 100).quantize(Decimal('0.01'))
+        self.montant_ttc = self.montant_ht + self.montant_tva
+
+        super().save(*args, **kwargs)
+
+
+class Paiement(BaseModel):
+    """Paiement d'une facture"""
+
+    MODE_PAIEMENT_CHOICES = [
+        ('VIREMENT', 'Virement bancaire'),
+        ('QR_BILL', 'QR-Bill'),
+        ('CARTE', 'Carte bancaire'),
+        ('ESPECES', 'Espèces'),
+        ('CHEQUE', 'Chèque'),
+        ('COMPENSATION', 'Compensation'),
+        ('AUTRE', 'Autre'),
+    ]
+
+    facture = models.ForeignKey(Facture, on_delete=models.CASCADE,
+                                related_name='paiements')
+
+    # Montant
+    montant = models.DecimalField(max_digits=15, decimal_places=2)
+    devise = models.CharField(max_length=3, default='CHF')
+
+    # Date et mode
+    date_paiement = models.DateField(db_index=True)
+    mode_paiement = models.CharField(max_length=20, choices=MODE_PAIEMENT_CHOICES)
+
+    # Référence
+    reference = models.CharField(max_length=100, blank=True,
+                                 help_text='Référence bancaire, numéro transaction')
+
+    # Validation
+    valide = models.BooleanField(default=False)
+    date_validation = models.DateTimeField(null=True, blank=True)
+    valide_par = models.ForeignKey(User, on_delete=models.SET_NULL,
+                                   null=True, blank=True)
+
+    # Comptabilisation
+    ecriture_comptable = models.ForeignKey('comptabilite.EcritureComptable',
+                                           on_delete=models.SET_NULL,
+                                           null=True, blank=True,
+                                           related_name='paiements')
+
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        db_table = 'paiements'
+        verbose_name = 'Paiement'
+        ordering = ['-date_paiement']
+        indexes = [
+            models.Index(fields=['facture', 'date_paiement']),
+            models.Index(fields=['date_paiement']),
+        ]
+
+    def __str__(self):
+        return f"Paiement {self.montant} CHF - {self.facture.numero_facture}"
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+
+        # Mise à jour du montant payé sur la facture
+        self.facture.montant_paye = self.facture.paiements.filter(
+            valide=True
+        ).aggregate(
+            total=models.Sum('montant')
+        )['total'] or Decimal('0')
+
+        self.facture.save(update_fields=['montant_paye', 'montant_restant', 'statut'])
+
+
+class Relance(BaseModel):
+    """Relance de paiement"""
+
+    NIVEAU_CHOICES = [
+        (1, '1ère relance'),
+        (2, '2ème relance'),
+        (3, '3ème relance'),
+        (4, 'Mise en demeure'),
+    ]
+
+    facture = models.ForeignKey(Facture, on_delete=models.CASCADE,
+                                related_name='relances')
+
+    niveau = models.IntegerField(choices=NIVEAU_CHOICES)
+    date_relance = models.DateField(auto_now_add=True)
+    date_echeance = models.DateField(help_text='Nouvelle échéance')
+
+    montant_frais = models.DecimalField(max_digits=10, decimal_places=2, default=0,
+                                        help_text='Frais de relance')
+    montant_interets = models.DecimalField(max_digits=10, decimal_places=2, default=0,
+                                           help_text='Intérêts de retard')
+
+    envoyee = models.BooleanField(default=False)
+    date_envoi = models.DateField(null=True, blank=True)
+
+    fichier_pdf = models.FileField(upload_to='factures/relances/',
+                                   null=True, blank=True)
+
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        db_table = 'relances'
+        verbose_name = 'Relance'
+        ordering = ['-date_relance']
+
+    def __str__(self):
+        return f"Relance niv.{self.niveau} - {self.facture.numero_facture}"# facturation/serializers.py
+from rest_framework import serializers
+from .models import Prestation, TimeTracking, Facture, LigneFacture, Paiement, Relance
+from core.serializers import MandatListSerializer, UserSerializer, ClientListSerializer
+
+
+class PrestationSerializer(serializers.ModelSerializer):
+    type_prestation_display = serializers.CharField(
+        source="get_type_prestation_display", read_only=True
+    )
+
+    class Meta:
+        model = Prestation
+        fields = "__all__"
+
+
+class TimeTrackingSerializer(serializers.ModelSerializer):
+    mandat_numero = serializers.CharField(source="mandat.numero", read_only=True)
+    utilisateur_name = serializers.CharField(
+        source="utilisateur.get_full_name", read_only=True
+    )
+    prestation_libelle = serializers.CharField(
+        source="prestation.libelle", read_only=True
+    )
+    duree_heures = serializers.DecimalField(
+        max_digits=6, decimal_places=2, read_only=True
+    )
+
+    class Meta:
+        model = TimeTracking
+        fields = "__all__"
+
+
+class FactureListSerializer(serializers.ModelSerializer):
+    statut_display = serializers.CharField(source="get_statut_display", read_only=True)
+    client_name = serializers.CharField(source="client.raison_sociale", read_only=True)
+
+    class Meta:
+        model = Facture
+        fields = [
+            "id",
+            "numero_facture",
+            "client_name",
+            "date_emission",
+            "date_echeance",
+            "montant_ttc",
+            "montant_restant",
+            "statut",
+            "statut_display",
+        ]
+
+
+class FactureDetailSerializer(serializers.ModelSerializer):
+    client = ClientListSerializer(read_only=True)
+    mandat = MandatListSerializer(read_only=True)
+
+    class Meta:
+        model = Facture
+        fields = "__all__"
+
+
+class LigneFactureSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LigneFacture
+        fields = "__all__"
+
+
+class PaiementSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Paiement
+        fields = "__all__"
+
+
+class RelanceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Relance
+        fields = "__all__"
+# apps/facturation/signals.py
+from django.db.models.signals import post_save, m2m_changed
+from django.dispatch import receiver
+from .models import Facture, LigneFacture, Paiement
+
+
+@receiver(post_save, sender=LigneFacture)
+def recalculer_facture(sender, instance, **kwargs):
+    """Recalcule les totaux de la facture après ajout/modif ligne"""
+    instance.facture.calculer_totaux()
+
+
+@receiver(post_save, sender=Facture)
+def generer_qr_bill(sender, instance, created, **kwargs):
+    """Génère le QR-Bill lors de la validation de la facture"""
+    if instance.statut == 'EMISE' and not instance.qr_reference:
+        instance.generer_qr_reference()
+
+        # TODO: Générer l'image QR code
+        # from facturation.utils import generer_qr_code_image
+        # instance.qr_code_image = generer_qr_code_image(instance)
+        # instance.save()
+
+
+@receiver(post_save, sender=Facture)
+def comptabiliser_facture(sender, instance, **kwargs):
+    """Crée l'écriture comptable quand la facture est émise"""
+    if instance.statut == 'EMISE' and not instance.ecriture_comptable:
+        from comptabilite.models import EcritureComptable, Journal, Compte, PieceComptable
+
+        journal = Journal.objects.filter(
+            mandat=instance.mandat,
+            type_journal='VTE'
+        ).first()
+
+        if journal:
+            numero_piece = journal.get_next_numero()
+
+            # Créer la pièce comptable
+            piece = PieceComptable.objects.create(
+                mandat=instance.mandat,
+                journal=journal,
+                numero_piece=numero_piece,
+                date_piece=instance.date_emission,
+                libelle=f"Facture {instance.numero_facture}",
+                statut='VALIDE'
+            )
+
+            # Compte client (débiteur)
+            compte_client = Compte.objects.filter(
+                plan_comptable__mandat=instance.mandat,
+                numero='1100'  # Créances clients
+            ).first()
+
+            if compte_client:
+                # Débit: Créance client (TTC)
+                EcritureComptable.objects.create(
+                    mandat=instance.mandat,
+                    exercice=instance.mandat.exercices.filter(
+                        statut='OUVERT'
+                    ).first(),
+                    journal=journal,
+                    numero_piece=numero_piece,
+                    numero_ligne=1,
+                    date_ecriture=instance.date_emission,
+                    compte=compte_client,
+                    compte_auxiliaire=instance.client.ide_number,
+                    libelle=f"Facture {instance.numero_facture} - {instance.client.raison_sociale}",
+                    montant_debit=instance.montant_ttc,
+                    piece_justificative=None,  # TODO: Lier au document PDF
+                    statut='VALIDE'
+                )
+
+                # Crédits: Ventes par ligne et TVA
+                ligne_num = 2
+                for ligne in instance.lignes.all():
+                    compte_produit = ligne.prestation.compte_produit if ligne.prestation else None
+                    if not compte_produit:
+                        compte_produit = Compte.objects.filter(
+                            plan_comptable__mandat=instance.mandat,
+                            numero__startswith='70'
+                        ).first()
+
+                    if compte_produit:
+                        # Crédit: Vente HT
+                        EcritureComptable.objects.create(
+                            mandat=instance.mandat,
+                            exercice=instance.mandat.exercices.filter(
+                                statut='OUVERT'
+                            ).first(),
+                            journal=journal,
+                            numero_piece=numero_piece,
+                            numero_ligne=ligne_num,
+                            date_ecriture=instance.date_emission,
+                            compte=compte_produit,
+                            libelle=ligne.description[:255],
+                            montant_credit=ligne.montant_ht,
+                            statut='VALIDE'
+                        )
+                        ligne_num += 1
+
+                # Crédit: TVA due
+                if instance.montant_tva > 0:
+                    compte_tva = Compte.objects.filter(
+                        plan_comptable__mandat=instance.mandat,
+                        numero='2200'  # TVA due
+                    ).first()
+
+                    if compte_tva:
+                        EcritureComptable.objects.create(
+                            mandat=instance.mandat,
+                            exercice=instance.mandat.exercices.filter(
+                                statut='OUVERT'
+                            ).first(),
+                            journal=journal,
+                            numero_piece=numero_piece,
+                            numero_ligne=ligne_num,
+                            date_ecriture=instance.date_emission,
+                            compte=compte_tva,
+                            libelle=f"TVA sur facture {instance.numero_facture}",
+                            montant_credit=instance.montant_tva,
+                            code_tva='200',  # Code TVA ventes
+                            montant_tva=instance.montant_tva,
+                            statut='VALIDE'
+                        )
+
+                instance.ecriture_comptable = piece
+                instance.save(update_fields=['ecriture_comptable'])
+
+
+@receiver(post_save, sender=Paiement)
+def comptabiliser_paiement(sender, instance, created, **kwargs):
+    """Crée l'écriture comptable de paiement"""
+    if created and instance.valide and not instance.ecriture_comptable:
+        from comptabilite.models import EcritureComptable, Journal, Compte
+
+        journal = Journal.objects.filter(
+            mandat=instance.facture.mandat,
+            type_journal='BNQ'
+        ).first()
+
+        if journal:
+            numero_piece = journal.get_next_numero()
+
+            compte_banque = Compte.objects.filter(
+                plan_comptable__mandat=instance.facture.mandat,
+                numero='1020'  # Compte banque
+            ).first()
+
+            compte_client = Compte.objects.filter(
+                plan_comptable__mandat=instance.facture.mandat,
+                numero='1100'  # Créances clients
+            ).first()
+
+            if compte_banque and compte_client:
+                # Débit: Banque
+                EcritureComptable.objects.create(
+                    mandat=instance.facture.mandat,
+                    exercice=instance.facture.mandat.exercices.filter(
+                        statut='OUVERT'
+                    ).first(),
+                    journal=journal,
+                    numero_piece=numero_piece,
+                    numero_ligne=1,
+                    date_ecriture=instance.date_paiement,
+                    compte=compte_banque,
+                    libelle=f"Paiement facture {instance.facture.numero_facture}",
+                    montant_debit=instance.montant,
+                    statut='VALIDE'
+                )
+
+                # Crédit: Client
+                ecriture_client = EcritureComptable.objects.create(
+                    mandat=instance.facture.mandat,
+                    exercice=instance.facture.mandat.exercices.filter(
+                        statut='OUVERT'
+                    ).first(),
+                    journal=journal,
+                    numero_piece=numero_piece,
+                    numero_ligne=2,
+                    date_ecriture=instance.date_paiement,
+                    compte=compte_client,
+                    compte_auxiliaire=instance.facture.client.ide_number,
+                    libelle=f"Paiement facture {instance.facture.numero_facture}",
+                    montant_credit=instance.montant,
+                    statut='VALIDE'
+                )
+
+                instance.ecriture_comptable = ecriture_client
+                instance.save(update_fields=['ecriture_comptable'])
+
+
+@receiver(post_save, sender=Facture)
+def alerter_facture_en_retard(sender, instance, **kwargs):
+    """Alerte quand une facture dépasse l'échéance"""
+    from datetime import date
+    from core.models import Notification
+
+    if instance.statut in ['EMISE', 'ENVOYEE', 'RELANCEE']:
+        if instance.date_echeance < date.today() and instance.montant_restant > 0:
+            if instance.statut != 'EN_RETARD':
+                instance.statut = 'EN_RETARD'
+                instance.save(update_fields=['statut'])
+
+                # Notifier le responsable
+                Notification.objects.create(
+                    destinataire=instance.mandat.responsable,
+                    type_notification='WARNING',
+                    titre='Facture en retard',
+                    message=f"La facture {instance.numero_facture} est en retard de paiement.",
+                    lien_action=f'/factures/{instance.id}/',
+                    lien_texte='Voir la facture',
+                    mandat=instance.mandat
+                )
+from django.test import TestCase
+
+# Create your tests here.
+# facturation/translation.py
+from modeltranslation.translator import register, TranslationOptions
+from .models import Prestation
+
+
+@register(Prestation)
+class PrestationTranslationOptions(TranslationOptions):
+    fields = ("libelle", "description")
+# facturation/urls.py
+from django.urls import path
+from django.views.decorators.http import require_http_methods
+from . import views
+
+app_name = "facturation"
+
+urlpatterns = [
+    # Prestations
+    path("prestations/", views.PrestationListView.as_view(), name="prestation-list"),
+    path(
+        "prestations/nouvelle/",
+        views.PrestationCreateView.as_view(),
+        name="prestation-create",
+    ),
+    path(
+        "prestations/<uuid:pk>/",
+        views.PrestationDetailView.as_view(),
+        name="prestation-detail",
+    ),
+    path(
+        "prestations/<uuid:pk>/modifier/",
+        views.PrestationUpdateView.as_view(),
+        name="prestation-update",
+    ),
+    # Time Tracking
+    path("temps/", views.TimeTrackingListView.as_view(), name="timetracking-list"),
+    path(
+        "temps/nouveau/",
+        views.TimeTrackingCreateView.as_view(),
+        name="timetracking-create",
+    ),
+    # Factures
+    path("factures/", views.FactureListView.as_view(), name="facture-list"),
+    path(
+        "factures/nouvelle/", views.FactureCreateView.as_view(), name="facture-create"
+    ),
+    path(
+        "factures/<uuid:pk>/", views.FactureDetailView.as_view(), name="facture-detail"
+    ),
+    path(
+        "factures/<uuid:pk>/modifier/",
+        views.FactureUpdateView.as_view(),
+        name="facture-update",
+    ),
+    path("factures/<uuid:pk>/valider/", views.facture_valider, name="facture-valider"),
+    path(
+        "factures/<uuid:pk>/pdf/", views.facture_generer_pdf, name="facture-generer-pdf"
+    ),
+    path(
+        "factures/<uuid:pk>/envoyer/",
+        views.facture_envoyer_email,
+        name="facture-envoyer-email",
+    ),
+    # Lignes de facture
+    path(
+        "factures/<uuid:facture_pk>/lignes/nouvelle/",
+        views.ligne_facture_create,
+        name="ligne-create",
+    ),
+    path(
+        "lignes/<uuid:pk>/supprimer/", views.ligne_facture_delete, name="ligne-delete"
+    ),
+    # Paiements
+    path("paiements/", views.PaiementListView.as_view(), name="paiement-list"),
+    path(
+        "factures/<uuid:facture_pk>/paiements/nouveau/",
+        views.paiement_create,
+        name="paiement-create",
+    ),
+    path(
+        "paiements/<uuid:pk>/valider/", views.paiement_valider, name="paiement-valider"
+    ),
+    # Relances
+    path(
+        "factures/<uuid:facture_pk>/relances/nouvelle/",
+        views.relance_create,
+        name="relance-create",
+    ),
+]
+# facturation/viewset.py
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from django_filters.rest_framework import DjangoFilterBackend
+from .models import Prestation, TimeTracking, Facture, LigneFacture, Paiement, Relance
+from .serializers import (
+    PrestationSerializer,
+    TimeTrackingSerializer,
+    FactureListSerializer,
+    FactureDetailSerializer,
+    LigneFactureSerializer,
+    PaiementSerializer,
+    RelanceSerializer,
+)
+
+
+class PrestationViewSet(viewsets.ModelViewSet):
+    queryset = Prestation.objects.all()
+    serializer_class = PrestationSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ["type_prestation", "actif"]
+
+
+class TimeTrackingViewSet(viewsets.ModelViewSet):
+    queryset = TimeTracking.objects.all()
+    serializer_class = TimeTrackingSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ["mandat", "utilisateur", "facturable"]
+
+    @action(detail=True, methods=["post"])
+    def calculer_montant(self, request, pk=None):
+        temps = self.get_object()
+        montant = temps.calculer_montant()
+        return Response({"montant_ht": montant})
+
+
+class FactureViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ["client", "mandat", "statut"]
+
+    def get_queryset(self):
+        return Facture.objects.select_related("client", "mandat")
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return FactureListSerializer
+        return FactureDetailSerializer
+
+    @action(detail=True, methods=["post"])
+    def generer_qr(self, request, pk=None):
+        facture = self.get_object()
+        reference = facture.generer_qr_reference()
+        return Response({"qr_reference": reference})
+
+    @action(detail=True, methods=["post"])
+    def generer_pdf(self, request, pk=None):
+        # TODO: Implémenter génération PDF
+        return Response({"message": "PDF généré"})
+
+
+class LigneFactureViewSet(viewsets.ModelViewSet):
+    queryset = LigneFacture.objects.all()
+    serializer_class = LigneFactureSerializer
+    permission_classes = [IsAuthenticated]
+
+
+class PaiementViewSet(viewsets.ModelViewSet):
+    queryset = Paiement.objects.all()
+    serializer_class = PaiementSerializer
+    permission_classes = [IsAuthenticated]
+
+
+class RelanceViewSet(viewsets.ModelViewSet):
+    queryset = Relance.objects.all()
+    serializer_class = RelanceSerializer
+    permission_classes = [IsAuthenticated]
+# facturation/views.py
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.views.generic import ListView, DetailView, CreateView, UpdateView
+from django.db.models import Q, Count, Sum, Avg, F, Max, Min, Prefetch
+from django.urls import reverse_lazy
+from django.contrib import messages
+from django.http import JsonResponse, HttpResponse
+from django.utils.translation import gettext_lazy as _
+from django.views.decorators.http import require_http_methods
+from datetime import datetime, timedelta
+from decimal import Decimal
+import json
+
+from .models import Prestation, TimeTracking, Facture, LigneFacture, Paiement, Relance
+from .forms import (
+    PrestationForm,
+    TimeTrackingForm,
+    FactureForm,
+    LigneFactureForm,
+    PaiementForm,
+    RelanceForm,
+)
+from .filters import FactureFilter, TimeTrackingFilter, PaiementFilter
+from core.models import Mandat, Client
+
+
+# ============ PRESTATIONS ============
+
+
+class PrestationListView(LoginRequiredMixin, ListView):
+    """Liste des prestations"""
+
+    model = Prestation
+    template_name = "facturation/prestation_list.html"
+    context_object_name = "prestations"
+    paginate_by = 50
+
+    def get_queryset(self):
+        queryset = Prestation.objects.annotate(nb_lignes_facture=Count("lignefacture"))
+
+        # Filtrer par type
+        type_prestation = self.request.GET.get("type")
+        if type_prestation:
+            queryset = queryset.filter(type_prestation=type_prestation)
+
+        # Filtrer par actif
+        actif = self.request.GET.get("actif")
+        if actif:
+            queryset = queryset.filter(actif=actif == "true")
+
+        return queryset.order_by("code")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context["stats"] = {
+            "total": self.get_queryset().count(),
+            "actives": self.get_queryset().filter(actif=True).count(),
+            "par_type": self.get_queryset()
+            .values("type_prestation")
+            .annotate(count=Count("id")),
+        }
+
+        return context
+
+
+class PrestationDetailView(LoginRequiredMixin, DetailView):
+    """Détail d'une prestation"""
+
+    model = Prestation
+    template_name = "facturation/prestation_detail.html"
+    context_object_name = "prestation"
+
+
+class PrestationCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    """Création d'une prestation"""
+
+    model = Prestation
+    form_class = PrestationForm
+    template_name = "facturation/prestation_form.html"
+    permission_required = "facturation.add_prestation"
+    success_url = reverse_lazy("facturation:prestation-list")
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        messages.success(self.request, _("Prestation créée avec succès"))
+        return super().form_valid(form)
+
+class PrestationUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+    """Modification d'une prestation"""
+
+    model = Prestation
+    form_class = PrestationForm
+    template_name = "facturation/prestation_form.html"
+    permission_required = "facturation.change_prestation"
+    success_url = reverse_lazy("facturation:prestation-list")
+
+    def form_valid(self, form):
+        messages.success(self.request, _("Prestation modifiée avec succès"))
+        return super().form_valid(form)
+
+# ============ TIME TRACKING ============
+
+
+class TimeTrackingListView(LoginRequiredMixin, ListView):
+    """Liste du suivi du temps"""
+
+    model = TimeTracking
+    template_name = "facturation/timetracking_list.html"
+    context_object_name = "temps"
+    paginate_by = 50
+
+    def get_queryset(self):
+        queryset = TimeTracking.objects.select_related(
+            "mandat__client", "utilisateur", "prestation", "facture"
+        )
+
+        # Filtrer selon le rôle
+        user = self.request.user
+        if user.role not in ["ADMIN", "MANAGER"] and user.has_perm("facturation.view_all_timetracking"):
+            queryset = queryset.filter(
+                Q(utilisateur=user)
+                | Q(mandat__responsable=user)
+                | Q(mandat__equipe=user)
+            ).distinct()
+
+        # Appliquer les filtres
+        self.filterset = TimeTrackingFilter(self.request.GET, queryset=queryset)
+        return self.filterset.qs.order_by("-date_travail")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["filter"] = self.filterset
+
+        # Statistiques
+        user = self.request.user
+        queryset = self.get_queryset()
+
+        context["stats"] = {
+            "total_heures": queryset.aggregate(total=Sum("duree_minutes"))["total"]
+            or 0,
+            "total_heures_display": (
+                queryset.aggregate(total=Sum("duree_minutes"))["total"] or 0
+            )
+            / 60,
+            "non_facture": queryset.filter(
+                facturable=True, facture__isnull=True
+            ).count(),
+            "montant_non_facture": queryset.filter(
+                facturable=True, facture__isnull=True
+            ).aggregate(Sum("montant_ht"))["montant_ht__sum"]
+            or 0,
+        }
+
+        # Temps par utilisateur (si admin/manager)
+        if user.role in ["ADMIN", "MANAGER"]:
+            context["temps_par_utilisateur"] = (
+                queryset.values(
+                    "utilisateur__username",
+                    "utilisateur__first_name",
+                    "utilisateur__last_name",
+                )
+                .annotate(
+                    total_minutes=Sum("duree_minutes"), total_montant=Sum("montant_ht")
+                )
+                .order_by("-total_minutes")
+            )
+
+        return context
+
+
+class TimeTrackingCreateView(LoginRequiredMixin, CreateView):
+    """Saisie de temps"""
+
+    model = TimeTracking
+    form_class = TimeTrackingForm
+    template_name = "facturation/timetracking_form.html"
+    success_url = reverse_lazy("facturation:timetracking-list")
+
+    def get_initial(self):
+        initial = super().get_initial()
+        initial["utilisateur"] = self.request.user
+        initial["date_travail"] = datetime.now().date()
+        initial["facturable"] = True
+        return initial
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+
+        # Calcul automatique du montant si taux horaire défini
+        if form.instance.taux_horaire and form.instance.duree_minutes:
+            heures = Decimal(form.instance.duree_minutes) / Decimal("60")
+            form.instance.montant_ht = (heures * form.instance.taux_horaire).quantize(
+                Decimal("0.01")
+            )
+
+        messages.success(self.request, _("Temps enregistré avec succès"))
+        return super().form_valid(form)
+
+
+# ============ FACTURES ============
+
+
+class FactureListView(LoginRequiredMixin, ListView):
+    """Liste des factures"""
+
+    model = Facture
+    template_name = "facturation/facture_list.html"
+    context_object_name = "factures"
+    paginate_by = 50
+
+    def get_queryset(self):
+        queryset = Facture.objects.select_related(
+            "mandat__client", "client", "creee_par"
+        ).prefetch_related("lignes")
+
+        # Filtrer selon le rôle
+        user = self.request.user
+        if user.role not in ["ADMIN", "MANAGER"] and not user.has_perm("facturation.view_all_factures"):
+            queryset = queryset.filter(
+                Q(mandat__responsable=user) | Q(mandat__equipe=user)
+            ).distinct()
+
+        # Appliquer les filtres
+        self.filterset = FactureFilter(self.request.GET, queryset=queryset)
+        return self.filterset.qs.order_by("-date_emission")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["filter"] = self.filterset
+
+        # Statistiques
+        queryset = self.get_queryset()
+
+        context["stats"] = {
+            "total": queryset.count(),
+            "brouillon": queryset.filter(statut="BROUILLON").count(),
+            "emises": queryset.filter(statut="EMISE").count(),
+            "en_retard": queryset.filter(statut="EN_RETARD").count(),
+            "payees": queryset.filter(statut="PAYEE").count(),
+            "ca_total": queryset.aggregate(Sum("montant_ttc"))["montant_ttc__sum"] or 0,
+            "ca_annee": queryset.filter(
+                date_emission__year=datetime.now().year
+            ).aggregate(Sum("montant_ttc"))["montant_ttc__sum"]
+            or 0,
+            "impaye_total": queryset.exclude(statut="PAYEE").aggregate(
+                Sum("montant_restant")
+            )["montant_restant__sum"]
+            or 0,
+        }
+
+        # Évolution CA par mois (6 derniers mois)
+        evolution_ca = []
+        for i in range(5, -1, -1):
+            date = datetime.now() - timedelta(days=30 * i)
+            ca_mois = (
+                queryset.filter(
+                    date_emission__year=date.year, date_emission__month=date.month
+                ).aggregate(Sum("montant_ttc"))["montant_ttc__sum"]
+                or 0
+            )
+
+            evolution_ca.append({"mois": date.strftime("%Y-%m"), "ca": float(ca_mois)})
+
+        context["evolution_ca"] = json.dumps(evolution_ca)
+
+        return context
+
+
+class FactureDetailView(LoginRequiredMixin, DetailView):
+    """Détail d'une facture"""
+
+    model = Facture
+    template_name = "facturation/facture_detail.html"
+    context_object_name = "facture"
+
+    def get_queryset(self):
+        return (
+            super()
+            .get_queryset()
+            .select_related(
+                "mandat__client",
+                "client",
+                "creee_par",
+                "validee_par",
+                "facture_origine",
+            )
+            .prefetch_related(
+                "lignes__prestation", "lignes__temps_factures", "paiements", "relances"
+            )
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        facture = self.object
+
+        # Paiements
+        context["paiements"] = facture.paiements.all().order_by("-date_paiement")
+
+        # Relances
+        context["relances"] = facture.relances.all().order_by("-date_relance")
+
+        # Temps facturés
+        temps_factures = TimeTracking.objects.none()
+        for ligne in facture.lignes.all():
+            temps_factures = temps_factures | ligne.temps_factures.all()
+        context["temps_factures"] = temps_factures
+
+        # Avoirs liés
+        context["avoirs"] = Facture.objects.filter(
+            facture_origine=facture, type_facture="AVOIR"
+        )
+
+        return context
+
+
+class FactureCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    """Création d'une facture"""
+
+    model = Facture
+    form_class = FactureForm
+    template_name = "facturation/facture_form.html"
+    permission_required = "facturation.add_facture"
+
+    def get_initial(self):
+        initial = super().get_initial()
+
+        # Préremplir avec le mandat si fourni
+        mandat_id = self.request.GET.get("mandat")
+        if mandat_id:
+            mandat = get_object_or_404(Mandat, pk=mandat_id)
+            initial["mandat"] = mandat
+            initial["client"] = mandat.client
+
+        initial["date_emission"] = datetime.now().date()
+        initial["delai_paiement_jours"] = 30
+
+        return initial
+
+    def get_success_url(self):
+        return reverse_lazy("facturation:facture-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        form.instance.creee_par = self.request.user
+        messages.success(self.request, _("Facture créée avec succès"))
+        return super().form_valid(form)
+
+
+class FactureUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+    """Modification d'une facture"""
+
+    model = Facture
+    form_class = FactureForm
+    template_name = "facturation/facture_form.html"
+    permission_required = "facturation.change_facture"
+
+    def get_queryset(self):
+        # Ne peut modifier que les factures en brouillon
+        return super().get_queryset().filter(statut="BROUILLON")
+
+    def get_success_url(self):
+        return reverse_lazy("facturation:facture-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, _("Facture modifiée avec succès"))
+        return super().form_valid(form)
+
+
+@login_required
+@require_http_methods(["POST"])
+def facture_valider(request, pk):
+    """Valide une facture"""
+    facture = get_object_or_404(Facture, pk=pk, statut="BROUILLON")
+
+    try:
+        facture.valider(request.user)
+        messages.success(request, _("Facture validée avec succès"))
+    except ValueError as e:
+        messages.error(request, str(e))
+
+    return redirect("facturation:facture-detail", pk=pk)
+
+
+@login_required
+def facture_generer_pdf(request, pk):
+    """Génère le PDF d'une facture"""
+    facture = get_object_or_404(Facture, pk=pk)
+
+    try:
+        fichier = facture.generer_pdf()
+
+        with fichier.open("rb") as f:
+            response = HttpResponse(f.read(), content_type="application/pdf")
+            response["Content-Disposition"] = f'attachment; filename="{fichier.name}"'
+
+        messages.success(request, _("PDF généré avec succès"))
+        return response
+
+    except Exception as e:
+        messages.error(request, f"Erreur lors de la génération: {str(e)}")
+        return redirect("facturation:facture-detail", pk=pk)
+
+
+@login_required
+def facture_envoyer_email(request, pk):
+    """Envoie la facture par email au client"""
+    facture = get_object_or_404(Facture, pk=pk)
+
+    # TODO: Envoyer l'email avec le PDF
+
+    facture.statut = "ENVOYEE"
+    facture.save()
+
+    messages.success(request, _("Facture envoyée par email"))
+    return redirect("facturation:facture-detail", pk=pk)
+
+
+# ============ LIGNES DE FACTURE ============
+
+
+@login_required
+def ligne_facture_create(request, facture_pk):
+    """Ajoute une ligne à une facture"""
+    facture = get_object_or_404(Facture, pk=facture_pk, statut="BROUILLON")
+
+    if request.method == "POST":
+        form = LigneFactureForm(request.POST)
+        if form.is_valid():
+            ligne = form.save(commit=False)
+            ligne.facture = facture
+
+            # Ordre
+            dernier_ordre = facture.lignes.aggregate(Max("ordre"))["ordre__max"] or 0
+            ligne.ordre = dernier_ordre + 1
+
+            ligne.save()
+
+            # Recalculer la facture
+            facture.calculer_totaux()
+
+            messages.success(request, _("Ligne ajoutée avec succès"))
+            return redirect("facturation:facture-detail", pk=facture.pk)
+    else:
+        form = LigneFactureForm()
+
+    return render(
+        request, "facturation/ligne_form.html", {"form": form, "facture": facture}
+    )
+
+
+@login_required
+def ligne_facture_delete(request, pk):
+    """Supprime une ligne de facture"""
+    ligne = get_object_or_404(LigneFacture, pk=pk)
+    facture = ligne.facture
+
+    if facture.statut != "BROUILLON":
+        messages.error(
+            request, _("Impossible de supprimer une ligne d'une facture validée")
+        )
+        return redirect("facturation:facture-detail", pk=facture.pk)
+
+    ligne.delete()
+    facture.calculer_totaux()
+
+    messages.success(request, _("Ligne supprimée avec succès"))
+    return redirect("facturation:facture-detail", pk=facture.pk)
+
+
+# ============ PAIEMENTS ============
+
+
+class PaiementListView(LoginRequiredMixin, ListView):
+    """Liste des paiements"""
+
+    model = Paiement
+    template_name = "facturation/paiement_list.html"
+    context_object_name = "paiements"
+    paginate_by = 50
+
+    def get_queryset(self):
+        queryset = Paiement.objects.select_related(
+            "facture__client", "facture__mandat", "valide_par"
+        )
+
+        # Appliquer les filtres
+        self.filterset = PaiementFilter(self.request.GET, queryset=queryset)
+        return self.filterset.qs.order_by("-date_paiement")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["filter"] = self.filterset
+
+        # Statistiques
+        queryset = self.get_queryset()
+        context["stats"] = {
+            "total": queryset.count(),
+            "valides": queryset.filter(valide=True).count(),
+            "montant_total": queryset.filter(valide=True).aggregate(Sum("montant"))[
+                "montant__sum"
+            ]
+            or 0,
+            "montant_mois": queryset.filter(
+                valide=True,
+                date_paiement__year=datetime.now().year,
+                date_paiement__month=datetime.now().month,
+            ).aggregate(Sum("montant"))["montant__sum"]
+            or 0,
+        }
+
+        return context
+
+
+@login_required
+def paiement_create(request, facture_pk):
+    """Enregistre un paiement pour une facture"""
+    facture = get_object_or_404(Facture, pk=facture_pk)
+
+    if request.method == "POST":
+        form = PaiementForm(request.POST)
+        if form.is_valid():
+            try:
+                paiement = facture.enregistrer_paiement(
+                    montant=form.cleaned_data["montant"],
+                    date_paiement=form.cleaned_data["date_paiement"],
+                    mode_paiement=form.cleaned_data["mode_paiement"],
+                    reference=form.cleaned_data.get("reference", ""),
+                    user=request.user,
+                )
+                messages.success(request, _("Paiement enregistré avec succès"))
+                return redirect("facturation:facture-detail", pk=facture.pk)
+            except Exception as e:
+                messages.error(request, str(e))
+    else:
+        form = PaiementForm(
+            initial={
+                "montant": facture.montant_restant,
+                "date_paiement": datetime.now().date(),
+            }
+        )
+
+    return render(
+        request, "facturation/paiement_form.html", {"form": form, "facture": facture}
+    )
+
+
+@login_required
+@require_http_methods(["POST"])
+def paiement_valider(request, pk):
+    """Valide un paiement"""
+    paiement = get_object_or_404(Paiement, pk=pk, valide=False)
+
+    paiement.valide = True
+    paiement.valide_par = request.user
+    paiement.date_validation = datetime.now()
+    paiement.save()
+
+    messages.success(request, _("Paiement validé avec succès"))
+    return redirect("facturation:facture-detail", pk=paiement.facture.pk)
+
+
+# ============ RELANCES ============
+
+
+@login_required
+def relance_create(request, facture_pk):
+    """Crée une relance pour une facture"""
+    facture = get_object_or_404(Facture, pk=facture_pk)
+
+    try:
+        relance = facture.creer_relance(user=request.user)
+        messages.success(request, _("Relance créée avec succès"))
+        return redirect("facturation:facture-detail", pk=facture.pk)
+    except Exception as e:
+        messages.error(request, str(e))
+        return redirect("facturation:facture-detail", pk=facture.pk)
+from django import template
+from django.utils.safestring import mark_safe
+
+register = template.Library()
+
+
+@register.filter
+def client_nom(client):
+    """Retourne le nom du client de manière sécurisée"""
+    if hasattr(client, "raison_sociale") and client.raison_sociale:
+        return client.raison_sociale
+    elif hasattr(client, "nom") and client.nom:
+        return client.nom
+    elif hasattr(client, "nom_complet"):
+        return client.nom_complet()
+    return str(client)
+
+
+@register.filter
+def client_adresse(client):
+    """Retourne l'adresse du client formatée en HTML"""
+    parts = []
+
+    # Adresse principale
+    if hasattr(client, "adresse") and client.adresse:
+        parts.append(client.adresse)
+    elif hasattr(client, "adresse_ligne1") and client.adresse_ligne1:
+        parts.append(client.adresse_ligne1)
+
+    # Complément d'adresse
+    if hasattr(client, "complement_adresse") and client.complement_adresse:
+        parts.append(client.complement_adresse)
+    elif hasattr(client, "adresse_ligne2") and client.adresse_ligne2:
+        parts.append(client.adresse_ligne2)
+
+    # Ville
+    ville_parts = []
+    if hasattr(client, "code_postal") and client.code_postal:
+        ville_parts.append(str(client.code_postal))
+    if hasattr(client, "ville") and client.ville:
+        ville_parts.append(client.ville)
+
+    if ville_parts:
+        parts.append(" ".join(ville_parts))
+
+    # Email
+    if hasattr(client, "email") and client.email:
+        parts.append(client.email)
+
+    return mark_safe("<br>".join(parts)) if parts else ""
+
+
+@register.filter
+def client_telephone(client):
+    """Retourne le téléphone du client"""
+    if hasattr(client, "telephone") and client.telephone:
+        return client.telephone
+    elif hasattr(client, "tel") and client.tel:
+        return client.tel
+    return ""
+
+
+@register.simple_tag
+def format_adresse_complete(client):
+    """Formate une adresse complète avec tous les détails"""
+    lines = []
+
+    # Nom
+    nom = client_nom(client)
+    if nom:
+        lines.append(f"<strong>{nom}</strong>")
+
+    # Adresse
+    adresse_html = client_adresse(client)
+    if adresse_html:
+        lines.append(adresse_html)
+
+    # Téléphone
+    tel = client_telephone(client)
+    if tel:
+        lines.append(tel)
+
+    return mark_safe("<br>".join(lines))

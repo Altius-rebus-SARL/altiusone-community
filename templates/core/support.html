@@ -1,0 +1,182 @@
+<!-- core/support.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Support" %}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h4 class="text-primary mb-4">
+                    <i class="ti ti-help me-2"></i>{% trans "Centre d'aide et support" %}
+                </h4>
+
+                <div class="row">
+                    <!-- Formulaire de contact -->
+                    <div class="col-lg-6">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="text-primary mb-3">{% trans "Demande de support" %}</h5>
+                                
+                                <form method="post" action="{% url 'core:submit-support-request' %}" class="app-form">
+                                    {% csrf_token %}
+
+                                    <div class="mb-3">
+                                        <label for="subject" class="form-label">
+                                            {% trans "Sujet" %} <span class="text-danger">*</span>
+                                        </label>
+                                        <input type="text" 
+                                               name="subject" 
+                                               class="form-control" 
+                                               id="subject" 
+                                               placeholder="{% trans 'Ex: Problème avec la facturation' %}"
+                                               required>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="message" class="form-label">
+                                            {% trans "Message" %} <span class="text-danger">*</span>
+                                        </label>
+                                        <textarea name="message" 
+                                                  class="form-control" 
+                                                  id="message" 
+                                                  rows="6" 
+                                                  placeholder="{% trans 'Décrivez votre problème en détail...' %}"
+                                                  required></textarea>
+                                    </div>
+
+                                    <button type="submit" class="btn btn-primary w-100">
+                                        <i class="ti ti-send me-2"></i>{% trans "Envoyer la demande" %}
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Informations de contact -->
+                    <div class="col-lg-6">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="text-primary mb-3">{% trans "Nous contacter" %}</h5>
+                                
+                                <ul class="box-list">
+                                    <li class="d-flex align-items-center">
+                                        <div class="h-40 w-40 d-flex-center b-r-12 overflow-hidden flex-shrink-0 bg-primary text-white">
+                                            <i class="ti ti-mail"></i>
+                                        </div>
+                                        <div class="ms-3">
+                                            <h6 class="mb-0 f-w-500">{% trans "Email" %}</h6>
+                                            <a href="mailto:{{ contact.email }}" class="text-primary">{{ contact.email }}</a>
+                                        </div>
+                                    </li>
+
+                                    <li class="d-flex align-items-center">
+                                        <div class="h-40 w-40 d-flex-center b-r-12 overflow-hidden flex-shrink-0 bg-success text-white">
+                                            <i class="ti ti-phone"></i>
+                                        </div>
+                                        <div class="ms-3">
+                                            <h6 class="mb-0 f-w-500">{% trans "Téléphone" %}</h6>
+                                            <a href="tel:{{ contact.phone }}" class="text-success">{{ contact.phone }}</a>
+                                        </div>
+                                    </li>
+
+                                    <li class="d-flex align-items-center">
+                                        <div class="h-40 w-40 d-flex-center b-r-12 overflow-hidden flex-shrink-0 bg-info text-white">
+                                            <i class="ti ti-clock"></i>
+                                        </div>
+                                        <div class="ms-3">
+                                            <h6 class="mb-0 f-w-500">{% trans "Horaires" %}</h6>
+                                            <p class="mb-0 text-muted">{{ contact.hours }}</p>
+                                        </div>
+                                    </li>
+                                </ul>
+
+                                <div class="alert alert-info mt-4">
+                                    <i class="ti ti-info-circle me-2"></i>
+                                    {% trans "Nous nous engageons à répondre à toutes les demandes sous 24h ouvrables." %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FAQ -->
+                <div class="card mt-4">
+                    <div class="card-body">
+                        <h5 class="text-primary mb-4">
+                            <i class="ti ti-help-circle me-2"></i>{% trans "Questions fréquentes (FAQ)" %}
+                        </h5>
+
+                        <div class="accordion" id="faqAccordion">
+                            {% for item in faq %}
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="heading{{ forloop.counter }}">
+                                    <button class="accordion-button {% if not forloop.first %}collapsed{% endif %}" 
+                                            type="button" 
+                                            data-bs-toggle="collapse" 
+                                            data-bs-target="#collapse{{ forloop.counter }}"
+                                            aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}" 
+                                            aria-controls="collapse{{ forloop.counter }}">
+                                        {{ item.question }}
+                                    </button>
+                                </h2>
+                                <div id="collapse{{ forloop.counter }}" 
+                                     class="accordion-collapse collapse {% if forloop.first %}show{% endif %}" 
+                                     aria-labelledby="heading{{ forloop.counter }}" 
+                                     data-bs-parent="#faqAccordion">
+                                    <div class="accordion-body">
+                                        {{ item.answer }}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ressources utiles -->
+                <div class="card mt-4">
+                    <div class="card-body">
+                        <h5 class="text-primary mb-4">
+                            <i class="ti ti-book me-2"></i>{% trans "Ressources utiles" %}
+                        </h5>
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="alert alert-light-primary text-center">
+                                    <i class="ti ti-book-2 f-s-40 text-primary mb-2"></i>
+                                    <h6 class="mb-2">{% trans "Guide utilisateur" %}</h6>
+                                    <p class="text-muted f-s-12 mb-2">{% trans "Documentation complète" %}</p>
+                                    <a href="#" class="btn btn-sm btn-primary">{% trans "Consulter" %}</a>
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="alert alert-light-success text-center">
+                                    <i class="ti ti-video f-s-40 text-success mb-2"></i>
+                                    <h6 class="mb-2">{% trans "Tutoriels vidéo" %}</h6>
+                                    <p class="text-muted f-s-12 mb-2">{% trans "Apprenez en vidéo" %}</p>
+                                    <a href="#" class="btn btn-sm btn-success">{% trans "Regarder" %}</a>
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="alert alert-light-info text-center">
+                                    <i class="ti ti-news f-s-40 text-info mb-2"></i>
+                                    <h6 class="mb-2">{% trans "Nouveautés" %}</h6>
+                                    <p class="text-muted f-s-12 mb-2">{% trans "Dernières mises à jour" %}</p>
+                                    <a href="#" class="btn btn-sm btn-info">{% trans "Découvrir" %}</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

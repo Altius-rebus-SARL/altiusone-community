@@ -1,0 +1,207 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{% trans "Reports de pertes" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Reports de pertes fiscales" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Reports de pertes" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="row">
+    <div class="col-md-3">
+        <div class="card bg-light-primary">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar bg-primary rounded me-3">
+                        <i class="ph-duotone ph-chart-line-down text-white f-s-30"></i>
+                    </div>
+                    <div>
+                        <p class="text-muted mb-1 f-s-12">{% trans "Total reports" %}</p>
+                        <h5 class="text-primary mb-0">{{ stats.total }}</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card bg-light-success">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar bg-success rounded me-3">
+                        <i class="ph-duotone ph-check-circle text-white f-s-30"></i>
+                    </div>
+                    <div>
+                        <p class="text-muted mb-1 f-s-12">{% trans "Actifs" %}</p>
+                        <h5 class="text-success mb-0">{{ stats.actifs }}</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card bg-light-danger">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar bg-danger rounded me-3">
+                        <i class="ph-duotone ph-x-circle text-white f-s-30"></i>
+                    </div>
+                    <div>
+                        <p class="text-muted mb-1 f-s-12">{% trans "Expirés" %}</p>
+                        <h5 class="text-danger mb-0">{{ stats.expires }}</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card bg-light-info">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar bg-info rounded me-3">
+                        <i class="ph-duotone ph-currency-chf text-white f-s-30"></i>
+                    </div>
+                    <div>
+                        <p class="text-muted mb-1 f-s-12">{% trans "Montant disponible" %}</p>
+                        <h5 class="text-info mb-0">{{ stats.montant_disponible|floatformat:0 }}</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Liste -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">{% trans "Reports de pertes" %}</h5>
+                </div>
+            </div>
+
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Mandat" %}</th>
+                                <th>{% trans "Année origine" %}</th>
+                                <th>{% trans "Montant perte" %}</th>
+                                <th>{% trans "Montant utilisé" %}</th>
+                                <th>{% trans "Montant restant" %}</th>
+                                <th>{% trans "Année expiration" %}</th>
+                                <th>{% trans "Statut" %}</th>
+                                <th class="text-end">{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for report in reports %}
+                            <tr>
+                                <td>
+                                    <div>
+                                        <p class="f-w-600 mb-0">{{ report.mandat.numero }}</p>
+                                        <p class="text-muted f-s-12 mb-0">{{ report.mandat.client.raison_sociale|truncatechars:25 }}</p>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="f-w-600">{{ report.annee_origine }}</span>
+                                </td>
+                                <td>
+                                    <span class="f-w-600 text-danger">{{ report.montant_perte|floatformat:2 }} CHF</span>
+                                </td>
+                                <td>
+                                    <span class="text-warning">{{ report.montant_utilise|floatformat:2 }} CHF</span>
+                                </td>
+                                <td>
+                                    <span class="f-w-600 text-success">{{ report.montant_restant|floatformat:2 }} CHF</span>
+                                </td>
+                                <td>
+                                    <span class="{% if report.expire %}text-danger{% else %}text-success{% endif %}">
+                                        {{ report.annee_expiration }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if report.expire %}
+                                    <span class="badge text-light-danger">
+                                        <i class="ph ph-x-circle me-1"></i>{% trans "Expiré" %}
+                                    </span>
+                                    {% elif report.montant_restant == 0 %}
+                                    <span class="badge text-light-warning">
+                                        <i class="ph ph-check me-1"></i>{% trans "Utilisé" %}
+                                    </span>
+                                    {% else %}
+                                    <span class="badge text-light-success">
+                                        <i class="ph ph-check-circle me-1"></i>{% trans "Actif" %}
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <div class="dropdown">
+                                        <a class="text-muted" data-bs-toggle="dropdown" role="button">
+                                            <i class="ph ph-dots-three-vertical f-s-18"></i>
+                                        </a>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'fiscalite:report-perte-detail' report.pk %}">
+                                                    <i class="ph ph-eye me-2"></i>{% trans "Voir détails" %}
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="8" class="text-center py-5">
+                                    <i class="ph ph-chart-line-down f-s-48 text-muted d-block mb-3"></i>
+                                    <p class="text-muted">{% trans "Aucun report de perte trouvé" %}</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Info -->
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="card bg-light-info">
+            <div class="card-body">
+                <h6 class="text-info mb-3">
+                    <i class="ph ph-info me-2"></i>{% trans "À propos des reports de pertes" %}
+                </h6>
+                <ul class="mb-0">
+                    <li class="mb-2">{% trans "Les pertes fiscales peuvent être reportées sur 7 ans" %}</li>
+                    <li class="mb-2">{% trans "Elles peuvent être utilisées pour réduire le bénéfice imposable des années suivantes" %}</li>
+                    <li>{% trans "Un report expire automatiquement après 7 ans s'il n'est pas utilisé" %}</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

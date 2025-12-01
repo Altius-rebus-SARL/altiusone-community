@@ -1,0 +1,54 @@
+# facturation/admin.py
+from django.contrib import admin
+from .models import Prestation, TimeTracking, Facture, LigneFacture, Paiement, Relance
+
+
+@admin.register(Prestation)
+class PrestationAdmin(admin.ModelAdmin):
+    list_display = ["code", "libelle", "type_prestation", "prix_unitaire_ht", "actif"]
+    list_filter = ["type_prestation", "actif", "soumis_tva"]
+    search_fields = ["code", "libelle"]
+
+
+@admin.register(Facture)
+class FactureAdmin(admin.ModelAdmin):
+    list_display = [
+        "numero_facture",
+        "client",
+        "date_emission",
+        "montant_ttc",
+        "statut",
+        "montant_restant",
+    ]
+    list_filter = ["statut", "type_facture"]
+    search_fields = ["numero_facture", "client__raison_sociale"]
+    date_hierarchy = "date_emission"
+
+
+class LigneFactureInline(admin.TabularInline):
+    model = LigneFacture
+    extra = 1
+
+
+@admin.register(TimeTracking)
+class TimeTrackingAdmin(admin.ModelAdmin):
+    list_display = [
+        "date_travail",
+        "utilisateur",
+        "mandat",
+        "duree_minutes",
+        "facturable",
+    ]
+    list_filter = ["facturable", "valide"]
+    date_hierarchy = "date_travail"
+
+
+@admin.register(Paiement)
+class PaiementAdmin(admin.ModelAdmin):
+    list_display = ["facture", "montant", "date_paiement", "mode_paiement", "valide"]
+    list_filter = ["mode_paiement", "valide"]
+    date_hierarchy = "date_paiement"
+
+
+admin.site.register(LigneFacture)
+admin.site.register(Relance)

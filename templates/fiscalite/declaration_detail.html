@@ -1,0 +1,423 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{{ declaration.numero_declaration }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{{ declaration.numero_declaration }}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'fiscalite:declaration-list' %}">
+                    <span>{% trans "Déclarations" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{{ declaration.numero_declaration }}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Colonne principale -->
+    <div class="col-lg-8">
+        <!-- Informations principales -->
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5><i class="ph ph-file-text me-2"></i>{% trans "Informations de la déclaration" %}</h5>
+                    {% if declaration.statut == 'BROUILLON' %}
+                    <span class="badge text-light-secondary">
+                        <i class="ph ph-pencil me-1"></i>{% trans "Brouillon" %}
+                    </span>
+                    {% elif declaration.statut == 'DEPOSEE' %}
+                    <span class="badge text-light-info">
+                        <i class="ph ph-paper-plane-tilt me-1"></i>{% trans "Déposée" %}
+                    </span>
+                    {% elif declaration.statut == 'ACCEPTE' %}
+                    <span class="badge text-light-success">
+                        <i class="ph ph-check-circle me-1"></i>{% trans "Acceptée" %}
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <p class="text-muted f-s-12 mb-1">{% trans "Mandat" %}</p>
+                        <p class="f-w-600 mb-0">{{ declaration.mandat.numero }}</p>
+                        <p class="text-muted f-s-12 mb-0">{{ declaration.mandat.client.raison_sociale }}</p>
+                    </div>
+
+                    <div class="col-md-3 mb-3">
+                        <p class="text-muted f-s-12 mb-1">{% trans "Année fiscale" %}</p>
+                        <p class="f-w-600 mb-0">{{ declaration.annee_fiscale }}</p>
+                    </div>
+
+                    <div class="col-md-3 mb-3">
+                        <p class="text-muted f-s-12 mb-1">{% trans "Canton" %}</p>
+                        <span class="badge text-light-primary">{{ declaration.canton }}</span>
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <p class="text-muted f-s-12 mb-1">{% trans "Type de déclaration" %}</p>
+                        <p class="f-w-600 mb-0">{{ declaration.get_type_declaration_display }}</p>
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <p class="text-muted f-s-12 mb-1">{% trans "Type d'impôt" %}</p>
+                        <span class="badge text-light-secondary">{{ declaration.get_type_impot_display }}</span>
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <p class="text-muted f-s-12 mb-1">{% trans "Période" %}</p>
+                        <p class="mb-0">{{ declaration.periode_debut|date:"d/m/Y" }} - {{ declaration.periode_fin|date:"d/m/Y" }}</p>
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <p class="text-muted f-s-12 mb-1">{% trans "Numéro contribuable" %}</p>
+                        <p class="f-w-600 mb-0">{{ declaration.numero_contribuable|default:"-" }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Montants -->
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-currency-chf me-2"></i>{% trans "Montants" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-4">
+                        <div class="card bg-light-primary">
+                            <div class="card-body">
+                                <p class="text-muted f-s-12 mb-1">{% trans "Bénéfice avant impôts" %}</p>
+                                <h5 class="text-primary mb-0">{{ declaration.benefice_avant_impots|floatformat:2 }} CHF</h5>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6 mb-4">
+                        <div class="card bg-light-success">
+                            <div class="card-body">
+                                <p class="text-muted f-s-12 mb-1">{% trans "Bénéfice imposable" %}</p>
+                                <h5 class="text-success mb-0">{{ declaration.benefice_imposable|floatformat:2 }} CHF</h5>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6 mb-4">
+                        <div class="card bg-light-info">
+                            <div class="card-body">
+                                <p class="text-muted f-s-12 mb-1">{% trans "Capital propre" %}</p>
+                                <h5 class="text-info mb-0">{{ declaration.capital_propre|floatformat:2 }} CHF</h5>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6 mb-4">
+                        <div class="card bg-light-warning">
+                            <div class="card-body">
+                                <p class="text-muted f-s-12 mb-1">{% trans "Capital imposable" %}</p>
+                                <h5 class="text-warning mb-0">{{ declaration.capital_imposable|floatformat:2 }} CHF</h5>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="app-divider-v dashed my-3"></div>
+
+                <h6 class="mb-3">{% trans "Répartition de l'impôt" %}</h6>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="text-center p-3 bg-light-danger rounded">
+                            <p class="text-muted f-s-12 mb-1">{% trans "Impôt fédéral" %}</p>
+                            <h6 class="text-danger mb-0">{{ declaration.impot_federal|floatformat:2 }} CHF</h6>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="text-center p-3 bg-light-warning rounded">
+                            <p class="text-muted f-s-12 mb-1">{% trans "Impôt cantonal" %}</p>
+                            <h6 class="text-warning mb-0">{{ declaration.impot_cantonal|floatformat:2 }} CHF</h6>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="text-center p-3 bg-light-info rounded">
+                            <p class="text-muted f-s-12 mb-1">{% trans "Impôt communal" %}</p>
+                            <h6 class="text-info mb-0">{{ declaration.impot_communal|floatformat:2 }} CHF</h6>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="app-divider-v dashed my-3"></div>
+
+                <div class="text-center p-4 bg-light-primary rounded">
+                    <p class="text-muted f-s-14 mb-1">{% trans "IMPÔT TOTAL" %}</p>
+                    <h4 class="text-primary mb-0">{{ declaration.impot_total|floatformat:2 }} CHF</h4>
+                </div>
+            </div>
+        </div>
+
+        <!-- Corrections fiscales -->
+        {% if corrections %}
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5><i class="ph ph-calculator me-2"></i>{% trans "Corrections fiscales" %}</h5>
+                    <a href="{% url 'fiscalite:correction-create' declaration.pk %}" class="btn btn-primary btn-sm">
+                        <i class="ph ph-plus me-2"></i>{% trans "Ajouter" %}
+                    </a>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-bottom-border mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Type" %}</th>
+                                <th>{% trans "Description" %}</th>
+                                <th>{% trans "Montant comptable" %}</th>
+                                <th>{% trans "Correction" %}</th>
+                                <th>{% trans "Montant fiscal" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for correction in corrections %}
+                            <tr>
+                                <td>
+                                    <span class="badge text-light-secondary">{{ correction.get_type_correction_display }}</span>
+                                </td>
+                                <td>{{ correction.description|truncatewords:10 }}</td>
+                                <td>{{ correction.montant_comptable|floatformat:2 }} CHF</td>
+                                <td>
+                                    {% if correction.montant_correction > 0 %}
+                                    <span class="text-danger">+{{ correction.montant_correction|floatformat:2 }} CHF</span>
+                                    {% else %}
+                                    <span class="text-success">{{ correction.montant_correction|floatformat:2 }} CHF</span>
+                                    {% endif %}
+                                </td>
+                                <td class="f-w-600">{{ correction.montant_fiscal|floatformat:2 }} CHF</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Annexes -->
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5><i class="ph ph-files me-2"></i>{% trans "Annexes fiscales" %}</h5>
+                    <a href="{% url 'fiscalite:annexe-create' declaration.pk %}" class="btn btn-primary btn-sm">
+                        <i class="ph ph-plus me-2"></i>{% trans "Ajouter" %}
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if annexes_par_type %}
+                    {% for type, annexes_list in annexes_par_type.items %}
+                    <div class="mb-4">
+                        <h6 class="f-w-600 mb-3">{{ type }}</h6>
+                        <div class="row">
+                            {% for annexe in annexes_list %}
+                            <div class="col-md-6">
+                                <div class="d-flex align-items-center p-3 bg-light rounded mb-2">
+                                    <i class="ph ph-file-text text-primary f-s-24 me-3"></i>
+                                    <div class="flex-grow-1">
+                                        <p class="f-w-600 mb-0 f-s-14">{{ annexe.titre }}</p>
+                                    </div>
+                                    {% if annexe.fichier %}
+                                    <a href="{{ annexe.fichier.url }}" class="btn btn-light-primary btn-sm">
+                                        <i class="ph ph-download"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="ph ph-files f-s-48 text-muted d-block mb-2"></i>
+                    <p class="text-muted mb-0">{% trans "Aucune annexe" %}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Réclamations -->
+        {% if reclamations %}
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-warning me-2"></i>{% trans "Réclamations" %}</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-bottom-border mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Date" %}</th>
+                                <th>{% trans "Motif" %}</th>
+                                <th>{% trans "Montant contesté" %}</th>
+                                <th>{% trans "Statut" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for reclamation in reclamations %}
+                            <tr>
+                                <td>{{ reclamation.date_reclamation|date:"d/m/Y" }}</td>
+                                <td>{{ reclamation.motif|truncatewords:10 }}</td>
+                                <td class="f-w-600 text-danger">{{ reclamation.montant_conteste|floatformat:2 }} CHF</td>
+                                <td>
+                                    <span class="badge text-light-warning">{{ reclamation.get_statut_display }}</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Actions -->
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-lightning me-2"></i>{% trans "Actions" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    {% if declaration.statut == 'BROUILLON' %}
+                    <form method="post" action="{% url 'fiscalite:declaration-valider' declaration.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-success w-100">
+                            <i class="ph ph-seal-check me-2"></i>{% trans "Valider" %}
+                        </button>
+                    </form>
+                    {% endif %}
+
+                    {% if declaration.statut in 'BROUILLON,A_VALIDER,VALIDE' %}
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#deposerModal">
+                        <i class="ph ph-paper-plane-tilt me-2"></i>{% trans "Marquer comme déposée" %}
+                    </button>
+                    {% endif %}
+
+                    <a href="{% url 'fiscalite:reclamation-create' declaration.pk %}" class="btn btn-light-warning">
+                        <i class="ph ph-warning me-2"></i>{% trans "Créer réclamation" %}
+                    </a>
+
+                    <button class="btn btn-light-secondary">
+                        <i class="ph ph-download me-2"></i>{% trans "Télécharger PDF" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dates importantes -->
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-calendar me-2"></i>{% trans "Dates importantes" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <p class="text-muted f-s-12 mb-1">{% trans "Date de création" %}</p>
+                    <p class="f-w-600 mb-0">{{ declaration.date_creation|date:"d/m/Y" }}</p>
+                </div>
+
+                {% if declaration.date_validation %}
+                <div class="app-divider-v dashed my-3"></div>
+                <div class="mb-3">
+                    <p class="text-muted f-s-12 mb-1">{% trans "Date de validation" %}</p>
+                    <p class="f-w-600 mb-0">{{ declaration.date_validation|date:"d/m/Y H:i" }}</p>
+                    <p class="text-muted f-s-12 mb-0">Par: {{ declaration.valide_par.get_full_name }}</p>
+                </div>
+                {% endif %}
+
+                {% if declaration.date_depot %}
+                <div class="app-divider-v dashed my-3"></div>
+                <div class="mb-3">
+                    <p class="text-muted f-s-12 mb-1">{% trans "Date de dépôt" %}</p>
+                    <p class="f-w-600 mb-0">{{ declaration.date_depot|date:"d/m/Y" }}</p>
+                </div>
+                {% endif %}
+
+                {% if declaration.date_limite_depot %}
+                <div class="app-divider-v dashed my-3"></div>
+                <div class="mb-3">
+                    <p class="text-muted f-s-12 mb-1">{% trans "Date limite" %}</p>
+                    <p class="f-w-600 text-danger mb-0">{{ declaration.date_limite_depot|date:"d/m/Y" }}</p>
+                </div>
+                {% endif %}
+
+                {% if declaration.date_taxation %}
+                <div class="app-divider-v dashed my-3"></div>
+                <div class="mb-3">
+                    <p class="text-muted f-s-12 mb-1">{% trans "Date de taxation" %}</p>
+                    <p class="f-w-600 mb-0">{{ declaration.date_taxation|date:"d/m/Y" }}</p>
+                    {% if declaration.numero_taxation %}
+                    <p class="text-muted f-s-12 mb-0">N°: {{ declaration.numero_taxation }}</p>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Remarques -->
+        {% if declaration.remarques %}
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-note me-2"></i>{% trans "Remarques" %}</h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-0">{{ declaration.remarques|linebreaksbr }}</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal Dépôt -->
+<div class="modal fade" id="deposerModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary">
+                <h5 class="modal-title text-white">{% trans "Marquer comme déposée" %}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'fiscalite:declaration-deposer' declaration.pk %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Date de dépôt" %}</label>
+                        <input type="date" name="date_depot" class="form-control" value="{{ today|date:'Y-m-d' }}" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Annuler" %}</button>
+                    <button type="submit" class="btn btn-primary">{% trans "Confirmer" %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

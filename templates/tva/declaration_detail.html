@@ -1,0 +1,311 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Déclaration TVA" %} {{ declaration.numero_declaration }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Déclaration TVA" %} {{ declaration.numero_declaration }}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'tva:declaration-list' %}">
+                    <span>{% trans "Déclarations TVA" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{{ declaration.numero_declaration }}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Action buttons -->
+<div class="row mb-3">
+    <div class="col-12 text-end">
+        {% if declaration.statut == 'BROUILLON' %}
+        <a href="{% url 'tva:declaration-calculer' declaration.pk %}" class="btn btn-info" onclick="return confirm('{% trans "Recalculer la déclaration ?" %}')">
+            <i class="ph ph-calculator me-2"></i>{% trans "Calculer" %}
+        </a>
+        <a href="{% url 'tva:declaration-valider' declaration.pk %}" class="btn btn-success" onclick="return confirm('{% trans "Valider cette déclaration ?" %}')">
+            <i class="ph ph-check-circle me-2"></i>{% trans "Valider" %}
+        </a>
+        {% endif %}
+        {% if declaration.statut in 'VALIDE,SOUMIS,ACCEPTE' %}
+        <a href="{% url 'tva:declaration-xml' declaration.pk %}" class="btn btn-secondary">
+            <i class="ph ph-file-code me-2"></i>{% trans "Export XML" %}
+        </a>
+        <a href="{% url 'tva:declaration-pdf' declaration.pk %}" class="btn btn-warning">
+            <i class="ph ph-file-pdf me-2"></i>{% trans "Export PDF" %}
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Info Cards -->
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Informations générales" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Mandat" %}</label>
+                        <h6>
+                            <a href="{% url 'core:mandat-detail' declaration.mandat.pk %}">
+                                {{ declaration.mandat.client.raison_sociale }}
+                            </a>
+                        </h6>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Période" %}</label>
+                        <h6>
+                            {% if declaration.trimestre %}
+                            {{ declaration.annee }} - Trimestre {{ declaration.trimestre }}
+                            {% else %}
+                            {{ declaration.annee }} - Semestre {{ declaration.semestre }}
+                            {% endif %}
+                        </h6>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Du" %}</label>
+                        <h6>{{ declaration.periode_debut|date:"d.m.Y" }}</h6>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Au" %}</label>
+                        <h6>{{ declaration.periode_fin|date:"d.m.Y" }}</h6>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Méthode" %}</label>
+                        <h6><span class="badge bg-light-primary">{{ declaration.methode }}</span></h6>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Type" %}</label>
+                        <h6><span class="badge bg-light-secondary">{{ declaration.get_type_decompte_display }}</span></h6>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Statut" %}</label>
+                        <h6>
+                            {% if declaration.statut == 'BROUILLON' %}
+                            <span class="badge bg-secondary">{% trans "Brouillon" %}</span>
+                            {% elif declaration.statut == 'VALIDE' %}
+                            <span class="badge bg-info">{% trans "Validé" %}</span>
+                            {% elif declaration.statut == 'SOUMIS' %}
+                            <span class="badge bg-warning">{% trans "Soumis" %}</span>
+                            {% elif declaration.statut == 'PAYE' %}
+                            <span class="badge bg-success">{% trans "Payé" %}</span>
+                            {% endif %}
+                        </h6>
+                    </div>
+                    {% if declaration.numero_reference_afc %}
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Référence AFC" %}</label>
+                        <h6>{{ declaration.numero_reference_afc }}</h6>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">{% trans "Montants" %}</h6>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="text-muted f-s-12">{% trans "TVA due" %}</label>
+                    <h5 class="text-danger mb-0">{{ declaration.tva_due_total|floatformat:2 }} CHF</h5>
+                </div>
+
+                <div class="mb-3">
+                    <label class="text-muted f-s-12">{% trans "TVA préalable" %}</label>
+                    <h5 class="text-success mb-0">{{ declaration.tva_prealable_total|floatformat:2 }} CHF</h5>
+                </div>
+
+                <hr>
+
+                <div>
+                    <label class="text-muted f-s-12">{% trans "Solde à payer" %}</label>
+                    {% if declaration.solde_tva > 0 %}
+                    <h4 class="text-danger mb-0">{{ declaration.solde_tva|floatformat:2 }} CHF</h4>
+                    {% elif declaration.solde_tva < 0 %}
+                    <h4 class="text-success mb-0">{{ declaration.solde_tva|floatformat:2 }} CHF</h4>
+                    <small class="text-muted">{% trans "À rembourser" %}</small>
+                    {% else %}
+                    <h4 class="text-muted mb-0">0.00 CHF</h4>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Lignes TVA -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Détail de la déclaration" %}</h5>
+            </div>
+            <div class="card-body">
+                {% for categorie, lignes in lignes_par_categorie.items %}
+                <h6 class="mt-3 mb-2 text-primary">{{ categorie }}</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th>{% trans "Code" %}</th>
+                                <th>{% trans "Libellé" %}</th>
+                                <th class="text-end">{% trans "Base imposable" %}</th>
+                                <th class="text-end">{% trans "Taux" %}</th>
+                                <th class="text-end">{% trans "Montant TVA" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ligne in lignes %}
+                            <tr>
+                                <td><span class="badge bg-light-dark">{{ ligne.code_tva.code }}</span></td>
+                                <td>{{ ligne.code_tva.libelle }}</td>
+                                <td class="text-end">{{ ligne.base_imposable|floatformat:2 }}</td>
+                                <td class="text-end">{{ ligne.taux_tva|floatformat:2 }}%</td>
+                                <td class="text-end f-w-600">{{ ligne.montant_tva|floatformat:2 }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% empty %}
+                <div class="text-center py-4">
+                    <i class="ph ph-list-dashes f-s-50 text-muted"></i>
+                    <p class="text-muted mt-2">{% trans "Aucune ligne dans cette déclaration" %}</p>
+                    {% if declaration.statut == 'BROUILLON' %}
+                    <a href="{% url 'tva:declaration-calculer' declaration.pk %}" class="btn btn-primary btn-sm">
+                        <i class="ph ph-calculator me-2"></i>{% trans "Calculer la déclaration" %}
+                    </a>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Opérations TVA -->
+{% if operations %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Opérations TVA intégrées" %} ({{ operations|length }})</h5>
+            </div>
+            <div class="card-body">
+                <div class="overflow-auto app-scroll">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Date" %}</th>
+                                <th>{% trans "Type" %}</th>
+                                <th>{% trans "Libellé" %}</th>
+                                <th>{% trans "Code TVA" %}</th>
+                                <th class="text-end">{% trans "HT" %}</th>
+                                <th class="text-end">{% trans "TVA" %}</th>
+                                <th class="text-end">{% trans "TTC" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for op in operations %}
+                            <tr>
+                                <td>{{ op.date_operation|date:"d.m.Y" }}</td>
+                                <td><span class="badge bg-light-secondary">{{ op.get_type_operation_display }}</span></td>
+                                <td>{{ op.libelle|truncatewords:10 }}</td>
+                                <td><span class="badge bg-light-dark">{{ op.code_tva.code }}</span></td>
+                                <td class="text-end">{{ op.montant_ht|floatformat:2 }}</td>
+                                <td class="text-end">{{ op.montant_tva|floatformat:2 }}</td>
+                                <td class="text-end f-w-600">{{ op.montant_ttc|floatformat:2 }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Corrections -->
+{% if corrections %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Corrections" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Type" %}</th>
+                                <th>{% trans "Description" %}</th>
+                                <th class="text-end">{% trans "Base" %}</th>
+                                <th class="text-end">{% trans "Taux" %}</th>
+                                <th class="text-end">{% trans "Montant" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for correction in corrections %}
+                            <tr>
+                                <td>{{ correction.get_type_correction_display }}</td>
+                                <td>{{ correction.description|truncatewords:15 }}</td>
+                                <td class="text-end">{{ correction.base_calcul|floatformat:2 }}</td>
+                                <td class="text-end">{{ correction.taux|floatformat:2 }}%</td>
+                                <td class="text-end f-w-600">{{ correction.montant_correction|floatformat:2 }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Remarques -->
+{% if declaration.remarques_internes %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">{% trans "Remarques internes" %}</h6>
+            </div>
+            <div class="card-body">
+                <p class="mb-0">{{ declaration.remarques_internes }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

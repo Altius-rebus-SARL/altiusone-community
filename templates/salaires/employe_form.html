@@ -1,0 +1,431 @@
+<!-- salaires/employe_form.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load widget_tweaks %}
+
+{% block title %}
+{% if object %}{% trans "Modifier l'employé" %}{% else %}{% trans "Nouvel employé" %}{% endif %}
+{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">
+            {% if object %}{% trans "Modifier l'employé" %}{% else %}{% trans "Nouvel employé" %}{% endif %}
+        </h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'salaires:employe-list' %}">
+                    <span>{% trans "Employés" %}</span>
+                </a>
+            </li>
+            {% if object %}
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'salaires:employe-detail' object.pk %}">
+                    <span>{{ object.matricule }}</span>
+                </a>
+            </li>
+            {% endif %}
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">
+                    {% if object %}{% trans "Modifier" %}{% else %}{% trans "Nouveau" %}{% endif %}
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<form method="post" class="app-form">
+    {% csrf_token %}
+    
+    <div class="row">
+        <div class="col-12">
+            
+            <!-- Messages d'erreur globaux -->
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                {{ form.non_field_errors }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endif %}
+
+            <!-- Informations générales -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-user-circle me-2"></i>{% trans "Informations générales" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Mandat" %} <span class="text-danger">*</span></label>
+                                {{ form.mandat|add_class:"form-select" }}
+                                {% if form.mandat.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.mandat.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Matricule" %} <span class="text-danger">*</span></label>
+                                {{ form.matricule|add_class:"form-control" }}
+                                {% if form.matricule.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.matricule.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Nom" %} <span class="text-danger">*</span></label>
+                                {{ form.nom|add_class:"form-control" }}
+                                {% if form.nom.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.nom.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Prénom" %} <span class="text-danger">*</span></label>
+                                {{ form.prenom|add_class:"form-control" }}
+                                {% if form.prenom.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.prenom.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Nom de naissance" %}</label>
+                                {{ form.nom_naissance|add_class:"form-control" }}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Date de naissance" %} <span class="text-danger">*</span></label>
+                                {{ form.date_naissance|add_class:"form-control" }}
+                                {% if form.date_naissance.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.date_naissance.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Sexe" %} <span class="text-danger">*</span></label>
+                                {{ form.sexe|add_class:"form-select" }}
+                                {% if form.sexe.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.sexe.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Nationalité" %}</label>
+                                {{ form.nationalite|add_class:"form-control" }}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Numéro AVS" %} <span class="text-danger">*</span></label>
+                                {{ form.avs_number|add_class:"form-control" }}
+                                <small class="text-muted">{% trans "Format: 756.1234.5678.90" %}</small>
+                                {% if form.avs_number.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.avs_number.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Type permis" %}</label>
+                                {{ form.type_permis|add_class:"form-select" }}
+                            </div>
+                        </div>
+
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Numéro permis" %}</label>
+                                {{ form.numero_permis|add_class:"form-control" }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Coordonnées -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-map-pin me-2"></i>{% trans "Coordonnées" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Email" %}</label>
+                                {{ form.email|add_class:"form-control" }}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Téléphone" %}</label>
+                                {{ form.telephone|add_class:"form-control" }}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Mobile" %}</label>
+                                {{ form.mobile|add_class:"form-control" }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Situation familiale -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-users-three me-2"></i>{% trans "Situation familiale" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "État civil" %}</label>
+                                {{ form.etat_civil|add_class:"form-select" }}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Nombre d'enfants" %}</label>
+                                {{ form.nombre_enfants|add_class:"form-control" }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Emploi -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-briefcase me-2"></i>{% trans "Informations emploi" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Type de contrat" %} <span class="text-danger">*</span></label>
+                                {{ form.type_contrat|add_class:"form-select" }}
+                                {% if form.type_contrat.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.type_contrat.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Date d'entrée" %} <span class="text-danger">*</span></label>
+                                {{ form.date_entree|add_class:"form-control" }}
+                                {% if form.date_entree.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.date_entree.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Date de sortie" %}</label>
+                                {{ form.date_sortie|add_class:"form-control" }}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Fonction" %} <span class="text-danger">*</span></label>
+                                {{ form.fonction|add_class:"form-control" }}
+                                {% if form.fonction.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.fonction.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Département" %}</label>
+                                {{ form.departement|add_class:"form-control" }}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Taux d'occupation (%)" %} <span class="text-danger">*</span></label>
+                                {{ form.taux_occupation|add_class:"form-control" }}
+                                {% if form.taux_occupation.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.taux_occupation.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Heures/semaine" %}</label>
+                                {{ form.nombre_heures_semaine|add_class:"form-control" }}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Jours vacances/an" %}</label>
+                                {{ form.jours_vacances_annuel|add_class:"form-control" }}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Statut" %}</label>
+                                {{ form.statut|add_class:"form-select" }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Salaire -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-currency-circle-dollar me-2"></i>{% trans "Salaire" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Salaire brut mensuel (CHF)" %} <span class="text-danger">*</span></label>
+                                {{ form.salaire_brut_mensuel|add_class:"form-control" }}
+                                {% if form.salaire_brut_mensuel.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.salaire_brut_mensuel.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Salaire horaire (CHF)" %}</label>
+                                {{ form.salaire_horaire|add_class:"form-control" }}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "13ème salaire" %}</label>
+                                <div class="form-check form-switch">
+                                    {{ form.treizieme_salaire|add_class:"form-check-input" }}
+                                    <label class="form-check-label">{% trans "Oui" %}</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Montant 13ème (CHF)" %}</label>
+                                {{ form.montant_13eme|add_class:"form-control" }}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "IBAN" %}</label>
+                                {{ form.iban|add_class:"form-control" }}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Banque" %}</label>
+                                {{ form.banque|add_class:"form-control" }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Impôt à la source -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-scales me-2"></i>{% trans "Impôt à la source" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Soumis IS" %}</label>
+                                <div class="form-check form-switch">
+                                    {{ form.soumis_is|add_class:"form-check-input" }}
+                                    <label class="form-check-label">{% trans "Oui" %}</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Barème IS" %}</label>
+                                {{ form.barreme_is|add_class:"form-control" }}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Taux IS (%)" %}</label>
+                                {{ form.taux_is|add_class:"form-control" }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Remarques -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-note me-2"></i>{% trans "Remarques" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-12">
+                            {{ form.remarques|add_class:"form-control" }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <a href="{% if object %}{% url 'salaires:employe-detail' object.pk %}{% else %}{% url 'salaires:employe-list' %}{% endif %}" class="btn btn-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ph ph-check me-2"></i>
+                            {% if object %}{% trans "Enregistrer" %}{% else %}{% trans "Créer" %}{% endif %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}

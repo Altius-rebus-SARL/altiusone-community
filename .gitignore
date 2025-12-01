@@ -1,0 +1,58 @@
+# Environnements virtuels
+env/
+venv/
+ENV/
+.venv/
+
+# Fichiers de configuration d'environnement
+*.env
+.env.*
+
+# Dépendances
+node_modules/
+dist/
+
+# IDE et outils
+.vscode/
+.idea/
+.claude/
+
+# Fichiers et dossiers générés par Django
+staticfiles/
+media/
+db.sqlite3
+*.sqlite3
+*.sqlite
+*.db
+
+# Fichiers de migration
+**/migrations/*.pyc
+**/migrations/*.pyo
+**/migrations/*.log
+**/migrations/__pycache__/
+**/migrations/*.sqlite3
+
+# Fichiers Python compilés
+*.pyc
+*.pyo
+__pycache__/
+
+# Fichiers de logs et de couverture
+*.log
+*.pot
+*.coverage
+.coverage.*
+
+# Fichiers spécifiques à Python
+*.egg-info/
+*.egg
+*.whl
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+
+
+# Autres fichiers à ignorer
+*.bak
+*.tmp

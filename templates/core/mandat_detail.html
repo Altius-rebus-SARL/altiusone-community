@@ -1,0 +1,245 @@
+<!-- core/mandat_detail.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ mandat.numero }} - {{ mandat.client.raison_sociale }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <!-- Header -->
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h4 class="text-primary mb-1">{{ mandat.numero }}</h4>
+                        <p class="text-muted mb-0">
+                            <a href="{% url 'core:client-detail' mandat.client.pk %}">
+                                {{ mandat.client.raison_sociale }}
+                            </a>
+                        </p>
+                        <span class="badge bg-light-primary mt-2">{{ mandat.get_type_mandat_display }}</span>
+                        <span class="badge bg-{{ mandat.statut|lower }} mt-2">{{ mandat.get_statut_display }}</span>
+                    </div>
+                    <div>
+                        <a href="{% url 'core:mandat-update' mandat.pk %}" class="btn btn-primary me-2">
+                            <i class="ti ti-edit me-2"></i>{% trans "Modifier" %}
+                        </a>
+                        <a href="{% url 'core:mandat-list' %}" class="btn btn-secondary">
+                            <i class="ti ti-arrow-left me-2"></i>{% trans "Retour" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <!-- Informations générales -->
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="text-primary mb-3">{% trans "Informations générales" %}</h5>
+                        
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">{% trans "Type de mandat" %}</span>
+                                <span class="f-w-500">{{ mandat.get_type_mandat_display }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">{% trans "Responsable" %}</span>
+                                <span class="f-w-500">{{ mandat.responsable.get_full_name|default:mandat.responsable.username }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">{% trans "Date début" %}</span>
+                                <span class="f-w-500">{{ mandat.date_debut|date:"d.m.Y" }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">{% trans "Périodicité" %}</span>
+                                <span class="f-w-500">{{ mandat.get_periodicite_display }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">{% trans "Type facturation" %}</span>
+                                <span class="f-w-500">{{ mandat.get_type_facturation_display }}</span>
+                            </li>
+                            {% if mandat.montant_forfait %}
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">{% trans "Montant forfait" %}</span>
+                                <span class="f-w-500">{{ mandat.montant_forfait }} CHF</span>
+                            </li>
+                            {% endif %}
+                            {% if mandat.taux_horaire %}
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">{% trans "Taux horaire" %}</span>
+                                <span class="f-w-500">{{ mandat.taux_horaire }} CHF/h</span>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Équipe -->
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="text-primary mb-3">{% trans "Équipe" %}</h5>
+                        
+                        <ul class="box-list">
+                            <li class="d-flex align-items-center">
+                                <div class="h-40 w-40 d-flex-center b-r-12 overflow-hidden flex-shrink-0 bg-primary text-white">
+                                    {{ mandat.responsable.first_name.0|default:mandat.responsable.username.0|upper }}
+                                </div>
+                                <div class="ms-3">
+                                    <h6 class="mb-0 f-w-500">{{ mandat.responsable.get_full_name|default:mandat.responsable.username }}</h6>
+                                    <p class="text-muted mb-0">{% trans "Responsable" %}</p>
+                                </div>
+                            </li>
+
+                            {% for membre in mandat.equipe.all %}
+                            <li class="d-flex align-items-center">
+                                <div class="h-40 w-40 d-flex-center b-r-12 overflow-hidden flex-shrink-0 bg-secondary text-white">
+                                    {{ membre.first_name.0|default:membre.username.0|upper }}
+                                </div>
+                                <div class="ms-3">
+                                    <h6 class="mb-0 f-w-500">{{ membre.get_full_name|default:membre.username }}</h6>
+                                    <p class="text-muted mb-0">{% trans "Équipe" %}</p>
+                                </div>
+                            </li>
+                            {% empty %}
+                            <li class="text-center py-3 text-muted">
+                                {% trans "Aucun membre d'équipe" %}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistiques de facturation -->
+        {% if stats_facturation %}
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="text-primary mb-3">{% trans "Facturation" %}</h5>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="alert alert-success text-center">
+                                    <h4 class="mb-0">{{ stats_facturation.ca_annee|floatformat:2 }} CHF</h4>
+                                    <small>{% trans "CA année courante" %}</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="alert alert-warning text-center">
+                                    <h4 class="mb-0">{{ stats_facturation.impaye|floatformat:2 }} CHF</h4>
+                                    <small>{% trans "Impayé" %}</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Tâches -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="text-primary mb-0">{% trans "Tâches récentes" %}</h5>
+                            <a href="{% url 'core:tache-create' %}?mandat={{ mandat.pk }}" class="btn btn-sm btn-primary">
+                                <i class="ti ti-plus me-2"></i>{% trans "Nouvelle tâche" %}
+                            </a>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>{% trans "Titre" %}</th>
+                                        <th>{% trans "Assigné à" %}</th>
+                                        <th>{% trans "Échéance" %}</th>
+                                        <th>{% trans "Priorité" %}</th>
+                                        <th>{% trans "Statut" %}</th>
+                                        <th>{% trans "Actions" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for tache in taches %}
+                                    <tr>
+                                        <td>
+                                            <a href="{% url 'core:tache-detail' tache.pk %}">
+                                                {{ tache.titre }}
+                                            </a>
+                                        </td>
+                                        <td>{{ tache.assigne_a.get_full_name|default:tache.assigne_a.username }}</td>
+                                        <td>{{ tache.date_echeance|date:"d.m.Y"|default:"-" }}</td>
+                                        <td>
+                                            <span class="badge bg-light-{{ tache.priorite|lower }}">
+                                                {{ tache.get_priorite_display }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-{{ tache.statut|lower }}">
+                                                {{ tache.get_statut_display }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <a href="{% url 'core:tache-detail' tache.pk %}" 
+                                               class="btn btn-sm btn-light-primary">
+                                                <i class="ti ti-eye"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="6" class="text-center py-3 text-muted">
+                                            {% trans "Aucune tâche" %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Documents récents -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="text-primary mb-3">{% trans "Documents récents" %}</h5>
+                        
+                        <ul class="box-list">
+                            {% for document in documents %}
+                            <li class="d-flex align-items-center justify-content-between">
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-0 f-w-500">{{ document.nom }}</h6>
+                                    <p class="text-muted mb-0">{{ document.created_at|date:"d.m.Y H:i" }}</p>
+                                </div>
+                                <a href="#" class="btn btn-sm btn-light-primary">
+                                    <i class="ti ti-download"></i>
+                                </a>
+                            </li>
+                            {% empty %}
+                            <li class="text-center py-3 text-muted">
+                                {% trans "Aucun document" %}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

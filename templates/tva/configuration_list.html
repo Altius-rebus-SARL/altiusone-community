@@ -1,0 +1,102 @@
+<!-- tva/configuration_list.html-->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Configurations TVA" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Configurations TVA" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Configurations TVA" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Main Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Liste des configurations TVA" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="overflow-auto app-scroll">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Mandat" %}</th>
+                                <th>{% trans "Client" %}</th>
+                                <th>{% trans "Numéro TVA" %}</th>
+                                <th>{% trans "Assujetti" %}</th>
+                                <th>{% trans "Méthode" %}</th>
+                                <th>{% trans "Périodicité" %}</th>
+                                <th>{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for config in configurations %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'core:mandat-detail' config.mandat.pk %}">
+                                        {{ config.mandat.numero }}
+                                    </a>
+                                </td>
+                                <td>{{ config.mandat.client.raison_sociale }}</td>
+                                <td>
+                                    {% if config.numero_tva %}
+                                    <span class="badge bg-light-dark">{{ config.numero_tva }}</span>
+                                    {% else %}
+                                    <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if config.assujetti_tva %}
+                                    <i class="ph ph-check-circle text-success f-s-18"></i>
+                                    {% else %}
+                                    <i class="ph ph-x-circle text-danger f-s-18"></i>
+                                    {% endif %}
+                                </td>
+                                <td><span class="badge bg-light-primary">{{ config.get_methode_calcul_display }}</span></td>
+                                <td><span class="badge bg-light-info">{{ config.get_periodicite_display }}</span></td>
+                                <td>
+                                    <a href="{% url 'tva:configuration-detail' config.pk %}" 
+                                       class="btn btn-sm btn-light-primary"
+                                       data-bs-toggle="tooltip"
+                                       title="{% trans 'Voir' %}">
+                                        <i class="ph ph-eye"></i>
+                                    </a>
+                                    <a href="{% url 'tva:configuration-update' config.pk %}" 
+                                       class="btn btn-sm btn-success"
+                                       data-bs-toggle="tooltip"
+                                       title="{% trans 'Modifier' %}">
+                                        <i class="ph ph-pencil"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center py-5">
+                                    <i class="ph ph-gear f-s-50 text-muted"></i>
+                                    <p class="text-muted mt-2">{% trans "Aucune configuration TVA trouvée" %}</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

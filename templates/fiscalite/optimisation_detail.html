@@ -1,0 +1,300 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{{ optimisation.titre }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{{ optimisation.titre }}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'fiscalite:optimisation-list' %}">
+                    <span>{% trans "Optimisations" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{{ optimisation.titre|truncatechars:30 }}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Colonne principale -->
+    <div class="col-lg-8">
+        <!-- Informations -->
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5><i class="ph ph-lightbulb me-2"></i>{% trans "Détails de l'optimisation" %}</h5>
+                    {% if optimisation.statut == 'IDENTIFIEE' %}
+                    <span class="badge text-light-info">{% trans "Identifiée" %}</span>
+                    {% elif optimisation.statut == 'EN_COURS' %}
+                    <span class="badge text-light-warning">{% trans "En cours" %}</span>
+                    {% elif optimisation.statut == 'REALISEE' %}
+                    <span class="badge text-light-success">{% trans "Réalisée" %}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <p class="text-muted f-s-12 mb-1">{% trans "Mandat" %}</p>
+                        <p class="f-w-600 mb-0">{{ optimisation.mandat.numero }}</p>
+                        <p class="text-muted f-s-12 mb-0">{{ optimisation.mandat.client.raison_sociale }}</p>
+                    </div>
+
+                    <div class="col-md-3 mb-3">
+                        <p class="text-muted f-s-12 mb-1">{% trans "Catégorie" %}</p>
+                        <span class="badge text-light-primary">{{ optimisation.get_categorie_display }}</span>
+                    </div>
+
+                    <div class="col-md-3 mb-3">
+                        <p class="text-muted f-s-12 mb-1">{% trans "Année d'application" %}</p>
+                        <p class="f-w-600 mb-0">{{ optimisation.annee_application }}</p>
+                    </div>
+
+                    <div class="col-12 mb-3">
+                        <div class="app-divider-v dashed my-3"></div>
+                        <h6 class="mb-3">{% trans "Description" %}</h6>
+                        <p class="mb-0">{{ optimisation.description|linebreaksbr }}</p>
+                    </div>
+
+                    {% if optimisation.reference_legale %}
+                    <div class="col-12 mb-3">
+                        <div class="app-divider-v dashed my-3"></div>
+                        <p class="text-muted f-s-12 mb-1">{% trans "Référence légale" %}</p>
+                        <p class="f-w-600 mb-0">{{ optimisation.reference_legale }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Économie -->
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-currency-chf me-2"></i>{% trans "Impact financier" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card bg-light-success">
+                            <div class="card-body">
+                                <p class="text-muted f-s-12 mb-1">{% trans "Économie estimée" %}</p>
+                                <h4 class="text-success mb-0">{{ optimisation.economie_estimee|floatformat:2 }} CHF</h4>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if optimisation.economie_reelle %}
+                    <div class="col-md-6">
+                        <div class="card bg-light-primary">
+                            <div class="card-body">
+                                <p class="text-muted f-s-12 mb-1">{% trans "Économie réalisée" %}</p>
+                                <h4 class="text-primary mb-0">{{ optimisation.economie_reelle|floatformat:2 }} CHF</h4>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                {% if optimisation.economie_reelle %}
+                <div class="app-divider-v dashed my-3"></div>
+                <div class="row">
+                    <div class="col-12">
+                        <div class="d-flex justify-content-between align-items-center p-3 bg-light rounded">
+                            <span class="f-w-600">{% trans "Écart estimé / réalisé" %}</span>
+                            <span class="f-w-600 {% if optimisation.economie_reelle >= optimisation.economie_estimee %}text-success{% else %}text-danger{% endif %}">
+                                {{ optimisation.economie_reelle|sub:optimisation.economie_estimee|floatformat:2 }} CHF
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Notes -->
+        {% if optimisation.notes %}
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-note me-2"></i>{% trans "Notes" %}</h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-0">{{ optimisation.notes|linebreaksbr }}</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Actions -->
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-lightning me-2"></i>{% trans "Actions" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    {% if optimisation.statut != 'REALISEE' %}
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#changerStatutModal">
+                        <i class="ph ph-arrows-clockwise me-2"></i>{% trans "Changer le statut" %}
+                    </button>
+                    {% endif %}
+
+                    <a href="#" class="btn btn-light-secondary">
+                        <i class="ph ph-pencil me-2"></i>{% trans "Modifier" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Niveau de risque -->
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-shield me-2"></i>{% trans "Évaluation des risques" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="text-center p-4 {% if optimisation.niveau_risque == 'FAIBLE' %}bg-light-success{% elif optimisation.niveau_risque == 'MOYEN' %}bg-light-warning{% else %}bg-light-danger{% endif %} rounded">
+                    {% if optimisation.niveau_risque == 'FAIBLE' %}
+                    <i class="ph ph-check-circle {% if optimisation.niveau_risque == 'FAIBLE' %}text-success{% endif %} f-s-48 d-block mb-2"></i>
+                    <h6 class="text-success mb-1">{% trans "Risque faible" %}</h6>
+                    {% elif optimisation.niveau_risque == 'MOYEN' %}
+                    <i class="ph ph-warning text-warning f-s-48 d-block mb-2"></i>
+                    <h6 class="text-warning mb-1">{% trans "Risque moyen" %}</h6>
+                    {% else %}
+                    <i class="ph ph-x-circle text-danger f-s-48 d-block mb-2"></i>
+                    <h6 class="text-danger mb-1">{% trans "Risque élevé" %}</h6>
+                    {% endif %}
+                    <p class="text-muted f-s-12 mb-0">{% trans "Niveau de risque de l'optimisation" %}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dates -->
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-calendar me-2"></i>{% trans "Dates" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <p class="text-muted f-s-12 mb-1">{% trans "Date d'identification" %}</p>
+                    <p class="f-w-600 mb-0">{{ optimisation.date_identification|date:"d/m/Y" }}</p>
+                </div>
+
+                {% if optimisation.date_realisation %}
+                <div class="app-divider-v dashed my-3"></div>
+                <div class="mb-3">
+                    <p class="text-muted f-s-12 mb-1">{% trans "Date de réalisation" %}</p>
+                    <p class="f-w-600 mb-0">{{ optimisation.date_realisation|date:"d/m/Y" }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Progression -->
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-chart-line me-2"></i>{% trans "Progression" %}</h5>
+            </div>
+            <div class="card-body">
+                {% if optimisation.statut == 'IDENTIFIEE' %}
+                <div class="mb-3">
+                    <div class="progress h-20">
+                        <div class="progress-bar bg-info" style="width: 20%"></div>
+                    </div>
+                    <p class="text-center text-muted f-s-12 mt-2 mb-0">{% trans "Identifiée - 20%" %}</p>
+                </div>
+                {% elif optimisation.statut == 'EN_ANALYSE' %}
+                <div class="mb-3">
+                    <div class="progress h-20">
+                        <div class="progress-bar bg-primary" style="width: 40%"></div>
+                    </div>
+                    <p class="text-center text-muted f-s-12 mt-2 mb-0">{% trans "En analyse - 40%" %}</p>
+                </div>
+                {% elif optimisation.statut == 'VALIDEE' %}
+                <div class="mb-3">
+                    <div class="progress h-20">
+                        <div class="progress-bar bg-warning" style="width: 60%"></div>
+                    </div>
+                    <p class="text-center text-muted f-s-12 mt-2 mb-0">{% trans "Validée - 60%" %}</p>
+                </div>
+                {% elif optimisation.statut == 'EN_COURS' %}
+                <div class="mb-3">
+                    <div class="progress h-20">
+                        <div class="progress-bar bg-warning" style="width: 80%"></div>
+                    </div>
+                    <p class="text-center text-muted f-s-12 mt-2 mb-0">{% trans "En cours - 80%" %}</p>
+                </div>
+                {% elif optimisation.statut == 'REALISEE' %}
+                <div class="mb-3">
+                    <div class="progress h-20">
+                        <div class="progress-bar bg-success" style="width: 100%"></div>
+                    </div>
+                    <p class="text-center text-success f-s-12 mt-2 mb-0">{% trans "Réalisée - 100%" %}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Changer Statut -->
+<div class="modal fade" id="changerStatutModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary">
+                <h5 class="modal-title text-white">{% trans "Changer le statut" %}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'fiscalite:optimisation-changer-statut' optimisation.pk %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Nouveau statut" %}</label>
+                        <select name="statut" class="form-select" required>
+                            <option value="">{% trans "Sélectionner..." %}</option>
+                            {% for value, label in optimisation.STATUT_CHOICES %}
+                            <option value="{{ value }}" {% if value == optimisation.statut %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3" id="economieReelleDiv" style="display: none;">
+                        <label class="form-label">{% trans "Économie réalisée (CHF)" %}</label>
+                        <input type="number" name="economie_reelle" class="form-control" step="0.01">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Annuler" %}</button>
+                    <button type="submit" class="btn btn-primary">{% trans "Enregistrer" %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    $('select[name="statut"]').on('change', function() {
+        if ($(this).val() === 'REALISEE') {
+            $('#economieReelleDiv').show();
+        } else {
+            $('#economieReelleDiv').hide();
+        }
+    });
+});
+</script>
+{% endblock %}

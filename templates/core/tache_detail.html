@@ -1,0 +1,199 @@
+<!-- apps/templates/core/tache_detail.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ tache.titre }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <!-- Header -->
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h4 class="text-primary mb-2">{{ tache.titre }}</h4>
+                        <p class="text-muted mb-0">
+                            {% if tache.mandat %}
+                                <a href="{% url 'core:mandat-detail' tache.mandat.pk %}">
+                                    {{ tache.mandat.client.raison_sociale }}
+                                </a>
+                            {% endif %}
+                        </p>
+                        <div class="mt-2">
+                            <span class="badge bg-{{ tache.statut|lower }} me-2">{{ tache.get_statut_display }}</span>
+                            <span class="badge bg-light-{{ tache.priorite|lower }}">{{ tache.get_priorite_display }}</span>
+                        </div>
+                    </div>
+                    <div>
+                        <a href="{% url 'core:tache-update' tache.pk %}" class="btn btn-primary me-2">
+                            <i class="ti ti-edit me-2"></i>{% trans "Modifier" %}
+                        </a>
+                        <a href="{% url 'core:tache-list' %}" class="btn btn-secondary">
+                            <i class="ti ti-arrow-left me-2"></i>{% trans "Retour" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <!-- Détails de la tâche -->
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="text-primary mb-3">{% trans "Description" %}</h5>
+                        
+                        {% if tache.description %}
+                            <p class="text-dark">{{ tache.description|linebreaks }}</p>
+                        {% else %}
+                            <p class="text-muted">{% trans "Aucune description" %}</p>
+                        {% endif %}
+
+                        <hr class="my-4">
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="text-muted mb-3">{% trans "Temps" %}</h6>
+                                <ul class="list-group list-group-flush">
+                                    {% if tache.temps_estime_heures %}
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span>{% trans "Temps estimé" %}</span>
+                                        <span class="f-w-500">{{ tache.temps_estime_heures }} h</span>
+                                    </li>
+                                    {% endif %}
+                                    {% if tache.temps_reel_heures %}
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span>{% trans "Temps réel" %}</span>
+                                        <span class="f-w-500">{{ tache.temps_reel_heures }} h</span>
+                                    </li>
+                                    {% endif %}
+                                    {% if tache.date_debut %}
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span>{% trans "Date début" %}</span>
+                                        <span class="f-w-500">{{ tache.date_debut|date:"d.m.Y H:i" }}</span>
+                                    </li>
+                                    {% endif %}
+                                    {% if tache.date_fin %}
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span>{% trans "Date fin" %}</span>
+                                        <span class="f-w-500">{{ tache.date_fin|date:"d.m.Y H:i" }}</span>
+                                    </li>
+                                    {% endif %}
+                                </ul>
+                            </div>
+
+                            <div class="col-md-6">
+                                <h6 class="text-muted mb-3">{% trans "Tags" %}</h6>
+                                {% if tache.tags %}
+                                    <div class="d-flex flex-wrap gap-2">
+                                        {% for tag in tache.tags %}
+                                        <span class="badge bg-light-secondary">{{ tag }}</span>
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <p class="text-muted">{% trans "Aucun tag" %}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Informations complémentaires -->
+            <div class="col-lg-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="text-primary mb-3">{% trans "Informations" %}</h5>
+                        
+                        <ul class="box-list">
+                            <li class="d-flex align-items-center">
+                                <div class="h-40 w-40 d-flex-center b-r-12 overflow-hidden flex-shrink-0 bg-primary text-white">
+                                    {{ tache.assigne_a.first_name.0|default:tache.assigne_a.username.0|upper }}
+                                </div>
+                                <div class="ms-3">
+                                    <h6 class="mb-0 f-w-500">{{ tache.assigne_a.get_full_name|default:tache.assigne_a.username }}</h6>
+                                    <p class="text-muted mb-0">{% trans "Assigné à" %}</p>
+                                </div>
+                            </li>
+
+                            <li class="d-flex align-items-center">
+                                <div class="h-40 w-40 d-flex-center b-r-12 overflow-hidden flex-shrink-0 bg-secondary text-white">
+                                    {{ tache.cree_par.first_name.0|default:tache.cree_par.username.0|upper }}
+                                </div>
+                                <div class="ms-3">
+                                    <h6 class="mb-0 f-w-500">{{ tache.cree_par.get_full_name|default:tache.cree_par.username }}</h6>
+                                    <p class="text-muted mb-0">{% trans "Créé par" %}</p>
+                                </div>
+                            </li>
+                        </ul>
+
+                        <hr class="my-3">
+
+                        <ul class="list-group list-group-flush">
+                            {% if tache.date_echeance %}
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">{% trans "Échéance" %}</span>
+                                <span class="f-w-500">{{ tache.date_echeance|date:"d.m.Y" }}</span>
+                            </li>
+                            {% endif %}
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">{% trans "Créée le" %}</span>
+                                <span class="f-w-500">{{ tache.created_at|date:"d.m.Y" }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">{% trans "Modifiée le" %}</span>
+                                <span class="f-w-500">{{ tache.updated_at|date:"d.m.Y" }}</span>
+                            </li>
+                        </ul>
+
+                        <!-- Changer le statut -->
+                        <div class="mt-4">
+                            <h6 class="mb-3">{% trans "Changer le statut" %}</h6>
+                            <form method="post" action="{% url 'core:tache-changer-statut' tache.pk %}" class="statut-form">
+                                {% csrf_token %}
+                                <select name="statut" class="form-select mb-2" id="statut-select">
+                                    {% for value, label in tache.STATUT_CHOICES %}
+                                    <option value="{{ value }}" {% if tache.statut == value %}selected{% endif %}>
+                                        {{ label }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="ti ti-check me-2"></i>{% trans "Mettre à jour" %}
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+document.querySelector('.statut-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const form = this;
+    const statut = form.querySelector('#statut-select').value;
+    
+    fetch(form.action, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'statut=' + statut
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,173 @@
+<!-- facturation/paiement_form.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load widget_tweaks %}
+
+{% block title %}{% trans "Enregistrer un paiement" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Enregistrer un paiement" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'facturation:facture-list' %}">
+                    <span>{% trans "Factures" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'facturation:facture-detail' facture.pk %}">
+                    <span>{{ facture.numero_facture }}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Paiement" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Facture Info -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-muted mb-2">{% trans "Facture" %}</h6>
+                        <h4>{{ facture.numero_facture }}</h4>
+                        <p class="mb-0">{{ facture.client.nom }}</p>
+                        <small class="text-muted">{% trans "Échéance" %}: {{ facture.date_echeance|date:"d.m.Y" }}</small>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <h6 class="text-muted mb-2">{% trans "Montants" %}</h6>
+                        <div class="mb-2">
+                            <span class="text-muted">{% trans "Total" %}:</span>
+                            <span class="f-w-600 f-s-18">{{ facture.montant_ttc|floatformat:2 }} CHF</span>
+                        </div>
+                        <div class="mb-2">
+                            <span class="text-muted">{% trans "Déjà payé" %}:</span>
+                            <span class="f-w-600 text-success">{{ facture.montant_paye|floatformat:2 }} CHF</span>
+                        </div>
+                        <div>
+                            <span class="text-muted">{% trans "Restant dû" %}:</span>
+                            <span class="f-w-600 f-s-20 text-danger">{{ facture.montant_restant|floatformat:2 }} CHF</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Form -->
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Détails du paiement" %}</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" class="app-form">
+                    {% csrf_token %}
+                    
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {{ form.non_field_errors }}
+                    </div>
+                    {% endif %}
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Montant (CHF)" %} *</label>
+                            {{ form.montant|add_class:"form-control" }}
+                            {% if form.montant.errors %}
+                            <div class="text-danger f-s-12">{{ form.montant.errors.0 }}</div>
+                            {% endif %}
+                            <small class="text-muted">{% trans "Maximum" %}: {{ facture.montant_restant|floatformat:2 }} CHF</small>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Devise" %}</label>
+                            {{ form.devise|add_class:"form-control" }}
+                            {% if form.devise.errors %}
+                            <div class="text-danger f-s-12">{{ form.devise.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Date de paiement" %} *</label>
+                            {{ form.date_paiement|add_class:"form-control" }}
+                            {% if form.date_paiement.errors %}
+                            <div class="text-danger f-s-12">{{ form.date_paiement.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Mode de paiement" %} *</label>
+                            {{ form.mode_paiement|add_class:"form-control select-basic" }}
+                            {% if form.mode_paiement.errors %}
+                            <div class="text-danger f-s-12">{{ form.mode_paiement.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label">{% trans "Référence" %}</label>
+                            {{ form.reference|add_class:"form-control" }}
+                            {% if form.reference.errors %}
+                            <div class="text-danger f-s-12">{{ form.reference.errors.0 }}</div>
+                            {% endif %}
+                            <small class="text-muted">{% trans "Numéro de transaction, référence bancaire, etc." %}</small>
+                        </div>
+
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label">{% trans "Notes" %}</label>
+                            {{ form.notes|add_class:"form-control" }}
+                            {% if form.notes.errors %}
+                            <div class="text-danger f-s-12">{{ form.notes.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Quick amounts -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label">{% trans "Montants rapides" %}</label>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-outline-primary btn-sm" 
+                                        onclick="document.querySelector('input[name=montant]').value = '{{ facture.montant_restant|floatformat:2 }}'">
+                                    {% trans "Solde complet" %}
+                                </button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" 
+                                        onclick="document.querySelector('input[name=montant]').value = '{{ facture.montant_restant|divisibleby:2|floatformat:2 }}'">
+                                    {% trans "50%" %}
+                                </button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" 
+                                        onclick="document.querySelector('input[name=montant]').value = '{{ facture.montant_restant|divisibleby:3|floatformat:2 }}'">
+                                    {% trans "33%" %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'facturation:facture-detail' facture.pk %}" class="btn btn-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-success">
+                            <i class="ph ph-check me-2"></i>{% trans "Enregistrer le paiement" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

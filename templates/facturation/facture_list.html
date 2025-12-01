@@ -1,0 +1,247 @@
+<!-- facturation/facture_list.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Factures" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Factures" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Factures" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-success mb-0">{{ stats.ca_annee|floatformat:0 }}</h3>
+                        <p class="text-muted mb-0">{% trans "CA Année" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-success">
+                        <i class="ph ph-currency-chf f-s-24 text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-primary mb-0">{{ stats.emises }}</h3>
+                        <p class="text-muted mb-0">{% trans "Émises" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-primary">
+                        <i class="ph ph-paper-plane-tilt f-s-24 text-primary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-danger mb-0">{{ stats.impaye_total|floatformat:0 }}</h3>
+                        <p class="text-muted mb-0">{% trans "Impayés" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-danger">
+                        <i class="ph ph-warning f-s-24 text-danger"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-success mb-0">{{ stats.payees }}</h3>
+                        <p class="text-muted mb-0">{% trans "Payées" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-success">
+                        <i class="ph ph-check-circle f-s-24 text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Liste des factures" %}</h5>
+            </div>
+            <div class="card-body">
+                <!-- Header -->
+                <div class="list-table-header d-flex justify-content-between align-items-center mb-3">
+                    <a href="{% url 'facturation:facture-create' %}" class="btn btn-primary">
+                        <i class="ph ph-plus me-2"></i>{% trans "Nouvelle facture" %}
+                    </a>
+                    <form method="get" class="d-flex gap-2">
+                        <select name="statut" class="form-select select-basic" onchange="this.form.submit()">
+                            <option value="">{% trans "Tous les statuts" %}</option>
+                            <option value="BROUILLON" {% if request.GET.statut == 'BROUILLON' %}selected{% endif %}>{% trans "Brouillon" %}</option>
+                            <option value="EMISE" {% if request.GET.statut == 'EMISE' %}selected{% endif %}>{% trans "Émise" %}</option>
+                            <option value="PAYEE" {% if request.GET.statut == 'PAYEE' %}selected{% endif %}>{% trans "Payée" %}</option>
+                            <option value="EN_RETARD" {% if request.GET.statut == 'EN_RETARD' %}selected{% endif %}>{% trans "En retard" %}</option>
+                        </select>
+                        {% if request.GET.statut %}
+                        <a href="{% url 'facturation:facture-list' %}" class="btn btn-secondary">
+                            <i class="ph ph-x"></i>
+                        </a>
+                        {% endif %}
+                    </form>
+                </div>
+
+                <!-- Table -->
+                <div class="overflow-auto app-scroll">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "N° Facture" %}</th>
+                                <th>{% trans "Client" %}</th>
+                                <th>{% trans "Date" %}</th>
+                                <th>{% trans "Échéance" %}</th>
+                                <th class="text-end">{% trans "Montant" %}</th>
+                                <th class="text-end">{% trans "Payé" %}</th>
+                                <th class="text-end">{% trans "Restant" %}</th>
+                                <th>{% trans "Statut" %}</th>
+                                <th>{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for facture in factures %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'facturation:facture-detail' facture.pk %}" class="f-w-600">
+                                        {{ facture.numero_facture }}
+                                    </a>
+                                </td>
+                                <td>{{ facture.client.nom|truncatewords:3 }}</td>
+                                <td>{{ facture.date_emission|date:"d.m.Y" }}</td>
+                                <td>{{ facture.date_echeance|date:"d.m.Y" }}</td>
+                                <td class="text-end f-w-600">{{ facture.montant_ttc|floatformat:2 }}</td>
+                                <td class="text-end">{{ facture.montant_paye|floatformat:2 }}</td>
+                                <td class="text-end f-w-600">{{ facture.montant_restant|floatformat:2 }}</td>
+                                <td>
+                                    {% if facture.statut == 'BROUILLON' %}
+                                    <span class="badge bg-secondary">{% trans "Brouillon" %}</span>
+                                    {% elif facture.statut == 'EMISE' %}
+                                    <span class="badge bg-primary">{% trans "Émise" %}</span>
+                                    {% elif facture.statut == 'PAYEE' %}
+                                    <span class="badge bg-success">{% trans "Payée" %}</span>
+                                    {% elif facture.statut == 'EN_RETARD' %}
+                                    <span class="badge bg-danger">{% trans "En retard" %}</span>
+                                    {% elif facture.statut == 'RELANCEE' %}
+                                    <span class="badge bg-warning">{% trans "Relancée" %}</span>
+                                    {% else %}
+                                    <span class="badge bg-light-dark">{{ facture.get_statut_display }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-light-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                            <i class="ph ph-dots-three-outline-vertical"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'facturation:facture-detail' facture.pk %}">
+                                                    <i class="ph ph-eye me-2"></i>{% trans "Voir" %}
+                                                </a>
+                                            </li>
+                                            {% if facture.statut == 'BROUILLON' %}
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'facturation:facture-update' facture.pk %}">
+                                                    <i class="ph ph-pencil me-2"></i>{% trans "Modifier" %}
+                                                </a>
+                                            </li>
+                                            {% endif %}
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'facturation:facture-generer-pdf' facture.pk %}">
+                                                    <i class="ph ph-file-pdf me-2"></i>{% trans "PDF" %}
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="9" class="text-center py-5">
+                                    <i class="ph ph-scroll f-s-50 text-muted"></i>
+                                    <p class="text-muted mt-2">{% trans "Aucune facture trouvée" %}</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if is_paginated %}
+                <div class="list-pagination mt-3">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}">
+                                <i class="ph ph-caret-double-left"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}">
+                                <i class="ph ph-caret-left"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                            <li class="page-item active"><a class="page-link">{{ num }}</a></li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item"><a class="page-link" href="?page={{ num }}{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}">{{ num }}</a></li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}">
+                                <i class="ph ph-caret-right"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}">
+                                <i class="ph ph-caret-double-right"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

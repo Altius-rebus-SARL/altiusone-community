@@ -1,0 +1,108 @@
+<!-- salaires/generer_fiches_masse.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Génération en masse" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Génération de fiches de salaire en masse" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'salaires:fiche-list' %}">
+                    <span>{% trans "Fiches de salaire" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Génération en masse" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-6 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-stack me-2"></i>{% trans "Générer les fiches de salaire" %}</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" class="app-form">
+                    {% csrf_token %}
+                    
+                    <div class="mb-4">
+                        <label class="form-label">{% trans "Mandat" %} <span class="text-danger">*</span></label>
+                        <select name="mandat" class="form-select select2" required>
+                            <option value="">{% trans "Sélectionner un mandat" %}</option>
+                            {% for mandat in mandats %}
+                            <option value="{{ mandat.pk }}">{{ mandat.client.raison_sociale }} - {{ mandat.numero }}</option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">
+                            {% trans "Les fiches seront générées pour tous les employés actifs de ce mandat" %}
+                        </small>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">{% trans "Période" %} <span class="text-danger">*</span></label>
+                        <input type="date" name="periode" class="form-control" required>
+                        <small class="text-muted">
+                            {% trans "Sélectionner le premier jour du mois" %}
+                        </small>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <h6 class="mb-3"><i class="ph ph-info me-2"></i>{% trans "Informations" %}</h6>
+                        <ul class="mb-0 f-s-14">
+                            <li class="mb-2">{% trans "Les fiches seront créées en statut BROUILLON" %}</li>
+                            <li class="mb-2">{% trans "Les cotisations seront calculées automatiquement" %}</li>
+                            <li class="mb-2">{% trans "Vous pourrez vérifier et valider chaque fiche individuellement" %}</li>
+                            <li>{% trans "Les fiches déjà existantes pour cette période ne seront pas recréées" %}</li>
+                        </ul>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'salaires:fiche-list' %}" class="btn btn-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ph ph-stack me-2"></i>{% trans "Générer les fiches" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Statistiques -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="ph ph-lightbulb me-2"></i>{% trans "Conseils" %}</h6>
+            </div>
+            <div class="card-body">
+                <ul class="mb-0 f-s-14">
+                    <li class="mb-2">
+                        <i class="ph ph-check-circle text-success me-2"></i>
+                        {% trans "Générez les fiches en début de mois pour le mois précédent" %}
+                    </li>
+                    <li class="mb-2">
+                        <i class="ph ph-check-circle text-success me-2"></i>
+                        {% trans "Vérifiez que tous les employés sont bien à jour dans le système" %}
+                    </li>
+                    <li>
+                        <i class="ph ph-check-circle text-success me-2"></i>
+                        {% trans "Validez les fiches une par une après avoir vérifié les montants" %}
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

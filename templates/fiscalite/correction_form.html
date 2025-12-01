@@ -1,0 +1,214 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load widget_tweaks %}
+
+{% block title %}{% trans "Nouvelle correction fiscale" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Nouvelle correction fiscale" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'fiscalite:declaration-list' %}">
+                    <span>{% trans "Déclarations" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'fiscalite:declaration-detail' declaration.pk %}">
+                    <span>{{ declaration.numero_declaration }}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Nouvelle correction" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<form method="post" class="app-form">
+    {% csrf_token %}
+    
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                {{ form.non_field_errors }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endif %}
+
+            <!-- Info déclaration -->
+            <div class="card bg-light-primary">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <i class="ph ph-file-text text-primary f-s-48 me-3"></i>
+                        <div>
+                            <h6 class="mb-1">{{ declaration.numero_declaration }}</h6>
+                            <p class="text-muted f-s-14 mb-0">
+                                {{ declaration.mandat.client.raison_sociale }} - 
+                                {{ declaration.get_type_impot_display }} {{ declaration.annee_fiscale }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Type de correction -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-calculator me-2"></i>{% trans "Type de correction" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Type de correction" %} <span class="text-danger">*</span></label>
+                                {{ form.type_correction|add_class:"form-select" }}
+                                {% if form.type_correction.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.type_correction.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Compte comptable" %}</label>
+                                {{ form.compte|add_class:"form-select" }}
+                                {% if form.compte.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.compte.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Description" %} <span class="text-danger">*</span></label>
+                                {{ form.description|add_class:"form-control" }}
+                                {% if form.description.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.description.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Montants -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-currency-chf me-2"></i>{% trans "Montants" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Montant comptable" %} <span class="text-danger">*</span></label>
+                                {{ form.montant_comptable|add_class:"form-control" }}
+                                <small class="text-muted">{% trans "Montant dans la comptabilité" %}</small>
+                                {% if form.montant_comptable.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.montant_comptable.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Correction" %} <span class="text-danger">*</span></label>
+                                {{ form.montant_correction|add_class:"form-control" }}
+                                <small class="text-muted">{% trans "+ augmentation, - diminution" %}</small>
+                                {% if form.montant_correction.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.montant_correction.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Montant fiscal" %}</label>
+                                <input type="text" class="form-control" id="montantFiscal" readonly>
+                                <small class="text-muted">{% trans "Calculé automatiquement" %}</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="ph ph-info me-2"></i>
+                        <strong>{% trans "Info" %}:</strong> {% trans "Le montant fiscal est calculé automatiquement (Montant comptable + Correction)" %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Justification -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-note-pencil me-2"></i>{% trans "Justification" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Justification" %}</label>
+                                {{ form.justification|add_class:"form-control" }}
+                                <small class="text-muted">{% trans "Expliquer la raison de la correction" %}</small>
+                                {% if form.justification.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.justification.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Référence légale" %}</label>
+                                {{ form.reference_legale|add_class:"form-control" }}
+                                <small class="text-muted">{% trans "Article de loi, circulaire AFC, etc." %}</small>
+                                {% if form.reference_legale.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.reference_legale.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'fiscalite:declaration-detail' declaration.pk %}" class="btn btn-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ph ph-check me-2"></i>{% trans "Créer la correction" %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    function calculerMontantFiscal() {
+        var comptable = parseFloat($('#id_montant_comptable').val()) || 0;
+        var correction = parseFloat($('#id_montant_correction').val()) || 0;
+        var fiscal = comptable + correction;
+        $('#montantFiscal').val(fiscal.toFixed(2) + ' CHF');
+    }
+
+    $('#id_montant_comptable, #id_montant_correction').on('input', calculerMontantFiscal);
+    calculerMontantFiscal();
+});
+</script>
+{% endblock %}

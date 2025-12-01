@@ -1,0 +1,145 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{% trans "Recherche de documents" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Recherche de documents" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Recherche" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <!-- Barre de recherche -->
+        <div class="card">
+            <div class="card-body">
+                <form method="get" class="app-form">
+                    <div class="input-group input-group-lg">
+                        <span class="input-group-text bg-white border-end-0">
+                            <i class="ph ph-magnifying-glass f-s-20"></i>
+                        </span>
+                        <input type="text" 
+                               name="q" 
+                               class="form-control border-start-0 ps-0" 
+                               placeholder="{% trans 'Rechercher un document...' %}"
+                               value="{{ query }}"
+                               autofocus>
+                        <button type="submit" class="btn btn-primary px-4">
+                            {% trans "Rechercher" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Résultats -->
+        {% if query %}
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    {% trans "Résultats de recherche" %} 
+                    <span class="badge text-light-primary">{{ count }}</span>
+                </h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Fichier" %}</th>
+                                <th>{% trans "Mandat" %}</th>
+                                <th>{% trans "Dossier" %}</th>
+                                <th>{% trans "Type" %}</th>
+                                <th>{% trans "Date" %}</th>
+                                <th class="text-end">{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for doc in results %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="me-3">
+                                            {% if doc.extension == '.pdf' %}
+                                            <i class="ph ph-file-pdf text-danger f-s-24"></i>
+                                            {% elif doc.extension in '.doc,.docx' %}
+                                            <i class="ph ph-file-doc text-primary f-s-24"></i>
+                                            {% elif doc.extension in '.xls,.xlsx' %}
+                                            <i class="ph ph-file-xls text-success f-s-24"></i>
+                                            {% else %}
+                                            <i class="ph ph-file text-secondary f-s-24"></i>
+                                            {% endif %}
+                                        </div>
+                                        <div>
+                                            <a href="{% url 'documents:document-detail' doc.pk %}" class="text-dark f-w-600">
+                                                {{ doc.nom_fichier }}
+                                            </a>
+                                            {% if doc.description %}
+                                            <p class="text-muted f-s-12 mb-0">{{ doc.description|truncatewords:10 }}</p>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge text-light-primary">{{ doc.mandat.numero }}</span>
+                                </td>
+                                <td>{{ doc.dossier.nom|truncatechars:30 }}</td>
+                                <td>
+                                    {% if doc.type_document %}
+                                    <span class="badge text-light-secondary">{{ doc.type_document.libelle }}</span>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="text-muted f-s-12">{{ doc.date_upload|date:"d/m/Y" }}</span>
+                                </td>
+                                <td class="text-end">
+                                    <a href="{% url 'documents:document-detail' doc.pk %}" class="btn btn-light-primary btn-sm">
+                                        <i class="ph ph-eye me-1"></i>{% trans "Voir" %}
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center py-5">
+                                    <i class="ph ph-magnifying-glass f-s-48 text-muted d-block mb-3"></i>
+                                    <p class="text-muted">{% trans "Aucun résultat trouvé pour" %} "{{ query }}"</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <!-- État vide -->
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="ph-duotone ph-magnifying-glass text-muted" style="font-size: 120px;"></i>
+                <h5 class="mt-4">{% trans "Rechercher dans vos documents" %}</h5>
+                <p class="text-muted">
+                    {% trans "Utilisez la barre de recherche ci-dessus pour trouver vos documents" %}
+                </p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

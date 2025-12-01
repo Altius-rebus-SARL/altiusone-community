@@ -1,0 +1,229 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load widget_tweaks %}
+
+{% block title %}{% trans "Uploader un document" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Uploader un document" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'documents:document-list' %}">
+                    <span>{% trans "Documents" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Upload" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <form method="post" enctype="multipart/form-data" class="app-form">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                {{ form.non_field_errors }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endif %}
+
+            <!-- Upload zone -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-upload me-2"></i>{% trans "Fichier" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Sélectionner un fichier" %} <span class="text-danger">*</span></label>
+                        
+                        <!-- Zone de drop -->
+                        <div class="border border-2 border-dashed rounded p-5 text-center" id="dropzone">
+                            <input type="file" name="fichier" id="fichier" class="d-none" required>
+                            
+                            <div id="upload-placeholder">
+                                <i class="ph-duotone ph-upload-simple text-primary" style="font-size: 64px;"></i>
+                                <h5 class="mt-3">{% trans "Glissez-déposez votre fichier ici" %}</h5>
+                                <p class="text-muted">{% trans "ou" %}</p>
+                                <button type="button" class="btn btn-primary" onclick="document.getElementById('fichier').click()">
+                                    <i class="ph ph-folder-open me-2"></i>{% trans "Parcourir" %}
+                                </button>
+                                <p class="text-muted f-s-12 mt-3">
+                                    {% trans "Formats acceptés: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG" %}<br>
+                                    {% trans "Taille max: 50 MB" %}
+                                </p>
+                            </div>
+
+                            <div id="file-selected" class="d-none">
+                                <i class="ph ph-file-check text-success" style="font-size: 64px;"></i>
+                                <h5 class="mt-3" id="file-name"></h5>
+                                <p class="text-muted" id="file-size"></p>
+                                <button type="button" class="btn btn-light-secondary" onclick="resetFile()">
+                                    <i class="ph ph-x me-2"></i>{% trans "Changer de fichier" %}
+                                </button>
+                            </div>
+                        </div>
+                        
+                        {% if form.fichier.errors %}
+                        <div class="text-danger f-s-12 mt-1">{{ form.fichier.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Informations -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-info me-2"></i>{% trans "Informations" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Mandat" %} <span class="text-danger">*</span></label>
+                                {{ form.mandat|add_class:"form-select" }}
+                                {% if form.mandat.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.mandat.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Dossier" %} <span class="text-danger">*</span></label>
+                                {{ form.dossier|add_class:"form-select" }}
+                                {% if form.dossier.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.dossier.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Description" %}</label>
+                                {{ form.description|add_class:"form-control" }}
+                                {% if form.description.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.description.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Tags" %}</label>
+                                {{ form.tags|add_class:"form-control" }}
+                                <small class="text-muted">{% trans "Séparez les tags par des virgules" %}</small>
+                                {% if form.tags.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.tags.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Info box -->
+            <div class="card bg-light-info">
+                <div class="card-body">
+                    <h6 class="text-primary mb-3">
+                        <i class="ph ph-info me-2"></i>{% trans "Traitement automatique" %}
+                    </h6>
+                    <ul class="mb-0 f-s-14">
+                        <li class="mb-2">{% trans "Le document sera automatiquement analysé par OCR" %}</li>
+                        <li class="mb-2">{% trans "Les métadonnées seront extraites automatiquement" %}</li>
+                        <li>{% trans "Le type de document sera détecté par IA" %}</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'documents:document-list' %}" class="btn btn-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ph ph-upload me-2"></i>{% trans "Uploader" %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Gestion du drag & drop
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fichier');
+const placeholder = document.getElementById('upload-placeholder');
+const fileSelected = document.getElementById('file-selected');
+const fileName = document.getElementById('file-name');
+const fileSize = document.getElementById('file-size');
+
+// Drag & drop events
+dropzone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropzone.classList.add('border-primary', 'bg-light-primary');
+});
+
+dropzone.addEventListener('dragleave', () => {
+    dropzone.classList.remove('border-primary', 'bg-light-primary');
+});
+
+dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('border-primary', 'bg-light-primary');
+    
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        fileInput.files = files;
+        displayFile(files[0]);
+    }
+});
+
+// File input change
+fileInput.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) {
+        displayFile(e.target.files[0]);
+    }
+});
+
+function displayFile(file) {
+    placeholder.classList.add('d-none');
+    fileSelected.classList.remove('d-none');
+    
+    fileName.textContent = file.name;
+    fileSize.textContent = formatFileSize(file.size);
+}
+
+function resetFile() {
+    fileInput.value = '';
+    placeholder.classList.remove('d-none');
+    fileSelected.classList.add('d-none');
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+}
+</script>
+{% endblock %}

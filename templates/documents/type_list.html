@@ -1,0 +1,574 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Types de documents" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Types de documents" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'documents:document-list' %}">
+                    <span>{% trans "Documents" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Types" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="row">
+    <div class="col-md-3">
+        <div class="card bg-light-primary">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar bg-primary rounded me-3">
+                        <i class="ph-duotone ph-files text-white f-s-30"></i>
+                    </div>
+                    <div>
+                        <p class="text-muted mb-1 f-s-12">{% trans "Total types" %}</p>
+                        <h5 class="text-primary mb-0">{{ types.count }}</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card bg-light-success">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar bg-success rounded me-3">
+                        <i class="ph-duotone ph-check-circle text-white f-s-30"></i>
+                    </div>
+                    <div>
+                        <p class="text-muted mb-1 f-s-12">{% trans "Avec validation" %}</p>
+                        <h5 class="text-success mb-0">
+                            {{ types.filter|length }}
+                        </h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card bg-light-warning">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar bg-warning rounded me-3">
+                        <i class="ph-duotone ph-scan text-white f-s-30"></i>
+                    </div>
+                    <div>
+                        <p class="text-muted mb-1 f-s-12">{% trans "Avec extraction" %}</p>
+                        <h5 class="text-warning mb-0">
+                            {{ types|length }}
+                        </h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card bg-light-info">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar bg-info rounded me-3">
+                        <i class="ph-duotone ph-file-text text-white f-s-30"></i>
+                    </div>
+                    <div>
+                        <p class="text-muted mb-1 f-s-12">{% trans "Documents" %}</p>
+                        <h5 class="text-info mb-0">
+                            {% for type in types %}{{ type.nb_documents|default:0 }}{% if not forloop.last %}+{% endif %}{% endfor %}
+                        </h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Liste -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">{% trans "Liste des types" %}</h5>
+                    <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#typeModal">
+                        <i class="ph ph-plus me-2"></i>{% trans "Nouveau type" %}
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Code" %}</th>
+                                <th>{% trans "Libellé" %}</th>
+                                <th>{% trans "Catégorie" %}</th>
+                                <th>{% trans "Type système" %}</th>
+                                <th>{% trans "Documents" %}</th>
+                                <th>{% trans "Options" %}</th>
+                                <th class="text-end">{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody id="types-tbody">
+                            {% for type in types %}
+                            <tr data-type-id="{{ type.pk }}">
+                                <td>
+                                    <span class="badge text-light-primary f-w-600">{{ type.code }}</span>
+                                </td>
+                                <td>
+                                    <p class="f-w-600 mb-0">{{ type.libelle }}</p>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        {% if type.categorie.icone %}
+                                        <i class="{{ type.categorie.icone }} me-2 f-s-18" 
+                                           {% if type.categorie.couleur %}style="color: {{ type.categorie.couleur }};"{% endif %}>
+                                        </i>
+                                        {% endif %}
+                                        <span>{{ type.categorie.nom }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge text-light-secondary">
+                                        {{ type.get_type_document_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge text-light-info">{{ type.nb_documents|default:0 }}</span>
+                                </td>
+                                <td>
+                                    <div class="d-flex gap-2">
+                                        {% if type.validation_requise %}
+                                        <span class="badge text-light-success" title="{% trans 'Validation requise' %}">
+                                            <i class="ph ph-check-circle"></i>
+                                        </span>
+                                        {% endif %}
+                                        {% if type.champs_extraire %}
+                                        <span class="badge text-light-warning" title="{% trans 'Extraction automatique' %}">
+                                            <i class="ph ph-scan"></i>
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td class="text-end">
+                                    <div class="dropdown">
+                                        <a class="text-muted" data-bs-toggle="dropdown" role="button">
+                                            <i class="ph ph-dots-three-vertical f-s-18"></i>
+                                        </a>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'documents:type-detail' type.pk %}">
+                                                    <i class="ph ph-eye me-2"></i>{% trans "Voir détails" %}
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item edit-type-btn" href="#" data-type-id="{{ type.pk }}">
+                                                    <i class="ph ph-pencil me-2"></i>{% trans "Modifier" %}
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'documents:type-update' type.pk %}">
+                                                    <i class="ph ph-note-pencil me-2"></i>{% trans "Modifier (page)" %}
+                                                </a>
+                                            </li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <a class="dropdown-item text-danger" href="#">
+                                                    <i class="ph ph-trash me-2"></i>{% trans "Supprimer" %}
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center py-5">
+                                    <i class="ph ph-file-x f-s-48 text-muted d-block mb-3"></i>
+                                    <p class="text-muted mb-0">{% trans "Aucun type de document trouvé" %}</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Création/Modification Type -->
+<div class="modal fade" id="typeModal" tabindex="-1" aria-labelledby="typeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary">
+                <h5 class="modal-title text-white" id="typeModalLabel">
+                    <i class="ph ph-file-plus me-2"></i><span id="modalTitle">{% trans "Nouveau type de document" %}</span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white m-0" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="typeForm" class="app-form">
+                {% csrf_token %}
+                <input type="hidden" id="typeId" name="type_id">
+                <input type="hidden" id="isUpdate" value="false">
+                
+                <div class="modal-body">
+                    <!-- Alertes -->
+                    <div id="formAlerts"></div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Code" %} <span class="text-danger">*</span></label>
+                                <input type="text" name="code" id="inputCode" class="form-control" placeholder="Ex: FAC-VENTE" required>
+                                <small class="text-muted">{% trans "Identifiant unique (alphanumerique, tirets)" %}</small>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Libellé" %} <span class="text-danger">*</span></label>
+                                <input type="text" name="libelle" id="inputLibelle" class="form-control" placeholder="Ex: Facture de vente" required>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Type système" %} <span class="text-danger">*</span></label>
+                                <select name="type_document" id="inputTypeDocument" class="form-select" required>
+                                    <option value="">{% trans "Sélectionner..." %}</option>
+                                    {% for value, label in form.fields.type_document.choices %}
+                                    <option value="{{ value }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Catégorie" %} <span class="text-danger">*</span></label>
+                                <select name="categorie" id="inputCategorie" class="form-select" required>
+                                    <option value="">{% trans "Sélectionner..." %}</option>
+                                    {% for cat in form.fields.categorie.queryset %}
+                                    <option value="{{ cat.pk }}">{{ cat.nom }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Champs à extraire (JSON)" %}</label>
+                                <textarea name="champs_extraire" id="inputChamps" class="form-control" rows="3" 
+                                    placeholder='["montant_ttc", "date_facture", "numero_facture"]'></textarea>
+                                <small class="text-muted">{% trans "Format JSON: liste des champs à extraire automatiquement" %}</small>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="validation_requise" id="validationRequise">
+                                    <label class="form-check-label" for="validationRequise">
+                                        {% trans "Validation requise pour ce type de document" %}
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12" id="validateursDiv" style="display: none;">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Validateurs" %}</label>
+                                <select name="validateurs" id="inputValidateurs" class="form-select" multiple size="5">
+                                    {% for user in form.fields.validateurs.queryset %}
+                                    <option value="{{ user.pk }}">{{ user.get_full_name }} ({{ user.email }})</option>
+                                    {% endfor %}
+                                </select>
+                                <small class="text-muted">{% trans "Maintenez Ctrl/Cmd pour sélectionner plusieurs" %}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                    </button>
+                    <button type="submit" class="btn btn-primary" id="submitBtn">
+                        <i class="ph ph-check me-2"></i><span id="submitBtnText">{% trans "Créer le type" %}</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Types par catégorie -->
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Types par catégorie" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% regroup types by categorie as types_par_categorie %}
+                    {% for categorie_group in types_par_categorie %}
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card bg-light-primary">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center mb-3">
+                                    {% if categorie_group.grouper.icone %}
+                                    <i class="{{ categorie_group.grouper.icone }} me-2 f-s-24" 
+                                       {% if categorie_group.grouper.couleur %}style="color: {{ categorie_group.grouper.couleur }};"{% endif %}>
+                                    </i>
+                                    {% endif %}
+                                    <h6 class="mb-0">{{ categorie_group.grouper.nom }}</h6>
+                                </div>
+                                
+                                <div class="app-divider-v dashed my-3"></div>
+                                
+                                <ul class="list-unstyled mb-0">
+                                    {% for type in categorie_group.list %}
+                                    <li class="mb-2">
+                                        <i class="ph ph-file-text me-2 text-primary"></i>
+                                        <span class="f-s-14">{{ type.libelle }}</span>
+                                        <span class="badge text-light-info ms-2">{{ type.nb_documents|default:0 }}</span>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Info card -->
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="card bg-light-info">
+            <div class="card-body">
+                <h6 class="text-primary mb-3">
+                    <i class="ph ph-lightbulb me-2"></i>{% trans "Fonctionnalités des types" %}
+                </h6>
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="f-s-14 f-w-600 mb-2">{% trans "Classification automatique" %}</h6>
+                        <p class="f-s-14 mb-3">
+                            {% trans "Les documents sont automatiquement classés selon leur type grâce à l'IA" %}
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="f-s-14 f-w-600 mb-2">{% trans "Extraction de métadonnées" %}</h6>
+                        <p class="f-s-14 mb-3">
+                            {% trans "Les champs définis sont extraits automatiquement des documents" %}
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="f-s-14 f-w-600 mb-2">{% trans "Workflow de validation" %}</h6>
+                        <p class="f-s-14 mb-0">
+                            {% trans "Les documents peuvent nécessiter une validation avant traitement" %}
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="f-s-14 f-w-600 mb-2">{% trans "Templates d'extraction" %}</h6>
+                        <p class="f-s-14 mb-0">
+                            {% trans "Configurez des modèles pour extraire des données spécifiques" %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Afficher/masquer le champ validateurs
+    $('#validationRequise').on('change', function() {
+        if ($(this).is(':checked')) {
+            $('#validateursDiv').slideDown();
+        } else {
+            $('#validateursDiv').slideUp();
+        }
+    });
+
+    // Bouton Modifier - Charger les données
+    $('.edit-type-btn').on('click', function(e) {
+        e.preventDefault();
+        
+        const typeId = $(this).data('type-id');
+        
+        // Charger les données
+        $.ajax({
+            url: `/documents/types/${typeId}/get-data/`,
+            type: 'GET',
+            success: function(response) {
+                if (response.success) {
+                    const data = response.data;
+                    
+                    // Mettre à jour le modal
+                    $('#modalTitle').html('<i class="ph ph-pencil me-2"></i>{% trans "Modifier le type de document" %}');
+                    $('#submitBtnText').text('{% trans "Enregistrer" %}');
+                    $('#isUpdate').val('true');
+                    $('#typeId').val(data.pk);
+                    
+                    // Remplir les champs
+                    $('#inputCode').val(data.code);
+                    $('#inputLibelle').val(data.libelle);
+                    $('#inputTypeDocument').val(data.type_document);
+                    $('#inputCategorie').val(data.categorie);
+                    
+                    // Champs extraire (convertir array en JSON string)
+                    if (data.champs_extraire) {
+                        $('#inputChamps').val(JSON.stringify(data.champs_extraire));
+                    } else {
+                        $('#inputChamps').val('');
+                    }
+                    
+                    // Validation requise
+                    $('#validationRequise').prop('checked', data.validation_requise);
+                    
+                    // Validateurs
+                    $('#inputValidateurs').val(data.validateurs);
+                    
+                    // Afficher/masquer validateurs
+                    if (data.validation_requise) {
+                        $('#validateursDiv').show();
+                    } else {
+                        $('#validateursDiv').hide();
+                    }
+                    
+                    // Ouvrir le modal
+                    $('#typeModal').modal('show');
+                }
+            },
+            error: function() {
+                alert('{% trans "Erreur lors du chargement des données" %}');
+            }
+        });
+    });
+
+    // Réinitialiser pour création
+    $('#typeModal').on('show.bs.modal', function(e) {
+        // Si le modal n'est pas ouvert par le bouton edit
+        if (!$(e.relatedTarget).hasClass('edit-type-btn')) {
+            $('#modalTitle').html('<i class="ph ph-file-plus me-2"></i>{% trans "Nouveau type de document" %}');
+            $('#submitBtnText').text('{% trans "Créer le type" %}');
+            $('#isUpdate').val('false');
+            $('#typeId').val('');
+            $('#typeForm')[0].reset();
+            $('#formAlerts').html('');
+            $('#validateursDiv').hide();
+        }
+    });
+
+    // Soumission du formulaire
+    $('#typeForm').on('submit', function(e) {
+        e.preventDefault();
+        
+        const submitBtn = $('#submitBtn');
+        const originalText = submitBtn.html();
+        const isUpdate = $('#isUpdate').val() === 'true';
+        const typeId = $('#typeId').val();
+        
+        // Désactiver le bouton
+        submitBtn.prop('disabled', true).html('<i class="ph ph-spinner-gap ph-spin me-2"></i>{% trans "Enregistrement..." %}');
+        
+        // Préparer les données
+        const formData = new FormData(this);
+        
+        // Convertir validateurs en tableau si présent
+        const validateurs = $('#inputValidateurs').val();
+        if (validateurs) {
+            formData.delete('validateurs');
+            validateurs.forEach(v => formData.append('validateurs', v));
+        }
+        
+        // URL selon create ou update
+        const url = isUpdate 
+            ? `/documents/types/${typeId}/update-ajax/`
+            : '{% url "documents:type-create-ajax" %}';
+        
+        $.ajax({
+            url: url,
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                // Afficher message de succès
+                $('#formAlerts').html(`
+                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        <i class="ph ph-check-circle me-2"></i>${response.message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                `);
+                
+                // Fermer le modal après 1.5 secondes
+                setTimeout(function() {
+                    $('#typeModal').modal('hide');
+                    // Recharger la page
+                    window.location.reload();
+                }, 1500);
+            },
+            error: function(xhr) {
+                let errorMsg = '{% trans "Une erreur est survenue" %}';
+                
+                if (xhr.responseJSON && xhr.responseJSON.errors) {
+                    errorMsg = '<ul class="mb-0">';
+                    for (let field in xhr.responseJSON.errors) {
+                        xhr.responseJSON.errors[field].forEach(function(error) {
+                            errorMsg += `<li>${field}: ${error}</li>`;
+                        });
+                    }
+                    errorMsg += '</ul>';
+                }
+                
+                $('#formAlerts').html(`
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <i class="ph ph-x-circle me-2"></i>${errorMsg}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                `);
+            },
+            complete: function() {
+                // Réactiver le bouton
+                submitBtn.prop('disabled', false).html(originalText);
+            }
+        });
+    });
+
+    // Réinitialiser le formulaire quand le modal se ferme
+    $('#typeModal').on('hidden.bs.modal', function() {
+        $('#typeForm')[0].reset();
+        $('#formAlerts').html('');
+        $('#validateursDiv').hide();
+        $('#isUpdate').val('false');
+        $('#typeId').val('');
+    });
+});
+</script>
+{% endblock %}
