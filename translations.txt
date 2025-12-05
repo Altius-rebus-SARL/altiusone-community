@@ -1,0 +1,104 @@
+# comptabilite/translation.py
+from modeltranslation.translator import register, TranslationOptions
+from .models import PlanComptable, Compte
+
+
+@register(PlanComptable)
+class PlanComptableTranslationOptions(TranslationOptions):
+    fields = ("nom", "description")
+
+
+@register(Compte)
+class CompteTranslationOptions(TranslationOptions):
+    fields = ("libelle", "libelle_court")
+# documents/translation.py
+from modeltranslation.translator import register, TranslationOptions
+from .models import CategorieDocument, TypeDocument, Document
+
+
+@register(CategorieDocument)
+class CategorieDocumentTranslationOptions(TranslationOptions):
+    fields = ("nom", "description")
+
+
+@register(TypeDocument)
+class TypeDocumentTranslationOptions(TranslationOptions):
+    fields = ("libelle",)
+
+
+@register(Document)
+class DocumentTranslationOptions(TranslationOptions):
+    fields = ("description", "notes")
+# facturation/translation.py
+from modeltranslation.translator import register, TranslationOptions
+from .models import Prestation
+
+
+@register(Prestation)
+class PrestationTranslationOptions(TranslationOptions):
+    fields = ("libelle", "description")
+# salaires/translation.py
+from modeltranslation.translator import register, TranslationOptions
+from .models import Employe
+
+
+@register(Employe)
+class EmployeTranslationOptions(TranslationOptions):
+    fields = ("fonction", "remarques")
+# tva/translation.py
+from modeltranslation.translator import register, TranslationOptions
+from .models import CodeTVA
+
+
+@register(CodeTVA)
+class CodeTVATranslationOptions(TranslationOptions):
+    fields = ("libelle", "description")
+# fiscalite/translation.py
+from modeltranslation.translator import register, TranslationOptions
+from .models import OptimisationFiscale
+
+
+@register(OptimisationFiscale)
+class OptimisationFiscaleTranslationOptions(TranslationOptions):
+    fields = ("titre", "description", "notes")
+# core/translation.py
+from modeltranslation.translator import register, TranslationOptions
+from .models import Client, Mandat, Contact, Tache, Notification
+
+
+@register(Client)
+class ClientTranslationOptions(TranslationOptions):
+    fields = ("description", "notes")
+
+
+@register(Mandat)
+class MandatTranslationOptions(TranslationOptions):
+    fields = ("description", "conditions_particulieres")
+
+
+@register(Tache)
+class TacheTranslationOptions(TranslationOptions):
+    fields = ("titre", "description")
+
+
+@register(Notification)
+class NotificationTranslationOptions(TranslationOptions):
+    fields = ("titre", "message", "lien_texte")
+# analytics/translation.py
+from modeltranslation.translator import register, TranslationOptions
+from .models import TableauBord, Indicateur, Rapport
+
+
+@register(TableauBord)
+class TableauBordTranslationOptions(TranslationOptions):
+    fields = ("nom", "description")
+
+
+@register(Indicateur)
+class IndicateurTranslationOptions(TranslationOptions):
+    fields = ("nom", "description")
+
+
+@register(Rapport)
+class RapportTranslationOptions(TranslationOptions):
+    fields = ("nom",)

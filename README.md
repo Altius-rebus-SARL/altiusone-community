@@ -1,22 +1,3 @@
-```bash
-cat {comptabilite,documents,facturation,salaires,tva,fiscalite,core,analytics}/models.py > models.txt
-cat {comptabilite,documents,facturation,salaires,tva,fiscalite,core,analytics}/signals.py > signaux.txt
-
-touch {comptabilite,documents,facturation,salaires,tva,fiscalite,core,analytics}/translation.py > translations.txt
-
-cat {comptabilite,documents,facturation,salaires,tva,fiscalite,core,analytics}/{models,signals,urls}.py > MSU.txt
-
-# Créer les fichiers api_urls.py
-touch {comptabilite,documents,facturation,salaires,tva,fiscalite,core,analytics}/api_urls.py
-
-
-# Copier api_urls.py vers urls.py dans chaque répertoire
-for dir in comptabilite documents facturation salaires tva fiscalite core analytics; do
-    cp $dir/urls.py $dir/api_urls.py
-done
-
-```
-
 # AltiusFidu - Plateforme de Gestion Fiduciaire Suisse
 
 AltiusFidu est une application SaaS complète de gestion fiduciaire spécialement conçue pour le marché suisse, offrant une architecture multi-tenant avec provisionnement automatique d'instances VPS dédiées.
@@ -276,7 +257,7 @@ Les contributions sont les bienvenues! Merci de:
 
 ## 📄 License
 
-Copyright (c) 2024 Altius SA. Tous droits réservés.
+Copyright (c) 2024 Altius Academy SNC. Tous droits réservés.
 
 ## 👥 Contact
 

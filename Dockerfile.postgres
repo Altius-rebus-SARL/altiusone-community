@@ -3,25 +3,55 @@ FROM postgis/postgis:17-3.5
 
 # Installer les dépendances pour compiler pgvector
 RUN apt-get update && apt-get install -y \
-    git \
+    wget \
     build-essential \
     postgresql-server-dev-17 \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Compiler et installer pgvector
+# Télécharger et compiler pgvector (wget plus fiable que git clone)
 RUN cd /tmp && \
-    git clone --branch v0.8.0 https://github.com/pgvector/pgvector.git && \
-    cd pgvector && \
+    wget -q https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.0.tar.gz && \
+    tar xzf v0.8.0.tar.gz && \
+    cd pgvector-0.8.0 && \
     make clean && \
     make OPTFLAGS="" && \
     make install && \
     cd / && \
-    rm -rf /tmp/pgvector
+    rm -rf /tmp/pgvector-0.8.0 /tmp/v0.8.0.tar.gz
 
-# Nettoyer les dépendances de compilation (optionnel, pour réduire la taille)
-RUN apt-get remove -y git build-essential postgresql-server-dev-17 && \
+# Nettoyer les dépendances de compilation
+RUN apt-get remove -y wget build-essential postgresql-server-dev-17 && \
     apt-get autoremove -y && \
     apt-get clean
 
 # Vérifier que l'extension est bien installée
 RUN ls -la /usr/share/postgresql/17/extension/vector*
+
+# # apps/Dockerfile.postgres
+# FROM postgis/postgis:17-3.5
+
+# # Installer les dépendances pour compiler pgvector
+# RUN apt-get update && apt-get install -y \
+#     git \
+#     build-essential \
+#     postgresql-server-dev-17 \
+#     && rm -rf /var/lib/apt/lists/*
+
+# # Compiler et installer pgvector
+# RUN cd /tmp && \
+#     git clone --branch v0.8.0 https://github.com/pgvector/pgvector.git && \
+#     cd pgvector && \
+#     make clean && \
+#     make OPTFLAGS="" && \
+#     make install && \
+#     cd / && \
+#     rm -rf /tmp/pgvector
+
+# # Nettoyer les dépendances de compilation (optionnel, pour réduire la taille)
+# RUN apt-get remove -y git build-essential postgresql-server-dev-17 && \
+#     apt-get autoremove -y && \
+#     apt-get clean
+
+# # Vérifier que l'extension est bien installée
+# RUN ls -la /usr/share/postgresql/17/extension/vector*

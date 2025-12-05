@@ -27,10 +27,10 @@ logs-celery: ## Affiche les logs de Celery
 logs-nextjs: ## Affiche les logs de Next.js
 	sudo docker compose logs -f nextjs
 
-shell: ## Ouvre un shell dans le container Django
-	sudo docker compose exec django /bin/bash
+bash: ## Ouvre un shell dans le container Django
+	sudo docker compose exec django bash
 
-shell-django: ## Ouvre le shell Django
+shell: ## Ouvre le shell Django
 	sudo docker compose exec django python manage.py shell
 
 shell-db: ## Ouvre le shell PostgreSQL
@@ -84,12 +84,12 @@ prune: ## Nettoie TOUT Docker (⚠️ ATTENTION: supprime tout, même autres pro
 		echo "❌ Annulé"; \
 	fi
 
-rebuild: ## Rebuild et redémarre les services
+rebuild:
 	@echo "🔄 Rebuild complet..."
-	sudo docker compose down
+	sudo docker rm -f $$(sudo docker ps -aq --filter "name=altiusfidu") 2>/dev/null || true
+	sudo docker compose down --remove-orphans -v
 	sudo docker compose build --no-cache
 	sudo docker compose up -d
-	@echo "✅ Rebuild terminé"
 
 init: ## Initialise le projet (première installation)
 	@echo "📦 Initialisation du projet AltiusFidu..."

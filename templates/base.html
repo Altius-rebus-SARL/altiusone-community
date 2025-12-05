@@ -1,18 +1,15 @@
 {% load static %}
 {% load i18n %}
 <!DOCTYPE html>
-<html lang="{{ LANGUAGE_CODE|default:'fr' }}">
-
+<html lang="{{ LANGUAGE_CODE|default:'fr' }}" class="">
 <head>
-    <meta content="text/html; charset=UTF-8" http-equiv="Content-Type">
+    <meta charset="UTF-8">
     <meta content="IE=edge" http-equiv="X-UA-Compatible">
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <meta content="{% block meta_description %}AltiusFidu - Gestion fiduciaire suisse complète{% endblock %}" name="description">
-    <meta content="{% block meta_keywords %}fiduciaire, comptabilité, TVA, salaires, Suisse{% endblock %}" name="keywords">
     <meta content="AltiusFidu" name="author">
     
-    <link href="{% static 'assets/images/logo/favicon.png' %}" rel="icon" type="image/x-icon">
-    <link href="{% static 'assets/images/logo/favicon.png' %}" rel="shortcut icon" type="image/x-icon">
+    <link href="{% static 'chartes/favicon.png' %}" rel="icon" type="image/x-icon">
     
     <title>{% block title %}AltiusFidu{% endblock %} | {% trans "Gestion Fiduciaire" %}</title>
 
@@ -24,7 +21,7 @@
     <link crossorigin href="https://fonts.gstatic.com" rel="preconnect">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:ital,wght@0,300..900;1,300..900&display=swap" rel="stylesheet">
 
-    <!--flag Icon css-->
+    <!-- flag Icon css-->
     <link href="{% static 'assets/vendor/flag-icons-master/flag-icon.css' %}" rel="stylesheet" type="text/css">
 
     <!-- tabler icons-->
@@ -36,7 +33,7 @@
     <!-- simplebar css-->
     <link href="{% static 'assets/vendor/simplebar/simplebar.css' %}" rel="stylesheet" type="text/css">
 
-    <!-- Selecrt css -->
+    <!-- Select css -->
     <link href="{% static 'assets/vendor/select/select2.min.css' %}" rel="stylesheet" type="text/css">
 
     <!-- App css-->
@@ -48,23 +45,19 @@
     {% block extra_css %}{% endblock %}
 </head>
 
-<body>
+<body class="">
 <div class="app-wrapper">
 
     <div class="loader-wrapper">
         <div class="loader_24"></div>
     </div>
 
-    <!-- Menu Navigation -->
     {% include 'includes/sidebar.html' %}
 
     <div class="app-content">
         <div class="">
-
-            <!-- Header -->
             {% include 'includes/navbar.html' %}
 
-            <!-- Django Messages -->
             {% if messages %}
             <div class="container-fluid mt-3">
                 {% for message in messages %}
@@ -75,81 +68,127 @@
                 {% endfor %}
             </div>
             {% endif %}
-
-            <!-- Body main section starts -->
+            <div style="position:fixed;bottom:0;left:0;background:#000;color:#0f0;padding:5px;font-size:11px;z-index:9999;">
+                NS: {{ request.resolver_match.namespace }} | URL: {{ request.resolver_match.url_name }}
+            </div>
             <main>
                 <div class="container-fluid">
                     {% block content %}{% endblock %}
                 </div>
             </main>
-            <!-- Body main section ends -->
-
         </div>
     </div>
 
-    <!-- tap on top -->
     <div class="go-top">
         <span class="progress-value">
             <i class="ti ti-chevron-up"></i>
         </span>
     </div>
 
-    <!-- Footer -->
     {% include 'includes/footer.html' %}
-
 </div>
 
-<!--customizer-->
 <div id="customizer"></div>
 
-<!-- latest jquery-->
+<!-- jQuery -->
 <script src="{% static 'assets/js/jquery-3.6.3.min.js' %}"></script>
 
-<!-- Bootstrap js-->
+<!-- Bootstrap -->
 <script src="{% static 'assets/vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
-<!-- select2 -->
-<script src="{% static 'assets/vendor/select/select2.min.js' %}"></script>
 
-<!--js-->
+<!-- Select2 -->
+<script src="{% static 'assets/vendor/select/select2.min.js' %}"></script>
 <script src="{% static 'assets/js/select.js' %}"></script>
 
-<!-- Simple bar js-->
+<!-- Simplebar -->
 <script src="{% static 'assets/vendor/simplebar/simplebar.js' %}"></script>
 
-<!-- phosphor js -->
+<!-- Phosphor -->
 <script src="{% static 'assets/vendor/phosphor/phosphor.js' %}"></script>
 
-<!-- Customizer js-->
+<!-- Customizer -->
 <script src="{% static 'assets/js/customizer.js' %}"></script>
 
-<!-- App js-->
+<!-- App -->
 <script src="{% static 'assets/js/script.js' %}"></script>
+
+<!-- FIX: Empêcher script.js d'écraser les classes active de Django -->
+<script>
+$(function() {
+    // Le script.js du thème a écrasé nos classes, on les remet
+    $('.main-nav li').removeClass('active');
+    $('.main-nav .collapse').removeClass('show');
+    $('.main-nav a[aria-expanded]').attr('aria-expanded', 'false');
+    
+    // Remettre les classes depuis les data-attributes
+    $('.main-nav li[data-active="true"]').addClass('active');
+    $('.main-nav .collapse[data-show="true"]').addClass('show');
+    $('.main-nav a[data-expanded="true"]').attr('aria-expanded', 'true');
+});
+</script>
+
+<!-- FIX: Theme + Sidebar pour Django -->
+<script>
+$(function() {
+    // 1. THEME FIX - Appliquer immédiatement sans attendre 1500ms
+    var themeMode = localStorage.getItem('theme-mode') || 'light';
+    $('body').removeClass('light dark').addClass(themeMode);
+    
+    if (themeMode === 'dark') {
+        $('.sun-logo').addClass('sun');
+        $('.moon-logo').addClass('moon');
+    }
+    
+    // 2. SIDEBAR FIX - Corriger pour URLs Django
+    var currentPath = window.location.pathname;
+    
+    // Reset tout
+    $('.main-nav li').removeClass('active');
+    $('.main-nav .collapse').removeClass('show');
+    $('.main-nav a[aria-expanded]').attr('aria-expanded', 'false');
+    
+    // Trouver le lien actif
+    $('.main-nav li a[href]').each(function() {
+        var href = $(this).attr('href');
+        
+        // Ignorer les toggles collapse
+        if (!href || href === '#' || href.startsWith('#')) return;
+        
+        // Match exact ou préfixe (pour sous-pages)
+        if (currentPath === href || (href.length > 1 && currentPath.startsWith(href))) {
+            var $li = $(this).closest('li');
+            $li.addClass('active');
+            
+            // Ouvrir le menu parent si dans un collapse
+            var $collapse = $(this).closest('.collapse');
+            if ($collapse.length) {
+                $collapse.addClass('show');
+                var $parentLi = $collapse.closest('li');
+                $parentLi.addClass('active');
+                $parentLi.find('> a[data-bs-toggle="collapse"]').attr('aria-expanded', 'true');
+            }
+            
+            return false; // Stop après le premier match
+        }
+    });
+});
+</script>
 
 <!-- HTMX -->
 <script src="https://unpkg.com/htmx.org@1.9.10"></script>
 
-<!-- Alpine.js (optionnel mais pratique) -->
-<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-
 <script>
 document.body.addEventListener('htmx:configRequest', function(evt) {
-    // Récupérer le token CSRF
-    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value 
-                   || document.querySelector('meta[name="csrf-token"]')?.content
-                   || getCookie('csrftoken');
-    
-    if (csrfToken) {
-        evt.detail.headers['X-CSRFToken'] = csrfToken;
-    }
+    var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || getCookie('csrftoken');
+    if (csrfToken) evt.detail.headers['X-CSRFToken'] = csrfToken;
 });
 
-// Helper pour récupérer le cookie CSRF
 function getCookie(name) {
-    let cookieValue = null;
+    var cookieValue = null;
     if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
+        var cookies = document.cookie.split(';');
+        for (var i = 0; i < cookies.length; i++) {
+            var cookie = cookies[i].trim();
             if (cookie.substring(0, name.length + 1) === (name + '=')) {
                 cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
                 break;
@@ -159,6 +198,7 @@ function getCookie(name) {
     return cookieValue;
 }
 </script>
+
 {% block extra_js %}{% endblock %}
 
 </body>

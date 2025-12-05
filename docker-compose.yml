@@ -161,9 +161,9 @@ volumes:
     driver: local
   redis_data:
     driver: local
-  media_files:
+  media:
     driver: local
-  static_files:
+  static:
     driver: local
 
 networks:

@@ -1,0 +1,711 @@
+# comptabilite/urls.py
+from django.urls import path
+from . import views
+
+app_name = "comptabilite"
+
+urlpatterns = [
+    # Plans comptables
+    path("plans/", views.PlanComptableListView.as_view(), name="plan-list"),
+    path("plans/nouveau/", views.PlanComptableCreateView.as_view(), name="plan-create"),
+    path(
+        "plans/<uuid:pk>/", views.PlanComptableDetailView.as_view(), name="plan-detail"
+    ),
+    path(
+        "plans/<uuid:pk>/modifier/",
+        views.PlanComptableUpdateView.as_view(),
+        name="plan-update",
+    ),
+    # Comptes
+    path("comptes/", views.CompteListView.as_view(), name="compte-list"),
+    path(
+        "comptes/plan/<uuid:plan_pk>/",
+        views.CompteListView.as_view(),
+        name="compte-list-plan",
+    ),
+    path("comptes/nouveau/", views.CompteCreateView.as_view(), name="compte-create"),
+    path(
+        "comptes/plan/<uuid:plan_pk>/nouveau/",
+        views.CompteCreateView.as_view(),
+        name="compte-create-plan",
+    ),
+    path("comptes/<uuid:pk>/", views.CompteDetailView.as_view(), name="compte-detail"),
+    path(
+        "comptes/<uuid:pk>/modifier/",
+        views.CompteUpdateView.as_view(),
+        name="compte-update",
+    ),
+    path("comptes/<uuid:pk>/grand-livre/", views.grand_livre, name="grand-livre"),
+    # Journaux
+    path("journaux/", views.JournalListView.as_view(), name="journal-list"),
+    path("journaux/nouveau/", views.JournalCreateView.as_view(), name="journal-create"),
+    path(
+        "journaux/<uuid:pk>/", views.JournalDetailView.as_view(), name="journal-detail"
+    ),
+    path(
+        "journaux/<uuid:pk>/modifier/",
+        views.JournalUpdateView.as_view(),
+        name="journal-update",
+    ),
+    # Écritures comptables
+    path("ecritures/", views.EcritureComptableListView.as_view(), name="ecriture-list"),
+    path(
+        "ecritures/nouvelle/",
+        views.EcritureComptableCreateView.as_view(),
+        name="ecriture-create",
+    ),
+    path(
+        "ecritures/<uuid:pk>/",
+        views.EcritureComptableDetailView.as_view(),
+        name="ecriture-detail",
+    ),
+    path(
+        "ecritures/<uuid:pk>/modifier/",
+        views.EcritureComptableUpdateView.as_view(),
+        name="ecriture-update",
+    ),
+    # Pièces comptables
+    path("pieces/", views.PieceComptableListView.as_view(), name="piece-list"),
+    path(
+        "pieces/<uuid:pk>/",
+        views.PieceComptableDetailView.as_view(),
+        name="piece-detail",
+    ),
+    # Lettrage
+    path("lettrages/", views.LettrageListView.as_view(), name="lettrage-list"),
+    path(
+        "lettrages/compte/<uuid:compte_pk>/",
+        views.lettrage_compte,
+        name="lettrage-compte",
+    ),
+    # Rapports
+    path(
+        "rapports/balance/<uuid:mandat_pk>/",
+        views.balance_generale,
+        name="balance-generale",
+    ),
+]
+# documents/urls.py
+from django.urls import path
+from django.views.decorators.http import require_http_methods
+from . import views
+
+app_name = "documents"
+
+urlpatterns = [
+    # Dossiers
+    path("dossiers/", views.DossierListView.as_view(), name="dossier-list"),
+    path("dossiers/nouveau/", views.DossierCreateView.as_view(), name="dossier-create"),
+    path(
+        "dossiers/<uuid:pk>/", views.DossierDetailView.as_view(), name="dossier-detail"
+    ),
+    # Documents
+    path("", views.DocumentListView.as_view(), name="document-list"),
+    path("upload/", views.DocumentUploadView.as_view(), name="document-upload"),
+    path("<uuid:pk>/", views.DocumentDetailView.as_view(), name="document-detail"),
+    path(
+        "<uuid:pk>/telecharger/",
+        views.document_telecharger,
+        name="document-telecharger",
+    ),
+    path("<uuid:pk>/valider/", views.document_valider, name="document-valider"),
+    path("<uuid:pk>/ocr/", views.document_ocr, name="document-ocr"),
+    # Recherche
+    path("recherche/", views.recherche_documents, name="recherche"),
+    # Catégories
+    # Catégories
+    path(
+        "categories/", views.CategorieDocumentListView.as_view(), name="categorie-list"
+    ),
+    path(
+        "categories/nouvelle/",
+        views.CategorieDocumentCreateView.as_view(),
+        name="categorie-create",
+    ),
+    path(
+        "categories/create-ajax/",
+        views.categorie_document_create_ajax,
+        name="categorie-create-ajax",
+    ),
+    path(
+        "categories/<uuid:pk>/",
+        views.CategorieDocumentDetailView.as_view(),
+        name="categorie-detail",
+    ),
+    path(
+        "categories/<uuid:pk>/modifier/",
+        views.CategorieDocumentUpdateView.as_view(),
+        name="categorie-update",
+    ),
+    path(
+        "categories/<uuid:pk>/update-ajax/",
+        views.categorie_document_update_ajax,
+        name="categorie-update-ajax",
+    ),
+    path(
+        "categories/<uuid:pk>/get-data/",
+        views.categorie_document_get_data,
+        name="categorie-get-data",
+    ),
+    # Types
+    path("types/", views.TypeDocumentListView.as_view(), name="type-list"),
+    path("types/nouveau/", views.TypeDocumentCreateView.as_view(), name="type-create"),
+    path(
+        "types/create-ajax/", views.type_document_create_ajax, name="type-create-ajax"
+    ),
+    path(
+        "types/<uuid:pk>/", views.TypeDocumentDetailView.as_view(), name="type-detail"
+    ),
+    path(
+        "types/<uuid:pk>/modifier/",
+        views.TypeDocumentUpdateView.as_view(),
+        name="type-update",
+    ),
+    path(
+        "types/<uuid:pk>/update-ajax/",
+        views.type_document_update_ajax,
+        name="type-update-ajax",
+    ),
+    path(
+        "types/<uuid:pk>/get-data/", views.type_document_get_data, name="type-get-data"
+    ),
+]
+# facturation/urls.py
+from django.urls import path
+from django.views.decorators.http import require_http_methods
+from . import views
+
+app_name = "facturation"
+
+urlpatterns = [
+    # Prestations
+    path("prestations/", views.PrestationListView.as_view(), name="prestation-list"),
+    path(
+        "prestations/nouvelle/",
+        views.PrestationCreateView.as_view(),
+        name="prestation-create",
+    ),
+    path(
+        "prestations/<uuid:pk>/",
+        views.PrestationDetailView.as_view(),
+        name="prestation-detail",
+    ),
+    path(
+        "prestations/<uuid:pk>/modifier/",
+        views.PrestationUpdateView.as_view(),
+        name="prestation-update",
+    ),
+    # Time Tracking
+    path("temps/", views.TimeTrackingListView.as_view(), name="timetracking-list"),
+    path(
+        "temps/nouveau/",
+        views.TimeTrackingCreateView.as_view(),
+        name="timetracking-create",
+    ),
+    # Factures
+    path("factures/", views.FactureListView.as_view(), name="facture-list"),
+    path(
+        "factures/nouvelle/", views.FactureCreateView.as_view(), name="facture-create"
+    ),
+    path(
+        "factures/<uuid:pk>/", views.FactureDetailView.as_view(), name="facture-detail"
+    ),
+    path(
+        "factures/<uuid:pk>/modifier/",
+        views.FactureUpdateView.as_view(),
+        name="facture-update",
+    ),
+    path("factures/<uuid:pk>/valider/", views.facture_valider, name="facture-valider"),
+    path(
+        "factures/<uuid:pk>/pdf/", views.facture_generer_pdf, name="facture-generer-pdf"
+    ),
+    path(
+        "factures/<uuid:pk>/envoyer/",
+        views.facture_envoyer_email,
+        name="facture-envoyer-email",
+    ),
+    # Lignes de facture
+    path(
+        "factures/<uuid:facture_pk>/lignes/nouvelle/",
+        views.ligne_facture_create,
+        name="ligne-create",
+    ),
+    path(
+        "lignes/<uuid:pk>/supprimer/", views.ligne_facture_delete, name="ligne-delete"
+    ),
+    # Paiements
+    path("paiements/", views.PaiementListView.as_view(), name="paiement-list"),
+    path(
+        "factures/<uuid:facture_pk>/paiements/nouveau/",
+        views.paiement_create,
+        name="paiement-create",
+    ),
+    path(
+        "paiements/<uuid:pk>/valider/", views.paiement_valider, name="paiement-valider"
+    ),
+    # Relances
+    path(
+        "factures/<uuid:facture_pk>/relances/nouvelle/",
+        views.relance_create,
+        name="relance-create",
+    ),
+    # HTMX endpoints
+    path("lignes/row/", views.ligne_facture_form_row, name="ligne-form-row"),
+    path(
+        "lignes/<int:index>/delete/",
+        views.ligne_facture_delete_row,
+        name="ligne-delete-row",
+    ),
+]
+# salaires/urls.py
+from django.urls import path
+from django.views.decorators.http import require_http_methods
+from . import views
+
+app_name = "salaires"
+
+urlpatterns = [
+    # Employés
+    path("employes/", views.EmployeListView.as_view(), name="employe-list"),
+    path("employes/nouveau/", views.EmployeCreateView.as_view(), name="employe-create"),
+    path(
+        "employes/<uuid:pk>/", views.EmployeDetailView.as_view(), name="employe-detail"
+    ),
+    path(
+        "employes/<uuid:pk>/modifier/",
+        views.EmployeUpdateView.as_view(),
+        name="employe-update",
+    ),
+    # Fiches de salaire
+    path("fiches/", views.FicheSalaireListView.as_view(), name="fiche-list"),
+    path(
+        "fiches/nouvelle/", views.FicheSalaireCreateView.as_view(), name="fiche-create"
+    ),
+    path(
+        "fiches/<uuid:pk>/", views.FicheSalaireDetailView.as_view(), name="fiche-detail"
+    ),
+    path("fiches/<uuid:pk>/valider/", views.fiche_valider, name="fiche-valider"),
+    path("fiches/<uuid:pk>/pdf/", views.fiche_generer_pdf, name="fiche-pdf"),
+    path(
+        "fiches/generer-masse/", views.generer_fiches_masse, name="generer-fiches-masse"
+    ),
+    # Certificats de salaire
+    path(
+        "certificats/",
+        views.CertificatSalaireListView.as_view(),
+        name="certificat-list",
+    ),
+    path(
+        "certificats/<uuid:pk>/",
+        views.CertificatSalaireDetailView.as_view(),
+        name="certificat-detail",
+    ),
+    path(
+        "employes/<uuid:employe_pk>/certificat/",
+        views.generer_certificat,
+        name="generer-certificat",
+    ),
+    # Déclarations cotisations
+    path(
+        "declarations-cotisations/",
+        views.DeclarationCotisationsListView.as_view(),
+        name="declaration-cotisations-list",
+    ),
+]
+# tva/urls.py
+from django.urls import path
+from django.views.decorators.http import require_http_methods
+from . import views
+
+app_name = "tva"
+
+urlpatterns = [
+    # Configuration TVA
+    path(
+        "configurations/",
+        views.ConfigurationTVAListView.as_view(),
+        name="configuration-list",
+    ),
+    path(
+        "configurations/<uuid:pk>/",
+        views.ConfigurationTVADetailView.as_view(),
+        name="configuration-detail",
+    ),
+    path(
+        "configurations/<uuid:pk>/modifier/",
+        views.ConfigurationTVAUpdateView.as_view(),
+        name="configuration-update",
+    ),
+    # Déclarations TVA
+    path(
+        "declarations/", views.DeclarationTVAListView.as_view(), name="declaration-list"
+    ),
+    path(
+        "declarations/nouvelle/",
+        views.DeclarationTVACreateView.as_view(),
+        name="declaration-create",
+    ),
+    path(
+        "declarations/<uuid:pk>/",
+        views.DeclarationTVADetailView.as_view(),
+        name="declaration-detail",
+    ),
+    path(
+        "declarations/<uuid:pk>/calculer/",
+        views.declaration_calculer,
+        name="declaration-calculer",
+    ),
+    path(
+        "declarations/<uuid:pk>/valider/",
+        views.declaration_valider,
+        name="declaration-valider",
+    ),
+    path(
+        "declarations/<uuid:pk>/xml/",
+        views.declaration_exporter_xml,
+        name="declaration-xml",
+    ),
+    path(
+        "declarations/<uuid:pk>/pdf/",
+        views.declaration_exporter_pdf,
+        name="declaration-pdf",
+    ),
+    # Opérations TVA
+    path("operations/", views.OperationTVAListView.as_view(), name="operation-list"),
+    path(
+        "operations/nouvelle/",
+        views.OperationTVACreateView.as_view(),
+        name="operation-create",
+    ),
+]
+# fiscalite/urls.py
+from django.urls import path
+from . import views
+
+app_name = "fiscalite"
+
+urlpatterns = [
+    # Déclarations fiscales
+    path(
+        "declarations/",
+        views.DeclarationFiscaleListView.as_view(),
+        name="declaration-list",
+    ),
+    path(
+        "declarations/nouvelle/",
+        views.DeclarationFiscaleCreateView.as_view(),
+        name="declaration-create",
+    ),
+    path(
+        "declarations/<uuid:pk>/",
+        views.DeclarationFiscaleDetailView.as_view(),
+        name="declaration-detail",
+    ),
+    path(
+        "declarations/<uuid:pk>/valider/",
+        views.declaration_valider,
+        name="declaration-valider",
+    ),
+    path(
+        "declarations/<uuid:pk>/deposer/",
+        views.declaration_deposer,
+        name="declaration-deposer",
+    ),
+    # Annexes
+    path(
+        "declarations/<uuid:declaration_pk>/annexes/nouvelle/",
+        views.annexe_create,
+        name="annexe-create",
+    ),
+    # Corrections
+    path(
+        "declarations/<uuid:declaration_pk>/corrections/nouvelle/",
+        views.correction_create,
+        name="correction-create",
+    ),
+    # Reports de pertes
+    path(
+        "reports-pertes/", views.ReportPerteListView.as_view(), name="report-perte-list"
+    ),
+    path(
+        "reports-pertes/<uuid:pk>/",
+        views.ReportPerteDetailView.as_view(),
+        name="report-perte-detail",
+    ),
+    # Réclamations
+    path(
+        "reclamations/",
+        views.ReclamationFiscaleListView.as_view(),
+        name="reclamation-list",
+    ),
+    path(
+        "declarations/<uuid:declaration_pk>/reclamations/nouvelle/",
+        views.reclamation_create,
+        name="reclamation-create",
+    ),
+    # Optimisations
+    path(
+        "optimisations/",
+        views.OptimisationFiscaleListView.as_view(),
+        name="optimisation-list",
+    ),
+    path(
+        "optimisations/nouvelle/",
+        views.OptimisationFiscaleCreateView.as_view(),
+        name="optimisation-create",
+    ),
+    path(
+        "optimisations/<uuid:pk>/",
+        views.OptimisationFiscaleDetailView.as_view(),
+        name="optimisation-detail",
+    ),
+    path(
+        "optimisations/<uuid:pk>/changer-statut/",
+        views.optimisation_changer_statut,
+        name="optimisation-changer-statut",
+    ),
+    # Taux d'imposition
+    path(
+        "taux-imposition/",
+        views.TauxImpositionListView.as_view(),
+        name="taux-imposition-list",
+    ),
+    # Rapports
+    path(
+        "mandats/<uuid:mandat_pk>/rapport-annuel/",
+        views.rapport_fiscal_annuel,
+        name="rapport-annuel",
+    ),
+]
+
+
+# core/urls.py
+from django.urls import path
+from django.contrib.auth import views as auth_views
+from . import views
+
+app_name = "core"
+
+urlpatterns = [
+    # ============================================================================
+    # AUTHENTIFICATION
+    # ============================================================================
+    path("login/", views.CustomLoginView.as_view(), name="login"),
+    path("logout/", views.logout_view, name="logout"),
+    path("signup/", views.SignUpView.as_view(), name="signup"),
+    # Password reset URLs
+    path(
+        "password-reset/",
+        views.CustomPasswordResetView.as_view(),
+        name="password-reset",
+    ),
+    path(
+        "password-reset/done/",
+        views.CustomPasswordResetDoneView.as_view(),
+        name="password-reset-done",
+    ),
+    path(
+        "password-reset-confirm/<uidb64>/<token>/",
+        views.CustomPasswordResetConfirmView.as_view(),
+        name="password-reset-confirm",
+    ),
+    path(
+        "password-reset-complete/",
+        views.CustomPasswordResetCompleteView.as_view(),
+        name="password-reset-complete",
+    ),
+    # ============================================================================
+    # DASHBOARD
+    # ============================================================================
+    path("", views.DashboardView.as_view(), name="dashboard"),
+    # ============================================================================
+    # CLIENTS
+    # ============================================================================
+    path("clients/", views.ClientListView.as_view(), name="client-list"),
+    path("clients/nouveau/", views.ClientCreateView.as_view(), name="client-create"),
+    path("clients/<uuid:pk>/", views.ClientDetailView.as_view(), name="client-detail"),
+    path(
+        "clients/<uuid:pk>/modifier/",
+        views.ClientUpdateView.as_view(),
+        name="client-update",
+    ),
+    # ============================================================================
+    # MANDATS
+    # ============================================================================
+    path("mandats/", views.MandatListView.as_view(), name="mandat-list"),
+    path("mandats/nouveau/", views.MandatCreateView.as_view(), name="mandat-create"),
+    path("mandats/<uuid:pk>/", views.MandatDetailView.as_view(), name="mandat-detail"),
+    path(
+        "mandats/<uuid:pk>/modifier/",
+        views.MandatUpdateView.as_view(),
+        name="mandat-update",
+    ),
+    # ============================================================================
+    # EXERCICES COMPTABLES
+    # ============================================================================
+    path("exercices/", views.ExerciceListView.as_view(), name="exercice-list"),
+    path(
+        "exercices/nouveau/", views.ExerciceCreateView.as_view(), name="exercice-create"
+    ),
+    path(
+        "exercices/<uuid:pk>/",
+        views.ExerciceDetailView.as_view(),
+        name="exercice-detail",
+    ),
+    path(
+        "exercices/<uuid:pk>/modifier/",
+        views.ExerciceUpdateView.as_view(),
+        name="exercice-update",
+    ),
+    path(
+        "exercices/<uuid:pk>/cloturer/",
+        views.exercice_cloturer,
+        name="exercice-cloturer",
+    ),
+    # ============================================================================
+    # TÂCHES
+    # ============================================================================
+    path("taches/", views.TacheListView.as_view(), name="tache-list"),
+    path("taches/nouvelle/", views.TacheCreateView.as_view(), name="tache-create"),
+    path("taches/<uuid:pk>/", views.TacheDetailView.as_view(), name="tache-detail"),
+    path(
+        "taches/<uuid:pk>/modifier/",
+        views.TacheUpdateView.as_view(),
+        name="tache-update",
+    ),
+    # ============================================================================
+    # RECHERCHE GLOBALE
+    # ============================================================================
+    path("search/", views.GlobalSearchView.as_view(), name="global-search"),
+    # ============================================================================
+    # NOTIFICATIONS
+    # ============================================================================
+    path(
+        "notifications/",
+        views.NotificationListView.as_view(),
+        name="notifications-list",
+    ),
+    path(
+        "notifications/mark-all-read/",
+        views.mark_all_notifications_read,
+        name="notifications-mark-all-read",
+    ),
+    path(
+        "notifications/<uuid:pk>/mark-read/",
+        views.notification_mark_read,
+        name="notification-mark-read",
+    ),
+    # ============================================================================
+    # PROFIL UTILISATEUR
+    # ============================================================================
+    path("profile/", views.ProfileView.as_view(), name="profile"),
+    path("profile/edit/", views.ProfileUpdateView.as_view(), name="profile-update"),
+    # ============================================================================
+    # PARAMÈTRES
+    # ============================================================================
+    path("settings/", views.SettingsView.as_view(), name="settings"),
+    path(
+        "settings/update-preferences/",
+        views.update_user_preferences,
+        name="update-preferences",
+    ),
+    # ============================================================================
+    # PAGES STATIQUES
+    # ============================================================================
+    path("about/", views.AboutView.as_view(), name="about"),
+    path("support/", views.SupportView.as_view(), name="support"),
+    path(
+        "support/submit/", views.submit_support_request, name="submit-support-request"
+    ),
+    # ============================================================================
+    # LANGUE
+    # ============================================================================
+    path("set-language/", views.set_language, name="set-language"),
+    # ============================================================================
+    # API AJAX
+    # ============================================================================
+    path(
+        "api/taches/<uuid:pk>/statut/",
+        views.tache_changer_statut,
+        name="tache-changer-statut",
+    ),
+    path(
+        "api/notifications/<uuid:pk>/lire/",
+        views.notification_marquer_lue,
+        name="notification-marquer-lue",
+    ),
+    path("api/stats-dashboard/", views.get_stats_dashboard, name="stats-dashboard"),
+    path("api/dashboard-stats/", views.get_dashboard_stats, name="dashboard-stats"),
+]
+# analytics/urls.py
+from django.urls import path
+from django.views.decorators.http import require_http_methods
+from . import views
+
+app_name = "analytics"
+
+urlpatterns = [
+    # Tableaux de bord
+    path(
+        "tableaux-bord/", views.TableauBordListView.as_view(), name="tableau-bord-list"
+    ),
+    path(
+        "tableaux-bord/nouveau/",
+        views.TableauBordCreateView.as_view(),
+        name="tableau-bord-create",
+    ),
+    path(
+        "tableaux-bord/<uuid:pk>/",
+        views.TableauBordDetailView.as_view(),
+        name="tableau-bord-detail",
+    ),
+    # Indicateurs
+    path("indicateurs/", views.IndicateurListView.as_view(), name="indicateur-list"),
+    path(
+        "indicateurs/<uuid:pk>/",
+        views.IndicateurDetailView.as_view(),
+        name="indicateur-detail",
+    ),
+    # Rapports
+    path("rapports/", views.RapportListView.as_view(), name="rapport-list"),
+    path(
+        "rapports/<uuid:pk>/", views.RapportDetailView.as_view(), name="rapport-detail"
+    ),
+    path(
+        "rapports/<uuid:pk>/telecharger/",
+        views.rapport_telecharger,
+        name="rapport-telecharger",
+    ),
+    path("rapports/generer/", views.rapport_generer, name="rapport-generer"),
+    # Planifications
+    path(
+        "planifications/",
+        views.PlanificationRapportListView.as_view(),
+        name="planification-list",
+    ),
+    path(
+        "planifications/nouvelle/",
+        views.PlanificationRapportCreateView.as_view(),
+        name="planification-create",
+    ),
+    # Comparaisons
+    path("comparaisons/", views.comparaison_periodes, name="comparaison-create"),
+    path(
+        "comparaisons/<uuid:pk>/",
+        views.ComparaisonPeriodeDetailView.as_view(),
+        name="comparaison-detail",
+    ),
+    # Alertes
+    path("alertes/", views.AlerteMetriqueListView.as_view(), name="alerte-list"),
+    path(
+        "alertes/<uuid:pk>/acquitter/", views.alerte_acquitter, name="alerte-acquitter"
+    ),
+    # Exports
+    path("exports/", views.ExportDonneesListView.as_view(), name="export-list"),
+    path("exports/nouveau/", views.export_donnees, name="export-create"),
+    path(
+        "exports/<uuid:pk>/telecharger/",
+        views.export_telecharger,
+        name="export-telecharger",
+    ),
+]

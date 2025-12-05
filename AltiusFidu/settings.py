@@ -331,12 +331,6 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 50,
 }
 
-
-# CORS Configuration
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # Next.js dev server
-    "http://localhost:3001",
-]
 CORS_ALLOW_CREDENTIALS = True
 
 if DEBUG:

@@ -1,4 +1,4 @@
-<!-- includes/navbar.html -->
+<!-- templates/includes/navbar.html -->
 {% load static %}
 {% load i18n %}
 
@@ -28,50 +28,70 @@
                     <li class="header-language">
                         <div class="flex-shrink-0 dropdown" id="lang_selector">
                             <a aria-expanded="false" class="d-block head-icon ps-0" data-bs-toggle="dropdown" href="#">
-                                <div class="lang-flag lang-{{ LANGUAGE_CODE|default:'fr' }}">
+                                <div class="lang-flag">
                                     <span class="flag rounded-circle overflow-hidden">
-                                        <i class="flag-icon flag-icon-{{ LANGUAGE_CODE|default:'fr' }} flag-icon-squared"></i>
+                                        {% if LANGUAGE_CODE == 'de' %}
+                                        <i class="flag-icon flag-icon-deu flag-icon-squared"></i>
+                                        {% elif LANGUAGE_CODE == 'it' %}
+                                        <i class="flag-icon flag-icon-ita flag-icon-squared"></i>
+                                        {% elif LANGUAGE_CODE == 'en' %}
+                                        <i class="flag-icon flag-icon-gbr flag-icon-squared"></i>
+                                        {% else %}
+                                        <i class="flag-icon flag-icon-fra flag-icon-squared"></i>
+                                        {% endif %}
                                     </span>
                                 </div>
                             </a>
                             <ul class="dropdown-menu language-dropdown header-card border-0">
-                                <li class="lang lang-fr {% if LANGUAGE_CODE == 'fr' %}selected{% endif %} dropdown-item p-2">
-                                    <a href="{% url 'set_language' %}?language=fr" class="d-flex align-items-center">
-                                        <i class="flag-icon flag-icon-fra flag-icon-squared rounded-circle f-s-20"></i>
-                                        <span class="ps-2">Français</span>
-                                    </a>
+                                <li class="dropdown-item p-2">
+                                    <form action="{% url 'set_language' %}" method="post">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="language" value="fr">
+                                        <input type="hidden" name="next" value="{{ request.path }}">
+                                        <button type="submit" class="btn btn-link p-0 d-flex align-items-center w-100 text-start">
+                                            <i class="flag-icon flag-icon-fra flag-icon-squared rounded-circle f-s-20"></i>
+                                            <span class="ps-2">Français</span>
+                                        </button>
+                                    </form>
                                 </li>
-                                <li class="lang lang-de {% if LANGUAGE_CODE == 'de' %}selected{% endif %} dropdown-item p-2">
-                                    <a href="{% url 'set_language' %}?language=de" class="d-flex align-items-center">
-                                        <i class="flag-icon flag-icon-deu flag-icon-squared rounded-circle f-s-20"></i>
-                                        <span class="ps-2">Deutsch</span>
-                                    </a>
+                                <li class="dropdown-item p-2">
+                                    <form action="{% url 'set_language' %}" method="post">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="language" value="de">
+                                        <input type="hidden" name="next" value="{{ request.path }}">
+                                        <button type="submit" class="btn btn-link p-0 d-flex align-items-center w-100 text-start">
+                                            <i class="flag-icon flag-icon-deu flag-icon-squared rounded-circle f-s-20"></i>
+                                            <span class="ps-2">Deutsch</span>
+                                        </button>
+                                    </form>
                                 </li>
-                                <li class="lang lang-it {% if LANGUAGE_CODE == 'it' %}selected{% endif %} dropdown-item p-2">
-                                    <a href="{% url 'set_language' %}?language=it" class="d-flex align-items-center">
-                                        <i class="flag-icon flag-icon-ita flag-icon-squared rounded-circle f-s-20"></i>
-                                        <span class="ps-2">Italiano</span>
-                                    </a>
+                                <li class="dropdown-item p-2">
+                                    <form action="{% url 'set_language' %}" method="post">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="language" value="it">
+                                        <input type="hidden" name="next" value="{{ request.path }}">
+                                        <button type="submit" class="btn btn-link p-0 d-flex align-items-center w-100 text-start">
+                                            <i class="flag-icon flag-icon-ita flag-icon-squared rounded-circle f-s-20"></i>
+                                            <span class="ps-2">Italiano</span>
+                                        </button>
+                                    </form>
                                 </li>
-                                <li class="lang lang-en {% if LANGUAGE_CODE == 'en' %}selected{% endif %} dropdown-item p-2">
-                                    <a href="{% url 'set_language' %}?language=en" class="d-flex align-items-center">
-                                        <i class="flag-icon flag-icon-gbr flag-icon-squared rounded-circle f-s-20"></i>
-                                        <span class="ps-2">English</span>
-                                    </a>
+                                <li class="dropdown-item p-2">
+                                    <form action="{% url 'set_language' %}" method="post">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="language" value="en">
+                                        <input type="hidden" name="next" value="{{ request.path }}">
+                                        <button type="submit" class="btn btn-link p-0 d-flex align-items-center w-100 text-start">
+                                            <i class="flag-icon flag-icon-gbr flag-icon-squared rounded-circle f-s-20"></i>
+                                            <span class="ps-2">English</span>
+                                        </button>
+                                    </form>
                                 </li>
                             </ul>
                         </div>
                     </li>
 
-                    <!-- Apps Shortcut -->
-                    <li class="header-apps">
-                        <a aria-controls="appscanvasRights" class="d-block head-icon bg-light-dark rounded-circle f-s-22 p-2" 
-                           data-bs-target="#appscanvasRights" data-bs-toggle="offcanvas" href="#" role="button">
-                            <i class="ph ph-bounding-box"></i>
-                        </a>
-                    </li>
-
-                    <!-- Dark Mode Toggle -->
+                    <!-- Dark Mode Toggle - Exactement comme le template -->
                     <li class="header-dark">
                         <div class="sun-logo head-icon bg-light-dark rounded-circle f-s-22 p-2">
                             <i class="ph ph-moon-stars"></i>
@@ -101,33 +121,15 @@
                             </div>
                             <div class="offcanvas-body app-scroll p-0">
                                 <div class="head-container">
-                                    {% if notifications %}
-                                        {% for notification in notifications %}
-                                        <div class="notification-message head-box">
-                                            <div class="message-content-box flex-grow-1 pe-2">
-                                                <a class="f-s-15 text-dark mb-0" href="{{ notification.get_absolute_url }}">
-                                                    {{ notification.message }}
-                                                </a>
-                                            </div>
-                                            <div class="text-end">
-                                                <i class="ph ph-trash f-s-18 text-danger close-btn"></i>
-                                                <div>
-                                                    <span class="badge text-light-primary">{{ notification.created_at|timesince }}</span>
-                                                </div>
-                                            </div>
+                                    <div class="hidden-massage py-4 px-3">
+                                        <div>
+                                            <i class="ph-duotone ph-bell-ringing f-s-50 text-primary"></i>
                                         </div>
-                                        {% endfor %}
-                                    {% else %}
-                                        <div class="hidden-massage py-4 px-3">
-                                            <div>
-                                                <i class="ph-duotone ph-bell-ringing f-s-50 text-primary"></i>
-                                            </div>
-                                            <div>
-                                                <h6 class="mb-0">{% trans "Aucune notification" %}</h6>
-                                                <p class="text-dark">{% trans "Aucune notification pour le moment" %}</p>
-                                            </div>
+                                        <div>
+                                            <h6 class="mb-0">{% trans "Aucune notification" %}</h6>
+                                            <p class="text-dark">{% trans "Aucune notification pour le moment" %}</p>
                                         </div>
-                                    {% endif %}
+                                    </div>
                                 </div>
                             </div>
                         </div>

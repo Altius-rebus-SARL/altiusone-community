@@ -1,6 +1,6 @@
 $(function () {
     // **------ Load customizer ------**
-    $.get("../assets/customizer.txt", function (html_string) {
+    $.get("/static/assets/customizer.txt", function (html_string) {
         const customizer = $("#customizer");
         if (customizer.length > 0) {
             customizer.html(html_string);
