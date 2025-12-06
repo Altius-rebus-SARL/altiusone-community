@@ -67,7 +67,7 @@ from analytics.models import (
 
 class Command(BaseCommand):
     help = (
-        "Génère des données de test réalistes pour AltiusFidu avec support multilingue"
+        "Génère des données de test réalistes pour AltiusOne avec support multilingue"
     )
 
     def __init__(self, *args, **kwargs):
@@ -113,7 +113,7 @@ class Command(BaseCommand):
 
         with transaction.atomic():
             self.stdout.write(
-                self.style.WARNING("🏭 Génération des données AltiusFidu...")
+                self.style.WARNING("🏭 Génération des données AltiusOne...")
             )
 
             # 1. Core models
@@ -314,7 +314,7 @@ class Command(BaseCommand):
             user, created = User.objects.get_or_create(
                 username=data["username"],
                 defaults={
-                    "email": f"{data['username']}@altiusfidu.ch",
+                    "email": f"{data['username']}@altiusone.ch",
                     "first_name": data["first_name"],
                     "last_name": data["last_name"],
                     "role": data["role"],

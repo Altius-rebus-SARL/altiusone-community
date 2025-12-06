@@ -34,7 +34,7 @@ shell: ## Ouvre le shell Django
 	sudo docker compose exec django python manage.py shell
 
 shell-db: ## Ouvre le shell PostgreSQL
-	sudo docker compose exec postgres psql -U altiusfidu_user -d altiusfidu
+	sudo docker compose exec postgres psql -U altiusone_user -d altiusone
 
 migrate: ## Exécute les migrations Django
 	sudo docker compose exec django python manage.py migrate
@@ -86,13 +86,13 @@ prune: ## Nettoie TOUT Docker (⚠️ ATTENTION: supprime tout, même autres pro
 
 rebuild:
 	@echo "🔄 Rebuild complet..."
-	sudo docker rm -f $$(sudo docker ps -aq --filter "name=altiusfidu") 2>/dev/null || true
+	sudo docker rm -f $$(sudo docker ps -aq --filter "name=altiusone") 2>/dev/null || true
 	sudo docker compose down --remove-orphans -v
 	sudo docker compose build --no-cache
 	sudo docker compose up -d
 
 init: ## Initialise le projet (première installation)
-	@echo "📦 Initialisation du projet AltiusFidu..."
+	@echo "📦 Initialisation du projet AltiusOne..."
 	@if [ ! -f .env ]; then \
 		echo "📄 Copie du fichier .env..."; \
 		cp .env.example .env 2>/dev/null || echo "⚠️  Fichier .env.example non trouvé"; \
@@ -110,7 +110,7 @@ init: ## Initialise le projet (première installation)
 
 backup-db: ## Sauvegarde la base de données
 	@mkdir -p backups
-	sudo docker compose exec postgres pg_dump -U altiusfidu_user altiusfidu > backups/backup_$$(date +%Y%m%d_%H%M%S).sql
+	sudo docker compose exec postgres pg_dump -U altiusone_user altiusone > backups/backup_$$(date +%Y%m%d_%H%M%S).sql
 	@echo "✅ Backup créé dans backups/"
 
 restore-db: ## Restaure la base de données (BACKUP_FILE=chemin/vers/backup.sql)
@@ -118,7 +118,7 @@ restore-db: ## Restaure la base de données (BACKUP_FILE=chemin/vers/backup.sql)
 		echo "❌ Erreur: Spécifiez BACKUP_FILE=chemin/vers/backup.sql"; \
 		exit 1; \
 	fi
-	sudo docker compose exec -T postgres psql -U altiusfidu_user altiusfidu < $(BACKUP_FILE)
+	sudo docker compose exec -T postgres psql -U altiusone_user altiusone < $(BACKUP_FILE)
 	@echo "✅ Backup restauré"
 
 dev: ## Mode développement avec hot-reload
@@ -128,7 +128,7 @@ prod: ## Mode production
 	sudo docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 
 status: ## Affiche le statut des services
-	@echo "📊 Status des services AltiusFidu:"
+	@echo "📊 Status des services AltiusOne:"
 	@sudo docker compose ps
 
 # health: ## Vérifie la santé des services
@@ -155,26 +155,26 @@ lint: ## Vérifie la qualité du code
 # Commandes de dépannage
 stop-all: ## Force l'arrêt de tous les containers du projet
 	@echo "🛑 Arrêt forcé de tous les containers..."
-	-sudo docker stop $$(sudo docker ps -q --filter "name=altiusfidu") 2>/dev/null || true
+	-sudo docker stop $$(sudo docker ps -q --filter "name=altiusone") 2>/dev/null || true
 	@echo "✅ Tous les containers arrêtés"
 
 remove-all: ## Supprime tous les containers du projet (même arrêtés)
-	@echo "🗑️  Suppression de tous les containers AltiusFidu..."
-	-sudo docker rm -f $$(sudo docker ps -aq --filter "name=altiusfidu") 2>/dev/null || true
+	@echo "🗑️  Suppression de tous les containers AltiusOne..."
+	-sudo docker rm -f $$(sudo docker ps -aq --filter "name=altiusone") 2>/dev/null || true
 	@echo "✅ Tous les containers supprimés"
 
 remove-volumes: ## Supprime tous les volumes du projet
-	@echo "🗑️  Suppression des volumes AltiusFidu..."
-	-sudo docker volume rm $$(sudo docker volume ls -q --filter "name=altiusfidu") 2>/dev/null || true
+	@echo "🗑️  Suppression des volumes AltiusOne..."
+	-sudo docker volume rm $$(sudo docker volume ls -q --filter "name=altiusone") 2>/dev/null || true
 	@echo "✅ Tous les volumes supprimés"
 
 remove-images: ## Supprime toutes les images du projet
-	@echo "🗑️  Suppression des images AltiusFidu..."
-	-sudo docker rmi $$(sudo docker images -q "altiusfidu*") 2>/dev/null || true
+	@echo "🗑️  Suppression des images AltiusOne..."
+	-sudo docker rmi $$(sudo docker images -q "altiusone*") 2>/dev/null || true
 	@echo "✅ Toutes les images supprimées"
 
 reset: ## Reset complet du projet (⚠️ supprime tout: containers, volumes, images)
-	@echo "⚠️  ATTENTION: Reset complet du projet AltiusFidu"
+	@echo "⚠️  ATTENTION: Reset complet du projet AltiusOne"
 	@read -p "Êtes-vous sûr? [y/N] " -n 1 -r; \
 	echo; \
 	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \

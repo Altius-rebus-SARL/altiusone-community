@@ -1,6 +1,6 @@
-# AltiusFidu - Plateforme de Gestion Fiduciaire Suisse
+# AltiusOne - Plateforme de Gestion Fiduciaire Suisse
 
-AltiusFidu est une application SaaS complète de gestion fiduciaire spécialement conçue pour le marché suisse, offrant une architecture multi-tenant avec provisionnement automatique d'instances VPS dédiées.
+AltiusOne est une application SaaS complète de gestion fiduciaire spécialement conçue pour le marché suisse, offrant une architecture multi-tenant avec provisionnement automatique d'instances VPS dédiées.
 
 ## 🎯 Caractéristiques Principales
 
@@ -84,7 +84,7 @@ AltiusFidu est une application SaaS complète de gestion fiduciaire spécialemen
 
 ### Structure du Projet
 ```
-altiusfidu/
+altiusone/
 ├── core/                   # Utilisateurs, mandats, clients
 ├── comptabilite/          # Comptabilité générale
 ├── tva/                   # Gestion TVA
@@ -111,8 +111,8 @@ altiusfidu/
 
 1. **Cloner le repository**
 ```bash
-git clone https://github.com/altius/altiusfidu.git
-cd altiusfidu
+git clone https://github.com/altius/altiusone.git
+cd altiusone
 ```
 
 2. **Créer un environnement virtuel**
@@ -136,7 +136,7 @@ cp .env.example .env
 
 5. **Créer la base de données**
 ```bash
-createdb altiusfidu
+createdb altiusone
 ```
 
 6. **Migrations**
@@ -261,9 +261,9 @@ Copyright (c) 2024 Altius Academy SNC. Tous droits réservés.
 
 ## 👥 Contact
 
-- **Email**: support@altiusfidu.ch
-- **Website**: https://altiusfidu.ch
-- **Documentation**: https://docs.altiusfidu.ch
+- **Email**: support@altiusone.ch
+- **Website**: https://altiusone.ch
+- **Documentation**: https://docs.altiusone.ch
 
 ## 🙏 Remerciements
 

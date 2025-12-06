@@ -805,7 +805,7 @@ class SignUpView(CreateView):
         auth_login(self.request, self.object)
         messages.success(
             self.request,
-            _("Bienvenue sur AltiusFidu ! Votre compte a été créé avec succès."),
+            _("Bienvenue sur AltiusOne ! Votre compte a été créé avec succès."),
         )
         return response
 
@@ -974,10 +974,10 @@ class AboutView(LoginRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
 
         context["app_info"] = {
-            "name": "AltiusFidu",
+            "name": "AltiusOne",
             "version": "1.0.0",
             "description": _("Gestion fiduciaire complète pour la Suisse"),
-            "company": "AltiusFidu SA",
+            "company": "AltiusOne SA",
             "year": datetime.now().year,
         }
 
@@ -1026,7 +1026,7 @@ class SupportView(LoginRequiredMixin, TemplateView):
 
         # Informations de contact
         context["contact"] = {
-            "email": "support@altiusfidu.ch",
+            "email": "support@altiusone.ch",
             "phone": "+41 XX XXX XX XX",
             "hours": _("Lundi - Vendredi : 9h00 - 18h00"),
         }

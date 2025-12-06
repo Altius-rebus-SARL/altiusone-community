@@ -1,4 +1,4 @@
-// static/assets/js/altiusfidu.js
+// static/assets/js/altiusone.js
 
 (function() {
     'use strict';
