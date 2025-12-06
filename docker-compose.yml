@@ -95,7 +95,7 @@ services:
     container_name: altiusone_celery
     restart: unless-stopped
     entrypoint: []
-    command: celery -A AltiusFidu worker --loglevel=info --concurrency=4
+    command: celery -A AltiusOne worker --loglevel=info --concurrency=4
     env_file:
       - .env
     environment:
@@ -126,7 +126,7 @@ services:
     container_name: altiusone_celery_beat
     restart: unless-stopped
     entrypoint: []
-    command: celery -A AltiusFidu beat --loglevel=info
+    command: celery -A AltiusOne beat --loglevel=info
     env_file:
       - .env
     environment:

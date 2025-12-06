@@ -1,4 +1,4 @@
-# AltiusFidu/settings.py
+# AltiusOne/settings.py
 from django.utils.translation import gettext_lazy as _
 import os
 from pathlib import Path
@@ -78,7 +78,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = 'AltiusFidu.urls'
+ROOT_URLCONF = 'AltiusOne.urls'
 
 TEMPLATES = [
     {
@@ -99,7 +99,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'AltiusFidu.wsgi.application'
+WSGI_APPLICATION = 'AltiusOne.wsgi.application'
 
 
 # Database
@@ -108,10 +108,10 @@ WSGI_APPLICATION = 'AltiusFidu.wsgi.application'
 DATABASES = {
     "default": {
         "ENGINE": "django.contrib.gis.db.backends.postgis",
-        "NAME": "altiusfidu",
+        "NAME": "altiusone",
         "USER": "MainFiDuUser",
         "PASSWORD": "Z@mbie92FiDu",
-        "HOST": "altiusfidu_postgres",
+        "HOST": "altiusone_postgres",
         "PORT": "5432",
         'CONN_MAX_AGE': 600,
         'OPTIONS': {
@@ -169,7 +169,7 @@ MODELTRANSLATION_FALLBACK_LANGUAGES = ("fr", "en")
 
 # Application specific settings
 ALTIUSFIDU_VERSION = "1.0.0"
-ALTIUSFIDU_SUPPORT_EMAIL = "support@altiusfidu.ch"
+ALTIUSFIDU_SUPPORT_EMAIL = "support@altiusone.ch"
  
 LOCALE_PATHS = (
     os.path.join(
@@ -229,7 +229,7 @@ CACHES = {
         'OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
         },
-        'KEY_PREFIX': 'altiusfidu',
+        'KEY_PREFIX': 'altiusone',
         'TIMEOUT': 300,
     }
 }
@@ -244,7 +244,7 @@ CACHES = {
 # EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=True, cast=bool)
 # EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
 # EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
-# DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@altiusfidu.ch")
+# DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@altiusone.ch")
 
 # Celery Configuration
 CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://redis:6379/0')
@@ -309,7 +309,7 @@ AUTHENTICATION_BACKENDS = [
 
 
 # REST Framework Configuration
-# AltiusFidu/settings.py
+# AltiusOne/settings.py
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",

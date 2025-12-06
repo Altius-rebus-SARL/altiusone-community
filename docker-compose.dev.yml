@@ -10,30 +10,30 @@ services:
       - ./logs:/app/logs
     environment:
       - DEBUG=True
-      - DJANGO_SETTINGS_MODULE=AltiusFidu.settings
+      - DJANGO_SETTINGS_MODULE=AltiusOne.settings
     ports:
       - "8000:8000"
     stdin_open: true
     tty: true
 
   celery:
-    command: celery -A AltiusFidu worker --loglevel=debug --autoreload
+    command: celery -A AltiusOne worker --loglevel=debug --autoreload
     volumes:
       - ./apps:/app:delegated
       - media_files:/app/media
       - ./logs:/app/logs
     environment:
       - DEBUG=True
-      - DJANGO_SETTINGS_MODULE=AltiusFidu.settings
+      - DJANGO_SETTINGS_MODULE=AltiusOne.settings
 
   celery-beat:
-    command: celery -A AltiusFidu beat --loglevel=debug
+    command: celery -A AltiusOne beat --loglevel=debug
     volumes:
       - ./apps:/app:delegated
       - ./logs:/app/logs
     environment:
       - DEBUG=True
-      - DJANGO_SETTINGS_MODULE=AltiusFidu.settings
+      - DJANGO_SETTINGS_MODULE=AltiusOne.settings
 
   nextjs:
     build:

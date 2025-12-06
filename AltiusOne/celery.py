@@ -1,14 +1,14 @@
 """
-Configuration Celery pour AltiusFidu
+Configuration Celery pour AltiusOne
 """
 import os
 from celery import Celery
 
 # Configuration de l'environnement Django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'AltiusFidu.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'AltiusOne.settings')
 
 # Création de l'application Celery
-app = Celery('AltiusFidu')
+app = Celery('AltiusOne')
 
 # Configuration depuis Django settings avec le préfixe CELERY_
 app.config_from_object('django.conf:settings', namespace='CELERY')

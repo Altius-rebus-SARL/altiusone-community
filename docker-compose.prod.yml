@@ -21,10 +21,10 @@ services:
 
   django:
     restart: always
-    command: gunicorn AltiusFidu.wsgi:application --bind 0.0.0.0:8000 --workers 4 --threads 2 --timeout 60 --access-logfile - --error-logfile -
+    command: gunicorn AltiusOne.wsgi:application --bind 0.0.0.0:8000 --workers 4 --threads 2 --timeout 60 --access-logfile - --error-logfile -
     environment:
       - DEBUG=False
-      - DJANGO_SETTINGS_MODULE=AltiusFidu.settings
+      - DJANGO_SETTINGS_MODULE=AltiusOne.settings
     logging:
       driver: "json-file"
       options:
@@ -38,10 +38,10 @@ services:
 
   celery:
     restart: always
-    command: celery -A AltiusFidu worker --loglevel=info --concurrency=4 --max-tasks-per-child=100
+    command: celery -A AltiusOne worker --loglevel=info --concurrency=4 --max-tasks-per-child=100
     environment:
       - DEBUG=False
-      - DJANGO_SETTINGS_MODULE=AltiusFidu.settings
+      - DJANGO_SETTINGS_MODULE=AltiusOne.settings
     logging:
       driver: "json-file"
       options:
@@ -53,10 +53,10 @@ services:
 
   celery-beat:
     restart: always
-    command: celery -A AltiusFidu beat --loglevel=info
+    command: celery -A AltiusOne beat --loglevel=info
     environment:
       - DEBUG=False
-      - DJANGO_SETTINGS_MODULE=AltiusFidu.settings
+      - DJANGO_SETTINGS_MODULE=AltiusOne.settings
     logging:
       driver: "json-file"
       options:

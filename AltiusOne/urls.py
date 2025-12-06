@@ -1,4 +1,4 @@
-# AltiusFidu/urls.py
+# AltiusOne/urls.py
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
@@ -39,7 +39,7 @@ api_v1_router.registry.extend(analytics_router.registry)
 
 schema_view = get_schema_view(
     openapi.Info(
-        title="AltiusFidu API",
+        title="AltiusOne API",
         default_version="v1",
         description="API de gestion fiduciaire complète pour la Suisse",
         terms_of_service="https://www.altius.ch/terms/",
@@ -53,7 +53,7 @@ schema_view = get_schema_view(
 
 class HealthCheckView(View):
     def get(self, request):
-        return JsonResponse({"status": "ok", "service": "altiusfidu"})
+        return JsonResponse({"status": "ok", "service": "altiusone"})
 
 urlpatterns = [
     path("health/", HealthCheckView.as_view(), name="health"),
@@ -107,8 +107,8 @@ if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
-admin.site.site_header = "AltiusFidu Administration"
-admin.site.site_title = "AltiusFidu Admin"
+admin.site.site_header = "AltiusOne Administration"
+admin.site.site_title = "AltiusOne Admin"
 admin.site.index_title = "Gestion Fiduciaire"
 
 
