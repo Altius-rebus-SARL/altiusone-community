@@ -103,14 +103,10 @@ init: ## Initialise le projet (première installation)
 	sudo docker compose build
 	@echo "🚀 Démarrage des services..."
 	sudo docker compose up -d
-	@echo "⏳ Attente du démarrage de la base de données..."
-	sleep 10
-	@echo "🔄 Exécution des migrations..."
-	sudo docker compose exec django python manage.py migrate
-	@echo "📊 Collecte des fichiers statiques..."
-	sudo docker compose exec django python manage.py collectstatic --noinput
+	@echo "⏳ Attente du démarrage des services..."
+	@echo "📋 Suivez les logs avec: make logs-django"
 	@echo "✅ Projet initialisé avec succès!"
-	@echo "👤 Créez maintenant un superuser avec: make createsuperuser"
+	@echo "👤 Créez un superuser avec: make createsuperuser"
 
 backup-db: ## Sauvegarde la base de données
 	@mkdir -p backups

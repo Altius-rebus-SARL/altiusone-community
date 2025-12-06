@@ -3,8 +3,7 @@ FROM python:3.12-bookworm
 
 # Variables d'environnement
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    FASTVLM_MODEL_PATH=/app/models
+    PYTHONUNBUFFERED=1 
 
 # Installation des dépendances système en une seule couche
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -32,7 +31,7 @@ RUN tesseract --version && tesseract --list-langs
 RUN pip install --no-cache-dir --upgrade pip
 
 # Création des répertoires
-RUN mkdir -p /app/models /app/media/tmp /app/media/outputs /app/logs /app/staticfiles
+RUN mkdir -p /app/models /app/logs 
 
 WORKDIR /app
 
@@ -45,8 +44,7 @@ COPY entrypoint.sh ./
 COPY . .
 
 # Configuration finale des permissions
-RUN chmod +x entrypoint.sh && \
-    chmod -R 755 /app/media /app/staticfiles /app/models
+RUN chmod +x entrypoint.sh
 
 EXPOSE 8000
 ENTRYPOINT ["/bin/bash", "/app/entrypoint.sh"]

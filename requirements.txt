@@ -33,7 +33,7 @@ cssselect2==0.8.0
 decorator==5.2.1
 defusedxml==0.7.1
 diff-match-patch==20241021
-Django==5.2.8
+Django
 django-appconf==1.1.0
 django-colorfield==0.14.0
 django-cors-headers==4.9.0
@@ -157,7 +157,6 @@ psutil==7.0.0
 psycopg==3.2.10
 pyasn1==0.6.1
 pyasn1_modules==0.4.2
-pycairo==1.29.0
 pycparser==2.23
 pydyf==0.11.0
 Pygments==2.19.2
@@ -190,7 +189,6 @@ reportlab==4.4.4
 requests==2.32.5
 requests-oauthlib==2.0.0
 rich==14.1.0
-rlPyCairo==0.4.0
 rpds-py==0.27.1
 rsa==4.9.1
 s3transfer==0.14.0

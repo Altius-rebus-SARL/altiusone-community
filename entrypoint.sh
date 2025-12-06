@@ -49,6 +49,8 @@ init_postgis_db "$POSTGRES_DB"
 echo "Creating necessary directories..."
 mkdir -p /app/staticfiles
 mkdir -p /app/media
+mkdir -p /app/media/tmp
+mkdir -p /app/media/outputs
 
 # Appliquer les permissions correctes
 echo "Setting permissions..."
@@ -112,6 +114,13 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "✓ Migrations applied successfully."
+
+#======= commande ========
+echo "Load setup swiss chart of accounts"
+python manage.py load_swiss_chart_of_accounts
+
+echo "Load swiss chart of accounts done"
+
 
 # === GESTION DES DONNEES ===
 
