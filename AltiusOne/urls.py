@@ -11,6 +11,12 @@ from django.views import View
 from django.conf.urls.i18n import i18n_patterns
 from .api_root import api_root
 from rest_framework.routers import DefaultRouter
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+    TokenRefreshView,
+    TokenVerifyView,
+    TokenBlacklistView,
+)
 
 from core.auth_views import simple_login, check_auth, simple_logout
 
@@ -65,6 +71,19 @@ urlpatterns = [
     path("api/v1/", include(api_v1_router.urls)),
     # Auth
     path("api/v1/auth/", include("rest_framework.urls")),
+
+    # =========================================================================
+    # JWT Authentication Endpoints (for Mobile App)
+    # =========================================================================
+    # POST /api/v1/auth/token/ - Obtain access & refresh tokens
+    path("api/v1/auth/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
+    # POST /api/v1/auth/token/refresh/ - Refresh access token
+    path("api/v1/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    # POST /api/v1/auth/token/verify/ - Verify token validity
+    path("api/v1/auth/token/verify/", TokenVerifyView.as_view(), name="token_verify"),
+    # POST /api/v1/auth/token/blacklist/ - Logout (blacklist refresh token)
+    path("api/v1/auth/token/blacklist/", TokenBlacklistView.as_view(), name="token_blacklist"),
+
     # API Documentation
     path(
         "api/docs/",
@@ -74,7 +93,7 @@ urlpatterns = [
     path(
         "api/redoc/", schema_view.with_ui("redoc", cache_timeout=0), name="schema-redoc"
     ),
-    # Auth simple pour dev
+    # Auth simple pour dev (session-based, kept for backwards compatibility)
     path("api/auth/login/", simple_login, name="simple-login"),
     path("api/auth/check/", check_auth, name="check-auth"),
     path("api/auth/logout/", simple_logout, name="simple-logout"),
