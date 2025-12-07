@@ -1,0 +1,150 @@
+<!-- analytics/planification_list.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Planifications de rapports" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Planifications de rapports" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Accueil" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="#">{% trans "Analytics" %}</a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Planifications" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Header Actions -->
+<div class="row mb-3">
+    <div class="col-12 d-flex justify-content-end">
+        {% if user_permissions.analytics.schedule_rapport or is_superadmin %}
+        <a href="{% url 'analytics:planification-create' %}" class="btn btn-primary">
+            <i class="ph ph-plus me-2"></i>{% trans "Nouvelle planification" %}
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Liste des planifications -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bottom-border align-middle">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Nom" %}</th>
+                                <th>{% trans "Type" %}</th>
+                                <th>{% trans "Client" %}</th>
+                                <th>{% trans "Fréquence" %}</th>
+                                <th>{% trans "Prochaine exécution" %}</th>
+                                <th>{% trans "Dernière exécution" %}</th>
+                                <th>{% trans "Statut" %}</th>
+                                <th>{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for planif in planifications %}
+                            <tr>
+                                <td>
+                                    <strong>{{ planif.nom }}</strong>
+                                </td>
+                                <td>
+                                    <span class="badge bg-light-primary">{{ planif.type_rapport }}</span>
+                                </td>
+                                <td>
+                                    {% if planif.mandat %}
+                                    {{ planif.mandat.client.raison_sociale|truncatewords:3 }}
+                                    {% else %}-{% endif %}
+                                </td>
+                                <td>
+                                    <i class="ph ph-calendar me-1"></i>
+                                    {{ planif.get_frequence_display }}
+                                    {% if planif.jour_mois %}
+                                    <small class="text-muted">({% trans "jour" %} {{ planif.jour_mois }})</small>
+                                    {% elif planif.jour_semaine %}
+                                    <small class="text-muted">({{ planif.jour_semaine }})</small>
+                                    {% endif %}
+                                    <br>
+                                    <small class="text-muted">{{ planif.heure_generation }}</small>
+                                </td>
+                                <td>
+                                    {% if planif.date_prochaine_execution %}
+                                    {{ planif.date_prochaine_execution|date:"d.m.Y H:i" }}
+                                    {% else %}-{% endif %}
+                                </td>
+                                <td>
+                                    {% if planif.date_derniere_execution %}
+                                    {{ planif.date_derniere_execution|date:"d.m.Y H:i" }}
+                                    {% else %}
+                                    <span class="text-muted">{% trans "Jamais" %}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if planif.actif %}
+                                    <span class="badge bg-success">
+                                        <i class="ph ph-check me-1"></i>{% trans "Actif" %}
+                                    </span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">
+                                        <i class="ph ph-pause me-1"></i>{% trans "Inactif" %}
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group">
+                                        <a href="{% url 'analytics:planification-update' planif.pk %}"
+                                           class="btn btn-sm btn-light-secondary" title="{% trans 'Modifier' %}">
+                                            <i class="ph ph-pencil"></i>
+                                        </a>
+                                        <button type="button" class="btn btn-sm btn-light-primary"
+                                                title="{% trans 'Exécuter maintenant' %}">
+                                            <i class="ph ph-play"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="8" class="text-center py-5">
+                                    <i class="ph ph-calendar-blank f-s-50 text-muted"></i>
+                                    <p class="text-muted mt-3">{% trans "Aucune planification configurée" %}</p>
+                                    {% if user_permissions.analytics.schedule_rapport or is_superadmin %}
+                                    <a href="{% url 'analytics:planification-create' %}" class="btn btn-primary mt-2">
+                                        <i class="ph ph-plus me-2"></i>{% trans "Créer une planification" %}
+                                    </a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Info -->
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="alert alert-info">
+            <i class="ph ph-info me-2"></i>
+            {% trans "Les rapports planifiés sont générés automatiquement selon la fréquence définie et envoyés aux destinataires configurés." %}
+        </div>
+    </div>
+</div>
+{% endblock %}

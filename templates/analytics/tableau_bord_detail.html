@@ -1,0 +1,266 @@
+<!-- analytics/tableau_bord_detail.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ tableau.nom }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .widget-card {
+        min-height: 200px;
+    }
+    .kpi-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+    }
+    .kpi-trend-up { color: var(--bs-success); }
+    .kpi-trend-down { color: var(--bs-danger); }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{{ tableau.nom }}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Accueil" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'analytics:tableau-bord-list' %}">{% trans "Tableaux de bord" %}</a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{{ tableau.nom }}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Header Actions -->
+<div class="row mb-3">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <p class="text-muted mb-0">{{ tableau.description }}</p>
+            {% if tableau.auto_refresh %}
+            <span class="badge bg-light-success mt-1">
+                <i class="ph ph-arrow-clockwise me-1"></i>
+                {% trans "Rafraîchissement automatique" %} ({{ tableau.refresh_interval }}s)
+            </span>
+            {% endif %}
+        </div>
+        <div class="d-flex gap-2">
+            {% if tableau.proprietaire == request.user or is_superadmin %}
+            <a href="{% url 'analytics:tableau-bord-update' tableau.pk %}" class="btn btn-light-secondary">
+                <i class="ph ph-pencil me-2"></i>{% trans "Modifier" %}
+            </a>
+            {% endif %}
+            <button class="btn btn-light-primary" onclick="refreshDashboard()">
+                <i class="ph ph-arrow-clockwise me-2"></i>{% trans "Actualiser" %}
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Filtres -->
+{% if tableau.filtres_defaut %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body py-2">
+                <form method="get" class="d-flex gap-3 align-items-center">
+                    <span class="text-muted"><i class="ph ph-funnel me-1"></i>{% trans "Filtres:" %}</span>
+                    <select name="periode" class="form-select form-select-sm" style="width: auto;">
+                        <option value="mois">{% trans "Ce mois" %}</option>
+                        <option value="trimestre">{% trans "Ce trimestre" %}</option>
+                        <option value="annee">{% trans "Cette année" %}</option>
+                    </select>
+                    <button type="submit" class="btn btn-sm btn-primary">{% trans "Appliquer" %}</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Widgets Grid -->
+<div class="row" id="dashboard-widgets">
+    <!-- Les widgets sont rendus dynamiquement selon la configuration -->
+    {% if configuration %}
+    <div class="col-12">
+        <div class="alert alert-info">
+            <i class="ph ph-info me-2"></i>
+            {% trans "Ce tableau de bord contient des widgets configurés. Le rendu dynamique sera implémenté prochainement." %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Exemple de widgets statiques -->
+    <div class="col-md-6 col-lg-3 mb-4">
+        <div class="card widget-card">
+            <div class="card-body text-center">
+                <p class="text-muted mb-2">{% trans "Chiffre d'affaires" %}</p>
+                <div class="kpi-value">CHF 125'450</div>
+                <span class="badge bg-light-success">
+                    <i class="ph ph-trend-up me-1"></i>+12.5%
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3 mb-4">
+        <div class="card widget-card">
+            <div class="card-body text-center">
+                <p class="text-muted mb-2">{% trans "Factures impayées" %}</p>
+                <div class="kpi-value text-danger">8</div>
+                <span class="badge bg-light-danger">
+                    <i class="ph ph-trend-up me-1"></i>+2 vs mois dernier
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3 mb-4">
+        <div class="card widget-card">
+            <div class="card-body text-center">
+                <p class="text-muted mb-2">{% trans "Heures facturées" %}</p>
+                <div class="kpi-value">342h</div>
+                <span class="badge bg-light-primary">
+                    <i class="ph ph-minus me-1"></i>{% trans "Stable" %}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3 mb-4">
+        <div class="card widget-card">
+            <div class="card-body text-center">
+                <p class="text-muted mb-2">{% trans "Taux de recouvrement" %}</p>
+                <div class="kpi-value text-success">94%</div>
+                <span class="badge bg-light-success">
+                    <i class="ph ph-check me-1"></i>{% trans "Objectif atteint" %}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Graphique d'évolution -->
+    <div class="col-lg-8 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Évolution du chiffre d'affaires" %}</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="caChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Répartition par type -->
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Répartition par prestation" %}</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="repartitionChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Métadonnées -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row text-muted small">
+                    <div class="col-auto">
+                        <i class="ph ph-user me-1"></i>
+                        {% trans "Créé par" %}: {{ tableau.proprietaire.get_full_name|default:tableau.proprietaire.username }}
+                    </div>
+                    <div class="col-auto">
+                        <i class="ph ph-calendar me-1"></i>
+                        {% trans "Créé le" %}: {{ tableau.created_at|date:"d.m.Y H:i" }}
+                    </div>
+                    <div class="col-auto">
+                        <i class="ph ph-clock me-1"></i>
+                        {% trans "Modifié le" %}: {{ tableau.updated_at|date:"d.m.Y H:i" }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Graphique CA
+const caCtx = document.getElementById('caChart').getContext('2d');
+new Chart(caCtx, {
+    type: 'line',
+    data: {
+        labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'],
+        datasets: [{
+            label: '{% trans "Chiffre d\'affaires" %}',
+            data: [95000, 102000, 98000, 110000, 115000, 108000, 125000, 118000, 130000, 125450, 0, 0],
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            fill: true,
+            tension: 0.4
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    callback: function(value) {
+                        return 'CHF ' + value.toLocaleString();
+                    }
+                }
+            }
+        }
+    }
+});
+
+// Graphique répartition
+const repCtx = document.getElementById('repartitionChart').getContext('2d');
+new Chart(repCtx, {
+    type: 'doughnut',
+    data: {
+        labels: ['Comptabilité', 'TVA', 'Salaires', 'Conseil', 'Autres'],
+        datasets: [{
+            data: [45, 20, 15, 12, 8],
+            backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#6b7280']
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { position: 'bottom' }
+        }
+    }
+});
+
+function refreshDashboard() {
+    location.reload();
+}
+
+{% if tableau.auto_refresh %}
+// Auto-refresh
+setInterval(refreshDashboard, {{ tableau.refresh_interval }} * 1000);
+{% endif %}
+</script>
+{% endblock %}

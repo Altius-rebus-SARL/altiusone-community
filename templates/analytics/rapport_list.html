@@ -1,0 +1,195 @@
+<!-- analytics/rapport_list.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Rapports" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Rapports générés" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Accueil" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="#">{% trans "Analytics" %}</a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Rapports" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Header Actions -->
+<div class="row mb-3">
+    <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <form method="get" class="d-flex gap-2">
+            <select name="type" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="">{% trans "Tous les types" %}</option>
+                {% for type in types_rapport %}
+                <option value="{{ type.type_rapport }}" {% if request.GET.type == type.type_rapport %}selected{% endif %}>
+                    {{ type.type_rapport }} ({{ type.count }})
+                </option>
+                {% endfor %}
+            </select>
+        </form>
+
+        {% if user_permissions.analytics.generate_rapport or is_superadmin %}
+        <a href="{% url 'analytics:rapport-generer' %}" class="btn btn-primary">
+            <i class="ph ph-plus me-2"></i>{% trans "Générer un rapport" %}
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Liste des rapports -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bottom-border align-middle">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Nom" %}</th>
+                                <th>{% trans "Type" %}</th>
+                                <th>{% trans "Période" %}</th>
+                                <th>{% trans "Client" %}</th>
+                                <th>{% trans "Format" %}</th>
+                                <th>{% trans "Statut" %}</th>
+                                <th>{% trans "Généré par" %}</th>
+                                <th>{% trans "Date" %}</th>
+                                <th>{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for rapport in rapports %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'analytics:rapport-detail' rapport.pk %}" class="f-w-600">
+                                        {{ rapport.nom|truncatewords:5 }}
+                                    </a>
+                                    {% if rapport.est_recurrent %}
+                                    <span class="badge bg-light-info ms-1">
+                                        <i class="ph ph-repeat"></i>
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge
+                                        {% if rapport.type_rapport == 'BILAN' %}bg-primary
+                                        {% elif rapport.type_rapport == 'COMPTE_RESULTATS' %}bg-success
+                                        {% elif rapport.type_rapport == 'TVA' %}bg-info
+                                        {% elif rapport.type_rapport == 'SALAIRES' %}bg-warning
+                                        {% else %}bg-secondary{% endif %}">
+                                        {{ rapport.get_type_rapport_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {{ rapport.date_debut|date:"d.m.Y" }} - {{ rapport.date_fin|date:"d.m.Y" }}
+                                </td>
+                                <td>{{ rapport.mandat.client.raison_sociale|default:"-"|truncatewords:3 }}</td>
+                                <td>
+                                    {% if rapport.format_fichier == 'PDF' %}
+                                    <i class="ph ph-file-pdf text-danger me-1"></i>
+                                    {% elif rapport.format_fichier == 'EXCEL' %}
+                                    <i class="ph ph-file-xls text-success me-1"></i>
+                                    {% elif rapport.format_fichier == 'CSV' %}
+                                    <i class="ph ph-file-csv text-primary me-1"></i>
+                                    {% else %}
+                                    <i class="ph ph-file me-1"></i>
+                                    {% endif %}
+                                    {{ rapport.format_fichier }}
+                                </td>
+                                <td>
+                                    {% if rapport.statut == 'EN_COURS' %}
+                                    <span class="badge bg-warning">
+                                        <i class="ph ph-spinner me-1"></i>{% trans "En cours" %}
+                                    </span>
+                                    {% elif rapport.statut == 'TERMINE' %}
+                                    <span class="badge bg-success">
+                                        <i class="ph ph-check me-1"></i>{% trans "Terminé" %}
+                                    </span>
+                                    {% elif rapport.statut == 'ERREUR' %}
+                                    <span class="badge bg-danger">
+                                        <i class="ph ph-x me-1"></i>{% trans "Erreur" %}
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ rapport.genere_par.get_full_name|default:rapport.genere_par.username }}</td>
+                                <td>{{ rapport.date_generation|date:"d.m.Y H:i" }}</td>
+                                <td>
+                                    <div class="btn-group">
+                                        <a href="{% url 'analytics:rapport-detail' rapport.pk %}"
+                                           class="btn btn-sm btn-light-secondary" title="{% trans 'Voir' %}">
+                                            <i class="ph ph-eye"></i>
+                                        </a>
+                                        {% if rapport.fichier and rapport.statut == 'TERMINE' %}
+                                        <a href="{% url 'analytics:rapport-telecharger' rapport.pk %}"
+                                           class="btn btn-sm btn-light-primary" title="{% trans 'Télécharger' %}">
+                                            <i class="ph ph-download"></i>
+                                        </a>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="9" class="text-center py-5">
+                                    <i class="ph ph-file-text f-s-50 text-muted"></i>
+                                    <p class="text-muted mt-3">{% trans "Aucun rapport généré" %}</p>
+                                    {% if user_permissions.analytics.generate_rapport or is_superadmin %}
+                                    <a href="{% url 'analytics:rapport-generer' %}" class="btn btn-primary mt-2">
+                                        <i class="ph ph-plus me-2"></i>{% trans "Générer votre premier rapport" %}
+                                    </a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if is_paginated %}
+                <div class="list-pagination mt-3">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}">
+                                <i class="ph ph-caret-left"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}">{{ num }}</a>
+                            </li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}">
+                                <i class="ph ph-caret-right"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

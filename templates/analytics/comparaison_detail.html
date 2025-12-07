@@ -1,0 +1,252 @@
+<!-- analytics/comparaison_detail.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ comparaison.nom }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{{ comparaison.nom }}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Accueil" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="#">{% trans "Analytics" %}</a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Comparaison" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Header -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-5 text-center">
+                        <div class="bg-light-primary p-3 rounded">
+                            <h6 class="text-primary mb-1">{{ comparaison.libelle_periode1 }}</h6>
+                            <small class="text-muted">
+                                {{ comparaison.periode1_debut|date:"d.m.Y" }} - {{ comparaison.periode1_fin|date:"d.m.Y" }}
+                            </small>
+                        </div>
+                    </div>
+                    <div class="col-md-2 text-center">
+                        <div class="py-3">
+                            <i class="ph ph-arrows-left-right f-s-30 text-muted"></i>
+                            <p class="mb-0 small text-muted">{% trans "vs" %}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-5 text-center">
+                        <div class="bg-light-success p-3 rounded">
+                            <h6 class="text-success mb-1">{{ comparaison.libelle_periode2 }}</h6>
+                            <small class="text-muted">
+                                {{ comparaison.periode2_debut|date:"d.m.Y" }} - {{ comparaison.periode2_fin|date:"d.m.Y" }}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Résultats principaux -->
+{% if comparaison.resultats %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Résumé des variations" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bottom-border">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Indicateur" %}</th>
+                                <th class="text-end">{{ comparaison.libelle_periode1 }}</th>
+                                <th class="text-end">{{ comparaison.libelle_periode2 }}</th>
+                                <th class="text-end">{% trans "Variation" %}</th>
+                                <th class="text-end">{% trans "%" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultats-table">
+                            <!-- Rempli par JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Graphique de comparaison -->
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Comparaison graphique" %}</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="comparaisonChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Répartition des variations" %}</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="variationChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="ph ph-chart-bar f-s-50 text-muted"></i>
+                <p class="text-muted mt-3">{% trans "Les résultats de comparaison n'ont pas encore été calculés." %}</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Métadonnées -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row text-muted small">
+                    <div class="col-auto">
+                        <i class="ph ph-tag me-1"></i>
+                        {% trans "Type:" %} {{ comparaison.get_type_comparaison_display }}
+                    </div>
+                    <div class="col-auto">
+                        <i class="ph ph-folder me-1"></i>
+                        {% trans "Mandat:" %} {{ comparaison.mandat.numero }} - {{ comparaison.mandat.client.raison_sociale }}
+                    </div>
+                    <div class="col-auto">
+                        <i class="ph ph-calendar me-1"></i>
+                        {% trans "Calculé le:" %} {{ comparaison.date_calcul|date:"d.m.Y H:i" }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+{% if resultats %}
+const resultats = {{ resultats|safe }};
+
+// Remplir le tableau
+const tableBody = document.getElementById('resultats-table');
+Object.entries(resultats).forEach(([key, data]) => {
+    const variation = data.variation || 0;
+    const variationPct = data.variation_pct || 0;
+    const variationClass = variation >= 0 ? 'text-success' : 'text-danger';
+    const variationIcon = variation >= 0 ? 'ph-trend-up' : 'ph-trend-down';
+
+    const row = `
+        <tr>
+            <td class="f-w-600">${key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</td>
+            <td class="text-end">${data.periode1?.toLocaleString('fr-CH') || '-'}</td>
+            <td class="text-end">${data.periode2?.toLocaleString('fr-CH') || '-'}</td>
+            <td class="text-end ${variationClass}">
+                ${variation >= 0 ? '+' : ''}${variation.toLocaleString('fr-CH')}
+            </td>
+            <td class="text-end ${variationClass}">
+                <i class="ph ${variationIcon} me-1"></i>
+                ${variationPct >= 0 ? '+' : ''}${variationPct.toFixed(1)}%
+            </td>
+        </tr>
+    `;
+    tableBody.innerHTML += row;
+});
+
+// Graphique de comparaison
+const labels = Object.keys(resultats).map(k => k.replace(/_/g, ' '));
+const periode1Data = Object.values(resultats).map(d => d.periode1 || 0);
+const periode2Data = Object.values(resultats).map(d => d.periode2 || 0);
+
+const compCtx = document.getElementById('comparaisonChart').getContext('2d');
+new Chart(compCtx, {
+    type: 'bar',
+    data: {
+        labels: labels,
+        datasets: [
+            {
+                label: '{{ comparaison.libelle_periode1 }}',
+                data: periode1Data,
+                backgroundColor: 'rgba(59, 130, 246, 0.8)',
+            },
+            {
+                label: '{{ comparaison.libelle_periode2 }}',
+                data: periode2Data,
+                backgroundColor: 'rgba(16, 185, 129, 0.8)',
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { position: 'bottom' }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    callback: function(value) {
+                        return value.toLocaleString('fr-CH');
+                    }
+                }
+            }
+        }
+    }
+});
+
+// Graphique des variations
+const variations = Object.values(resultats).map(d => d.variation_pct || 0);
+const positives = variations.filter(v => v >= 0).length;
+const negatives = variations.filter(v => v < 0).length;
+
+const varCtx = document.getElementById('variationChart').getContext('2d');
+new Chart(varCtx, {
+    type: 'doughnut',
+    data: {
+        labels: ['{% trans "Hausses" %}', '{% trans "Baisses" %}'],
+        datasets: [{
+            data: [positives, negatives],
+            backgroundColor: ['#10b981', '#ef4444']
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { position: 'bottom' }
+        }
+    }
+});
+{% endif %}
+</script>
+{% endblock %}

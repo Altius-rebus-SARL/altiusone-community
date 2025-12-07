@@ -1,0 +1,142 @@
+<!-- analytics/export_list.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Exports de données" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Exports de données" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Accueil" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="#">{% trans "Analytics" %}</a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Exports" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Header Actions -->
+<div class="row mb-3">
+    <div class="col-12 d-flex justify-content-end">
+        {% if user_permissions.analytics.export_donnees or is_superadmin %}
+        <a href="{% url 'analytics:export-donnees' %}" class="btn btn-primary">
+            <i class="ph ph-export me-2"></i>{% trans "Nouvel export" %}
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Liste des exports -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bottom-border align-middle">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Nom" %}</th>
+                                <th>{% trans "Type" %}</th>
+                                <th>{% trans "Période" %}</th>
+                                <th>{% trans "Client" %}</th>
+                                <th>{% trans "Format" %}</th>
+                                <th>{% trans "Taille" %}</th>
+                                <th>{% trans "Lignes" %}</th>
+                                <th>{% trans "Demandé par" %}</th>
+                                <th>{% trans "Date" %}</th>
+                                <th>{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for export in exports %}
+                            <tr>
+                                <td><strong>{{ export.nom }}</strong></td>
+                                <td>
+                                    <span class="badge
+                                        {% if export.type_export == 'COMPTABILITE' %}bg-primary
+                                        {% elif export.type_export == 'TVA' %}bg-info
+                                        {% elif export.type_export == 'SALAIRES' %}bg-warning
+                                        {% elif export.type_export == 'FACTURATION' %}bg-success
+                                        {% else %}bg-secondary{% endif %}">
+                                        {{ export.get_type_export_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {{ export.date_debut|date:"d.m.Y" }} - {{ export.date_fin|date:"d.m.Y" }}
+                                </td>
+                                <td>{{ export.mandat.client.raison_sociale|truncatewords:3 }}</td>
+                                <td>
+                                    {% if export.format_export == 'CSV' %}
+                                    <i class="ph ph-file-csv text-primary me-1"></i>
+                                    {% elif export.format_export == 'EXCEL' %}
+                                    <i class="ph ph-file-xls text-success me-1"></i>
+                                    {% elif export.format_export == 'JSON' %}
+                                    <i class="ph ph-brackets-curly text-warning me-1"></i>
+                                    {% elif export.format_export == 'XML' %}
+                                    <i class="ph ph-file-code text-info me-1"></i>
+                                    {% endif %}
+                                    {{ export.format_export }}
+                                </td>
+                                <td>
+                                    {% if export.taille_fichier %}
+                                    {{ export.taille_fichier|filesizeformat }}
+                                    {% else %}-{% endif %}
+                                </td>
+                                <td>{{ export.nombre_lignes|default:"-" }}</td>
+                                <td>{{ export.demande_par.get_full_name|default:export.demande_par.username }}</td>
+                                <td>{{ export.date_demande|date:"d.m.Y H:i" }}</td>
+                                <td>
+                                    {% if export.fichier %}
+                                    <a href="{% url 'analytics:export-telecharger' export.pk %}"
+                                       class="btn btn-sm btn-light-primary" title="{% trans 'Télécharger' %}">
+                                        <i class="ph ph-download"></i>
+                                    </a>
+                                    {% else %}
+                                    <span class="badge bg-warning">
+                                        <i class="ph ph-spinner"></i>
+                                    </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="10" class="text-center py-5">
+                                    <i class="ph ph-database f-s-50 text-muted"></i>
+                                    <p class="text-muted mt-3">{% trans "Aucun export effectué" %}</p>
+                                    {% if user_permissions.analytics.export_donnees or is_superadmin %}
+                                    <a href="{% url 'analytics:export-donnees' %}" class="btn btn-primary mt-2">
+                                        <i class="ph ph-export me-2"></i>{% trans "Créer un export" %}
+                                    </a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Info sécurité -->
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="alert alert-warning">
+            <i class="ph ph-shield-warning me-2"></i>
+            {% trans "Les exports contiennent des données sensibles. Les liens de téléchargement expirent après 24 heures." %}
+        </div>
+    </div>
+</div>
+{% endblock %}
