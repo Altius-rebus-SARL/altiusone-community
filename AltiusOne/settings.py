@@ -105,20 +105,22 @@ WSGI_APPLICATION = 'AltiusOne.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+
 DATABASES = {
     "default": {
         "ENGINE": "django.contrib.gis.db.backends.postgis",
-        "NAME": "altiusone",
-        "USER": "MainFiDuUser",
-        "PASSWORD": "Z@mbie92FiDu",
-        "HOST": "altiusone_postgres",
-        "PORT": "5432",
+        "NAME": os.environ.get("POSTGRES_DB", "altiusone"),
+        "USER": os.environ.get("POSTGRES_USER", "altiusone"),
+        "PASSWORD": os.environ.get("POSTGRES_PASSWORD", ""),
+        "HOST": os.environ.get("POSTGRES_HOST", "altiusone_postgres"),
+        "PORT": os.environ.get("POSTGRES_PORT", "5432"),
         'CONN_MAX_AGE': 600,
         'OPTIONS': {
             'connect_timeout': 10,
         }
     }
 }
+
 
 
 # Password validation
