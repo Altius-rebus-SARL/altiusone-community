@@ -1,4 +1,4 @@
-# core/views.py
+# core/views/main_views.py
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
@@ -29,7 +29,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 import json
 
-from .models import (
+from core.models import (
     Client,
     Mandat,
     Contact,
@@ -38,7 +38,7 @@ from .models import (
     Tache,
     Notification,
 )
-from .forms import (
+from core.forms import (
     ClientForm,
     MandatForm,
     ContactForm,
@@ -47,7 +47,7 @@ from .forms import (
     SignUpForm, 
     ExerciceComptableForm,
 )
-from .filters import ClientFilter, MandatFilter, TacheFilter
+from core.filters import ClientFilter, MandatFilter, TacheFilter
 
 from comptabilite.models import EcritureComptable, Compte
 from facturation.models import Facture
