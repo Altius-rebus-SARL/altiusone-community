@@ -44,14 +44,11 @@ EXTERNAL_APPS = [
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
     "django_filters",
-    "django_cotton",
     "widget_tweaks",
-    "django_json_widget",
-    "pwa",
     "drf_yasg",
     'corsheaders',
-    "celery",
 ]
+
 
 LOCAL_APPS = [
     "comptabilite",
