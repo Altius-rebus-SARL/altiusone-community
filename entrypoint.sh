@@ -116,8 +116,9 @@ fi
 echo "✓ Migrations applied successfully."
 
 #======= commande ========
-echo "Load setup swiss chart of accounts"
-python manage.py load_swiss_chart_of_accounts
+echo "Load setup swiss chart of accounts (if empty)"
+python manage.py load_swiss_chart_of_accounts || echo "Warning: Chart of accounts loading failed, continuing..."
+
 
 echo "Load swiss chart of accounts done"
 
