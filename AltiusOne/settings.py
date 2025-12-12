@@ -389,57 +389,57 @@ CORS_ALLOW_METHODS = [
 # La CSP protège contre les attaques XSS en déclarant les sources de contenu fiables
 
 # Activer le middleware CSP
-MIDDLEWARE += [
-    'django.middleware.security.ContentSecurityPolicyMiddleware',
-]
+# MIDDLEWARE += [
+#     'django.middleware.security.ContentSecurityPolicyMiddleware',
+# ]
 
-# Configuration CSP
-CONTENT_SECURITY_POLICY = {
-    # Directive par défaut
-    "default-src": ["'self'"],
+# # Configuration CSP
+# CONTENT_SECURITY_POLICY = {
+#     # Directive par défaut
+#     "default-src": ["'self'"],
 
-    # Scripts JavaScript
-    "script-src": [
-        "'self'",
-        "'unsafe-inline'",  # Nécessaire pour certains scripts inline (à réduire progressivement)
-        "https://unpkg.com",  # HTMX
-        "https://cdn.jsdelivr.net",  # CDN
-    ],
+#     # Scripts JavaScript
+#     "script-src": [
+#         "'self'",
+#         "'unsafe-inline'",  # Nécessaire pour certains scripts inline (à réduire progressivement)
+#         "https://unpkg.com",  # HTMX
+#         "https://cdn.jsdelivr.net",  # CDN
+#     ],
 
-    # Styles CSS
-    "style-src": [
-        "'self'",
-        "'unsafe-inline'",  # Nécessaire pour les styles inline Bootstrap
-        "https://fonts.googleapis.com",
-    ],
+#     # Styles CSS
+#     "style-src": [
+#         "'self'",
+#         "'unsafe-inline'",  # Nécessaire pour les styles inline Bootstrap
+#         "https://fonts.googleapis.com",
+#     ],
 
-    # Images
-    "img-src": [
-        "'self'",
-        "data:",  # Pour les images base64 (QR codes)
-        "blob:",  # Pour les previews d'images
-    ],
+#     # Images
+#     "img-src": [
+#         "'self'",
+#         "data:",  # Pour les images base64 (QR codes)
+#         "blob:",  # Pour les previews d'images
+#     ],
 
-    # Polices
-    "font-src": [
-        "'self'",
-        "https://fonts.gstatic.com",
-    ],
+#     # Polices
+#     "font-src": [
+#         "'self'",
+#         "https://fonts.gstatic.com",
+#     ],
 
-    # Connexions (AJAX, WebSocket)
-    "connect-src": [
-        "'self'",
-    ],
+#     # Connexions (AJAX, WebSocket)
+#     "connect-src": [
+#         "'self'",
+#     ],
 
-    # Frames
-    "frame-ancestors": ["'none'"],
+#     # Frames
+#     "frame-ancestors": ["'none'"],
 
-    # Formulaires
-    "form-action": ["'self'"],
+#     # Formulaires
+#     "form-action": ["'self'"],
 
-    # Base URI
-    "base-uri": ["'self'"],
-}
+#     # Base URI
+#     "base-uri": ["'self'"],
+# }
 
 # Mode report-only en développement (pour tester sans bloquer)
 CONTENT_SECURITY_POLICY_REPORT_ONLY = DEBUG
