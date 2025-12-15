@@ -19,6 +19,16 @@ DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
+# CSRF trusted origins (required for Django 4+)
+# Format: https://domain.com (must include protocol)
+CSRF_TRUSTED_ORIGINS = [
+    f"https://{host.strip()}" for host in os.environ.get('ALLOWED_HOSTS', 'localhost').split(',')
+    if host.strip() and host.strip() not in ('localhost', '127.0.0.1')
+]
+# Always include localhost for development
+if DEBUG:
+    CSRF_TRUSTED_ORIGINS.extend(['http://localhost:8000', 'http://localhost:8012', 'http://127.0.0.1:8000'])
+
 
 # Application definition
 
