@@ -12,6 +12,11 @@ up: ## Démarre tous les services
 down: ## Arrête tous les services
 	sudo docker compose down
 
+reup: ## Arrête tous les services
+	sudo docker compose down
+	sudo docker compose build
+	sudo docker compose up -d
+
 restart: ## Redémarre tous les services
 	sudo docker compose restart
 
