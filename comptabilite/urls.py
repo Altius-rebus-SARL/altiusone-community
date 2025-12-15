@@ -84,4 +84,9 @@ urlpatterns = [
         views.balance_generale,
         name="balance-generale",
     ),
+    # Exports
+    path("comptes/export/csv/", views.export_comptes_csv, name="compte-export-csv"),
+    path("comptes/export/excel/", views.export_comptes_excel, name="compte-export-excel"),
+    path("ecritures/export/csv/", views.export_ecritures_csv, name="ecriture-export-csv"),
+    path("ecritures/export/excel/", views.export_ecritures_excel, name="ecriture-export-excel"),
 ]
