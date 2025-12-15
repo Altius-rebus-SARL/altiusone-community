@@ -1,7 +1,8 @@
 # tva/views.py
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin
+from core.permissions import BusinessPermissionMixin, permission_required_business
 from django.views.generic import ListView, DetailView, CreateView, UpdateView
 from django.db.models import Q, Count, Sum, F, Max
 from django.urls import reverse_lazy
@@ -47,34 +48,36 @@ from core.models import Mandat
 # ============ CONFIGURATION TVA ============
 
 
-class ConfigurationTVAListView(LoginRequiredMixin, ListView):
+class ConfigurationTVAListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des configurations TVA"""
 
     model = ConfigurationTVA
     template_name = "tva/configuration_list.html"
     context_object_name = "configurations"
+    business_permission = 'tva.config_tva'
 
     def get_queryset(self):
         return ConfigurationTVA.objects.select_related("mandat__client")
 
 
-class ConfigurationTVADetailView(LoginRequiredMixin, DetailView):
+class ConfigurationTVADetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
     """Détail d'une configuration TVA"""
 
     model = ConfigurationTVA
     template_name = "tva/configuration_detail.html"
     context_object_name = "configuration"
+    business_permission = 'tva.config_tva'
 
 
 class ConfigurationTVAUpdateView(
-    LoginRequiredMixin, PermissionRequiredMixin, UpdateView
+    LoginRequiredMixin, BusinessPermissionMixin, UpdateView
 ):
     """Modification d'une configuration TVA"""
 
     model = ConfigurationTVA
     form_class = ConfigurationTVAForm
     template_name = "tva/configuration_form.html"
-    permission_required = "tva.change_configurationtva"
+    business_permission = 'tva.config_tva'
 
     def get_success_url(self):
         return reverse_lazy("tva:configuration-detail", kwargs={"pk": self.object.pk})
@@ -87,13 +90,14 @@ class ConfigurationTVAUpdateView(
 # ============ DÉCLARATIONS TVA ============
 
 
-class DeclarationTVAListView(LoginRequiredMixin, ListView):
+class DeclarationTVAListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des déclarations TVA"""
 
     model = DeclarationTVA
     template_name = "tva/declaration_list.html"
     context_object_name = "declarations"
     paginate_by = 50
+    business_permission = 'tva.view_declarations'
 
     def get_queryset(self):
         queryset = DeclarationTVA.objects.select_related(
@@ -133,12 +137,13 @@ class DeclarationTVAListView(LoginRequiredMixin, ListView):
 
         return context
 
-class DeclarationTVADetailView(LoginRequiredMixin, DetailView):
+class DeclarationTVADetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
     """Détail d'une déclaration TVA"""
 
     model = DeclarationTVA
     template_name = "tva/declaration_detail.html"
     context_object_name = "declaration"
+    business_permission = 'tva.view_declarations'
 
     def get_queryset(self):
         return (
@@ -173,13 +178,13 @@ class DeclarationTVADetailView(LoginRequiredMixin, DetailView):
         return context
 
 
-class DeclarationTVACreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class DeclarationTVACreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView):
     """Création d'une déclaration TVA"""
 
     model = DeclarationTVA
     form_class = DeclarationTVAForm
     template_name = "tva/declaration_form.html"
-    permission_required = "tva.add_declarationtva"
+    business_permission = 'tva.add_declaration'
 
     def get_initial(self):
         initial = super().get_initial()
@@ -286,13 +291,14 @@ def declaration_exporter_pdf(request, pk):
 # ============ OPÉRATIONS TVA ============
 
 
-class OperationTVAListView(LoginRequiredMixin, ListView):
+class OperationTVAListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des opérations TVA"""
 
     model = OperationTVA
     template_name = "tva/operation_list.html"
     context_object_name = "operations"
     paginate_by = 100
+    business_permission = 'tva.view_operations'
 
     def get_queryset(self):
         queryset = OperationTVA.objects.select_related(
@@ -332,13 +338,13 @@ class OperationTVAListView(LoginRequiredMixin, ListView):
         return context
 
 
-class OperationTVACreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class OperationTVACreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView):
     """Création manuelle d'une opération TVA"""
 
     model = OperationTVA
     form_class = OperationTVAForm
     template_name = "tva/operation_form.html"
-    permission_required = "tva.add_operationtva"
+    business_permission = 'tva.view_operations'
     success_url = reverse_lazy("tva:operation-list")
 
     def form_valid(self, form):

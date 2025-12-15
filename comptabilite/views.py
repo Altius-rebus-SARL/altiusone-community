@@ -1,7 +1,8 @@
 # comptabilite/views.py
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin
+from core.permissions import BusinessPermissionMixin, permission_required_business
 from django.views.generic import (
     ListView,
     DetailView,
@@ -60,7 +61,7 @@ from .filters import PlanComptableFilter
 # comptabilite/views.py
 
 
-class PlanComptableListView(LoginRequiredMixin, FilterView):
+class PlanComptableListView(LoginRequiredMixin, BusinessPermissionMixin, FilterView):
     """Liste des plans comptables"""
 
     model = PlanComptable
@@ -68,6 +69,7 @@ class PlanComptableListView(LoginRequiredMixin, FilterView):
     context_object_name = "plans"
     paginate_by = 25
     filterset_class = PlanComptableFilter
+    business_permission = 'comptabilite.view_plan_comptable'
 
     def get_queryset(self):
         queryset = PlanComptable.objects.select_related("mandat").annotate(
@@ -100,13 +102,14 @@ class PlanComptableListView(LoginRequiredMixin, FilterView):
 
 
 
-class PlanComptableDetailView(LoginRequiredMixin, DetailView):
+class PlanComptableDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
     """Détail d'un plan comptable avec tous ses comptes"""
 
     model = PlanComptable
     template_name = "comptabilite/plan_detail.html"
     context_object_name = "plan"
     paginate_by = 50
+    business_permission = 'comptabilite.view_plan_comptable'
 
     def get_queryset(self):
         return super().get_queryset().select_related("mandat")
@@ -155,13 +158,13 @@ class PlanComptableDetailView(LoginRequiredMixin, DetailView):
 
     
 
-class PlanComptableCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class PlanComptableCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView):
     """Création d'un nouveau plan comptable"""
 
     model = PlanComptable
     form_class = PlanComptableForm
     template_name = "comptabilite/plan_form.html"
-    permission_required = "comptabilite.add_plancomptable"
+    business_permission = 'comptabilite.view_plan_comptable'
 
     def get_success_url(self):
         return reverse_lazy("comptabilite:plan-detail", kwargs={"pk": self.object.pk})
@@ -173,13 +176,13 @@ class PlanComptableCreateView(LoginRequiredMixin, PermissionRequiredMixin, Creat
 
 
 
-class PlanComptableUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class PlanComptableUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateView):
     """Modification d'un plan comptable"""
 
     model = PlanComptable
     form_class = PlanComptableForm
     template_name = "comptabilite/plan_form.html"
-    permission_required = "comptabilite.change_plancomptable"
+    business_permission = 'comptabilite.view_plan_comptable'
 
     def get_success_url(self):
         return reverse_lazy("comptabilite:plan-detail", kwargs={"pk": self.object.pk})
@@ -191,13 +194,14 @@ class PlanComptableUpdateView(LoginRequiredMixin, PermissionRequiredMixin, Updat
 # ============ COMPTES ============
 
 
-class CompteListView(LoginRequiredMixin, ListView):
+class CompteListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des comptes avec filtres avancés"""
 
     model = Compte
     template_name = "comptabilite/compte_list.html"
     context_object_name = "comptes"
     paginate_by = 50
+    business_permission = 'comptabilite.view_plan_comptable'
 
     def get_queryset(self):
         # Récupérer le plan comptable depuis l'URL ou les paramètres
@@ -237,15 +241,20 @@ class CompteListView(LoginRequiredMixin, ListView):
             or 0,
         }
 
+        # URLs d'export
+        context["compte_export_csv_url"] = reverse_lazy("comptabilite:compte-export-csv")
+        context["compte_export_excel_url"] = reverse_lazy("comptabilite:compte-export-excel")
+
         return context
 
 
-class CompteDetailView(LoginRequiredMixin, DetailView):
+class CompteDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
     """Détail d'un compte avec historique des écritures"""
 
     model = Compte
     template_name = "comptabilite/compte_detail.html"
     context_object_name = "compte"
+    business_permission = 'comptabilite.view_plan_comptable'
 
     def get_queryset(self):
         return (
@@ -301,13 +310,13 @@ class CompteDetailView(LoginRequiredMixin, DetailView):
         return context
 
 
-class CompteCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class CompteCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView):
     """Création d'un nouveau compte"""
 
     model = Compte
     form_class = CompteForm
     template_name = "comptabilite/compte_form.html"
-    permission_required = "comptabilite.add_compte"
+    business_permission = 'comptabilite.view_plan_comptable'
 
     def get_initial(self):
         initial = super().get_initial()
@@ -325,13 +334,13 @@ class CompteCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class CompteUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class CompteUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateView):
     """Modification d'un compte"""
 
     model = Compte
     form_class = CompteForm
     template_name = "comptabilite/compte_form.html"
-    permission_required = "comptabilite.change_compte"
+    business_permission = 'comptabilite.view_plan_comptable'
 
     def get_success_url(self):
         return reverse_lazy("comptabilite:compte-detail", kwargs={"pk": self.object.pk})
@@ -344,12 +353,13 @@ class CompteUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
 # ============ JOURNAUX ============
 
 
-class JournalListView(LoginRequiredMixin, ListView):
+class JournalListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des journaux"""
 
     model = Journal
     template_name = "comptabilite/journal_list.html"
     context_object_name = "journaux"
+    business_permission = 'comptabilite.view_ecritures'
 
     def get_queryset(self):
         queryset = Journal.objects.select_related("mandat").annotate(
@@ -378,12 +388,13 @@ class JournalListView(LoginRequiredMixin, ListView):
         return context
 
 
-class JournalDetailView(LoginRequiredMixin, DetailView):
+class JournalDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
     """Détail d'un journal avec ses écritures"""
 
     model = Journal
     template_name = "comptabilite/journal_detail.html"
     context_object_name = "journal"
+    business_permission = 'comptabilite.view_ecritures'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -423,13 +434,13 @@ class JournalDetailView(LoginRequiredMixin, DetailView):
         return context
 
 
-class JournalCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class JournalCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView):
     """Création d'un nouveau journal"""
 
     model = Journal
     form_class = JournalForm
     template_name = "comptabilite/journal_form.html"
-    permission_required = "comptabilite.add_journal"
+    business_permission = 'comptabilite.add_journal'
 
     def get_success_url(self):
         return reverse_lazy(
@@ -442,13 +453,13 @@ class JournalCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView)
         return super().form_valid(form)
 
 
-class JournalUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class JournalUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateView):
     """Modification d'un journal"""
 
     model = Journal
     form_class = JournalForm
     template_name = "comptabilite/journal_form.html"
-    permission_required = "comptabilite.change_journal"
+    business_permission = 'comptabilite.view_ecritures'
 
     def get_success_url(self):
         return reverse_lazy(
@@ -462,13 +473,14 @@ class JournalUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView)
 # ============ ÉCRITURES COMPTABLES ============
 
 
-class EcritureComptableListView(LoginRequiredMixin, ListView):
+class EcritureComptableListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des écritures comptables"""
 
     model = EcritureComptable
     template_name = "comptabilite/ecriture_list.html"
     context_object_name = "ecritures"
     paginate_by = 100
+    business_permission = 'comptabilite.view_ecritures'
 
     def get_queryset(self):
         queryset = EcritureComptable.objects.select_related(
@@ -511,12 +523,13 @@ class EcritureComptableListView(LoginRequiredMixin, ListView):
         return context
 
 
-class EcritureComptableDetailView(LoginRequiredMixin, DetailView):
+class EcritureComptableDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
     """Détail d'une écriture comptable"""
 
     model = EcritureComptable
     template_name = "comptabilite/ecriture_detail.html"
     context_object_name = "ecriture"
+    business_permission = 'comptabilite.view_ecritures'
 
     def get_queryset(self):
         return (
@@ -556,14 +569,14 @@ class EcritureComptableDetailView(LoginRequiredMixin, DetailView):
 
 
 class EcritureComptableCreateView(
-    LoginRequiredMixin, PermissionRequiredMixin, CreateView
+    LoginRequiredMixin, BusinessPermissionMixin, CreateView
 ):
     """Création d'une nouvelle écriture comptable"""
 
     model = EcritureComptable
     form_class = EcritureComptableForm
     template_name = "comptabilite/ecriture_form.html"
-    permission_required = "comptabilite.add_ecriturecomptable"
+    business_permission = 'comptabilite.add_ecriture'
 
     def get_initial(self):
         initial = super().get_initial()
@@ -592,14 +605,14 @@ class EcritureComptableCreateView(
 
 
 class EcritureComptableUpdateView(
-    LoginRequiredMixin, PermissionRequiredMixin, UpdateView
+    LoginRequiredMixin, BusinessPermissionMixin, UpdateView
 ):
     """Modification d'une écriture comptable"""
 
     model = EcritureComptable
     form_class = EcritureComptableForm
     template_name = "comptabilite/ecriture_form.html"
-    permission_required = "comptabilite.change_ecriturecomptable"
+    business_permission = 'comptabilite.view_ecritures'
 
     def get_queryset(self):
         # Ne peut modifier que les écritures en brouillon
@@ -618,13 +631,14 @@ class EcritureComptableUpdateView(
 # ============ PIÈCES COMPTABLES ============
 
 
-class PieceComptableListView(LoginRequiredMixin, ListView):
+class PieceComptableListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des pièces comptables"""
 
     model = PieceComptable
     template_name = "comptabilite/piece_list.html"
     context_object_name = "pieces"
     paginate_by = 50
+    business_permission = 'comptabilite.view_ecritures'
 
     def get_queryset(self):
         queryset = PieceComptable.objects.select_related("mandat", "journal").annotate(
@@ -661,12 +675,13 @@ class PieceComptableListView(LoginRequiredMixin, ListView):
         return context
 
 
-class PieceComptableDetailView(LoginRequiredMixin, DetailView):
+class PieceComptableDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
     """Détail d'une pièce comptable"""
 
     model = PieceComptable
     template_name = "comptabilite/piece_detail.html"
     context_object_name = "piece"
+    business_permission = 'comptabilite.view_ecritures'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -690,13 +705,14 @@ class PieceComptableDetailView(LoginRequiredMixin, DetailView):
 # ============ LETTRAGE ============
 
 
-class LettrageListView(LoginRequiredMixin, ListView):
+class LettrageListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des lettrages"""
 
     model = Lettrage
     template_name = "comptabilite/lettrage_list.html"
     context_object_name = "lettrages"
     paginate_by = 50
+    business_permission = 'comptabilite.view_ecritures'
 
     def get_queryset(self):
         return Lettrage.objects.select_related(
@@ -981,3 +997,144 @@ def grand_livre(request, compte_pk):
     }
 
     return render(request, "comptabilite/grand_livre.html", context)
+
+
+# ============ EXPORTS ============
+
+
+@login_required
+@permission_required_business('comptabilite.export_comptabilite')
+def export_comptes_csv(request):
+    """Export des comptes en CSV"""
+    from core.services.export_service import ExportService
+
+    queryset = Compte.objects.select_related('plan_comptable').order_by('numero')
+
+    # Appliquer les mêmes filtres que la liste
+    plan_id = request.GET.get('plan')
+    if plan_id:
+        queryset = queryset.filter(plan_comptable_id=plan_id)
+
+    type_compte = request.GET.get('type_compte')
+    if type_compte:
+        queryset = queryset.filter(type_compte=type_compte)
+
+    fields = ['numero', 'libelle', 'type_compte', 'classe', 'plan_comptable__nom']
+    field_labels = {
+        'numero': 'Numéro',
+        'libelle': 'Libellé',
+        'type_compte': 'Type',
+        'classe': 'Classe',
+        'plan_comptable__nom': 'Plan comptable',
+    }
+
+    return ExportService.generate_csv_from_queryset(
+        queryset, fields, field_labels, 'comptes'
+    )
+
+
+@login_required
+@permission_required_business('comptabilite.export_comptabilite')
+def export_comptes_excel(request):
+    """Export des comptes en Excel"""
+    from core.services.export_service import ExportService
+
+    queryset = Compte.objects.select_related('plan_comptable').order_by('numero')
+
+    plan_id = request.GET.get('plan')
+    if plan_id:
+        queryset = queryset.filter(plan_comptable_id=plan_id)
+
+    type_compte = request.GET.get('type_compte')
+    if type_compte:
+        queryset = queryset.filter(type_compte=type_compte)
+
+    fields = ['numero', 'libelle', 'type_compte', 'classe', 'plan_comptable__nom']
+    field_labels = {
+        'numero': 'Numéro',
+        'libelle': 'Libellé',
+        'type_compte': 'Type',
+        'classe': 'Classe',
+        'plan_comptable__nom': 'Plan comptable',
+    }
+
+    return ExportService.generate_excel_streaming(
+        queryset, fields, field_labels, 'comptes', 'Comptes'
+    )
+
+
+@login_required
+@permission_required_business('comptabilite.export_comptabilite')
+def export_ecritures_csv(request):
+    """Export des écritures en CSV"""
+    from core.services.export_service import ExportService
+
+    queryset = EcritureComptable.objects.select_related(
+        'mandat', 'compte', 'journal'
+    ).order_by('-date_ecriture')
+
+    # Filtres
+    mandat_id = request.GET.get('mandat')
+    if mandat_id:
+        queryset = queryset.filter(mandat_id=mandat_id)
+
+    statut = request.GET.get('statut')
+    if statut:
+        queryset = queryset.filter(statut=statut)
+
+    fields = [
+        'date_ecriture', 'numero_piece', 'compte__numero', 'compte__libelle',
+        'libelle', 'montant_debit', 'montant_credit', 'statut'
+    ]
+    field_labels = {
+        'date_ecriture': 'Date',
+        'numero_piece': 'N° Pièce',
+        'compte__numero': 'Compte',
+        'compte__libelle': 'Libellé compte',
+        'libelle': 'Libellé',
+        'montant_debit': 'Débit',
+        'montant_credit': 'Crédit',
+        'statut': 'Statut',
+    }
+
+    return ExportService.generate_csv_from_queryset(
+        queryset, fields, field_labels, 'ecritures'
+    )
+
+
+@login_required
+@permission_required_business('comptabilite.export_comptabilite')
+def export_ecritures_excel(request):
+    """Export des écritures en Excel"""
+    from core.services.export_service import ExportService
+
+    queryset = EcritureComptable.objects.select_related(
+        'mandat', 'compte', 'journal'
+    ).order_by('-date_ecriture')
+
+    mandat_id = request.GET.get('mandat')
+    if mandat_id:
+        queryset = queryset.filter(mandat_id=mandat_id)
+
+    statut = request.GET.get('statut')
+    if statut:
+        queryset = queryset.filter(statut=statut)
+
+    fields = [
+        'date_ecriture', 'numero_piece', 'compte__numero', 'compte__libelle',
+        'libelle', 'montant_debit', 'montant_credit', 'statut'
+    ]
+    field_labels = {
+        'date_ecriture': 'Date',
+        'numero_piece': 'N° Pièce',
+        'compte__numero': 'Compte',
+        'compte__libelle': 'Libellé compte',
+        'libelle': 'Libellé',
+        'montant_debit': 'Débit',
+        'montant_credit': 'Crédit',
+        'statut': 'Statut',
+    }
+
+    return ExportService.generate_excel_streaming(
+        queryset, fields, field_labels, 'ecritures', 'Écritures'
+    )

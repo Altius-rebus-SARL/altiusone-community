@@ -1,7 +1,8 @@
 # facturation/views.py
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin
+from core.permissions import BusinessPermissionMixin, permission_required_business
 from django.views.generic import ListView, DetailView, CreateView, UpdateView
 from django.db.models import Q, Count, Sum, Avg, F, Max, Min, Prefetch
 from django.urls import reverse_lazy
@@ -30,10 +31,11 @@ from core.models import Mandat, Client
 # ============ PRESTATIONS ============
 
 
-class PrestationListView(LoginRequiredMixin, ListView):
+class PrestationListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des prestations"""
 
     model = Prestation
+    business_permission = 'facturation.view_prestations'
     template_name = "facturation/prestation_list.html"
     context_object_name = "prestations"
     paginate_by = 50
@@ -67,21 +69,22 @@ class PrestationListView(LoginRequiredMixin, ListView):
         return context
 
 
-class PrestationDetailView(LoginRequiredMixin, DetailView):
+class PrestationDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
     """Détail d'une prestation"""
 
     model = Prestation
+    business_permission = 'facturation.view_prestations'
     template_name = "facturation/prestation_detail.html"
     context_object_name = "prestation"
 
 
-class PrestationCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class PrestationCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView):
     """Création d'une prestation"""
 
     model = Prestation
     form_class = PrestationForm
     template_name = "facturation/prestation_form.html"
-    permission_required = "facturation.add_prestation"
+    business_permission = 'facturation.view_prestations'
     success_url = reverse_lazy("facturation:prestation-list")
 
     def form_valid(self, form):
@@ -89,13 +92,13 @@ class PrestationCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateVi
         messages.success(self.request, _("Prestation créée avec succès"))
         return super().form_valid(form)
 
-class PrestationUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class PrestationUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateView):
     """Modification d'une prestation"""
 
     model = Prestation
     form_class = PrestationForm
     template_name = "facturation/prestation_form.html"
-    permission_required = "facturation.change_prestation"
+    business_permission = 'facturation.view_prestations'
     success_url = reverse_lazy("facturation:prestation-list")
 
     def form_valid(self, form):
@@ -105,10 +108,11 @@ class PrestationUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateVi
 # ============ TIME TRACKING ============
 
 
-class TimeTrackingListView(LoginRequiredMixin, ListView):
+class TimeTrackingListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste du suivi du temps"""
 
     model = TimeTracking
+    business_permission = 'facturation.view_timetracking'
     template_name = "facturation/timetracking_list.html"
     context_object_name = "temps"
     paginate_by = 50
@@ -172,10 +176,11 @@ class TimeTrackingListView(LoginRequiredMixin, ListView):
         return context
 
 
-class TimeTrackingCreateView(LoginRequiredMixin, CreateView):
+class TimeTrackingCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView):
     """Saisie de temps"""
 
     model = TimeTracking
+    business_permission = 'facturation.view_timetracking'
     form_class = TimeTrackingForm
     template_name = "facturation/timetracking_form.html"
     success_url = reverse_lazy("facturation:timetracking-list")
@@ -204,10 +209,11 @@ class TimeTrackingCreateView(LoginRequiredMixin, CreateView):
 # ============ FACTURES ============
 
 
-class FactureListView(LoginRequiredMixin, ListView):
+class FactureListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des factures"""
 
     model = Facture
+    business_permission = 'facturation.view_factures'
     template_name = "facturation/facture_list.html"
     context_object_name = "factures"
     paginate_by = 50
@@ -270,10 +276,11 @@ class FactureListView(LoginRequiredMixin, ListView):
         return context
 
 
-class FactureDetailView(LoginRequiredMixin, DetailView):
+class FactureDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
     """Détail d'une facture"""
 
     model = Facture
+    business_permission = 'facturation.view_factures'
     template_name = "facturation/facture_detail.html"
     context_object_name = "facture"
 
@@ -317,13 +324,13 @@ class FactureDetailView(LoginRequiredMixin, DetailView):
         return context
 
 
-class FactureCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class FactureCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView):
     """Création d'une facture avec lignes"""
 
     model = Facture
     form_class = FactureForm
     template_name = "facturation/facture_form.html"
-    permission_required = "facturation.add_facture"
+    business_permission = 'facturation.add_facture'
 
     def get_initial(self):
         initial = super().get_initial()
@@ -380,13 +387,13 @@ class FactureCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView)
             return self.form_invalid(form)
 
 
-class FactureUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class FactureUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateView):
     """Modification d'une facture"""
 
     model = Facture
     form_class = FactureForm
     template_name = "facturation/facture_form.html"
-    permission_required = "facturation.change_facture"
+    business_permission = 'facturation.add_facture'
 
     def get_queryset(self):
         # Ne peut modifier que les factures en brouillon
@@ -578,10 +585,11 @@ def ligne_facture_delete(request, pk):
 # facturation/views.py
 
 
-class PaiementListView(LoginRequiredMixin, ListView):
+class PaiementListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des paiements"""
 
     model = Paiement
+    business_permission = 'facturation.view_paiements'
     template_name = "facturation/paiement_list.html"
     context_object_name = "paiements"
     paginate_by = 50

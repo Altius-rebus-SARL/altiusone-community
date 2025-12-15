@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.views.generic import ListView, DetailView, CreateView, UpdateView
+from core.permissions import BusinessPermissionMixin, permission_required_business
 from django.db.models import Q, Count, Sum, Avg, F, Max
 from django.urls import reverse_lazy
 from django.contrib import messages
@@ -28,10 +29,11 @@ from core.models import Mandat
 # ============ EMPLOYÉS ============
 
 
-class EmployeListView(LoginRequiredMixin, ListView):
+class EmployeListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des employés"""
 
     model = Employe
+    business_permission = 'salaires.view_employes'
     template_name = "salaires/employe_list.html"
     context_object_name = "employes"
     paginate_by = 50
@@ -84,10 +86,11 @@ class EmployeListView(LoginRequiredMixin, ListView):
         return context
 
 
-class EmployeDetailView(LoginRequiredMixin, DetailView):
+class EmployeDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
     """Détail d'un employé"""
 
     model = Employe
+    business_permission = 'salaires.view_employes'
     template_name = "salaires/employe_detail.html"
     context_object_name = "employe"
 
@@ -149,13 +152,13 @@ class EmployeDetailView(LoginRequiredMixin, DetailView):
         return context
 
 
-class EmployeCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class EmployeCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView):
     """Création d'un employé"""
 
     model = Employe
     form_class = EmployeForm
     template_name = "salaires/employe_form.html"
-    permission_required = "salaires.add_employe"
+    business_permission = 'salaires.view_employes'
 
     def get_success_url(self):
         return reverse_lazy("salaires:employe-detail", kwargs={"pk": self.object.pk})
@@ -166,13 +169,13 @@ class EmployeCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView)
         return super().form_valid(form)
 
 
-class EmployeUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class EmployeUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateView):
     """Modification d'un employé"""
 
     model = Employe
     form_class = EmployeForm
     template_name = "salaires/employe_form.html"
-    permission_required = "salaires.change_employe"
+    business_permission = 'salaires.view_employes'
 
     def get_success_url(self):
         return reverse_lazy("salaires:employe-detail", kwargs={"pk": self.object.pk})
@@ -185,10 +188,11 @@ class EmployeUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView)
 # ============ FICHES DE SALAIRE ============
 
 
-class FicheSalaireListView(LoginRequiredMixin, ListView):
+class FicheSalaireListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des fiches de salaire"""
 
     model = FicheSalaire
+    business_permission = 'salaires.view_fiches_salaire'
     template_name = "salaires/fiche_list.html"
     context_object_name = "fiches"
     paginate_by = 50
@@ -239,10 +243,11 @@ class FicheSalaireListView(LoginRequiredMixin, ListView):
         return context
 
 
-class FicheSalaireDetailView(LoginRequiredMixin, DetailView):
+class FicheSalaireDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
     """Détail d'une fiche de salaire"""
 
     model = FicheSalaire
+    business_permission = 'salaires.view_fiches_salaire'
     template_name = "salaires/fiche_detail.html"
     context_object_name = "fiche"
 
@@ -259,13 +264,13 @@ class FicheSalaireDetailView(LoginRequiredMixin, DetailView):
         )
 
 
-class FicheSalaireCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class FicheSalaireCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView):
     """Création d'une fiche de salaire"""
 
     model = FicheSalaire
     form_class = FicheSalaireForm
     template_name = "salaires/fiche_form.html"
-    permission_required = "salaires.add_fichesalaire"
+    business_permission = 'salaires.add_fiche_salaire'
 
     def get_initial(self):
         initial = super().get_initial()
@@ -435,10 +440,11 @@ def generer_fiches_masse(request):
 # ============ CERTIFICATS DE SALAIRE ============
 
 
-class CertificatSalaireListView(LoginRequiredMixin, ListView):
+class CertificatSalaireListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des certificats de salaire"""
 
     model = CertificatSalaire
+    business_permission = 'salaires.view_fiches_salaire'
     template_name = "salaires/certificat_list.html"
     context_object_name = "certificats"
     paginate_by = 50
@@ -449,10 +455,11 @@ class CertificatSalaireListView(LoginRequiredMixin, ListView):
         ).order_by("-annee", "employe__nom")
 
 
-class CertificatSalaireDetailView(LoginRequiredMixin, DetailView):
+class CertificatSalaireDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
     """Détail d'un certificat de salaire"""
 
     model = CertificatSalaire
+    business_permission = 'salaires.view_fiches_salaire'
     template_name = "salaires/certificat_detail.html"
     context_object_name = "certificat"
 
@@ -540,10 +547,11 @@ def generer_certificat(request, employe_pk):
 # ============ DÉCLARATIONS COTISATIONS ============
 
 
-class DeclarationCotisationsListView(LoginRequiredMixin, ListView):
+class DeclarationCotisationsListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des déclarations de cotisations"""
 
     model = DeclarationCotisations
+    business_permission = 'salaires.view_cotisations'
     template_name = "salaires/declaration_cotisations_list.html"
     context_object_name = "declarations"
 
