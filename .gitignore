@@ -7,7 +7,6 @@ ENV/
 # Fichiers de configuration d'environnement
 *.env
 .env.*
-!.env.example
 
 # Dépendances
 node_modules/
