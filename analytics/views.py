@@ -14,6 +14,8 @@ from decimal import Decimal
 import json
 from django.http import FileResponse
 
+from core.permissions import BusinessPermissionMixin, permission_required_business
+
 from .models import (
     TableauBord,
     Indicateur,
@@ -38,12 +40,13 @@ from core.models import Mandat
 # ============ TABLEAUX DE BORD ============
 
 
-class TableauBordListView(LoginRequiredMixin, ListView):
+class TableauBordListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des tableaux de bord"""
 
     model = TableauBord
     template_name = "analytics/tableau_bord_list.html"
     context_object_name = "tableaux"
+    business_permission = 'analytics.view_tableaux_bord'
 
     def get_queryset(self):
         user = self.request.user
@@ -63,12 +66,13 @@ class TableauBordListView(LoginRequiredMixin, ListView):
         )
 
 
-class TableauBordDetailView(LoginRequiredMixin, DetailView):
+class TableauBordDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
     """Affichage d'un tableau de bord"""
 
     model = TableauBord
     template_name = "analytics/tableau_bord_detail.html"
     context_object_name = "tableau"
+    business_permission = 'analytics.view_tableaux_bord'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -83,13 +87,14 @@ class TableauBordDetailView(LoginRequiredMixin, DetailView):
         return context
 
 
-class TableauBordCreateView(LoginRequiredMixin, CreateView):
+class TableauBordCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView):
     """Création d'un tableau de bord"""
 
     model = TableauBord
     form_class = TableauBordForm
     template_name = "analytics/tableau_bord_form.html"
     success_url = reverse_lazy("analytics:tableau-bord-list")
+    business_permission = 'analytics.view_tableaux_bord'
 
     def form_valid(self, form):
         form.instance.proprietaire = self.request.user
@@ -101,12 +106,13 @@ class TableauBordCreateView(LoginRequiredMixin, CreateView):
 # ============ INDICATEURS ============
 
 
-class IndicateurListView(LoginRequiredMixin, ListView):
+class IndicateurListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des indicateurs"""
 
     model = Indicateur
     template_name = "analytics/indicateur_list.html"
     context_object_name = "indicateurs"
+    business_permission = 'analytics.view_indicateurs'
 
     def get_queryset(self):
         queryset = Indicateur.objects.filter(actif=True).annotate(
@@ -133,12 +139,13 @@ class IndicateurListView(LoginRequiredMixin, ListView):
         return context
 
 
-class IndicateurDetailView(LoginRequiredMixin, DetailView):
+class IndicateurDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
     """Détail d'un indicateur avec historique"""
 
     model = Indicateur
     template_name = "analytics/indicateur_detail.html"
     context_object_name = "indicateur"
+    business_permission = 'analytics.view_indicateurs'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -177,13 +184,14 @@ class IndicateurDetailView(LoginRequiredMixin, DetailView):
 # ============ RAPPORTS ============
 
 
-class RapportListView(LoginRequiredMixin, ListView):
+class RapportListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des rapports générés"""
 
     model = Rapport
     template_name = "analytics/rapport_list.html"
     context_object_name = "rapports"
     paginate_by = 50
+    business_permission = 'analytics.view_rapports'
 
     def get_queryset(self):
         queryset = Rapport.objects.select_related(
@@ -215,12 +223,13 @@ class RapportListView(LoginRequiredMixin, ListView):
         return context
 
 
-class RapportDetailView(LoginRequiredMixin, DetailView):
+class RapportDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
     """Détail d'un rapport"""
 
     model = Rapport
     template_name = "analytics/rapport_detail.html"
     context_object_name = "rapport"
+    business_permission = 'analytics.view_rapports'
 
 
 @login_required
@@ -266,26 +275,27 @@ def rapport_generer(request):
 # ============ PLANIFICATIONS DE RAPPORTS ============
 
 
-class PlanificationRapportListView(LoginRequiredMixin, ListView):
+class PlanificationRapportListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des planifications de rapports"""
 
     model = PlanificationRapport
     template_name = "analytics/planification_list.html"
     context_object_name = "planifications"
+    business_permission = 'analytics.schedule_rapport'
 
     def get_queryset(self):
         return PlanificationRapport.objects.select_related("mandat").order_by("nom")
 
 
 class PlanificationRapportCreateView(
-    LoginRequiredMixin, PermissionRequiredMixin, CreateView
+    LoginRequiredMixin, BusinessPermissionMixin, CreateView
 ):
     """Création d'une planification de rapport"""
 
     model = PlanificationRapport
     form_class = PlanificationRapportForm
     template_name = "analytics/planification_form.html"
-    permission_required = "analytics.add_planificationrapport"
+    business_permission = 'analytics.schedule_rapport'
     success_url = reverse_lazy("analytics:planification-list")
 
     def form_valid(self, form):
@@ -320,12 +330,13 @@ def comparaison_periodes(request):
     return render(request, "analytics/comparaison_form.html", {"form": form})
 
 
-class ComparaisonPeriodeDetailView(LoginRequiredMixin, DetailView):
+class ComparaisonPeriodeDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
     """Détail d'une comparaison de périodes"""
 
     model = ComparaisonPeriode
     template_name = "analytics/comparaison_detail.html"
     context_object_name = "comparaison"
+    business_permission = 'analytics.view_rapports'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -340,13 +351,14 @@ class ComparaisonPeriodeDetailView(LoginRequiredMixin, DetailView):
 # ============ ALERTES ============
 
 
-class AlerteMetriqueListView(LoginRequiredMixin, ListView):
+class AlerteMetriqueListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des alertes"""
 
     model = AlerteMetrique
     template_name = "analytics/alerte_list.html"
     context_object_name = "alertes"
     paginate_by = 50
+    business_permission = 'analytics.view_alertes'
 
     def get_queryset(self):
         user = self.request.user
@@ -424,12 +436,13 @@ def export_donnees(request):
     return render(request, "analytics/export_form.html", {"form": form})
 
 
-class ExportDonneesListView(LoginRequiredMixin, ListView):
+class ExportDonneesListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des exports de données"""
 
     model = ExportDonnees
     template_name = "analytics/export_list.html"
     context_object_name = "exports"
+    business_permission = 'analytics.view_rapports'
 
     def get_queryset(self):
         return ExportDonnees.objects.select_related("mandat", "demande_par").order_by(

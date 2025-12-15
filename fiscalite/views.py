@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.views.generic import ListView, DetailView, CreateView, UpdateView
+from core.permissions import BusinessPermissionMixin, permission_required_business
 from django.db.models import Q, Count, Sum, Avg, F, Max
 from django.urls import reverse_lazy
 from django.contrib import messages
@@ -38,13 +39,14 @@ from core.models import Mandat, ExerciceComptable
 # ============ DÉCLARATIONS FISCALES ============
 
 
-class DeclarationFiscaleListView(LoginRequiredMixin, ListView):
+class DeclarationFiscaleListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des déclarations fiscales"""
 
     model = DeclarationFiscale
     template_name = "fiscalite/declaration_list.html"
     context_object_name = "declarations"
     paginate_by = 50
+    business_permission = 'fiscalite.view_declarations_fiscales'
 
     def get_queryset(self):
         queryset = DeclarationFiscale.objects.select_related(
@@ -82,12 +84,13 @@ class DeclarationFiscaleListView(LoginRequiredMixin, ListView):
         return context
 
 
-class DeclarationFiscaleDetailView(LoginRequiredMixin, DetailView):
+class DeclarationFiscaleDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
     """Détail d'une déclaration fiscale"""
 
     model = DeclarationFiscale
     template_name = "fiscalite/declaration_detail.html"
     context_object_name = "declaration"
+    business_permission = 'fiscalite.view_declarations_fiscales'
 
     def get_queryset(self):
         return (
@@ -136,14 +139,14 @@ class DeclarationFiscaleDetailView(LoginRequiredMixin, DetailView):
 
 
 class DeclarationFiscaleCreateView(
-    LoginRequiredMixin, PermissionRequiredMixin, CreateView
+    LoginRequiredMixin, BusinessPermissionMixin, CreateView
 ):
     """Création d'une déclaration fiscale"""
 
     model = DeclarationFiscale
     form_class = DeclarationFiscaleForm
     template_name = "fiscalite/declaration_form.html"
-    permission_required = "fiscalite.add_declarationfiscale"
+    business_permission = 'fiscalite.add_declaration_fiscale'
 
     def get_initial(self):
         initial = super().get_initial()
@@ -272,12 +275,13 @@ def correction_create(request, declaration_pk):
 # ============ REPORTS DE PERTES ============
 
 
-class ReportPerteListView(LoginRequiredMixin, ListView):
+class ReportPerteListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des reports de pertes"""
 
     model = ReportPerte
     template_name = "fiscalite/report_perte_list.html"
     context_object_name = "reports"
+    business_permission = 'fiscalite.view_declarations_fiscales'
 
     def get_queryset(self):
         queryset = ReportPerte.objects.select_related("mandat__client")
@@ -308,12 +312,13 @@ class ReportPerteListView(LoginRequiredMixin, ListView):
         return context
 
 
-class ReportPerteDetailView(LoginRequiredMixin, DetailView):
+class ReportPerteDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
     """Détail d'un report de perte"""
 
     model = ReportPerte
     template_name = "fiscalite/report_perte_detail.html"
     context_object_name = "report"
+    business_permission = 'fiscalite.view_declarations_fiscales'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -329,12 +334,13 @@ class ReportPerteDetailView(LoginRequiredMixin, DetailView):
 # ============ RÉCLAMATIONS FISCALES ============
 
 
-class ReclamationFiscaleListView(LoginRequiredMixin, ListView):
+class ReclamationFiscaleListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des réclamations fiscales"""
 
     model = ReclamationFiscale
     template_name = "fiscalite/reclamation_list.html"
     context_object_name = "reclamations"
+    business_permission = 'fiscalite.view_declarations_fiscales'
 
     def get_queryset(self):
         return ReclamationFiscale.objects.select_related(
@@ -369,13 +375,14 @@ def reclamation_create(request, declaration_pk):
 # ============ OPTIMISATIONS FISCALES ============
 
 
-class OptimisationFiscaleListView(LoginRequiredMixin, ListView):
+class OptimisationFiscaleListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des optimisations fiscales"""
 
     model = OptimisationFiscale
     template_name = "fiscalite/optimisation_list.html"
     context_object_name = "optimisations"
     paginate_by = 50
+    business_permission = 'fiscalite.view_declarations_fiscales'
 
     def get_queryset(self):
         queryset = OptimisationFiscale.objects.select_related("mandat__client")
@@ -415,23 +422,24 @@ class OptimisationFiscaleListView(LoginRequiredMixin, ListView):
         return context
 
 
-class OptimisationFiscaleDetailView(LoginRequiredMixin, DetailView):
+class OptimisationFiscaleDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
     """Détail d'une optimisation fiscale"""
 
     model = OptimisationFiscale
     template_name = "fiscalite/optimisation_detail.html"
     context_object_name = "optimisation"
+    business_permission = 'fiscalite.view_declarations_fiscales'
 
 
 class OptimisationFiscaleCreateView(
-    LoginRequiredMixin, PermissionRequiredMixin, CreateView
+    LoginRequiredMixin, BusinessPermissionMixin, CreateView
 ):
     """Création d'une opportunité d'optimisation fiscale"""
 
     model = OptimisationFiscale
     form_class = OptimisationFiscaleForm
     template_name = "fiscalite/optimisation_form.html"
-    permission_required = "fiscalite.add_optimisationfiscale"
+    business_permission = 'fiscalite.optimisation_fiscale'
     success_url = reverse_lazy("fiscalite:optimisation-list")
 
     def form_valid(self, form):
@@ -469,12 +477,13 @@ def optimisation_changer_statut(request, pk):
 # ============ TAUX D'IMPOSITION ============
 
 
-class TauxImpositionListView(LoginRequiredMixin, ListView):
+class TauxImpositionListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des taux d'imposition"""
 
     model = TauxImposition
     template_name = "fiscalite/taux_imposition_list.html"
     context_object_name = "taux"
+    business_permission = 'fiscalite.view_declarations_fiscales'
 
     def get_queryset(self):
         return TauxImposition.objects.filter(actif=True).order_by(

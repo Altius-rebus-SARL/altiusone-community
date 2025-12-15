@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.views.generic import ListView, DetailView, CreateView, UpdateView
+from core.permissions import BusinessPermissionMixin, permission_required_business
 from django.db.models import Q, Count, Sum
 from django.urls import reverse_lazy
 from django.contrib import messages
@@ -28,13 +29,14 @@ from core.models import Mandat
 # ============ DOSSIERS ============
 
 
-class DossierListView(LoginRequiredMixin, ListView):
+class DossierListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des dossiers"""
 
     model = Dossier
     template_name = "documents/dossier_list.html"
     context_object_name = "dossiers"
     paginate_by = 50
+    business_permission = 'documents.view_documents'
 
     def get_queryset(self):
         queryset = Dossier.objects.select_related(
@@ -79,12 +81,13 @@ class DossierListView(LoginRequiredMixin, ListView):
         return context
 
 
-class DossierDetailView(LoginRequiredMixin, DetailView):
+class DossierDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
     """Détail d'un dossier"""
 
     model = Dossier
     template_name = "documents/dossier_detail.html"
     context_object_name = "dossier"
+    business_permission = 'documents.view_documents'
 
     def get_queryset(self):
         return (
@@ -121,13 +124,13 @@ class DossierDetailView(LoginRequiredMixin, DetailView):
         return arbo
 
 
-class DossierCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class DossierCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView):
     """Création d'un dossier"""
 
     model = Dossier
     form_class = DossierForm
     template_name = "documents/dossier_form.html"
-    permission_required = "documents.add_dossier"
+    business_permission = 'documents.add_document'
 
     def get_success_url(self):
         return reverse_lazy("documents:dossier-detail", kwargs={"pk": self.object.pk})
@@ -141,13 +144,14 @@ class DossierCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView)
 # ============ DOCUMENTS ============
 
 
-class DocumentListView(LoginRequiredMixin, ListView):
+class DocumentListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des documents"""
 
     model = Document
     template_name = "documents/document_list.html"
     context_object_name = "documents"
     paginate_by = 50
+    business_permission = 'documents.view_documents'
 
     def get_queryset(self):
         queryset = Document.objects.select_related(
@@ -185,12 +189,13 @@ class DocumentListView(LoginRequiredMixin, ListView):
         return context
 
 
-class DocumentDetailView(LoginRequiredMixin, DetailView):
+class DocumentDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
     """Détail d'un document"""
 
     model = Document
     template_name = "documents/document_detail.html"
     context_object_name = "document"
+    business_permission = 'documents.view_documents'
 
     def get_queryset(self):
         return (
@@ -241,13 +246,13 @@ class DocumentDetailView(LoginRequiredMixin, DetailView):
         return formatted
 
 
-class DocumentUploadView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class DocumentUploadView(LoginRequiredMixin, BusinessPermissionMixin, CreateView):
     """Upload d'un document"""
 
     model = Document
     form_class = DocumentUploadForm
     template_name = "documents/document_upload.html"
-    permission_required = "documents.add_document"
+    business_permission = 'documents.add_document'
 
     def get_success_url(self):
         return reverse_lazy("documents:document-detail", kwargs={"pk": self.object.pk})
@@ -365,23 +370,25 @@ def recherche_documents(request):
 # ============ CATÉGORIES ============
 
 
-class CategorieDocumentListView(LoginRequiredMixin, ListView):
+class CategorieDocumentListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des catégories de documents"""
 
     model = CategorieDocument
     template_name = "documents/categorie_list.html"
     context_object_name = "categories"
+    business_permission = 'documents.view_documents'
 
     def get_queryset(self):
         return CategorieDocument.objects.annotate(nb_types=Count("types_document"))
 
 
-class CategorieDocumentDetailView(LoginRequiredMixin, DetailView):
+class CategorieDocumentDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
     """Détail d'une catégorie de document"""
 
     model = CategorieDocument
     template_name = "documents/categorie_detail.html"
     context_object_name = "categorie"
+    business_permission = 'documents.view_documents'
 
     def get_queryset(self):
         return (
@@ -403,14 +410,14 @@ class CategorieDocumentDetailView(LoginRequiredMixin, DetailView):
 
 
 class CategorieDocumentCreateView(
-    LoginRequiredMixin, PermissionRequiredMixin, CreateView
+    LoginRequiredMixin, BusinessPermissionMixin, CreateView
 ):
     """Création d'une catégorie de document"""
 
     model = CategorieDocument
     form_class = CategorieDocumentForm
     template_name = "documents/categorie_form.html"
-    permission_required = "documents.add_categoriedocument"
+    business_permission = 'documents.view_documents'
 
     def get_success_url(self):
         return reverse_lazy("documents:categorie-detail", kwargs={"pk": self.object.pk})
@@ -426,14 +433,14 @@ class CategorieDocumentCreateView(
 
 
 class CategorieDocumentUpdateView(
-    LoginRequiredMixin, PermissionRequiredMixin, UpdateView
+    LoginRequiredMixin, BusinessPermissionMixin, UpdateView
 ):
     """Modification d'une catégorie de document"""
 
     model = CategorieDocument
     form_class = CategorieDocumentForm
     template_name = "documents/categorie_form.html"
-    permission_required = "documents.change_categoriedocument"
+    business_permission = 'documents.view_documents'
 
     def get_success_url(self):
         return reverse_lazy("documents:categorie-detail", kwargs={"pk": self.object.pk})
@@ -529,12 +536,13 @@ def categorie_document_get_data(request, pk):
 
 # ============ TYPES ============
 
-class TypeDocumentListView(LoginRequiredMixin, ListView):
+class TypeDocumentListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des types de documents"""
 
     model = TypeDocument
     template_name = "documents/type_list.html"
     context_object_name = "types"
+    business_permission = 'documents.view_documents'
 
     def get_queryset(self):
         return TypeDocument.objects.select_related("categorie").annotate(
@@ -543,12 +551,13 @@ class TypeDocumentListView(LoginRequiredMixin, ListView):
 
 
 
-class TypeDocumentDetailView(LoginRequiredMixin, DetailView):
+class TypeDocumentDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
     """Détail d'un type de document avec liste des documents associés"""
 
     model = TypeDocument
     template_name = "documents/type_detail.html"
     context_object_name = "type_document"
+    business_permission = 'documents.view_documents'
 
     def get_queryset(self):
         return (
@@ -602,13 +611,13 @@ class TypeDocumentDetailView(LoginRequiredMixin, DetailView):
     
 
 
-class TypeDocumentCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class TypeDocumentCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView):
     """Création d'un type de document"""
 
     model = TypeDocument
     form_class = TypeDocumentForm
     template_name = "documents/type_form.html"
-    permission_required = "documents.add_typedocument"
+    business_permission = 'documents.view_documents'
 
     def get_success_url(self):
         return reverse_lazy("documents:type-detail", kwargs={"pk": self.object.pk})
@@ -623,13 +632,13 @@ class TypeDocumentCreateView(LoginRequiredMixin, PermissionRequiredMixin, Create
         return context
     
 
-class TypeDocumentUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class TypeDocumentUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateView):
     """Modification d'un type de document"""
 
     model = TypeDocument
     form_class = TypeDocumentForm
     template_name = "documents/type_form.html"
-    permission_required = "documents.change_typedocument"
+    business_permission = 'documents.view_documents'
 
     def get_success_url(self):
         return reverse_lazy("documents:type-detail", kwargs={"pk": self.object.pk})
