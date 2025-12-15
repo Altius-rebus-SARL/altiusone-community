@@ -9,7 +9,7 @@
 <!-- Breadcrumb -->
 <div class="row m-1">
     <div class="col-12">
-        <h4 class="main-title">{% trans "Alertes m�triques" %}</h4>
+        <h4 class="main-title">{% trans "Alertes mÃÂÃÂ©triques" %}</h4>
         <ul class="app-line-breadcrumbs mb-3">
             <li>
                 <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
@@ -71,10 +71,10 @@
                             {% trans "Actives" %}
                         </option>
                         <option value="ACQUITTEE" {% if request.GET.statut == 'ACQUITTEE' %}selected{% endif %}>
-                            {% trans "Acquitt�es" %}
+                            {% trans "AcquittÃÂÃÂ©es" %}
                         </option>
                         <option value="RESOLUE" {% if request.GET.statut == 'RESOLUE' %}selected{% endif %}>
-                            {% trans "R�solues" %}
+                            {% trans "RÃÂÃÂ©solues" %}
                         </option>
                         <option value="" {% if request.GET.statut == '' %}selected{% endif %}>
                             {% trans "Toutes" %}
@@ -149,7 +149,7 @@
                             {% if alerte.acquittee_par %}
                             <div class="mt-2 small text-muted">
                                 <i class="ph ph-check-circle me-1"></i>
-                                {% trans "Acquitt�e par" %} {{ alerte.acquittee_par.get_full_name|default:alerte.acquittee_par.username }}
+                                {% trans "AcquittÃÂÃÂ©e par" %} {{ alerte.acquittee_par.get_full_name|default:alerte.acquittee_par.username }}
                                 {% trans "le" %} {{ alerte.date_acquittement|date:"d.m.Y H:i" }}
                             </div>
                             {% endif %}

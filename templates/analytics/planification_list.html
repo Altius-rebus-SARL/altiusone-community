@@ -49,9 +49,9 @@
                                 <th>{% trans "Nom" %}</th>
                                 <th>{% trans "Type" %}</th>
                                 <th>{% trans "Client" %}</th>
-                                <th>{% trans "Fréquence" %}</th>
-                                <th>{% trans "Prochaine exécution" %}</th>
-                                <th>{% trans "Dernière exécution" %}</th>
+                                <th>{% trans "FrÃ©quence" %}</th>
+                                <th>{% trans "Prochaine exÃ©cution" %}</th>
+                                <th>{% trans "DerniÃ¨re exÃ©cution" %}</th>
                                 <th>{% trans "Statut" %}</th>
                                 <th>{% trans "Actions" %}</th>
                             </tr>
@@ -111,7 +111,7 @@
                                             <i class="ph ph-pencil"></i>
                                         </a>
                                         <button type="button" class="btn btn-sm btn-light-primary"
-                                                title="{% trans 'Exécuter maintenant' %}">
+                                                title="{% trans 'ExÃ©cuter maintenant' %}">
                                             <i class="ph ph-play"></i>
                                         </button>
                                     </div>
@@ -121,10 +121,10 @@
                             <tr>
                                 <td colspan="8" class="text-center py-5">
                                     <i class="ph ph-calendar-blank f-s-50 text-muted"></i>
-                                    <p class="text-muted mt-3">{% trans "Aucune planification configurée" %}</p>
+                                    <p class="text-muted mt-3">{% trans "Aucune planification configurÃ©e" %}</p>
                                     {% if user_permissions.analytics.schedule_rapport or is_superadmin %}
                                     <a href="{% url 'analytics:planification-create' %}" class="btn btn-primary mt-2">
-                                        <i class="ph ph-plus me-2"></i>{% trans "Créer une planification" %}
+                                        <i class="ph ph-plus me-2"></i>{% trans "CrÃ©er une planification" %}
                                     </a>
                                     {% endif %}
                                 </td>
@@ -143,7 +143,7 @@
     <div class="col-12">
         <div class="alert alert-info">
             <i class="ph ph-info me-2"></i>
-            {% trans "Les rapports planifiés sont générés automatiquement selon la fréquence définie et envoyés aux destinataires configurés." %}
+            {% trans "Les rapports planifiÃ©s sont gÃ©nÃ©rÃ©s automatiquement selon la frÃ©quence dÃ©finie et envoyÃ©s aux destinataires configurÃ©s." %}
         </div>
     </div>
 </div>

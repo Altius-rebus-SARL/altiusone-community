@@ -27,7 +27,7 @@
 </div>
 
 <div class="row">
-    <!-- Détails du rapport -->
+    <!-- DÃ©tails du rapport -->
     <div class="col-lg-8">
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
@@ -50,7 +50,7 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td class="text-muted">{% trans "Période" %}</td>
+                                <td class="text-muted">{% trans "PÃ©riode" %}</td>
                                 <td>{{ rapport.date_debut|date:"d.m.Y" }} - {{ rapport.date_fin|date:"d.m.Y" }}</td>
                             </tr>
                             <tr>
@@ -98,9 +98,9 @@
                 {% if rapport.fichier and rapport.statut == 'TERMINE' %}
                 <div class="text-center py-4 bg-light rounded mb-4">
                     <i class="ph ph-file-text f-s-50 text-primary mb-3"></i>
-                    <h5>{% trans "Rapport prêt au téléchargement" %}</h5>
+                    <h5>{% trans "Rapport prÃªt au tÃ©lÃ©chargement" %}</h5>
                     <a href="{% url 'analytics:rapport-telecharger' rapport.pk %}" class="btn btn-primary btn-lg">
-                        <i class="ph ph-download me-2"></i>{% trans "Télécharger" %}
+                        <i class="ph ph-download me-2"></i>{% trans "TÃ©lÃ©charger" %}
                         <span class="badge bg-white text-primary ms-2">{{ rapport.format_fichier }}</span>
                     </a>
                 </div>
@@ -109,8 +109,8 @@
                     <div class="spinner-border text-primary mb-3" role="status">
                         <span class="visually-hidden">Loading...</span>
                     </div>
-                    <h5>{% trans "Génération en cours..." %}</h5>
-                    <p class="text-muted">{% trans "Le rapport est en cours de génération. Veuillez patienter." %}</p>
+                    <h5>{% trans "GÃ©nÃ©ration en cours..." %}</h5>
+                    <p class="text-muted">{% trans "Le rapport est en cours de gÃ©nÃ©ration. Veuillez patienter." %}</p>
                     <button class="btn btn-light-primary" onclick="location.reload()">
                         <i class="ph ph-arrow-clockwise me-2"></i>{% trans "Actualiser" %}
                     </button>
@@ -118,12 +118,12 @@
                 {% elif rapport.statut == 'ERREUR' %}
                 <div class="alert alert-danger">
                     <i class="ph ph-warning-circle me-2"></i>
-                    {% trans "Une erreur s'est produite lors de la génération du rapport." %}
+                    {% trans "Une erreur s'est produite lors de la gÃ©nÃ©ration du rapport." %}
                 </div>
                 {% endif %}
 
                 {% if rapport.parametres %}
-                <h6>{% trans "Paramètres utilisés" %}</h6>
+                <h6>{% trans "ParamÃ¨tres utilisÃ©s" %}</h6>
                 <pre class="bg-light p-3 rounded"><code>{{ rapport.parametres|pprint }}</code></pre>
                 {% endif %}
             </div>
@@ -132,23 +132,23 @@
 
     <!-- Sidebar -->
     <div class="col-lg-4">
-        <!-- Métadonnées -->
+        <!-- MÃ©tadonnÃ©es -->
         <div class="card mb-4">
             <div class="card-header">
-                <h5>{% trans "Métadonnées" %}</h5>
+                <h5>{% trans "MÃ©tadonnÃ©es" %}</h5>
             </div>
             <div class="card-body">
                 <div class="mb-3">
-                    <small class="text-muted d-block">{% trans "Généré par" %}</small>
+                    <small class="text-muted d-block">{% trans "GÃ©nÃ©rÃ© par" %}</small>
                     <strong>{{ rapport.genere_par.get_full_name|default:rapport.genere_par.username }}</strong>
                 </div>
                 <div class="mb-3">
-                    <small class="text-muted d-block">{% trans "Date de génération" %}</small>
+                    <small class="text-muted d-block">{% trans "Date de gÃ©nÃ©ration" %}</small>
                     <strong>{{ rapport.date_generation|date:"d.m.Y H:i" }}</strong>
                 </div>
                 {% if rapport.duree_generation_secondes %}
                 <div class="mb-3">
-                    <small class="text-muted d-block">{% trans "Durée de génération" %}</small>
+                    <small class="text-muted d-block">{% trans "DurÃ©e de gÃ©nÃ©ration" %}</small>
                     <strong>{{ rapport.duree_generation_secondes }} {% trans "secondes" %}</strong>
                 </div>
                 {% endif %}
@@ -165,7 +165,7 @@
                 {% if rapport.envoi_email and rapport.destinataires %}
                 <div class="alert alert-success mb-3">
                     <i class="ph ph-check-circle me-2"></i>
-                    {% trans "Rapport envoyé à" %}:
+                    {% trans "Rapport envoyÃ© Ã " %}:
                     <ul class="mb-0 mt-2">
                         {% for dest in rapport.destinataires %}
                         <li>{{ dest }}</li>
@@ -179,7 +179,7 @@
                     <div class="mb-3">
                         <label class="form-label">{% trans "Destinataires" %}</label>
                         <input type="email" name="email" class="form-control" placeholder="email@exemple.ch">
-                        <small class="text-muted">{% trans "Séparez les adresses par des virgules" %}</small>
+                        <small class="text-muted">{% trans "SÃ©parez les adresses par des virgules" %}</small>
                     </div>
                     <button type="submit" class="btn btn-light-primary w-100" disabled>
                         <i class="ph ph-envelope me-2"></i>{% trans "Envoyer" %}
@@ -198,7 +198,7 @@
             <div class="card-body">
                 <p class="mb-2">
                     <i class="ph ph-repeat me-2"></i>
-                    {% trans "Ce rapport a été généré automatiquement." %}
+                    {% trans "Ce rapport a Ã©tÃ© gÃ©nÃ©rÃ© automatiquement." %}
                 </p>
                 <a href="#" class="btn btn-sm btn-light-secondary">
                     {% trans "Voir la planification" %}

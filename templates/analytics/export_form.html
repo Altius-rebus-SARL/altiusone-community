@@ -4,13 +4,13 @@
 {% load i18n %}
 {% load widget_tweaks %}
 
-{% block title %}{% trans "Exporter des données" %}{% endblock %}
+{% block title %}{% trans "Exporter des donnÃ©es" %}{% endblock %}
 
 {% block content %}
 <!-- Breadcrumb -->
 <div class="row m-1">
     <div class="col-12">
-        <h4 class="main-title">{% trans "Exporter des données" %}</h4>
+        <h4 class="main-title">{% trans "Exporter des donnÃ©es" %}</h4>
         <ul class="app-line-breadcrumbs mb-3">
             <li>
                 <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
@@ -34,7 +34,7 @@
             <!-- Type d'export -->
             <div class="card mb-4">
                 <div class="card-header">
-                    <h5>{% trans "Type de données à exporter" %}</h5>
+                    <h5>{% trans "Type de donnÃ©es Ã  exporter" %}</h5>
                 </div>
                 <div class="card-body">
                     <div class="row">
@@ -71,16 +71,16 @@
                 </div>
             </div>
 
-            <!-- Paramètres -->
+            <!-- ParamÃ¨tres -->
             <div class="card mb-4">
                 <div class="card-header">
-                    <h5>{% trans "Paramètres de l'export" %}</h5>
+                    <h5>{% trans "ParamÃ¨tres de l'export" %}</h5>
                 </div>
                 <div class="card-body">
                     <div class="row">
                         <div class="col-md-12 mb-3">
                             <label for="{{ form.nom.id_for_label }}" class="form-label">{% trans "Nom de l'export" %} *</label>
-                            {% render_field form.nom class="form-control" placeholder="Ex: Export comptabilité Q3 2025" %}
+                            {% render_field form.nom class="form-control" placeholder="Ex: Export comptabilitÃ© Q3 2025" %}
                         </div>
                     </div>
 
@@ -97,7 +97,7 @@
 
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="{{ form.date_debut.id_for_label }}" class="form-label">{% trans "Date de début" %} *</label>
+                            <label for="{{ form.date_debut.id_for_label }}" class="form-label">{% trans "Date de dÃ©but" %} *</label>
                             {% render_field form.date_debut class="form-control" type="date" %}
                         </div>
                         <div class="col-md-6 mb-3">
@@ -117,7 +117,7 @@
                                 {% trans "Ce trimestre" %}
                             </button>
                             <button type="button" class="btn btn-light-secondary" onclick="setPeriod('year')">
-                                {% trans "Cette année" %}
+                                {% trans "Cette annÃ©e" %}
                             </button>
                         </div>
                     </div>
@@ -152,14 +152,14 @@
                             <i class="ph ph-brackets-curly text-warning f-s-24 me-2"></i>
                             <div>
                                 <strong>JSON</strong>
-                                <small class="text-muted d-block">{% trans "Pour intégrations API" %}</small>
+                                <small class="text-muted d-block">{% trans "Pour intÃ©grations API" %}</small>
                             </div>
                         </div>
                         <div class="d-flex align-items-center">
                             <i class="ph ph-file-code text-info f-s-24 me-2"></i>
                             <div>
                                 <strong>XML</strong>
-                                <small class="text-muted d-block">{% trans "Format structuré standard" %}</small>
+                                <small class="text-muted d-block">{% trans "Format structurÃ© standard" %}</small>
                             </div>
                         </div>
                     </div>
@@ -181,7 +181,7 @@
             <!-- Avertissement -->
             <div class="alert alert-info mt-3">
                 <i class="ph ph-info me-2"></i>
-                {% trans "Les exports volumineux sont traités en arrière-plan. Vous recevrez une notification quand l'export sera prêt." %}
+                {% trans "Les exports volumineux sont traitÃ©s en arriÃ¨re-plan. Vous recevrez une notification quand l'export sera prÃªt." %}
             </div>
         </div>
     </div>

@@ -60,13 +60,13 @@
     </div>
 </div>
 
-<!-- Résultats principaux -->
+<!-- RÃ©sultats principaux -->
 {% if comparaison.resultats %}
 <div class="row mb-4">
     <div class="col-12">
         <div class="card">
             <div class="card-header">
-                <h5>{% trans "Résumé des variations" %}</h5>
+                <h5>{% trans "RÃ©sumÃ© des variations" %}</h5>
             </div>
             <div class="card-body">
                 <div class="table-responsive">
@@ -105,7 +105,7 @@
     <div class="col-lg-4">
         <div class="card">
             <div class="card-header">
-                <h5>{% trans "Répartition des variations" %}</h5>
+                <h5>{% trans "RÃ©partition des variations" %}</h5>
             </div>
             <div class="card-body">
                 <canvas id="variationChart" height="300"></canvas>
@@ -119,14 +119,14 @@
         <div class="card">
             <div class="card-body text-center py-5">
                 <i class="ph ph-chart-bar f-s-50 text-muted"></i>
-                <p class="text-muted mt-3">{% trans "Les résultats de comparaison n'ont pas encore été calculés." %}</p>
+                <p class="text-muted mt-3">{% trans "Les rÃ©sultats de comparaison n'ont pas encore Ã©tÃ© calculÃ©s." %}</p>
             </div>
         </div>
     </div>
 </div>
 {% endif %}
 
-<!-- Métadonnées -->
+<!-- MÃ©tadonnÃ©es -->
 <div class="row">
     <div class="col-12">
         <div class="card">
@@ -142,7 +142,7 @@
                     </div>
                     <div class="col-auto">
                         <i class="ph ph-calendar me-1"></i>
-                        {% trans "Calculé le:" %} {{ comparaison.date_calcul|date:"d.m.Y H:i" }}
+                        {% trans "CalculÃ© le:" %} {{ comparaison.date_calcul|date:"d.m.Y H:i" }}
                     </div>
                 </div>
             </div>
