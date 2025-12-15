@@ -31,7 +31,7 @@
     <div class="col-md-3">
         <div class="card bg-primary text-white">
             <div class="card-body text-center">
-                <p class="mb-1">{% trans "Dernière valeur" %}</p>
+                <p class="mb-1">{% trans "DerniÃ¨re valeur" %}</p>
                 <h2 class="mb-0">
                     {% if stats.derniere_valeur %}
                     {{ stats.derniere_valeur|floatformat:indicateur.decimales }} {{ indicateur.unite }}
@@ -79,11 +79,11 @@
 </div>
 
 <div class="row">
-    <!-- Graphique d'évolution -->
+    <!-- Graphique d'Ã©volution -->
     <div class="col-lg-8 mb-4">
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <h5>{% trans "Évolution" %}</h5>
+                <h5>{% trans "Ã‰volution" %}</h5>
                 <div class="btn-group btn-group-sm">
                     <button type="button" class="btn btn-light-primary active">{% trans "6 mois" %}</button>
                     <button type="button" class="btn btn-light-secondary">{% trans "1 an" %}</button>
@@ -96,7 +96,7 @@
         </div>
     </div>
 
-    <!-- Détails de l'indicateur -->
+    <!-- DÃ©tails de l'indicateur -->
     <div class="col-lg-4 mb-4">
         <div class="card">
             <div class="card-header">
@@ -109,7 +109,7 @@
                         <td class="text-end"><strong>{{ indicateur.code }}</strong></td>
                     </tr>
                     <tr>
-                        <td class="text-muted">{% trans "Catégorie" %}</td>
+                        <td class="text-muted">{% trans "CatÃ©gorie" %}</td>
                         <td class="text-end">
                             <span class="badge bg-light-primary">{{ indicateur.get_categorie_display }}</span>
                         </td>
@@ -119,15 +119,15 @@
                         <td class="text-end">{{ indicateur.get_type_calcul_display }}</td>
                     </tr>
                     <tr>
-                        <td class="text-muted">{% trans "Périodicité" %}</td>
+                        <td class="text-muted">{% trans "PÃ©riodicitÃ©" %}</td>
                         <td class="text-end">{{ indicateur.get_periodicite_display }}</td>
                     </tr>
                     <tr>
-                        <td class="text-muted">{% trans "Unité" %}</td>
+                        <td class="text-muted">{% trans "UnitÃ©" %}</td>
                         <td class="text-end">{{ indicateur.unite|default:"-" }}</td>
                     </tr>
                     <tr>
-                        <td class="text-muted">{% trans "Décimales" %}</td>
+                        <td class="text-muted">{% trans "DÃ©cimales" %}</td>
                         <td class="text-end">{{ indicateur.decimales }}</td>
                     </tr>
                 </table>
@@ -181,7 +181,7 @@
                         <thead>
                             <tr>
                                 <th>{% trans "Date" %}</th>
-                                <th>{% trans "Période" %}</th>
+                                <th>{% trans "PÃ©riode" %}</th>
                                 <th class="text-end">{% trans "Valeur" %}</th>
                                 <th class="text-end">{% trans "Variation" %}</th>
                                 <th class="text-center">{% trans "Objectif" %}</th>
@@ -224,7 +224,7 @@
                             {% empty %}
                             <tr>
                                 <td colspan="6" class="text-center py-4 text-muted">
-                                    {% trans "Aucune mesure enregistrée" %}
+                                    {% trans "Aucune mesure enregistrÃ©e" %}
                                 </td>
                             </tr>
                             {% endfor %}

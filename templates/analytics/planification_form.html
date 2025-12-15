@@ -23,7 +23,7 @@
                 <a class="f-s-14 f-w-500" href="{% url 'analytics:planification-list' %}">{% trans "Planifications" %}</a>
             </li>
             <li class="active">
-                <a class="f-s-14 f-w-500" href="#">{% if object %}{% trans "Modifier" %}{% else %}{% trans "Créer" %}{% endif %}</a>
+                <a class="f-s-14 f-w-500" href="#">{% if object %}{% trans "Modifier" %}{% else %}{% trans "CrÃ©er" %}{% endif %}</a>
             </li>
         </ul>
     </div>
@@ -65,11 +65,11 @@
 
                     <hr class="my-4">
 
-                    <h6 class="mb-3">{% trans "Fréquence d'exécution" %}</h6>
+                    <h6 class="mb-3">{% trans "FrÃ©quence d'exÃ©cution" %}</h6>
 
                     <div class="row">
                         <div class="col-md-4 mb-3">
-                            <label for="{{ form.frequence.id_for_label }}" class="form-label">{% trans "Fréquence" %} *</label>
+                            <label for="{{ form.frequence.id_for_label }}" class="form-label">{% trans "FrÃ©quence" %} *</label>
                             {% render_field form.frequence class="form-select" id="frequence-select" %}
                         </div>
                         <div class="col-md-4 mb-3" id="jour-semaine-wrapper">
@@ -85,7 +85,7 @@
 
                     <div class="row">
                         <div class="col-md-4 mb-3">
-                            <label for="{{ form.heure_generation.id_for_label }}" class="form-label">{% trans "Heure d'exécution" %}</label>
+                            <label for="{{ form.heure_generation.id_for_label }}" class="form-label">{% trans "Heure d'exÃ©cution" %}</label>
                             {% render_field form.heure_generation class="form-control" type="time" %}
                         </div>
                     </div>
@@ -99,7 +99,7 @@
                 </div>
                 <div class="card-body">
                     <p class="text-muted mb-3">
-                        {% trans "Les rapports générés seront envoyés automatiquement aux adresses email ci-dessous." %}
+                        {% trans "Les rapports gÃ©nÃ©rÃ©s seront envoyÃ©s automatiquement aux adresses email ci-dessous." %}
                     </p>
                     <div class="mb-3">
                         <label class="form-label">{% trans "Adresses email" %}</label>
@@ -125,7 +125,7 @@
                         </label>
                     </div>
                     <p class="text-muted small mt-2">
-                        {% trans "Désactivez pour mettre en pause temporairement." %}
+                        {% trans "DÃ©sactivez pour mettre en pause temporairement." %}
                     </p>
                 </div>
             </div>
@@ -135,13 +135,13 @@
                     <h5>{% trans "Aide" %}</h5>
                 </div>
                 <div class="card-body">
-                    <h6>{% trans "Fréquences" %}</h6>
+                    <h6>{% trans "FrÃ©quences" %}</h6>
                     <ul class="small text-muted">
-                        <li><strong>{% trans "Quotidien" %}</strong>: {% trans "Tous les jours à l'heure spécifiée" %}</li>
+                        <li><strong>{% trans "Quotidien" %}</strong>: {% trans "Tous les jours Ã  l'heure spÃ©cifiÃ©e" %}</li>
                         <li><strong>{% trans "Hebdomadaire" %}</strong>: {% trans "Le jour de la semaine choisi" %}</li>
                         <li><strong>{% trans "Mensuel" %}</strong>: {% trans "Le jour du mois choisi" %}</li>
                         <li><strong>{% trans "Trimestriel" %}</strong>: {% trans "Le 1er jour de chaque trimestre" %}</li>
-                        <li><strong>{% trans "Annuel" %}</strong>: {% trans "Le 1er janvier de chaque année" %}</li>
+                        <li><strong>{% trans "Annuel" %}</strong>: {% trans "Le 1er janvier de chaque annÃ©e" %}</li>
                     </ul>
                 </div>
             </div>
@@ -150,7 +150,7 @@
                 <div class="card-body">
                     <button type="submit" class="btn btn-primary w-100 mb-2">
                         <i class="ph ph-check me-2"></i>
-                        {% if object %}{% trans "Enregistrer" %}{% else %}{% trans "Créer" %}{% endif %}
+                        {% if object %}{% trans "Enregistrer" %}{% else %}{% trans "CrÃ©er" %}{% endif %}
                     </button>
                     <a href="{% url 'analytics:planification-list' %}" class="btn btn-light-secondary w-100">
                         {% trans "Annuler" %}

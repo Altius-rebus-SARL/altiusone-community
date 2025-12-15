@@ -3,13 +3,13 @@
 {% load static %}
 {% load i18n %}
 
-{% block title %}{% trans "Exports de données" %}{% endblock %}
+{% block title %}{% trans "Exports de donnÃ©es" %}{% endblock %}
 
 {% block content %}
 <!-- Breadcrumb -->
 <div class="row m-1">
     <div class="col-12">
-        <h4 class="main-title">{% trans "Exports de données" %}</h4>
+        <h4 class="main-title">{% trans "Exports de donnÃ©es" %}</h4>
         <ul class="app-line-breadcrumbs mb-3">
             <li>
                 <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
@@ -48,12 +48,12 @@
                             <tr>
                                 <th>{% trans "Nom" %}</th>
                                 <th>{% trans "Type" %}</th>
-                                <th>{% trans "Période" %}</th>
+                                <th>{% trans "PÃ©riode" %}</th>
                                 <th>{% trans "Client" %}</th>
                                 <th>{% trans "Format" %}</th>
                                 <th>{% trans "Taille" %}</th>
                                 <th>{% trans "Lignes" %}</th>
-                                <th>{% trans "Demandé par" %}</th>
+                                <th>{% trans "DemandÃ© par" %}</th>
                                 <th>{% trans "Date" %}</th>
                                 <th>{% trans "Actions" %}</th>
                             </tr>
@@ -99,7 +99,7 @@
                                 <td>
                                     {% if export.fichier %}
                                     <a href="{% url 'analytics:export-telecharger' export.pk %}"
-                                       class="btn btn-sm btn-light-primary" title="{% trans 'Télécharger' %}">
+                                       class="btn btn-sm btn-light-primary" title="{% trans 'TÃ©lÃ©charger' %}">
                                         <i class="ph ph-download"></i>
                                     </a>
                                     {% else %}
@@ -113,10 +113,10 @@
                             <tr>
                                 <td colspan="10" class="text-center py-5">
                                     <i class="ph ph-database f-s-50 text-muted"></i>
-                                    <p class="text-muted mt-3">{% trans "Aucun export effectué" %}</p>
+                                    <p class="text-muted mt-3">{% trans "Aucun export effectuÃ©" %}</p>
                                     {% if user_permissions.analytics.export_donnees or is_superadmin %}
                                     <a href="{% url 'analytics:export-donnees' %}" class="btn btn-primary mt-2">
-                                        <i class="ph ph-export me-2"></i>{% trans "Créer un export" %}
+                                        <i class="ph ph-export me-2"></i>{% trans "CrÃ©er un export" %}
                                     </a>
                                     {% endif %}
                                 </td>
@@ -130,12 +130,12 @@
     </div>
 </div>
 
-<!-- Info sécurité -->
+<!-- Info sÃ©curitÃ© -->
 <div class="row mt-3">
     <div class="col-12">
         <div class="alert alert-warning">
             <i class="ph ph-shield-warning me-2"></i>
-            {% trans "Les exports contiennent des données sensibles. Les liens de téléchargement expirent après 24 heures." %}
+            {% trans "Les exports contiennent des donnÃ©es sensibles. Les liens de tÃ©lÃ©chargement expirent aprÃ¨s 24 heures." %}
         </div>
     </div>
 </div>

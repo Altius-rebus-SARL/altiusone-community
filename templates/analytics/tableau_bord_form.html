@@ -23,7 +23,7 @@
                 <a class="f-s-14 f-w-500" href="{% url 'analytics:tableau-bord-list' %}">{% trans "Tableaux de bord" %}</a>
             </li>
             <li class="active">
-                <a class="f-s-14 f-w-500" href="#">{% if object %}{% trans "Modifier" %}{% else %}{% trans "Créer" %}{% endif %}</a>
+                <a class="f-s-14 f-w-500" href="#">{% if object %}{% trans "Modifier" %}{% else %}{% trans "CrÃ©er" %}{% endif %}</a>
             </li>
         </ul>
     </div>
@@ -50,7 +50,7 @@
                         </div>
 
                         <div class="col-md-4 mb-3">
-                            <label for="{{ form.visibilite.id_for_label }}" class="form-label">{% trans "Visibilité" %}</label>
+                            <label for="{{ form.visibilite.id_for_label }}" class="form-label">{% trans "VisibilitÃ©" %}</label>
                             {% render_field form.visibilite class="form-select" %}
                         </div>
                     </div>
@@ -65,7 +65,7 @@
                             <div class="form-check form-switch">
                                 {% render_field form.auto_refresh class="form-check-input" %}
                                 <label class="form-check-label" for="{{ form.auto_refresh.id_for_label }}">
-                                    {% trans "Rafraîchissement automatique" %}
+                                    {% trans "RafraÃ®chissement automatique" %}
                                 </label>
                             </div>
                         </div>
@@ -95,7 +95,7 @@
                         </a>
                         <button type="submit" class="btn btn-primary">
                             <i class="ph ph-check me-2"></i>
-                            {% if object %}{% trans "Enregistrer" %}{% else %}{% trans "Créer" %}{% endif %}
+                            {% if object %}{% trans "Enregistrer" %}{% else %}{% trans "CrÃ©er" %}{% endif %}
                         </button>
                     </div>
                 </form>
@@ -110,16 +110,16 @@
                 <h5><i class="ph ph-question me-2"></i>{% trans "Aide" %}</h5>
             </div>
             <div class="card-body">
-                <h6>{% trans "Visibilité" %}</h6>
+                <h6>{% trans "VisibilitÃ©" %}</h6>
                 <ul class="small text-muted mb-3">
-                    <li><strong>{% trans "Privé" %}</strong>: {% trans "Visible uniquement par vous" %}</li>
-                    <li><strong>{% trans "Équipe" %}</strong>: {% trans "Visible par votre équipe" %}</li>
+                    <li><strong>{% trans "PrivÃ©" %}</strong>: {% trans "Visible uniquement par vous" %}</li>
+                    <li><strong>{% trans "Ã‰quipe" %}</strong>: {% trans "Visible par votre Ã©quipe" %}</li>
                     <li><strong>{% trans "Tous" %}</strong>: {% trans "Visible par tous les utilisateurs" %}</li>
                 </ul>
 
-                <h6>{% trans "Rafraîchissement" %}</h6>
+                <h6>{% trans "RafraÃ®chissement" %}</h6>
                 <p class="small text-muted">
-                    {% trans "Activez le rafraîchissement automatique pour mettre à jour les données périodiquement. L'intervalle minimum est de 30 secondes." %}
+                    {% trans "Activez le rafraÃ®chissement automatique pour mettre Ã  jour les donnÃ©es pÃ©riodiquement. L'intervalle minimum est de 30 secondes." %}
                 </p>
             </div>
         </div>

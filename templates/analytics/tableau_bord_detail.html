@@ -48,7 +48,7 @@
             {% if tableau.auto_refresh %}
             <span class="badge bg-light-success mt-1">
                 <i class="ph ph-arrow-clockwise me-1"></i>
-                {% trans "Rafraîchissement automatique" %} ({{ tableau.refresh_interval }}s)
+                {% trans "RafraÃ®chissement automatique" %} ({{ tableau.refresh_interval }}s)
             </span>
             {% endif %}
         </div>
@@ -76,7 +76,7 @@
                     <select name="periode" class="form-select form-select-sm" style="width: auto;">
                         <option value="mois">{% trans "Ce mois" %}</option>
                         <option value="trimestre">{% trans "Ce trimestre" %}</option>
-                        <option value="annee">{% trans "Cette année" %}</option>
+                        <option value="annee">{% trans "Cette annÃ©e" %}</option>
                     </select>
                     <button type="submit" class="btn btn-sm btn-primary">{% trans "Appliquer" %}</button>
                 </form>
@@ -93,7 +93,7 @@
     <div class="col-12">
         <div class="alert alert-info">
             <i class="ph ph-info me-2"></i>
-            {% trans "Ce tableau de bord contient des widgets configurés. Le rendu dynamique sera implémenté prochainement." %}
+            {% trans "Ce tableau de bord contient des widgets configurÃ©s. Le rendu dynamique sera implÃ©mentÃ© prochainement." %}
         </div>
     </div>
     {% endif %}
@@ -114,7 +114,7 @@
     <div class="col-md-6 col-lg-3 mb-4">
         <div class="card widget-card">
             <div class="card-body text-center">
-                <p class="text-muted mb-2">{% trans "Factures impayées" %}</p>
+                <p class="text-muted mb-2">{% trans "Factures impayÃ©es" %}</p>
                 <div class="kpi-value text-danger">8</div>
                 <span class="badge bg-light-danger">
                     <i class="ph ph-trend-up me-1"></i>+2 vs mois dernier
@@ -126,7 +126,7 @@
     <div class="col-md-6 col-lg-3 mb-4">
         <div class="card widget-card">
             <div class="card-body text-center">
-                <p class="text-muted mb-2">{% trans "Heures facturées" %}</p>
+                <p class="text-muted mb-2">{% trans "Heures facturÃ©es" %}</p>
                 <div class="kpi-value">342h</div>
                 <span class="badge bg-light-primary">
                     <i class="ph ph-minus me-1"></i>{% trans "Stable" %}
@@ -147,11 +147,11 @@
         </div>
     </div>
 
-    <!-- Graphique d'évolution -->
+    <!-- Graphique d'Ã©volution -->
     <div class="col-lg-8 mb-4">
         <div class="card">
             <div class="card-header">
-                <h5>{% trans "Évolution du chiffre d'affaires" %}</h5>
+                <h5>{% trans "Ã‰volution du chiffre d'affaires" %}</h5>
             </div>
             <div class="card-body">
                 <canvas id="caChart" height="300"></canvas>
@@ -159,11 +159,11 @@
         </div>
     </div>
 
-    <!-- Répartition par type -->
+    <!-- RÃ©partition par type -->
     <div class="col-lg-4 mb-4">
         <div class="card">
             <div class="card-header">
-                <h5>{% trans "Répartition par prestation" %}</h5>
+                <h5>{% trans "RÃ©partition par prestation" %}</h5>
             </div>
             <div class="card-body">
                 <canvas id="repartitionChart" height="300"></canvas>
@@ -172,7 +172,7 @@
     </div>
 </div>
 
-<!-- Métadonnées -->
+<!-- MÃ©tadonnÃ©es -->
 <div class="row">
     <div class="col-12">
         <div class="card">
@@ -180,15 +180,15 @@
                 <div class="row text-muted small">
                     <div class="col-auto">
                         <i class="ph ph-user me-1"></i>
-                        {% trans "Créé par" %}: {{ tableau.proprietaire.get_full_name|default:tableau.proprietaire.username }}
+                        {% trans "CrÃ©Ã© par" %}: {{ tableau.proprietaire.get_full_name|default:tableau.proprietaire.username }}
                     </div>
                     <div class="col-auto">
                         <i class="ph ph-calendar me-1"></i>
-                        {% trans "Créé le" %}: {{ tableau.created_at|date:"d.m.Y H:i" }}
+                        {% trans "CrÃ©Ã© le" %}: {{ tableau.created_at|date:"d.m.Y H:i" }}
                     </div>
                     <div class="col-auto">
                         <i class="ph ph-clock me-1"></i>
-                        {% trans "Modifié le" %}: {{ tableau.updated_at|date:"d.m.Y H:i" }}
+                        {% trans "ModifiÃ© le" %}: {{ tableau.updated_at|date:"d.m.Y H:i" }}
                     </div>
                 </div>
             </div>
@@ -205,7 +205,7 @@ const caCtx = document.getElementById('caChart').getContext('2d');
 new Chart(caCtx, {
     type: 'line',
     data: {
-        labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'],
+        labels: ['Jan', 'FÃ©v', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'AoÃ»', 'Sep', 'Oct', 'Nov', 'DÃ©c'],
         datasets: [{
             label: '{% trans "Chiffre d\'affaires" %}',
             data: [95000, 102000, 98000, 110000, 115000, 108000, 125000, 118000, 130000, 125450, 0, 0],
@@ -234,12 +234,12 @@ new Chart(caCtx, {
     }
 });
 
-// Graphique répartition
+// Graphique rÃ©partition
 const repCtx = document.getElementById('repartitionChart').getContext('2d');
 new Chart(repCtx, {
     type: 'doughnut',
     data: {
-        labels: ['Comptabilité', 'TVA', 'Salaires', 'Conseil', 'Autres'],
+        labels: ['ComptabilitÃ©', 'TVA', 'Salaires', 'Conseil', 'Autres'],
         datasets: [{
             data: [45, 20, 15, 12, 8],
             backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#6b7280']
