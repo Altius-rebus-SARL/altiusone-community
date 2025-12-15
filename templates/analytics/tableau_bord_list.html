@@ -77,9 +77,9 @@
                     <span><i class="ph ph-user me-1"></i>{{ tableau.proprietaire.get_full_name|default:tableau.proprietaire.username }}</span>
                     <span>
                         {% if tableau.visibilite == 'PRIVE' %}
-                        <i class="ph ph-lock me-1"></i>{% trans "PrivÃÂÃÂ©" %}
+                        <i class="ph ph-lock me-1"></i>{% trans "Privé" %}
                         {% elif tableau.visibilite == 'EQUIPE' %}
-                        <i class="ph ph-users me-1"></i>{% trans "ÃÂÃÂquipe" %}
+                        <i class="ph ph-users me-1"></i>{% trans "Équipe" %}
                         {% else %}
                         <i class="ph ph-globe me-1"></i>{% trans "Public" %}
                         {% endif %}
@@ -89,7 +89,7 @@
                 {% if tableau.auto_refresh %}
                 <span class="badge bg-light-success">
                     <i class="ph ph-arrow-clockwise me-1"></i>
-                    {% trans "RafraÃÂÃÂ®chissement auto" %} ({{ tableau.refresh_interval }}s)
+                    {% trans "Rafraîchissement auto" %} ({{ tableau.refresh_interval }}s)
                 </span>
                 {% endif %}
             </div>
@@ -108,7 +108,7 @@
                 <p class="text-muted mt-3">{% trans "Aucun tableau de bord disponible" %}</p>
                 {% if user_permissions.analytics.add_tableau_bord or is_superadmin %}
                 <a href="{% url 'analytics:tableau-bord-create' %}" class="btn btn-primary mt-2">
-                    <i class="ph ph-plus me-2"></i>{% trans "CrÃÂÃÂ©er votre premier tableau" %}
+                    <i class="ph ph-plus me-2"></i>{% trans "Créer votre premier tableau" %}
                 </a>
                 {% endif %}
             </div>
