@@ -93,6 +93,12 @@ class User(AbstractUser):
         verbose_name = _('Utilisateur')
         verbose_name_plural = _('Utilisateurs')
 
+    def save(self, *args, **kwargs):
+        """Assure que les superusers ont automatiquement le rôle ADMIN."""
+        if self.is_superuser and self.role != 'ADMIN':
+            self.role = 'ADMIN'
+        super().save(*args, **kwargs)
+
 
 class Adresse(models.Model):
 
