@@ -35,7 +35,7 @@ urlpatterns = [
         views.CompteUpdateView.as_view(),
         name="compte-update",
     ),
-    path("comptes/<uuid:pk>/grand-livre/", views.grand_livre, name="grand-livre"),
+    path("comptes/<uuid:compte_pk>/grand-livre/", views.grand_livre, name="grand-livre"),
     # Journaux
     path("journaux/", views.JournalListView.as_view(), name="journal-list"),
     path("journaux/nouveau/", views.JournalCreateView.as_view(), name="journal-create"),
