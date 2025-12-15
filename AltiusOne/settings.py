@@ -10,7 +10,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 # Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-only-key-change-in-production')
@@ -456,3 +455,22 @@ CONTENT_SECURITY_POLICY_REPORT_ONLY = DEBUG
 TEMPLATES[0]['OPTIONS']['context_processors'].append(
     'core.permissions.permissions_context'
 )
+
+
+import os
+import json
+
+# Vérifier si GCS est activé
+if os.environ.get('GCS_ENABLED') == 'True':
+    DEFAULT_FILE_STORAGE = 'storages.backends.gcloud.GoogleCloudStorage'
+    GS_BUCKET_NAME = os.environ.get('GCS_BUCKET_NAME')
+    GS_PROJECT_ID = os.environ.get('GCS_PROJECT_ID')
+    
+    # Charger les credentials depuis le fichier JSON
+    GS_CREDENTIALS = service_account.Credentials.from_service_account_file(
+        '/opt/altiusone/gcs-credentials.json'
+    )
+    
+    # URLs signées (expiration 1h)
+    GS_EXPIRATION = 3600
+

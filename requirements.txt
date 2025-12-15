@@ -52,3 +52,5 @@ pytest>=8.4.0
 pytest-cov>=7.0.0
 coverage>=7.10.0
 
+# Cloud Storage
+django-storages[google]>=1.14
