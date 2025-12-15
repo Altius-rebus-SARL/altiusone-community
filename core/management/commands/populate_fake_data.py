@@ -478,8 +478,9 @@ class Command(BaseCommand):
                     principal=(i == 0),
                 )
                 if i == 0:
-                    client.contact_principal = contact
-                    client.save()
+                    # Use update() to avoid modeltranslation bug with Django 6.0
+                    from core.models import Client
+                    Client.objects.filter(pk=client.pk).update(contact_principal=contact)
                 count += 1
 
         self.stdout.write(f"  ✓ {count} contacts")
