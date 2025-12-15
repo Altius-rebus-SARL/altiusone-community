@@ -260,17 +260,17 @@
                         <hr class="my-4">
 
                         <h6 class="text-muted mb-3">{% trans "Exports" %}</h6>
-                        
-                        <a href="#" class="btn btn-outline-primary w-100 mb-2">
+
+                        <a href="{% url 'comptabilite:balance-generale' exercice.mandat.pk %}?exercice={{ exercice.pk }}" class="btn btn-outline-primary w-100 mb-2">
                             <i class="ti ti-file-text me-2"></i>{% trans "Balance comptable" %}
                         </a>
-                        <a href="#" class="btn btn-outline-primary w-100 mb-2">
+                        <a href="{% url 'comptabilite:compte-list' %}?plan={{ exercice.mandat.plan_comptable.pk|default:'' }}" class="btn btn-outline-primary w-100 mb-2">
                             <i class="ti ti-file-text me-2"></i>{% trans "Grand livre" %}
                         </a>
-                        <a href="#" class="btn btn-outline-primary w-100 mb-2">
+                        <a href="{% url 'comptabilite:balance-generale' exercice.mandat.pk %}?exercice={{ exercice.pk }}&format=pdf" class="btn btn-outline-primary w-100 mb-2">
                             <i class="ti ti-file-text me-2"></i>{% trans "Compte de résultat" %}
                         </a>
-                        <a href="#" class="btn btn-outline-primary w-100">
+                        <a href="{% url 'comptabilite:balance-generale' exercice.mandat.pk %}?exercice={{ exercice.pk }}&format=pdf" class="btn btn-outline-primary w-100">
                             <i class="ti ti-file-text me-2"></i>{% trans "Bilan" %}
                         </a>
                     </div>
