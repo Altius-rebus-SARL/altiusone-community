@@ -9,7 +9,7 @@
 <!-- Breadcrumb -->
 <div class="row m-1">
     <div class="col-12">
-        <h4 class="main-title">{% trans "Rapports gÃÂÃÂ©nÃÂÃÂ©rÃÂÃÂ©s" %}</h4>
+        <h4 class="main-title">{% trans "Rapports générés" %}</h4>
         <ul class="app-line-breadcrumbs mb-3">
             <li>
                 <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
@@ -42,7 +42,7 @@
 
         {% if user_permissions.analytics.generate_rapport or is_superadmin %}
         <a href="{% url 'analytics:rapport-generer' %}" class="btn btn-primary">
-            <i class="ph ph-plus me-2"></i>{% trans "GÃÂÃÂ©nÃÂÃÂ©rer un rapport" %}
+            <i class="ph ph-plus me-2"></i>{% trans "Générer un rapport" %}
         </a>
         {% endif %}
     </div>
@@ -59,11 +59,11 @@
                             <tr>
                                 <th>{% trans "Nom" %}</th>
                                 <th>{% trans "Type" %}</th>
-                                <th>{% trans "PÃÂÃÂ©riode" %}</th>
+                                <th>{% trans "Période" %}</th>
                                 <th>{% trans "Client" %}</th>
                                 <th>{% trans "Format" %}</th>
                                 <th>{% trans "Statut" %}</th>
-                                <th>{% trans "GÃÂÃÂ©nÃÂÃÂ©rÃÂÃÂ© par" %}</th>
+                                <th>{% trans "Généré par" %}</th>
                                 <th>{% trans "Date" %}</th>
                                 <th>{% trans "Actions" %}</th>
                             </tr>
@@ -114,7 +114,7 @@
                                     </span>
                                     {% elif rapport.statut == 'TERMINE' %}
                                     <span class="badge bg-success">
-                                        <i class="ph ph-check me-1"></i>{% trans "TerminÃÂÃÂ©" %}
+                                        <i class="ph ph-check me-1"></i>{% trans "Terminé" %}
                                     </span>
                                     {% elif rapport.statut == 'ERREUR' %}
                                     <span class="badge bg-danger">
@@ -132,7 +132,7 @@
                                         </a>
                                         {% if rapport.fichier and rapport.statut == 'TERMINE' %}
                                         <a href="{% url 'analytics:rapport-telecharger' rapport.pk %}"
-                                           class="btn btn-sm btn-light-primary" title="{% trans 'TÃÂÃÂ©lÃÂÃÂ©charger' %}">
+                                           class="btn btn-sm btn-light-primary" title="{% trans 'Télécharger' %}">
                                             <i class="ph ph-download"></i>
                                         </a>
                                         {% endif %}
@@ -143,10 +143,10 @@
                             <tr>
                                 <td colspan="9" class="text-center py-5">
                                     <i class="ph ph-file-text f-s-50 text-muted"></i>
-                                    <p class="text-muted mt-3">{% trans "Aucun rapport gÃÂÃÂ©nÃÂÃÂ©rÃÂÃÂ©" %}</p>
+                                    <p class="text-muted mt-3">{% trans "Aucun rapport généré" %}</p>
                                     {% if user_permissions.analytics.generate_rapport or is_superadmin %}
                                     <a href="{% url 'analytics:rapport-generer' %}" class="btn btn-primary mt-2">
-                                        <i class="ph ph-plus me-2"></i>{% trans "GÃÂÃÂ©nÃÂÃÂ©rer votre premier rapport" %}
+                                        <i class="ph ph-plus me-2"></i>{% trans "Générer votre premier rapport" %}
                                     </a>
                                     {% endif %}
                                 </td>

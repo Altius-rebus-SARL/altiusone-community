@@ -1,85 +1,101 @@
 <!-- analytics/tableau_bord_list.html -->
-{% extends 'base.html' %}
-{% load static %}
-{% load i18n %}
-
-{% block title %}{% trans "Tableaux de bord" %}{% endblock %}
-
-{% block content %}
+{% extends 'base.html' %} {% load static %} {% load i18n %} {% block title %}{%
+trans "Tableaux de bord" %}{% endblock %} {% block content %}
 <!-- Breadcrumb -->
 <div class="row m-1">
-    <div class="col-12">
-        <h4 class="main-title">{% trans "Tableaux de bord" %}</h4>
-        <ul class="app-line-breadcrumbs mb-3">
-            <li>
-                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
-                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
-                </a>
-            </li>
-            <li>
-                <a class="f-s-14 f-w-500" href="#">{% trans "Analytics" %}</a>
-            </li>
-            <li class="active">
-                <a class="f-s-14 f-w-500" href="#">{% trans "Tableaux de bord" %}</a>
-            </li>
-        </ul>
-    </div>
+  <div class="col-12">
+    <h4 class="main-title">{% trans "Tableaux de bord" %}</h4>
+    <ul class="app-line-breadcrumbs mb-3">
+      <li>
+        <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+          <span
+            ><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de
+            bord" %}</span
+          >
+        </a>
+      </li>
+      <li>
+        <a class="f-s-14 f-w-500" href="#">{% trans "Analytics" %}</a>
+      </li>
+      <li class="active">
+        <a class="f-s-14 f-w-500" href="#">{% trans "Tableaux de bord" %}</a>
+      </li>
+    </ul>
+  </div>
 </div>
 
 <!-- Header Actions -->
 <div class="row mb-3">
-    <div class="col-12 d-flex justify-content-between align-items-center">
-        <div>
-            <span class="text-muted">{{ tableaux|length }} {% trans "tableau(x) de bord" %}</span>
-        </div>
-        {% if user_permissions.analytics.add_tableau_bord or is_superadmin %}
-        <a href="{% url 'analytics:tableau-bord-create' %}" class="btn btn-primary">
-            <i class="ph ph-plus me-2"></i>{% trans "Nouveau tableau" %}
-        </a>
-        {% endif %}
+  <div class="col-12 d-flex justify-content-between align-items-center">
+    <div>
+      <span class="text-muted"
+        >{{ tableaux|length }} {% trans "tableau(x) de bord" %}</span
+      >
     </div>
+    {% if user_permissions.analytics.add_tableau_bord or is_superadmin %}
+    <a href="{% url 'analytics:tableau-bord-create' %}" class="btn btn-primary">
+      <i class="ph ph-plus me-2"></i>{% trans "Nouveau tableau" %}
+    </a>
+    {% endif %}
+  </div>
 </div>
 
 <!-- Tableaux de bord Grid -->
 <div class="row">
-    {% for tableau in tableaux %}
-    <div class="col-md-6 col-lg-4 mb-4">
-        <div class="card h-100 {% if tableau.favori %}border-primary{% endif %}">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">
-                    {% if tableau.favori %}<i class="ph ph-star-fill text-warning me-2"></i>{% endif %}
-                    {{ tableau.nom }}
-                </h5>
-                <div class="dropdown">
-                    <button class="btn btn-sm btn-light-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                        <i class="ph ph-dots-three-outline-vertical"></i>
-                    </button>
-                    <ul class="dropdown-menu">
-                        <li>
-                            <a class="dropdown-item" href="{% url 'analytics:tableau-bord-detail' tableau.pk %}">
-                                <i class="ph ph-eye me-2"></i>{% trans "Voir" %}
-                            </a>
-                        </li>
-                        {% if tableau.proprietaire == request.user or is_superadmin %}
-                        <li>
-                            <a class="dropdown-item" href="{% url 'analytics:tableau-bord-update' tableau.pk %}">
-                                <i class="ph ph-pencil me-2"></i>{% trans "Modifier" %}
-                            </a>
-                        </li>
-                        {% endif %}
-                    </ul>
-                </div>
-            </div>
-            <div class="card-body">
-                <p class="text-muted small mb-3">{{ tableau.description|truncatewords:20|default:"-" }}</p>
+  {% for tableau in tableaux %}
+  <div class="col-md-6 col-lg-4 mb-4">
+    <div class="card h-100 {% if tableau.favori %}border-primary{% endif %}">
+      <div
+        class="card-header d-flex justify-content-between align-items-center"
+      >
+        <h5 class="mb-0">
+          {% if tableau.favori %}<i
+            class="ph ph-star-fill text-warning me-2"
+          ></i
+          >{% endif %} {{ tableau.nom }}
+        </h5>
+        <div class="dropdown">
+          <button
+            class="btn btn-sm btn-light-secondary dropdown-toggle"
+            type="button"
+            data-bs-toggle="dropdown"
+          >
+            <i class="ph ph-dots-three-outline-vertical"></i>
+          </button>
+          <ul class="dropdown-menu">
+            <li>
+              <a
+                class="dropdown-item"
+                href="{% url 'analytics:tableau-bord-detail' tableau.pk %}"
+              >
+                <i class="ph ph-eye me-2"></i>{% trans "Voir" %}
+              </a>
+            </li>
+            {% if tableau.proprietaire == request.user or is_superadmin %}
+            <li>
+              <a
+                class="dropdown-item"
+                href="{% url 'analytics:tableau-bord-update' tableau.pk %}"
+              >
+                <i class="ph ph-pencil me-2"></i>{% trans "Modifier" %}
+              </a>
+            </li>
+            {% endif %}
+          </ul>
+        </div>
+      </div>
+      <div class="card-body">
+        <p class="text-muted small mb-3">
+          {{ tableau.description|truncatewords:20|default:"-" }}
+        </p>
 
                 <div class="d-flex justify-content-between text-muted small mb-2">
                     <span><i class="ph ph-user me-1"></i>{{ tableau.proprietaire.get_full_name|default:tableau.proprietaire.username }}</span>
                     <span>
                         {% if tableau.visibilite == 'PRIVE' %}
-                        <i class="ph ph-lock me-1"></i>{% trans "Privé" %}
+                        <i class="ph ph-lock me-1"></i>{% trans "PrivÃÂÃÂ©" %}
                         {% elif tableau.visibilite == 'EQUIPE' %}
-                        <i class="ph ph-users me-1"></i>{% trans "Équipe" %}
+                        <i class="ph ph-users me-1"></i>{% trans "ÃÂÃÂquipe" %}
                         {% else %}
                         <i class="ph ph-globe me-1"></i>{% trans "Public" %}
                         {% endif %}
@@ -89,7 +105,7 @@
                 {% if tableau.auto_refresh %}
                 <span class="badge bg-light-success">
                     <i class="ph ph-arrow-clockwise me-1"></i>
-                    {% trans "Rafraîchissement auto" %} ({{ tableau.refresh_interval }}s)
+                    {% trans "RafraÃÂÃÂ®chissement auto" %} ({{ tableau.refresh_interval }}s)
                 </span>
                 {% endif %}
             </div>
@@ -108,7 +124,7 @@
                 <p class="text-muted mt-3">{% trans "Aucun tableau de bord disponible" %}</p>
                 {% if user_permissions.analytics.add_tableau_bord or is_superadmin %}
                 <a href="{% url 'analytics:tableau-bord-create' %}" class="btn btn-primary mt-2">
-                    <i class="ph ph-plus me-2"></i>{% trans "Créer votre premier tableau" %}
+                    <i class="ph ph-plus me-2"></i>{% trans "CrÃÂÃÂ©er votre premier tableau" %}
                 </a>
                 {% endif %}
             </div>
