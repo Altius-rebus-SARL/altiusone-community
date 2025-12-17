@@ -474,6 +474,7 @@ class DocumentEmbedding(models.Model):
     class Meta:
         db_table = 'document_embeddings'
         verbose_name = 'Embedding de document'
+        managed = False  # Table créée via migration SQL brut (0004)
         indexes = [
             # Index HNSW pour recherche rapide de similarité
             HnswIndex(
@@ -585,6 +586,7 @@ class TextChunkEmbedding(models.Model):
     class Meta:
         db_table = 'text_chunk_embeddings'
         verbose_name = 'Embedding de chunk'
+        managed = False  # Table créée via migration SQL brut (0004)
         unique_together = [['document', 'chunk_index']]
         indexes = [
             HnswIndex(
