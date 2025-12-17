@@ -81,8 +81,38 @@ class TableauBordDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailV
         # Configuration du tableau en JSON pour le frontend
         context["configuration"] = json.dumps(tableau.configuration)
 
-        # Calculer les valeurs des indicateurs
-        # TODO: Implémenter le calcul des KPI selon la configuration
+        # Calculer les valeurs des indicateurs selon la configuration
+        from .services import KPICalculator
+        from .models import Indicateur
+
+        calculator = KPICalculator()
+        kpi_values = {}
+
+        # Si la configuration contient des widgets, calculer leurs métriques
+        if tableau.configuration and 'widgets' in tableau.configuration:
+            for widget in tableau.configuration['widgets']:
+                metric_code = widget.get('metric')
+                if metric_code:
+                    try:
+                        indicateur = Indicateur.objects.get(code=metric_code)
+                        resultat = calculator.calculer_kpi(indicateur)
+                        kpi_values[metric_code] = {
+                            'valeur': float(resultat['valeur']),
+                            'indicateur': {
+                                'nom': indicateur.nom,
+                                'unite': indicateur.unite,
+                                'decimales': indicateur.decimales,
+                                'objectif_cible': float(indicateur.objectif_cible) if indicateur.objectif_cible else None,
+                            },
+                            'details': resultat.get('details', {}),
+                        }
+                    except Indicateur.DoesNotExist:
+                        kpi_values[metric_code] = {
+                            'valeur': 0,
+                            'erreur': 'Indicateur non trouvé'
+                        }
+
+        context["kpi_values"] = json.dumps(kpi_values)
 
         return context
 
@@ -368,7 +398,7 @@ class AlerteMetriqueListView(LoginRequiredMixin, BusinessPermissionMixin, ListVi
         )
 
         # Filtrer selon le rôle
-        if user.role not in ["ADMIN", "MANAGER"]:
+        if not user.is_manager():
             queryset = queryset.filter(
                 Q(mandat__responsable=user) | Q(mandat__equipe=user)
             ).distinct()

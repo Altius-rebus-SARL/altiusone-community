@@ -100,7 +100,7 @@ def factures_export_csv(request):
 
     # Filtrer selon les permissions
     user = request.user
-    if not user.is_superuser and user.role not in ['ADMIN', 'MANAGER']:
+    if not user.is_superuser and not user.is_manager():
         if not has_business_permission(user, 'facturation.view_all_factures'):
             queryset = queryset.filter(
                 Q(mandat__responsable=user) | Q(mandat__equipe=user)
@@ -168,7 +168,7 @@ def factures_export_excel(request):
         queryset = queryset.filter(client_id=client_id)
 
     user = request.user
-    if not user.is_superuser and user.role not in ['ADMIN', 'MANAGER']:
+    if not user.is_superuser and not user.is_manager():
         if not has_business_permission(user, 'facturation.view_all_factures'):
             queryset = queryset.filter(
                 Q(mandat__responsable=user) | Q(mandat__equipe=user)
@@ -295,7 +295,7 @@ def declarations_tva_export_csv(request):
         queryset = queryset.filter(mandat_id=mandat_id)
 
     user = request.user
-    if not user.is_superuser and user.role not in ['ADMIN', 'MANAGER']:
+    if not user.is_superuser and not user.is_manager():
         if not has_business_permission(user, 'tva.view_all_declarations'):
             queryset = queryset.filter(
                 Q(mandat__responsable=user) | Q(mandat__equipe=user)
@@ -475,7 +475,7 @@ def fiches_salaire_export_csv(request):
         queryset = queryset.filter(mandat_id=mandat_id)
 
     user = request.user
-    if not user.is_superuser and user.role not in ['ADMIN', 'MANAGER']:
+    if not user.is_superuser and not user.is_manager():
         if not has_business_permission(user, 'salaires.view_all_fiches'):
             queryset = queryset.filter(
                 Q(mandat__responsable=user) | Q(mandat__equipe=user)

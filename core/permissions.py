@@ -481,42 +481,42 @@ class IsSuperAdmin(BasePermission):
 
 
 class IsAdminRole(BasePermission):
-    """Vérifie si l'utilisateur a le rôle ADMIN."""
+    """Vérifie si l'utilisateur a le rôle ADMIN (niveau 100)."""
     def has_permission(self, request, view):
         return bool(
             request.user and
             request.user.is_authenticated and
-            (request.user.is_superuser or request.user.role == 'ADMIN')
+            request.user.is_admin()
         )
 
 
 class IsManagerOrAbove(BasePermission):
-    """Vérifie si l'utilisateur est MANAGER ou supérieur."""
+    """Vérifie si l'utilisateur est MANAGER ou supérieur (niveau >= 80)."""
     def has_permission(self, request, view):
         return bool(
             request.user and
             request.user.is_authenticated and
-            (request.user.is_superuser or request.user.role in ['ADMIN', 'MANAGER'])
+            request.user.is_manager()
         )
 
 
 class IsComptableOrAbove(BasePermission):
-    """Vérifie si l'utilisateur est COMPTABLE ou supérieur."""
+    """Vérifie si l'utilisateur est COMPTABLE ou supérieur (niveau >= 60)."""
     def has_permission(self, request, view):
         return bool(
             request.user and
             request.user.is_authenticated and
-            (request.user.is_superuser or request.user.role in ['ADMIN', 'MANAGER', 'COMPTABLE'])
+            request.user.is_comptable()
         )
 
 
 class IsStaffOrAbove(BasePermission):
-    """Vérifie si l'utilisateur est un membre du staff (pas CLIENT)."""
+    """Vérifie si l'utilisateur est un membre du staff (pas CLIENT, niveau > 10)."""
     def has_permission(self, request, view):
         return bool(
             request.user and
             request.user.is_authenticated and
-            (request.user.is_superuser or request.user.role != 'CLIENT')
+            (request.user.is_superuser or not request.user.is_client())
         )
 
 
@@ -592,7 +592,8 @@ def has_business_permission(user, permission_code):
         return True
 
     # Récupérer les permissions du rôle
-    role_perms = ROLE_PERMISSIONS.get(user.role, [])
+    role_code = user.role.code if user.role else None
+    role_perms = ROLE_PERMISSIONS.get(role_code, [])
 
     # ADMIN a toutes les permissions
     if '*' in role_perms:
@@ -628,7 +629,8 @@ def get_user_permissions(user):
         return all_perms
 
     # Récupérer les permissions du rôle
-    role_perms = ROLE_PERMISSIONS.get(user.role, [])
+    role_code = user.role.code if user.role else None
+    role_perms = ROLE_PERMISSIONS.get(role_code, [])
 
     if '*' in role_perms:
         # ADMIN a toutes les permissions
@@ -718,7 +720,8 @@ def role_required(*roles):
             if request.user.is_superuser:
                 return view_func(request, *args, **kwargs)
 
-            if request.user.role in roles:
+            role_code = request.user.role.code if request.user.role else None
+            if role_code in roles:
                 return view_func(request, *args, **kwargs)
 
             raise PermissionDenied(
@@ -774,7 +777,8 @@ class RoleRequiredMixin:
         if request.user.is_superuser:
             return super().dispatch(request, *args, **kwargs)
 
-        if request.user.role in self.required_roles:
+        role_code = request.user.role.code if request.user.role else None
+        if role_code in self.required_roles:
             return super().dispatch(request, *args, **kwargs)
 
         raise PermissionDenied(
@@ -822,7 +826,7 @@ def permissions_context(request):
 
     return {
         'user_permissions': perms_by_app,
-        'user_role': user.role,
+        'user_role': user.role.code if user.role else None,
         'is_superadmin': user.is_superuser,
     }
 

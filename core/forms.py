@@ -6,19 +6,20 @@ from .models import Client, Mandat, Contact, Tache, Adresse, ExerciceComptable, 
 
 
 class AdresseForm(forms.ModelForm):
-    """Formulaire pour une adresse"""
+    """Formulaire pour une adresse avec support international"""
 
     class Meta:
         model = Adresse
-        fields = ["rue", "numero", "complement", "npa", "localite", "canton", "pays"]
+        fields = ["rue", "numero", "complement", "code_postal", "localite", "region", "canton", "pays"]
         widgets = {
             "rue": forms.TextInput(attrs={"class": "form-control"}),
             "numero": forms.TextInput(attrs={"class": "form-control"}),
             "complement": forms.TextInput(attrs={"class": "form-control"}),
-            "npa": forms.TextInput(attrs={"class": "form-control"}),
+            "code_postal": forms.TextInput(attrs={"class": "form-control", "placeholder": "NPA / Code postal"}),
             "localite": forms.TextInput(attrs={"class": "form-control"}),
+            "region": forms.TextInput(attrs={"class": "form-control", "placeholder": "Région / État (optionnel)"}),
             "canton": forms.Select(attrs={"class": "form-control select2"}),
-            "pays": forms.TextInput(attrs={"class": "form-control"}),
+            "pays": forms.Select(attrs={"class": "form-control select2"}),
         }
 
 

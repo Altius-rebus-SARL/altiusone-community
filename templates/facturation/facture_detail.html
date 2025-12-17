@@ -44,10 +44,34 @@
         </a>
         {% endif %}
         
-        <a href="{% url 'facturation:facture-generer-pdf' facture.pk %}" class="btn btn-primary">
-            <i class="ph ph-file-pdf me-2"></i>{% trans "Télécharger PDF" %}
-        </a>
-        
+        <!-- Dropdown pour PDF -->
+        <div class="btn-group">
+            <a href="{% url 'facturation:facture-generer-pdf' facture.pk %}" class="btn btn-primary">
+                <i class="ph ph-file-pdf me-2"></i>{% trans "PDF Standard" %}
+            </a>
+            <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                <span class="visually-hidden">Toggle Dropdown</span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li>
+                    <a class="dropdown-item" href="{% url 'facturation:facture-generer-pdf' facture.pk %}">
+                        <i class="ph ph-file-pdf me-2"></i>{% trans "PDF Standard" %}
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{% url 'facturation:facture-generer-pdf' facture.pk %}?qr_bill=1">
+                        <i class="ph ph-qr-code me-2"></i>{% trans "PDF avec QR-Bill (Suisse)" %}
+                    </a>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <span class="dropdown-item-text text-muted small">
+                        <i class="ph ph-info me-1"></i>{% trans "QR-Bill = bulletin de versement suisse" %}
+                    </span>
+                </li>
+            </ul>
+        </div>
+
         <button class="btn btn-secondary" onclick="window.print()">
             <i class="ph ph-printer me-2"></i>{% trans "Imprimer" %}
         </button>
@@ -336,9 +360,27 @@
                     <i class="ph ph-paper-plane-tilt"></i> {% trans "Envoyer par email" %}
                 </a>
                 {% endif %}
-                <a href="{% url 'facturation:facture-generer-pdf' facture.pk %}" class="btn btn-success m-1">
-                    <i class="ph ph-download"></i> {% trans "Télécharger PDF" %}
-                </a>
+                <!-- Dropdown PDF options -->
+                <div class="btn-group m-1">
+                    <a href="{% url 'facturation:facture-generer-pdf' facture.pk %}" class="btn btn-success">
+                        <i class="ph ph-download"></i> {% trans "PDF" %}
+                    </a>
+                    <button type="button" class="btn btn-success dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                        <span class="visually-hidden">Toggle</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li>
+                            <a class="dropdown-item" href="{% url 'facturation:facture-generer-pdf' facture.pk %}">
+                                <i class="ph ph-file-pdf me-2"></i>{% trans "PDF Standard" %}
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'facturation:facture-generer-pdf' facture.pk %}?qr_bill=1">
+                                <i class="ph ph-qr-code me-2"></i>{% trans "PDF + QR-Bill" %}
+                            </a>
+                        </li>
+                    </ul>
+                </div>
             </div>
         </div>
     </div>

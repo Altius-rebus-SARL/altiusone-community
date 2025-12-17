@@ -358,7 +358,7 @@ class Command(BaseCommand):
             adresse = Adresse.objects.create(
                 rue=self.fake.street_name(),
                 numero=str(self.fake.building_number()),
-                npa=city[0],
+                code_postal=city[0],
                 localite=city[1],
                 canton=city[2],
                 pays="CH",
@@ -413,7 +413,7 @@ class Command(BaseCommand):
         }
 
         clients = []
-        managers = [u for u in users if u.role in ["ADMIN", "MANAGER", "COMPTABLE"]]
+        managers = [u for u in users if u.is_comptable()]
 
         for i in range(count):
             form_juridique = random.choice(company_types)
@@ -553,7 +553,7 @@ class Command(BaseCommand):
         }
 
         mandats = []
-        managers = [u for u in users if u.role in ["ADMIN", "MANAGER", "COMPTABLE"]]
+        managers = [u for u in users if u.is_comptable()]
 
         for client in clients:
             num_mandats = random.randint(1, 2)
@@ -1201,7 +1201,7 @@ class Command(BaseCommand):
 
         count = 0
         prestations = list(Prestation.objects.all())
-        comptables = [u for u in users if u.role in ["COMPTABLE", "ASSISTANT"]]
+        comptables = [u for u in users if u.role and u.role.niveau >= 40]  # ASSISTANT and above
 
         for mandat in mandats[:5]:
             for i in range(random.randint(5, 15)):

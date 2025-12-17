@@ -76,13 +76,6 @@ class PlanComptableListView(LoginRequiredMixin, BusinessPermissionMixin, FilterV
             nb_comptes=Count("comptes")
         )
 
-        # SUPPRIMEZ CE BLOC QUI FILTRE TOUT
-        # user = self.request.user
-        # if user.role not in ["ADMIN", "MANAGER"]:
-        #     queryset = queryset.filter(
-        #         Q(mandat__responsable=user) | Q(mandat__equipe=user)
-        #     ).distinct()
-
         return queryset.order_by("-created_at")
 
     def get_context_data(self, **kwargs):
@@ -378,7 +371,7 @@ class JournalListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
 
         # Mandats disponibles
         user = self.request.user
-        if user.role in ["ADMIN", "MANAGER"]:
+        if user.is_manager():
             context["mandats"] = Mandat.objects.filter(statut="ACTIF")
         else:
             context["mandats"] = Mandat.objects.filter(
@@ -489,7 +482,7 @@ class EcritureComptableListView(LoginRequiredMixin, BusinessPermissionMixin, Lis
 
         # Filtrer selon le rôle
         user = self.request.user
-        if user.role not in ["ADMIN", "MANAGER"] and user.is_superuser == False:
+        if not user.is_manager() and not user.is_superuser:
             queryset = queryset.filter(
                 Q(mandat__responsable=user) | Q(mandat__equipe=user)
             ).distinct()
@@ -650,7 +643,7 @@ class PieceComptableListView(LoginRequiredMixin, BusinessPermissionMixin, ListVi
 
         # Filtrer selon le rôle
         user = self.request.user
-        if user.role not in ["ADMIN", "MANAGER"]:
+        if not user.is_manager():
             queryset = queryset.filter(
                 Q(mandat__responsable=user) | Q(mandat__equipe=user)
             ).distinct()

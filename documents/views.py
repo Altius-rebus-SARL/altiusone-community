@@ -45,7 +45,7 @@ class DossierListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
 
         # Filtrer selon le rôle
         user = self.request.user
-        if user.role not in ["ADMIN", "MANAGER"]:
+        if not user.is_manager():
             queryset = queryset.filter(
                 Q(mandat__responsable=user)
                 | Q(mandat__equipe=user)
@@ -160,7 +160,7 @@ class DocumentListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
 
         # Filtrer selon le rôle
         user = self.request.user
-        if user.role not in ["ADMIN", "MANAGER"]:
+        if not user.is_manager():
             queryset = queryset.filter(
                 Q(mandat__responsable=user) | Q(mandat__equipe=user)
             ).distinct()
@@ -258,7 +258,20 @@ class DocumentUploadView(LoginRequiredMixin, BusinessPermissionMixin, CreateView
         return reverse_lazy("documents:document-detail", kwargs={"pk": self.object.pk})
 
     def form_valid(self, form):
+        from documents.storage import storage_service
+        from documents.tasks import traiter_document_ocr
+        from django.conf import settings
+
         fichier = self.request.FILES["fichier"]
+
+        # Valider le fichier
+        validation = storage_service.valider_fichier(
+            fichier.name, fichier.size, fichier.content_type
+        )
+        if not validation['valid']:
+            for error in validation['errors']:
+                messages.error(self.request, error)
+            return self.form_invalid(form)
 
         # Créer le document
         document = form.save(commit=False)
@@ -273,21 +286,28 @@ class DocumentUploadView(LoginRequiredMixin, BusinessPermissionMixin, CreateView
         _, ext = os.path.splitext(fichier.name)
         document.extension = ext.lower()
 
-        # Hash
-        import hashlib
+        # Upload vers le stockage (GCS ou local)
+        upload_result = storage_service.upload_fichier(
+            file_obj=fichier,
+            filename=fichier.name,
+            mandat_id=str(document.mandat_id)
+        )
 
-        hash_md5 = hashlib.sha256()
-        for chunk in fichier.chunks():
-            hash_md5.update(chunk)
-        document.hash_fichier = hash_md5.hexdigest()
+        if not upload_result['success']:
+            for error in upload_result.get('errors', ['Erreur upload']):
+                messages.error(self.request, error)
+            return self.form_invalid(form)
 
-        # Path storage (à adapter selon ton système de stockage)
-        document.path_storage = document.generer_path_storage()
+        document.path_storage = upload_result['path']
+        document.hash_fichier = upload_result['hash']
+        document.statut_traitement = 'UPLOAD'
 
         document.save()
 
-        # TODO: Sauvegarder le fichier sur S3/Minio
-        # TODO: Déclencher OCR/AI si nécessaire
+        # Lancer le traitement OCR en arrière-plan si activé
+        if getattr(settings, 'OCR_SERVICE_ENABLED', False):
+            traiter_document_ocr.delay(str(document.id))
+            messages.info(self.request, _("Traitement OCR lancé en arrière-plan"))
 
         messages.success(self.request, _("Document uploadé avec succès"))
         return super().form_valid(form)
@@ -295,13 +315,24 @@ class DocumentUploadView(LoginRequiredMixin, BusinessPermissionMixin, CreateView
 
 @login_required
 def document_telecharger(request, pk):
-    """Télécharge un document"""
+    """Télécharge un document depuis GCS ou stockage local"""
+    from documents.storage import storage_service
+
     document = get_object_or_404(Document, pk=pk)
 
-    # TODO: Récupérer le fichier depuis S3/Minio
-    # Pour l'instant, retourner une réponse vide
-    messages.info(request, _("Téléchargement en cours..."))
-    return redirect("documents:document-detail", pk=pk)
+    # Récupérer le fichier depuis le stockage
+    content = storage_service.telecharger_fichier(document.path_storage)
+
+    if content is None:
+        messages.error(request, _("Impossible de télécharger le fichier"))
+        return redirect("documents:document-detail", pk=pk)
+
+    # Créer la réponse avec le contenu du fichier
+    response = HttpResponse(content, content_type=document.mime_type)
+    response['Content-Disposition'] = f'attachment; filename="{document.nom_original}"'
+    response['Content-Length'] = len(content)
+
+    return response
 
 
 @login_required
@@ -332,38 +363,105 @@ def document_valider(request, pk):
 
 @login_required
 def document_ocr(request, pk):
-    """Lance l'OCR sur un document"""
+    """Lance l'OCR sur un document via le service externe"""
+    from documents.tasks import traiter_document_ocr
+    from django.conf import settings
+
     document = get_object_or_404(Document, pk=pk)
 
-    # TODO: Lancer le traitement OCR
-    document.statut_traitement = "OCR_EN_COURS"
-    document.save()
+    # Vérifier si le service OCR est disponible
+    if not getattr(settings, 'OCR_SERVICE_ENABLED', False):
+        messages.warning(request, _("Le service OCR n'est pas activé"))
+        return redirect("documents:document-detail", pk=pk)
 
-    messages.info(request, _("Traitement OCR lancé"))
+    # Vérifier que le document n'est pas déjà en traitement
+    if document.statut_traitement in ['OCR_EN_COURS', 'CLASSIFICATION_EN_COURS', 'EXTRACTION_EN_COURS']:
+        messages.warning(request, _("Le document est déjà en cours de traitement"))
+        return redirect("documents:document-detail", pk=pk)
+
+    # Lancer le traitement en arrière-plan
+    traiter_document_ocr.delay(str(document.id))
+
+    document.statut_traitement = "OCR_EN_COURS"
+    document.save(update_fields=['statut_traitement'])
+
+    messages.info(request, _("Traitement OCR lancé en arrière-plan"))
     return redirect("documents:document-detail", pk=pk)
 
 
 @login_required
 def recherche_documents(request):
-    """Recherche de documents"""
+    """
+    Recherche de documents avec support hybride (full-text + sémantique).
+
+    Utilise PGVector pour la recherche sémantique locale.
+    """
+    from documents.search import search_service
+    from django.conf import settings
+    import time
+
     query = request.GET.get("q", "")
-    results = []
+    search_type = request.GET.get("type", "hybrid")  # fulltext, semantic, ou hybrid
+    mandat_id = request.GET.get("mandat", "")
+    error_message = None
+    search_results = []
+    search_time_ms = 0
 
     if query:
-        results = (
-            Document.objects.filter(
-                Q(nom_fichier__icontains=query)
-                | Q(ocr_text__icontains=query)
-                | Q(description__icontains=query)
+        start_time = time.time()
+
+        try:
+            # Utiliser le service de recherche hybride
+            search_results = search_service.search(
+                query=query,
+                mandat_id=mandat_id if mandat_id else None,
+                user=request.user,
+                search_type=search_type,
+                limit=50,
+                semantic_threshold=getattr(settings, 'SEARCH_SEMANTIC_THRESHOLD', 0.5),
+                fulltext_weight=getattr(settings, 'SEARCH_FULLTEXT_WEIGHT', 0.4),
+                semantic_weight=getattr(settings, 'SEARCH_SEMANTIC_WEIGHT', 0.6),
             )
-            .select_related("mandat__client", "type_document")
-            .order_by("-date_upload")[:50]
-        )
+        except Exception as e:
+            error_message = f"Erreur recherche: {str(e)}"
+            search_results = []
+
+        search_time_ms = int((time.time() - start_time) * 1000)
+
+    # Mandats pour le filtre
+    mandats = Mandat.objects.filter(is_active=True)
+    user = request.user
+    if not user.is_manager():
+        mandats = mandats.filter(
+            Q(responsable=user) | Q(equipe=user)
+        ).distinct()
+
+    # Statistiques par type de match
+    match_stats = {
+        'fulltext': sum(1 for r in search_results if r.match_type == 'fulltext'),
+        'semantic': sum(1 for r in search_results if r.match_type == 'semantic'),
+        'combined': sum(1 for r in search_results if r.match_type == 'combined'),
+    }
 
     return render(
         request,
         "documents/recherche.html",
-        {"query": query, "results": results, "count": len(results)},
+        {
+            "query": query,
+            "search_type": search_type,
+            "results": search_results,
+            "count": len(search_results),
+            "search_time_ms": search_time_ms,
+            "match_stats": match_stats,
+            "mandats": mandats,
+            "selected_mandat": mandat_id,
+            "error_message": error_message,
+            "search_types": [
+                ('hybrid', _('Recherche hybride (recommandé)')),
+                ('fulltext', _('Recherche textuelle')),
+                ('semantic', _('Recherche sémantique')),
+            ],
+        },
     )
 
 

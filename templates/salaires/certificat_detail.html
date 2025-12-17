@@ -35,9 +35,9 @@
         <button class="btn btn-secondary" onclick="window.print()">
             <i class="ph ph-printer me-2"></i>{% trans "Imprimer" %}
         </button>
-        <button class="btn btn-primary">
+        <a href="{% url 'salaires:certificat-pdf' certificat.pk %}" class="btn btn-primary">
             <i class="ph ph-file-pdf me-2"></i>{% trans "Télécharger PDF" %}
-        </button>
+        </a>
     </div>
 </div>
 
@@ -74,7 +74,7 @@
                             <p>
                                 <strong>{{ certificat.employe.prenom }} {{ certificat.employe.nom }}</strong><br>
                                 {{ certificat.employe.adresse.rue }} {{ certificat.employe.adresse.numero }}<br>
-                                {{ certificat.employe.adresse.npa }} {{ certificat.employe.adresse.localite }}<br>
+                                {{ certificat.employe.adresse.code_postal }} {{ certificat.employe.adresse.localite }}<br>
                                 {% trans "AVS" %}: {{ certificat.employe.avs_number }}
                             </p>
                         </div>

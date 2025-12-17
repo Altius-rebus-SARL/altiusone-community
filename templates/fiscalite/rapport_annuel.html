@@ -38,7 +38,7 @@
                         <h5 class="text-primary mb-1">{{ mandat.numero }}</h5>
                         <h6 class="mb-0">{{ mandat.client.raison_sociale }}</h6>
                         <p class="text-muted f-s-14 mb-0">
-                            {{ mandat.client.adresse }} - {{ mandat.client.npa }} {{ mandat.client.localite }}
+                            {{ mandat.client.adresse_siege.rue }} {{ mandat.client.adresse_siege.numero }} - {{ mandat.client.adresse_siege.code_postal }} {{ mandat.client.adresse_siege.localite }}
                         </p>
                     </div>
                     <div class="text-end">

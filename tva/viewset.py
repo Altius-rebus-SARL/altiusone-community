@@ -152,8 +152,14 @@ class DeclarationTVAViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Générer le XML (à implémenter)
-        # TODO: Génération XML AFC
+        # Générer le XML AFC
+        try:
+            declaration.generer_xml()
+        except Exception as e:
+            return Response(
+                {"error": f"Erreur lors de la génération XML: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
         declaration.statut = "SOUMIS"
         declaration.soumis_par = request.user
@@ -168,16 +174,38 @@ class DeclarationTVAViewSet(viewsets.ModelViewSet):
         """Générer le fichier XML pour l'AFC"""
         declaration = self.get_object()
 
-        # TODO: Implémenter la génération XML
+        try:
+            fichier = declaration.generer_xml()
+            return Response(
+                {
+                    "message": "Fichier XML généré avec succès",
+                    "fichier": fichier.url if fichier else None,
+                }
+            )
+        except Exception as e:
+            return Response(
+                {"error": f"Erreur lors de la génération XML: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
-        return Response(
-            {
-                "message": "Fichier XML généré",
-                "fichier": declaration.fichier_xml.url
-                if declaration.fichier_xml
-                else None,
-            }
-        )
+    @action(detail=True, methods=["post"])
+    def generer_pdf(self, request, pk=None):
+        """Générer le fichier PDF de la déclaration"""
+        declaration = self.get_object()
+
+        try:
+            fichier = declaration.generer_pdf()
+            return Response(
+                {
+                    "message": "Fichier PDF généré avec succès",
+                    "fichier": fichier.url if fichier else None,
+                }
+            )
+        except Exception as e:
+            return Response(
+                {"error": f"Erreur lors de la génération PDF: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class LigneTVAViewSet(viewsets.ModelViewSet):

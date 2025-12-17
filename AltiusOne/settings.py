@@ -56,6 +56,7 @@ EXTERNAL_APPS = [
     "widget_tweaks",
     "drf_yasg",
     'corsheaders',
+    'django_countries',
 ]
 
 
@@ -467,20 +468,99 @@ TEMPLATES[0]['OPTIONS']['context_processors'].append(
 )
 
 
-import os
-import json
+# ============================================================================
+# CLOUD STORAGE CONFIGURATION (Google Cloud Storage)
+# ============================================================================
+# Cette application est une instance du portail principal.
+# Le stockage GCS (~10GB) est géré par le portail principal.
 
-# Vérifier si GCS est activé
-if os.environ.get('GCS_ENABLED') == 'True':
-    DEFAULT_FILE_STORAGE = 'storages.backends.gcloud.GoogleCloudStorage'
-    GS_BUCKET_NAME = os.environ.get('GCS_BUCKET_NAME')
-    GS_PROJECT_ID = os.environ.get('GCS_PROJECT_ID')
-    
-    # Charger les credentials depuis le fichier JSON
-    GS_CREDENTIALS = service_account.Credentials.from_service_account_file(
-        '/opt/altiusone/gcs-credentials.json'
-    )
-    
-    # URLs signées (expiration 1h)
-    GS_EXPIRATION = 3600
+GCS_ENABLED = os.environ.get('GCS_ENABLED', 'False').lower() in ('true', '1', 'yes')
+
+if GCS_ENABLED:
+    from google.oauth2 import service_account
+
+    # Backend de stockage GCS
+    STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.gcloud.GoogleCloudStorage",
+            "OPTIONS": {
+                "bucket_name": os.environ.get('GCS_BUCKET_NAME', ''),
+                "project_id": os.environ.get('GCS_PROJECT_ID', ''),
+                "default_acl": "projectPrivate",
+                "querystring_auth": True,
+                "expiration": 3600,  # URLs signées valides 1h
+            },
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
+
+    # Credentials: fichier JSON ou variable d'environnement
+    gcs_credentials_file = os.environ.get('GCS_CREDENTIALS_FILE', '/opt/altiusone/gcs-credentials.json')
+    gcs_credentials_json = os.environ.get('GCS_CREDENTIALS_JSON', '')
+
+    if gcs_credentials_json:
+        # Credentials depuis variable d'environnement (pour containers)
+        import json
+        credentials_info = json.loads(gcs_credentials_json)
+        GS_CREDENTIALS = service_account.Credentials.from_service_account_info(credentials_info)
+    elif os.path.exists(gcs_credentials_file):
+        # Credentials depuis fichier
+        GS_CREDENTIALS = service_account.Credentials.from_service_account_file(gcs_credentials_file)
+
+    # Paramètres supplémentaires GCS
+    GS_BUCKET_NAME = os.environ.get('GCS_BUCKET_NAME', '')
+    GS_PROJECT_ID = os.environ.get('GCS_PROJECT_ID', '')
+    GS_DEFAULT_ACL = 'projectPrivate'
+    GS_QUERYSTRING_AUTH = True
+    GS_FILE_OVERWRITE = False  # Ne pas écraser les fichiers existants
+    GS_MAX_MEMORY_SIZE = 5 * 1024 * 1024  # 5MB avant écriture temporaire
+
+    # Préfixe pour organiser les fichiers par instance
+    GS_LOCATION = os.environ.get('GCS_LOCATION', 'media/')
+else:
+    # Stockage local en développement
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
+
+
+# ============================================================================
+# SERVICE OCR EXTERNE
+# ============================================================================
+# L'OCR est géré par un service Django séparé avec PGVector pour les embeddings.
+# Cette application appelle le service via API REST.
+
+OCR_SERVICE_ENABLED = os.environ.get('OCR_SERVICE_ENABLED', 'False').lower() in ('true', '1', 'yes')
+OCR_SERVICE_URL = os.environ.get('OCR_SERVICE_URL', 'http://ocr-service:8000')
+OCR_SERVICE_API_KEY = os.environ.get('OCR_SERVICE_API_KEY', '')
+OCR_SERVICE_TIMEOUT = int(os.environ.get('OCR_SERVICE_TIMEOUT', '60'))
+
+
+# ============================================================================
+# EMBEDDINGS & RECHERCHE SÉMANTIQUE (PGVector)
+# ============================================================================
+# Utilise PGVector pour la recherche vectorielle.
+# Backend: OpenAI (recommandé) ou sentence-transformers (local/gratuit)
+
+# Backend: 'openai' ou 'local'
+EMBEDDING_BACKEND = os.environ.get('EMBEDDING_BACKEND', 'local')
+
+# OpenAI Configuration
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
+OPENAI_EMBEDDING_MODEL = os.environ.get('OPENAI_EMBEDDING_MODEL', 'text-embedding-3-small')
+
+# Modèle local (sentence-transformers) - multilingue FR/DE/IT/EN
+LOCAL_EMBEDDING_MODEL = os.environ.get('LOCAL_EMBEDDING_MODEL', 'paraphrase-multilingual-MiniLM-L12-v2')
+
+# Recherche hybride - pondération des scores
+SEARCH_FULLTEXT_WEIGHT = float(os.environ.get('SEARCH_FULLTEXT_WEIGHT', '0.4'))
+SEARCH_SEMANTIC_WEIGHT = float(os.environ.get('SEARCH_SEMANTIC_WEIGHT', '0.6'))
+SEARCH_SEMANTIC_THRESHOLD = float(os.environ.get('SEARCH_SEMANTIC_THRESHOLD', '0.5'))
 

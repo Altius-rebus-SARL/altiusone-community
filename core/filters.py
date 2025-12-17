@@ -2,8 +2,12 @@
 import django_filters
 from django import forms
 from django.utils.translation import gettext_lazy as _
-from .models import Client, Mandat, Tache, User
+from .models import Client, Mandat, Tache, User, Role
 
+
+def get_responsables_queryset():
+    """Retourne les utilisateurs qui peuvent être responsables (niveau >= 60)"""
+    return User.objects.filter(role__niveau__gte=60)
 
 
 class ClientFilter(django_filters.FilterSet):
@@ -26,9 +30,20 @@ class ClientFilter(django_filters.FilterSet):
     )
 
     responsable = django_filters.ModelChoiceFilter(
-        queryset=User.objects.filter(role__in=["ADMIN", "MANAGER", "COMPTABLE"]),
+        queryset=User.objects.all(),  # Sera filtré dynamiquement
         label=_("Responsable"),
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Filtrer les responsables par niveau de rôle
+        try:
+            self.filters['responsable'].queryset = User.objects.filter(
+                role__niveau__gte=60
+            )
+        except Exception:
+            # Fallback si la table Role n'existe pas encore
+            self.filters['responsable'].queryset = User.objects.all()
 
     class Meta:
         model = Client

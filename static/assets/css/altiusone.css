@@ -1,0 +1,56 @@
+/* AltiusOne Custom Styles */
+
+/* ========================================
+   SIDEBAR ACTIVE STATE STYLES
+   ======================================== */
+
+/* Parent menu item active state (with dropdown) */
+nav .app-nav .main-nav > li.active > a {
+    color: rgba(var(--primary), 1) !important;
+    font-weight: 600;
+}
+
+nav .app-nav .main-nav > li.active > a i {
+    color: rgba(var(--primary), 1) !important;
+}
+
+/* Sub-menu item active state - enhanced visibility */
+nav .app-nav .main-nav > li:not(.menu-title) ul li.active {
+    background-color: rgba(var(--primary), 0.08);
+    border-radius: 6px;
+    margin: 2px 8px;
+}
+
+nav .app-nav .main-nav > li:not(.menu-title) ul li.active a {
+    color: rgba(var(--primary), 1) !important;
+    font-weight: 600;
+}
+
+nav .app-nav .main-nav > li:not(.menu-title) ul li.active a::before {
+    background-color: rgba(var(--primary), 1);
+    width: 4px;
+    border-radius: 2px;
+}
+
+/* No-sub menu item (like Dashboard) active state */
+nav .app-nav .main-nav > li.no-sub.active > a {
+    background-color: rgba(var(--primary), 0.1);
+    color: rgba(var(--primary), 1) !important;
+    font-weight: 600;
+    border-radius: 8px;
+    margin: 0 8px;
+}
+
+nav .app-nav .main-nav > li.no-sub.active > a i {
+    color: rgba(var(--primary), 1) !important;
+}
+
+/* Collapsed menu indicator when active */
+nav .app-nav .main-nav > li.active > a[data-bs-toggle="collapse"]::after {
+    color: rgba(var(--primary), 1);
+}
+
+/* Ensure collapse menus show properly */
+nav .app-nav .main-nav .collapse.show {
+    display: block;
+}

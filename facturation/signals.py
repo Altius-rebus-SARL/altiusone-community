@@ -16,10 +16,17 @@ def generer_qr_bill(sender, instance, created, **kwargs):
     if instance.statut == 'EMISE' and not instance.qr_reference:
         instance.generer_qr_reference()
 
-        # TODO: Générer l'image QR code
-        # from facturation.utils import generer_qr_code_image
-        # instance.qr_code_image = generer_qr_code_image(instance)
-        # instance.save()
+        # Générer l'image QR code
+        try:
+            from facturation.utils import generer_qr_code_image
+            qr_image = generer_qr_code_image(instance)
+            if qr_image:
+                instance.qr_code_image.save(qr_image.name, qr_image, save=True)
+        except Exception as e:
+            # Log l'erreur mais ne pas bloquer la sauvegarde
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Erreur génération QR code facture {instance.numero_facture}: {e}")
 
 
 @receiver(post_save, sender=Facture)

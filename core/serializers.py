@@ -29,8 +29,9 @@ class AdresseSerializer(serializers.ModelSerializer):
             "rue",
             "numero",
             "complement",
-            "npa",
+            "code_postal",
             "localite",
+            "region",
             "canton",
             "canton_display",
             "pays",
@@ -38,7 +39,7 @@ class AdresseSerializer(serializers.ModelSerializer):
         ]
 
     def get_adresse_complete(self, obj):
-        return str(obj)
+        return obj.adresse_complete
 
 
 class UserSerializer(serializers.ModelSerializer):

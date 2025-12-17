@@ -14,7 +14,7 @@ down: ## Arrête tous les services
 
 reup: ## Arrête tous les services
 	sudo docker compose down
-	sudo docker compose build
+	sudo docker compose build --no-cache
 	sudo docker compose up -d
 
 restart: ## Redémarre tous les services
@@ -192,3 +192,21 @@ reset: ## Reset complet du projet (⚠️ supprime tout: containers, volumes, im
 	else \
 		echo "❌ Annulé"; \
 	fi
+
+
+
+push: ## Push vers git avec un message (utiliser: make push MSG="votre message")
+	@if [ -z "$(MSG)" ]; then \
+		echo "❌ Erreur: Spécifiez un message avec MSG=\"votre message\""; \
+		exit 1; \
+	fi
+	git add .
+	git commit -m "$(MSG)"
+	git push
+	@echo "✅ Push effectué avec succès"
+
+quick-push: ## Push rapide avec message auto-généré
+	git add .
+	git commit -m "Update: $$(date '+%Y-%m-%d %H:%M:%S')"
+	git push
+	@echo "✅ Push effectué avec succès"

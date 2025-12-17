@@ -1,303 +1,357 @@
 <!-- salaires/fiche_list.html -->
-{% extends 'base.html' %}
-{% load static %}
-{% load i18n %}
-{% load humanize %}
+{% extends 'base.html' %} {% load static %} {% load i18n %} {% load humanize %}
+{% block title %}{% trans "Fiches de salaire" %}{% endblock %} 
 
-{% block title %}{% trans "Fiches de salaire" %}{% endblock %}
-
-{% block content %}
+{% block content%}
 <!-- Breadcrumb -->
 <div class="row m-1">
-    <div class="col-12">
-        <h4 class="main-title">{% trans "Fiches de salaire" %}</h4>
-        <ul class="app-line-breadcrumbs mb-3">
-            <li>
-                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
-                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
-                </a>
-            </li>
-            <li class="active">
-                <a class="f-s-14 f-w-500" href="#">{% trans "Fiches de salaire" %}</a>
-            </li>
-        </ul>
-    </div>
+  <div class="col-12">
+    <h4 class="main-title">{% trans "Fiches de salaire" %}</h4>
+    <ul class="app-line-breadcrumbs mb-3">
+      <li>
+        <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+          <span
+            ><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de
+            bord" %}</span
+          >
+        </a>
+      </li>
+      <li class="active">
+        <a class="f-s-14 f-w-500" href="#">{% trans "Fiches de salaire" %}</a>
+      </li>
+    </ul>
+  </div>
 </div>
 
 <!-- Stats Cards -->
 <div class="row">
-    <div class="col-md-3">
-        <div class="card">
-            <div class="card-body">
-                <div class="d-flex align-items-center justify-content-between">
-                    <div>
-                        <p class="text-muted mb-1 f-s-12">{% trans "Total fiches" %}</p>
-                        <h4 class="mb-0">{{ stats.total }}</h4>
-                    </div>
-                    <div class="avatar bg-light-primary rounded">
-                        <i class="ph-duotone ph-file-text text-primary f-s-30"></i>
-                    </div>
-                </div>
-            </div>
+  <div class="col-md-3">
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <p class="text-muted mb-1 f-s-12">{% trans "Total fiches" %}</p>
+            <h4 class="mb-0">{{ stats.total }}</h4>
+          </div>
+          <div class="avatar bg-light-primary rounded">
+            <i class="ph-duotone ph-file-text text-primary f-s-30"></i>
+          </div>
         </div>
+      </div>
     </div>
+  </div>
 
-    <div class="col-md-3">
-        <div class="card">
-            <div class="card-body">
-                <div class="d-flex align-items-center justify-content-between">
-                    <div>
-                        <p class="text-muted mb-1 f-s-12">{% trans "Brouillons" %}</p>
-                        <h4 class="mb-0 text-secondary">{{ stats.brouillon }}</h4>
-                    </div>
-                    <div class="avatar bg-light-secondary rounded">
-                        <i class="ph-duotone ph-note-blank text-secondary f-s-30"></i>
-                    </div>
-                </div>
-            </div>
+  <div class="col-md-3">
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <p class="text-muted mb-1 f-s-12">{% trans "Brouillons" %}</p>
+            <h4 class="mb-0 text-secondary">{{ stats.brouillon }}</h4>
+          </div>
+          <div class="avatar bg-light-secondary rounded">
+            <i class="ph-duotone ph-note-blank text-secondary f-s-30"></i>
+          </div>
         </div>
+      </div>
     </div>
+  </div>
 
-    <div class="col-md-3">
-        <div class="card">
-            <div class="card-body">
-                <div class="d-flex align-items-center justify-content-between">
-                    <div>
-                        <p class="text-muted mb-1 f-s-12">{% trans "Validées" %}</p>
-                        <h4 class="mb-0 text-info">{{ stats.valide }}</h4>
-                    </div>
-                    <div class="avatar bg-light-info rounded">
-                        <i class="ph-duotone ph-check-square text-info f-s-30"></i>
-                    </div>
-                </div>
-            </div>
+  <div class="col-md-3">
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <p class="text-muted mb-1 f-s-12">{% trans "Validées" %}</p>
+            <h4 class="mb-0 text-info">{{ stats.valide }}</h4>
+          </div>
+          <div class="avatar bg-light-info rounded">
+            <i class="ph-duotone ph-check-square text-info f-s-30"></i>
+          </div>
         </div>
+      </div>
     </div>
+  </div>
 
-    <div class="col-md-3">
-        <div class="card">
-            <div class="card-body">
-                <div class="d-flex align-items-center justify-content-between">
-                    <div>
-                        <p class="text-muted mb-1 f-s-12">{% trans "Masse salariale mois" %}</p>
-                        <h4 class="mb-0 text-success">{{ stats.masse_salariale_mois|floatformat:0|intcomma }}</h4>
-                        <span class="f-s-12 text-muted">CHF</span>
-                    </div>
-                    <div class="avatar bg-light-success rounded">
-                        <i class="ph-duotone ph-currency-circle-dollar text-success f-s-30"></i>
-                    </div>
-                </div>
-            </div>
+  <div class="col-md-3">
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <p class="text-muted mb-1 f-s-12">
+              {% trans "Masse salariale mois" %}
+            </p>
+            <h4 class="mb-0 text-success">
+              {{ stats.masse_salariale_mois|floatformat:0|intcomma }}
+            </h4>
+            <span class="f-s-12 text-muted">CHF</span>
+          </div>
+          <div class="avatar bg-light-success rounded">
+            <i
+              class="ph-duotone ph-currency-circle-dollar text-success f-s-30"
+            ></i>
+          </div>
         </div>
+      </div>
     </div>
+  </div>
 </div>
 
 <!-- Actions -->
 <div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">{% trans "Liste des fiches de salaire" %}</h5>
-                    <div class="btn-group">
-                        <a href="{% url 'salaires:generer-fiches-masse' %}" class="btn btn-success">
-                            <i class="ph ph-stack me-2"></i>{% trans "Génération en masse" %}
-                        </a>
-                        <a href="{% url 'salaires:fiche-create' %}" class="btn btn-primary">
-                            <i class="ph ph-plus me-2"></i>{% trans "Nouvelle fiche" %}
-                        </a>
-                    </div>
-                </div>
-            </div>
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">{% trans "Liste des fiches de salaire" %}</h5>
+          <div class="btn-group">
+            <a
+              href="{% url 'salaires:generer-fiches-masse' %}"
+              class="btn btn-success"
+            >
+              <i class="ph ph-stack me-2"></i>{% trans "Génération en masse" %}
+            </a>
+            <a href="{% url 'salaires:fiche-create' %}" class="btn btn-primary">
+              <i class="ph ph-plus me-2"></i>{% trans "Nouvelle fiche" %}
+            </a>
+          </div>
         </div>
+      </div>
     </div>
+  </div>
 </div>
 
 <!-- Filtres -->
 <div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <button class="btn btn-link w-100 text-start p-0" type="button" data-bs-toggle="collapse" data-bs-target="#filtres-collapse">
-                    <i class="ph ph-funnel me-2"></i>{% trans "Filtres" %}
-                    <i class="ph ph-caret-down float-end"></i>
-                </button>
-            </div>
-            <div class="collapse" id="filtres-collapse">
-                <div class="card-body">
-                    <form method="get" class="app-form">
-                        <div class="row">
-                            <div class="col-md-3">
-                                <div class="mb-3">
-                                    <label class="form-label">{% trans "Employé" %}</label>
-                                    {{ filter.form.employe__nom }}
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="mb-3">
-                                    <label class="form-label">{% trans "Mandat" %}</label>
-                                    {{ filter.form.employe__mandat }}
-                                </div>
-                            </div>
-                            <div class="col-md-2">
-                                <div class="mb-3">
-                                    <label class="form-label">{% trans "Année" %}</label>
-                                    {{ filter.form.annee }}
-                                </div>
-                            </div>
-                            <div class="col-md-2">
-                                <div class="mb-3">
-                                    <label class="form-label">{% trans "Mois" %}</label>
-                                    {{ filter.form.mois }}
-                                </div>
-                            </div>
-                            <div class="col-md-2">
-                                <div class="mb-3">
-                                    <label class="form-label">{% trans "Statut" %}</label>
-                                    {{ filter.form.statut }}
-                                </div>
-                            </div>
-                        </div>
-                        <div class="d-flex gap-2">
-                            <a href="{% url 'salaires:fiche-list' %}" class="btn btn-secondary">
-                                <i class="ph ph-x me-2"></i>{% trans "Réinitialiser" %}
-                            </a>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="ph ph-funnel me-2"></i>{% trans "Filtrer" %}
-                            </button>
-                        </div>
-                    </form>
+  <div class="col-12">
+
+      
+      <div class="collapse" id="filtres-collapse">
+        <div class="card-body">
+          <form method="get" class="app-form">
+            <div class="row">
+              <div class="col-md-3">
+                <div class="mb-3">
+                  <label class="form-label">{% trans "Employé" %}</label>
+                  {{ filter.form.employe__nom }}
                 </div>
+              </div>
+              <div class="col-md-3">
+                <div class="mb-3">
+                  <label class="form-label">{% trans "Mandat" %}</label>
+                  {{ filter.form.employe__mandat }}
+                </div>
+              </div>
+              <div class="col-md-2">
+                <div class="mb-3">
+                  <label class="form-label">{% trans "Année" %}</label>
+                  {{ filter.form.annee }}
+                </div>
+              </div>
+              <div class="col-md-2">
+                <div class="mb-3">
+                  <label class="form-label">{% trans "Mois" %}</label>
+                  {{ filter.form.mois }}
+                </div>
+              </div>
+              <div class="col-md-2">
+                <div class="mb-3">
+                  <label class="form-label">{% trans "Statut" %}</label>
+                  {{ filter.form.statut }}
+                </div>
+              </div>
             </div>
+            <div class="d-flex gap-2">
+              <a
+                href="{% url 'salaires:fiche-list' %}"
+                class="btn btn-secondary"
+              >
+                <i class="ph ph-x me-2"></i>{% trans "Réinitialiser" %}
+              </a>
+              <button type="submit" class="btn btn-primary">
+                <i class="ph ph-funnel me-2"></i>{% trans "Filtrer" %}
+              </button>
+            </div>
+          </form>
         </div>
-    </div>
+      </div>
+
+  </div>
 </div>
 
 <!-- Liste -->
 <div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-body p-0">
-                {% if fiches %}
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                        <thead>
-                            <tr>
-                                <th>{% trans "Numéro" %}</th>
-                                <th>{% trans "Employé" %}</th>
-                                <th>{% trans "Période" %}</th>
-                                <th class="text-end">{% trans "Salaire brut" %}</th>
-                                <th class="text-end">{% trans "Cotisations" %}</th>
-                                <th class="text-end">{% trans "Salaire net" %}</th>
-                                <th>{% trans "Statut" %}</th>
-                                <th class="text-end">{% trans "Actions" %}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for fiche in fiches %}
-                            <tr>
-                                <td><strong>{{ fiche.numero_fiche }}</strong></td>
-                                <td>
-                                    <a href="{% url 'salaires:employe-detail' fiche.employe.pk %}" class="text-primary">
-                                        {{ fiche.employe.prenom }} {{ fiche.employe.nom }}
-                                    </a>
-                                </td>
-                                <td>{{ fiche.periode|date:"F Y" }}</td>
-                                <td class="text-end">{{ fiche.salaire_brut_total|floatformat:2 }} CHF</td>
-                                <td class="text-end text-danger">-{{ fiche.total_cotisations_employe|floatformat:2 }} CHF</td>
-                                <td class="text-end"><strong class="text-success">{{ fiche.salaire_net|floatformat:2 }} CHF</strong></td>
-                                <td>
-                                    {% if fiche.statut == 'BROUILLON' %}
-                                    <span class="badge text-light-secondary">
-                                        <i class="ph ph-note-blank me-1"></i>{% trans "Brouillon" %}
-                                    </span>
-                                    {% elif fiche.statut == 'VALIDE' %}
-                                    <span class="badge text-light-primary">
-                                        <i class="ph ph-check-circle me-1"></i>{% trans "Validée" %}
-                                    </span>
-                                    {% elif fiche.statut == 'PAYE' %}
-                                    <span class="badge text-light-success">
-                                        <i class="ph ph-currency-dollar me-1"></i>{% trans "Payée" %}
-                                    </span>
-                                    {% elif fiche.statut == 'COMPTABILISE' %}
-                                    <span class="badge text-light-info">
-                                        <i class="ph ph-check-square me-1"></i>{% trans "Comptabilisée" %}
-                                    </span>
-                                    {% endif %}
-                                </td>
-                                <td class="text-end">
-                                    <div class="btn-group" role="group">
-                                        {% if fiche.statut == 'BROUILLON' %}
-                                        <form method="post" action="{% url 'salaires:fiche-valider' fiche.pk %}" class="d-inline">
-                                            {% csrf_token %}
-                                            <button type="submit" class="btn btn-sm btn-success" data-bs-toggle="tooltip" title="{% trans 'Valider' %}">
-                                                <i class="ph ph-check"></i>
-                                            </button>
-                                        </form>
-                                        {% endif %}
-                                        <a href="{% url 'salaires:fiche-detail' fiche.pk %}" 
-                                           class="btn btn-sm btn-primary" 
-                                           data-bs-toggle="tooltip"
-                                           title="{% trans 'Voir' %}">
-                                            <i class="ph ph-eye"></i>
-                                        </a>
-                                        <a href="{% url 'salaires:fiche-pdf' fiche.pk %}" 
-                                           class="btn btn-sm btn-info" 
-                                           data-bs-toggle="tooltip"
-                                           title="{% trans 'PDF' %}">
-                                            <i class="ph ph-file-pdf"></i>
-                                        </a>
-                                    </div>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- Pagination -->
-                {% if is_paginated %}
-                <div class="card-footer">
-                    <nav>
-                        <ul class="pagination justify-content-center mb-0">
-                            {% if page_obj.has_previous %}
-                            <li class="page-item">
-                                <a class="page-link" href="?page=1"><i class="ph ph-caret-double-left"></i></a>
-                            </li>
-                            <li class="page-item">
-                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}"><i class="ph ph-caret-left"></i></a>
-                            </li>
-                            {% endif %}
-
-                            <li class="page-item active">
-                                <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
-                            </li>
-
-                            {% if page_obj.has_next %}
-                            <li class="page-item">
-                                <a class="page-link" href="?page={{ page_obj.next_page_number }}"><i class="ph ph-caret-right"></i></a>
-                            </li>
-                            <li class="page-item">
-                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}"><i class="ph ph-caret-double-right"></i></a>
-                            </li>
-                            {% endif %}
-                        </ul>
-                    </nav>
-                </div>
-                {% endif %}
-
-                {% else %}
-                <div class="p-5 text-center">
-                    <i class="ph-duotone ph-file-text f-s-60 text-muted"></i>
-                    <h5 class="mt-3 text-muted">{% trans "Aucune fiche de salaire trouvée" %}</h5>
-                    <p class="text-secondary">{% trans "Commencez par créer votre première fiche" %}</p>
-                    <a href="{% url 'salaires:fiche-create' %}" class="btn btn-primary mt-2">
-                        <i class="ph ph-plus me-2"></i>{% trans "Créer une fiche" %}
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body p-0">
+        {% if fiches %}
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead>
+              <tr>
+                <th>{% trans "Numéro" %}</th>
+                <th>{% trans "Employé" %}</th>
+                <th>{% trans "Période" %}</th>
+                <th class="text-end">{% trans "Salaire brut" %}</th>
+                <th class="text-end">{% trans "Cotisations" %}</th>
+                <th class="text-end">{% trans "Salaire net" %}</th>
+                <th>{% trans "Statut" %}</th>
+                <th class="text-end">{% trans "Actions" %}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for fiche in fiches %}
+              <tr>
+                <td><strong>{{ fiche.numero_fiche }}</strong></td>
+                <td>
+                  <a
+                    href="{% url 'salaires:employe-detail' fiche.employe.pk %}"
+                    class="text-primary"
+                  >
+                    {{ fiche.employe.prenom }} {{ fiche.employe.nom }}
+                  </a>
+                </td>
+                <td>{{ fiche.periode|date:"F Y" }}</td>
+                <td class="text-end">
+                  {{ fiche.salaire_brut_total|floatformat:2 }} CHF
+                </td>
+                <td class="text-end text-danger">
+                  -{{ fiche.total_cotisations_employe|floatformat:2 }} CHF
+                </td>
+                <td class="text-end">
+                  <strong class="text-success"
+                    >{{ fiche.salaire_net|floatformat:2 }} CHF</strong
+                  >
+                </td>
+                <td>
+                  {% if fiche.statut == 'BROUILLON' %}
+                  <span class="badge text-light-secondary">
+                    <i class="ph ph-note-blank me-1"></i>{% trans "Brouillon" %}
+                  </span>
+                  {% elif fiche.statut == 'VALIDE' %}
+                  <span class="badge text-light-primary">
+                    <i class="ph ph-check-circle me-1"></i>{% trans "Validée" %}
+                  </span>
+                  {% elif fiche.statut == 'PAYE' %}
+                  <span class="badge text-light-success">
+                    <i class="ph ph-currency-dollar me-1"></i>{% trans "Payée"
+                    %}
+                  </span>
+                  {% elif fiche.statut == 'COMPTABILISE' %}
+                  <span class="badge text-light-info">
+                    <i class="ph ph-check-square me-1"></i>{% trans
+                    "Comptabilisée" %}
+                  </span>
+                  {% endif %}
+                </td>
+                <td class="text-end">
+                  <div class="btn-group" role="group">
+                    {% if fiche.statut == 'BROUILLON' %}
+                    <form
+                      method="post"
+                      action="{% url 'salaires:fiche-valider' fiche.pk %}"
+                      class="d-inline"
+                    >
+                      {% csrf_token %}
+                      <button
+                        type="submit"
+                        class="btn btn-sm btn-success"
+                        data-bs-toggle="tooltip"
+                        title="{% trans 'Valider' %}"
+                      >
+                        <i class="ph ph-check"></i>
+                      </button>
+                    </form>
+                    {% endif %}
+                    <a
+                      href="{% url 'salaires:fiche-detail' fiche.pk %}"
+                      class="btn btn-sm btn-primary"
+                      data-bs-toggle="tooltip"
+                      title="{% trans 'Voir' %}"
+                    >
+                      <i class="ph ph-eye"></i>
                     </a>
-                </div>
-                {% endif %}
-            </div>
+                    <a
+                      href="{% url 'salaires:fiche-pdf' fiche.pk %}"
+                      class="btn btn-sm btn-info"
+                      data-bs-toggle="tooltip"
+                      title="{% trans 'PDF' %}"
+                    >
+                      <i class="ph ph-file-pdf"></i>
+                    </a>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
         </div>
+
+        <!-- Pagination -->
+        {% if is_paginated %}
+        <div class="card-footer">
+          <nav>
+            <ul class="pagination justify-content-center mb-0">
+              {% if page_obj.has_previous %}
+              <li class="page-item">
+                <a class="page-link" href="?page=1"
+                  ><i class="ph ph-caret-double-left"></i
+                ></a>
+              </li>
+              <li class="page-item">
+                <a
+                  class="page-link"
+                  href="?page={{ page_obj.previous_page_number }}"
+                  ><i class="ph ph-caret-left"></i
+                ></a>
+              </li>
+              {% endif %}
+
+              <li class="page-item active">
+                <span class="page-link"
+                  >{{ page_obj.number }} / {{ page_obj.paginator.num_pages
+                  }}</span
+                >
+              </li>
+
+              {% if page_obj.has_next %}
+              <li class="page-item">
+                <a
+                  class="page-link"
+                  href="?page={{ page_obj.next_page_number }}"
+                  ><i class="ph ph-caret-right"></i
+                ></a>
+              </li>
+              <li class="page-item">
+                <a
+                  class="page-link"
+                  href="?page={{ page_obj.paginator.num_pages }}"
+                  ><i class="ph ph-caret-double-right"></i
+                ></a>
+              </li>
+              {% endif %}
+            </ul>
+          </nav>
+        </div>
+        {% endif %} {% else %}
+        <div class="p-5 text-center">
+          <i class="ph-duotone ph-file-text f-s-60 text-muted"></i>
+          <h5 class="mt-3 text-muted">
+            {% trans "Aucune fiche de salaire trouvée" %}
+          </h5>
+          <p class="text-secondary">
+            {% trans "Commencez par créer votre première fiche" %}
+          </p>
+          <a
+            href="{% url 'salaires:fiche-create' %}"
+            class="btn btn-primary mt-2"
+          >
+            <i class="ph ph-plus me-2"></i>{% trans "Créer une fiche" %}
+          </a>
+        </div>
+        {% endif %}
+      </div>
     </div>
+  </div>
 </div>
 {% endblock %}

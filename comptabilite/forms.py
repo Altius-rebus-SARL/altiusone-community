@@ -411,7 +411,7 @@ class SaisieRapideForm(forms.Form):
         super().__init__(*args, **kwargs)
 
         # Limiter les mandats selon l'utilisateur
-        if user and user.role not in ["ADMIN", "MANAGER"]:
+        if user and not user.is_manager():
             self.fields["mandat"].queryset = Mandat.objects.filter(
                 Q(responsable=user) | Q(equipe=user), statut="ACTIF"
             ).distinct()

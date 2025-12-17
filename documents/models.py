@@ -1,5 +1,7 @@
 # apps/documents/models.py
 from django.db import models
+from django.contrib.postgres.indexes import GinIndex
+from pgvector.django import VectorField, HnswIndex
 from core.models import BaseModel, Mandat, Client, User
 import hashlib
 import os
@@ -420,3 +422,199 @@ class RechercheDocument(models.Model):
 
     def __str__(self):
         return f"{self.requete[:50]} - {self.utilisateur.username}"
+
+
+class DocumentEmbedding(models.Model):
+    """
+    Embeddings vectoriels pour la recherche sémantique.
+
+    Utilise PGVector pour stocker et rechercher des vecteurs.
+    Supporte plusieurs modèles d'embeddings avec dimensions différentes.
+    """
+
+    EMBEDDING_MODELS = [
+        ('openai-small', 'OpenAI text-embedding-3-small (1536d)'),
+        ('openai-large', 'OpenAI text-embedding-3-large (3072d)'),
+        ('multilingual-mini', 'Multilingual MiniLM (384d)'),
+        ('multilingual-mpnet', 'Multilingual MPNet (768d)'),
+    ]
+
+    document = models.OneToOneField(
+        Document,
+        on_delete=models.CASCADE,
+        related_name='embedding',
+        primary_key=True
+    )
+
+    # Vecteur d'embedding - dimension par défaut 1536 (OpenAI small)
+    # On utilise 1536 comme dimension standard
+    embedding = VectorField(dimensions=1536, null=True, blank=True)
+
+    # Métadonnées
+    model_used = models.CharField(
+        max_length=50,
+        choices=EMBEDDING_MODELS,
+        default='openai-small'
+    )
+    dimensions = models.IntegerField(default=1536)
+
+    # Texte source utilisé pour l'embedding
+    text_hash = models.CharField(
+        max_length=64,
+        help_text='Hash SHA-256 du texte utilisé'
+    )
+    text_length = models.IntegerField(
+        help_text='Longueur du texte en caractères'
+    )
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'document_embeddings'
+        verbose_name = 'Embedding de document'
+        indexes = [
+            # Index HNSW pour recherche rapide de similarité
+            HnswIndex(
+                name='document_embedding_hnsw_idx',
+                fields=['embedding'],
+                m=16,
+                ef_construction=64,
+                opclasses=['vector_cosine_ops']
+            ),
+        ]
+
+    def __str__(self):
+        return f"Embedding {self.document.nom_fichier} ({self.dimensions}d)"
+
+    @classmethod
+    def search_similar(cls, query_embedding, limit=20, threshold=0.5, mandat_id=None):
+        """
+        Recherche les documents similaires à un embedding donné.
+
+        Args:
+            query_embedding: Vecteur de requête (liste de floats)
+            limit: Nombre max de résultats
+            threshold: Seuil de similarité minimum (0-1)
+            mandat_id: Filtrer par mandat (optionnel)
+
+        Returns:
+            QuerySet avec annotation 'similarity'
+        """
+        from django.db.models import F
+        from pgvector.django import CosineDistance
+
+        qs = cls.objects.select_related('document', 'document__mandat', 'document__type_document')
+
+        # Filtrer par mandat si spécifié
+        if mandat_id:
+            qs = qs.filter(document__mandat_id=mandat_id)
+
+        # Recherche par similarité cosinus
+        qs = qs.annotate(
+            distance=CosineDistance('embedding', query_embedding)
+        ).filter(
+            distance__lt=(1 - threshold)  # Cosine distance = 1 - similarity
+        ).order_by('distance')[:limit]
+
+        # Ajouter le score de similarité
+        return qs
+
+    @classmethod
+    def create_or_update(cls, document, text: str, embedding: list, model_used: str = 'openai-small'):
+        """
+        Crée ou met à jour l'embedding d'un document.
+
+        Args:
+            document: Instance Document
+            text: Texte source
+            embedding: Vecteur d'embedding
+            model_used: Modèle utilisé
+
+        Returns:
+            Instance DocumentEmbedding
+        """
+        import hashlib
+
+        text_hash = hashlib.sha256(text.encode()).hexdigest()
+
+        obj, created = cls.objects.update_or_create(
+            document=document,
+            defaults={
+                'embedding': embedding,
+                'model_used': model_used,
+                'dimensions': len(embedding),
+                'text_hash': text_hash,
+                'text_length': len(text),
+            }
+        )
+
+        return obj
+
+
+class TextChunkEmbedding(models.Model):
+    """
+    Embeddings pour des chunks de texte (pour documents longs).
+
+    Permet une recherche plus précise en découpant les documents.
+    """
+
+    document = models.ForeignKey(
+        Document,
+        on_delete=models.CASCADE,
+        related_name='chunk_embeddings'
+    )
+
+    # Position du chunk dans le document
+    chunk_index = models.IntegerField()
+    chunk_start = models.IntegerField(help_text='Position de début dans le texte')
+    chunk_end = models.IntegerField(help_text='Position de fin dans le texte')
+
+    # Texte du chunk (pour affichage des résultats)
+    chunk_text = models.TextField()
+
+    # Embedding du chunk
+    embedding = VectorField(dimensions=1536, null=True, blank=True)
+
+    # Métadonnées
+    model_used = models.CharField(max_length=50, default='openai-small')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'text_chunk_embeddings'
+        verbose_name = 'Embedding de chunk'
+        unique_together = [['document', 'chunk_index']]
+        indexes = [
+            HnswIndex(
+                name='chunk_embedding_hnsw_idx',
+                fields=['embedding'],
+                m=16,
+                ef_construction=64,
+                opclasses=['vector_cosine_ops']
+            ),
+        ]
+
+    def __str__(self):
+        return f"Chunk {self.chunk_index} - {self.document.nom_fichier}"
+
+    @classmethod
+    def search_similar_chunks(cls, query_embedding, limit=20, threshold=0.5, mandat_id=None):
+        """
+        Recherche les chunks similaires à un embedding donné.
+        """
+        from pgvector.django import CosineDistance
+
+        qs = cls.objects.select_related('document', 'document__mandat')
+
+        if mandat_id:
+            qs = qs.filter(document__mandat_id=mandat_id)
+
+        qs = qs.annotate(
+            distance=CosineDistance('embedding', query_embedding)
+        ).filter(
+            distance__lt=(1 - threshold)
+        ).order_by('distance')[:limit]
+
+        return qs

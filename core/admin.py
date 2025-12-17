@@ -47,9 +47,9 @@ class ContactAdmin(admin.ModelAdmin):
 
 @admin.register(Adresse)
 class AdresseAdmin(admin.ModelAdmin):
-    list_display = ["rue", "npa", "localite", "canton"]
-    list_filter = ["canton"]
-    search_fields = ["rue", "localite", "npa"]
+    list_display = ["rue", "code_postal", "localite", "canton", "pays"]
+    list_filter = ["canton", "pays"]
+    search_fields = ["rue", "localite", "code_postal"]
 
 
 @admin.register(ExerciceComptable)

@@ -124,7 +124,7 @@ class TimeTrackingListView(LoginRequiredMixin, BusinessPermissionMixin, ListView
 
         # Filtrer selon le rôle
         user = self.request.user
-        if user.role not in ["ADMIN", "MANAGER"] and user.has_perm("facturation.view_all_timetracking"):
+        if not user.is_manager() and user.has_perm("facturation.view_all_timetracking"):
             queryset = queryset.filter(
                 Q(utilisateur=user)
                 | Q(mandat__responsable=user)
@@ -160,7 +160,7 @@ class TimeTrackingListView(LoginRequiredMixin, BusinessPermissionMixin, ListView
         }
 
         # Temps par utilisateur (si admin/manager)
-        if user.role in ["ADMIN", "MANAGER"]:
+        if user.is_manager():
             context["temps_par_utilisateur"] = (
                 queryset.values(
                     "utilisateur__username",
@@ -225,7 +225,7 @@ class FactureListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
 
         # Filtrer selon le rôle
         user = self.request.user
-        if user.role not in ["ADMIN", "MANAGER"] and not user.has_perm("facturation.view_all_factures"):
+        if not user.is_manager() and not user.has_perm("facturation.view_all_factures"):
             queryset = queryset.filter(
                 Q(mandat__responsable=user) | Q(mandat__equipe=user)
             ).distinct()
@@ -495,17 +495,29 @@ def facture_valider(request, pk):
 
 @login_required
 def facture_generer_pdf(request, pk):
-    """Génère le PDF d'une facture"""
+    """
+    Génère le PDF d'une facture.
+
+    Paramètres GET:
+        - qr_bill: Si "1" ou "true", génère avec QR-Bill suisse
+    """
     facture = get_object_or_404(Facture, pk=pk)
 
+    # Option QR-Bill
+    qr_bill_param = request.GET.get('qr_bill', '').lower()
+    avec_qr_bill = qr_bill_param in ('1', 'true', 'yes', 'oui')
+
     try:
-        fichier = facture.generer_pdf()
+        fichier = facture.generer_pdf(avec_qr_bill=avec_qr_bill)
 
         with fichier.open("rb") as f:
             response = HttpResponse(f.read(), content_type="application/pdf")
             response["Content-Disposition"] = f'attachment; filename="{fichier.name}"'
 
-        messages.success(request, _("PDF généré avec succès"))
+        msg = _("PDF généré avec succès")
+        if avec_qr_bill:
+            msg = _("PDF généré avec QR-Bill suisse")
+        messages.success(request, msg)
         return response
 
     except Exception as e:
@@ -516,14 +528,109 @@ def facture_generer_pdf(request, pk):
 @login_required
 def facture_envoyer_email(request, pk):
     """Envoie la facture par email au client"""
+    from django.core.mail import EmailMessage
+    from django.template.loader import render_to_string
+    from django.conf import settings
+
     facture = get_object_or_404(Facture, pk=pk)
 
-    # TODO: Envoyer l'email avec le PDF
+    # Vérifier qu'on a une adresse email
+    destinataire = facture.client.email
+    if not destinataire:
+        # Essayer de récupérer l'email du contact principal
+        contact_principal = facture.client.contacts.filter(principal=True).first()
+        if contact_principal:
+            destinataire = contact_principal.email
 
-    facture.statut = "ENVOYEE"
-    facture.save()
+    if not destinataire:
+        messages.error(request, _("Aucune adresse email trouvée pour ce client"))
+        return redirect("facturation:facture-detail", pk=pk)
 
-    messages.success(request, _("Facture envoyée par email"))
+    # Générer le PDF si pas encore fait
+    if not facture.fichier_pdf:
+        try:
+            facture.generer_pdf()
+        except Exception as e:
+            messages.error(request, _("Erreur lors de la génération du PDF: %(error)s") % {'error': str(e)})
+            return redirect("facturation:facture-detail", pk=pk)
+
+    # Préparer le contenu de l'email
+    context = {
+        'facture': facture,
+        'client': facture.client,
+        'mandat': facture.mandat,
+    }
+
+    # Sujet de l'email
+    if facture.type_facture == 'AVOIR':
+        sujet = f"Avoir N° {facture.numero_facture}"
+    else:
+        sujet = f"Facture N° {facture.numero_facture}"
+
+    # Corps de l'email (HTML)
+    try:
+        corps_html = render_to_string('facturation/email/facture_email.html', context)
+    except Exception:
+        # Template par défaut si le template n'existe pas
+        corps_html = f"""
+        <html>
+        <body>
+        <p>Bonjour,</p>
+        <p>Veuillez trouver ci-joint la facture N° {facture.numero_facture}
+        d'un montant de CHF {facture.montant_ttc:,.2f}.</p>
+        <p>Date d'échéance : {facture.date_echeance.strftime('%d.%m.%Y')}</p>
+        <p>Nous vous remercions de votre confiance.</p>
+        <p>Cordialement,<br>
+        {facture.mandat.client.raison_sociale}</p>
+        </body>
+        </html>
+        """
+
+    # Corps texte simple
+    corps_texte = f"""
+Bonjour,
+
+Veuillez trouver ci-joint la facture N° {facture.numero_facture}
+d'un montant de CHF {facture.montant_ttc:,.2f}.
+
+Date d'échéance : {facture.date_echeance.strftime('%d.%m.%Y')}
+
+Nous vous remercions de votre confiance.
+
+Cordialement,
+{facture.mandat.client.raison_sociale}
+"""
+
+    try:
+        # Créer l'email
+        email = EmailMessage(
+            subject=sujet,
+            body=corps_texte,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[destinataire],
+            reply_to=[facture.mandat.client.email] if facture.mandat.client.email else None,
+        )
+
+        # Ajouter le contenu HTML
+        email.content_subtype = 'html'
+        email.body = corps_html
+
+        # Attacher le PDF
+        if facture.fichier_pdf:
+            email.attach_file(facture.fichier_pdf.path)
+
+        # Envoyer
+        email.send(fail_silently=False)
+
+        # Mettre à jour le statut
+        facture.statut = "ENVOYEE"
+        facture.save()
+
+        messages.success(request, _("Facture envoyée par email à %(email)s") % {'email': destinataire})
+
+    except Exception as e:
+        messages.error(request, _("Erreur lors de l'envoi de l'email: %(error)s") % {'error': str(e)})
+
     return redirect("facturation:facture-detail", pk=pk)
 
 

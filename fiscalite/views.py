@@ -55,7 +55,7 @@ class DeclarationFiscaleListView(LoginRequiredMixin, BusinessPermissionMixin, Li
 
         # Filtrer selon le rôle
         user = self.request.user
-        if user.role not in ["ADMIN", "MANAGER"]:
+        if not user.is_manager():
             queryset = queryset.filter(
                 Q(mandat__responsable=user) | Q(mandat__equipe=user)
             ).distinct()
@@ -288,7 +288,7 @@ class ReportPerteListView(LoginRequiredMixin, BusinessPermissionMixin, ListView)
 
         # Filtrer selon le rôle
         user = self.request.user
-        if user.role not in ["ADMIN", "MANAGER"]:
+        if not user.is_manager():
             queryset = queryset.filter(
                 Q(mandat__responsable=user) | Q(mandat__equipe=user)
             ).distinct()
@@ -389,7 +389,7 @@ class OptimisationFiscaleListView(LoginRequiredMixin, BusinessPermissionMixin, L
 
         # Filtrer selon le rôle
         user = self.request.user
-        if user.role not in ["ADMIN", "MANAGER"]:
+        if not user.is_manager():
             queryset = queryset.filter(
                 Q(mandat__responsable=user) | Q(mandat__equipe=user)
             ).distinct()

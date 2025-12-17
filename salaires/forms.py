@@ -4,7 +4,7 @@ from django.utils.translation import gettext_lazy as _
 from decimal import Decimal
 from datetime import datetime
 
-from .models import Employe, FicheSalaire, CertificatSalaire
+from .models import Employe, FicheSalaire, CertificatSalaire, CertificatTravail
 from core.models import Mandat, Adresse
 
 
@@ -13,15 +13,16 @@ class AdresseInlineForm(forms.ModelForm):
 
     class Meta:
         model = Adresse
-        fields = ["rue", "numero", "complement", "npa", "localite", "canton", "pays"]
+        fields = ["rue", "numero", "complement", "code_postal", "localite", "region", "canton", "pays"]
         widgets = {
             "rue": forms.TextInput(attrs={"class": "form-control"}),
             "numero": forms.TextInput(attrs={"class": "form-control"}),
             "complement": forms.TextInput(attrs={"class": "form-control"}),
-            "npa": forms.TextInput(attrs={"class": "form-control"}),
+            "code_postal": forms.TextInput(attrs={"class": "form-control", "placeholder": "NPA / Code postal"}),
             "localite": forms.TextInput(attrs={"class": "form-control"}),
+            "region": forms.TextInput(attrs={"class": "form-control", "placeholder": "Région (optionnel)"}),
             "canton": forms.Select(attrs={"class": "form-control"}),
-            "pays": forms.TextInput(attrs={"class": "form-control", "value": "CH"}),
+            "pays": forms.Select(attrs={"class": "form-control"}),
         }
 
 
@@ -80,7 +81,7 @@ class EmployeForm(forms.ModelForm):
                 attrs={"class": "form-control", "type": "date"}
             ),
             "lieu_naissance": forms.TextInput(attrs={"class": "form-control"}),
-            "nationalite": forms.TextInput(attrs={"class": "form-control select2"}),
+            "nationalite": forms.Select(attrs={"class": "form-control select2"}),
             "sexe": forms.Select(attrs={"class": "form-control"}),
             "avs_number": forms.TextInput(
                 attrs={"class": "form-control", "placeholder": "756.1234.5678.90"}
@@ -291,3 +292,106 @@ class CertificatSalaireForm(forms.ModelForm):
                 attrs={"class": "form-control", "step": "0.01"}
             ),
         }
+
+
+class CertificatTravailForm(forms.ModelForm):
+    """Formulaire pour un certificat de travail (Arbeitszeugnis)"""
+
+    class Meta:
+        model = CertificatTravail
+        fields = [
+            "employe",
+            "type_certificat",
+            "date_debut_emploi",
+            "date_fin_emploi",
+            "fonction_principale",
+            "departement",
+            "taux_occupation",
+            "description_taches",
+            "evaluation_qualite_travail",
+            "evaluation_quantite_travail",
+            "evaluation_competences",
+            "evaluation_comportement",
+            "evaluation_relations",
+            "evaluation_autonomie",
+            "texte_evaluation",
+            "motif_depart",
+            "formule_fin",
+            "formations_suivies",
+            "projets_speciaux",
+            "date_demande",
+        ]
+        widgets = {
+            "employe": forms.Select(attrs={"class": "form-control select2"}),
+            "type_certificat": forms.Select(attrs={"class": "form-control"}),
+            "date_debut_emploi": forms.DateInput(
+                attrs={"class": "form-control", "type": "date"}
+            ),
+            "date_fin_emploi": forms.DateInput(
+                attrs={"class": "form-control", "type": "date"}
+            ),
+            "fonction_principale": forms.TextInput(attrs={"class": "form-control"}),
+            "departement": forms.TextInput(attrs={"class": "form-control"}),
+            "taux_occupation": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01", "min": "0", "max": "100"}
+            ),
+            "description_taches": forms.Textarea(
+                attrs={"class": "form-control", "rows": 5, "placeholder": _("Décrivez les principales responsabilités et tâches...")}
+            ),
+            "evaluation_qualite_travail": forms.Select(attrs={"class": "form-control"}),
+            "evaluation_quantite_travail": forms.Select(attrs={"class": "form-control"}),
+            "evaluation_competences": forms.Select(attrs={"class": "form-control"}),
+            "evaluation_comportement": forms.Select(attrs={"class": "form-control"}),
+            "evaluation_relations": forms.Select(attrs={"class": "form-control"}),
+            "evaluation_autonomie": forms.Select(attrs={"class": "form-control"}),
+            "texte_evaluation": forms.Textarea(
+                attrs={"class": "form-control", "rows": 4, "placeholder": _("Laissez vide pour générer automatiquement selon les notes...")}
+            ),
+            "motif_depart": forms.Select(attrs={"class": "form-control"}),
+            "formule_fin": forms.Textarea(
+                attrs={"class": "form-control", "rows": 3, "placeholder": _("Laissez vide pour générer une formule standard...")}
+            ),
+            "formations_suivies": forms.Textarea(
+                attrs={"class": "form-control", "rows": 3, "placeholder": _("Formations suivies pendant l'emploi...")}
+            ),
+            "projets_speciaux": forms.Textarea(
+                attrs={"class": "form-control", "rows": 3, "placeholder": _("Projets ou missions spéciales...")}
+            ),
+            "date_demande": forms.DateInput(
+                attrs={"class": "form-control", "type": "date"}
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Ajouter des choices vides pour les évaluations
+        for field_name in [
+            'evaluation_qualite_travail',
+            'evaluation_quantite_travail',
+            'evaluation_competences',
+            'evaluation_comportement',
+            'evaluation_relations',
+            'evaluation_autonomie',
+        ]:
+            self.fields[field_name].required = False
+            self.fields[field_name].choices = [('', '---------')] + list(self.fields[field_name].choices)
+
+    def clean(self):
+        cleaned_data = super().clean()
+        type_certificat = cleaned_data.get('type_certificat')
+        date_fin = cleaned_data.get('date_fin_emploi')
+        motif_depart = cleaned_data.get('motif_depart')
+
+        # Pour un certificat final (pas intermédiaire), la date de fin est requise
+        if type_certificat != 'INTERMEDIAIRE' and not date_fin:
+            # C'est acceptable pour un employé toujours en poste
+            pass
+
+        # Si date de fin, le motif de départ devrait être renseigné
+        if date_fin and not motif_depart:
+            self.add_error(
+                'motif_depart',
+                _("Veuillez indiquer le motif de départ pour un certificat de fin d'emploi.")
+            )
+
+        return cleaned_data

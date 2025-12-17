@@ -46,6 +46,42 @@ urlpatterns = [
         views.generer_certificat,
         name="generer-certificat",
     ),
+    path(
+        "certificats/<uuid:pk>/pdf/",
+        views.certificat_generer_pdf,
+        name="certificat-pdf",
+    ),
+    # Certificats de travail
+    path(
+        "certificats-travail/",
+        views.CertificatTravailListView.as_view(),
+        name="certificat-travail-list",
+    ),
+    path(
+        "certificats-travail/nouveau/",
+        views.CertificatTravailCreateView.as_view(),
+        name="certificat-travail-create",
+    ),
+    path(
+        "certificats-travail/<uuid:pk>/",
+        views.CertificatTravailDetailView.as_view(),
+        name="certificat-travail-detail",
+    ),
+    path(
+        "certificats-travail/<uuid:pk>/modifier/",
+        views.CertificatTravailUpdateView.as_view(),
+        name="certificat-travail-update",
+    ),
+    path(
+        "certificats-travail/<uuid:pk>/pdf/",
+        views.certificat_travail_generer_pdf,
+        name="certificat-travail-pdf",
+    ),
+    path(
+        "employes/<uuid:employe_pk>/certificat-travail/",
+        views.CertificatTravailCreateView.as_view(),
+        name="employe-certificat-travail",
+    ),
     # Déclarations cotisations
     path(
         "declarations-cotisations/",

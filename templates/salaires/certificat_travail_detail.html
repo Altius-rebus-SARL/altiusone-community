@@ -1,0 +1,303 @@
+<!-- salaires/certificat_travail_detail.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{% trans "Certificat de travail" %} - {{ certificat.employe }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Certificat de travail" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'salaires:certificat-travail-list' %}">
+                    <span>{% trans "Certificats de travail" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{{ certificat.employe }}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Actions -->
+<div class="row mb-3">
+    <div class="col-12 text-end">
+        <button class="btn btn-secondary" onclick="window.print()">
+            <i class="ph ph-printer me-2"></i>{% trans "Imprimer" %}
+        </button>
+        <a href="{% url 'salaires:certificat-travail-pdf' certificat.pk %}" class="btn btn-primary">
+            <i class="ph ph-file-pdf me-2"></i>{% trans "Télécharger PDF" %}
+        </a>
+        <a href="{% url 'salaires:certificat-travail-update' certificat.pk %}" class="btn btn-warning">
+            <i class="ph ph-pencil me-2"></i>{% trans "Modifier" %}
+        </a>
+    </div>
+</div>
+
+<!-- Certificat Preview -->
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <!-- En-tête employeur -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h5 class="fw-bold">{{ certificat.employe.mandat.client.raison_sociale }}</h5>
+                            {% with adresse=certificat.employe.mandat.client.adresse_siege %}
+                            {% if adresse %}
+                            <p class="mb-0">
+                                {{ adresse.rue }} {{ adresse.numero }}<br>
+                                {{ adresse.code_postal }} {{ adresse.localite }}
+                            </p>
+                            {% endif %}
+                            {% endwith %}
+                            {% if certificat.employe.mandat.client.ide_number %}
+                            <p class="text-muted mb-0">IDE: {{ certificat.employe.mandat.client.ide_number }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Titre -->
+                    <div class="text-center mb-4">
+                        <h3 class="fw-bold">
+                            {% if certificat.type_certificat == 'SIMPLE' %}
+                                {% trans "ATTESTATION DE TRAVAIL" %}
+                            {% elif certificat.type_certificat == 'INTERMEDIAIRE' %}
+                                {% trans "CERTIFICAT DE TRAVAIL INTERMÉDIAIRE" %}
+                            {% else %}
+                                {% trans "CERTIFICAT DE TRAVAIL" %}
+                            {% endif %}
+                        </h3>
+                    </div>
+
+                    <hr>
+
+                    <!-- Informations employé -->
+                    <div class="mb-4">
+                        <p>
+                            <strong>{% if certificat.employe.sexe == 'M' %}Monsieur{% else %}Madame{% endif %}
+                            {{ certificat.employe.prenom }} {{ certificat.employe.nom }}</strong>,
+                            né{% if certificat.employe.sexe == 'F' %}e{% endif %} le {{ certificat.employe.date_naissance|date:"d.m.Y" }},
+                            de nationalité {{ certificat.employe.nationalite.name|default:"Suisse"|lower }},
+                            {% if certificat.date_fin_emploi %}
+                                a été employé{% if certificat.employe.sexe == 'F' %}e{% endif %} dans notre entreprise
+                                du {{ certificat.date_debut_emploi|date:"d.m.Y" }} au {{ certificat.date_fin_emploi|date:"d.m.Y" }}
+                            {% else %}
+                                est employé{% if certificat.employe.sexe == 'F' %}e{% endif %} dans notre entreprise
+                                depuis le {{ certificat.date_debut_emploi|date:"d.m.Y" }}
+                            {% endif %}
+                            en qualité de <strong>{{ certificat.fonction_principale }}</strong>{% if certificat.taux_occupation < 100 %} à {{ certificat.taux_occupation }}%{% endif %}.
+                        </p>
+                    </div>
+
+                    <!-- Description des tâches (certificat complet) -->
+                    {% if certificat.type_certificat != 'SIMPLE' and certificat.description_taches %}
+                    <div class="mb-4">
+                        <h6 class="fw-bold">{% trans "Principales responsabilités" %}</h6>
+                        <p>{{ certificat.description_taches|linebreaks }}</p>
+                    </div>
+                    {% endif %}
+
+                    <!-- Formations -->
+                    {% if certificat.type_certificat != 'SIMPLE' and certificat.formations_suivies %}
+                    <div class="mb-4">
+                        <h6 class="fw-bold">{% trans "Formations suivies" %}</h6>
+                        <p>{{ certificat.formations_suivies|linebreaks }}</p>
+                    </div>
+                    {% endif %}
+
+                    <!-- Projets spéciaux -->
+                    {% if certificat.type_certificat != 'SIMPLE' and certificat.projets_speciaux %}
+                    <div class="mb-4">
+                        <h6 class="fw-bold">{% trans "Projets et missions spéciales" %}</h6>
+                        <p>{{ certificat.projets_speciaux|linebreaks }}</p>
+                    </div>
+                    {% endif %}
+
+                    <!-- Évaluation (certificat complet) -->
+                    {% if certificat.type_certificat != 'SIMPLE' %}
+                    <div class="mb-4">
+                        {% if certificat.texte_evaluation %}
+                            <p>{{ certificat.texte_evaluation }}</p>
+                        {% else %}
+                            <!-- Afficher les notes si présentes -->
+                            {% if certificat.evaluation_qualite_travail or certificat.evaluation_comportement %}
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <table class="table table-sm">
+                                        <tr>
+                                            <td>{% trans "Qualité du travail" %}</td>
+                                            <td>
+                                                {% for i in "12345" %}
+                                                    {% if forloop.counter <= certificat.evaluation_qualite_travail|default:0 %}
+                                                        <i class="ph-fill ph-star text-warning"></i>
+                                                    {% else %}
+                                                        <i class="ph ph-star text-muted"></i>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>{% trans "Quantité de travail" %}</td>
+                                            <td>
+                                                {% for i in "12345" %}
+                                                    {% if forloop.counter <= certificat.evaluation_quantite_travail|default:0 %}
+                                                        <i class="ph-fill ph-star text-warning"></i>
+                                                    {% else %}
+                                                        <i class="ph ph-star text-muted"></i>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>{% trans "Compétences" %}</td>
+                                            <td>
+                                                {% for i in "12345" %}
+                                                    {% if forloop.counter <= certificat.evaluation_competences|default:0 %}
+                                                        <i class="ph-fill ph-star text-warning"></i>
+                                                    {% else %}
+                                                        <i class="ph ph-star text-muted"></i>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </div>
+                                <div class="col-md-6">
+                                    <table class="table table-sm">
+                                        <tr>
+                                            <td>{% trans "Comportement" %}</td>
+                                            <td>
+                                                {% for i in "12345" %}
+                                                    {% if forloop.counter <= certificat.evaluation_comportement|default:0 %}
+                                                        <i class="ph-fill ph-star text-warning"></i>
+                                                    {% else %}
+                                                        <i class="ph ph-star text-muted"></i>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>{% trans "Relations" %}</td>
+                                            <td>
+                                                {% for i in "12345" %}
+                                                    {% if forloop.counter <= certificat.evaluation_relations|default:0 %}
+                                                        <i class="ph-fill ph-star text-warning"></i>
+                                                    {% else %}
+                                                        <i class="ph ph-star text-muted"></i>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>{% trans "Autonomie" %}</td>
+                                            <td>
+                                                {% for i in "12345" %}
+                                                    {% if forloop.counter <= certificat.evaluation_autonomie|default:0 %}
+                                                        <i class="ph-fill ph-star text-warning"></i>
+                                                    {% else %}
+                                                        <i class="ph ph-star text-muted"></i>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Motif de départ -->
+                    {% if certificat.date_fin_emploi and certificat.motif_depart %}
+                    <div class="mb-4">
+                        <p>
+                            {% if certificat.motif_depart == 'DEMISSION' %}
+                                {% if certificat.employe.sexe == 'M' %}Monsieur{% else %}Madame{% endif %} {{ certificat.employe.nom }} nous quitte de sa propre initiative.
+                            {% elif certificat.motif_depart == 'FIN_CONTRAT' %}
+                                {% trans "Le contrat à durée déterminée est arrivé à son terme." %}
+                            {% elif certificat.motif_depart == 'LICENCIEMENT_ECO' %}
+                                {% trans "La fin des rapports de travail est due à des raisons économiques." %}
+                            {% elif certificat.motif_depart == 'RETRAITE' %}
+                                {% if certificat.employe.sexe == 'M' %}Monsieur{% else %}Madame{% endif %} {{ certificat.employe.nom }} prend une retraite bien méritée.
+                            {% elif certificat.motif_depart == 'ACCORD_MUTUEL' %}
+                                {% trans "Les rapports de travail ont pris fin d'un commun accord." %}
+                            {% endif %}
+                        </p>
+                    </div>
+                    {% endif %}
+
+                    <!-- Formule de fin -->
+                    {% if certificat.formule_fin %}
+                    <div class="mb-4">
+                        <p>{{ certificat.formule_fin }}</p>
+                    </div>
+                    {% endif %}
+
+                    <hr>
+
+                    <!-- Date et signature -->
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            <p>
+                                {% with adresse=certificat.employe.mandat.client.adresse_siege %}
+                                {{ adresse.localite|default:"" }}, {% trans "le" %} {{ certificat.date_emission|date:"d F Y" }}
+                                {% endwith %}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            <p class="mt-5">
+                                _________________________<br>
+                                {{ certificat.employe.mandat.client.raison_sociale }}<br>
+                                {% if certificat.emis_par %}
+                                {{ certificat.emis_par.get_full_name }}
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Métadonnées -->
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">{% trans "Informations du document" %}</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <p><strong>{% trans "Date d'émission" %}:</strong> {{ certificat.date_emission|date:"d.m.Y" }}</p>
+                    </div>
+                    <div class="col-md-4">
+                        <p><strong>{% trans "Émis par" %}:</strong> {{ certificat.emis_par.get_full_name|default:"-" }}</p>
+                    </div>
+                    <div class="col-md-4">
+                        <p><strong>{% trans "Date de demande" %}:</strong> {{ certificat.date_demande|date:"d.m.Y"|default:"-" }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

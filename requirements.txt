@@ -20,6 +20,7 @@ kombu>=5.5.0
 
 # Internationalization
 django-modeltranslation>=0.19.0
+django-countries>=7.6.0
 
 # PDF & Excel
 reportlab>=4.4.0
@@ -54,3 +55,10 @@ coverage>=7.10.0
 
 # Cloud Storage
 django-storages[google]>=1.14
+
+# Vector Search & AI
+pgvector>=0.3.0
+openai>=1.50.0
+tiktoken>=0.7.0
+sentence-transformers>=3.0.0
+numpy>=1.26.0

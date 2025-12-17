@@ -63,10 +63,10 @@ class DashboardView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         user = self.request.user
-        if user.role in ["ADMIN", "MANAGER"]:
+        if user.is_manager():
             return Mandat.objects.filter(statut="ACTIF")
         return Mandat.objects.filter(
-            Q(responsable=user) | Q(equipe=user), statut="ACTIF"  # ← Vérifiez ici
+            Q(responsable=user) | Q(equipe=user), statut="ACTIF"
         ).distinct()
 
     def get_context_data(self, **kwargs):
@@ -295,10 +295,6 @@ class MandatListView(LoginRequiredMixin, ListView):
             )
         )
 
-        # # Filtrer selon le rôle
-        # if user.role not in ["ADMIN", "MANAGER"]:
-        #     queryset = queryset.filter(Q(responsable=user) | Q(equipe=user)).distinct()
-
         # Appliquer filtres
         self.filterset = MandatFilter(self.request.GET, queryset=queryset)
         return self.filterset.qs.order_by("-date_debut")
@@ -445,7 +441,7 @@ class TacheListView(LoginRequiredMixin, ListView):
 
         # Filtrer par utilisateur si pas admin
         user = self.request.user
-        if user.role not in ["ADMIN", "MANAGER"]:
+        if not user.is_manager():
             queryset = queryset.filter(Q(assigne_a=user) | Q(cree_par=user))
 
         # Appliquer filtres

@@ -106,7 +106,7 @@ class DeclarationTVAListView(LoginRequiredMixin, BusinessPermissionMixin, ListVi
 
         # Filtrer selon le rôle
         user = self.request.user
-        if user.role not in ["ADMIN", "MANAGER"] and not user.has_perm("tva.view_all_declarationtva"):
+        if not user.is_manager() and not user.has_perm("tva.view_all_declarationtva"):
             queryset = queryset.filter(
                 Q(mandat__responsable=user) | Q(mandat__equipe=user)
             ).distinct()
@@ -307,7 +307,7 @@ class OperationTVAListView(LoginRequiredMixin, BusinessPermissionMixin, ListView
 
         # Filtrer selon le rôle
         user = self.request.user
-        if user.role not in ["ADMIN", "MANAGER"] and not user.has_perm("tva.view_all_operationtva"):
+        if not user.is_manager() and not user.has_perm("tva.view_all_operationtva"):
             queryset = queryset.filter(
                 Q(mandat__responsable=user) | Q(mandat__equipe=user)
             ).distinct()

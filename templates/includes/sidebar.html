@@ -20,7 +20,7 @@
             </span>
             <div class="flex-grow-1 ps-2">
                 <h6 class="text-primary mb-0">{{ user.get_full_name|default:user.username }}</h6>
-                <p class="text-muted f-s-12 mb-0">{{ user.role|default:'Utilisateur' }}</p>
+                <p class="text-muted f-s-12 mb-0">{{ user.role.nom|default:'Utilisateur' }}</p>
             </div>
 
             <div class="dropdown profile-menu-dropdown">

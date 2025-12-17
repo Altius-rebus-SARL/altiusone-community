@@ -19,9 +19,10 @@ from .models import (
     TauxCotisation,
     FicheSalaire,
     CertificatSalaire,
+    CertificatTravail,
     DeclarationCotisations,
 )
-from .forms import EmployeForm, FicheSalaireForm, CertificatSalaireForm
+from .forms import EmployeForm, FicheSalaireForm, CertificatSalaireForm, CertificatTravailForm
 from .filters import EmployeFilter, FicheSalaireFilter
 from core.models import Mandat
 
@@ -49,7 +50,7 @@ class EmployeListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
         print(f"🔵 GET params: {self.request.GET}")
         
         user = self.request.user
-        if user.role not in ["ADMIN", "MANAGER"]:
+        if not user.is_manager():
             queryset = queryset.filter(
                 Q(mandat__responsable=user) | Q(mandat__equipe=user)
             ).distinct()
@@ -205,7 +206,7 @@ class FicheSalaireListView(LoginRequiredMixin, BusinessPermissionMixin, ListView
 
         # Filtrer selon le rôle
         user = self.request.user
-        if user.role not in ["ADMIN", "MANAGER"]:
+        if not user.is_manager():
             queryset = queryset.filter(
                 Q(employe__mandat__responsable=user) | Q(employe__mandat__equipe=user)
             ).distinct()
@@ -321,10 +322,57 @@ def fiche_valider(request, pk):
 @login_required
 def fiche_generer_pdf(request, pk):
     """Génère le PDF d'une fiche de salaire"""
+    from django.http import FileResponse
+
     fiche = get_object_or_404(FicheSalaire, pk=pk)
-    # TODO: Générer le PDF
-    messages.info(request, _("Génération du PDF en cours..."))
-    return redirect("salaires:fiche-detail", pk=pk)
+
+    try:
+        # Générer le PDF
+        fichier = fiche.generer_pdf()
+
+        # Retourner le fichier PDF
+        if fichier:
+            response = FileResponse(
+                fichier.open("rb"),
+                content_type="application/pdf"
+            )
+            response["Content-Disposition"] = f'attachment; filename="fiche_salaire_{fiche.numero_fiche}.pdf"'
+            return response
+
+        messages.error(request, _("Erreur lors de la génération du PDF"))
+        return redirect("salaires:fiche-detail", pk=pk)
+
+    except Exception as e:
+        messages.error(request, _("Erreur lors de la génération du PDF: %(error)s") % {'error': str(e)})
+        return redirect("salaires:fiche-detail", pk=pk)
+
+
+@login_required
+def certificat_generer_pdf(request, pk):
+    """Génère le PDF d'un certificat de salaire annuel"""
+    from django.http import FileResponse
+
+    certificat = get_object_or_404(CertificatSalaire, pk=pk)
+
+    try:
+        # Générer le PDF
+        fichier = certificat.generer_pdf()
+
+        # Retourner le fichier PDF
+        if fichier:
+            response = FileResponse(
+                fichier.open("rb"),
+                content_type="application/pdf"
+            )
+            response["Content-Disposition"] = f'attachment; filename="certificat_salaire_{certificat.employe.matricule}_{certificat.annee}.pdf"'
+            return response
+
+        messages.error(request, _("Erreur lors de la génération du PDF"))
+        return redirect("salaires:certificat-detail", pk=pk)
+
+    except Exception as e:
+        messages.error(request, _("Erreur lors de la génération du PDF: %(error)s") % {'error': str(e)})
+        return redirect("salaires:certificat-detail", pk=pk)
 
 
 @login_required
@@ -542,6 +590,115 @@ def generer_certificat(request, employe_pk):
         "salaires/generer_certificat.html",
         {"employe": employe, "current_year": datetime.now().year},
     )
+
+
+# ============ CERTIFICATS DE TRAVAIL ============
+
+
+class CertificatTravailListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+    """Liste des certificats de travail"""
+
+    model = CertificatTravail
+    business_permission = 'salaires.view_employes'
+    template_name = "salaires/certificat_travail_list.html"
+    context_object_name = "certificats"
+    paginate_by = 50
+
+    def get_queryset(self):
+        return CertificatTravail.objects.select_related(
+            "employe__mandat__client", "emis_par"
+        ).order_by("-date_emission")
+
+
+class CertificatTravailDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
+    """Détail d'un certificat de travail"""
+
+    model = CertificatTravail
+    business_permission = 'salaires.view_employes'
+    template_name = "salaires/certificat_travail_detail.html"
+    context_object_name = "certificat"
+
+
+class CertificatTravailCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView):
+    """Création d'un certificat de travail"""
+
+    model = CertificatTravail
+    form_class = CertificatTravailForm
+    business_permission = 'salaires.manage_employes'
+    template_name = "salaires/certificat_travail_form.html"
+
+    def get_initial(self):
+        initial = super().get_initial()
+        employe_pk = self.kwargs.get('employe_pk')
+        if employe_pk:
+            employe = get_object_or_404(Employe, pk=employe_pk)
+            initial['employe'] = employe
+            initial['date_debut_emploi'] = employe.date_entree
+            initial['date_fin_emploi'] = employe.date_sortie
+            initial['fonction_principale'] = employe.fonction
+            initial['departement'] = employe.departement
+            initial['taux_occupation'] = employe.taux_occupation
+        return initial
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        employe_pk = self.kwargs.get('employe_pk')
+        if employe_pk:
+            context['employe'] = get_object_or_404(Employe, pk=employe_pk)
+        return context
+
+    def form_valid(self, form):
+        form.instance.emis_par = self.request.user
+        messages.success(self.request, _("Certificat de travail créé avec succès."))
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy("salaires:certificat-travail-detail", kwargs={"pk": self.object.pk})
+
+
+class CertificatTravailUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateView):
+    """Modification d'un certificat de travail"""
+
+    model = CertificatTravail
+    form_class = CertificatTravailForm
+    business_permission = 'salaires.manage_employes'
+    template_name = "salaires/certificat_travail_form.html"
+
+    def form_valid(self, form):
+        messages.success(self.request, _("Certificat de travail mis à jour."))
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy("salaires:certificat-travail-detail", kwargs={"pk": self.object.pk})
+
+
+@login_required
+def certificat_travail_generer_pdf(request, pk):
+    """Génère le PDF d'un certificat de travail"""
+    from django.http import FileResponse
+
+    certificat = get_object_or_404(CertificatTravail, pk=pk)
+
+    try:
+        # Générer le PDF
+        fichier = certificat.generer_pdf()
+
+        # Retourner le fichier PDF
+        if fichier:
+            response = FileResponse(
+                fichier.open("rb"),
+                content_type="application/pdf"
+            )
+            type_suffix = certificat.type_certificat.lower()
+            response["Content-Disposition"] = f'attachment; filename="certificat_travail_{certificat.employe.matricule}_{type_suffix}.pdf"'
+            return response
+
+        messages.error(request, _("Erreur lors de la génération du PDF"))
+        return redirect("salaires:certificat-travail-detail", pk=pk)
+
+    except Exception as e:
+        messages.error(request, _("Erreur lors de la génération du PDF: %(error)s") % {'error': str(e)})
+        return redirect("salaires:certificat-travail-detail", pk=pk)
 
 
 # ============ DÉCLARATIONS COTISATIONS ============
