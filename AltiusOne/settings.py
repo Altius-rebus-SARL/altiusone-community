@@ -564,3 +564,22 @@ SEARCH_FULLTEXT_WEIGHT = float(os.environ.get('SEARCH_FULLTEXT_WEIGHT', '0.4'))
 SEARCH_SEMANTIC_WEIGHT = float(os.environ.get('SEARCH_SEMANTIC_WEIGHT', '0.6'))
 SEARCH_SEMANTIC_THRESHOLD = float(os.environ.get('SEARCH_SEMANTIC_THRESHOLD', '0.5'))
 
+
+
+# ============================================================================
+# PROXY / SSL CONFIGURATION
+# ============================================================================
+# Nécessaire quand Django est derrière un reverse proxy qui termine SSL
+
+# Indique à Django de faire confiance au header X-Forwarded-Proto
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Utiliser le header X-Forwarded-Host pour request.get_host()
+USE_X_FORWARDED_HOST = True
+
+# En production, forcer HTTPS
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 31536000  # 1 an
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True

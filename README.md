@@ -1,10 +1,11 @@
-# AltiusOne - Plateforme de Gestion Fiduciaire Suisse
+# AltiusOne - Plateforme de Gestion Suisse
 
-AltiusOne est une application SaaS complète de gestion fiduciaire spécialement conçue pour le marché suisse, offrant une architecture multi-tenant avec provisionnement automatique d'instances VPS dédiées.
+AltiusOne est une application SaaS complète de gestion spécialement conçue pour le marché suisse, offrant une architecture multi-tenant avec provisionnement automatique d'instances VPS dédiées.
 
 ## 🎯 Caractéristiques Principales
 
 ### Architecture Multi-Tenant
+
 - Instances VPS dédiées par client (Hetzner Cloud)
 - Base de données PostgreSQL isolée par tenant
 - Storage suisse conforme (S3/MinIO)
@@ -14,12 +15,14 @@ AltiusOne est une application SaaS complète de gestion fiduciaire spécialement
 ### Modules Fonctionnels
 
 #### 1. Core & Gestion
+
 - Gestion multi-sociétés et multi-mandats
 - Utilisateurs avec permissions granulaires
 - Exercices comptables
 - Multi-langue (FR, DE, IT, EN)
 
 #### 2. Comptabilité
+
 - Plans comptables personnalisables (Swiss GAAP, PCG)
 - Saisie d'écritures avec validation
 - Grand livre, balance, journaux
@@ -27,6 +30,7 @@ AltiusOne est une application SaaS complète de gestion fiduciaire spécialement
 - Import/export comptable
 
 #### 3. TVA
+
 - Déclarations TVA trimestrielles/semestrielles
 - Méthodes: effective, taux forfaitaire, taux de la dette fiscale nette
 - Génération XML format AFC
@@ -34,6 +38,7 @@ AltiusOne est une application SaaS complète de gestion fiduciaire spécialement
 - Codes TVA Suisse (200, 205, 220, 230, 280, 289, 400, etc.)
 
 #### 4. Facturation & Time Tracking
+
 - Gestion des prestations
 - Suivi du temps facturable
 - Génération de factures
@@ -42,6 +47,7 @@ AltiusOne est une application SaaS complète de gestion fiduciaire spécialement
 - Paiements et rapprochements
 
 #### 5. Salaires & RH
+
 - Fiches de salaire suisses
 - Cotisations sociales (AVS, AC, LPP, etc.)
 - Impôt à la source
@@ -49,6 +55,7 @@ AltiusOne est une application SaaS complète de gestion fiduciaire spécialement
 - Déclarations aux caisses de compensation
 
 #### 6. Documents & GED
+
 - Stockage sécurisé Swiss-compliant
 - OCR et extraction de données
 - Classification automatique
@@ -57,6 +64,7 @@ AltiusOne est une application SaaS complète de gestion fiduciaire spécialement
 - Watermarking
 
 #### 7. Fiscalité
+
 - Déclarations fiscales entreprises
 - Optimisations fiscales
 - Reports de pertes
@@ -64,6 +72,7 @@ AltiusOne est une application SaaS complète de gestion fiduciaire spécialement
 - Taux d'imposition cantonaux
 
 #### 8. Analytics & Reporting
+
 - Tableaux de bord personnalisables
 - KPIs financiers
 - Rapports programmés
@@ -74,6 +83,7 @@ AltiusOne est une application SaaS complète de gestion fiduciaire spécialement
 ## 🏗️ Architecture Technique
 
 ### Stack Technologique
+
 - **Backend**: Django 4.2 + PostgreSQL 15
 - **API**: Django REST Framework
 - **Task Queue**: Celery + Redis
@@ -83,6 +93,7 @@ AltiusOne est une application SaaS complète de gestion fiduciaire spécialement
 - **Frontend**: Bootstrap 5, Chart.js
 
 ### Structure du Projet
+
 ```
 altiusone/
 ├── core/                   # Utilisateurs, mandats, clients
@@ -102,6 +113,7 @@ altiusone/
 ## 🚀 Installation
 
 ### Prérequis
+
 - Python 3.11+
 - PostgreSQL 15+
 - Redis 7+
@@ -110,12 +122,14 @@ altiusone/
 ### Installation locale
 
 1. **Cloner le repository**
+
 ```bash
 git clone https://github.com/altius/altiusone.git
 cd altiusone
 ```
 
 2. **Créer un environnement virtuel**
+
 ```bash
 python -m venv venv
 source venv/bin/activate  # Linux/Mac
@@ -124,48 +138,57 @@ venv\Scripts\activate  # Windows
 ```
 
 3. **Installer les dépendances**
+
 ```bash
 pip install -r requirements.txt
 ```
 
 4. **Configuration**
+
 ```bash
 cp .env.example .env
 # Éditer .env avec vos paramètres
 ```
 
 5. **Créer la base de données**
+
 ```bash
 createdb altiusone
 ```
 
 6. **Migrations**
+
 ```bash
 python manage.py makemigrations
 python manage.py migrate
 ```
 
 7. **Créer un superutilisateur**
+
 ```bash
 python manage.py createsuperuser
 ```
 
 8. **Charger les données initiales**
+
 ```bash
 python manage.py loaddata fixtures/initial_data.json
 ```
 
 9. **Compiler les traductions**
+
 ```bash
 python manage.py compilemessages
 ```
 
 10. **Lancer le serveur**
+
 ```bash
 python manage.py runserver
 ```
 
 ### Installation avec Docker
+
 ```bash
 docker-compose up -d
 ```
@@ -173,6 +196,7 @@ docker-compose up -d
 ## 📊 Utilisation
 
 ### Accès à l'application
+
 - Application: http://localhost:8000
 - Admin Django: http://localhost:8000/admin
 - API: http://localhost:8000/api/
@@ -186,6 +210,7 @@ docker-compose up -d
 5. Commencer la saisie
 
 ## 🧪 Tests
+
 ```bash
 # Lancer tous les tests
 pytest
@@ -224,6 +249,7 @@ Documentation complète: http://localhost:8000/api/docs/
 ## 🌍 Internationalisation
 
 L'application supporte 4 langues:
+
 - Français (par défaut)
 - Allemand
 - Italien
@@ -234,11 +260,13 @@ L'application supporte 4 langues:
 ### Provisionnement automatique
 
 Le système crée automatiquement:
+
 1. VPS Hetzner Cloud
 2. Base PostgreSQL dédiée
 3. Storage S3 (MinIO)
 4. Configuration DNS
 5. Certificats SSL
+
 ```bash
 cd terraform/
 terraform init
@@ -249,6 +277,7 @@ terraform apply
 ## 🤝 Contribution
 
 Les contributions sont les bienvenues! Merci de:
+
 1. Fork le projet
 2. Créer une branche feature (`git checkout -b feature/AmazingFeature`)
 3. Commit vos changements (`git commit -m 'Add AmazingFeature'`)
