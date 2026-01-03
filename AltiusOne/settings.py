@@ -54,7 +54,7 @@ EXTERNAL_APPS = [
     "rest_framework_simplejwt.token_blacklist",
     "django_filters",
     "widget_tweaks",
-    "drf_yasg",
+    "drf_spectacular",
     'corsheaders',
     'django_countries',
 ]
@@ -348,6 +348,55 @@ REST_FRAMEWORK = {
         "rest_framework.filters.SearchFilter",
         "rest_framework.filters.OrderingFilter",
     ],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+
+# ============================================================================
+# API DOCUMENTATION (drf-spectacular)
+# ============================================================================
+
+# Construire les serveurs dynamiquement depuis ALLOWED_HOSTS
+_spectacular_servers = []
+for host in ALLOWED_HOSTS:
+    if host.strip() and host.strip() not in ('localhost', '127.0.0.1', '*'):
+        _spectacular_servers.append({
+            'url': f'https://{host.strip()}',
+            'description': host.strip()
+        })
+
+# Ajouter localhost en dev
+if DEBUG:
+    _spectacular_servers.append({
+        'url': 'http://localhost:8000',
+        'description': 'Development'
+    })
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'AltiusOne API',
+    'DESCRIPTION': 'API de gestion fiduciaire complète pour la Suisse',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'CONTACT': {'email': 'contact@altiusone.ch'},
+    'LICENSE': {'name': 'Proprietary'},
+    'SERVERS': _spectacular_servers,
+    'SWAGGER_UI_SETTINGS': {
+        'deepLinking': True,
+        'persistAuthorization': True,
+        'displayOperationId': False,
+    },
+    'SECURITY': [
+        {'BearerAuth': []},
+    ],
+    'APPEND_COMPONENTS': {
+        'securitySchemes': {
+            'BearerAuth': {
+                'type': 'http',
+                'scheme': 'bearer',
+                'bearerFormat': 'JWT',
+            }
+        }
+    },
 }
 
 # ============================================================================
