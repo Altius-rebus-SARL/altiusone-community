@@ -1046,6 +1046,7 @@ class AuditLog(models.Model):
         ('DELETE', _('Suppression')),
         ('VIEW', _('Consultation')),
         ('EXPORT', _('Export')),
+        ('IMPORT', _('Import')),
         ('VALIDATE', _('Validation')),
         ('SUBMIT', _('Soumission')),
     ]

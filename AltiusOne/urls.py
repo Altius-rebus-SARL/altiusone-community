@@ -97,6 +97,8 @@ urlpatterns += i18n_patterns(
     path("documents/", include("documents.urls", namespace="documents")),
     path("fiscalite/", include("fiscalite.urls", namespace="fiscalite")),
     path("analytics/", include("analytics.urls", namespace="analytics")),
+    # Import/Export générique pour tous les modèles
+    path("import-export/", include("core.import_export.urls", namespace="import_export")),
     prefix_default_language=True,
 )
 

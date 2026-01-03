@@ -57,6 +57,7 @@ EXTERNAL_APPS = [
     "drf_spectacular",
     'corsheaders',
     'django_countries',
+    'import_export',
 ]
 
 
@@ -632,3 +633,21 @@ if not DEBUG:
     SECURE_HSTS_SECONDS = 31536000  # 1 an
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
+
+
+# ============================================================================
+# DJANGO IMPORT-EXPORT CONFIGURATION
+# ============================================================================
+IMPORT_EXPORT_USE_TRANSACTIONS = True  # Rollback si erreur
+IMPORT_EXPORT_SKIP_ADMIN_LOG = True  # On utilise notre propre AuditLog
+IMPORT_EXPORT_IMPORT_PERMISSION_CODE = 'import'
+IMPORT_EXPORT_EXPORT_PERMISSION_CODE = 'export'
+
+# Formats supportés pour l'import/export
+IMPORT_EXPORT_FORMATS = [
+    'import_export.formats.base_formats.CSV',
+    'import_export.formats.base_formats.XLSX',
+]
+
+# Taille maximale des fichiers d'import (10MB)
+IMPORT_EXPORT_MAX_FILE_SIZE = 10 * 1024 * 1024
