@@ -292,7 +292,7 @@
                                             {{ exercice.mandat.numero }}
                                         </a>
                                     </h6>
-                                    <p class="text-muted mb-0">{{ exercice.mandat.get_type_mandat_display }}</p>
+                                    <p class="text-muted mb-0">{{ exercice.mandat.type_mandat_ref.libelle|default:exercice.mandat.get_type_mandat_display }}</p>
                                 </div>
                             </li>
 

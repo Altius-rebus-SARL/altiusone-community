@@ -120,7 +120,7 @@
                     </tr>
                     <tr>
                         <td class="text-muted">{% trans "Périodicité" %}</td>
-                        <td class="text-end">{{ indicateur.get_periodicite_display }}</td>
+                        <td class="text-end">{{ indicateur.periodicite_ref.libelle|default:indicateur.get_periodicite_display }}</td>
                     </tr>
                     <tr>
                         <td class="text-muted">{% trans "Unité" %}</td>

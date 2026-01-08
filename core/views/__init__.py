@@ -74,6 +74,38 @@ from .main_views import (
     exercice_cloturer,
 )
 
+from .admin_views import (
+    # Administration Dashboard
+    AdminDashboardView,
+    # Utilisateurs
+    UserListView,
+    UserDetailView,
+    UserCreateView,
+    UserUpdateView,
+    user_toggle_active,
+    user_reset_password,
+    # Rôles
+    RoleListView,
+    RoleDetailView,
+    RoleCreateView,
+    RoleUpdateView,
+    # Invitations
+    InvitationListView,
+    InvitationDetailView,
+    InvitationStaffCreateView,
+    InvitationClientCreateView,
+    invitation_resend,
+    invitation_cancel,
+    AcceptInvitationView,
+    # Accès Mandats
+    AccesMandatListView,
+    AccesMandatCreateView,
+    AccesMandatUpdateView,
+    acces_mandat_toggle,
+    # Changement mot de passe
+    ForcePasswordChangeView,
+)
+
 __all__ = [
     # Export views
     'facture_export_pdf',
@@ -142,4 +174,28 @@ __all__ = [
     'ExerciceCreateView',
     'ExerciceUpdateView',
     'exercice_cloturer',
+    # Administration
+    'AdminDashboardView',
+    'UserListView',
+    'UserDetailView',
+    'UserCreateView',
+    'UserUpdateView',
+    'user_toggle_active',
+    'user_reset_password',
+    'RoleListView',
+    'RoleDetailView',
+    'RoleCreateView',
+    'RoleUpdateView',
+    'InvitationListView',
+    'InvitationDetailView',
+    'InvitationStaffCreateView',
+    'InvitationClientCreateView',
+    'invitation_resend',
+    'invitation_cancel',
+    'AcceptInvitationView',
+    'AccesMandatListView',
+    'AccesMandatCreateView',
+    'AccesMandatUpdateView',
+    'acces_mandat_toggle',
+    'ForcePasswordChangeView',
 ]

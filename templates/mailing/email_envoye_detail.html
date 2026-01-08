@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Email envoye" %} - {{ email.sujet|truncatechars:30 }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h3>{% trans "Detail de l'email" %}</h3>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}"><i class="ti ti-home"></i></a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'mailing:email-envoye-list' %}">{% trans "Emails envoyes" %}</a></li>
+                        <li class="breadcrumb-item active">{{ email.sujet|truncatechars:30 }}</li>
+                    </ol>
+                </div>
+                <div class="page-header-right">
+                    {% if email.statut == 'ECHEC' %}
+                    <form method="post" action="{% url 'mailing:email-renvoyer' email.pk %}" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-success">
+                            <i class="ti ti-refresh me-2"></i>{% trans "Renvoyer" %}
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Informations -->
+        <div class="col-xl-4">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5>{% trans "Informations" %}</h5>
+                    {% if email.statut == 'EN_ATTENTE' %}
+                    <span class="badge bg-warning">{% trans "En attente" %}</span>
+                    {% elif email.statut == 'ENVOYE' %}
+                    <span class="badge bg-success">{% trans "Envoye" %}</span>
+                    {% else %}
+                    <span class="badge bg-danger">{% trans "Echec" %}</span>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Destinataire" %}</span>
+                            <span>{{ email.destinataire }}</span>
+                        </li>
+                        {% if email.cc %}
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "CC" %}</span>
+                            <span>{{ email.cc }}</span>
+                        </li>
+                        {% endif %}
+                        {% if email.bcc %}
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "BCC" %}</span>
+                            <span>{{ email.bcc }}</span>
+                        </li>
+                        {% endif %}
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Configuration" %}</span>
+                            <a href="{% url 'mailing:configuration-detail' email.configuration.pk %}">
+                                {{ email.configuration.nom }}
+                            </a>
+                        </li>
+                        {% if email.template %}
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Template" %}</span>
+                            <a href="{% url 'mailing:template-detail' email.template.pk %}">
+                                {{ email.template.nom }}
+                            </a>
+                        </li>
+                        {% endif %}
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Cree le" %}</span>
+                            <span>{{ email.created_at|date:"d/m/Y H:i" }}</span>
+                        </li>
+                        {% if email.date_envoi %}
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Envoye le" %}</span>
+                            <span>{{ email.date_envoi|date:"d/m/Y H:i" }}</span>
+                        </li>
+                        {% endif %}
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Tentatives" %}</span>
+                            <span>{{ email.tentatives }}</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Erreur -->
+            {% if email.statut == 'ECHEC' and email.erreur_message %}
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0"><i class="ti ti-alert-triangle me-2"></i>{% trans "Erreur" %}</h5>
+                </div>
+                <div class="card-body">
+                    <pre class="bg-light p-3 rounded mb-0 text-danger">{{ email.erreur_message }}</pre>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Contexte -->
+            {% if email.contexte %}
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ti ti-code me-2"></i>{% trans "Contexte (variables)" %}</h5>
+                </div>
+                <div class="card-body">
+                    <pre class="bg-light p-3 rounded mb-0" style="max-height: 200px; overflow-y: auto;">{{ email.contexte|pprint }}</pre>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Contenu -->
+        <div class="col-xl-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ti ti-heading me-2"></i>{% trans "Sujet" %}</h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0 f-s-16">{{ email.sujet }}</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ti ti-mail me-2"></i>{% trans "Contenu HTML" %}</h5>
+                </div>
+                <div class="card-body p-0">
+                    <iframe srcdoc="{{ email.corps_html }}" style="width: 100%; height: 500px; border: none;"></iframe>
+                </div>
+            </div>
+
+            {% if email.corps_texte %}
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ti ti-txt me-2"></i>{% trans "Contenu Texte" %}</h5>
+                </div>
+                <div class="card-body">
+                    <pre class="bg-light p-3 rounded mb-0" style="max-height: 300px; overflow-y: auto;">{{ email.corps_texte }}</pre>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

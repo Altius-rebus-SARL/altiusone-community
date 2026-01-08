@@ -1,6 +1,6 @@
 # apps/tva/models.py
 from django.db import models
-from core.models import BaseModel, Mandat, User
+from core.models import BaseModel, Mandat, User, Periodicite
 from decimal import Decimal
 from django.db.models import Q
 from io import BytesIO
@@ -29,6 +29,7 @@ class ConfigurationTVA(BaseModel):
         ('FORFAIT_BRANCHE', 'Forfait selon la branche'),
     ]
 
+    # Conservé pour compatibilité/migration
     PERIODICITE_CHOICES = [
         ('TRIMESTRIEL', 'Trimestriel'),
         ('SEMESTRIEL', 'Semestriel'),
@@ -46,8 +47,25 @@ class ConfigurationTVA(BaseModel):
     # Méthode
     methode_calcul = models.CharField(max_length=20, choices=METHODE_CHOICES,
                                       default='EFFECTIVE')
-    periodicite = models.CharField(max_length=20, choices=PERIODICITE_CHOICES,
-                                   default='TRIMESTRIEL')
+
+    # Nouveau: Référence vers Periodicite
+    periodicite_ref = models.ForeignKey(
+        Periodicite,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='configurations_tva',
+        verbose_name='Périodicité',
+        help_text='Périodicité de déclaration TVA'
+    )
+    # Ancien champ conservé pour compatibilité/migration
+    periodicite = models.CharField(
+        max_length=20,
+        choices=PERIODICITE_CHOICES,
+        default='TRIMESTRIEL',
+        verbose_name='Périodicité (ancien)',
+        blank=True
+    )
 
     # Taux forfaitaires (si applicable)
     taux_forfaitaire_ventes = models.DecimalField(max_digits=5, decimal_places=2,

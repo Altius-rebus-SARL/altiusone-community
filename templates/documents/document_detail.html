@@ -48,19 +48,48 @@
                     </div>
                 </div>
             </div>
-            <div class="card-body text-center py-5">
-                {% if document.extension == '.pdf' %}
-                <i class="ph ph-file-pdf text-danger" style="font-size: 120px;"></i>
-                {% elif document.extension in '.doc,.docx' %}
-                <i class="ph ph-file-doc text-primary" style="font-size: 120px;"></i>
-                {% elif document.extension in '.xls,.xlsx' %}
-                <i class="ph ph-file-xls text-success" style="font-size: 120px;"></i>
-                {% elif document.extension in '.jpg,.jpeg,.png,.gif' %}
-                <img src="#" alt="Preview" class="img-fluid" style="max-height: 400px;">
+            <div class="card-body text-center py-4">
+                {% if document.path_storage %}
+                    {% if document.extension == '.pdf' %}
+                    <!-- Aperçu PDF intégré -->
+                    <div class="ratio ratio-16x9 mb-3" style="max-height: 600px;">
+                        <iframe src="{% url 'documents:document-apercu' document.pk %}"
+                                type="application/pdf"
+                                style="border: 1px solid #dee2e6; border-radius: 8px;">
+                        </iframe>
+                    </div>
+                    {% elif document.extension in '.jpg,.jpeg,.png,.gif,.webp' %}
+                    <!-- Aperçu Image -->
+                    <a href="{% url 'documents:document-apercu' document.pk %}" target="_blank" title="{% trans 'Cliquez pour agrandir' %}">
+                        <img src="{% url 'documents:document-apercu' document.pk %}"
+                             alt="{{ document.nom_fichier }}"
+                             class="img-fluid rounded shadow-sm"
+                             style="max-height: 500px; cursor: zoom-in;"
+                             onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\'ph ph-image text-info\' style=\'font-size: 120px;\'></i><p class=\'text-muted mt-2\'>{% trans "Aperçu non disponible" %}</p>';">
+                    </a>
+                    {% elif document.extension in '.doc,.docx' %}
+                    <i class="ph ph-file-doc text-primary" style="font-size: 120px;"></i>
+                    {% elif document.extension in '.xls,.xlsx' %}
+                    <i class="ph ph-file-xls text-success" style="font-size: 120px;"></i>
+                    {% else %}
+                    <i class="ph ph-file text-secondary" style="font-size: 120px;"></i>
+                    {% endif %}
                 {% else %}
-                <i class="ph ph-file text-secondary" style="font-size: 120px;"></i>
+                    <!-- Fichier non stocké - afficher icône selon type -->
+                    {% if document.extension == '.pdf' %}
+                    <i class="ph ph-file-pdf text-danger" style="font-size: 120px;"></i>
+                    {% elif document.extension in '.jpg,.jpeg,.png,.gif,.webp' %}
+                    <i class="ph ph-image text-info" style="font-size: 120px;"></i>
+                    {% elif document.extension in '.doc,.docx' %}
+                    <i class="ph ph-file-doc text-primary" style="font-size: 120px;"></i>
+                    {% elif document.extension in '.xls,.xlsx' %}
+                    <i class="ph ph-file-xls text-success" style="font-size: 120px;"></i>
+                    {% else %}
+                    <i class="ph ph-file text-secondary" style="font-size: 120px;"></i>
+                    {% endif %}
+                    <p class="text-muted mt-3"><i class="ph ph-warning me-1"></i>{% trans "Fichier non disponible sur le stockage" %}</p>
                 {% endif %}
-                
+
                 <h5 class="mt-4">{{ document.nom_fichier }}</h5>
                 <p class="text-muted">{{ document.taille|filesizeformat }} • {{ document.mime_type }}</p>
             </div>

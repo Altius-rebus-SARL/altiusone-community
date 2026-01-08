@@ -165,7 +165,7 @@
                                     <td>{{ mandat.client.raison_sociale }}</td>
                                     <td>
                                         <span class="badge bg-light-primary">
-                                            {{ mandat.get_type_mandat_display }}
+                                            {{ mandat.type_mandat_ref.libelle|default:mandat.get_type_mandat_display }}
                                         </span>
                                     </td>
                                     <td>{{ mandat.responsable.get_full_name|default:mandat.responsable.username }}</td>

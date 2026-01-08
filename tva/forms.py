@@ -11,7 +11,7 @@ from .models import (
     CorrectionTVA,
     CodeTVA,
 )
-from core.models import Mandat
+from core.models import Mandat, Periodicite
 
 
 class ConfigurationTVAForm(forms.ModelForm):
@@ -26,7 +26,7 @@ class ConfigurationTVAForm(forms.ModelForm):
             "date_debut_assujettissement",
             "date_fin_assujettissement",
             "methode_calcul",
-            "periodicite",
+            "periodicite_ref",
             "taux_forfaitaire_ventes",
             "taux_forfaitaire_achats",
             "option_imposition_prestations",
@@ -45,7 +45,7 @@ class ConfigurationTVAForm(forms.ModelForm):
                 attrs={"class": "form-control", "type": "date"}
             ),
             "methode_calcul": forms.Select(attrs={"class": "form-control"}),
-            "periodicite": forms.Select(attrs={"class": "form-control"}),
+            "periodicite_ref": forms.Select(attrs={"class": "form-control"}),
             "taux_forfaitaire_ventes": forms.NumberInput(
                 attrs={"class": "form-control", "step": "0.01"}
             ),
@@ -61,6 +61,15 @@ class ConfigurationTVAForm(forms.ModelForm):
             "compte_tva_due": forms.Select(attrs={"class": "form-control"}),
             "compte_tva_prealable": forms.Select(attrs={"class": "form-control"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Filtrer sur les périodicités applicables à la TVA (trimestriel et semestriel)
+        self.fields['periodicite_ref'].queryset = Periodicite.objects.filter(
+            is_active=True,
+            code__in=['TRIMESTRIEL', 'SEMESTRIEL']
+        )
+        self.fields['periodicite_ref'].label = _('Périodicité')
 
 
 class DeclarationTVAForm(forms.ModelForm):
@@ -101,7 +110,9 @@ class DeclarationTVAForm(forms.ModelForm):
         if self.instance and self.instance.pk and hasattr(self.instance, "mandat"):
             try:
                 config = self.instance.mandat.config_tva
-                if config.periodicite == "TRIMESTRIEL":
+                # Utiliser le nouveau champ de référence ou l'ancien pour compatibilité
+                periodicite_code = config.periodicite_ref.code if config.periodicite_ref else config.periodicite
+                if periodicite_code == "TRIMESTRIEL":
                     self.fields["trimestre"].required = True
                     self.fields["semestre"].required = False
                 else:

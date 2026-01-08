@@ -1,0 +1,323 @@
+<!-- comptabilite/type_plan_detail.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ type_plan.nom }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{{ type_plan.nom }}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'comptabilite:type-plan-list' %}">
+                    {% trans "Types de plans" %}
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{{ type_plan.code }}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<!-- Header Card -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <div class="d-flex align-items-center">
+                            <div class="h-60 w-60 d-flex-center rounded-circle
+                                {% if type_plan.code == 'PME' %}bg-light-primary{% elif type_plan.code == 'OHADA' %}bg-light-warning{% elif type_plan.code == 'SWISSGAAP' %}bg-light-success{% else %}bg-light-info{% endif %} me-3">
+                                <i class="ph ph-tree-structure f-s-30
+                                    {% if type_plan.code == 'PME' %}text-primary{% elif type_plan.code == 'OHADA' %}text-warning{% elif type_plan.code == 'SWISSGAAP' %}text-success{% else %}text-info{% endif %}"></i>
+                            </div>
+                            <div>
+                                <h4 class="mb-1">{{ type_plan.nom }}</h4>
+                                <p class="text-muted mb-0">{{ type_plan.description }}</p>
+                                <div class="mt-2">
+                                    {% if type_plan.pays %}
+                                    <span class="badge bg-light-secondary me-1">
+                                        <i class="ph ph-globe me-1"></i>{{ type_plan.pays }}
+                                    </span>
+                                    {% endif %}
+                                    {% if type_plan.region %}
+                                    <span class="badge bg-light-info me-1">
+                                        <i class="ph ph-map-pin me-1"></i>{{ type_plan.region }}
+                                    </span>
+                                    {% endif %}
+                                    {% if type_plan.norme_comptable %}
+                                    <span class="badge bg-light-dark me-1">
+                                        <i class="ph ph-book-open me-1"></i>{{ type_plan.norme_comptable }}
+                                    </span>
+                                    {% endif %}
+                                    {% if type_plan.version %}
+                                    <span class="badge bg-light-success">
+                                        <i class="ph ph-tag me-1"></i>v{{ type_plan.version }}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                        <a href="{% url 'comptabilite:plan-create-with-type' type_plan.pk %}" class="btn btn-primary">
+                            <i class="ph ph-plus me-2"></i>{% trans "Nouveau plan" %}
+                        </a>
+                        <a href="{% url 'comptabilite:plan-list-by-type' type_plan.pk %}" class="btn btn-outline-primary">
+                            <i class="ph ph-folder me-2"></i>{% trans "Voir les plans" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-primary mb-0">{{ stats.nb_classes }}</h3>
+                        <p class="text-muted mb-0">{% trans "Classes" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-primary">
+                        <i class="ph ph-list-numbers f-s-24 text-primary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-success mb-0">{{ stats.nb_templates }}</h3>
+                        <p class="text-muted mb-0">{% trans "Templates" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-success">
+                        <i class="ph ph-star f-s-24 text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-info mb-0">{{ stats.nb_mandats }}</h3>
+                        <p class="text-muted mb-0">{% trans "Mandats" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-info">
+                        <i class="ph ph-briefcase f-s-24 text-info"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-warning mb-0">{{ stats.nb_plans }}</h3>
+                        <p class="text-muted mb-0">{% trans "Total plans" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-warning">
+                        <i class="ph ph-folder f-s-24 text-warning"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Classes comptables -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Classes comptables" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th scope="col" style="width: 80px;">{% trans "Classe" %}</th>
+                                <th scope="col">{% trans "Libelle" %}</th>
+                                <th scope="col">{% trans "Type" %}</th>
+                                <th scope="col">{% trans "Plage de comptes" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for classe in classes %}
+                            <tr>
+                                <td>
+                                    <span class="badge
+                                        {% if classe.type_compte == 'ACTIF' %}bg-primary
+                                        {% elif classe.type_compte == 'PASSIF' %}bg-info
+                                        {% elif classe.type_compte == 'CHARGE' %}bg-danger
+                                        {% elif classe.type_compte == 'PRODUIT' %}bg-success
+                                        {% else %}bg-secondary{% endif %} f-s-14">
+                                        {{ classe.numero }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <strong>{{ classe.libelle }}</strong>
+                                    {% if classe.description %}
+                                    <p class="text-muted small mb-0">{{ classe.description|truncatewords:15 }}</p>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge
+                                        {% if classe.type_compte == 'ACTIF' %}bg-light-primary text-primary
+                                        {% elif classe.type_compte == 'PASSIF' %}bg-light-info text-info
+                                        {% elif classe.type_compte == 'CHARGE' %}bg-light-danger text-danger
+                                        {% elif classe.type_compte == 'PRODUIT' %}bg-light-success text-success
+                                        {% else %}bg-light-secondary text-secondary{% endif %}">
+                                        {{ classe.get_type_compte_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if classe.numero_debut and classe.numero_fin %}
+                                    <code>{{ classe.numero_debut }} - {{ classe.numero_fin }}</code>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center py-4">
+                                    <i class="ph ph-list-numbers f-s-30 text-muted"></i>
+                                    <p class="text-muted mt-2">{% trans "Aucune classe definie" %}</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Templates disponibles -->
+{% if templates %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Templates disponibles" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for template in templates %}
+                    <div class="col-md-4">
+                        <div class="card border">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div class="h-40 w-40 d-flex-center rounded-circle bg-light-success">
+                                        <i class="ph ph-star f-s-18 text-success"></i>
+                                    </div>
+                                    <span class="badge bg-success">{% trans "Template" %}</span>
+                                </div>
+                                <h6 class="mb-1">{{ template.nom }}</h6>
+                                <p class="text-muted small mb-2">{{ template.nb_comptes }} {% trans "comptes" %}</p>
+                                <a href="{% url 'comptabilite:plan-detail' template.pk %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="ph ph-eye me-1"></i>{% trans "Voir" %}
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Plans comptables utilisant ce type -->
+{% if plans %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>{% trans "Plans comptables" %}</h5>
+                <a href="{% url 'comptabilite:plan-list-by-type' type_plan.pk %}" class="btn btn-sm btn-outline-primary">
+                    {% trans "Voir tout" %}
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th scope="col">{% trans "Nom" %}</th>
+                                <th scope="col">{% trans "Mandat" %}</th>
+                                <th scope="col">{% trans "Comptes" %}</th>
+                                <th scope="col">{% trans "Template" %}</th>
+                                <th scope="col">{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for plan in plans|slice:":10" %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'comptabilite:plan-detail' plan.pk %}" class="f-w-500 text-dark">
+                                        {{ plan.nom }}
+                                    </a>
+                                </td>
+                                <td>
+                                    {% if plan.mandat %}
+                                    {{ plan.mandat.numero }} - {{ plan.mandat.client.raison_sociale|truncatechars:30 }}
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-light-dark">{{ plan.nb_comptes }}</span>
+                                </td>
+                                <td>
+                                    {% if plan.is_template %}
+                                    <i class="ph ph-check-circle text-success f-s-20"></i>
+                                    {% else %}
+                                    <i class="ph ph-x-circle text-muted f-s-20"></i>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{% url 'comptabilite:plan-detail' plan.pk %}" class="btn btn-sm btn-light-primary">
+                                        <i class="ph ph-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,194 +1,531 @@
-{% load static %}
-{% load i18n %}
-{% load menu_tags %}
+{% load static %} {% load i18n %} {% load menu_tags %}
 
 <!-- Menu Navigation starts -->
 <nav>
-    <div class="app-logo">
-        <a class="logo d-inline-block" href="{% url 'core:dashboard' %}">
-            <img alt="AltiusOne" src="{% static 'chartes/1.svg' %}">
+  <div class="app-logo">
+    <a class="logo d-inline-block" href="{% url 'core:dashboard' %}">
+      <img alt="AltiusOne" src="{% static 'assets/images/logo/1.png' %}" />
+    </a>
+
+    <span class="bg-light-primary toggle-semi-nav d-flex-center">
+      <i class="ti ti-chevron-right"></i>
+    </span>
+
+    <div class="d-flex align-items-center nav-profile p-3">
+      <span
+        class="h-45 w-45 d-flex-center b-r-10 position-relative bg-primary m-auto"
+      >
+        <span class="text-white f-w-600"
+          >{{ user.first_name|slice:":1"|upper|default:"A" }}{{
+          user.last_name|slice:":1"|upper|default:"F" }}</span
+        >
+        <span
+          class="position-absolute top-0 end-0 p-1 bg-success border border-light rounded-circle"
+        ></span>
+      </span>
+      <div class="flex-grow-1 ps-2">
+        <h6 class="text-primary mb-0">
+          {{ user.get_full_name|default:user.username }}
+        </h6>
+        <p class="text-muted f-s-12 mb-0">
+          {{ user.role.nom|default:'Utilisateur' }}
+        </p>
+      </div>
+
+      <div class="dropdown profile-menu-dropdown">
+        <a
+          aria-expanded="false"
+          data-bs-auto-close="true"
+          data-bs-toggle="dropdown"
+          role="button"
+        >
+          <i class="ti ti-settings fs-5"></i>
         </a>
-
-        <span class="bg-light-primary toggle-semi-nav d-flex-center">
-            <i class="ti ti-chevron-right"></i>
-        </span>
-
-        <div class="d-flex align-items-center nav-profile p-3">
-            <span class="h-45 w-45 d-flex-center b-r-10 position-relative bg-primary m-auto">
-                <span class="text-white f-w-600">{{ user.first_name|slice:":1"|upper|default:"A" }}{{ user.last_name|slice:":1"|upper|default:"F" }}</span>
-                <span class="position-absolute top-0 end-0 p-1 bg-success border border-light rounded-circle"></span>
-            </span>
-            <div class="flex-grow-1 ps-2">
-                <h6 class="text-primary mb-0">{{ user.get_full_name|default:user.username }}</h6>
-                <p class="text-muted f-s-12 mb-0">{{ user.role.nom|default:'Utilisateur' }}</p>
-            </div>
-
-            <div class="dropdown profile-menu-dropdown">
-                <a aria-expanded="false" data-bs-auto-close="true" data-bs-toggle="dropdown" role="button">
-                    <i class="ti ti-settings fs-5"></i>
-                </a>
-                <ul class="dropdown-menu">
-                    <li class="dropdown-item">
-                        <a class="f-w-500" href="{% url 'core:profile' %}">
-                            <i class="ph-duotone ph-user-circle pe-1 f-s-20"></i> {% trans "Profil" %}
-                        </a>
-                    </li>
-                    <li class="dropdown-item">
-                        <a class="f-w-500" href="{% url 'core:settings' %}">
-                            <i class="ph-duotone ph-gear pe-1 f-s-20"></i> {% trans "Paramètres" %}
-                        </a>
-                    </li>
-                    <li class="app-divider-v dotted py-1"></li>
-                    <li class="dropdown-item">
-                        <a class="mb-0 text-danger" href="{% url 'core:logout' %}">
-                            <i class="ph-duotone ph-sign-out pe-1 f-s-20"></i> {% trans "Déconnexion" %}
-                        </a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </div>
-
-    <div class="app-nav" id="app-simple-bar">
-        <ul class="main-nav p-0 mt-2">
-            
-            <li class="menu-title">
-                <span>{% trans "Dashboard" %}</span>
-            </li>
-            
-            {% with is_active=request.resolver_match.url_name|default:"" %}
-            {% with ns=request.resolver_match.namespace|default:"" %}
-            
-            <li class="no-sub" data-active="{% if ns == 'core' and is_active == 'dashboard' %}true{% endif %}">
-                <a href="{% url 'core:dashboard' %}">
-                    <i class="ti ti-home f-s-30"></i>
-                    {% trans "Tableau de bord" %}
-                </a>
-            </li>
-
-            <li class="menu-title"><span>{% trans "Gestion" %}</span></li>
-
-            <!-- CORE Module -->
-            {% with is_core_menu=ns|add:":"|add:is_active %}
-            <li data-active="{% if 'core:client' in is_core_menu or 'core:mandat' in is_core_menu or 'core:exercice' in is_core_menu or 'core:tache' in is_core_menu %}true{% endif %}">
-                <a data-expanded="{% if ns == 'core' and is_active in 'client-list,client-detail,client-create,client-update,mandat-list,mandat-detail,mandat-create,mandat-update,exercice-list,exercice-detail,exercice-create,exercice-update,tache-list,tache-detail,tache-create,tache-update' %}true{% else %}false{% endif %}" data-bs-toggle="collapse" href="#coreMenu">
-                    <i class="ti ti-briefcase f-s-30"></i>
-                    {% trans "Gestion de base" %}
-                </a>
-                <ul class="collapse" data-show="{% if ns == 'core' and 'client' in is_active or 'mandat' in is_active or 'exercice' in is_active or 'tache' in is_active %}true{% endif %}" id="coreMenu">
-                    <li data-active="{% if ns == 'core' and 'client' in is_active %}true{% endif %}"><a href="{% url 'core:client-list' %}">{% trans "Clients" %}</a></li>
-                    <li data-active="{% if ns == 'core' and 'mandat' in is_active %}true{% endif %}"><a href="{% url 'core:mandat-list' %}">{% trans "Mandats" %}</a></li>
-                    <li data-active="{% if ns == 'core' and 'exercice' in is_active %}true{% endif %}"><a href="{% url 'core:exercice-list' %}">{% trans "Exercices comptables" %}</a></li>
-                    <li data-active="{% if ns == 'core' and 'tache' in is_active %}true{% endif %}"><a href="{% url 'core:tache-list' %}">{% trans "Tâches" %}</a></li>
-                </ul>
-            </li>
-            {% endwith %}
-
-            <!-- COMPTABILITÉ Module -->
-            <li data-active="{% if ns == 'comptabilite' %}true{% endif %}">
-                <a data-expanded="{% if ns == 'comptabilite' %}true{% else %}false{% endif %}" data-bs-toggle="collapse" href="#comptabiliteMenu">
-                    <i class="ti ti-calculator f-s-30"></i>
-                    {% trans "Comptabilité" %}
-                </a>
-                <ul class="collapse" data-show="{% if ns == 'comptabilite' %}true{% endif %}" id="comptabiliteMenu">
-                    <li data-active="{% if ns == 'comptabilite' and 'plan' in is_active %}true{% endif %}"><a href="{% url 'comptabilite:plan-list' %}">{% trans "Plans comptables" %}</a></li>
-                    <li data-active="{% if ns == 'comptabilite' and 'compte' in is_active %}true{% endif %}"><a href="{% url 'comptabilite:compte-list' %}">{% trans "Comptes" %}</a></li>
-                    <li data-active="{% if ns == 'comptabilite' and 'ecriture' in is_active %}true{% endif %}"><a href="{% url 'comptabilite:ecriture-list' %}">{% trans "Écritures" %}</a></li>
-                    <li data-active="{% if ns == 'comptabilite' and 'journal' in is_active %}true{% endif %}"><a href="{% url 'comptabilite:journal-list' %}">{% trans "Journaux" %}</a></li>
-                </ul>
-            </li>
-
-            <!-- TVA Module -->
-            <li data-active="{% if ns == 'tva' %}true{% endif %}">
-                <a data-expanded="{% if ns == 'tva' %}true{% else %}false{% endif %}" data-bs-toggle="collapse" href="#tvaMenu">
-                    <i class="ti ti-receipt-tax f-s-30"></i>
-                    {% trans "TVA" %}
-                </a>
-                <ul class="collapse" data-show="{% if ns == 'tva' %}true{% endif %}" id="tvaMenu">
-                    <li data-active="{% if ns == 'tva' and 'declaration' in is_active %}true{% endif %}"><a href="{% url 'tva:declaration-list' %}">{% trans "Déclarations" %}</a></li>
-                    <li data-active="{% if ns == 'tva' and 'operation' in is_active %}true{% endif %}"><a href="{% url 'tva:operation-list' %}">{% trans "Opérations TVA" %}</a></li>
-                    <li data-active="{% if ns == 'tva' and 'configuration' in is_active %}true{% endif %}"><a href="{% url 'tva:configuration-list' %}">{% trans "Configurations" %}</a></li>
-                </ul>
-            </li>
-
-            <!-- FACTURATION Module -->
-            <li data-active="{% if ns == 'facturation' %}true{% endif %}">
-                <a data-expanded="{% if ns == 'facturation' %}true{% else %}false{% endif %}" data-bs-toggle="collapse" href="#facturationMenu">
-                    <i class="ti ti-file-invoice f-s-30"></i>
-                    {% trans "Facturation" %}
-                </a>
-                <ul class="collapse" data-show="{% if ns == 'facturation' %}true{% endif %}" id="facturationMenu">
-                    <li data-active="{% if ns == 'facturation' and 'facture' in is_active %}true{% endif %}"><a href="{% url 'facturation:facture-list' %}">{% trans "Factures" %}</a></li>
-                    <li data-active="{% if ns == 'facturation' and 'prestation' in is_active %}true{% endif %}"><a href="{% url 'facturation:prestation-list' %}">{% trans "Prestations" %}</a></li>
-                    <li data-active="{% if ns == 'facturation' and 'timetracking' in is_active %}true{% endif %}"><a href="{% url 'facturation:timetracking-list' %}">{% trans "Time tracking" %}</a></li>
-                </ul>
-            </li>
-
-            <!-- SALAIRES Module -->
-            <li data-active="{% if ns == 'salaires' %}true{% endif %}">
-                <a data-expanded="{% if ns == 'salaires' %}true{% else %}false{% endif %}" data-bs-toggle="collapse" href="#salairesMenu">
-                    <i class="ti ti-users f-s-30"></i>
-                    {% trans "Salaires" %}
-                </a>
-                <ul class="collapse" data-show="{% if ns == 'salaires' %}true{% endif %}" id="salairesMenu">
-                    <li data-active="{% if ns == 'salaires' and 'employe' in is_active %}true{% endif %}"><a href="{% url 'salaires:employe-list' %}">{% trans "Employés" %}</a></li>
-                    <li data-active="{% if ns == 'salaires' and 'fiche' in is_active %}true{% endif %}"><a href="{% url 'salaires:fiche-list' %}">{% trans "Fiches de salaire" %}</a></li>
-                </ul>
-            </li>
-
-            <!-- DOCUMENTS Module -->
-            <li data-active="{% if ns == 'documents' %}true{% endif %}">
-                <a data-expanded="{% if ns == 'documents' %}true{% else %}false{% endif %}" data-bs-toggle="collapse" href="#documentsMenu">
-                    <i class="ti ti-folders f-s-30"></i>
-                    {% trans "Documents" %}
-                </a>
-                <ul class="collapse" data-show="{% if ns == 'documents' %}true{% endif %}" id="documentsMenu">
-                    <li data-active="{% if ns == 'documents' and 'document' in is_active %}true{% endif %}"><a href="{% url 'documents:document-list' %}">{% trans "Tous les documents" %}</a></li>
-                    <li data-active="{% if ns == 'documents' and 'dossier' in is_active %}true{% endif %}"><a href="{% url 'documents:dossier-list' %}">{% trans "Dossiers" %}</a></li>
-                    <li data-active="{% if ns == 'documents' and 'type' in is_active %}true{% endif %}"><a href="{% url 'documents:type-list' %}">{% trans "Types" %}</a></li>
-                </ul>
-            </li>
-
-            <!-- FISCALITÉ Module -->
-            <li data-active="{% if ns == 'fiscalite' %}true{% endif %}">
-                <a data-expanded="{% if ns == 'fiscalite' %}true{% else %}false{% endif %}" data-bs-toggle="collapse" href="#fiscaliteMenu">
-                    <i class="ti ti-report-money f-s-30"></i>
-                    {% trans "Fiscalité" %}
-                </a>
-                <ul class="collapse" data-show="{% if ns == 'fiscalite' %}true{% endif %}" id="fiscaliteMenu">
-                    <li data-active="{% if ns == 'fiscalite' and 'declaration' in is_active %}true{% endif %}"><a href="{% url 'fiscalite:declaration-list' %}">{% trans "Déclarations fiscales" %}</a></li>
-                    <li data-active="{% if ns == 'fiscalite' and 'report-perte' in is_active %}true{% endif %}"><a href="{% url 'fiscalite:report-perte-list' %}">{% trans "Reports de pertes" %}</a></li>
-                    <li data-active="{% if ns == 'fiscalite' and 'reclamation' in is_active %}true{% endif %}"><a href="{% url 'fiscalite:reclamation-list' %}">{% trans "Réclamations" %}</a></li>
-                    <li data-active="{% if ns == 'fiscalite' and 'optimisation' in is_active %}true{% endif %}"><a href="{% url 'fiscalite:optimisation-list' %}">{% trans "Optimisations" %}</a></li>
-                    <li data-active="{% if ns == 'fiscalite' and 'taux-imposition' in is_active %}true{% endif %}"><a href="{% url 'fiscalite:taux-imposition-list' %}">{% trans "Taux d'imposition" %}</a></li>
-                </ul>
-            </li>
-
-            <li class="menu-title"><span>{% trans "Analyse" %}</span></li>
-
-            <!-- ANALYTICS Module -->
-            <li data-active="{% if ns == 'analytics' %}true{% endif %}">
-                <a data-expanded="{% if ns == 'analytics' %}true{% else %}false{% endif %}" data-bs-toggle="collapse" href="#analyticsMenu">
-                    <i class="ti ti-chart-bar f-s-30"></i>
-                    {% trans "Analytics" %}
-                </a>
-                <ul class="collapse" data-show="{% if ns == 'analytics' %}true{% endif %}" id="analyticsMenu">
-                    <li data-active="{% if ns == 'analytics' and 'tableau-bord' in is_active %}true{% endif %}"><a href="{% url 'analytics:tableau-bord-list' %}">{% trans "Tableaux de bord" %}</a></li>
-                    <li data-active="{% if ns == 'analytics' and 'rapport' in is_active %}true{% endif %}"><a href="{% url 'analytics:rapport-list' %}">{% trans "Rapports" %}</a></li>
-                    <li data-active="{% if ns == 'analytics' and 'alerte' in is_active %}true{% endif %}"><a href="{% url 'analytics:alerte-list' %}">{% trans "Alertes" %}</a></li>
-                </ul>
-            </li>
-
-            {% endwith %}
-            {% endwith %}
-
+        <ul class="dropdown-menu">
+          <li class="dropdown-item">
+            <a class="f-w-500" href="{% url 'core:profile' %}">
+              <i class="ph-duotone ph-user-circle pe-1 f-s-20"></i> {% trans
+              "Profil" %}
+            </a>
+          </li>
+          <li class="dropdown-item">
+            <a class="f-w-500" href="{% url 'core:settings' %}">
+              <i class="ph-duotone ph-gear pe-1 f-s-20"></i> {% trans
+              "Paramètres" %}
+            </a>
+          </li>
+          <li class="app-divider-v dotted py-1"></li>
+          <li class="dropdown-item">
+            <a class="mb-0 text-danger" href="{% url 'core:logout' %}">
+              <i class="ph-duotone ph-sign-out pe-1 f-s-20"></i> {% trans
+              "Déconnexion" %}
+            </a>
+          </li>
         </ul>
+      </div>
     </div>
+  </div>
 
-    <div class="menu-navs">
-        <span class="menu-previous"><i class="ti ti-chevron-left"></i></span>
-        <span class="menu-next"><i class="ti ti-chevron-right"></i></span>
-    </div>
+  <div class="app-nav" id="app-simple-bar">
+    <ul class="main-nav p-0 mt-2">
+      <li class="menu-title">
+        <span>{% trans "Dashboard" %}</span>
+      </li>
 
+      {% with is_active=request.resolver_match.url_name|default:"" %} {% with
+      ns=request.resolver_match.namespace|default:"" %}
+
+      <li
+        class="no-sub"
+        data-active="{% if ns == 'core' and is_active == 'dashboard' %}true{% endif %}"
+      >
+        <a href="{% url 'core:dashboard' %}">
+          <i class="ti ti-home f-s-30"></i>
+          {% trans "Tableau de bord" %}
+        </a>
+      </li>
+
+      <li class="menu-title"><span>{% trans "Gestion" %}</span></li>
+
+      <!-- CORE Module -->
+      {% with is_core_menu=ns|add:":"|add:is_active %}
+      <li
+        data-active="{% if 'core:client' in is_core_menu or 'core:mandat' in is_core_menu or 'core:exercice' in is_core_menu or 'core:tache' in is_core_menu %}true{% endif %}"
+      >
+        <a
+          data-expanded="{% if ns == 'core' and is_active in 'client-list,client-detail,client-create,client-update,mandat-list,mandat-detail,mandat-create,mandat-update,exercice-list,exercice-detail,exercice-create,exercice-update,tache-list,tache-detail,tache-create,tache-update' %}true{% else %}false{% endif %}"
+          data-bs-toggle="collapse"
+          href="#coreMenu"
+        >
+          <i class="ti ti-briefcase f-s-30"></i>
+          {% trans "Gestion de base" %}
+        </a>
+        <ul
+          class="collapse"
+          data-show="{% if ns == 'core' and 'client' in is_active or 'mandat' in is_active or 'exercice' in is_active or 'tache' in is_active %}true{% endif %}"
+          id="coreMenu"
+        >
+          <li
+            data-active="{% if ns == 'core' and 'client' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'core:client-list' %}">{% trans "Clients" %}</a>
+          </li>
+          <li
+            data-active="{% if ns == 'core' and 'mandat' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'core:mandat-list' %}">{% trans "Mandats" %}</a>
+          </li>
+          <li
+            data-active="{% if ns == 'core' and 'exercice' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'core:exercice-list' %}"
+              >{% trans "Exercices comptables" %}</a
+            >
+          </li>
+          <li
+            data-active="{% if ns == 'core' and 'tache' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'core:tache-list' %}">{% trans "Tâches" %}</a>
+          </li>
+        </ul>
+      </li>
+      {% endwith %}
+
+      <!-- COMPTABILITÉ Module -->
+      <li data-active="{% if ns == 'comptabilite' %}true{% endif %}">
+        <a
+          data-expanded="{% if ns == 'comptabilite' %}true{% else %}false{% endif %}"
+          data-bs-toggle="collapse"
+          href="#comptabiliteMenu"
+        >
+          <i class="ti ti-calculator f-s-30"></i>
+          {% trans "Comptabilité" %}
+        </a>
+        <ul
+          class="collapse"
+          data-show="{% if ns == 'comptabilite' %}true{% endif %}"
+          id="comptabiliteMenu"
+        >
+          <li
+            data-active="{% if ns == 'comptabilite' and 'plan' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'comptabilite:plan-list' %}"
+              >{% trans "Plans comptables" %}</a
+            >
+          </li>
+          <li
+            data-active="{% if ns == 'comptabilite' and 'compte' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'comptabilite:compte-list' %}"
+              >{% trans "Comptes" %}</a
+            >
+          </li>
+          <li
+            data-active="{% if ns == 'comptabilite' and 'ecriture' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'comptabilite:ecriture-list' %}"
+              >{% trans "Écritures" %}</a
+            >
+          </li>
+          <li
+            data-active="{% if ns == 'comptabilite' and 'journal' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'comptabilite:journal-list' %}"
+              >{% trans "Journaux" %}</a
+            >
+          </li>
+        </ul>
+      </li>
+
+      <!-- TVA Module -->
+      <li data-active="{% if ns == 'tva' %}true{% endif %}">
+        <a
+          data-expanded="{% if ns == 'tva' %}true{% else %}false{% endif %}"
+          data-bs-toggle="collapse"
+          href="#tvaMenu"
+        >
+          <i class="ti ti-receipt-tax f-s-30"></i>
+          {% trans "TVA" %}
+        </a>
+        <ul
+          class="collapse"
+          data-show="{% if ns == 'tva' %}true{% endif %}"
+          id="tvaMenu"
+        >
+          <li
+            data-active="{% if ns == 'tva' and 'declaration' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'tva:declaration-list' %}"
+              >{% trans "Déclarations" %}</a
+            >
+          </li>
+          <li
+            data-active="{% if ns == 'tva' and 'operation' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'tva:operation-list' %}"
+              >{% trans "Opérations TVA" %}</a
+            >
+          </li>
+          <li
+            data-active="{% if ns == 'tva' and 'configuration' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'tva:configuration-list' %}"
+              >{% trans "Configurations" %}</a
+            >
+          </li>
+        </ul>
+      </li>
+
+      <!-- FACTURATION Module -->
+      <li data-active="{% if ns == 'facturation' %}true{% endif %}">
+        <a
+          data-expanded="{% if ns == 'facturation' %}true{% else %}false{% endif %}"
+          data-bs-toggle="collapse"
+          href="#facturationMenu"
+        >
+          <i class="ti ti-file-invoice f-s-30"></i>
+          {% trans "Facturation" %}
+        </a>
+        <ul
+          class="collapse"
+          data-show="{% if ns == 'facturation' %}true{% endif %}"
+          id="facturationMenu"
+        >
+          <li
+            data-active="{% if ns == 'facturation' and 'facture' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'facturation:facture-list' %}"
+              >{% trans "Factures" %}</a
+            >
+          </li>
+          <li
+            data-active="{% if ns == 'facturation' and 'prestation' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'facturation:prestation-list' %}"
+              >{% trans "Prestations" %}</a
+            >
+          </li>
+          <li
+            data-active="{% if ns == 'facturation' and 'timetracking' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'facturation:timetracking-list' %}"
+              >{% trans "Time tracking" %}</a
+            >
+          </li>
+        </ul>
+      </li>
+
+      <!-- SALAIRES Module -->
+      <li data-active="{% if ns == 'salaires' %}true{% endif %}">
+        <a
+          data-expanded="{% if ns == 'salaires' %}true{% else %}false{% endif %}"
+          data-bs-toggle="collapse"
+          href="#salairesMenu"
+        >
+          <i class="ti ti-users f-s-30"></i>
+          {% trans "Salaires" %}
+        </a>
+        <ul
+          class="collapse"
+          data-show="{% if ns == 'salaires' %}true{% endif %}"
+          id="salairesMenu"
+        >
+          <li
+            data-active="{% if ns == 'salaires' and 'employe' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'salaires:employe-list' %}"
+              >{% trans "Employés" %}</a
+            >
+          </li>
+          <li
+            data-active="{% if ns == 'salaires' and 'fiche' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'salaires:fiche-list' %}"
+              >{% trans "Fiches de salaire" %}</a
+            >
+          </li>
+        </ul>
+      </li>
+
+      <!-- DOCUMENTS Module -->
+      <li data-active="{% if ns == 'documents' %}true{% endif %}">
+        <a
+          data-expanded="{% if ns == 'documents' %}true{% else %}false{% endif %}"
+          data-bs-toggle="collapse"
+          href="#documentsMenu"
+        >
+          <i class="ti ti-folders f-s-30"></i>
+          {% trans "Documents" %}
+        </a>
+        <ul
+          class="collapse"
+          data-show="{% if ns == 'documents' %}true{% endif %}"
+          id="documentsMenu"
+        >
+          <li
+            data-active="{% if ns == 'documents' and 'dossier' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'documents:dossier-list' %}"
+              >{% trans "Dossiers" %}</a
+            >
+          </li>
+          <li
+            data-active="{% if ns == 'documents' and 'type' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'documents:type-list' %}">{% trans "Types" %}</a>
+          </li>
+          <li
+            data-active="{% if ns == 'documents' and 'document' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'documents:document-list' %}"
+              >{% trans "Tous les documents" %}</a
+            >
+          </li>
+        </ul>
+      </li>
+
+      <!-- FISCALITÉ Module -->
+      <li data-active="{% if ns == 'fiscalite' %}true{% endif %}">
+        <a
+          data-expanded="{% if ns == 'fiscalite' %}true{% else %}false{% endif %}"
+          data-bs-toggle="collapse"
+          href="#fiscaliteMenu"
+        >
+          <i class="ti ti-report-money f-s-30"></i>
+          {% trans "Fiscalité" %}
+        </a>
+        <ul
+          class="collapse"
+          data-show="{% if ns == 'fiscalite' %}true{% endif %}"
+          id="fiscaliteMenu"
+        >
+          <li
+            data-active="{% if ns == 'fiscalite' and 'declaration' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'fiscalite:declaration-list' %}"
+              >{% trans "Déclarations fiscales" %}</a
+            >
+          </li>
+          <li
+            data-active="{% if ns == 'fiscalite' and 'report-perte' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'fiscalite:report-perte-list' %}"
+              >{% trans "Reports de pertes" %}</a
+            >
+          </li>
+          <li
+            data-active="{% if ns == 'fiscalite' and 'reclamation' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'fiscalite:reclamation-list' %}"
+              >{% trans "Réclamations" %}</a
+            >
+          </li>
+          <li
+            data-active="{% if ns == 'fiscalite' and 'optimisation' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'fiscalite:optimisation-list' %}"
+              >{% trans "Optimisations" %}</a
+            >
+          </li>
+          <li
+            data-active="{% if ns == 'fiscalite' and 'taux-imposition' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'fiscalite:taux-imposition-list' %}"
+              >{% trans "Taux d'imposition" %}</a
+            >
+          </li>
+        </ul>
+      </li>
+
+      <li class="menu-title"><span>{% trans "Analyse" %}</span></li>
+
+      <!-- ANALYTICS Module -->
+      <li data-active="{% if ns == 'analytics' %}true{% endif %}">
+        <a
+          data-expanded="{% if ns == 'analytics' %}true{% else %}false{% endif %}"
+          data-bs-toggle="collapse"
+          href="#analyticsMenu"
+        >
+          <i class="ti ti-chart-bar f-s-30"></i>
+          {% trans "Analytics" %}
+        </a>
+        <ul
+          class="collapse"
+          data-show="{% if ns == 'analytics' %}true{% endif %}"
+          id="analyticsMenu"
+        >
+          <li
+            data-active="{% if ns == 'analytics' and 'tableau-bord' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'analytics:tableau-bord-list' %}"
+              >{% trans "Tableaux de bord" %}</a
+            >
+          </li>
+          <li
+            data-active="{% if ns == 'analytics' and 'rapport' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'analytics:rapport-list' %}"
+              >{% trans "Rapports" %}</a
+            >
+          </li>
+          <li
+            data-active="{% if ns == 'analytics' and 'alerte' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'analytics:alerte-list' %}"
+              >{% trans "Alertes" %}</a
+            >
+          </li>
+        </ul>
+      </li>
+
+      {% if user.is_superuser or user.is_manager %}
+      <li class="menu-title"><span>{% trans "Administration" %}</span></li>
+
+      <!-- ADMINISTRATION Module -->
+      <li
+        data-active="{% if ns == 'core' and 'admin' in is_active %}true{% endif %}"
+      >
+        <a
+          data-expanded="{% if ns == 'core' and 'admin' in is_active %}true{% else %}false{% endif %}"
+          data-bs-toggle="collapse"
+          href="#adminMenu"
+        >
+          <i class="ti ti-settings f-s-30"></i>
+          {% trans "Administration" %}
+        </a>
+        <ul
+          class="collapse"
+          data-show="{% if ns == 'core' and 'admin' in is_active %}true{% endif %}"
+          id="adminMenu"
+        >
+          <li
+            data-active="{% if ns == 'core' and is_active == 'admin-dashboard' %}true{% endif %}"
+          >
+            <a href="{% url 'core:admin-dashboard' %}"
+              >{% trans "Tableau de bord" %}</a
+            >
+          </li>
+          <li
+            data-active="{% if ns == 'core' and 'admin-user' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'core:admin-user-list' %}"
+              >{% trans "Utilisateurs" %}</a
+            >
+          </li>
+          <li
+            data-active="{% if ns == 'core' and 'admin-role' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'core:admin-role-list' %}">{% trans "Roles" %}</a>
+          </li>
+          <li
+            data-active="{% if ns == 'core' and 'admin-invitation' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'core:admin-invitation-list' %}"
+              >{% trans "Invitations" %}</a
+            >
+          </li>
+          <li
+            data-active="{% if ns == 'core' and 'admin-acces' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'core:admin-acces-mandat-list' %}"
+              >{% trans "Acces mandats" %}</a
+            >
+          </li>
+        </ul>
+      </li>
+
+      <!-- MAILING Module -->
+      <li data-active="{% if ns == 'mailing' %}true{% endif %}">
+        <a
+          data-expanded="{% if ns == 'mailing' %}true{% else %}false{% endif %}"
+          data-bs-toggle="collapse"
+          href="#mailingMenu"
+        >
+          <i class="ti ti-mail f-s-30"></i>
+          {% trans "Mailing" %}
+        </a>
+        <ul
+          class="collapse"
+          data-show="{% if ns == 'mailing' %}true{% endif %}"
+          id="mailingMenu"
+        >
+          <li
+            data-active="{% if ns == 'mailing' and 'configuration' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'mailing:configuration-list' %}"
+              >{% trans "Configurations" %}</a
+            >
+          </li>
+          <li
+            data-active="{% if ns == 'mailing' and 'template' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'mailing:template-list' %}"
+              >{% trans "Templates" %}</a
+            >
+          </li>
+          <li
+            data-active="{% if ns == 'mailing' and 'envoye' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'mailing:email-envoye-list' %}"
+              >{% trans "Emails envoyés" %}</a
+            >
+          </li>
+          <li
+            data-active="{% if ns == 'mailing' and 'recu' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'mailing:email-recu-list' %}"
+              >{% trans "Emails reçus" %}</a
+            >
+          </li>
+        </ul>
+      </li>
+      {% endif %} {% endwith %} {% endwith %}
+    </ul>
+  </div>
+
+  <div class="menu-navs">
+    <span class="menu-previous"><i class="ti ti-chevron-left"></i></span>
+    <span class="menu-next"><i class="ti ti-chevron-right"></i></span>
+  </div>
 </nav>
 <!-- Menu Navigation ends -->

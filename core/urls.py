@@ -155,4 +155,45 @@ urlpatterns = [
     ),
     path("api/stats-dashboard/", views.get_stats_dashboard, name="stats-dashboard"),
     path("api/dashboard-stats/", views.get_dashboard_stats, name="dashboard-stats"),
+    # ============================================================================
+    # ADMINISTRATION - UTILISATEURS
+    # ============================================================================
+    path("admin/", views.AdminDashboardView.as_view(), name="admin-dashboard"),
+    path("admin/utilisateurs/", views.UserListView.as_view(), name="admin-user-list"),
+    path("admin/utilisateurs/nouveau/", views.UserCreateView.as_view(), name="admin-user-create"),
+    path("admin/utilisateurs/<uuid:pk>/", views.UserDetailView.as_view(), name="admin-user-detail"),
+    path("admin/utilisateurs/<uuid:pk>/modifier/", views.UserUpdateView.as_view(), name="admin-user-update"),
+    path("admin/utilisateurs/<uuid:pk>/toggle-active/", views.user_toggle_active, name="admin-user-toggle-active"),
+    path("admin/utilisateurs/<uuid:pk>/reset-password/", views.user_reset_password, name="admin-user-reset-password"),
+    # ============================================================================
+    # ADMINISTRATION - ROLES
+    # ============================================================================
+    path("admin/roles/", views.RoleListView.as_view(), name="admin-role-list"),
+    path("admin/roles/nouveau/", views.RoleCreateView.as_view(), name="admin-role-create"),
+    path("admin/roles/<uuid:pk>/", views.RoleDetailView.as_view(), name="admin-role-detail"),
+    path("admin/roles/<uuid:pk>/modifier/", views.RoleUpdateView.as_view(), name="admin-role-update"),
+    # ============================================================================
+    # ADMINISTRATION - INVITATIONS
+    # ============================================================================
+    path("admin/invitations/", views.InvitationListView.as_view(), name="admin-invitation-list"),
+    path("admin/invitations/staff/", views.InvitationStaffCreateView.as_view(), name="admin-invitation-staff-create"),
+    path("admin/invitations/client/", views.InvitationClientCreateView.as_view(), name="admin-invitation-client-create"),
+    path("admin/invitations/<uuid:pk>/", views.InvitationDetailView.as_view(), name="admin-invitation-detail"),
+    path("admin/invitations/<uuid:pk>/resend/", views.invitation_resend, name="admin-invitation-resend"),
+    path("admin/invitations/<uuid:pk>/cancel/", views.invitation_cancel, name="admin-invitation-cancel"),
+    # ============================================================================
+    # ADMINISTRATION - ACCES MANDATS
+    # ============================================================================
+    path("admin/acces-mandats/", views.AccesMandatListView.as_view(), name="admin-acces-mandat-list"),
+    path("admin/acces-mandats/nouveau/", views.AccesMandatCreateView.as_view(), name="admin-acces-mandat-create"),
+    path("admin/acces-mandats/<uuid:pk>/modifier/", views.AccesMandatUpdateView.as_view(), name="admin-acces-mandat-update"),
+    path("admin/acces-mandats/<uuid:pk>/toggle/", views.acces_mandat_toggle, name="admin-acces-mandat-toggle"),
+    # ============================================================================
+    # ACCEPTATION INVITATION (PUBLIQUE)
+    # ============================================================================
+    path("invitation/<str:token>/", views.AcceptInvitationView.as_view(), name="invitation-accept"),
+    # ============================================================================
+    # CHANGEMENT MOT DE PASSE OBLIGATOIRE
+    # ============================================================================
+    path("force-password-change/", views.ForcePasswordChangeView.as_view(), name="force-password-change"),
 ]

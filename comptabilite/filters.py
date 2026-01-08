@@ -2,11 +2,8 @@
 import django_filters
 from django import forms
 from django.utils.translation import gettext_lazy as _
-from .models import Compte, EcritureComptable, PieceComptable, Journal, PlanComptable
+from .models import Compte, EcritureComptable, PieceComptable, Journal, PlanComptable, TypePlanComptable
 from core.models import Mandat
-
-
-# comptabilite/filters.py
 
 
 class PlanComptableFilter(django_filters.FilterSet):
@@ -16,10 +13,10 @@ class PlanComptableFilter(django_filters.FilterSet):
         field_name="nom", lookup_expr="icontains", label=_("Rechercher")
     )
 
-    type_plan = django_filters.ChoiceFilter(
-        choices=PlanComptable.TYPE_CHOICES,
+    type_plan = django_filters.ModelChoiceFilter(
+        queryset=TypePlanComptable.objects.filter(is_active=True).order_by('ordre', 'code'),
         label=_("Type de plan"),
-        empty_label=_("Type de plan"),
+        empty_label=_("Tous les types"),
     )
 
     is_template = django_filters.ChoiceFilter(
@@ -57,7 +54,20 @@ class CompteFilter(django_filters.FilterSet):
     )
 
     classe = django_filters.ChoiceFilter(
-        choices=Compte.CLASSE_CHOICES, label=_("Classe")
+        choices=[
+            ('', _('Toutes les classes')),
+            (1, _('1 - Actifs')),
+            (2, _('2 - Passifs')),
+            (3, _('3 - Charges d\'exploitation')),
+            (4, _('4 - Produits d\'exploitation')),
+            (5, _('5 - Charges financières')),
+            (6, _('6 - Produits financiers')),
+            (7, _('7 - Charges hors exploitation')),
+            (8, _('8 - Produits hors exploitation')),
+            (9, _('9 - Clôture')),
+        ],
+        label=_("Classe"),
+        empty_label=None,
     )
 
     imputable = django_filters.BooleanFilter(
@@ -171,9 +181,22 @@ class PieceComptableFilter(django_filters.FilterSet):
 
     date_piece = django_filters.DateFromToRangeFilter(label=_("Date"))
 
-    equilibree = django_filters.BooleanFilter(
-        label=_("Équilibrée"), widget=forms.CheckboxInput()
+    equilibree = django_filters.ChoiceFilter(
+        label=_("Équilibrée"),
+        choices=[
+            ('', _('Toutes')),
+            ('true', _('Équilibrées')),
+            ('false', _('Non équilibrées')),
+        ],
+        method='filter_equilibree',
     )
+
+    def filter_equilibree(self, queryset, name, value):
+        if value == 'true':
+            return queryset.filter(equilibree=True)
+        elif value == 'false':
+            return queryset.filter(equilibree=False)
+        return queryset
 
     statut = django_filters.ChoiceFilter(
         choices=PieceComptable.STATUT_CHOICES, label=_("Statut")

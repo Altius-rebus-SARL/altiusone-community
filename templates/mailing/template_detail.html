@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Template" %} - {{ template.nom }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h3>{{ template.nom }}</h3>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}"><i class="ti ti-home"></i></a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'mailing:template-list' %}">{% trans "Templates" %}</a></li>
+                        <li class="breadcrumb-item active">{{ template.nom }}</li>
+                    </ol>
+                </div>
+                <div class="page-header-right">
+                    <a href="{% url 'mailing:template-preview' template.pk %}" class="btn btn-info me-2" target="_blank">
+                        <i class="ti ti-player-play me-2"></i>{% trans "Preview" %}
+                    </a>
+                    <a href="{% url 'mailing:template-update' template.pk %}" class="btn btn-primary">
+                        <i class="ti ti-edit me-2"></i>{% trans "Modifier" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Informations -->
+        <div class="col-xl-4">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5>{% trans "Informations" %}</h5>
+                    {% if template.actif %}
+                    <span class="badge bg-success">{% trans "Actif" %}</span>
+                    {% else %}
+                    <span class="badge bg-secondary">{% trans "Inactif" %}</span>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Code" %}</span>
+                            <code>{{ template.code }}</code>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Type" %}</span>
+                            <span class="badge bg-{{ template.type_template|lower }}">
+                                {{ template.get_type_template_display }}
+                            </span>
+                        </li>
+                        {% if template.configuration %}
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Configuration" %}</span>
+                            <a href="{% url 'mailing:configuration-detail' template.configuration.pk %}">
+                                {{ template.configuration.nom }}
+                            </a>
+                        </li>
+                        {% endif %}
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Cree le" %}</span>
+                            <span>{{ template.created_at|date:"d/m/Y H:i" }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Modifie le" %}</span>
+                            <span>{{ template.updated_at|date:"d/m/Y H:i" }}</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Variables disponibles -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ti ti-variable me-2"></i>{% trans "Variables disponibles" %}</h5>
+                </div>
+                <div class="card-body">
+                    {% if template.variables_disponibles %}
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "Variable" %}</th>
+                                    <th>{% trans "Description" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for var, desc in template.variables_disponibles.items %}
+                                <tr>
+                                    <td><code>{% templatetag openvariable %} {{ var }} {% templatetag closevariable %}</code></td>
+                                    <td class="text-muted f-s-12">{{ desc }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center mb-0">{% trans "Aucune variable definie" %}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Statistiques -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ti ti-chart-bar me-2"></i>{% trans "Statistiques d'utilisation" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="p-3 border rounded">
+                                <h3 class="text-primary mb-0">{{ template.emails_envoyes.count }}</h3>
+                                <small class="text-muted">{% trans "Emails envoyes" %}</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="p-3 border rounded">
+                                <h3 class="text-success mb-0">{{ template.emails_envoyes_succes }}</h3>
+                                <small class="text-muted">{% trans "Delivres" %}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contenu -->
+        <div class="col-xl-8">
+            <!-- Sujet -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ti ti-heading me-2"></i>{% trans "Sujet" %}</h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">{{ template.sujet }}</p>
+                </div>
+            </div>
+
+            <!-- Corps HTML -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5><i class="ti ti-code me-2"></i>{% trans "Corps HTML" %}</h5>
+                    <a href="{% url 'mailing:template-preview' template.pk %}" class="btn btn-sm btn-outline-info" target="_blank">
+                        <i class="ti ti-eye"></i> {% trans "Preview" %}
+                    </a>
+                </div>
+                <div class="card-body">
+                    <pre class="bg-light p-3 rounded" style="max-height: 400px; overflow-y: auto;"><code>{{ template.corps_html }}</code></pre>
+                </div>
+            </div>
+
+            <!-- Corps Texte -->
+            {% if template.corps_texte %}
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ti ti-txt me-2"></i>{% trans "Corps Texte (fallback)" %}</h5>
+                </div>
+                <div class="card-body">
+                    <pre class="bg-light p-3 rounded" style="max-height: 300px; overflow-y: auto;">{{ template.corps_texte }}</pre>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

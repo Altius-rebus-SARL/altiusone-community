@@ -189,7 +189,7 @@ dropzone.addEventListener('dragleave', () => {
 dropzone.addEventListener('drop', (e) => {
     e.preventDefault();
     dropzone.classList.remove('border-primary', 'bg-light-primary');
-    
+
     const files = e.dataTransfer.files;
     if (files.length > 0) {
         fileInput.files = files;
@@ -207,7 +207,7 @@ fileInput.addEventListener('change', (e) => {
 function displayFile(file) {
     placeholder.classList.add('d-none');
     fileSelected.classList.remove('d-none');
-    
+
     fileName.textContent = file.name;
     fileSize.textContent = formatFileSize(file.size);
 }
@@ -225,5 +225,34 @@ function formatFileSize(bytes) {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 }
+
+// ========================================
+// Rechargement de la page au changement de mandat
+// (le filtrage des dossiers est géré côté serveur par Django)
+// ========================================
+document.addEventListener('DOMContentLoaded', function() {
+    const mandatSelect = document.getElementById('id_mandat');
+
+    if (mandatSelect) {
+        // Fonction de rechargement
+        function rechargerAvecMandat() {
+            const mandatValue = mandatSelect.value;
+            if (mandatValue) {
+                // Recharger la page avec le mandat en paramètre
+                const url = new URL(window.location.href);
+                url.searchParams.set('mandat', mandatValue);
+                window.location.href = url.toString();
+            }
+        }
+
+        // Écouter l'événement change natif
+        mandatSelect.addEventListener('change', rechargerAvecMandat);
+
+        // Support Select2 - écouter aussi l'événement select2:select
+        if (typeof jQuery !== 'undefined') {
+            jQuery(mandatSelect).on('select2:select', rechargerAvecMandat);
+        }
+    }
+});
 </script>
 {% endblock %}

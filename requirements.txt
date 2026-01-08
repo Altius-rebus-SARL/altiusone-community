@@ -47,10 +47,12 @@ python-dateutil>=2.9.0
 pytz>=2025.0
 whitenoise>=6.11.0
 Faker>=37.0.0
+faker-file[common,pdf,docx,xlsx,images]>=0.18.0
 
 # Security
 cryptography>=45.0.0
 bcrypt>=4.3.0
+django-fernet-fields>=0.6
 
 # Development & Testing
 pytest>=8.4.0
@@ -62,7 +64,7 @@ django-storages[google]>=1.14
 
 # Vector Search & AI
 pgvector>=0.3.0
-openai>=1.50.0
-tiktoken>=0.7.0
-sentence-transformers>=3.0.0
 numpy>=1.26.0
+
+# AltiusOne AI SDK (OCR, Embeddings, Chat, Extraction)
+altiusone-ai>=1.1.0

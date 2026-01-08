@@ -19,6 +19,9 @@ from core.models import (
     ExerciceComptable,
     Notification,
     Tache,
+    TypeMandat,
+    TypeFacturation,
+    Periodicite,
 )
 from comptabilite.models import (
     PlanComptable,
@@ -489,6 +492,11 @@ class Command(BaseCommand):
         """Crée des mandats avec traductions"""
         self.stdout.write("📋 Création des mandats...")
 
+        # Charger les tables de référence (créées par la migration)
+        types_mandat = {t.code: t for t in TypeMandat.objects.all()}
+        types_facturation = {t.code: t for t in TypeFacturation.objects.all()}
+        periodicites = {p.code: p for p in Periodicite.objects.all()}
+
         mandat_types = {
             "GLOBAL": {
                 "desc_fr": "Mandat global incluant comptabilité, TVA et salaires",
@@ -501,6 +509,7 @@ class Command(BaseCommand):
                 "cond_en": "Monthly billing. Payment term 30 days.",
                 "forfait": Decimal("2500"),
                 "taux": Decimal("180"),
+                "type_facturation": "FORFAIT",
             },
             "COMPTA": {
                 "desc_fr": "Tenue de la comptabilité et établissement des comptes annuels",
@@ -513,6 +522,7 @@ class Command(BaseCommand):
                 "cond_en": "Documents to be submitted before the 10th of the month.",
                 "forfait": Decimal("1500"),
                 "taux": Decimal("150"),
+                "type_facturation": "FORFAIT",
             },
             "SALAIRES": {
                 "desc_fr": "Gestion complète des salaires et déclarations sociales",
@@ -525,6 +535,7 @@ class Command(BaseCommand):
                 "cond_en": "Salary data to be provided before the 25th of the month.",
                 "forfait": Decimal("800"),
                 "taux": Decimal("120"),
+                "type_facturation": "FORFAIT",
             },
             "TVA": {
                 "desc_fr": "Établissement des décomptes TVA trimestriels",
@@ -537,6 +548,7 @@ class Command(BaseCommand):
                 "cond_en": "Supporting documents sorted by period.",
                 "forfait": Decimal("500"),
                 "taux": Decimal("140"),
+                "type_facturation": "FORFAIT",
             },
             "FISCAL": {
                 "desc_fr": "Conseil fiscal et optimisation",
@@ -549,6 +561,7 @@ class Command(BaseCommand):
                 "cond_en": "Hourly rate depending on case complexity.",
                 "forfait": None,
                 "taux": Decimal("200"),
+                "type_facturation": "HORAIRE",
             },
         }
 
@@ -563,13 +576,20 @@ class Command(BaseCommand):
 
             for type_key in selected_types:
                 type_data = mandat_types[type_key]
+                periodicite_code = random.choice(["MENSUEL", "TRIMESTRIEL"])
 
                 mandat = Mandat.objects.create(
                     client=client,
+                    # Nouveaux champs ForeignKey
+                    type_mandat_ref=types_mandat.get(type_key),
+                    periodicite_ref=periodicites.get(periodicite_code),
+                    type_facturation_ref=types_facturation.get(type_data["type_facturation"]),
+                    # Anciens champs pour compatibilité
                     type_mandat=type_key,
+                    periodicite=periodicite_code,
+                    type_facturation=type_data["type_facturation"],
+                    # Autres champs
                     date_debut=self.fake.date_between(start_date="-3y", end_date="-6m"),
-                    periodicite=random.choice(["MENSUEL", "TRIMESTRIEL"]),
-                    type_facturation="FORFAIT" if type_data["forfait"] else "HORAIRE",
                     montant_forfait=type_data["forfait"],
                     taux_horaire=type_data["taux"],
                     responsable=random.choice(managers),

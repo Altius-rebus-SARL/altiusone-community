@@ -5,9 +5,36 @@ from . import views
 app_name = "comptabilite"
 
 urlpatterns = [
-    # Plans comptables
+    # =========================================================================
+    # TYPES DE PLANS COMPTABLES (PME, OHADA, Swiss GAAP, etc.)
+    # =========================================================================
+    path("types-plans/", views.TypePlanComptableListView.as_view(), name="type-plan-list"),
+    path(
+        "types-plans/<uuid:pk>/",
+        views.TypePlanComptableDetailView.as_view(),
+        name="type-plan-detail"
+    ),
+    path(
+        "types-plans/<uuid:pk>/classes/",
+        views.ClasseComptableListView.as_view(),
+        name="classe-list"
+    ),
+
+    # =========================================================================
+    # PLANS COMPTABLES (instances pour mandats)
+    # =========================================================================
     path("plans/", views.PlanComptableListView.as_view(), name="plan-list"),
+    path(
+        "plans/type/<uuid:type_pk>/",
+        views.PlanComptableListView.as_view(),
+        name="plan-list-by-type"
+    ),
     path("plans/nouveau/", views.PlanComptableCreateView.as_view(), name="plan-create"),
+    path(
+        "plans/nouveau/type/<uuid:type_pk>/",
+        views.PlanComptableCreateView.as_view(),
+        name="plan-create-with-type"
+    ),
     path(
         "plans/<uuid:pk>/", views.PlanComptableDetailView.as_view(), name="plan-detail"
     ),
@@ -67,9 +94,34 @@ urlpatterns = [
     # Pièces comptables
     path("pieces/", views.PieceComptableListView.as_view(), name="piece-list"),
     path(
+        "pieces/nouvelle/",
+        views.PieceComptableCreateView.as_view(),
+        name="piece-create",
+    ),
+    path(
         "pieces/<uuid:pk>/",
         views.PieceComptableDetailView.as_view(),
         name="piece-detail",
+    ),
+    path(
+        "pieces/<uuid:pk>/modifier/",
+        views.PieceComptableUpdateView.as_view(),
+        name="piece-update",
+    ),
+    path(
+        "pieces/<uuid:pk>/valider/",
+        views.piece_valider,
+        name="piece-valider",
+    ),
+    path(
+        "pieces/<uuid:pk>/ajouter-document/",
+        views.piece_ajouter_document,
+        name="piece-ajouter-document",
+    ),
+    path(
+        "pieces/<uuid:pk>/extraire-ocr/",
+        views.piece_extraire_ocr,
+        name="piece-extraire-ocr",
     ),
     # Lettrage
     path("lettrages/", views.LettrageListView.as_view(), name="lettrage-list"),
@@ -89,4 +141,23 @@ urlpatterns = [
     path("comptes/export/excel/", views.export_comptes_excel, name="compte-export-excel"),
     path("ecritures/export/csv/", views.export_ecritures_csv, name="ecriture-export-csv"),
     path("ecritures/export/excel/", views.export_ecritures_excel, name="ecriture-export-excel"),
+
+    # =========================================================================
+    # API AJAX (filtrage dynamique)
+    # =========================================================================
+    path(
+        "api/mandat/<uuid:mandat_pk>/journaux/",
+        views.api_journaux_par_mandat,
+        name="api-journaux-mandat",
+    ),
+    path(
+        "api/mandat/<uuid:mandat_pk>/dossiers/",
+        views.api_dossiers_par_mandat,
+        name="api-dossiers-mandat",
+    ),
+    path(
+        "api/types-pieces/",
+        views.api_types_pieces,
+        name="api-types-pieces",
+    ),
 ]

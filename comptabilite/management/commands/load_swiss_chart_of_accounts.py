@@ -1,14 +1,21 @@
 # comptabilite/management/commands/load_swiss_chart_of_accounts.py
+"""
+Commande pour charger les plans comptables standards.
+
+Usage:
+    python manage.py load_swiss_chart_of_accounts --type PME
+    python manage.py load_swiss_chart_of_accounts --type OHADA
+    python manage.py load_swiss_chart_of_accounts --type SWISSGAAP
+    python manage.py load_swiss_chart_of_accounts --mandat-id <uuid> --type PME
+"""
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
-from comptabilite.models import PlanComptable, Compte
-import json
-from pathlib import Path
+from comptabilite.models import TypePlanComptable, ClasseComptable, PlanComptable, Compte
 
 
 class Command(BaseCommand):
-    help = "Charge le plan comptable suisse PME standard avec traductions (FR/DE/IT/EN)"
+    help = "Charge un plan comptable standard avec traductions (FR/DE/IT/EN)"
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -30,22 +37,25 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        plan_type_code = options["type"]
+
         self.stdout.write(
-            self.style.WARNING("🇨🇭 Chargement du plan comptable suisse...")
+            self.style.WARNING(f"📊 Chargement du plan comptable {plan_type_code}...")
         )
 
-        plan_type = options["type"]
-
         with transaction.atomic():
+            # Récupérer le type de plan
+            type_plan = self._get_or_create_type_plan(plan_type_code)
+
             # Créer ou récupérer le plan comptable
-            plan = self._get_or_create_plan(options, plan_type)
+            plan = self._get_or_create_plan(options, type_plan)
 
             # Charger les données du plan comptable
-            accounts_data = self._get_accounts_data(plan_type)
+            accounts_data = self._get_accounts_data(plan_type_code)
 
             # Créer les comptes
             created_count, updated_count = self._create_accounts(
-                plan, accounts_data, options["force"]
+                plan, type_plan, accounts_data, options["force"]
             )
 
             self.stdout.write(
@@ -56,7 +66,131 @@ class Command(BaseCommand):
 
             return str(plan.id)
 
-    def _get_or_create_plan(self, options, plan_type):
+    def _get_or_create_type_plan(self, code):
+        """Récupère ou crée le type de plan comptable."""
+        try:
+            return TypePlanComptable.objects.get(code=code)
+        except TypePlanComptable.DoesNotExist:
+            self.stdout.write(
+                self.style.WARNING(f"  ⚠ Type de plan {code} non trouvé, création...")
+            )
+
+            # Créer le type de plan avec la définition par défaut
+            type_plans_config = self._get_type_plans_config()
+            if code not in type_plans_config:
+                raise ValueError(f"Configuration non trouvée pour le type {code}")
+
+            config = type_plans_config[code]
+            type_plan = TypePlanComptable.objects.create(
+                code=code,
+                nom=config['nom'],
+                description=config['description'],
+                pays=config['pays'],
+                region=config['region'],
+                norme_comptable=config['norme_comptable'],
+                version=config['version'],
+                ordre=config['ordre'],
+            )
+
+            # Créer les classes
+            for classe_data in config['classes']:
+                ClasseComptable.objects.create(
+                    type_plan=type_plan,
+                    numero=classe_data['numero'],
+                    libelle=classe_data['libelle'],
+                    type_compte=classe_data['type_compte'],
+                    numero_debut=classe_data.get('numero_debut', ''),
+                    numero_fin=classe_data.get('numero_fin', ''),
+                )
+
+            self.stdout.write(self.style.SUCCESS(f"  ✓ Type de plan {code} créé"))
+            return type_plan
+
+    def _get_type_plans_config(self):
+        """Configuration des types de plans comptables."""
+        return {
+            'PME': {
+                'nom': 'Plan Comptable PME Suisse',
+                'description': 'Plan comptable standard pour les PME suisses selon le Code des obligations',
+                'pays': 'Suisse',
+                'region': 'Europe',
+                'norme_comptable': 'CO (Code des obligations)',
+                'version': '2023',
+                'ordre': 1,
+                'classes': [
+                    {'numero': 1, 'libelle': 'Actifs', 'type_compte': 'ACTIF', 'numero_debut': '1000', 'numero_fin': '1999'},
+                    {'numero': 2, 'libelle': 'Passifs', 'type_compte': 'PASSIF', 'numero_debut': '2000', 'numero_fin': '2999'},
+                    {'numero': 3, 'libelle': 'Produits d\'exploitation', 'type_compte': 'PRODUIT', 'numero_debut': '3000', 'numero_fin': '3999'},
+                    {'numero': 4, 'libelle': 'Charges de matériel', 'type_compte': 'CHARGE', 'numero_debut': '4000', 'numero_fin': '4999'},
+                    {'numero': 5, 'libelle': 'Charges de personnel', 'type_compte': 'CHARGE', 'numero_debut': '5000', 'numero_fin': '5999'},
+                    {'numero': 6, 'libelle': 'Autres charges d\'exploitation', 'type_compte': 'CHARGE', 'numero_debut': '6000', 'numero_fin': '6999'},
+                    {'numero': 7, 'libelle': 'Résultats des activités annexes', 'type_compte': 'PRODUIT', 'numero_debut': '7000', 'numero_fin': '7999'},
+                    {'numero': 8, 'libelle': 'Résultats extraordinaires', 'type_compte': 'RESULTAT', 'numero_debut': '8000', 'numero_fin': '8999'},
+                    {'numero': 9, 'libelle': 'Clôture', 'type_compte': 'RESULTAT', 'numero_debut': '9000', 'numero_fin': '9999'},
+                ]
+            },
+            'OHADA': {
+                'nom': 'Plan Comptable OHADA',
+                'description': 'Système comptable OHADA pour les pays de la zone OHADA',
+                'pays': 'Zone OHADA',
+                'region': 'Afrique',
+                'norme_comptable': 'SYSCOHADA révisé',
+                'version': '2017',
+                'ordre': 2,
+                'classes': [
+                    {'numero': 1, 'libelle': 'Comptes de ressources durables', 'type_compte': 'PASSIF', 'numero_debut': '1000', 'numero_fin': '1999'},
+                    {'numero': 2, 'libelle': 'Comptes d\'actif immobilisé', 'type_compte': 'ACTIF', 'numero_debut': '2000', 'numero_fin': '2999'},
+                    {'numero': 3, 'libelle': 'Comptes de stocks', 'type_compte': 'ACTIF', 'numero_debut': '3000', 'numero_fin': '3999'},
+                    {'numero': 4, 'libelle': 'Comptes de tiers', 'type_compte': 'ACTIF', 'numero_debut': '4000', 'numero_fin': '4999'},
+                    {'numero': 5, 'libelle': 'Comptes de trésorerie', 'type_compte': 'ACTIF', 'numero_debut': '5000', 'numero_fin': '5999'},
+                    {'numero': 6, 'libelle': 'Comptes de charges des activités ordinaires', 'type_compte': 'CHARGE', 'numero_debut': '6000', 'numero_fin': '6999'},
+                    {'numero': 7, 'libelle': 'Comptes de produits des activités ordinaires', 'type_compte': 'PRODUIT', 'numero_debut': '7000', 'numero_fin': '7999'},
+                    {'numero': 8, 'libelle': 'Comptes des autres charges et produits', 'type_compte': 'RESULTAT', 'numero_debut': '8000', 'numero_fin': '8999'},
+                ]
+            },
+            'SWISSGAAP': {
+                'nom': 'Plan Comptable Swiss GAAP RPC',
+                'description': 'Plan comptable selon les recommandations relatives à la présentation des comptes',
+                'pays': 'Suisse',
+                'region': 'Europe',
+                'norme_comptable': 'Swiss GAAP RPC',
+                'version': '2023',
+                'ordre': 3,
+                'classes': [
+                    {'numero': 1, 'libelle': 'Actifs', 'type_compte': 'ACTIF', 'numero_debut': '1000', 'numero_fin': '1999'},
+                    {'numero': 2, 'libelle': 'Passifs', 'type_compte': 'PASSIF', 'numero_debut': '2000', 'numero_fin': '2999'},
+                    {'numero': 3, 'libelle': 'Produits d\'exploitation', 'type_compte': 'PRODUIT', 'numero_debut': '3000', 'numero_fin': '3999'},
+                    {'numero': 4, 'libelle': 'Charges de matériel', 'type_compte': 'CHARGE', 'numero_debut': '4000', 'numero_fin': '4999'},
+                    {'numero': 5, 'libelle': 'Charges de personnel', 'type_compte': 'CHARGE', 'numero_debut': '5000', 'numero_fin': '5999'},
+                    {'numero': 6, 'libelle': 'Autres charges d\'exploitation', 'type_compte': 'CHARGE', 'numero_debut': '6000', 'numero_fin': '6999'},
+                    {'numero': 7, 'libelle': 'Résultats des activités annexes', 'type_compte': 'PRODUIT', 'numero_debut': '7000', 'numero_fin': '7999'},
+                    {'numero': 8, 'libelle': 'Résultats extraordinaires', 'type_compte': 'RESULTAT', 'numero_debut': '8000', 'numero_fin': '8999'},
+                    {'numero': 9, 'libelle': 'Clôture', 'type_compte': 'RESULTAT', 'numero_debut': '9000', 'numero_fin': '9999'},
+                ]
+            },
+            'GENERAL': {
+                'nom': 'Plan Comptable Général',
+                'description': 'Plan comptable général standard',
+                'pays': '',
+                'region': '',
+                'norme_comptable': 'Standard',
+                'version': '2023',
+                'ordre': 4,
+                'classes': [
+                    {'numero': 1, 'libelle': 'Actifs', 'type_compte': 'ACTIF', 'numero_debut': '1000', 'numero_fin': '1999'},
+                    {'numero': 2, 'libelle': 'Passifs', 'type_compte': 'PASSIF', 'numero_debut': '2000', 'numero_fin': '2999'},
+                    {'numero': 3, 'libelle': 'Produits', 'type_compte': 'PRODUIT', 'numero_debut': '3000', 'numero_fin': '3999'},
+                    {'numero': 4, 'libelle': 'Charges', 'type_compte': 'CHARGE', 'numero_debut': '4000', 'numero_fin': '4999'},
+                    {'numero': 5, 'libelle': 'Charges de personnel', 'type_compte': 'CHARGE', 'numero_debut': '5000', 'numero_fin': '5999'},
+                    {'numero': 6, 'libelle': 'Autres charges', 'type_compte': 'CHARGE', 'numero_debut': '6000', 'numero_fin': '6999'},
+                    {'numero': 7, 'libelle': 'Autres produits', 'type_compte': 'PRODUIT', 'numero_debut': '7000', 'numero_fin': '7999'},
+                    {'numero': 8, 'libelle': 'Résultats', 'type_compte': 'RESULTAT', 'numero_debut': '8000', 'numero_fin': '8999'},
+                    {'numero': 9, 'libelle': 'Clôture', 'type_compte': 'RESULTAT', 'numero_debut': '9000', 'numero_fin': '9999'},
+                ]
+            },
+        }
+
+    def _get_or_create_plan(self, options, type_plan):
         """Crée ou récupère le plan comptable"""
         from core.models import Mandat
 
@@ -72,10 +206,10 @@ class Command(BaseCommand):
                 "nom_en": "Swiss SME Chart of Accounts",
             },
             "GENERAL": {
-                "nom_fr": "Plan Comptable Général Suisse",
-                "nom_de": "Schweizer Allgemeiner Kontenrahmen",
-                "nom_it": "Piano Contabile Generale Svizzero",
-                "nom_en": "Swiss General Chart of Accounts",
+                "nom_fr": "Plan Comptable Général",
+                "nom_de": "Allgemeiner Kontenrahmen",
+                "nom_it": "Piano Contabile Generale",
+                "nom_en": "General Chart of Accounts",
             },
             "OHADA": {
                 "nom_fr": "Plan Comptable OHADA",
@@ -91,29 +225,29 @@ class Command(BaseCommand):
             },
         }
 
-        names = plan_names.get(plan_type, plan_names["PME"])
+        names = plan_names.get(type_plan.code, plan_names["PME"])
 
         defaults = {
             "nom_fr": names["nom_fr"],
             "nom_de": names["nom_de"],
             "nom_it": names["nom_it"],
             "nom_en": names["nom_en"],
-            "description_fr": f"Plan comptable standard {plan_type} selon les normes suisses",
-            "description_de": f"Standard-Kontenrahmen {plan_type} nach Schweizer Normen",
-            "description_it": f"Piano contabile standard {plan_type} secondo le norme svizzere",
-            "description_en": f"Standard {plan_type} chart of accounts according to Swiss standards",
-            "type_plan": plan_type,
+            "description_fr": f"Plan comptable standard {type_plan.code}",
+            "description_de": f"Standard-Kontenrahmen {type_plan.code}",
+            "description_it": f"Piano contabile standard {type_plan.code}",
+            "description_en": f"Standard {type_plan.code} chart of accounts",
+            "type_plan": type_plan,
             "is_template": mandat is None,
             "mandat": mandat,
         }
 
         if mandat:
             plan, created = PlanComptable.objects.get_or_create(
-                mandat=mandat, type_plan=plan_type, defaults=defaults
+                mandat=mandat, type_plan=type_plan, defaults=defaults
             )
         else:
             plan, created = PlanComptable.objects.get_or_create(
-                is_template=True, type_plan=plan_type, defaults=defaults
+                is_template=True, type_plan=type_plan, defaults=defaults
             )
 
         if created:
@@ -123,13 +257,22 @@ class Command(BaseCommand):
             if options["force"]:
                 # Mettre à jour les traductions
                 for key, value in defaults.items():
-                    setattr(plan, key, value)
+                    if key != 'type_plan':  # Ne pas écraser le type_plan
+                        setattr(plan, key, value)
                 plan.save()
                 self.stdout.write("  → Traductions mises à jour")
 
         return plan
 
     def _get_accounts_data(self, plan_type):
+        """Retourne les données du plan comptable selon le type."""
+        if plan_type == "OHADA":
+            return self._get_ohada_accounts()
+        else:
+            # PME, SWISSGAAP, GENERAL utilisent la structure suisse
+            return self._get_swiss_pme_accounts()
+
+    def _get_swiss_pme_accounts(self):
         """Retourne les données du plan comptable suisse PME avec traductions"""
 
         # Structure complète du plan comptable suisse PME
@@ -189,19 +332,6 @@ class Command(BaseCommand):
                 "imputable": True,
             },
             {
-                "code": "1010",
-                "labels": {
-                    "fr": "Caisse en monnaie étrangère",
-                    "de": "Kasse Fremdwährung",
-                    "it": "Cassa in valuta estera",
-                    "en": "Foreign currency cash",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "100",
-                "imputable": True,
-            },
-            {
                 "code": "1020",
                 "labels": {
                     "fr": "Banque (avoir)",
@@ -212,84 +342,6 @@ class Command(BaseCommand):
                 "type": "ACTIF",
                 "classe": 1,
                 "parent": "100",
-                "imputable": True,
-            },
-            {
-                "code": "1021",
-                "labels": {
-                    "fr": "Compte postal",
-                    "de": "Postkonto",
-                    "it": "Conto postale",
-                    "en": "Postal account",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "100",
-                "imputable": True,
-            },
-            {
-                "code": "1022",
-                "labels": {
-                    "fr": "Banque EUR",
-                    "de": "Bank EUR",
-                    "it": "Banca EUR",
-                    "en": "Bank EUR",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "100",
-                "imputable": True,
-            },
-            {
-                "code": "1023",
-                "labels": {
-                    "fr": "Banque USD",
-                    "de": "Bank USD",
-                    "it": "Banca USD",
-                    "en": "Bank USD",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "100",
-                "imputable": True,
-            },
-            # 106 - Titres
-            {
-                "code": "106",
-                "labels": {
-                    "fr": "Avoirs à court terme cotés en bourse",
-                    "de": "Kurzfristige kotierte Wertschriften",
-                    "it": "Titoli a breve termine quotati",
-                    "en": "Short-term listed securities",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "10",
-            },
-            {
-                "code": "1060",
-                "labels": {
-                    "fr": "Titres",
-                    "de": "Wertschriften",
-                    "it": "Titoli",
-                    "en": "Securities",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "106",
-                "imputable": True,
-            },
-            {
-                "code": "1069",
-                "labels": {
-                    "fr": "Ajustement de la valeur des titres",
-                    "de": "Wertberichtigung Wertschriften",
-                    "it": "Rettifica valore titoli",
-                    "en": "Securities value adjustment",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "106",
                 "imputable": True,
             },
             # 110 - Créances clients
@@ -320,173 +372,27 @@ class Command(BaseCommand):
                 "lettrable": True,
             },
             {
-                "code": "1101",
-                "labels": {
-                    "fr": "Effets à recevoir",
-                    "de": "Wechselforderungen",
-                    "it": "Effetti attivi",
-                    "en": "Bills receivable",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "110",
-                "imputable": True,
-            },
-            {
-                "code": "1109",
-                "labels": {
-                    "fr": "Ducroire (Provision pour créances douteuses)",
-                    "de": "Delkredere (Wertberichtigung Forderungen)",
-                    "it": "Delcredere (Fondo svalutazione crediti)",
-                    "en": "Allowance for doubtful accounts",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "110",
-                "imputable": True,
-            },
-            {
-                "code": "1110",
-                "labels": {
-                    "fr": "Créances envers sociétés du groupe",
-                    "de": "Forderungen gegenüber Konzerngesellschaften",
-                    "it": "Crediti verso società del gruppo",
-                    "en": "Receivables from group companies",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "110",
-                "imputable": True,
-            },
-            # 114 - Autres créances à court terme
-            {
-                "code": "114",
-                "labels": {
-                    "fr": "Autres créances à court terme",
-                    "de": "Übrige kurzfristige Forderungen",
-                    "it": "Altri crediti a breve termine",
-                    "en": "Other short-term receivables",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "10",
-            },
-            {
-                "code": "1140",
-                "labels": {
-                    "fr": "Avances et prêts à court terme",
-                    "de": "Kurzfristige Vorschüsse und Darlehen",
-                    "it": "Anticipi e prestiti a breve termine",
-                    "en": "Short-term advances and loans",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "114",
-                "imputable": True,
-            },
-            {
-                "code": "1149",
-                "labels": {
-                    "fr": "Ajustement avances et prêts",
-                    "de": "Wertberichtigung Vorschüsse und Darlehen",
-                    "it": "Rettifica anticipi e prestiti",
-                    "en": "Advances and loans adjustment",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "114",
-                "imputable": True,
-            },
-            {
                 "code": "1170",
                 "labels": {
-                    "fr": "Impôt préalable TVA sur matériel et prestations",
-                    "de": "Vorsteuer MWST auf Material und Dienstleistungen",
-                    "it": "Imposta precedente IVA su materiale e prestazioni",
-                    "en": "Input VAT on materials and services",
+                    "fr": "Impôt préalable TVA",
+                    "de": "Vorsteuer MWST",
+                    "it": "Imposta precedente IVA",
+                    "en": "Input VAT",
                 },
                 "type": "ACTIF",
                 "classe": 1,
-                "parent": "114",
+                "parent": "110",
                 "imputable": True,
                 "soumis_tva": True,
-                "code_tva_defaut": "400",
-            },
-            {
-                "code": "1171",
-                "labels": {
-                    "fr": "Impôt préalable TVA sur investissements",
-                    "de": "Vorsteuer MWST auf Investitionen",
-                    "it": "Imposta precedente IVA su investimenti",
-                    "en": "Input VAT on investments",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "114",
-                "imputable": True,
-                "soumis_tva": True,
-                "code_tva_defaut": "405",
-            },
-            {
-                "code": "1176",
-                "labels": {
-                    "fr": "Impôt anticipé à récupérer",
-                    "de": "Verrechnungssteuer",
-                    "it": "Imposta preventiva da recuperare",
-                    "en": "Withholding tax receivable",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "114",
-                "imputable": True,
-            },
-            {
-                "code": "1180",
-                "labels": {
-                    "fr": "Créances envers assurances sociales",
-                    "de": "Forderungen gegenüber Sozialversicherungen",
-                    "it": "Crediti verso assicurazioni sociali",
-                    "en": "Receivables from social insurance",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "114",
-                "imputable": True,
-            },
-            {
-                "code": "1189",
-                "labels": {
-                    "fr": "Impôt à la source à récupérer",
-                    "de": "Quellensteuer",
-                    "it": "Imposta alla fonte da recuperare",
-                    "en": "Withholding tax receivable",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "114",
-                "imputable": True,
-            },
-            {
-                "code": "1190",
-                "labels": {
-                    "fr": "Autres créances à court terme diverses",
-                    "de": "Übrige kurzfristige Forderungen",
-                    "it": "Altri crediti a breve termine diversi",
-                    "en": "Other miscellaneous short-term receivables",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "114",
-                "imputable": True,
             },
             # 120 - Stocks
             {
                 "code": "120",
                 "labels": {
-                    "fr": "Stocks et prestations non facturées",
-                    "de": "Vorräte und nicht fakturierte Dienstleistungen",
-                    "it": "Scorte e prestazioni non fatturate",
-                    "en": "Inventories and unbilled services",
+                    "fr": "Stocks",
+                    "de": "Vorräte",
+                    "it": "Scorte",
+                    "en": "Inventories",
                 },
                 "type": "ACTIF",
                 "classe": 1,
@@ -495,144 +401,14 @@ class Command(BaseCommand):
             {
                 "code": "1200",
                 "labels": {
-                    "fr": "Marchandises commerciales",
+                    "fr": "Marchandises",
                     "de": "Handelswaren",
-                    "it": "Merci commerciali",
-                    "en": "Trade goods",
+                    "it": "Merci",
+                    "en": "Goods",
                 },
                 "type": "ACTIF",
                 "classe": 1,
                 "parent": "120",
-                "imputable": True,
-            },
-            {
-                "code": "1210",
-                "labels": {
-                    "fr": "Matières premières",
-                    "de": "Rohstoffe",
-                    "it": "Materie prime",
-                    "en": "Raw materials",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "120",
-                "imputable": True,
-            },
-            {
-                "code": "1220",
-                "labels": {
-                    "fr": "Matières auxiliaires",
-                    "de": "Hilfsstoffe",
-                    "it": "Materiali ausiliari",
-                    "en": "Auxiliary materials",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "120",
-                "imputable": True,
-            },
-            {
-                "code": "1230",
-                "labels": {
-                    "fr": "Matières consommables",
-                    "de": "Betriebsstoffe",
-                    "it": "Materiali di consumo",
-                    "en": "Consumables",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "120",
-                "imputable": True,
-            },
-            {
-                "code": "1250",
-                "labels": {
-                    "fr": "Marchandises en consignation",
-                    "de": "Waren in Konsignation",
-                    "it": "Merci in consegna",
-                    "en": "Consignment goods",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "120",
-                "imputable": True,
-            },
-            {
-                "code": "1260",
-                "labels": {
-                    "fr": "Produits finis",
-                    "de": "Fertige Erzeugnisse",
-                    "it": "Prodotti finiti",
-                    "en": "Finished goods",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "120",
-                "imputable": True,
-            },
-            {
-                "code": "1270",
-                "labels": {
-                    "fr": "Produits semi-finis",
-                    "de": "Unfertige Erzeugnisse",
-                    "it": "Prodotti semilavorati",
-                    "en": "Work in progress",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "120",
-                "imputable": True,
-            },
-            {
-                "code": "1280",
-                "labels": {
-                    "fr": "Travaux en cours",
-                    "de": "Angefangene Arbeiten",
-                    "it": "Lavori in corso",
-                    "en": "Work in progress",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "120",
-                "imputable": True,
-            },
-            # 130 - Comptes de régularisation actif
-            {
-                "code": "130",
-                "labels": {
-                    "fr": "Comptes de régularisation actif",
-                    "de": "Aktive Rechnungsabgrenzung",
-                    "it": "Ratei e risconti attivi",
-                    "en": "Prepaid expenses and accrued income",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "10",
-            },
-            {
-                "code": "1300",
-                "labels": {
-                    "fr": "Charges payées d'avance",
-                    "de": "Vorausbezahlte Aufwendungen",
-                    "it": "Spese pagate in anticipo",
-                    "en": "Prepaid expenses",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "130",
-                "imputable": True,
-            },
-            {
-                "code": "1301",
-                "labels": {
-                    "fr": "Produits à recevoir",
-                    "de": "Noch nicht erhaltene Erträge",
-                    "it": "Proventi da ricevere",
-                    "en": "Accrued income",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "130",
                 "imputable": True,
             },
             # 14 - Actifs immobilisés
@@ -648,123 +424,6 @@ class Command(BaseCommand):
                 "classe": 1,
                 "parent": "1",
             },
-            # 140 - Immobilisations financières
-            {
-                "code": "140",
-                "labels": {
-                    "fr": "Immobilisations financières",
-                    "de": "Finanzanlagen",
-                    "it": "Immobilizzazioni finanziarie",
-                    "en": "Financial assets",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "14",
-            },
-            {
-                "code": "1400",
-                "labels": {
-                    "fr": "Titres à long terme",
-                    "de": "Langfristige Wertschriften",
-                    "it": "Titoli a lungo termine",
-                    "en": "Long-term securities",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "140",
-                "imputable": True,
-            },
-            {
-                "code": "1409",
-                "labels": {
-                    "fr": "Ajustement titres à long terme",
-                    "de": "Wertberichtigung langfristige Wertschriften",
-                    "it": "Rettifica titoli a lungo termine",
-                    "en": "Long-term securities adjustment",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "140",
-                "imputable": True,
-            },
-            {
-                "code": "1440",
-                "labels": {
-                    "fr": "Prêts à long terme",
-                    "de": "Langfristige Darlehen",
-                    "it": "Prestiti a lungo termine",
-                    "en": "Long-term loans",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "140",
-                "imputable": True,
-            },
-            {
-                "code": "1441",
-                "labels": {
-                    "fr": "Hypothèques",
-                    "de": "Hypotheken",
-                    "it": "Ipoteche",
-                    "en": "Mortgages",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "140",
-                "imputable": True,
-            },
-            # 148 - Participations
-            {
-                "code": "148",
-                "labels": {
-                    "fr": "Participations",
-                    "de": "Beteiligungen",
-                    "it": "Partecipazioni",
-                    "en": "Participations",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "14",
-            },
-            {
-                "code": "1480",
-                "labels": {
-                    "fr": "Participations",
-                    "de": "Beteiligungen",
-                    "it": "Partecipazioni",
-                    "en": "Participations",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "148",
-                "imputable": True,
-            },
-            {
-                "code": "1489",
-                "labels": {
-                    "fr": "Ajustement participations",
-                    "de": "Wertberichtigung Beteiligungen",
-                    "it": "Rettifica partecipazioni",
-                    "en": "Participations adjustment",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "148",
-                "imputable": True,
-            },
-            # 150 - Immobilisations corporelles meubles
-            {
-                "code": "150",
-                "labels": {
-                    "fr": "Immobilisations corporelles meubles",
-                    "de": "Mobile Sachanlagen",
-                    "it": "Immobilizzazioni materiali mobili",
-                    "en": "Movable tangible assets",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "14",
-            },
             {
                 "code": "1500",
                 "labels": {
@@ -775,20 +434,7 @@ class Command(BaseCommand):
                 },
                 "type": "ACTIF",
                 "classe": 1,
-                "parent": "150",
-                "imputable": True,
-            },
-            {
-                "code": "1509",
-                "labels": {
-                    "fr": "Ajustement machines et appareils",
-                    "de": "Wertberichtigung Maschinen und Apparate",
-                    "it": "Rettifica macchine e apparecchi",
-                    "en": "Machinery adjustment",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "150",
+                "parent": "14",
                 "imputable": True,
             },
             {
@@ -801,46 +447,7 @@ class Command(BaseCommand):
                 },
                 "type": "ACTIF",
                 "classe": 1,
-                "parent": "150",
-                "imputable": True,
-            },
-            {
-                "code": "1519",
-                "labels": {
-                    "fr": "Ajustement mobilier et installations",
-                    "de": "Wertberichtigung Mobiliar und Einrichtungen",
-                    "it": "Rettifica mobili e installazioni",
-                    "en": "Furniture adjustment",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "150",
-                "imputable": True,
-            },
-            {
-                "code": "1520",
-                "labels": {
-                    "fr": "Machines de bureau et informatique",
-                    "de": "Büromaschinen und EDV",
-                    "it": "Macchine ufficio e informatica",
-                    "en": "Office equipment and IT",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "150",
-                "imputable": True,
-            },
-            {
-                "code": "1529",
-                "labels": {
-                    "fr": "Ajustement machines de bureau",
-                    "de": "Wertberichtigung Büromaschinen",
-                    "it": "Rettifica macchine ufficio",
-                    "en": "Office equipment adjustment",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "150",
+                "parent": "14",
                 "imputable": True,
             },
             {
@@ -853,178 +460,10 @@ class Command(BaseCommand):
                 },
                 "type": "ACTIF",
                 "classe": 1,
-                "parent": "150",
-                "imputable": True,
-            },
-            {
-                "code": "1539",
-                "labels": {
-                    "fr": "Ajustement véhicules",
-                    "de": "Wertberichtigung Fahrzeuge",
-                    "it": "Rettifica veicoli",
-                    "en": "Vehicles adjustment",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "150",
-                "imputable": True,
-            },
-            {
-                "code": "1540",
-                "labels": {
-                    "fr": "Outillage et appareils",
-                    "de": "Werkzeuge und Geräte",
-                    "it": "Utensili e attrezzi",
-                    "en": "Tools and equipment",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "150",
-                "imputable": True,
-            },
-            {
-                "code": "1549",
-                "labels": {
-                    "fr": "Ajustement outillage",
-                    "de": "Wertberichtigung Werkzeuge",
-                    "it": "Rettifica utensili",
-                    "en": "Tools adjustment",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "150",
-                "imputable": True,
-            },
-            # 160 - Immobilisations corporelles immeubles
-            {
-                "code": "160",
-                "labels": {
-                    "fr": "Immobilisations corporelles immeubles",
-                    "de": "Immobile Sachanlagen",
-                    "it": "Immobilizzazioni materiali immobili",
-                    "en": "Real estate",
-                },
-                "type": "ACTIF",
-                "classe": 1,
                 "parent": "14",
-            },
-            {
-                "code": "1600",
-                "labels": {
-                    "fr": "Immeubles d'exploitation",
-                    "de": "Geschäftsliegenschaften",
-                    "it": "Immobili d'esercizio",
-                    "en": "Business properties",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "160",
                 "imputable": True,
             },
-            {
-                "code": "1609",
-                "labels": {
-                    "fr": "Ajustement immeubles d'exploitation",
-                    "de": "Wertberichtigung Geschäftsliegenschaften",
-                    "it": "Rettifica immobili d'esercizio",
-                    "en": "Business properties adjustment",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "160",
-                "imputable": True,
-            },
-            # 170 - Immobilisations incorporelles
-            {
-                "code": "170",
-                "labels": {
-                    "fr": "Immobilisations incorporelles",
-                    "de": "Immaterielle Anlagen",
-                    "it": "Immobilizzazioni immateriali",
-                    "en": "Intangible assets",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "14",
-            },
-            {
-                "code": "1700",
-                "labels": {
-                    "fr": "Brevets, licences, droits",
-                    "de": "Patente, Lizenzen, Rechte",
-                    "it": "Brevetti, licenze, diritti",
-                    "en": "Patents, licenses, rights",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "170",
-                "imputable": True,
-            },
-            {
-                "code": "1709",
-                "labels": {
-                    "fr": "Ajustement brevets et licences",
-                    "de": "Wertberichtigung Patente und Lizenzen",
-                    "it": "Rettifica brevetti e licenze",
-                    "en": "Patents and licenses adjustment",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "170",
-                "imputable": True,
-            },
-            {
-                "code": "1770",
-                "labels": {
-                    "fr": "Goodwill",
-                    "de": "Goodwill",
-                    "it": "Avviamento",
-                    "en": "Goodwill",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "170",
-                "imputable": True,
-            },
-            {
-                "code": "1779",
-                "labels": {
-                    "fr": "Ajustement goodwill",
-                    "de": "Wertberichtigung Goodwill",
-                    "it": "Rettifica avviamento",
-                    "en": "Goodwill adjustment",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "170",
-                "imputable": True,
-            },
-            # 180 - Capital non versé
-            {
-                "code": "180",
-                "labels": {
-                    "fr": "Capital non versé",
-                    "de": "Nicht einbezahltes Kapital",
-                    "it": "Capitale non versato",
-                    "en": "Unpaid capital",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "14",
-            },
-            {
-                "code": "1850",
-                "labels": {
-                    "fr": "Capital-actions non versé",
-                    "de": "Nicht einbezahltes Aktienkapital",
-                    "it": "Capitale azionario non versato",
-                    "en": "Unpaid share capital",
-                },
-                "type": "ACTIF",
-                "classe": 1,
-                "parent": "180",
-                "imputable": True,
-            },
+
             # ═══════════════════════════════════════════════════════════════
             # CLASSE 2 - PASSIF
             # ═══════════════════════════════════════════════════════════════
@@ -1053,110 +492,19 @@ class Command(BaseCommand):
                 "classe": 2,
                 "parent": "2",
             },
-            # 200 - Dettes fournisseurs
-            {
-                "code": "200",
-                "labels": {
-                    "fr": "Dettes résultant d'achats et de prestations",
-                    "de": "Verbindlichkeiten aus Lieferungen und Leistungen",
-                    "it": "Debiti per forniture e prestazioni",
-                    "en": "Trade payables",
-                },
-                "type": "PASSIF",
-                "classe": 2,
-                "parent": "20",
-            },
             {
                 "code": "2000",
                 "labels": {
                     "fr": "Dettes fournisseurs (Créanciers)",
-                    "de": "Verbindlichkeiten aus Lieferungen und Leistungen (Kreditoren)",
+                    "de": "Verbindlichkeiten (Kreditoren)",
                     "it": "Debiti verso fornitori (Creditori)",
                     "en": "Trade payables (Creditors)",
                 },
                 "type": "PASSIF",
                 "classe": 2,
-                "parent": "200",
+                "parent": "20",
                 "imputable": True,
                 "lettrable": True,
-            },
-            {
-                "code": "2030",
-                "labels": {
-                    "fr": "Acomptes de clients",
-                    "de": "Kundenvorauszahlungen",
-                    "it": "Anticipi da clienti",
-                    "en": "Customer advances",
-                },
-                "type": "PASSIF",
-                "classe": 2,
-                "parent": "200",
-                "imputable": True,
-            },
-            {
-                "code": "2050",
-                "labels": {
-                    "fr": "Dettes envers sociétés du groupe",
-                    "de": "Verbindlichkeiten gegenüber Konzerngesellschaften",
-                    "it": "Debiti verso società del gruppo",
-                    "en": "Payables to group companies",
-                },
-                "type": "PASSIF",
-                "classe": 2,
-                "parent": "200",
-                "imputable": True,
-            },
-            # 210 - Dettes à court terme rémunérées
-            {
-                "code": "210",
-                "labels": {
-                    "fr": "Dettes à court terme rémunérées",
-                    "de": "Kurzfristige verzinsliche Verbindlichkeiten",
-                    "it": "Debiti a breve termine con interessi",
-                    "en": "Short-term interest-bearing liabilities",
-                },
-                "type": "PASSIF",
-                "classe": 2,
-                "parent": "20",
-            },
-            {
-                "code": "2100",
-                "labels": {
-                    "fr": "Dettes bancaires à court terme",
-                    "de": "Kurzfristige Bankverbindlichkeiten",
-                    "it": "Debiti bancari a breve termine",
-                    "en": "Short-term bank debt",
-                },
-                "type": "PASSIF",
-                "classe": 2,
-                "parent": "210",
-                "imputable": True,
-            },
-            {
-                "code": "2120",
-                "labels": {
-                    "fr": "Engagements de leasing à court terme",
-                    "de": "Kurzfristige Leasingverbindlichkeiten",
-                    "it": "Impegni di leasing a breve termine",
-                    "en": "Short-term lease liabilities",
-                },
-                "type": "PASSIF",
-                "classe": 2,
-                "parent": "210",
-                "imputable": True,
-            },
-            # 220 - Autres dettes à court terme
-            {
-                "code": "220",
-                "labels": {
-                    "fr": "Autres dettes à court terme",
-                    "de": "Übrige kurzfristige Verbindlichkeiten",
-                    "it": "Altri debiti a breve termine",
-                    "en": "Other short-term liabilities",
-                },
-                "type": "PASSIF",
-                "classe": 2,
-                "parent": "20",
             },
             {
                 "code": "2200",
@@ -1168,258 +516,9 @@ class Command(BaseCommand):
                 },
                 "type": "PASSIF",
                 "classe": 2,
-                "parent": "220",
-                "imputable": True,
-                "soumis_tva": True,
-                "code_tva_defaut": "200",
-            },
-            {
-                "code": "2201",
-                "labels": {
-                    "fr": "Décompte TVA",
-                    "de": "MWST-Abrechnung",
-                    "it": "Conteggio IVA",
-                    "en": "VAT settlement",
-                },
-                "type": "PASSIF",
-                "classe": 2,
-                "parent": "220",
-                "imputable": True,
-                "soumis_tva": True,
-            },
-            {
-                "code": "2206",
-                "labels": {
-                    "fr": "Impôt anticipé dû",
-                    "de": "Geschuldete Verrechnungssteuer",
-                    "it": "Imposta preventiva dovuta",
-                    "en": "Withholding tax payable",
-                },
-                "type": "PASSIF",
-                "classe": 2,
-                "parent": "220",
-                "imputable": True,
-            },
-            {
-                "code": "2208",
-                "labels": {
-                    "fr": "Impôts directs à payer",
-                    "de": "Direkte Steuern",
-                    "it": "Imposte dirette da pagare",
-                    "en": "Direct taxes payable",
-                },
-                "type": "PASSIF",
-                "classe": 2,
-                "parent": "220",
-                "imputable": True,
-            },
-            {
-                "code": "2261",
-                "labels": {
-                    "fr": "Dividendes",
-                    "de": "Dividenden",
-                    "it": "Dividendi",
-                    "en": "Dividends payable",
-                },
-                "type": "PASSIF",
-                "classe": 2,
-                "parent": "220",
-                "imputable": True,
-            },
-            {
-                "code": "2270",
-                "labels": {
-                    "fr": "Assurances sociales et prévoyance",
-                    "de": "Sozialversicherungen und Vorsorge",
-                    "it": "Assicurazioni sociali e previdenza",
-                    "en": "Social insurance and pension",
-                },
-                "type": "PASSIF",
-                "classe": 2,
-                "parent": "220",
-                "imputable": True,
-            },
-            {
-                "code": "2279",
-                "labels": {
-                    "fr": "Impôt à la source",
-                    "de": "Quellensteuer",
-                    "it": "Imposta alla fonte",
-                    "en": "Withholding tax",
-                },
-                "type": "PASSIF",
-                "classe": 2,
-                "parent": "220",
-                "imputable": True,
-            },
-            # 230 - Passifs de régularisation
-            {
-                "code": "230",
-                "labels": {
-                    "fr": "Passifs de régularisation et provisions à court terme",
-                    "de": "Passive Rechnungsabgrenzung und kurzfristige Rückstellungen",
-                    "it": "Ratei e risconti passivi e accantonamenti a breve termine",
-                    "en": "Accrued expenses and short-term provisions",
-                },
-                "type": "PASSIF",
-                "classe": 2,
                 "parent": "20",
-            },
-            {
-                "code": "2300",
-                "labels": {
-                    "fr": "Charges à payer",
-                    "de": "Aufgelaufene Aufwendungen",
-                    "it": "Ratei passivi",
-                    "en": "Accrued expenses",
-                },
-                "type": "PASSIF",
-                "classe": 2,
-                "parent": "230",
                 "imputable": True,
-            },
-            {
-                "code": "2301",
-                "labels": {
-                    "fr": "Produits encaissés d'avance",
-                    "de": "Im Voraus erhaltene Erträge",
-                    "it": "Risconti passivi",
-                    "en": "Deferred income",
-                },
-                "type": "PASSIF",
-                "classe": 2,
-                "parent": "230",
-                "imputable": True,
-            },
-            {
-                "code": "2330",
-                "labels": {
-                    "fr": "Provisions à court terme",
-                    "de": "Kurzfristige Rückstellungen",
-                    "it": "Accantonamenti a breve termine",
-                    "en": "Short-term provisions",
-                },
-                "type": "PASSIF",
-                "classe": 2,
-                "parent": "230",
-                "imputable": True,
-            },
-            # 24 - Dettes à long terme
-            {
-                "code": "24",
-                "labels": {
-                    "fr": "Dettes à long terme",
-                    "de": "Langfristiges Fremdkapital",
-                    "it": "Debiti a lungo termine",
-                    "en": "Long-term liabilities",
-                },
-                "type": "PASSIF",
-                "classe": 2,
-                "parent": "2",
-            },
-            # 240 - Dettes à long terme rémunérées
-            {
-                "code": "240",
-                "labels": {
-                    "fr": "Dettes à long terme rémunérées",
-                    "de": "Langfristige verzinsliche Verbindlichkeiten",
-                    "it": "Debiti a lungo termine con interessi",
-                    "en": "Long-term interest-bearing liabilities",
-                },
-                "type": "PASSIF",
-                "classe": 2,
-                "parent": "24",
-            },
-            {
-                "code": "2400",
-                "labels": {
-                    "fr": "Dettes bancaires à long terme",
-                    "de": "Langfristige Bankverbindlichkeiten",
-                    "it": "Debiti bancari a lungo termine",
-                    "en": "Long-term bank debt",
-                },
-                "type": "PASSIF",
-                "classe": 2,
-                "parent": "240",
-                "imputable": True,
-            },
-            {
-                "code": "2420",
-                "labels": {
-                    "fr": "Engagements de leasing à long terme",
-                    "de": "Langfristige Leasingverbindlichkeiten",
-                    "it": "Impegni di leasing a lungo termine",
-                    "en": "Long-term lease liabilities",
-                },
-                "type": "PASSIF",
-                "classe": 2,
-                "parent": "240",
-                "imputable": True,
-            },
-            {
-                "code": "2430",
-                "labels": {
-                    "fr": "Emprunts obligataires",
-                    "de": "Obligationenanleihen",
-                    "it": "Prestiti obbligazionari",
-                    "en": "Bonds payable",
-                },
-                "type": "PASSIF",
-                "classe": 2,
-                "parent": "240",
-                "imputable": True,
-            },
-            {
-                "code": "2450",
-                "labels": {
-                    "fr": "Emprunts",
-                    "de": "Darlehen",
-                    "it": "Mutui",
-                    "en": "Loans payable",
-                },
-                "type": "PASSIF",
-                "classe": 2,
-                "parent": "240",
-                "imputable": True,
-            },
-            {
-                "code": "2451",
-                "labels": {
-                    "fr": "Hypothèques",
-                    "de": "Hypotheken",
-                    "it": "Ipoteche",
-                    "en": "Mortgages payable",
-                },
-                "type": "PASSIF",
-                "classe": 2,
-                "parent": "240",
-                "imputable": True,
-            },
-            # 260 - Provisions à long terme
-            {
-                "code": "260",
-                "labels": {
-                    "fr": "Provisions à long terme",
-                    "de": "Langfristige Rückstellungen",
-                    "it": "Accantonamenti a lungo termine",
-                    "en": "Long-term provisions",
-                },
-                "type": "PASSIF",
-                "classe": 2,
-                "parent": "24",
-            },
-            {
-                "code": "2600",
-                "labels": {
-                    "fr": "Provisions",
-                    "de": "Rückstellungen",
-                    "it": "Accantonamenti",
-                    "en": "Provisions",
-                },
-                "type": "PASSIF",
-                "classe": 2,
-                "parent": "260",
-                "imputable": True,
+                "soumis_tva": True,
             },
             # 28 - Fonds propres
             {
@@ -1434,95 +533,30 @@ class Command(BaseCommand):
                 "classe": 2,
                 "parent": "2",
             },
-            # 280 - Capital
             {
-                "code": "280",
+                "code": "2800",
                 "labels": {
                     "fr": "Capital social",
-                    "de": "Gesellschaftskapital",
+                    "de": "Aktienkapital",
                     "it": "Capitale sociale",
                     "en": "Share capital",
                 },
                 "type": "PASSIF",
                 "classe": 2,
                 "parent": "28",
-            },
-            {
-                "code": "2800",
-                "labels": {
-                    "fr": "Capital-actions / Capital social",
-                    "de": "Aktienkapital / Gesellschaftskapital",
-                    "it": "Capitale azionario / Capitale sociale",
-                    "en": "Share capital",
-                },
-                "type": "PASSIF",
-                "classe": 2,
-                "parent": "280",
-                "imputable": True,
-            },
-            # 290 - Réserves et résultats
-            {
-                "code": "290",
-                "labels": {
-                    "fr": "Réserves et résultats",
-                    "de": "Reserven und Ergebnisse",
-                    "it": "Riserve e risultati",
-                    "en": "Reserves and retained earnings",
-                },
-                "type": "PASSIF",
-                "classe": 2,
-                "parent": "28",
-            },
-            {
-                "code": "2900",
-                "labels": {
-                    "fr": "Réserves légales issues du capital",
-                    "de": "Gesetzliche Kapitalreserven",
-                    "it": "Riserve legali da capitale",
-                    "en": "Legal capital reserves",
-                },
-                "type": "PASSIF",
-                "classe": 2,
-                "parent": "290",
-                "imputable": True,
-            },
-            {
-                "code": "2950",
-                "labels": {
-                    "fr": "Réserves légales issues du bénéfice",
-                    "de": "Gesetzliche Gewinnreserven",
-                    "it": "Riserve legali da utili",
-                    "en": "Legal profit reserves",
-                },
-                "type": "PASSIF",
-                "classe": 2,
-                "parent": "290",
-                "imputable": True,
-            },
-            {
-                "code": "2960",
-                "labels": {
-                    "fr": "Réserves libres",
-                    "de": "Freie Reserven",
-                    "it": "Riserve libere",
-                    "en": "Free reserves",
-                },
-                "type": "PASSIF",
-                "classe": 2,
-                "parent": "290",
                 "imputable": True,
             },
             {
                 "code": "2970",
                 "labels": {
-                    "fr": "Bénéfice / perte reporté",
-                    "de": "Gewinn-/Verlustvortrag",
-                    "it": "Utile/perdita riportato",
+                    "fr": "Bénéfice reporté",
+                    "de": "Gewinnvortrag",
+                    "it": "Utile riportato",
                     "en": "Retained earnings",
                 },
                 "type": "PASSIF",
                 "classe": 2,
-                "parent": "290",
+                "parent": "28",
                 "imputable": True,
             },
             {
@@ -1535,51 +569,38 @@ class Command(BaseCommand):
                 },
                 "type": "PASSIF",
                 "classe": 2,
-                "parent": "290",
+                "parent": "28",
                 "imputable": True,
             },
-            {
-                "code": "2980",
-                "labels": {
-                    "fr": "Propres actions",
-                    "de": "Eigene Aktien",
-                    "it": "Azioni proprie",
-                    "en": "Treasury shares",
-                },
-                "type": "PASSIF",
-                "classe": 2,
-                "parent": "290",
-                "imputable": True,
-            },
+
             # ═══════════════════════════════════════════════════════════════
             # CLASSE 3 - PRODUITS D'EXPLOITATION
             # ═══════════════════════════════════════════════════════════════
             {
                 "code": "3",
                 "labels": {
-                    "fr": "Chiffre d'affaires résultant des ventes et prestations",
-                    "de": "Betriebsertrag aus Lieferungen und Leistungen",
-                    "it": "Ricavi da vendite e prestazioni",
-                    "en": "Revenue from sales and services",
+                    "fr": "Produits d'exploitation",
+                    "de": "Betriebsertrag",
+                    "it": "Ricavi d'esercizio",
+                    "en": "Operating revenue",
                 },
                 "type": "PRODUIT",
-                "classe": 7,
+                "classe": 3,
                 "parent": None,
             },
             {
                 "code": "3000",
                 "labels": {
-                    "fr": "Ventes de produits fabriqués",
+                    "fr": "Ventes de produits",
                     "de": "Produktionserlöse",
-                    "it": "Vendite di prodotti fabbricati",
-                    "en": "Sales of manufactured products",
+                    "it": "Vendite di prodotti",
+                    "en": "Sales of products",
                 },
                 "type": "PRODUIT",
-                "classe": 7,
+                "classe": 3,
                 "parent": "3",
                 "imputable": True,
                 "soumis_tva": True,
-                "code_tva_defaut": "200",
             },
             {
                 "code": "3200",
@@ -1590,130 +611,51 @@ class Command(BaseCommand):
                     "en": "Sales of goods",
                 },
                 "type": "PRODUIT",
-                "classe": 7,
+                "classe": 3,
                 "parent": "3",
                 "imputable": True,
                 "soumis_tva": True,
-                "code_tva_defaut": "200",
             },
             {
                 "code": "3400",
                 "labels": {
                     "fr": "Ventes de prestations de services",
                     "de": "Dienstleistungserlöse",
-                    "it": "Vendite di prestazioni di servizi",
+                    "it": "Vendite di servizi",
                     "en": "Sales of services",
                 },
                 "type": "PRODUIT",
-                "classe": 7,
+                "classe": 3,
                 "parent": "3",
                 "imputable": True,
                 "soumis_tva": True,
-                "code_tva_defaut": "200",
             },
-            {
-                "code": "3600",
-                "labels": {
-                    "fr": "Autres ventes et prestations",
-                    "de": "Übrige Erlöse aus Lieferungen und Leistungen",
-                    "it": "Altre vendite e prestazioni",
-                    "en": "Other sales and services",
-                },
-                "type": "PRODUIT",
-                "classe": 7,
-                "parent": "3",
-                "imputable": True,
-            },
-            {
-                "code": "3700",
-                "labels": {
-                    "fr": "Prestations propres",
-                    "de": "Eigenleistungen",
-                    "it": "Prestazioni proprie",
-                    "en": "Own work capitalized",
-                },
-                "type": "PRODUIT",
-                "classe": 7,
-                "parent": "3",
-                "imputable": True,
-            },
-            {
-                "code": "3800",
-                "labels": {
-                    "fr": "Déductions sur ventes",
-                    "de": "Erlösminderungen",
-                    "it": "Deduzioni su vendite",
-                    "en": "Sales deductions",
-                },
-                "type": "PRODUIT",
-                "classe": 7,
-                "parent": "3",
-                "imputable": True,
-            },
-            {
-                "code": "3805",
-                "labels": {
-                    "fr": "Pertes sur clients / Variation ducroire",
-                    "de": "Debitorenverluste / Veränderung Delkredere",
-                    "it": "Perdite su clienti / Variazione delcredere",
-                    "en": "Bad debts / Allowance for doubtful accounts",
-                },
-                "type": "PRODUIT",
-                "classe": 7,
-                "parent": "3",
-                "imputable": True,
-            },
-            {
-                "code": "3900",
-                "labels": {
-                    "fr": "Variation des stocks de produits semi-finis",
-                    "de": "Bestandsänderung unfertige Erzeugnisse",
-                    "it": "Variazione scorte semilavorati",
-                    "en": "Change in work in progress",
-                },
-                "type": "PRODUIT",
-                "classe": 7,
-                "parent": "3",
-                "imputable": True,
-            },
-            {
-                "code": "3901",
-                "labels": {
-                    "fr": "Variation des stocks de produits finis",
-                    "de": "Bestandsänderung fertige Erzeugnisse",
-                    "it": "Variazione scorte prodotti finiti",
-                    "en": "Change in finished goods",
-                },
-                "type": "PRODUIT",
-                "classe": 7,
-                "parent": "3",
-                "imputable": True,
-            },
+
             # ═══════════════════════════════════════════════════════════════
             # CLASSE 4 - CHARGES DE MATÉRIEL
             # ═══════════════════════════════════════════════════════════════
             {
                 "code": "4",
                 "labels": {
-                    "fr": "Charges de matériel, marchandises et prestations de tiers",
-                    "de": "Aufwand für Material, Handelswaren und Drittleistungen",
-                    "it": "Costi per materiale, merci e prestazioni di terzi",
-                    "en": "Cost of materials, goods and third-party services",
+                    "fr": "Charges de matériel",
+                    "de": "Materialaufwand",
+                    "it": "Costi del materiale",
+                    "en": "Material costs",
                 },
                 "type": "CHARGE",
-                "classe": 6,
+                "classe": 4,
                 "parent": None,
             },
             {
                 "code": "4000",
                 "labels": {
-                    "fr": "Charges de matériel",
-                    "de": "Materialaufwand",
-                    "it": "Costi per materiale",
-                    "en": "Material costs",
+                    "fr": "Achats de matériel",
+                    "de": "Materialeinkauf",
+                    "it": "Acquisti di materiale",
+                    "en": "Material purchases",
                 },
                 "type": "CHARGE",
-                "classe": 6,
+                "classe": 4,
                 "parent": "4",
                 "imputable": True,
             },
@@ -1726,49 +668,11 @@ class Command(BaseCommand):
                     "en": "Purchase of goods",
                 },
                 "type": "CHARGE",
-                "classe": 6,
+                "classe": 4,
                 "parent": "4",
                 "imputable": True,
             },
-            {
-                "code": "4400",
-                "labels": {
-                    "fr": "Prestations de tiers",
-                    "de": "Aufwand für Drittleistungen",
-                    "it": "Prestazioni di terzi",
-                    "en": "Third-party services",
-                },
-                "type": "CHARGE",
-                "classe": 6,
-                "parent": "4",
-                "imputable": True,
-            },
-            {
-                "code": "4500",
-                "labels": {
-                    "fr": "Charges d'énergie pour l'exploitation",
-                    "de": "Energieaufwand zur Leistungserstellung",
-                    "it": "Costi energetici per l'esercizio",
-                    "en": "Energy costs for operations",
-                },
-                "type": "CHARGE",
-                "classe": 6,
-                "parent": "4",
-                "imputable": True,
-            },
-            {
-                "code": "4900",
-                "labels": {
-                    "fr": "Déductions sur achats",
-                    "de": "Bestandesänderungen und Material-Ertragsminderungen",
-                    "it": "Deduzioni su acquisti",
-                    "en": "Purchase deductions",
-                },
-                "type": "CHARGE",
-                "classe": 6,
-                "parent": "4",
-                "imputable": True,
-            },
+
             # ═══════════════════════════════════════════════════════════════
             # CLASSE 5 - CHARGES DE PERSONNEL
             # ═══════════════════════════════════════════════════════════════
@@ -1781,7 +685,7 @@ class Command(BaseCommand):
                     "en": "Personnel expenses",
                 },
                 "type": "CHARGE",
-                "classe": 6,
+                "classe": 5,
                 "parent": None,
             },
             {
@@ -1793,88 +697,24 @@ class Command(BaseCommand):
                     "en": "Wages and salaries",
                 },
                 "type": "CHARGE",
-                "classe": 6,
+                "classe": 5,
                 "parent": "5",
                 "imputable": True,
             },
             {
                 "code": "5700",
                 "labels": {
-                    "fr": "Charges sociales AVS, AI, APG, AC",
-                    "de": "Sozialversicherungsaufwand AHV, IV, EO, ALV",
-                    "it": "Oneri sociali AVS, AI, IPG, AD",
+                    "fr": "Charges sociales",
+                    "de": "Sozialversicherungsaufwand",
+                    "it": "Oneri sociali",
                     "en": "Social security expenses",
                 },
                 "type": "CHARGE",
-                "classe": 6,
+                "classe": 5,
                 "parent": "5",
                 "imputable": True,
             },
-            {
-                "code": "5710",
-                "labels": {
-                    "fr": "Charges sociales LPP",
-                    "de": "Sozialversicherungsaufwand BVG",
-                    "it": "Oneri sociali LPP",
-                    "en": "Pension expenses",
-                },
-                "type": "CHARGE",
-                "classe": 6,
-                "parent": "5",
-                "imputable": True,
-            },
-            {
-                "code": "5720",
-                "labels": {
-                    "fr": "Charges LAA et LAAC",
-                    "de": "Aufwand UVG und UVGZ",
-                    "it": "Costi LAINF e LAINF complementare",
-                    "en": "Accident insurance expenses",
-                },
-                "type": "CHARGE",
-                "classe": 6,
-                "parent": "5",
-                "imputable": True,
-            },
-            {
-                "code": "5730",
-                "labels": {
-                    "fr": "Charges allocations familiales",
-                    "de": "Aufwand Familienzulagen",
-                    "it": "Costi assegni familiari",
-                    "en": "Family allowances expenses",
-                },
-                "type": "CHARGE",
-                "classe": 6,
-                "parent": "5",
-                "imputable": True,
-            },
-            {
-                "code": "5800",
-                "labels": {
-                    "fr": "Autres charges du personnel",
-                    "de": "Übriger Personalaufwand",
-                    "it": "Altri costi del personale",
-                    "en": "Other personnel expenses",
-                },
-                "type": "CHARGE",
-                "classe": 6,
-                "parent": "5",
-                "imputable": True,
-            },
-            {
-                "code": "5900",
-                "labels": {
-                    "fr": "Personnel temporaire",
-                    "de": "Temporärer Personal",
-                    "it": "Personale temporaneo",
-                    "en": "Temporary staff",
-                },
-                "type": "CHARGE",
-                "classe": 6,
-                "parent": "5",
-                "imputable": True,
-            },
+
             # ═══════════════════════════════════════════════════════════════
             # CLASSE 6 - AUTRES CHARGES D'EXPLOITATION
             # ═══════════════════════════════════════════════════════════════
@@ -1904,155 +744,12 @@ class Command(BaseCommand):
                 "imputable": True,
             },
             {
-                "code": "6100",
-                "labels": {
-                    "fr": "Entretien et réparations",
-                    "de": "Unterhalt und Reparaturen",
-                    "it": "Manutenzione e riparazioni",
-                    "en": "Maintenance and repairs",
-                },
-                "type": "CHARGE",
-                "classe": 6,
-                "parent": "6",
-                "imputable": True,
-            },
-            {
-                "code": "6105",
-                "labels": {
-                    "fr": "Leasing immobilisations corporelles",
-                    "de": "Leasing mobile Sachanlagen",
-                    "it": "Leasing immobilizzazioni materiali",
-                    "en": "Equipment leasing",
-                },
-                "type": "CHARGE",
-                "classe": 6,
-                "parent": "6",
-                "imputable": True,
-            },
-            {
-                "code": "6200",
-                "labels": {
-                    "fr": "Charges de véhicules",
-                    "de": "Fahrzeugaufwand",
-                    "it": "Costi per veicoli",
-                    "en": "Vehicle expenses",
-                },
-                "type": "CHARGE",
-                "classe": 6,
-                "parent": "6",
-                "imputable": True,
-            },
-            {
-                "code": "6260",
-                "labels": {
-                    "fr": "Leasing véhicules",
-                    "de": "Fahrzeugleasing",
-                    "it": "Leasing veicoli",
-                    "en": "Vehicle leasing",
-                },
-                "type": "CHARGE",
-                "classe": 6,
-                "parent": "6",
-                "imputable": True,
-            },
-            {
-                "code": "6300",
-                "labels": {
-                    "fr": "Assurances, taxes et autorisations",
-                    "de": "Versicherungen, Abgaben, Bewilligungen",
-                    "it": "Assicurazioni, tasse e autorizzazioni",
-                    "en": "Insurance, fees and permits",
-                },
-                "type": "CHARGE",
-                "classe": 6,
-                "parent": "6",
-                "imputable": True,
-            },
-            {
-                "code": "6400",
-                "labels": {
-                    "fr": "Charges d'énergie et d'évacuation",
-                    "de": "Energie- und Entsorgungsaufwand",
-                    "it": "Costi energetici e di smaltimento",
-                    "en": "Energy and disposal costs",
-                },
-                "type": "CHARGE",
-                "classe": 6,
-                "parent": "6",
-                "imputable": True,
-            },
-            {
                 "code": "6500",
                 "labels": {
                     "fr": "Charges d'administration",
                     "de": "Verwaltungsaufwand",
                     "it": "Costi amministrativi",
                     "en": "Administrative expenses",
-                },
-                "type": "CHARGE",
-                "classe": 6,
-                "parent": "6",
-                "imputable": True,
-            },
-            {
-                "code": "6503",
-                "labels": {
-                    "fr": "Honoraires fiduciaires et audit",
-                    "de": "Treuhand- und Revisionskosten",
-                    "it": "Onorari fiduciari e revisione",
-                    "en": "Fiduciary and audit fees",
-                },
-                "type": "CHARGE",
-                "classe": 6,
-                "parent": "6",
-                "imputable": True,
-            },
-            {
-                "code": "6510",
-                "labels": {
-                    "fr": "Téléphone et fax",
-                    "de": "Telefon und Fax",
-                    "it": "Telefono e fax",
-                    "en": "Telephone and fax",
-                },
-                "type": "CHARGE",
-                "classe": 6,
-                "parent": "6",
-                "imputable": True,
-            },
-            {
-                "code": "6570",
-                "labels": {
-                    "fr": "Charges informatiques",
-                    "de": "Informatikaufwand",
-                    "it": "Costi informatici",
-                    "en": "IT expenses",
-                },
-                "type": "CHARGE",
-                "classe": 6,
-                "parent": "6",
-                "imputable": True,
-            },
-            {
-                "code": "6600",
-                "labels": {
-                    "fr": "Publicité",
-                    "de": "Werbeaufwand",
-                    "it": "Pubblicità",
-                    "en": "Advertising",
-                },
-                "type": "CHARGE",
-                "classe": 6,
-                "parent": "6",
-                "imputable": True,
-            },
-            {
-                "code": "6700",
-                "labels": {
-                    "fr": "Autres charges d'exploitation",
-                    "de": "Sonstiger Betriebsaufwand",
-                    "it": "Altri costi d'esercizio",
-                    "en": "Other operating expenses",
                 },
                 "type": "CHARGE",
                 "classe": 6,
@@ -2085,139 +782,21 @@ class Command(BaseCommand):
                 "parent": "6",
                 "imputable": True,
             },
-            {
-                "code": "6940",
-                "labels": {
-                    "fr": "Frais bancaires",
-                    "de": "Bankspesen",
-                    "it": "Spese bancarie",
-                    "en": "Bank charges",
-                },
-                "type": "CHARGE",
-                "classe": 6,
-                "parent": "6",
-                "imputable": True,
-            },
-            {
-                "code": "6950",
-                "labels": {
-                    "fr": "Produits financiers",
-                    "de": "Finanzertrag",
-                    "it": "Proventi finanziari",
-                    "en": "Financial income",
-                },
-                "type": "PRODUIT",
-                "classe": 7,
-                "parent": "6",
-                "imputable": True,
-            },
-            # ═══════════════════════════════════════════════════════════════
-            # CLASSE 7 - RÉSULTATS DES ACTIVITÉS ANNEXES
-            # ═══════════════════════════════════════════════════════════════
-            {
-                "code": "7",
-                "labels": {
-                    "fr": "Résultats des activités annexes",
-                    "de": "Betrieblicher Nebenerfolg",
-                    "it": "Risultato attività accessorie",
-                    "en": "Results from ancillary activities",
-                },
-                "type": "PRODUIT",
-                "classe": 7,
-                "parent": None,
-            },
-            {
-                "code": "7000",
-                "labels": {
-                    "fr": "Produits accessoires",
-                    "de": "Nebenertrag",
-                    "it": "Proventi accessori",
-                    "en": "Ancillary income",
-                },
-                "type": "PRODUIT",
-                "classe": 7,
-                "parent": "7",
-                "imputable": True,
-            },
-            {
-                "code": "7010",
-                "labels": {
-                    "fr": "Charges accessoires",
-                    "de": "Nebenaufwand",
-                    "it": "Costi accessori",
-                    "en": "Ancillary expenses",
-                },
-                "type": "CHARGE",
-                "classe": 6,
-                "parent": "7",
-                "imputable": True,
-            },
-            {
-                "code": "7500",
-                "labels": {
-                    "fr": "Produits des immeubles",
-                    "de": "Liegenschaftenertrag",
-                    "it": "Proventi da immobili",
-                    "en": "Real estate income",
-                },
-                "type": "PRODUIT",
-                "classe": 7,
-                "parent": "7",
-                "imputable": True,
-            },
-            {
-                "code": "7510",
-                "labels": {
-                    "fr": "Charges des immeubles",
-                    "de": "Liegenschaftenaufwand",
-                    "it": "Costi da immobili",
-                    "en": "Real estate expenses",
-                },
-                "type": "CHARGE",
-                "classe": 6,
-                "parent": "7",
-                "imputable": True,
-            },
+
             # ═══════════════════════════════════════════════════════════════
             # CLASSE 8 - RÉSULTATS EXTRAORDINAIRES
             # ═══════════════════════════════════════════════════════════════
             {
                 "code": "8",
                 "labels": {
-                    "fr": "Résultats extraordinaires et hors exploitation",
-                    "de": "Ausserordentlicher und betriebsfremder Erfolg",
-                    "it": "Risultato straordinario e non operativo",
-                    "en": "Extraordinary and non-operating results",
+                    "fr": "Résultats extraordinaires",
+                    "de": "Ausserordentlicher Erfolg",
+                    "it": "Risultato straordinario",
+                    "en": "Extraordinary results",
                 },
                 "type": "CHARGE",
                 "classe": 8,
                 "parent": None,
-            },
-            {
-                "code": "8000",
-                "labels": {
-                    "fr": "Charges hors exploitation",
-                    "de": "Betriebsfremder Aufwand",
-                    "it": "Costi non operativi",
-                    "en": "Non-operating expenses",
-                },
-                "type": "CHARGE",
-                "classe": 8,
-                "parent": "8",
-                "imputable": True,
-            },
-            {
-                "code": "8100",
-                "labels": {
-                    "fr": "Produits hors exploitation",
-                    "de": "Betriebsfremder Ertrag",
-                    "it": "Proventi non operativi",
-                    "en": "Non-operating income",
-                },
-                "type": "PRODUIT",
-                "classe": 8,
-                "parent": "8",
-                "imputable": True,
             },
             {
                 "code": "8500",
@@ -2248,16 +827,17 @@ class Command(BaseCommand):
             {
                 "code": "8900",
                 "labels": {
-                    "fr": "Impôts directs",
-                    "de": "Direkte Steuern",
-                    "it": "Imposte dirette",
-                    "en": "Direct taxes",
+                    "fr": "Impôts",
+                    "de": "Steuern",
+                    "it": "Imposte",
+                    "en": "Taxes",
                 },
                 "type": "CHARGE",
                 "classe": 8,
                 "parent": "8",
                 "imputable": True,
             },
+
             # ═══════════════════════════════════════════════════════════════
             # CLASSE 9 - CLÔTURE
             # ═══════════════════════════════════════════════════════════════
@@ -2276,10 +856,10 @@ class Command(BaseCommand):
             {
                 "code": "9200",
                 "labels": {
-                    "fr": "Bénéfice / perte de l'exercice",
-                    "de": "Jahresgewinn / Jahresverlust",
-                    "it": "Utile / perdita dell'esercizio",
-                    "en": "Net income / Net loss",
+                    "fr": "Résultat de l'exercice",
+                    "de": "Jahresergebnis",
+                    "it": "Risultato dell'esercizio",
+                    "en": "Annual result",
                 },
                 "type": "CHARGE",
                 "classe": 9,
@@ -2288,8 +868,661 @@ class Command(BaseCommand):
             },
         ]
 
-    def _create_accounts(self, plan, accounts_data, force_update=False):
+    def _get_ohada_accounts(self):
+        """Retourne les données du plan comptable OHADA."""
+        return [
+            # ═══════════════════════════════════════════════════════════════
+            # CLASSE 1 - COMPTES DE RESSOURCES DURABLES
+            # ═══════════════════════════════════════════════════════════════
+            {
+                "code": "1",
+                "labels": {
+                    "fr": "Comptes de ressources durables",
+                    "en": "Long-term resources accounts",
+                },
+                "type": "PASSIF",
+                "classe": 1,
+                "parent": None,
+            },
+            {
+                "code": "10",
+                "labels": {
+                    "fr": "Capital",
+                    "en": "Capital",
+                },
+                "type": "PASSIF",
+                "classe": 1,
+                "parent": "1",
+            },
+            {
+                "code": "101",
+                "labels": {
+                    "fr": "Capital social",
+                    "en": "Share capital",
+                },
+                "type": "PASSIF",
+                "classe": 1,
+                "parent": "10",
+                "imputable": True,
+            },
+            {
+                "code": "11",
+                "labels": {
+                    "fr": "Réserves",
+                    "en": "Reserves",
+                },
+                "type": "PASSIF",
+                "classe": 1,
+                "parent": "1",
+            },
+            {
+                "code": "111",
+                "labels": {
+                    "fr": "Réserve légale",
+                    "en": "Legal reserve",
+                },
+                "type": "PASSIF",
+                "classe": 1,
+                "parent": "11",
+                "imputable": True,
+            },
+            {
+                "code": "12",
+                "labels": {
+                    "fr": "Report à nouveau",
+                    "en": "Retained earnings",
+                },
+                "type": "PASSIF",
+                "classe": 1,
+                "parent": "1",
+            },
+            {
+                "code": "121",
+                "labels": {
+                    "fr": "Report à nouveau créditeur",
+                    "en": "Retained earnings (credit)",
+                },
+                "type": "PASSIF",
+                "classe": 1,
+                "parent": "12",
+                "imputable": True,
+            },
+            {
+                "code": "13",
+                "labels": {
+                    "fr": "Résultat net de l'exercice",
+                    "en": "Net result",
+                },
+                "type": "PASSIF",
+                "classe": 1,
+                "parent": "1",
+            },
+            {
+                "code": "131",
+                "labels": {
+                    "fr": "Résultat net: bénéfice",
+                    "en": "Net result: profit",
+                },
+                "type": "PASSIF",
+                "classe": 1,
+                "parent": "13",
+                "imputable": True,
+            },
+            {
+                "code": "16",
+                "labels": {
+                    "fr": "Emprunts et dettes assimilées",
+                    "en": "Borrowings and similar debts",
+                },
+                "type": "PASSIF",
+                "classe": 1,
+                "parent": "1",
+            },
+            {
+                "code": "161",
+                "labels": {
+                    "fr": "Emprunts obligataires",
+                    "en": "Bond loans",
+                },
+                "type": "PASSIF",
+                "classe": 1,
+                "parent": "16",
+                "imputable": True,
+            },
+
+            # ═══════════════════════════════════════════════════════════════
+            # CLASSE 2 - COMPTES D'ACTIF IMMOBILISÉ
+            # ═══════════════════════════════════════════════════════════════
+            {
+                "code": "2",
+                "labels": {
+                    "fr": "Comptes d'actif immobilisé",
+                    "en": "Fixed assets accounts",
+                },
+                "type": "ACTIF",
+                "classe": 2,
+                "parent": None,
+            },
+            {
+                "code": "21",
+                "labels": {
+                    "fr": "Immobilisations incorporelles",
+                    "en": "Intangible assets",
+                },
+                "type": "ACTIF",
+                "classe": 2,
+                "parent": "2",
+            },
+            {
+                "code": "211",
+                "labels": {
+                    "fr": "Frais de développement",
+                    "en": "Development costs",
+                },
+                "type": "ACTIF",
+                "classe": 2,
+                "parent": "21",
+                "imputable": True,
+            },
+            {
+                "code": "22",
+                "labels": {
+                    "fr": "Terrains",
+                    "en": "Land",
+                },
+                "type": "ACTIF",
+                "classe": 2,
+                "parent": "2",
+            },
+            {
+                "code": "221",
+                "labels": {
+                    "fr": "Terrains agricoles et forestiers",
+                    "en": "Agricultural and forest land",
+                },
+                "type": "ACTIF",
+                "classe": 2,
+                "parent": "22",
+                "imputable": True,
+            },
+            {
+                "code": "23",
+                "labels": {
+                    "fr": "Bâtiments, installations techniques et agencements",
+                    "en": "Buildings, technical installations and fixtures",
+                },
+                "type": "ACTIF",
+                "classe": 2,
+                "parent": "2",
+            },
+            {
+                "code": "231",
+                "labels": {
+                    "fr": "Bâtiments industriels",
+                    "en": "Industrial buildings",
+                },
+                "type": "ACTIF",
+                "classe": 2,
+                "parent": "23",
+                "imputable": True,
+            },
+            {
+                "code": "24",
+                "labels": {
+                    "fr": "Matériel",
+                    "en": "Equipment",
+                },
+                "type": "ACTIF",
+                "classe": 2,
+                "parent": "2",
+            },
+            {
+                "code": "241",
+                "labels": {
+                    "fr": "Matériel et outillage industriel",
+                    "en": "Industrial equipment and tools",
+                },
+                "type": "ACTIF",
+                "classe": 2,
+                "parent": "24",
+                "imputable": True,
+            },
+
+            # ═══════════════════════════════════════════════════════════════
+            # CLASSE 3 - COMPTES DE STOCKS
+            # ═══════════════════════════════════════════════════════════════
+            {
+                "code": "3",
+                "labels": {
+                    "fr": "Comptes de stocks",
+                    "en": "Inventory accounts",
+                },
+                "type": "ACTIF",
+                "classe": 3,
+                "parent": None,
+            },
+            {
+                "code": "31",
+                "labels": {
+                    "fr": "Marchandises",
+                    "en": "Goods",
+                },
+                "type": "ACTIF",
+                "classe": 3,
+                "parent": "3",
+            },
+            {
+                "code": "311",
+                "labels": {
+                    "fr": "Marchandises A",
+                    "en": "Goods A",
+                },
+                "type": "ACTIF",
+                "classe": 3,
+                "parent": "31",
+                "imputable": True,
+            },
+            {
+                "code": "32",
+                "labels": {
+                    "fr": "Matières premières et fournitures liées",
+                    "en": "Raw materials and related supplies",
+                },
+                "type": "ACTIF",
+                "classe": 3,
+                "parent": "3",
+            },
+            {
+                "code": "321",
+                "labels": {
+                    "fr": "Matières premières",
+                    "en": "Raw materials",
+                },
+                "type": "ACTIF",
+                "classe": 3,
+                "parent": "32",
+                "imputable": True,
+            },
+
+            # ═══════════════════════════════════════════════════════════════
+            # CLASSE 4 - COMPTES DE TIERS
+            # ═══════════════════════════════════════════════════════════════
+            {
+                "code": "4",
+                "labels": {
+                    "fr": "Comptes de tiers",
+                    "en": "Third-party accounts",
+                },
+                "type": "ACTIF",
+                "classe": 4,
+                "parent": None,
+            },
+            {
+                "code": "40",
+                "labels": {
+                    "fr": "Fournisseurs et comptes rattachés",
+                    "en": "Suppliers and related accounts",
+                },
+                "type": "PASSIF",
+                "classe": 4,
+                "parent": "4",
+            },
+            {
+                "code": "401",
+                "labels": {
+                    "fr": "Fournisseurs, dettes en compte",
+                    "en": "Suppliers, account payables",
+                },
+                "type": "PASSIF",
+                "classe": 4,
+                "parent": "40",
+                "imputable": True,
+                "lettrable": True,
+            },
+            {
+                "code": "41",
+                "labels": {
+                    "fr": "Clients et comptes rattachés",
+                    "en": "Customers and related accounts",
+                },
+                "type": "ACTIF",
+                "classe": 4,
+                "parent": "4",
+            },
+            {
+                "code": "411",
+                "labels": {
+                    "fr": "Clients",
+                    "en": "Customers",
+                },
+                "type": "ACTIF",
+                "classe": 4,
+                "parent": "41",
+                "imputable": True,
+                "lettrable": True,
+            },
+            {
+                "code": "44",
+                "labels": {
+                    "fr": "État et collectivités publiques",
+                    "en": "Government and public entities",
+                },
+                "type": "PASSIF",
+                "classe": 4,
+                "parent": "4",
+            },
+            {
+                "code": "443",
+                "labels": {
+                    "fr": "État, TVA collectée",
+                    "en": "State, VAT collected",
+                },
+                "type": "PASSIF",
+                "classe": 4,
+                "parent": "44",
+                "imputable": True,
+                "soumis_tva": True,
+            },
+            {
+                "code": "445",
+                "labels": {
+                    "fr": "État, TVA récupérable",
+                    "en": "State, recoverable VAT",
+                },
+                "type": "ACTIF",
+                "classe": 4,
+                "parent": "44",
+                "imputable": True,
+                "soumis_tva": True,
+            },
+
+            # ═══════════════════════════════════════════════════════════════
+            # CLASSE 5 - COMPTES DE TRÉSORERIE
+            # ═══════════════════════════════════════════════════════════════
+            {
+                "code": "5",
+                "labels": {
+                    "fr": "Comptes de trésorerie",
+                    "en": "Cash accounts",
+                },
+                "type": "ACTIF",
+                "classe": 5,
+                "parent": None,
+            },
+            {
+                "code": "52",
+                "labels": {
+                    "fr": "Banques",
+                    "en": "Banks",
+                },
+                "type": "ACTIF",
+                "classe": 5,
+                "parent": "5",
+            },
+            {
+                "code": "521",
+                "labels": {
+                    "fr": "Banques locales",
+                    "en": "Local banks",
+                },
+                "type": "ACTIF",
+                "classe": 5,
+                "parent": "52",
+                "imputable": True,
+            },
+            {
+                "code": "57",
+                "labels": {
+                    "fr": "Caisse",
+                    "en": "Cash on hand",
+                },
+                "type": "ACTIF",
+                "classe": 5,
+                "parent": "5",
+            },
+            {
+                "code": "571",
+                "labels": {
+                    "fr": "Caisse siège social",
+                    "en": "Head office cash",
+                },
+                "type": "ACTIF",
+                "classe": 5,
+                "parent": "57",
+                "imputable": True,
+            },
+
+            # ═══════════════════════════════════════════════════════════════
+            # CLASSE 6 - COMPTES DE CHARGES DES ACTIVITÉS ORDINAIRES
+            # ═══════════════════════════════════════════════════════════════
+            {
+                "code": "6",
+                "labels": {
+                    "fr": "Comptes de charges des activités ordinaires",
+                    "en": "Operating expense accounts",
+                },
+                "type": "CHARGE",
+                "classe": 6,
+                "parent": None,
+            },
+            {
+                "code": "60",
+                "labels": {
+                    "fr": "Achats et variations de stocks",
+                    "en": "Purchases and inventory changes",
+                },
+                "type": "CHARGE",
+                "classe": 6,
+                "parent": "6",
+            },
+            {
+                "code": "601",
+                "labels": {
+                    "fr": "Achats de marchandises",
+                    "en": "Purchase of goods",
+                },
+                "type": "CHARGE",
+                "classe": 6,
+                "parent": "60",
+                "imputable": True,
+            },
+            {
+                "code": "66",
+                "labels": {
+                    "fr": "Charges de personnel",
+                    "en": "Personnel expenses",
+                },
+                "type": "CHARGE",
+                "classe": 6,
+                "parent": "6",
+            },
+            {
+                "code": "661",
+                "labels": {
+                    "fr": "Rémunérations directes",
+                    "en": "Direct compensation",
+                },
+                "type": "CHARGE",
+                "classe": 6,
+                "parent": "66",
+                "imputable": True,
+            },
+            {
+                "code": "68",
+                "labels": {
+                    "fr": "Dotations aux amortissements",
+                    "en": "Depreciation charges",
+                },
+                "type": "CHARGE",
+                "classe": 6,
+                "parent": "6",
+            },
+            {
+                "code": "681",
+                "labels": {
+                    "fr": "Dotations aux amortissements d'exploitation",
+                    "en": "Operating depreciation charges",
+                },
+                "type": "CHARGE",
+                "classe": 6,
+                "parent": "68",
+                "imputable": True,
+            },
+
+            # ═══════════════════════════════════════════════════════════════
+            # CLASSE 7 - COMPTES DE PRODUITS DES ACTIVITÉS ORDINAIRES
+            # ═══════════════════════════════════════════════════════════════
+            {
+                "code": "7",
+                "labels": {
+                    "fr": "Comptes de produits des activités ordinaires",
+                    "en": "Operating income accounts",
+                },
+                "type": "PRODUIT",
+                "classe": 7,
+                "parent": None,
+            },
+            {
+                "code": "70",
+                "labels": {
+                    "fr": "Ventes",
+                    "en": "Sales",
+                },
+                "type": "PRODUIT",
+                "classe": 7,
+                "parent": "7",
+            },
+            {
+                "code": "701",
+                "labels": {
+                    "fr": "Ventes de marchandises",
+                    "en": "Sales of goods",
+                },
+                "type": "PRODUIT",
+                "classe": 7,
+                "parent": "70",
+                "imputable": True,
+                "soumis_tva": True,
+            },
+            {
+                "code": "706",
+                "labels": {
+                    "fr": "Services vendus",
+                    "en": "Services sold",
+                },
+                "type": "PRODUIT",
+                "classe": 7,
+                "parent": "70",
+                "imputable": True,
+                "soumis_tva": True,
+            },
+            {
+                "code": "71",
+                "labels": {
+                    "fr": "Subventions d'exploitation",
+                    "en": "Operating subsidies",
+                },
+                "type": "PRODUIT",
+                "classe": 7,
+                "parent": "7",
+            },
+            {
+                "code": "711",
+                "labels": {
+                    "fr": "Subventions d'exploitation reçues",
+                    "en": "Operating subsidies received",
+                },
+                "type": "PRODUIT",
+                "classe": 7,
+                "parent": "71",
+                "imputable": True,
+            },
+
+            # ═══════════════════════════════════════════════════════════════
+            # CLASSE 8 - COMPTES DES AUTRES CHARGES ET PRODUITS
+            # ═══════════════════════════════════════════════════════════════
+            {
+                "code": "8",
+                "labels": {
+                    "fr": "Comptes des autres charges et produits",
+                    "en": "Other charges and income accounts",
+                },
+                "type": "CHARGE",
+                "classe": 8,
+                "parent": None,
+            },
+            {
+                "code": "81",
+                "labels": {
+                    "fr": "Valeurs comptables des cessions d'immobilisations",
+                    "en": "Book values of asset disposals",
+                },
+                "type": "CHARGE",
+                "classe": 8,
+                "parent": "8",
+            },
+            {
+                "code": "811",
+                "labels": {
+                    "fr": "Valeurs comptables des cessions d'immobilisations incorporelles",
+                    "en": "Book values of intangible asset disposals",
+                },
+                "type": "CHARGE",
+                "classe": 8,
+                "parent": "81",
+                "imputable": True,
+            },
+            {
+                "code": "82",
+                "labels": {
+                    "fr": "Produits des cessions d'immobilisations",
+                    "en": "Proceeds from asset disposals",
+                },
+                "type": "PRODUIT",
+                "classe": 8,
+                "parent": "8",
+            },
+            {
+                "code": "821",
+                "labels": {
+                    "fr": "Produits des cessions d'immobilisations incorporelles",
+                    "en": "Proceeds from intangible asset disposals",
+                },
+                "type": "PRODUIT",
+                "classe": 8,
+                "parent": "82",
+                "imputable": True,
+            },
+            {
+                "code": "89",
+                "labels": {
+                    "fr": "Impôts sur le résultat",
+                    "en": "Income taxes",
+                },
+                "type": "CHARGE",
+                "classe": 8,
+                "parent": "8",
+            },
+            {
+                "code": "891",
+                "labels": {
+                    "fr": "Impôts sur les bénéfices de l'exercice",
+                    "en": "Income tax expense",
+                },
+                "type": "CHARGE",
+                "classe": 8,
+                "parent": "89",
+                "imputable": True,
+            },
+        ]
+
+    def _create_accounts(self, plan, type_plan, accounts_data, force_update=False):
         """Crée les comptes avec hiérarchie et traductions"""
+
+        # Récupérer les classes pour ce type de plan
+        classes_map = {
+            c.numero: c for c in ClasseComptable.objects.filter(type_plan=type_plan)
+        }
 
         # Créer d'abord une map code -> account pour la hiérarchie
         code_to_account = {}
@@ -2307,22 +1540,27 @@ class Command(BaseCommand):
             # Trouver le parent
             parent_account = code_to_account.get(parent_code) if parent_code else None
 
+            # Trouver la classe comptable
+            classe_num = account_data.get("classe", int(code[0]) if code else 1)
+            classe_comptable = classes_map.get(classe_num)
+
             # Préparer les données
             defaults = {
                 "libelle_fr": labels.get("fr", ""),
-                "libelle_de": labels.get("de", ""),
-                "libelle_it": labels.get("it", ""),
-                "libelle_en": labels.get("en", ""),
+                "libelle_de": labels.get("de", labels.get("fr", "")),
+                "libelle_it": labels.get("it", labels.get("fr", "")),
+                "libelle_en": labels.get("en", labels.get("fr", "")),
                 "libelle_court_fr": labels.get("fr", "")[:100],
-                "libelle_court_de": labels.get("de", "")[:100],
-                "libelle_court_it": labels.get("it", "")[:100],
-                "libelle_court_en": labels.get("en", "")[:100],
+                "libelle_court_de": labels.get("de", labels.get("fr", ""))[:100],
+                "libelle_court_it": labels.get("it", labels.get("fr", ""))[:100],
+                "libelle_court_en": labels.get("en", labels.get("fr", ""))[:100],
                 "type_compte": account_data.get("type", "ACTIF"),
-                "classe": account_data.get("classe", 1),
+                "classe": classe_num,
+                "classe_comptable": classe_comptable,
                 "niveau": len(code),
                 "compte_parent": parent_account,
                 "est_collectif": len(code) <= 2,
-                "imputable": account_data.get("imputable", len(code) >= 4),
+                "imputable": account_data.get("imputable", len(code) >= 3),
                 "lettrable": account_data.get("lettrable", False),
                 "soumis_tva": account_data.get("soumis_tva", False),
                 "code_tva_defaut": account_data.get("code_tva_defaut", ""),
@@ -2336,9 +1574,9 @@ class Command(BaseCommand):
 
             if created:
                 created_count += 1
-                self.stdout.write(f"  ✓ {code} - {labels['fr']}")
+                self.stdout.write(f"  ✓ {code} - {labels.get('fr', '')}")
             elif force_update:
                 updated_count += 1
-                self.stdout.write(f"  ↻ {code} - {labels['fr']}")
+                self.stdout.write(f"  ↻ {code} - {labels.get('fr', '')}")
 
         return created_count, updated_count

@@ -1,8 +1,9 @@
 # documents/search.py
 """
-Service de recherche sémantique pour les documents.
+Service de recherche semantique pour les documents.
 
 Combine recherche classique (full-text) et recherche vectorielle (PGVector).
+Utilise le SDK AltiusOne AI pour la generation d'embeddings 768D.
 """
 import logging
 from typing import List, Dict, Any, Optional, Tuple
@@ -433,14 +434,8 @@ class DocumentSearchService:
         return chunks
 
     def _get_model_name(self) -> str:
-        """Retourne le nom du modèle d'embedding utilisé."""
-        if self.embedding_service.backend == 'openai':
-            model = self.embedding_service.openai_model
-            if 'small' in model:
-                return 'openai-small'
-            elif 'large' in model:
-                return 'openai-large'
-        return 'multilingual-mini'
+        """Retourne le nom du modele d'embedding utilise."""
+        return self.embedding_service.model_name
 
     def reindex_all_documents(self, mandat_id: Optional[str] = None, batch_size: int = 100):
         """

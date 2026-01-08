@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Configurations Email" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h3>{% trans "Configurations Email" %}</h3>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}"><i class="ti ti-home"></i></a></li>
+                        <li class="breadcrumb-item active">{% trans "Configurations Email" %}</li>
+                    </ol>
+                </div>
+                <div class="page-header-right">
+                    <a href="{% url 'mailing:configuration-create' %}" class="btn btn-primary">
+                        <i class="ti ti-plus me-2"></i>{% trans "Nouvelle configuration" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="avatar avatar-lg bg-primary me-3">
+                            <span class="avatar-text"><i class="ti ti-mail-cog"></i></span>
+                        </div>
+                        <div>
+                            <h4 class="mb-0">{{ configurations.count }}</h4>
+                            <span class="text-muted">{% trans "Total" %}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="avatar avatar-lg bg-success me-3">
+                            <span class="avatar-text"><i class="ti ti-check"></i></span>
+                        </div>
+                        <div>
+                            <h4 class="mb-0">{{ configurations|length }}</h4>
+                            <span class="text-muted">{% trans "Actives" %}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="avatar avatar-lg bg-info me-3">
+                            <span class="avatar-text"><i class="ti ti-send"></i></span>
+                        </div>
+                        <div>
+                            <h4 class="mb-0">{% for c in configurations %}{% if c.type_config == 'SMTP' %}1{% endif %}{% endfor %}</h4>
+                            <span class="text-muted">{% trans "SMTP" %}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="avatar avatar-lg bg-warning me-3">
+                            <span class="avatar-text"><i class="ti ti-inbox"></i></span>
+                        </div>
+                        <div>
+                            <h4 class="mb-0">{% for c in configurations %}{% if c.type_config == 'IMAP' %}1{% endif %}{% endfor %}</h4>
+                            <span class="text-muted">{% trans "IMAP" %}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Liste des configurations" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "Nom" %}</th>
+                                    <th>{% trans "Type" %}</th>
+                                    <th>{% trans "Usage" %}</th>
+                                    <th>{% trans "Adresse email" %}</th>
+                                    <th>{% trans "Serveur" %}</th>
+                                    <th>{% trans "Defaut" %}</th>
+                                    <th>{% trans "Statut" %}</th>
+                                    <th>{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for config in configurations %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'mailing:configuration-detail' config.pk %}">
+                                            <strong>{{ config.nom }}</strong>
+                                        </a>
+                                    </td>
+                                    <td>
+                                        {% if config.type_config == 'SMTP' %}
+                                        <span class="badge bg-info">SMTP</span>
+                                        {% elif config.type_config == 'IMAP' %}
+                                        <span class="badge bg-warning">IMAP</span>
+                                        {% else %}
+                                        <span class="badge bg-primary">SMTP + IMAP</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ config.get_usage_display }}</td>
+                                    <td>{{ config.email_address }}</td>
+                                    <td>
+                                        {% if config.type_config == 'SMTP' or config.type_config == 'BOTH' %}
+                                        {{ config.smtp_host }}:{{ config.smtp_port }}
+                                        {% else %}
+                                        {{ config.imap_host }}:{{ config.imap_port }}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if config.est_defaut %}
+                                        <span class="badge bg-success"><i class="ti ti-star"></i></span>
+                                        {% else %}
+                                        <span class="badge bg-secondary"><i class="ti ti-star-off"></i></span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if config.actif %}
+                                        <span class="badge bg-success">{% trans "Actif" %}</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">{% trans "Inactif" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'mailing:configuration-detail' config.pk %}" class="btn btn-outline-primary" title="{% trans 'Voir' %}">
+                                                <i class="ti ti-eye"></i>
+                                            </a>
+                                            <a href="{% url 'mailing:configuration-update' config.pk %}" class="btn btn-outline-secondary" title="{% trans 'Modifier' %}">
+                                                <i class="ti ti-edit"></i>
+                                            </a>
+                                            <form method="post" action="{% url 'mailing:configuration-test' config.pk %}" class="d-inline">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-outline-info" title="{% trans 'Tester' %}">
+                                                    <i class="ti ti-plug"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted py-4">
+                                        <i class="ti ti-mail-off f-s-48 mb-3 d-block"></i>
+                                        {% trans "Aucune configuration email trouvee" %}
+                                        <br>
+                                        <a href="{% url 'mailing:configuration-create' %}" class="btn btn-primary btn-sm mt-3">
+                                            <i class="ti ti-plus me-2"></i>{% trans "Creer une configuration" %}
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

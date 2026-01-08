@@ -12,7 +12,7 @@ from django.views.generic import (
 )
 from django_filters.views import FilterView
 from django.db.models import Q, Count, Sum, Avg, F, Max, Min, Prefetch
-from django.urls import reverse_lazy
+from django.urls import reverse_lazy, reverse
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
 from django.utils.translation import gettext_lazy as _
@@ -27,6 +27,8 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
 
 from .models import (
+    TypePlanComptable,
+    ClasseComptable,
     PlanComptable,
     Compte,
     Journal,
@@ -51,14 +53,119 @@ from .filters import (
 from core.models import Mandat, ExerciceComptable
 
 
-# ============ PLANS COMPTABLES ============
+# ============================================================================
+# TYPES DE PLANS COMPTABLES (PME, OHADA, Swiss GAAP, etc.)
+# ============================================================================
+
+
+class TypePlanComptableListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+    """
+    Liste des types de plans comptables disponibles.
+
+    Page principale qui affiche les différents standards comptables:
+    - PME Suisse
+    - OHADA (Afrique)
+    - Swiss GAAP RPC
+    - etc.
+    """
+
+    model = TypePlanComptable
+    template_name = "comptabilite/type_plan_list.html"
+    context_object_name = "types_plans"
+    business_permission = 'comptabilite.view_plan_comptable'
+
+    def get_queryset(self):
+        return TypePlanComptable.objects.filter(is_active=True).annotate(
+            nb_classes=Count('classes'),
+            nb_plans=Count('plans'),
+            nb_plans_templates=Count('plans', filter=Q(plans__is_template=True)),
+        ).order_by('ordre', 'code')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['stats'] = {
+            'total_types': TypePlanComptable.objects.filter(is_active=True).count(),
+            'total_plans': PlanComptable.objects.count(),
+            'total_templates': PlanComptable.objects.filter(is_template=True).count(),
+        }
+        return context
+
+
+class TypePlanComptableDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
+    """
+    Détail d'un type de plan comptable.
+
+    Affiche:
+    - Les classes comptables du standard
+    - Les plans comptables utilisant ce type
+    - Les templates disponibles
+    """
+
+    model = TypePlanComptable
+    template_name = "comptabilite/type_plan_detail.html"
+    context_object_name = "type_plan"
+    business_permission = 'comptabilite.view_plan_comptable'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        type_plan = self.object
+
+        # Classes comptables de ce type
+        context['classes'] = type_plan.classes.order_by('numero')
+
+        # Plans utilisant ce type
+        context['plans'] = type_plan.plans.select_related('mandat').annotate(
+            nb_comptes=Count('comptes')
+        ).order_by('-is_template', '-created_at')
+
+        # Templates disponibles
+        context['templates'] = type_plan.plans.filter(is_template=True).annotate(
+            nb_comptes=Count('comptes')
+        )
+
+        # Stats
+        context['stats'] = {
+            'nb_classes': type_plan.classes.count(),
+            'nb_plans': type_plan.plans.count(),
+            'nb_templates': type_plan.plans.filter(is_template=True).count(),
+            'nb_mandats': type_plan.plans.filter(is_template=False).count(),
+        }
+
+        return context
+
+
+class ClasseComptableListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+    """
+    Liste des classes comptables pour un type de plan.
+    """
+
+    model = ClasseComptable
+    template_name = "comptabilite/classe_list.html"
+    context_object_name = "classes"
+    business_permission = 'comptabilite.view_plan_comptable'
+
+    def get_queryset(self):
+        type_pk = self.kwargs.get('pk')
+        return ClasseComptable.objects.filter(
+            type_plan_id=type_pk,
+            is_active=True
+        ).annotate(
+            nb_comptes=Count('comptes')
+        ).order_by('numero')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        type_pk = self.kwargs.get('pk')
+        context['type_plan'] = get_object_or_404(TypePlanComptable, pk=type_pk)
+        return context
+
+
+# ============================================================================
+# PLANS COMPTABLES (instances pour mandats)
+# ============================================================================
 
 
 from .filters import PlanComptableFilter
-
-
-
-# comptabilite/views.py
 
 
 class PlanComptableListView(LoginRequiredMixin, BusinessPermissionMixin, FilterView):
@@ -72,9 +179,14 @@ class PlanComptableListView(LoginRequiredMixin, BusinessPermissionMixin, FilterV
     business_permission = 'comptabilite.view_plan_comptable'
 
     def get_queryset(self):
-        queryset = PlanComptable.objects.select_related("mandat").annotate(
+        queryset = PlanComptable.objects.select_related("mandat", "type_plan").annotate(
             nb_comptes=Count("comptes")
         )
+
+        # Filtrer par type si spécifié dans l'URL
+        type_pk = self.kwargs.get('type_pk')
+        if type_pk:
+            queryset = queryset.filter(type_plan_id=type_pk)
 
         return queryset.order_by("-created_at")
 
@@ -89,6 +201,16 @@ class PlanComptableListView(LoginRequiredMixin, BusinessPermissionMixin, FilterV
             "templates": filtered_qs.filter(is_template=True).count(),
             "instances": filtered_qs.filter(is_template=False).count(),
         }
+
+        # Ajouter le type de plan si filtré
+        type_pk = self.kwargs.get('type_pk')
+        if type_pk:
+            context['type_plan'] = get_object_or_404(TypePlanComptable, pk=type_pk)
+
+        # Liste des types pour le filtre
+        context['types_plans'] = TypePlanComptable.objects.filter(
+            is_active=True
+        ).order_by('ordre')
 
         return context
     
@@ -692,7 +814,426 @@ class PieceComptableDetailView(LoginRequiredMixin, BusinessPermissionMixin, Deta
         # Recalculer l'équilibre
         piece.calculer_equilibre()
 
+        # Documents justificatifs
+        context["documents"] = piece.documents_justificatifs.all()
+
         return context
+
+
+class PieceComptableCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView):
+    """Création d'une pièce comptable avec upload de documents"""
+
+    model = PieceComptable
+    form_class = PieceComptableForm
+    template_name = "comptabilite/piece_form.html"
+    business_permission = 'comptabilite.add_ecritures'
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        # Passer le mandat initial pour le filtrage des journaux/dossiers
+        mandat_id = self.request.GET.get('mandat')
+        if mandat_id:
+            try:
+                kwargs['mandat'] = Mandat.objects.get(pk=mandat_id)
+            except Mandat.DoesNotExist:
+                pass
+        return kwargs
+
+    def get_initial(self):
+        initial = super().get_initial()
+        from datetime import date
+        initial['date_piece'] = date.today()
+        # Pré-sélectionner le mandat si fourni en paramètre
+        mandat_id = self.request.GET.get('mandat')
+        if mandat_id:
+            initial['mandat'] = mandat_id
+        return initial
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = _("Nouvelle pièce comptable")
+        context['submit_text'] = _("Créer la pièce")
+        return context
+
+    def form_valid(self, form):
+        from django.contrib import messages
+        from documents.models import Document
+        from documents.storage import storage_service
+
+        # Sauvegarder la pièce
+        piece = form.save(commit=False)
+        piece.created_by = self.request.user
+        piece.save()
+        form.save_m2m()
+        self.object = piece  # Nécessaire pour get_success_url()
+
+        # Traiter les fichiers uploadés
+        fichiers = self.request.FILES.getlist('fichiers')
+        documents_crees = []
+
+        for fichier in fichiers:
+            try:
+                # Créer le document
+                document = Document(
+                    mandat=piece.mandat,
+                    dossier=piece.dossier,
+                    nom_fichier=fichier.name,
+                    type_mime=fichier.content_type,
+                    taille=fichier.size,
+                    created_by=self.request.user,
+                )
+
+                # Upload vers le stockage
+                upload_result = storage_service.upload_fichier(
+                    file_obj=fichier,
+                    filename=fichier.name,
+                    mandat_id=str(piece.mandat.id)
+                )
+
+                if not upload_result['success']:
+                    raise Exception(', '.join(upload_result.get('errors', ['Erreur upload'])))
+
+                document.path_storage = upload_result['path']
+                document.hash_fichier = upload_result['hash']
+
+                document.save()
+                documents_crees.append(document)
+
+                # Lancer le traitement OCR en arrière-plan
+                from documents.tasks import traiter_document_ocr
+                traiter_document_ocr.delay(str(document.id))
+
+            except Exception as e:
+                messages.warning(
+                    self.request,
+                    _("Erreur lors de l'upload de %(filename)s: %(error)s") % {
+                        'filename': fichier.name,
+                        'error': str(e)
+                    }
+                )
+
+        # Associer les documents à la pièce
+        if documents_crees:
+            piece.documents_justificatifs.add(*documents_crees)
+            messages.success(
+                self.request,
+                _("%(count)d document(s) ajouté(s) à la pièce") % {
+                    'count': len(documents_crees)
+                }
+            )
+
+        messages.success(
+            self.request,
+            _("Pièce comptable %(numero)s créée avec succès") % {
+                'numero': piece.numero_piece
+            }
+        )
+
+        return redirect(self.get_success_url())
+
+    def get_success_url(self):
+        return reverse('comptabilite:piece-detail', kwargs={'pk': self.object.pk})
+
+
+class PieceComptableUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateView):
+    """Modification d'une pièce comptable"""
+
+    model = PieceComptable
+    form_class = PieceComptableForm
+    template_name = "comptabilite/piece_form.html"
+    context_object_name = "piece"
+    business_permission = 'comptabilite.change_ecritures'
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = _("Modifier la pièce %(numero)s") % {
+            'numero': self.object.numero_piece
+        }
+        context['submit_text'] = _("Enregistrer les modifications")
+        context['documents'] = self.object.documents_justificatifs.all()
+        return context
+
+    def form_valid(self, form):
+        from django.contrib import messages
+        from documents.models import Document
+        from documents.storage import storage_service
+
+        piece = form.save()
+
+        # Traiter les nouveaux fichiers uploadés
+        fichiers = self.request.FILES.getlist('fichiers')
+        documents_crees = []
+
+        for fichier in fichiers:
+            try:
+                document = Document(
+                    mandat=piece.mandat,
+                    dossier=piece.dossier,
+                    nom_fichier=fichier.name,
+                    type_mime=fichier.content_type,
+                    taille=fichier.size,
+                    created_by=self.request.user,
+                )
+
+                path = storage_service.upload_file(
+                    fichier,
+                    f"pieces/{piece.mandat.id}/{piece.id}/"
+                )
+                document.path_storage = path
+
+                import hashlib
+                fichier.seek(0)
+                document.hash_fichier = hashlib.sha256(fichier.read()).hexdigest()
+                fichier.seek(0)
+
+                document.save()
+                documents_crees.append(document)
+
+                from documents.tasks import traiter_document_ocr
+                traiter_document_ocr.delay(str(document.id))
+
+            except Exception as e:
+                messages.warning(
+                    self.request,
+                    _("Erreur lors de l'upload de %(filename)s: %(error)s") % {
+                        'filename': fichier.name,
+                        'error': str(e)
+                    }
+                )
+
+        if documents_crees:
+            piece.documents_justificatifs.add(*documents_crees)
+            messages.success(
+                self.request,
+                _("%(count)d document(s) ajouté(s)") % {'count': len(documents_crees)}
+            )
+
+        messages.success(self.request, _("Pièce comptable mise à jour"))
+        return redirect(self.get_success_url())
+
+    def get_success_url(self):
+        return reverse('comptabilite:piece-detail', kwargs={'pk': self.object.pk})
+
+
+@login_required
+def piece_ajouter_document(request, pk):
+    """Ajouter un document justificatif à une pièce existante (AJAX)"""
+    from django.http import JsonResponse
+    from documents.models import Document
+    from documents.storage import storage_service
+
+    piece = get_object_or_404(PieceComptable, pk=pk)
+
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    fichier = request.FILES.get('fichier')
+    if not fichier:
+        return JsonResponse({'error': 'No file provided'}, status=400)
+
+    try:
+        document = Document(
+            mandat=piece.mandat,
+            dossier=piece.dossier,
+            nom_fichier=fichier.name,
+            type_mime=fichier.content_type,
+            taille=fichier.size,
+            created_by=request.user,
+        )
+
+        path = storage_service.upload_file(
+            fichier,
+            f"pieces/{piece.mandat.id}/{piece.id}/"
+        )
+        document.path_storage = path
+
+        import hashlib
+        fichier.seek(0)
+        document.hash_fichier = hashlib.sha256(fichier.read()).hexdigest()
+
+        document.save()
+        piece.documents_justificatifs.add(document)
+
+        # Lancer OCR
+        from documents.tasks import traiter_document_ocr
+        traiter_document_ocr.delay(str(document.id))
+
+        return JsonResponse({
+            'success': True,
+            'document': {
+                'id': str(document.id),
+                'nom': document.nom_fichier,
+                'type': document.type_mime,
+                'taille': document.taille,
+            }
+        })
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def piece_extraire_ocr(request, pk):
+    """Extrait les informations OCR et pré-remplit les champs de la pièce"""
+    from django.http import JsonResponse
+
+    piece = get_object_or_404(PieceComptable, pk=pk)
+
+    # Récupérer le premier document avec métadonnées OCR
+    document = piece.documents_justificatifs.filter(
+        metadata_extraite__isnull=False
+    ).exclude(metadata_extraite={}).first()
+
+    if not document:
+        return JsonResponse({
+            'success': False,
+            'message': _("Aucun document avec données OCR disponible")
+        })
+
+    metadata = document.metadata_extraite or {}
+
+    # Mapper les champs OCR vers les champs de la pièce
+    data = {
+        'reference_externe': metadata.get('numero_facture', ''),
+        'tiers_nom': metadata.get('fournisseur', '') or metadata.get('client', ''),
+        'tiers_numero_tva': metadata.get('numero_tva_fournisseur', '') or metadata.get('numero_tva', ''),
+        'montant_ht': metadata.get('montant_ht'),
+        'montant_tva': metadata.get('montant_tva'),
+        'montant_ttc': metadata.get('montant_ttc'),
+        'date_piece': metadata.get('date_facture') or metadata.get('date_document'),
+        'libelle': metadata.get('description', ''),
+    }
+
+    # Déterminer le type de pièce
+    doc_type = document.prediction_type or ''
+    type_mapping = {
+        'FACTURE_ACHAT': 'FACTURE_ACHAT',
+        'FACTURE_VENTE': 'FACTURE_VENTE',
+        'RELEVE_BANQUE': 'RELEVE_BANQUE',
+        'FICHE_SALAIRE': 'SALAIRE',
+        'DEVIS': 'AUTRE',
+    }
+    data['type_piece'] = type_mapping.get(doc_type, 'AUTRE')
+
+    # Mettre à jour la pièce si demandé
+    if request.method == 'POST' and request.POST.get('apply') == 'true':
+        for field, value in data.items():
+            if value and hasattr(piece, field):
+                setattr(piece, field, value)
+        piece.metadata_ocr = metadata
+        piece.save()
+        return JsonResponse({'success': True, 'applied': True, 'data': data})
+
+    return JsonResponse({'success': True, 'data': data})
+
+
+@login_required
+def piece_valider(request, pk):
+    """Valide une pièce comptable"""
+    from django.contrib import messages
+
+    piece = get_object_or_404(PieceComptable, pk=pk)
+
+    if request.method != 'POST':
+        return redirect('comptabilite:piece-detail', pk=pk)
+
+    try:
+        piece.valider(request.user)
+        messages.success(request, _("Pièce validée avec succès"))
+    except ValueError as e:
+        messages.error(request, str(e))
+
+    return redirect('comptabilite:piece-detail', pk=pk)
+
+
+# ============ API AJAX POUR FILTRAGE DYNAMIQUE ============
+
+
+@login_required
+def api_journaux_par_mandat(request, mandat_pk):
+    """Retourne les journaux d'un mandat (AJAX)"""
+    journaux = Journal.objects.filter(
+        mandat_id=mandat_pk,
+        is_active=True
+    ).order_by('code').values('id', 'code', 'libelle', 'type_journal')
+
+    return JsonResponse({
+        'journaux': [
+            {
+                'id': str(j['id']),
+                'code': j['code'],
+                'libelle': j['libelle'],
+                'display': f"{j['code']} - {j['libelle']}"
+            }
+            for j in journaux
+        ]
+    })
+
+
+@login_required
+def api_dossiers_par_mandat(request, mandat_pk):
+    """Retourne les dossiers d'un mandat (AJAX)
+
+    Retourne TOUS les dossiers accessibles pour ce mandat:
+    - Dossiers directement liés au mandat (mandat=mandat_pk)
+    - Dossiers liés au client du mandat (client=mandat.client_id)
+    """
+    from documents.models import Dossier
+    from django.db.models import Q
+
+    # Récupérer le mandat pour avoir accès au client
+    mandat = get_object_or_404(Mandat, pk=mandat_pk)
+
+    # Dossiers liés au mandat OU au client du mandat
+    dossiers = Dossier.objects.filter(
+        Q(mandat=mandat) | Q(client=mandat.client),
+        is_active=True
+    ).select_related('parent', 'mandat', 'mandat__client', 'client').order_by('chemin_complet')
+
+    return JsonResponse({
+        'dossiers': [
+            {
+                'id': str(d.id),
+                'nom': d.nom,
+                'chemin': d.chemin_complet,
+                # Affichage avec contexte pour éviter confusion entre dossiers homonymes
+                'display': d.get_path_display(include_context=True)
+            }
+            for d in dossiers
+        ]
+    })
+
+
+@login_required
+def api_types_pieces(request):
+    """Retourne les types de pièces comptables (AJAX)"""
+    from .models import TypePieceComptable
+
+    types = TypePieceComptable.objects.filter(
+        is_active=True
+    ).order_by('ordre', 'code').values(
+        'id', 'code', 'libelle', 'categorie', 'prefixe_numero'
+    )
+
+    return JsonResponse({
+        'types': [
+            {
+                'id': str(t['id']),
+                'code': t['code'],
+                'libelle': t['libelle'],
+                'categorie': t['categorie'],
+                'prefixe': t['prefixe_numero'],
+                'display': f"{t['code']} - {t['libelle']}"
+            }
+            for t in types
+        ]
+    })
 
 
 # ============ LETTRAGE ============

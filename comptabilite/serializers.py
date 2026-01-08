@@ -225,8 +225,190 @@ class EcritureComptableCreateSerializer(serializers.ModelSerializer):
         return attrs
 
 
+class TypePieceComptableSerializer(serializers.ModelSerializer):
+    """Serializer pour les types de pièces comptables"""
+
+    class Meta:
+        from .models import TypePieceComptable
+        model = TypePieceComptable
+        fields = [
+            "id",
+            "code",
+            "libelle",
+            "description",
+            "prefixe_numero",
+            "sens_defaut",
+            "ordre",
+            "is_active",
+        ]
+
+
+class PieceComptableListSerializer(serializers.ModelSerializer):
+    """Serializer léger pour liste de pièces comptables"""
+
+    mandat_numero = serializers.CharField(source="mandat.numero", read_only=True)
+    client_nom = serializers.CharField(
+        source="mandat.client.raison_sociale", read_only=True
+    )
+    journal_code = serializers.CharField(source="journal.code", read_only=True)
+    type_piece_code = serializers.CharField(source="type_piece.code", read_only=True)
+    type_piece_libelle = serializers.CharField(
+        source="type_piece.libelle", read_only=True
+    )
+    dossier_nom = serializers.CharField(source="dossier.nom", read_only=True)
+    nombre_documents = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PieceComptable
+        fields = [
+            "id",
+            "mandat",
+            "mandat_numero",
+            "client_nom",
+            "journal",
+            "journal_code",
+            "type_piece",
+            "type_piece_code",
+            "type_piece_libelle",
+            "numero_piece",
+            "date_piece",
+            "libelle",
+            "reference_externe",
+            "tiers_nom",
+            "montant_ht",
+            "montant_tva",
+            "montant_ttc",
+            "statut",
+            "dossier",
+            "dossier_nom",
+            "nombre_documents",
+            "created_at",
+        ]
+
+    def get_nombre_documents(self, obj):
+        return obj.documents.count() if hasattr(obj, 'documents') else 0
+
+
+class PieceComptableDetailSerializer(serializers.ModelSerializer):
+    """Serializer détaillé pour une pièce comptable"""
+
+    mandat_numero = serializers.CharField(source="mandat.numero", read_only=True)
+    client_nom = serializers.CharField(
+        source="mandat.client.raison_sociale", read_only=True
+    )
+    journal = JournalSerializer(read_only=True)
+    type_piece = TypePieceComptableSerializer(read_only=True)
+    dossier_chemin = serializers.CharField(
+        source="dossier.chemin_complet", read_only=True
+    )
+    valide_par_name = serializers.CharField(
+        source="valide_par.get_full_name", read_only=True
+    )
+    ecritures = EcritureComptableListSerializer(many=True, read_only=True)
+    documents = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PieceComptable
+        fields = [
+            "id",
+            "mandat",
+            "mandat_numero",
+            "client_nom",
+            "journal",
+            "type_piece",
+            "numero_piece",
+            "date_piece",
+            "libelle",
+            "reference_externe",
+            "tiers_nom",
+            "tiers_numero_tva",
+            "montant_ht",
+            "montant_tva",
+            "montant_ttc",
+            "total_debit",
+            "total_credit",
+            "equilibree",
+            "statut",
+            "dossier",
+            "dossier_chemin",
+            "notes",
+            "valide_par",
+            "valide_par_name",
+            "date_validation",
+            "ecritures",
+            "documents",
+            "created_at",
+            "updated_at",
+            "created_by",
+        ]
+
+    def get_documents(self, obj):
+        """Retourne les documents associés à cette pièce"""
+        from documents.serializers import DocumentListSerializer
+        if hasattr(obj, 'documents'):
+            return DocumentListSerializer(obj.documents.all(), many=True).data
+        return []
+
+
+class PieceComptableCreateSerializer(serializers.ModelSerializer):
+    """Serializer pour créer/modifier une pièce comptable"""
+
+    generer_numero = serializers.BooleanField(
+        write_only=True, required=False, default=True
+    )
+
+    class Meta:
+        model = PieceComptable
+        fields = [
+            "mandat",
+            "journal",
+            "type_piece",
+            "numero_piece",
+            "date_piece",
+            "libelle",
+            "reference_externe",
+            "tiers_nom",
+            "tiers_numero_tva",
+            "montant_ht",
+            "montant_tva",
+            "montant_ttc",
+            "dossier",
+            "notes",
+            "generer_numero",
+        ]
+
+    def validate(self, attrs):
+        generer = attrs.pop('generer_numero', True)
+        numero = attrs.get('numero_piece')
+
+        if not generer and not numero:
+            raise serializers.ValidationError({
+                'numero_piece': "Le numéro de pièce est obligatoire si la génération automatique est désactivée"
+            })
+
+        # Stocker pour utiliser dans create/update
+        self._generer_numero = generer
+        return attrs
+
+    def create(self, validated_data):
+        instance = PieceComptable(**validated_data)
+
+        if self._generer_numero and not instance.numero_piece:
+            if instance.date_piece:
+                instance.generer_numero()
+
+        instance.save()
+        return instance
+
+    def update(self, instance, validated_data):
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance
+
+
 class PieceComptableSerializer(serializers.ModelSerializer):
-    """Serializer pour les pièces comptables"""
+    """Serializer standard pour les pièces comptables (compatibilité)"""
 
     mandat_numero = serializers.CharField(source="mandat.numero", read_only=True)
     journal = JournalSerializer(read_only=True)

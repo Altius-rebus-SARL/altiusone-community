@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{% if object %}{% trans "Modifier" %} {{ object.nom }}{% else %}{% trans "Nouveau role" %}{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h3>{% if object %}{% trans "Modifier le role" %}{% else %}{% trans "Nouveau role" %}{% endif %}</h3>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}"><i class="ti ti-home"></i></a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'core:admin-dashboard' %}">{% trans "Administration" %}</a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'core:admin-role-list' %}">{% trans "Roles" %}</a></li>
+                        <li class="breadcrumb-item active">{% if object %}{{ object.code }}{% else %}{% trans "Nouveau" %}{% endif %}</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-xl-8">
+            <form method="post">
+                {% csrf_token %}
+                {{ form.permissions_custom }}
+
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {{ form.non_field_errors }}
+                </div>
+                {% endif %}
+
+                <!-- Basic Info -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5>{% trans "Informations de base" %}</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="id_code" class="form-label">{% trans "Code" %} *</label>
+                                {{ form.code }}
+                                {% if form.code.errors %}<div class="text-danger f-s-12">{{ form.code.errors|join:", " }}</div>{% endif %}
+                                <small class="text-muted">{% trans "Identifiant unique (ex: COMPTABLE)" %}</small>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label for="id_nom" class="form-label">{% trans "Nom" %} *</label>
+                                {{ form.nom }}
+                                {% if form.nom.errors %}<div class="text-danger f-s-12">{{ form.nom.errors|join:", " }}</div>{% endif %}
+                            </div>
+
+                            <div class="col-12 mb-3">
+                                <label for="id_description" class="form-label">{% trans "Description" %}</label>
+                                {{ form.description }}
+                                {% if form.description.errors %}<div class="text-danger f-s-12">{{ form.description.errors|join:", " }}</div>{% endif %}
+                            </div>
+
+                            <div class="col-md-4 mb-3">
+                                <label for="id_niveau" class="form-label">{% trans "Niveau de permission" %} *</label>
+                                {{ form.niveau }}
+                                {% if form.niveau.errors %}<div class="text-danger f-s-12">{{ form.niveau.errors|join:", " }}</div>{% endif %}
+                                <small class="text-muted">{% trans "0 (minimal) a 100 (maximal)" %}</small>
+                            </div>
+
+                            <div class="col-md-8 mb-3">
+                                <label class="form-label">&nbsp;</label>
+                                <div class="d-flex gap-4 mt-2">
+                                    <div class="form-check">
+                                        {{ form.peut_etre_assigne }}
+                                        <label class="form-check-label" for="id_peut_etre_assigne">
+                                            {% trans "Peut etre assigne" %}
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        {{ form.est_role_defaut }}
+                                        <label class="form-check-label" for="id_est_role_defaut">
+                                            {% trans "Role par defaut" %}
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        {{ form.actif }}
+                                        <label class="form-check-label" for="id_actif">
+                                            {% trans "Actif" %}
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Permissions -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5>{% trans "Permissions Django" %}</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="border rounded p-3" style="max-height: 400px; overflow-y: auto;">
+                            {{ form.permissions }}
+                        </div>
+                        {% if form.permissions.errors %}<div class="text-danger f-s-12">{{ form.permissions.errors|join:", " }}</div>{% endif %}
+                        <small class="text-muted">{% trans "Selectionnez les permissions a accorder a ce role" %}</small>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between">
+                    <a href="{% url 'core:admin-role-list' %}" class="btn btn-secondary">
+                        <i class="ti ti-arrow-left me-2"></i>{% trans "Retour" %}
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="ti ti-check me-2"></i>{% if object %}{% trans "Enregistrer" %}{% else %}{% trans "Creer" %}{% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Help -->
+        <div class="col-xl-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Aide" %}</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted f-s-14">
+                        <strong>{% trans "Niveau de permission" %}:</strong><br>
+                        {% trans "Determine la hierarchie. Un utilisateur ne peut assigner que des roles de niveau inferieur." %}
+                    </p>
+                    <p class="text-muted f-s-14 mt-3">
+                        <strong>{% trans "Peut etre assigne" %}:</strong><br>
+                        {% trans "Definit si ce role peut etre attribue a de nouveaux utilisateurs." %}
+                    </p>
+                    <p class="text-muted f-s-14 mt-3">
+                        <strong>{% trans "Role par defaut" %}:</strong><br>
+                        {% trans "Role attribue automatiquement aux nouveaux utilisateurs." %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

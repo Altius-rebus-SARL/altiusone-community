@@ -5,6 +5,27 @@
 
 {% block title %}{% trans "Dossiers" %}{% endblock %}
 
+{% block extra_css %}
+<style>
+    .folder-link {
+        cursor: pointer;
+        transition: transform 0.2s ease;
+    }
+    .folder-link:hover {
+        transform: scale(1.05);
+    }
+    .folder-link:hover i {
+        color: var(--bs-primary) !important;
+    }
+    .folder-card {
+        transition: box-shadow 0.2s ease;
+    }
+    .folder-card:hover {
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <!-- Breadcrumb -->
 <div class="row m-1">
@@ -169,15 +190,31 @@
                                     </div>
                                 </div>
 
-                                <div class="fileimage text-center">
+                                <a href="{% url 'documents:dossier-detail' dossier.pk %}" class="fileimage text-center d-block text-decoration-none folder-link">
                                     <i class="ph-duotone ph-folder text-primary" style="font-size: 64px;"></i>
-                                    <p class="mb-0 f-s-16 mt-2 f-w-600">{{ dossier.nom }}</p>
+                                    <p class="mb-0 f-s-16 mt-2 f-w-600 text-dark">{{ dossier.nom }}</p>
                                     {% if dossier.niveau > 0 %}
                                     <p class="text-muted f-s-12 mb-0">
                                         <i class="ph ph-folder-open me-1"></i>{{ dossier.parent.nom }}
                                     </p>
                                     {% endif %}
+                                </a>
+
+                                <!-- Mandat / Client pour différencier les dossiers -->
+                                {% if dossier.mandat or dossier.client %}
+                                <div class="text-center mt-2">
+                                    {% if dossier.mandat %}
+                                    <span class="badge bg-primary f-s-10">
+                                        <i class="ph ph-briefcase me-1"></i>{{ dossier.mandat.numero }}
+                                    </span>
+                                    {% endif %}
+                                    {% if dossier.client %}
+                                    <span class="badge bg-secondary f-s-10">
+                                        <i class="ph ph-user me-1"></i>{{ dossier.client.raison_sociale|truncatechars:20 }}
+                                    </span>
+                                    {% endif %}
                                 </div>
+                                {% endif %}
 
                                 <div class="app-divider-v dashed my-3"></div>
 

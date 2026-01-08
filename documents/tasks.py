@@ -1,6 +1,12 @@
 # documents/tasks.py
 """
-Tâches Celery pour le traitement asynchrone des documents.
+Taches Celery pour le traitement asynchrone des documents.
+
+Utilise le SDK AltiusOne AI pour:
+- OCR (extraction de texte)
+- Classification automatique
+- Extraction de metadonnees
+- Generation d'embeddings
 """
 import logging
 from celery import shared_task
@@ -11,88 +17,129 @@ logger = logging.getLogger(__name__)
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def traiter_document_ocr(self, document_id: str):
     """
-    Tâche Celery pour traiter un document via le service OCR externe.
+    Tache Celery pour traiter un document via le SDK AltiusOne AI.
+
+    Pipeline complet:
+    1. OCR (extraction texte)
+    2. Classification automatique
+    3. Extraction metadonnees
+    4. Generation embedding
 
     Args:
-        document_id: UUID du document à traiter
+        document_id: UUID du document a traiter
 
     Retries:
-        3 tentatives avec délai de 60 secondes entre chaque
+        3 tentatives avec delai de 60 secondes entre chaque
     """
     from documents.models import Document, TraitementDocument
     from documents.storage import storage_service
-    from documents.ocr_client import ocr_client, OCRServiceError
+    from documents.ai_service import ai_service, AIServiceError
     from django.utils import timezone
 
     try:
         document = Document.objects.get(id=document_id)
-        logger.info(f"Début traitement OCR document {document_id}: {document.nom_fichier}")
+        logger.info(f"Debut traitement AI document {document_id}: {document.nom_fichier}")
 
-        # Vérifier si le service OCR est disponible
-        if not ocr_client.enabled:
-            logger.warning(f"Service OCR désactivé, document {document_id} mis en attente")
-            return {'status': 'skipped', 'reason': 'OCR service disabled'}
+        # Verifier si le service AI est disponible
+        if not ai_service.enabled:
+            logger.warning(f"Service AI non configure, document {document_id} mis en attente")
+            return {'status': 'skipped', 'reason': 'AI service not configured'}
 
-        # Créer un enregistrement de traitement
+        # Creer un enregistrement de traitement
         traitement = TraitementDocument.objects.create(
             document=document,
             type_traitement='OCR',
             statut='EN_COURS',
-            moteur='Service OCR externe'
+            moteur='AltiusOne AI SDK'
         )
 
-        # Mettre à jour le statut du document
+        # Mettre a jour le statut du document
         document.statut_traitement = 'OCR_EN_COURS'
         document.save(update_fields=['statut_traitement'])
 
-        # Télécharger le fichier depuis le stockage
+        # Telecharger le fichier depuis le stockage
         content = storage_service.telecharger_fichier(document.path_storage)
         if content is None:
-            raise Exception(f"Impossible de télécharger le fichier: {document.path_storage}")
+            raise Exception(f"Impossible de telecharger le fichier: {document.path_storage}")
 
-        # Traitement complet via service OCR
-        result = ocr_client.traiter_document_complet(
+        # Traitement complet via SDK AltiusOne AI
+        result = ai_service.process_document(
             file_content=content,
             filename=document.nom_fichier,
             mime_type=document.mime_type,
-            mandat_id=str(document.mandat_id)
+            generate_embedding=True
         )
 
-        # Mettre à jour le document avec les résultats
-        document.ocr_text = result['ocr']['text']
-        document.ocr_confidence = result['ocr']['confidence']
-        document.prediction_type = result['classification']['type_document']
-        document.prediction_confidence = result['classification']['confidence']
-        document.tags_auto = result['classification']['tags']
-        document.metadata_extraite = result['metadata']
+        if not result['success'] and result['ocr'] is None:
+            raise AIServiceError(f"Echec OCR: {result['errors']}")
+
+        # Mettre a jour le document avec les resultats OCR
+        if result['ocr']:
+            document.ocr_text = result['ocr']['text']
+            document.ocr_confidence = result['ocr']['confidence']
+
+        # Classification
+        if result['classification']:
+            document.prediction_type = result['classification']['type_document']
+            document.prediction_confidence = result['classification']['confidence']
+            document.tags_auto = result['classification']['tags']
+
+        # Metadonnees
+        if result['metadata']:
+            document.metadata_extraite = result['metadata']
+
         document.statut_traitement = 'OCR_TERMINE'
         document.save()
 
-        # Mettre à jour le traitement
+        # Sauvegarder l'embedding
+        if result['embedding']:
+            from documents.models import DocumentEmbedding
+            import hashlib
+
+            text = document.ocr_text or document.description or document.nom_fichier
+            text_hash = hashlib.sha256(text.encode()).hexdigest()
+
+            DocumentEmbedding.objects.update_or_create(
+                document=document,
+                defaults={
+                    'embedding': result['embedding'],
+                    'model_used': 'altiusone-768',
+                    'dimensions': 768,
+                    'text_hash': text_hash,
+                    'text_length': len(text)
+                }
+            )
+
+        # Mettre a jour le traitement
         traitement.statut = 'TERMINE'
         traitement.date_fin = timezone.now()
-        traitement.resultat = result
-        traitement.duree_secondes = int(result.get('processing_time', 0))
+        traitement.resultat = {
+            'ocr_success': result['ocr'] is not None,
+            'classification': result['classification'],
+            'metadata_count': len(result['metadata']) if result['metadata'] else 0,
+            'embedding_generated': result['embedding'] is not None,
+            'errors': result['errors']
+        }
         traitement.save()
 
-        logger.info(f"Document {document_id} traité avec succès en {traitement.duree_secondes}s")
+        logger.info(f"Document {document_id} traite avec succes")
 
         return {
             'status': 'success',
             'document_id': str(document_id),
-            'type_document': result['classification']['type_document'],
-            'confidence': result['classification']['confidence'],
-            'processing_time': result.get('processing_time', 0)
+            'type_document': result['classification']['type_document'] if result['classification'] else None,
+            'confidence': result['classification']['confidence'] if result['classification'] else 0,
+            'embedding_generated': result['embedding'] is not None
         }
 
     except Document.DoesNotExist:
-        logger.error(f"Document {document_id} non trouvé")
+        logger.error(f"Document {document_id} non trouve")
         return {'status': 'error', 'reason': 'Document not found'}
 
-    except OCRServiceError as e:
-        logger.error(f"Erreur OCR pour document {document_id}: {e}")
+    except AIServiceError as e:
+        logger.error(f"Erreur AI pour document {document_id}: {e}")
 
-        # Mettre à jour le traitement si créé
+        # Mettre a jour le traitement si cree
         try:
             traitement.statut = 'ERREUR'
             traitement.erreur = str(e)
@@ -115,29 +162,34 @@ def traiter_document_ocr(self, document_id: str):
 @shared_task
 def traiter_documents_en_attente():
     """
-    Tâche périodique pour traiter les documents en attente d'OCR.
-    À planifier via Celery Beat (ex: toutes les 5 minutes).
+    Tache periodique pour traiter les documents en attente d'OCR.
+    A planifier via Celery Beat (ex: toutes les 5 minutes).
     """
     from documents.models import Document
+    from documents.ai_service import ai_service
+
+    if not ai_service.enabled:
+        logger.warning("Service AI non configure, traitement en attente ignore")
+        return {'documents_queued': 0, 'reason': 'AI service not configured'}
 
     documents = Document.objects.filter(
         statut_traitement='UPLOAD'
-    ).order_by('date_upload')[:10]  # Traiter max 10 à la fois
+    ).order_by('date_upload')[:10]  # Traiter max 10 a la fois
 
     for doc in documents:
         traiter_document_ocr.delay(str(doc.id))
 
-    logger.info(f"Lancé traitement OCR pour {len(documents)} documents")
+    logger.info(f"Lance traitement AI pour {len(documents)} documents")
     return {'documents_queued': len(documents)}
 
 
 @shared_task
 def classifier_document(document_id: str):
     """
-    Tâche pour classifier un document (si déjà OCR effectué).
+    Tache pour classifier un document (si deja OCR effectue).
     """
     from documents.models import Document, TraitementDocument
-    from documents.ocr_client import ocr_client, OCRServiceError
+    from documents.ai_service import ai_service, AIServiceError
     from django.utils import timezone
 
     try:
@@ -151,37 +203,41 @@ def classifier_document(document_id: str):
             document=document,
             type_traitement='CLASSIFICATION',
             statut='EN_COURS',
-            moteur='Service OCR externe - Classification'
+            moteur='AltiusOne AI SDK'
         )
 
         document.statut_traitement = 'CLASSIFICATION_EN_COURS'
         document.save(update_fields=['statut_traitement'])
 
-        result = ocr_client.classifier_document(
+        result = ai_service.classify_document(
             text=document.ocr_text,
             filename=document.nom_fichier
         )
 
-        document.prediction_type = result['type_document']
-        document.prediction_confidence = result['confidence']
-        document.tags_auto = result.get('tags', [])
+        document.prediction_type = result.type_document
+        document.prediction_confidence = result.confidence
+        document.tags_auto = result.tags
         document.statut_traitement = 'CLASSIFICATION_TERMINEE'
         document.save()
 
         traitement.statut = 'TERMINE'
         traitement.date_fin = timezone.now()
-        traitement.resultat = result
+        traitement.resultat = {
+            'type_document': result.type_document,
+            'confidence': result.confidence,
+            'tags': result.tags
+        }
         traitement.save()
 
         return {
             'status': 'success',
-            'type_document': result['type_document'],
-            'confidence': result['confidence']
+            'type_document': result.type_document,
+            'confidence': result.confidence
         }
 
     except Document.DoesNotExist:
         return {'status': 'error', 'reason': 'Document not found'}
-    except OCRServiceError as e:
+    except AIServiceError as e:
         logger.error(f"Erreur classification document {document_id}: {e}")
         return {'status': 'error', 'reason': str(e)}
 
@@ -189,10 +245,10 @@ def classifier_document(document_id: str):
 @shared_task
 def extraire_metadonnees(document_id: str):
     """
-    Tâche pour extraire les métadonnées d'un document classifié.
+    Tache pour extraire les metadonnees d'un document classifie.
     """
     from documents.models import Document, TraitementDocument
-    from documents.ocr_client import ocr_client, OCRServiceError
+    from documents.ai_service import ai_service, AIServiceError
     from django.utils import timezone
 
     try:
@@ -205,54 +261,54 @@ def extraire_metadonnees(document_id: str):
             document=document,
             type_traitement='EXTRACTION',
             statut='EN_COURS',
-            moteur='Service OCR externe - Extraction'
+            moteur='AltiusOne AI SDK'
         )
 
         document.statut_traitement = 'EXTRACTION_EN_COURS'
         document.save(update_fields=['statut_traitement'])
 
-        # Récupérer le template d'extraction si défini
-        template = None
+        # Recuperer le template d'extraction si defini
+        custom_schema = None
         if document.type_document and document.type_document.template_extraction:
-            template = document.type_document.template_extraction
+            custom_schema = document.type_document.template_extraction
 
-        result = ocr_client.extraire_metadonnees(
+        result = ai_service.extract_metadata(
             text=document.ocr_text,
             type_document=document.prediction_type,
-            template=template
+            custom_schema=custom_schema
         )
 
-        document.metadata_extraite = result
+        document.metadata_extraite = result.data
         document.statut_traitement = 'EXTRACTION_TERMINEE'
         document.save()
 
         traitement.statut = 'TERMINE'
         traitement.date_fin = timezone.now()
-        traitement.resultat = result
+        traitement.resultat = result.data
         traitement.save()
 
         return {
             'status': 'success',
-            'metadata': result
+            'metadata': result.data
         }
 
     except Document.DoesNotExist:
         return {'status': 'error', 'reason': 'Document not found'}
-    except OCRServiceError as e:
-        logger.error(f"Erreur extraction métadonnées document {document_id}: {e}")
+    except AIServiceError as e:
+        logger.error(f"Erreur extraction metadonnees document {document_id}: {e}")
         return {'status': 'error', 'reason': str(e)}
 
 
 # ============================================================================
-# TÂCHES D'INDEXATION VECTORIELLE (PGVector)
+# TACHES D'INDEXATION VECTORIELLE (PGVector)
 # ============================================================================
 
 @shared_task
 def indexer_document_embedding(document_id: str):
     """
-    Génère et stocke l'embedding d'un document pour la recherche sémantique.
+    Genere et stocke l'embedding d'un document pour la recherche semantique.
 
-    Utilise le texte OCR ou la description du document.
+    Utilise le SDK AltiusOne AI (768 dimensions).
     """
     from documents.models import Document
     from documents.search import search_service
@@ -260,10 +316,10 @@ def indexer_document_embedding(document_id: str):
     try:
         document = Document.objects.get(id=document_id)
 
-        # Vérifier qu'il y a du texte à indexer
+        # Verifier qu'il y a du texte a indexer
         text = document.ocr_text or document.description
         if not text:
-            logger.warning(f"Document {document_id} n'a pas de texte à indexer")
+            logger.warning(f"Document {document_id} n'a pas de texte a indexer")
             return {'status': 'skipped', 'reason': 'No text to index'}
 
         # Indexer le document
@@ -284,7 +340,7 @@ def indexer_document_embedding(document_id: str):
 @shared_task
 def indexer_document_chunks(document_id: str, chunk_size: int = 1000):
     """
-    Indexe un document en le découpant en chunks (pour documents longs).
+    Indexe un document en le decoupant en chunks (pour documents longs).
     """
     from documents.models import Document
     from documents.search import search_service
@@ -326,10 +382,17 @@ def indexer_document_chunks(document_id: str, chunk_size: int = 1000):
 @shared_task
 def reindexer_tous_documents(mandat_id: str = None, batch_size: int = 50):
     """
-    Réindexe tous les documents d'un mandat ou de toute la base.
-    Tâche à lancer manuellement ou périodiquement.
+    Reindexe tous les documents d'un mandat ou de toute la base.
+    Tache a lancer manuellement ou periodiquement.
+
+    IMPORTANT: A executer apres la migration vers 768D.
     """
     from documents.search import search_service
+    from documents.ai_service import ai_service
+
+    if not ai_service.enabled:
+        logger.error("Service AI non configure, reindexation impossible")
+        return {'status': 'error', 'reason': 'AI service not configured'}
 
     try:
         indexed, errors = search_service.reindex_all_documents(
@@ -345,18 +408,23 @@ def reindexer_tous_documents(mandat_id: str = None, batch_size: int = 50):
         }
 
     except Exception as e:
-        logger.error(f"Erreur réindexation documents: {e}")
+        logger.error(f"Erreur reindexation documents: {e}")
         return {'status': 'error', 'reason': str(e)}
 
 
 @shared_task
 def indexer_documents_sans_embedding():
     """
-    Tâche périodique pour indexer les documents sans embedding.
-    À planifier via Celery Beat (ex: toutes les heures).
+    Tache periodique pour indexer les documents sans embedding.
+    A planifier via Celery Beat (ex: toutes les heures).
     """
     from documents.models import Document, DocumentEmbedding
     from documents.search import search_service
+    from documents.ai_service import ai_service
+
+    if not ai_service.enabled:
+        logger.warning("Service AI non configure, indexation automatique ignoree")
+        return {'indexed_count': 0, 'reason': 'AI service not configured'}
 
     # Trouver les documents avec texte mais sans embedding
     documents_avec_embedding = DocumentEmbedding.objects.values_list('document_id', flat=True)
@@ -369,12 +437,29 @@ def indexer_documents_sans_embedding():
         ocr_text=''
     ).exclude(
         ocr_text__isnull=True
-    ).order_by('-created_at')[:100]  # Limiter à 100 par exécution
+    ).order_by('-created_at')[:100]  # Limiter a 100 par execution
 
     indexed_count = 0
     for doc in documents_a_indexer:
         if search_service.index_document(doc):
             indexed_count += 1
 
-    logger.info(f"Indexation automatique: {indexed_count} documents indexés")
+    logger.info(f"Indexation automatique: {indexed_count} documents indexes")
     return {'indexed_count': indexed_count}
+
+
+# ============================================================================
+# TACHES UTILITAIRES
+# ============================================================================
+
+@shared_task
+def verifier_service_ai():
+    """
+    Tache pour verifier l'etat du service AI.
+    Utile pour le monitoring.
+    """
+    from documents.ai_service import ai_service
+
+    status = ai_service.health_check()
+    logger.info(f"Verification service AI: {status}")
+    return status

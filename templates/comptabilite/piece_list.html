@@ -165,9 +165,13 @@
                                     </td>
                                     <td>{{ piece.date_piece|date:"d.m.Y" }}</td>
                                     <td>
+                                        {% if piece.journal %}
                                         <a href="{% url 'comptabilite:journal-detail' piece.journal.pk %}">
                                             {{ piece.journal.code }}
                                         </a>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
                                     </td>
                                     <td>{{ piece.libelle|truncatewords:10 }}</td>
                                     <td class="text-end">

@@ -3,7 +3,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from django.views.generic import ListView, DetailView, CreateView, UpdateView
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, TemplateView
 from core.permissions import BusinessPermissionMixin, permission_required_business
 from django.db.models import Q, Count, Sum
 from django.urls import reverse_lazy
@@ -20,10 +20,63 @@ from .models import (
     CategorieDocument,
     TypeDocument,
     TraitementDocument,
+    Conversation,
 )
 from .forms import DocumentForm, DocumentUploadForm, DossierForm, TypeDocumentForm, CategorieDocumentForm
 from .filters import DocumentFilter, DossierFilter
 from core.models import Mandat
+
+
+# ============ CHAT AI ============
+
+class ChatView(LoginRequiredMixin, TemplateView):
+    """
+    Vue principale pour le chat avec l'assistant AI.
+
+    Affiche l'interface de chat qui utilise l'API REST
+    pour communiquer avec le backend.
+    """
+    template_name = "documents/chat.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+
+        # Recuperer les conversations de l'utilisateur
+        context['conversations'] = Conversation.objects.filter(
+            utilisateur=user,
+            statut='ACTIVE'
+        ).select_related('mandat', 'document').order_by('-updated_at')[:20]
+
+        # Mandats accessibles pour le filtre
+        if user.is_manager():
+            context['mandats'] = Mandat.objects.filter(
+                is_active=True,
+                statut='ACTIF'
+            ).select_related('client')
+        else:
+            context['mandats'] = Mandat.objects.filter(
+                Q(responsable=user) | Q(equipe=user),
+                is_active=True,
+                statut='ACTIF'
+            ).distinct().select_related('client')
+
+        # Conversation selectionnee (si ID dans l'URL)
+        conversation_id = self.request.GET.get('conversation')
+        if conversation_id:
+            try:
+                context['current_conversation'] = Conversation.objects.get(
+                    id=conversation_id,
+                    utilisateur=user
+                )
+            except Conversation.DoesNotExist:
+                pass
+
+        # Verifier si le service AI est disponible
+        from .ai_service import ai_service
+        context['ai_enabled'] = ai_service.enabled
+
+        return context
 
 
 # ============ DOSSIERS ============
@@ -66,51 +119,85 @@ class DossierListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
         context["filter"] = self.filterset
 
         full_queryset = self.get_queryset()
+
+        # Calculer les statistiques depuis les documents réels
+        dossier_ids = list(full_queryset.values_list('id', flat=True))
+        doc_stats = Document.objects.filter(
+            dossier_id__in=dossier_ids,
+            is_active=True
+        ).aggregate(
+            total_docs=Count('id'),
+            total_size=Sum('taille')
+        )
+
         context["stats"] = {
             "total": full_queryset.count(),
-            "total_documents": full_queryset.aggregate(Sum("nombre_documents"))[
-                "nombre_documents__sum"
-            ]
-            or 0,
-            "total_taille": full_queryset.aggregate(Sum("taille_totale"))[
-                "taille_totale__sum"
-            ]
-            or 0,
+            "total_documents": doc_stats['total_docs'] or 0,
+            "total_taille": doc_stats['total_size'] or 0,
         }
 
         return context
 
 
 class DossierDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
-    """Détail d'un dossier"""
+    """Détail d'un dossier avec liste complète des documents"""
 
     model = Dossier
     template_name = "documents/dossier_detail.html"
     context_object_name = "dossier"
     business_permission = 'documents.view_documents'
+    paginate_by = 50
 
     def get_queryset(self):
         return (
             super()
             .get_queryset()
             .select_related("parent", "client", "mandat", "proprietaire")
-            .prefetch_related("sous_dossiers", "documents")
+            .prefetch_related("sous_dossiers")
         )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         dossier = self.object
 
-        # Documents du dossier
-        context["documents"] = dossier.documents.select_related(
-            "type_document", "categorie"
-        ).order_by("-date_upload")[:20]
+        # Documents du dossier - TOUS les documents avec pagination
+        documents_qs = Document.objects.filter(
+            dossier=dossier,
+            is_active=True
+        ).select_related(
+            "type_document", "categorie", "mandat__client"
+        ).order_by("-date_upload")
+
+        # Appliquer filtre si present
+        if self.request.GET:
+            filterset = DocumentFilter(self.request.GET, queryset=documents_qs)
+            if filterset.is_valid():
+                documents_qs = filterset.qs
+            context["filter"] = filterset
+        else:
+            context["filter"] = DocumentFilter(queryset=documents_qs)
+
+        # Pagination manuelle
+        page = self.request.GET.get('page', 1)
+        from django.core.paginator import Paginator
+        paginator = Paginator(documents_qs, self.paginate_by)
+        context["documents"] = paginator.get_page(page)
+        context["documents_count"] = documents_qs.count()
 
         # Sous-dossiers
-        context["sous_dossiers"] = dossier.sous_dossiers.all()
+        context["sous_dossiers"] = dossier.sous_dossiers.filter(is_active=True).annotate(
+            nb_documents=Count('documents')
+        )
 
         # Arborescence (breadcrumb)
         context["arborescence"] = self.get_arborescence(dossier)
+
+        # Stats du dossier
+        context["stats"] = {
+            "total_documents": documents_qs.count(),
+            "total_taille": documents_qs.aggregate(Sum('taille'))['taille__sum'] or 0,
+            "sous_dossiers": dossier.sous_dossiers.filter(is_active=True).count(),
+        }
 
         return context
 
@@ -134,6 +221,25 @@ class DossierCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView)
 
     def get_success_url(self):
         return reverse_lazy("documents:dossier-detail", kwargs={"pk": self.object.pk})
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        # Passer le mandat initial pour le filtrage des dossiers parents
+        mandat_id = self.request.GET.get('mandat')
+        if mandat_id:
+            try:
+                kwargs['mandat'] = Mandat.objects.get(pk=mandat_id)
+            except Mandat.DoesNotExist:
+                pass
+        return kwargs
+
+    def get_initial(self):
+        initial = super().get_initial()
+        # Pré-sélectionner le mandat si passé en paramètre
+        mandat_id = self.request.GET.get('mandat')
+        if mandat_id:
+            initial['mandat'] = mandat_id
+        return initial
 
     def form_valid(self, form):
         form.instance.proprietaire = self.request.user
@@ -257,6 +363,25 @@ class DocumentUploadView(LoginRequiredMixin, BusinessPermissionMixin, CreateView
     def get_success_url(self):
         return reverse_lazy("documents:document-detail", kwargs={"pk": self.object.pk})
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        # Passer le mandat initial pour le filtrage des dossiers
+        mandat_id = self.request.GET.get('mandat')
+        if mandat_id:
+            try:
+                kwargs['mandat'] = Mandat.objects.get(pk=mandat_id)
+            except Mandat.DoesNotExist:
+                pass
+        return kwargs
+
+    def get_initial(self):
+        initial = super().get_initial()
+        # Pré-sélectionner le mandat si passé en paramètre
+        mandat_id = self.request.GET.get('mandat')
+        if mandat_id:
+            initial['mandat'] = mandat_id
+        return initial
+
     def form_valid(self, form):
         from documents.storage import storage_service
         from documents.tasks import traiter_document_ocr
@@ -331,6 +456,45 @@ def document_telecharger(request, pk):
     response = HttpResponse(content, content_type=document.mime_type)
     response['Content-Disposition'] = f'attachment; filename="{document.nom_original}"'
     response['Content-Length'] = len(content)
+
+    return response
+
+
+@login_required
+def document_apercu(request, pk):
+    """
+    Retourne l'aperçu d'un document (inline).
+    Pour les images et PDF, renvoie le fichier directement.
+    """
+    from documents.storage import storage_service
+    from django.http import Http404
+
+    document = get_object_or_404(Document, pk=pk)
+
+    # Vérifier que le path_storage existe
+    if not document.path_storage:
+        raise Http404("Fichier non disponible")
+
+    # Récupérer le fichier depuis le stockage
+    content = storage_service.telecharger_fichier(document.path_storage)
+
+    if content is None:
+        raise Http404("Fichier non trouvé sur le stockage")
+
+    # Déterminer le Content-Type
+    content_type = document.mime_type or mimetypes.guess_type(document.nom_fichier)[0] or 'application/octet-stream'
+
+    # Créer la réponse avec le contenu du fichier
+    response = HttpResponse(content, content_type=content_type)
+    # Content-Disposition: inline pour afficher dans le navigateur
+    response['Content-Disposition'] = f'inline; filename="{document.nom_original}"'
+    response['Content-Length'] = len(content)
+
+    # Cache headers pour les aperçus
+    response['Cache-Control'] = 'private, max-age=3600'
+
+    # Permettre l'affichage dans iframe (pour PDF)
+    response['X-Frame-Options'] = 'SAMEORIGIN'
 
     return response
 
@@ -828,3 +992,79 @@ def type_document_create_ajax(request):
             },
             status=400,
         )
+
+
+# ============ API AJAX POUR FILTRAGE DYNAMIQUE ============
+
+@login_required
+def api_dossiers_par_mandat(request, mandat_pk):
+    """
+    Retourne les dossiers d'un mandat (API AJAX).
+
+    Retourne TOUS les dossiers accessibles pour ce mandat:
+    - Dossiers directement liés au mandat
+    - Dossiers liés au client du mandat
+
+    Si mandat_pk est vide ou None, retourne tous les dossiers actifs
+    avec une indication du mandat/client pour chaque dossier.
+    """
+    mandat = get_object_or_404(Mandat, pk=mandat_pk)
+
+    # Dossiers liés au mandat OU au client du mandat
+    dossiers = Dossier.objects.filter(
+        Q(mandat=mandat) | Q(client=mandat.client),
+        is_active=True
+    ).select_related('parent', 'mandat', 'mandat__client', 'client').order_by('chemin_complet')
+
+    return JsonResponse({
+        'success': True,
+        'dossiers': [
+            {
+                'id': str(d.id),
+                'nom': d.nom,
+                'chemin': d.chemin_complet or d.nom,
+                # Affichage avec contexte pour éviter confusion entre dossiers homonymes
+                'display': d.get_path_display(include_context=True),
+                'mandat_id': str(d.mandat_id) if d.mandat_id else None,
+                'client_id': str(d.client_id) if d.client_id else None,
+            }
+            for d in dossiers
+        ]
+    })
+
+
+@login_required
+def api_tous_dossiers(request):
+    """
+    Retourne tous les dossiers actifs avec indication du mandat.
+
+    Utilisé quand le mandat n'est pas obligatoire mais qu'on veut
+    afficher le contexte (mandat/client) pour éviter la confusion
+    entre dossiers homonymes.
+    """
+    dossiers = Dossier.objects.filter(
+        is_active=True
+    ).select_related('parent', 'mandat', 'mandat__client', 'client').order_by('chemin_complet')
+
+    result = []
+    for d in dossiers:
+        # Construire un affichage avec contexte
+        contexte = ""
+        if d.mandat:
+            contexte = f" [{d.mandat.numero}]"
+        elif d.client:
+            contexte = f" [{d.client.nom}]"
+
+        result.append({
+            'id': str(d.id),
+            'nom': d.nom,
+            'chemin': d.chemin_complet or d.nom,
+            'display': f"{d.get_path_display()}{contexte}",
+            'mandat_id': str(d.mandat_id) if d.mandat_id else None,
+            'client_id': str(d.client_id) if d.client_id else None,
+        })
+
+    return JsonResponse({
+        'success': True,
+        'dossiers': result
+    })

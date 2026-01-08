@@ -1,6 +1,36 @@
 /* AltiusOne Custom Styles */
 
 /* ========================================
+   DARK MODE - LOADER & BASE STYLES
+   Appliqué via html.dark pour éviter le flash
+   ======================================== */
+
+/* Base dark background - applied immediately via inline style in head */
+html.dark,
+html.dark body {
+    background-color: #1a1a2e !important;
+}
+
+/* Loader dark mode - fond sombre */
+html.dark .loader-wrapper,
+body.dark .loader-wrapper {
+    background-color: #1a1a2e !important;
+}
+
+/* Loader dark mode - texte "Loading..." visible sur fond sombre
+   Original: fond dark avec texte blanc révélé
+   Dark mode: fond blanc (texte) avec cercle sombre qui révèle */
+html.dark .loader_24,
+body.dark .loader_24 {
+    background: radial-gradient(circle closest-side, rgba(255, 255, 255, 0.9) 94%, rgba(0, 0, 0, 0)) right/calc(200% - 1em) 100% !important;
+}
+
+html.dark .loader_24::before,
+body.dark .loader_24::before {
+    background-image: radial-gradient(circle closest-side, #1a1a2e 94%, rgba(15, 98, 106, 0)) !important;
+}
+
+/* ========================================
    SIDEBAR ACTIVE STATE STYLES
    ======================================== */
 
@@ -11,6 +41,16 @@ nav .app-nav .main-nav > li.active > a {
 }
 
 nav .app-nav .main-nav > li.active > a i {
+    color: rgba(var(--primary), 1) !important;
+}
+
+/* Override expanded menu background - reduce opacity for better readability */
+nav .app-nav .main-nav > li:not(.menu-title) > a[aria-expanded=true] {
+    background: rgba(var(--primary), 0.15) !important;
+    color: rgba(var(--primary), 1) !important;
+}
+
+nav .app-nav .main-nav > li:not(.menu-title) > a[aria-expanded=true] i {
     color: rgba(var(--primary), 1) !important;
 }
 

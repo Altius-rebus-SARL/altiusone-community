@@ -305,6 +305,11 @@ class Role(models.Model):
 
 class User(AbstractUser):
     """Utilisateur étendu avec intégration du système de rôles"""
+
+    class TypeUtilisateur(models.TextChoices):
+        STAFF = 'STAFF', _('Collaborateur interne')
+        CLIENT = 'CLIENT', _('Client externe')
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     # Nouveau système de rôles basé sur le modèle Role
@@ -315,6 +320,33 @@ class User(AbstractUser):
         blank=True,
         related_name='utilisateurs',
         verbose_name=_('Rôle')
+    )
+
+    # Type d'utilisateur (STAFF = interne, CLIENT = externe)
+    type_utilisateur = models.CharField(
+        max_length=10,
+        choices=TypeUtilisateur.choices,
+        default=TypeUtilisateur.STAFF,
+        db_index=True,
+        verbose_name=_('Type d\'utilisateur')
+    )
+
+    # Changement de mot de passe obligatoire (première connexion après invitation)
+    doit_changer_mot_de_passe = models.BooleanField(
+        default=False,
+        verbose_name=_('Doit changer le mot de passe'),
+        help_text=_('Force l\'utilisateur à changer son mot de passe à la prochaine connexion')
+    )
+
+    # Lien vers un contact (pour les utilisateurs CLIENT)
+    contact_lie = models.ForeignKey(
+        'Contact',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='utilisateur_lie',
+        verbose_name=_('Contact lié'),
+        help_text=_('Contact associé pour les utilisateurs clients')
     )
 
     phone = models.CharField(max_length=20, blank=True, verbose_name=_('Téléphone'))
@@ -419,6 +451,71 @@ class User(AbstractUser):
     def is_client(self):
         """Vérifie si l'utilisateur est un client"""
         return self.role and self.role.code == Role.CLIENT
+
+    # =========================================================================
+    # Méthodes pour le type d'utilisateur (STAFF/CLIENT)
+    # =========================================================================
+
+    def is_staff_user(self):
+        """Vérifie si l'utilisateur est un collaborateur interne"""
+        return self.type_utilisateur == self.TypeUtilisateur.STAFF
+
+    def is_client_user(self):
+        """Vérifie si l'utilisateur est un client externe"""
+        return self.type_utilisateur == self.TypeUtilisateur.CLIENT
+
+    def get_accessible_mandats(self):
+        """
+        Retourne les mandats accessibles par cet utilisateur.
+        - STAFF: tous les mandats (ou selon rôle si pas manager)
+        - CLIENT: uniquement les mandats via AccesMandat
+        """
+        from django.db.models import Q
+
+        if self.is_superuser or (self.is_staff_user() and self.is_manager()):
+            # Superuser ou manager staff: tous les mandats actifs
+            return Mandat.objects.filter(statut='ACTIF')
+
+        if self.is_staff_user():
+            # Staff non-manager: mandats où il est responsable ou dans l'équipe
+            return Mandat.objects.filter(
+                Q(responsable=self) | Q(equipe=self),
+                statut='ACTIF'
+            ).distinct()
+
+        # Client externe: uniquement via AccesMandat
+        return Mandat.objects.filter(
+            acces_utilisateurs__utilisateur=self,
+            acces_utilisateurs__is_active=True,
+            statut='ACTIF'
+        ).distinct()
+
+    def get_acces_mandats(self):
+        """Retourne les AccesMandat actifs de cet utilisateur"""
+        return self.acces_mandats.filter(is_active=True).select_related('mandat')
+
+    def est_responsable_mandat(self, mandat):
+        """Vérifie si l'utilisateur est responsable d'un mandat (côté client)"""
+        if self.is_staff_user():
+            return mandat.responsable == self
+        return self.acces_mandats.filter(
+            mandat=mandat,
+            est_responsable=True,
+            is_active=True
+        ).exists()
+
+    def peut_inviter_pour_mandat(self, mandat):
+        """Vérifie si l'utilisateur peut inviter d'autres personnes pour un mandat"""
+        if self.is_superuser or self.is_manager():
+            return True
+        if self.is_client_user():
+            acces = self.acces_mandats.filter(
+                mandat=mandat,
+                est_responsable=True,
+                is_active=True
+            ).first()
+            return acces and acces.invitations_restantes > 0
+        return False
 
 
 class Adresse(models.Model):
@@ -892,9 +989,237 @@ class Contact(BaseModel):
         return f"{self.prenom} {self.nom} - {self.client.raison_sociale}"
 
 
+# =============================================================================
+# TABLES DE RÉFÉRENCE GÉNÉRIQUES
+# =============================================================================
+
+class Periodicite(models.Model):
+    """
+    Table générique pour les périodicités.
+
+    Réutilisable dans:
+    - Mandats (périodicité de facturation)
+    - TVA (déclaration trimestrielle, semestrielle, annuelle)
+    - Rapports (génération périodique)
+    - Tâches récurrentes
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    code = models.CharField(
+        max_length=30,
+        unique=True,
+        verbose_name=_('Code'),
+        help_text=_('Code unique (ex: MENSUEL, TRIMESTRIEL)')
+    )
+    libelle = models.CharField(
+        max_length=100,
+        verbose_name=_('Libellé')
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name=_('Description')
+    )
+
+    # Paramètres de calcul
+    nombre_mois = models.PositiveSmallIntegerField(
+        default=1,
+        verbose_name=_('Nombre de mois'),
+        help_text=_('Nombre de mois entre chaque occurrence')
+    )
+    nombre_par_an = models.PositiveSmallIntegerField(
+        default=12,
+        verbose_name=_('Occurrences par an'),
+        help_text=_('Nombre de fois par an (12=mensuel, 4=trimestriel, etc.)')
+    )
+
+    # Ordre d'affichage
+    ordre = models.PositiveSmallIntegerField(
+        default=0,
+        verbose_name=_('Ordre d\'affichage')
+    )
+
+    # Statut
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name=_('Actif')
+    )
+
+    class Meta:
+        db_table = 'periodicites'
+        verbose_name = _('Périodicité')
+        verbose_name_plural = _('Périodicités')
+        ordering = ['ordre', 'nombre_mois']
+
+    def __str__(self):
+        return self.libelle
+
+    @classmethod
+    def get_default(cls):
+        """Retourne la périodicité par défaut (mensuelle)"""
+        return cls.objects.filter(code='MENSUEL', is_active=True).first()
+
+
+class TypeMandat(models.Model):
+    """
+    Types de mandats de la fiduciaire.
+
+    Exemples:
+    - Comptabilité
+    - TVA
+    - Salaires
+    - Conseil fiscal
+    - Révision
+    - Création d'entreprise
+    - Mandat global
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    code = models.CharField(
+        max_length=30,
+        unique=True,
+        verbose_name=_('Code'),
+        help_text=_('Code unique (ex: COMPTA, TVA, SALAIRES)')
+    )
+    libelle = models.CharField(
+        max_length=100,
+        verbose_name=_('Libellé')
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name=_('Description')
+    )
+
+    # Icône et couleur pour l'interface
+    icone = models.CharField(
+        max_length=50,
+        blank=True,
+        default='ph-briefcase',
+        verbose_name=_('Icône'),
+        help_text=_('Classe CSS de l\'icône (Phosphor Icons)')
+    )
+    couleur = models.CharField(
+        max_length=20,
+        blank=True,
+        default='primary',
+        verbose_name=_('Couleur'),
+        help_text=_('Classe Bootstrap (primary, success, warning, etc.)')
+    )
+
+    # Périodicité par défaut pour ce type
+    periodicite_defaut = models.ForeignKey(
+        Periodicite,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name=_('Périodicité par défaut'),
+        help_text=_('Périodicité suggérée par défaut pour ce type de mandat')
+    )
+
+    # Modules associés
+    modules_actifs = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name=_('Modules actifs'),
+        help_text=_('Liste des modules activés par défaut: ["compta", "tva", "salaires"]')
+    )
+
+    # Ordre d'affichage
+    ordre = models.PositiveSmallIntegerField(
+        default=0,
+        verbose_name=_('Ordre d\'affichage')
+    )
+
+    # Statut
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name=_('Actif')
+    )
+
+    class Meta:
+        db_table = 'types_mandats'
+        verbose_name = _('Type de mandat')
+        verbose_name_plural = _('Types de mandats')
+        ordering = ['ordre', 'libelle']
+
+    def __str__(self):
+        return self.libelle
+
+
+class TypeFacturation(models.Model):
+    """
+    Types de facturation pour les mandats.
+
+    Exemples:
+    - Forfait (montant fixe)
+    - Taux horaire
+    - Mixte (forfait + dépassement horaire)
+    - Abonnement
+    - Au résultat
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    code = models.CharField(
+        max_length=30,
+        unique=True,
+        verbose_name=_('Code'),
+        help_text=_('Code unique (ex: FORFAIT, HORAIRE, MIXTE)')
+    )
+    libelle = models.CharField(
+        max_length=100,
+        verbose_name=_('Libellé')
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name=_('Description')
+    )
+
+    # Configuration
+    necessite_forfait = models.BooleanField(
+        default=False,
+        verbose_name=_('Nécessite un montant forfait'),
+        help_text=_('Si coché, le montant forfaitaire est obligatoire')
+    )
+    necessite_taux_horaire = models.BooleanField(
+        default=False,
+        verbose_name=_('Nécessite un taux horaire'),
+        help_text=_('Si coché, le taux horaire est obligatoire')
+    )
+
+    # Ordre d'affichage
+    ordre = models.PositiveSmallIntegerField(
+        default=0,
+        verbose_name=_('Ordre d\'affichage')
+    )
+
+    # Statut
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name=_('Actif')
+    )
+
+    class Meta:
+        db_table = 'types_facturation'
+        verbose_name = _('Type de facturation')
+        verbose_name_plural = _('Types de facturation')
+        ordering = ['ordre', 'libelle']
+
+    def __str__(self):
+        return self.libelle
+
+    @classmethod
+    def get_default(cls):
+        """Retourne le type de facturation par défaut (horaire)"""
+        return cls.objects.filter(code='HORAIRE', is_active=True).first()
+
+
+# =============================================================================
+# MANDAT
+# =============================================================================
+
 class Mandat(BaseModel):
     """Mandat de prestation"""
 
+    # Conserver les choices pour compatibilité et migration
     TYPE_CHOICES = [
         ('COMPTA', _('Comptabilité')),
         ('TVA', _('TVA')),
@@ -914,6 +1239,12 @@ class Mandat(BaseModel):
         ('PONCTUEL', _('Ponctuel')),
     ]
 
+    TYPE_FACTURATION_CHOICES = [
+        ('FORFAIT', _('Forfait')),
+        ('HORAIRE', _('Taux horaire')),
+        ('MIXTE', _('Mixte')),
+    ]
+
     STATUT_CHOICES = [
         ('BROUILLON', _('Brouillon')),
         ('EN_ATTENTE', _('En attente validation')),
@@ -926,19 +1257,67 @@ class Mandat(BaseModel):
     # Identification
     numero = models.CharField(max_length=50, unique=True, db_index=True, verbose_name=_('Numéro'))
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='mandats', verbose_name=_('Client'))
-    type_mandat = models.CharField(max_length=20, choices=TYPE_CHOICES, db_index=True, verbose_name=_('Type de mandat'))
+
+    # Nouveau: Référence vers TypeMandat
+    type_mandat_ref = models.ForeignKey(
+        TypeMandat,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='mandats',
+        verbose_name=_('Type de mandat'),
+        help_text=_('Type de mandat (nouvelle table)')
+    )
+    # Ancien champ conservé pour compatibilité/migration
+    type_mandat = models.CharField(
+        max_length=20,
+        choices=TYPE_CHOICES,
+        db_index=True,
+        verbose_name=_('Type de mandat (ancien)'),
+        blank=True
+    )
 
     # Période
     date_debut = models.DateField(verbose_name=_('Date de début'))
     date_fin = models.DateField(null=True, blank=True, verbose_name=_('Date de fin'))
-    periodicite = models.CharField(max_length=20, choices=PERIODICITE_CHOICES, verbose_name=_('Périodicité'))
+
+    # Nouveau: Référence vers Periodicite
+    periodicite_ref = models.ForeignKey(
+        Periodicite,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='mandats',
+        verbose_name=_('Périodicité'),
+        help_text=_('Périodicité (nouvelle table)')
+    )
+    # Ancien champ conservé pour compatibilité/migration
+    periodicite = models.CharField(
+        max_length=20,
+        choices=PERIODICITE_CHOICES,
+        verbose_name=_('Périodicité (ancien)'),
+        blank=True
+    )
 
     # Honoraires
-    type_facturation = models.CharField(max_length=20, choices=[
-        ('FORFAIT', _('Forfait')),
-        ('HORAIRE', _('Taux horaire')),
-        ('MIXTE', _('Mixte')),
-    ], default='HORAIRE', verbose_name=_('Type de facturation'))
+    # Nouveau: Référence vers TypeFacturation
+    type_facturation_ref = models.ForeignKey(
+        TypeFacturation,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='mandats',
+        verbose_name=_('Type de facturation'),
+        help_text=_('Type de facturation (nouvelle table)')
+    )
+    # Ancien champ conservé pour compatibilité/migration
+    type_facturation = models.CharField(
+        max_length=20,
+        choices=TYPE_FACTURATION_CHOICES,
+        default='HORAIRE',
+        verbose_name=_('Type de facturation (ancien)'),
+        blank=True
+    )
     montant_forfait = models.DecimalField(max_digits=10, decimal_places=2,
                                           null=True, blank=True, verbose_name=_('Montant forfait'))
     taux_horaire = models.DecimalField(max_digits=10, decimal_places=2,
@@ -1224,3 +1603,326 @@ class Tache(BaseModel):
 
     def __str__(self):
         return f"{self.titre} - {self.assigne_a.username}"
+
+
+# =============================================================================
+# ACCES MANDAT (Permissions clients externes sur les mandats)
+# =============================================================================
+
+class AccesMandat(BaseModel):
+    """
+    Lie un utilisateur CLIENT externe à un mandat avec des permissions granulaires.
+
+    Permet de:
+    - Définir quels mandats un client externe peut voir
+    - Configurer les permissions spécifiques (documents, factures, etc.)
+    - Gérer la responsabilité et les invitations
+    """
+
+    utilisateur = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='acces_mandats',
+        verbose_name=_('Utilisateur')
+    )
+    mandat = models.ForeignKey(
+        Mandat,
+        on_delete=models.CASCADE,
+        related_name='acces_utilisateurs',
+        verbose_name=_('Mandat')
+    )
+
+    # Responsabilité côté client
+    est_responsable = models.BooleanField(
+        default=False,
+        verbose_name=_('Est responsable'),
+        help_text=_('Le responsable peut inviter d\'autres utilisateurs pour ce mandat')
+    )
+
+    # Permissions granulaires utilisant les permissions Django
+    permissions = models.ManyToManyField(
+        Permission,
+        blank=True,
+        verbose_name=_('Permissions'),
+        help_text=_('Permissions Django sur ce mandat')
+    )
+
+    # Limites d'invitation (configurable par le staff)
+    limite_invitations = models.PositiveIntegerField(
+        default=5,
+        verbose_name=_('Limite d\'invitations'),
+        help_text=_('Nombre maximum d\'utilisateurs que ce responsable peut inviter')
+    )
+    invitations_restantes = models.PositiveIntegerField(
+        default=5,
+        verbose_name=_('Invitations restantes')
+    )
+
+    # Période d'accès (optionnel)
+    date_debut_acces = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_('Date de début d\'accès')
+    )
+    date_fin_acces = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_('Date de fin d\'accès')
+    )
+
+    # Qui a accordé l'accès
+    accorde_par = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='acces_accordes',
+        verbose_name=_('Accès accordé par')
+    )
+
+    # Notes internes
+    notes = models.TextField(
+        blank=True,
+        verbose_name=_('Notes'),
+        help_text=_('Notes internes sur cet accès')
+    )
+
+    class Meta:
+        db_table = 'acces_mandats'
+        verbose_name = _('Accès mandat')
+        verbose_name_plural = _('Accès mandats')
+        unique_together = ['utilisateur', 'mandat']
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['utilisateur', 'is_active']),
+            models.Index(fields=['mandat', 'is_active']),
+        ]
+
+    def __str__(self):
+        return f"{self.utilisateur.get_full_name() or self.utilisateur.username} → {self.mandat.numero}"
+
+    def save(self, *args, **kwargs):
+        # S'assurer que invitations_restantes ne dépasse pas la limite
+        if self.invitations_restantes > self.limite_invitations:
+            self.invitations_restantes = self.limite_invitations
+        super().save(*args, **kwargs)
+
+    def peut_inviter(self):
+        """Vérifie si l'utilisateur peut encore inviter"""
+        return self.est_responsable and self.invitations_restantes > 0 and self.is_active
+
+    def utiliser_invitation(self):
+        """Décrémente le compteur d'invitations"""
+        if self.peut_inviter():
+            self.invitations_restantes -= 1
+            self.save(update_fields=['invitations_restantes', 'updated_at'])
+            return True
+        return False
+
+    def est_acces_valide(self):
+        """Vérifie si l'accès est actuellement valide"""
+        from django.utils import timezone
+        today = timezone.now().date()
+
+        if not self.is_active:
+            return False
+
+        if self.date_debut_acces and today < self.date_debut_acces:
+            return False
+
+        if self.date_fin_acces and today > self.date_fin_acces:
+            return False
+
+        return True
+
+    def has_permission(self, permission_codename):
+        """Vérifie si l'accès inclut une permission spécifique"""
+        return self.permissions.filter(codename=permission_codename).exists()
+
+
+# =============================================================================
+# INVITATION (Système d'invitation par email)
+# =============================================================================
+
+class Invitation(BaseModel):
+    """
+    Invitation à rejoindre la plateforme ou à accéder à un mandat.
+
+    Deux flux:
+    1. Staff invite → n'importe qui (staff ou client)
+    2. Client responsable invite → uniquement pour son mandat
+    """
+
+    class TypeInvitation(models.TextChoices):
+        STAFF = 'STAFF', _('Invitation collaborateur')
+        CLIENT = 'CLIENT', _('Invitation client mandat')
+
+    class Statut(models.TextChoices):
+        EN_ATTENTE = 'EN_ATTENTE', _('En attente')
+        ACCEPTEE = 'ACCEPTEE', _('Acceptée')
+        EXPIREE = 'EXPIREE', _('Expirée')
+        ANNULEE = 'ANNULEE', _('Annulée')
+
+    # Informations de base
+    email = models.EmailField(verbose_name=_('Email'))
+    type_invitation = models.CharField(
+        max_length=10,
+        choices=TypeInvitation.choices,
+        verbose_name=_('Type d\'invitation')
+    )
+
+    # Token sécurisé pour le lien d'invitation
+    token = models.CharField(
+        max_length=64,
+        unique=True,
+        verbose_name=_('Token')
+    )
+    date_expiration = models.DateTimeField(
+        verbose_name=_('Date d\'expiration')
+    )
+
+    # Qui a invité
+    invite_par = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='invitations_envoyees',
+        verbose_name=_('Invité par')
+    )
+
+    # Pour les invitations CLIENT: le mandat concerné
+    mandat = models.ForeignKey(
+        Mandat,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='invitations',
+        verbose_name=_('Mandat'),
+        help_text=_('Mandat auquel l\'invité aura accès (pour les clients)')
+    )
+
+    # Rôle pré-assigné (pour STAFF) ou permissions (pour CLIENT)
+    role_preassigne = models.ForeignKey(
+        Role,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='invitations',
+        verbose_name=_('Rôle pré-assigné'),
+        help_text=_('Rôle attribué à l\'utilisateur lors de l\'acceptation')
+    )
+
+    # Permissions AccesMandat à appliquer (pour CLIENT)
+    permissions_acces = models.ManyToManyField(
+        Permission,
+        blank=True,
+        verbose_name=_('Permissions'),
+        help_text=_('Permissions à accorder sur le mandat')
+    )
+
+    # Configuration de l'accès (pour CLIENT)
+    est_responsable_prevu = models.BooleanField(
+        default=False,
+        verbose_name=_('Sera responsable'),
+        help_text=_('L\'invité sera responsable du mandat côté client')
+    )
+    limite_invitations_prevue = models.PositiveIntegerField(
+        default=5,
+        verbose_name=_('Limite d\'invitations prévue')
+    )
+
+    # Statut
+    statut = models.CharField(
+        max_length=20,
+        choices=Statut.choices,
+        default=Statut.EN_ATTENTE,
+        db_index=True,
+        verbose_name=_('Statut')
+    )
+
+    # Résultat
+    utilisateur_cree = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='invitation_origine',
+        verbose_name=_('Utilisateur créé')
+    )
+    date_acceptation = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_('Date d\'acceptation')
+    )
+
+    # Forcer le changement de mot de passe
+    forcer_changement_mdp = models.BooleanField(
+        default=True,
+        verbose_name=_('Forcer changement mot de passe'),
+        help_text=_('L\'utilisateur devra changer son mot de passe à la première connexion')
+    )
+
+    # Message personnalisé
+    message_personnalise = models.TextField(
+        blank=True,
+        verbose_name=_('Message personnalisé'),
+        help_text=_('Message inclus dans l\'email d\'invitation')
+    )
+
+    class Meta:
+        db_table = 'invitations'
+        verbose_name = _('Invitation')
+        verbose_name_plural = _('Invitations')
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['email', 'statut']),
+            models.Index(fields=['token']),
+            models.Index(fields=['date_expiration', 'statut']),
+        ]
+
+    def __str__(self):
+        return f"Invitation {self.email} ({self.get_type_invitation_display()})"
+
+    def save(self, *args, **kwargs):
+        # Générer le token si nécessaire
+        if not self.token:
+            self.token = self.generer_token()
+        super().save(*args, **kwargs)
+
+    @staticmethod
+    def generer_token():
+        """Génère un token sécurisé unique"""
+        import secrets
+        return secrets.token_urlsafe(48)
+
+    def est_valide(self):
+        """Vérifie si l'invitation est toujours valide"""
+        from django.utils import timezone
+        return (
+            self.statut == self.Statut.EN_ATTENTE and
+            self.date_expiration > timezone.now()
+        )
+
+    def marquer_expiree(self):
+        """Marque l'invitation comme expirée"""
+        if self.statut == self.Statut.EN_ATTENTE:
+            self.statut = self.Statut.EXPIREE
+            self.save(update_fields=['statut', 'updated_at'])
+
+    def annuler(self):
+        """Annule l'invitation"""
+        if self.statut == self.Statut.EN_ATTENTE:
+            self.statut = self.Statut.ANNULEE
+            self.save(update_fields=['statut', 'updated_at'])
+
+    def accepter(self, utilisateur):
+        """Marque l'invitation comme acceptée"""
+        from django.utils import timezone
+        self.statut = self.Statut.ACCEPTEE
+        self.utilisateur_cree = utilisateur
+        self.date_acceptation = timezone.now()
+        self.save(update_fields=['statut', 'utilisateur_cree', 'date_acceptation', 'updated_at'])
+
+    def get_absolute_url(self):
+        """Retourne l'URL d'acceptation de l'invitation"""
+        from django.urls import reverse
+        return reverse('core:invitation-accept', kwargs={'token': self.token})

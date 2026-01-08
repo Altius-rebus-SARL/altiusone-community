@@ -10,7 +10,7 @@ from .models import (
     ComparaisonPeriode,
     ExportDonnees,
 )
-from core.models import Mandat
+from core.models import Mandat, Periodicite
 
 
 class TableauBordForm(forms.ModelForm):
@@ -66,7 +66,7 @@ class IndicateurForm(forms.ModelForm):
             "formule",
             "source_table",
             "source_champ",
-            "periodicite",
+            "periodicite_ref",
             "objectif_min",
             "objectif_cible",
             "objectif_max",
@@ -85,7 +85,7 @@ class IndicateurForm(forms.ModelForm):
             "formule": forms.Textarea(attrs={"class": "form-control", "rows": 4}),
             "source_table": forms.TextInput(attrs={"class": "form-control"}),
             "source_champ": forms.TextInput(attrs={"class": "form-control"}),
-            "periodicite": forms.Select(attrs={"class": "form-control"}),
+            "periodicite_ref": forms.Select(attrs={"class": "form-control"}),
             "objectif_min": forms.NumberInput(
                 attrs={"class": "form-control", "step": "0.01"}
             ),
@@ -105,6 +105,11 @@ class IndicateurForm(forms.ModelForm):
             ),
             "actif": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['periodicite_ref'].queryset = Periodicite.objects.filter(is_active=True)
+        self.fields['periodicite_ref'].label = _('Périodicité')
 
 
 class RapportForm(forms.ModelForm):
@@ -145,7 +150,7 @@ class PlanificationRapportForm(forms.ModelForm):
             "mandat",
             "nom",
             "type_rapport",
-            "frequence",
+            "frequence_ref",
             "jour_mois",
             "jour_semaine",
             "heure_generation",
@@ -158,7 +163,7 @@ class PlanificationRapportForm(forms.ModelForm):
             "mandat": forms.Select(attrs={"class": "form-control"}),
             "nom": forms.TextInput(attrs={"class": "form-control"}),
             "type_rapport": forms.Select(attrs={"class": "form-control"}),
-            "frequence": forms.Select(attrs={"class": "form-control"}),
+            "frequence_ref": forms.Select(attrs={"class": "form-control"}),
             "jour_mois": forms.NumberInput(
                 attrs={"class": "form-control", "min": "1", "max": "31"}
             ),
@@ -173,6 +178,11 @@ class PlanificationRapportForm(forms.ModelForm):
             "parametres": forms.Textarea(attrs={"class": "form-control", "rows": 5}),
             "actif": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['frequence_ref'].queryset = Periodicite.objects.filter(is_active=True)
+        self.fields['frequence_ref'].label = _('Fréquence')
 
 
 class ComparaisonPeriodeForm(forms.ModelForm):

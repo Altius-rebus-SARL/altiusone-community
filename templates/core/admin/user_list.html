@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Utilisateurs" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h3>{% trans "Gestion des utilisateurs" %}</h3>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}"><i class="ti ti-home"></i></a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'core:admin-dashboard' %}">{% trans "Administration" %}</a></li>
+                        <li class="breadcrumb-item active">{% trans "Utilisateurs" %}</li>
+                    </ol>
+                </div>
+                <div class="page-header-right">
+                    <a href="{% url 'core:admin-user-create' %}" class="btn btn-primary">
+                        <i class="ti ti-plus me-2"></i>{% trans "Nouvel utilisateur" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row">
+        <div class="col-xl-3 col-sm-6">
+            <div class="card widget-1">
+                <div class="card-body">
+                    <div class="widget-content">
+                        <div class="widget-round primary">
+                            <i class="ti ti-users"></i>
+                        </div>
+                        <div>
+                            <h4>{{ stats.total }}</h4>
+                            <span>{% trans "Total" %}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-sm-6">
+            <div class="card widget-1">
+                <div class="card-body">
+                    <div class="widget-content">
+                        <div class="widget-round success">
+                            <i class="ti ti-user-check"></i>
+                        </div>
+                        <div>
+                            <h4>{{ stats.actifs }}</h4>
+                            <span>{% trans "Actifs" %}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-sm-6">
+            <div class="card widget-1">
+                <div class="card-body">
+                    <div class="widget-content">
+                        <div class="widget-round info">
+                            <i class="ti ti-user-shield"></i>
+                        </div>
+                        <div>
+                            <h4>{{ stats.staff }}</h4>
+                            <span>{% trans "Collaborateurs" %}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-sm-6">
+            <div class="card widget-1">
+                <div class="card-body">
+                    <div class="widget-content">
+                        <div class="widget-round warning">
+                            <i class="ti ti-building"></i>
+                        </div>
+                        <div>
+                            <h4>{{ stats.clients }}</h4>
+                            <span>{% trans "Clients" %}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters & Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Liste des utilisateurs" %}</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Filters -->
+                    <form method="get" class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="ti ti-search"></i></span>
+                                <input type="text" name="search" class="form-control" placeholder="{% trans 'Rechercher...' %}" value="{{ request.GET.search }}">
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <select name="type" class="form-select">
+                                <option value="">{% trans "Tous types" %}</option>
+                                <option value="STAFF" {% if request.GET.type == 'STAFF' %}selected{% endif %}>{% trans "Staff" %}</option>
+                                <option value="CLIENT" {% if request.GET.type == 'CLIENT' %}selected{% endif %}>{% trans "Client" %}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <select name="role" class="form-select">
+                                <option value="">{% trans "Tous roles" %}</option>
+                                {% for role in roles %}
+                                <option value="{{ role.pk }}" {% if request.GET.role == role.pk|stringformat:'s' %}selected{% endif %}>{{ role.nom }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <select name="active" class="form-select">
+                                <option value="">{% trans "Tous statuts" %}</option>
+                                <option value="1" {% if request.GET.active == '1' %}selected{% endif %}>{% trans "Actifs" %}</option>
+                                <option value="0" {% if request.GET.active == '0' %}selected{% endif %}>{% trans "Inactifs" %}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">{% trans "Filtrer" %}</button>
+                        </div>
+                    </form>
+
+                    <!-- Table -->
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "Utilisateur" %}</th>
+                                    <th>{% trans "Type" %}</th>
+                                    <th>{% trans "Role" %}</th>
+                                    <th>{% trans "Mandats" %}</th>
+                                    <th>{% trans "Statut" %}</th>
+                                    <th>{% trans "Derniere connexion" %}</th>
+                                    <th>{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in users %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="avatar avatar-sm me-2">
+                                                {% if user.avatar %}
+                                                <img src="{{ user.avatar.url }}" alt="{{ user.username }}" class="rounded-circle">
+                                                {% else %}
+                                                <span class="avatar-text rounded-circle bg-primary">{{ user.get_initials }}</span>
+                                                {% endif %}
+                                            </div>
+                                            <div>
+                                                <a href="{% url 'core:admin-user-detail' user.pk %}">
+                                                    {{ user.get_full_name|default:user.username }}
+                                                </a>
+                                                <br><small class="text-muted">{{ user.email }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if user.type_utilisateur == 'STAFF' %}
+                                        <span class="badge bg-primary">{% trans "Staff" %}</span>
+                                        {% else %}
+                                        <span class="badge bg-warning">{% trans "Client" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ user.role.nom|default:"-" }}</td>
+                                    <td>
+                                        {% if user.nb_mandats %}
+                                        <span class="badge bg-info">{{ user.nb_mandats }}</span>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if user.is_active %}
+                                        <span class="badge bg-success">{% trans "Actif" %}</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">{% trans "Inactif" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ user.last_login|date:"d/m/Y H:i"|default:"-" }}</td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'core:admin-user-detail' user.pk %}" class="btn btn-outline-primary" title="{% trans 'Voir' %}">
+                                                <i class="ti ti-eye"></i>
+                                            </a>
+                                            <a href="{% url 'core:admin-user-update' user.pk %}" class="btn btn-outline-secondary" title="{% trans 'Modifier' %}">
+                                                <i class="ti ti-edit"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted py-4">
+                                        {% trans "Aucun utilisateur trouve" %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if page_obj %}
+                    <nav aria-label="Page navigation" class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}">
+                                    <i class="ti ti-chevron-left"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+
+                            <li class="page-item active">
+                                <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                            </li>
+
+                            {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}">
+                                    <i class="ti ti-chevron-right"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

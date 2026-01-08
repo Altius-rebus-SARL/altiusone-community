@@ -6,6 +6,9 @@ from . import views
 app_name = "documents"
 
 urlpatterns = [
+    # Chat AI
+    path("chat/", views.ChatView.as_view(), name="chat"),
+
     # Dossiers
     path("dossiers/", views.DossierListView.as_view(), name="dossier-list"),
     path("dossiers/nouveau/", views.DossierCreateView.as_view(), name="dossier-create"),
@@ -20,6 +23,11 @@ urlpatterns = [
         "<uuid:pk>/telecharger/",
         views.document_telecharger,
         name="document-telecharger",
+    ),
+    path(
+        "<uuid:pk>/apercu/",
+        views.document_apercu,
+        name="document-apercu",
     ),
     path("<uuid:pk>/valider/", views.document_valider, name="document-valider"),
     path("<uuid:pk>/ocr/", views.document_ocr, name="document-ocr"),
@@ -81,5 +89,16 @@ urlpatterns = [
     ),
     path(
         "types/<uuid:pk>/get-data/", views.type_document_get_data, name="type-get-data"
+    ),
+    # API AJAX pour filtrage dynamique
+    path(
+        "api/mandat/<uuid:mandat_pk>/dossiers/",
+        views.api_dossiers_par_mandat,
+        name="api-dossiers-mandat",
+    ),
+    path(
+        "api/dossiers/",
+        views.api_tous_dossiers,
+        name="api-tous-dossiers",
     ),
 ]

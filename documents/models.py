@@ -79,9 +79,40 @@ class Dossier(BaseModel):
 
         super().save(*args, **kwargs)
 
-    def get_path_display(self):
-        """Retourne le chemin avec séparateurs visuels"""
-        return self.chemin_complet.replace('/', ' > ')
+    def get_path_display(self, include_context=True):
+        """
+        Retourne le chemin avec séparateurs visuels.
+
+        Args:
+            include_context: Si True, ajoute le contexte (mandat/client) pour
+                            éviter la confusion entre dossiers homonymes
+        """
+        path = self.chemin_complet.replace('/', ' > ')
+        if include_context:
+            if self.mandat_id:
+                return f"{path} [{self.mandat.numero if hasattr(self, '_mandat_cache') or self.mandat else '...'}]"
+            elif self.client_id:
+                return f"{path} [{self.client.nom if hasattr(self, '_client_cache') or self.client else '...'}]"
+        return path
+
+    def get_display_with_context(self):
+        """
+        Retourne un affichage complet avec contexte pour les select.
+        Utile pour distinguer les dossiers homonymes.
+        """
+        if self.mandat_id:
+            try:
+                mandat_info = self.mandat.numero
+            except:
+                mandat_info = "?"
+            return f"{self.nom} [{mandat_info}]"
+        elif self.client_id:
+            try:
+                client_info = self.client.nom
+            except:
+                client_info = "?"
+            return f"{self.nom} [{client_info}]"
+        return self.nom
 
 
 class CategorieDocument(BaseModel):
@@ -426,13 +457,14 @@ class RechercheDocument(models.Model):
 
 class DocumentEmbedding(models.Model):
     """
-    Embeddings vectoriels pour la recherche sémantique.
+    Embeddings vectoriels pour la recherche semantique.
 
     Utilise PGVector pour stocker et rechercher des vecteurs.
-    Supporte plusieurs modèles d'embeddings avec dimensions différentes.
+    Genere via le SDK AltiusOne AI (768 dimensions).
     """
 
     EMBEDDING_MODELS = [
+        ('altiusone-768', 'AltiusOne AI SDK (768d)'),
         ('openai-small', 'OpenAI text-embedding-3-small (1536d)'),
         ('openai-large', 'OpenAI text-embedding-3-large (3072d)'),
         ('multilingual-mini', 'Multilingual MiniLM (384d)'),
@@ -446,17 +478,16 @@ class DocumentEmbedding(models.Model):
         primary_key=True
     )
 
-    # Vecteur d'embedding - dimension par défaut 1536 (OpenAI small)
-    # On utilise 1536 comme dimension standard
-    embedding = VectorField(dimensions=1536, null=True, blank=True)
+    # Vecteur d'embedding - dimension 768 (AltiusOne AI SDK)
+    embedding = VectorField(dimensions=768, null=True, blank=True)
 
-    # Métadonnées
+    # Metadonnees
     model_used = models.CharField(
         max_length=50,
         choices=EMBEDDING_MODELS,
-        default='openai-small'
+        default='altiusone-768'
     )
-    dimensions = models.IntegerField(default=1536)
+    dimensions = models.IntegerField(default=768)
 
     # Texte source utilisé pour l'embedding
     text_hash = models.CharField(
@@ -558,7 +589,8 @@ class TextChunkEmbedding(models.Model):
     """
     Embeddings pour des chunks de texte (pour documents longs).
 
-    Permet une recherche plus précise en découpant les documents.
+    Permet une recherche plus precise en decoupant les documents.
+    Genere via le SDK AltiusOne AI (768 dimensions).
     """
 
     document = models.ForeignKey(
@@ -569,17 +601,17 @@ class TextChunkEmbedding(models.Model):
 
     # Position du chunk dans le document
     chunk_index = models.IntegerField()
-    chunk_start = models.IntegerField(help_text='Position de début dans le texte')
+    chunk_start = models.IntegerField(help_text='Position de debut dans le texte')
     chunk_end = models.IntegerField(help_text='Position de fin dans le texte')
 
-    # Texte du chunk (pour affichage des résultats)
+    # Texte du chunk (pour affichage des resultats)
     chunk_text = models.TextField()
 
-    # Embedding du chunk
-    embedding = VectorField(dimensions=1536, null=True, blank=True)
+    # Embedding du chunk - dimension 768 (AltiusOne AI SDK)
+    embedding = VectorField(dimensions=768, null=True, blank=True)
 
-    # Métadonnées
-    model_used = models.CharField(max_length=50, default='openai-small')
+    # Metadonnees
+    model_used = models.CharField(max_length=50, default='altiusone-768')
 
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -620,3 +652,223 @@ class TextChunkEmbedding(models.Model):
         ).order_by('distance')[:limit]
 
         return qs
+
+
+# ============================================================================
+# MODELES CHAT - Conversations avec contexte documentaire
+# ============================================================================
+
+class Conversation(BaseModel):
+    """
+    Conversation de chat avec l'assistant AI.
+
+    Peut etre liee a:
+    - Un mandat (contexte documentaire)
+    - Un document specifique
+    - Ou etre generale (sans contexte)
+    """
+
+    STATUT_CHOICES = [
+        ('ACTIVE', 'Active'),
+        ('ARCHIVEE', 'Archivee'),
+        ('SUPPRIMEE', 'Supprimee'),
+    ]
+
+    # Rattachement
+    utilisateur = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='conversations'
+    )
+    mandat = models.ForeignKey(
+        Mandat,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='conversations',
+        help_text='Mandat pour contexte documentaire'
+    )
+    document = models.ForeignKey(
+        Document,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='conversations',
+        help_text='Document specifique pour le contexte'
+    )
+
+    # Identification
+    titre = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text='Titre genere automatiquement ou defini par utilisateur'
+    )
+    description = models.TextField(blank=True)
+
+    # Configuration
+    modele_ia = models.CharField(
+        max_length=50,
+        default='altiusone-chat',
+        help_text='Modele AI utilise'
+    )
+    temperature = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        default=0.7,
+        help_text='Temperature pour generation (0-1)'
+    )
+    contexte_systeme = models.TextField(
+        blank=True,
+        help_text='Instructions systeme personnalisees'
+    )
+
+    # Statut
+    statut = models.CharField(
+        max_length=20,
+        choices=STATUT_CHOICES,
+        default='ACTIVE',
+        db_index=True
+    )
+
+    # Statistiques
+    nombre_messages = models.IntegerField(default=0)
+    tokens_utilises = models.IntegerField(default=0)
+
+    class Meta:
+        db_table = 'conversations'
+        verbose_name = 'Conversation'
+        verbose_name_plural = 'Conversations'
+        ordering = ['-updated_at']
+        indexes = [
+            models.Index(fields=['utilisateur', 'statut']),
+            models.Index(fields=['mandat', 'statut']),
+        ]
+
+    def __str__(self):
+        titre = self.titre or f"Conversation {self.id}"
+        return f"{titre} - {self.utilisateur.username}"
+
+    def generer_titre(self):
+        """Genere un titre a partir du premier message."""
+        premier_message = self.messages.filter(role='USER').first()
+        if premier_message:
+            # Tronquer a 50 caracteres
+            contenu = premier_message.contenu[:50]
+            if len(premier_message.contenu) > 50:
+                contenu += '...'
+            self.titre = contenu
+            self.save(update_fields=['titre'])
+
+    def get_contexte_documents(self, limit=5):
+        """
+        Recupere les documents pertinents pour le contexte.
+
+        Returns:
+            Liste de documents avec leur texte OCR
+        """
+        if self.document:
+            return [self.document]
+
+        if self.mandat:
+            return Document.objects.filter(
+                mandat=self.mandat,
+                is_active=True,
+                ocr_text__isnull=False
+            ).exclude(ocr_text='').order_by('-date_upload')[:limit]
+
+        return []
+
+
+class Message(BaseModel):
+    """
+    Message dans une conversation.
+
+    Types:
+    - USER: Message de l'utilisateur
+    - ASSISTANT: Reponse de l'AI
+    - SYSTEM: Message systeme (context, erreur)
+    """
+
+    ROLE_CHOICES = [
+        ('USER', 'Utilisateur'),
+        ('ASSISTANT', 'Assistant'),
+        ('SYSTEM', 'Systeme'),
+    ]
+
+    conversation = models.ForeignKey(
+        Conversation,
+        on_delete=models.CASCADE,
+        related_name='messages'
+    )
+
+    role = models.CharField(
+        max_length=20,
+        choices=ROLE_CHOICES,
+        db_index=True
+    )
+    contenu = models.TextField()
+
+    # Metadonnees AI
+    tokens_prompt = models.IntegerField(
+        default=0,
+        help_text='Tokens utilises pour le prompt'
+    )
+    tokens_completion = models.IntegerField(
+        default=0,
+        help_text='Tokens generes en reponse'
+    )
+    duree_ms = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text='Duree de generation en millisecondes'
+    )
+
+    # Documents references
+    documents_contexte = models.ManyToManyField(
+        Document,
+        blank=True,
+        related_name='messages_contexte',
+        help_text='Documents utilises comme contexte pour ce message'
+    )
+
+    # Sources citees dans la reponse
+    sources = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Sources citees par l\'assistant'
+    )
+
+    # Feedback utilisateur
+    feedback = models.CharField(
+        max_length=20,
+        choices=[
+            ('POSITIF', 'Positif'),
+            ('NEGATIF', 'Negatif'),
+        ],
+        null=True,
+        blank=True
+    )
+    commentaire_feedback = models.TextField(blank=True)
+
+    class Meta:
+        db_table = 'messages'
+        verbose_name = 'Message'
+        verbose_name_plural = 'Messages'
+        ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['conversation', 'created_at']),
+            models.Index(fields=['role']),
+        ]
+
+    def __str__(self):
+        return f"{self.role}: {self.contenu[:50]}..."
+
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+
+        # Mettre a jour les compteurs de la conversation
+        if is_new:
+            self.conversation.nombre_messages = self.conversation.messages.count()
+            self.conversation.tokens_utilises += self.tokens_prompt + self.tokens_completion
+            self.conversation.save(update_fields=['nombre_messages', 'tokens_utilises', 'updated_at'])

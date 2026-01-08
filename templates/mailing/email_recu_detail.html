@@ -1,0 +1,471 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{{ email.sujet|truncatechars:50 }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .mail-wrapper {
+        display: flex;
+        min-height: calc(100vh - 200px);
+    }
+    .mail-sidebar {
+        width: 260px;
+        min-width: 260px;
+        border-right: 1px solid var(--bs-border-color);
+        padding: 20px;
+        background: var(--bs-card-bg);
+    }
+    .mail-content {
+        flex: 1;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+    .mail-header {
+        padding: 20px;
+        border-bottom: 1px solid var(--bs-border-color);
+        background: var(--bs-card-bg);
+    }
+    .mail-body {
+        flex: 1;
+        padding: 20px;
+        overflow-y: auto;
+    }
+    .folder-item {
+        display: flex;
+        align-items: center;
+        padding: 10px 15px;
+        border-radius: 6px;
+        margin-bottom: 4px;
+        cursor: pointer;
+        transition: background 0.2s;
+        text-decoration: none;
+        color: inherit;
+    }
+    .folder-item:hover, .folder-item.active {
+        background: var(--bs-primary-bg-subtle);
+    }
+    .folder-item.active {
+        color: var(--bs-primary);
+        font-weight: 600;
+    }
+    .folder-item i {
+        margin-right: 10px;
+        width: 20px;
+        text-align: center;
+    }
+    .mail-avatar-lg {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 18px;
+        color: white;
+    }
+    .email-content-frame {
+        width: 100%;
+        min-height: 400px;
+        border: none;
+        background: white;
+        border-radius: 8px;
+    }
+    .attachment-item {
+        display: flex;
+        align-items: center;
+        padding: 12px 16px;
+        background: var(--bs-tertiary-bg);
+        border-radius: 8px;
+        margin-bottom: 8px;
+    }
+    .attachment-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 12px;
+        font-size: 18px;
+    }
+    .ai-analysis-card {
+        border-left: 4px solid var(--bs-success);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h3>{% trans "Lecture email" %}</h3>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}"><i class="ti ti-home"></i></a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'mailing:email-recu-list' %}">{% trans "Boite de reception" %}</a></li>
+                        <li class="breadcrumb-item active">{{ email.sujet|truncatechars:30 }}</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="mail-wrapper">
+                <!-- Sidebar -->
+                <div class="mail-sidebar">
+                    <!-- Back Button -->
+                    <a href="{% url 'mailing:email-recu-list' %}" class="btn btn-outline-secondary w-100 mb-4">
+                        <i class="ti ti-arrow-left me-2"></i>{% trans "Retour" %}
+                    </a>
+
+                    <!-- Quick Actions -->
+                    <div class="mb-4">
+                        <h6 class="text-muted text-uppercase f-s-12 mb-3">{% trans "Actions" %}</h6>
+
+                        {% if not email.analyse_effectuee %}
+                        <form method="post" action="{% url 'mailing:email-analyser' email.pk %}" class="mb-2">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-success w-100">
+                                <i class="ti ti-robot me-2"></i>{% trans "Analyser avec IA" %}
+                            </button>
+                        </form>
+                        {% endif %}
+
+                        <button type="button" class="btn btn-outline-primary w-100 mb-2" data-bs-toggle="modal" data-bs-target="#replyModal">
+                            <i class="ti ti-arrow-back-up me-2"></i>{% trans "Repondre" %}
+                        </button>
+
+                        <button type="button" class="btn btn-outline-secondary w-100">
+                            <i class="ti ti-arrow-forward me-2"></i>{% trans "Transferer" %}
+                        </button>
+                    </div>
+
+                    <!-- Navigation -->
+                    <div class="mb-4">
+                        <h6 class="text-muted text-uppercase f-s-12 mb-3">{% trans "Navigation" %}</h6>
+                        <a href="{% url 'mailing:email-recu-list' %}" class="folder-item">
+                            <i class="ti ti-inbox"></i>
+                            <span>{% trans "Boite de reception" %}</span>
+                        </a>
+                        <a href="{% url 'mailing:email-envoye-list' %}" class="folder-item">
+                            <i class="ti ti-send"></i>
+                            <span>{% trans "Envoyes" %}</span>
+                        </a>
+                    </div>
+
+                    <!-- Email Info -->
+                    <div class="border-top pt-3">
+                        <h6 class="text-muted text-uppercase f-s-12 mb-3">{% trans "Informations" %}</h6>
+                        <div class="f-s-12 text-muted mb-2">
+                            <i class="ti ti-calendar me-1"></i>
+                            {{ email.date_reception|date:"d/m/Y H:i" }}
+                        </div>
+                        <div class="f-s-12 text-muted mb-2">
+                            <i class="ti ti-inbox me-1"></i>
+                            <a href="{% url 'mailing:configuration-detail' email.configuration.pk %}">
+                                {{ email.configuration.nom }}
+                            </a>
+                        </div>
+                        {% if email.message_id %}
+                        <div class="f-s-12 text-muted">
+                            <i class="ti ti-id me-1"></i>
+                            <code class="f-s-10">{{ email.message_id|truncatechars:25 }}</code>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Main Content -->
+                <div class="mail-content">
+                    <!-- Header -->
+                    <div class="mail-header">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div class="d-flex align-items-center">
+                                <div class="mail-avatar-lg me-3" style="background: linear-gradient(135deg, #5c6bc0, #7e57c2);">
+                                    {{ email.expediteur_nom|default:email.expediteur|slice:":2"|upper }}
+                                </div>
+                                <div>
+                                    <h5 class="mb-1">{{ email.expediteur_nom|default:"-" }}</h5>
+                                    <div class="text-muted f-s-13">
+                                        <span>{{ email.expediteur }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                <div class="text-muted f-s-12">{{ email.date_reception|date:"d/m/Y H:i" }}</div>
+                                <div class="mt-2">
+                                    {% if email.est_important %}
+                                    <span class="badge bg-warning"><i class="ti ti-star-filled me-1"></i>{% trans "Important" %}</span>
+                                    {% endif %}
+                                    {% if email.analyse_effectuee %}
+                                    <span class="badge bg-success"><i class="ti ti-robot me-1"></i>{% trans "Analyse" %}</span>
+                                    {% endif %}
+                                    {% if email.pieces_jointes %}
+                                    <span class="badge bg-secondary"><i class="ti ti-paperclip me-1"></i>{{ email.pieces_jointes|length }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Recipients -->
+                        {% if email.destinataires %}
+                        <div class="f-s-12 text-muted mb-1">
+                            <strong>{% trans "A:" %}</strong> {{ email.destinataires }}
+                        </div>
+                        {% endif %}
+                        {% if email.destinataires_cc %}
+                        <div class="f-s-12 text-muted mb-1">
+                            <strong>{% trans "CC:" %}</strong> {{ email.destinataires_cc }}
+                        </div>
+                        {% endif %}
+
+                        <!-- Subject -->
+                        <h4 class="mt-3 mb-0">{{ email.sujet }}</h4>
+                    </div>
+
+                    <!-- Body -->
+                    <div class="mail-body">
+                        <!-- AI Analysis -->
+                        {% if email.analyse_effectuee and email.analyse_resultat %}
+                        <div class="card ai-analysis-card mb-4">
+                            <div class="card-header bg-success-subtle">
+                                <h6 class="mb-0">
+                                    <i class="ti ti-robot me-2"></i>{% trans "Analyse IA" %}
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    {% if email.analyse_resultat.resume %}
+                                    <div class="col-12 mb-3">
+                                        <label class="text-muted f-s-12 text-uppercase">{% trans "Resume" %}</label>
+                                        <p class="mb-0">{{ email.analyse_resultat.resume }}</p>
+                                    </div>
+                                    {% endif %}
+
+                                    <div class="col-md-4 mb-3">
+                                        {% if email.analyse_resultat.categorie %}
+                                        <label class="text-muted f-s-12 text-uppercase">{% trans "Categorie" %}</label>
+                                        <div><span class="badge bg-info">{{ email.analyse_resultat.categorie }}</span></div>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="col-md-4 mb-3">
+                                        {% if email.analyse_resultat.sentiment %}
+                                        <label class="text-muted f-s-12 text-uppercase">{% trans "Sentiment" %}</label>
+                                        <div>
+                                            {% if email.analyse_resultat.sentiment == 'positif' %}
+                                            <span class="badge bg-success">{% trans "Positif" %}</span>
+                                            {% elif email.analyse_resultat.sentiment == 'negatif' %}
+                                            <span class="badge bg-danger">{% trans "Negatif" %}</span>
+                                            {% else %}
+                                            <span class="badge bg-secondary">{% trans "Neutre" %}</span>
+                                            {% endif %}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="col-md-4 mb-3">
+                                        {% if email.mandat_detecte %}
+                                        <label class="text-muted f-s-12 text-uppercase">{% trans "Mandat detecte" %}</label>
+                                        <div>
+                                            <a href="{% url 'core:mandat-detail' email.mandat_detecte.pk %}" class="badge bg-primary text-decoration-none">
+                                                <i class="ti ti-briefcase me-1"></i>{{ email.mandat_detecte.numero }}
+                                            </a>
+                                        </div>
+                                        {% elif email.client_detecte %}
+                                        <label class="text-muted f-s-12 text-uppercase">{% trans "Client detecte" %}</label>
+                                        <div>
+                                            <a href="{% url 'core:client-detail' email.client_detecte.pk %}" class="badge bg-info text-decoration-none">
+                                                <i class="ti ti-building me-1"></i>{{ email.client_detecte.raison_sociale }}
+                                            </a>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+
+                                    {% if email.analyse_resultat.actions_suggerees %}
+                                    <div class="col-12 mb-3">
+                                        <label class="text-muted f-s-12 text-uppercase">{% trans "Actions suggerees" %}</label>
+                                        <ul class="mb-0 ps-3">
+                                            {% for action in email.analyse_resultat.actions_suggerees %}
+                                            <li>{{ action }}</li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                    {% endif %}
+
+                                    {% if email.analyse_resultat.entites %}
+                                    <div class="col-12">
+                                        <label class="text-muted f-s-12 text-uppercase">{% trans "Entites detectees" %}</label>
+                                        <div>
+                                            {% for entite in email.analyse_resultat.entites %}
+                                            <span class="badge bg-light text-dark me-1 mb-1">{{ entite }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Attachments -->
+                        {% if email.pieces_jointes %}
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="ti ti-paperclip me-2"></i>{% trans "Pieces jointes" %} ({{ email.pieces_jointes|length }})
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    {% for pj in email.pieces_jointes %}
+                                    <div class="col-md-6 col-lg-4">
+                                        <div class="attachment-item">
+                                            <div class="attachment-icon bg-primary-subtle text-primary">
+                                                {% if pj.type == 'application/pdf' %}
+                                                <i class="ti ti-file-type-pdf"></i>
+                                                {% elif 'image' in pj.type %}
+                                                <i class="ti ti-photo"></i>
+                                                {% elif 'spreadsheet' in pj.type or 'excel' in pj.type %}
+                                                <i class="ti ti-file-spreadsheet"></i>
+                                                {% elif 'document' in pj.type or 'word' in pj.type %}
+                                                <i class="ti ti-file-type-doc"></i>
+                                                {% else %}
+                                                <i class="ti ti-file"></i>
+                                                {% endif %}
+                                            </div>
+                                            <div class="flex-grow-1 min-width-0">
+                                                <div class="text-truncate f-s-13 fw-medium">{{ pj.nom }}</div>
+                                                <div class="text-muted f-s-12">{{ pj.taille|filesizeformat }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Email Content -->
+                        <div class="card">
+                            <div class="card-header">
+                                <ul class="nav nav-tabs card-header-tabs" role="tablist">
+                                    <li class="nav-item">
+                                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#content-html" type="button">
+                                            <i class="ti ti-code me-1"></i>{% trans "HTML" %}
+                                        </button>
+                                    </li>
+                                    <li class="nav-item">
+                                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#content-text" type="button">
+                                            <i class="ti ti-txt me-1"></i>{% trans "Texte" %}
+                                        </button>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="tab-content">
+                                    <div class="tab-pane fade show active" id="content-html">
+                                        {% if email.corps_html %}
+                                        <iframe srcdoc="{{ email.corps_html }}" class="email-content-frame"></iframe>
+                                        {% else %}
+                                        <div class="p-4 text-center text-muted">
+                                            <i class="ti ti-code-off f-s-32 mb-2 d-block"></i>
+                                            {% trans "Pas de contenu HTML" %}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="tab-pane fade" id="content-text">
+                                        {% if email.corps_texte %}
+                                        <pre class="p-4 mb-0" style="white-space: pre-wrap; font-family: inherit;">{{ email.corps_texte }}</pre>
+                                        {% else %}
+                                        <div class="p-4 text-center text-muted">
+                                            <i class="ti ti-file-off f-s-32 mb-2 d-block"></i>
+                                            {% trans "Pas de contenu texte" %}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reply Modal -->
+<div class="modal fade" id="replyModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="ti ti-arrow-back-up me-2"></i>{% trans "Repondre a" %}: {{ email.expediteur_nom|default:email.expediteur }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'mailing:email-compose' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <input type="hidden" name="destinataire" value="{{ email.expediteur }}">
+
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Destinataire" %}</label>
+                        <input type="text" class="form-control" value="{{ email.expediteur }}" readonly>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="reply_subject" class="form-label">{% trans "Sujet" %}</label>
+                        <input type="text" name="sujet" id="reply_subject" class="form-control" value="Re: {{ email.sujet }}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="reply_message" class="form-label">{% trans "Message" %}</label>
+                        <textarea name="message" id="reply_message" class="form-control" rows="10" required>
+
+
+---
+{% trans "Le" %} {{ email.date_reception|date:"d/m/Y" }} {% trans "a" %} {{ email.date_reception|time:"H:i" }}, {{ email.expediteur_nom|default:email.expediteur }} {% trans "a ecrit" %}:
+
+{{ email.corps_texte|default:"" }}</textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        {% trans "Annuler" %}
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="ti ti-send me-2"></i>{% trans "Envoyer" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-resize iframe
+    const iframe = document.querySelector('.email-content-frame');
+    if (iframe) {
+        iframe.onload = function() {
+            try {
+                const height = iframe.contentWindow.document.body.scrollHeight;
+                iframe.style.height = Math.max(400, height + 20) + 'px';
+            } catch(e) {
+                // Cross-origin content, use default height
+            }
+        };
+    }
+});
+</script>
+{% endblock %}

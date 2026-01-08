@@ -25,11 +25,16 @@ from .serializers import (
     EcritureComptableDetailSerializer,
     EcritureComptableCreateSerializer,
     PieceComptableSerializer,
+    PieceComptableListSerializer,
+    PieceComptableDetailSerializer,
+    PieceComptableCreateSerializer,
+    TypePieceComptableSerializer,
     LettrageSerializer,
     BalanceSerializer,
     BilanSerializer,
     CompteResultatsSerializer,
 )
+from .models import TypePieceComptable
 
 
 class PlanComptableViewSet(viewsets.ModelViewSet):
@@ -307,19 +312,50 @@ class EcritureComptableViewSet(viewsets.ModelViewSet):
 
 
 class PieceComptableViewSet(viewsets.ModelViewSet):
-    """ViewSet pour les pièces comptables"""
+    """
+    ViewSet pour les pièces comptables.
 
-    queryset = PieceComptable.objects.all()
-    serializer_class = PieceComptableSerializer
+    Endpoints:
+    - GET    /pieces/                    Liste des pièces
+    - POST   /pieces/                    Créer une pièce
+    - GET    /pieces/{id}/               Détail d'une pièce
+    - PUT    /pieces/{id}/               Modifier une pièce
+    - DELETE /pieces/{id}/               Supprimer une pièce
+    - POST   /pieces/{id}/recalculer/    Recalculer l'équilibre
+    - POST   /pieces/{id}/valider/       Valider une pièce
+    - POST   /pieces/{id}/ajouter_document/  Ajouter un document
+    - GET    /pieces/types/              Liste des types de pièces
+    - GET    /pieces/statistiques/       Statistiques des pièces
+    """
+
     permission_classes = [IsAuthenticated]
     filter_backends = [
         DjangoFilterBackend,
         filters.SearchFilter,
         filters.OrderingFilter,
     ]
-    filterset_fields = ["mandat", "journal", "equilibree", "statut"]
-    search_fields = ["numero_piece", "libelle"]
-    ordering = ["-date_piece"]
+    filterset_fields = ["mandat", "journal", "type_piece", "equilibree", "statut", "dossier"]
+    search_fields = ["numero_piece", "libelle", "reference_externe", "tiers_nom"]
+    ordering_fields = ["date_piece", "numero_piece", "montant_ttc", "created_at"]
+    ordering = ["-date_piece", "-created_at"]
+
+    def get_queryset(self):
+        return PieceComptable.objects.select_related(
+            "mandat", "mandat__client", "journal", "type_piece", "dossier", "valide_par"
+        ).prefetch_related("documents", "ecritures")
+
+    def get_serializer_class(self):
+        if self.action == "create":
+            return PieceComptableCreateSerializer
+        elif self.action == "list":
+            return PieceComptableListSerializer
+        elif self.action in ["retrieve", "update", "partial_update"]:
+            return PieceComptableDetailSerializer
+        return PieceComptableSerializer
+
+    def perform_create(self, serializer):
+        """Ajoute le created_by automatiquement"""
+        serializer.save(created_by=self.request.user)
 
     @action(detail=True, methods=["post"])
     def recalculer(self, request, pk=None):
@@ -334,6 +370,128 @@ class PieceComptableViewSet(viewsets.ModelViewSet):
                 "total_credit": piece.total_credit,
             }
         )
+
+    @action(detail=True, methods=["post"])
+    def valider(self, request, pk=None):
+        """Valider une pièce comptable"""
+        from django.utils import timezone
+
+        piece = self.get_object()
+
+        if piece.statut == "VALIDE":
+            return Response(
+                {"error": "Cette pièce est déjà validée"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Vérifier l'équilibre si des écritures sont associées
+        if piece.ecritures.exists() and not piece.equilibree:
+            piece.calculer_equilibre()
+            if not piece.equilibree:
+                return Response(
+                    {"error": "La pièce n'est pas équilibrée"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        piece.statut = "VALIDE"
+        piece.valide_par = request.user
+        piece.date_validation = timezone.now()
+        piece.save()
+
+        serializer = PieceComptableDetailSerializer(piece)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["post"])
+    def ajouter_document(self, request, pk=None):
+        """Ajouter un document à une pièce comptable"""
+        piece = self.get_object()
+        document_id = request.data.get("document_id")
+
+        if not document_id:
+            return Response(
+                {"error": "document_id requis"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            from documents.models import Document
+            document = Document.objects.get(id=document_id)
+            piece.documents.add(document)
+
+            return Response({
+                "success": True,
+                "message": f"Document {document.nom_fichier} ajouté à la pièce"
+            })
+        except Document.DoesNotExist:
+            return Response(
+                {"error": "Document non trouvé"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+    @action(detail=False, methods=["get"])
+    def types(self, request):
+        """Liste des types de pièces comptables"""
+        types = TypePieceComptable.objects.filter(is_active=True).order_by("ordre", "code")
+        serializer = TypePieceComptableSerializer(types, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"])
+    def statistiques(self, request):
+        """Statistiques des pièces comptables"""
+        mandat_id = request.query_params.get("mandat")
+        date_debut = request.query_params.get("date_debut")
+        date_fin = request.query_params.get("date_fin")
+
+        qs = self.get_queryset()
+
+        if mandat_id:
+            qs = qs.filter(mandat_id=mandat_id)
+        if date_debut:
+            qs = qs.filter(date_piece__gte=date_debut)
+        if date_fin:
+            qs = qs.filter(date_piece__lte=date_fin)
+
+        # Statistiques par statut
+        stats_statut = {}
+        for statut, label in PieceComptable.STATUT_CHOICES:
+            count = qs.filter(statut=statut).count()
+            stats_statut[statut] = {"label": label, "count": count}
+
+        # Statistiques par type de pièce
+        stats_type = []
+        for type_piece in TypePieceComptable.objects.filter(is_active=True):
+            count = qs.filter(type_piece=type_piece).count()
+            total = qs.filter(type_piece=type_piece).aggregate(
+                total=Sum("montant_ttc")
+            )["total"] or Decimal("0")
+            stats_type.append({
+                "type_piece": type_piece.code,
+                "libelle": type_piece.libelle,
+                "count": count,
+                "total": float(total)
+            })
+
+        # Totaux globaux
+        totaux = qs.aggregate(
+            total_ht=Sum("montant_ht"),
+            total_tva=Sum("montant_tva"),
+            total_ttc=Sum("montant_ttc")
+        )
+
+        return Response({
+            "nombre_total": qs.count(),
+            "par_statut": stats_statut,
+            "par_type": stats_type,
+            "totaux": {
+                "montant_ht": float(totaux["total_ht"] or 0),
+                "montant_tva": float(totaux["total_tva"] or 0),
+                "montant_ttc": float(totaux["total_ttc"] or 0),
+            },
+            "periode": {
+                "date_debut": date_debut,
+                "date_fin": date_fin
+            }
+        })
 
 
 class LettrageViewSet(viewsets.ModelViewSet):

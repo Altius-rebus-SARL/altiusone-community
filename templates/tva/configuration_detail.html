@@ -100,7 +100,7 @@
                     </div>
                     <div class="col-6">
                         <label class="text-muted f-s-12">{% trans "Périodicité" %}</label>
-                        <h6><span class="badge bg-light-info">{{ configuration.get_periodicite_display }}</span></h6>
+                        <h6><span class="badge bg-light-info">{{ configuration.periodicite_ref.libelle|default:configuration.get_periodicite_display }}</span></h6>
                     </div>
                 </div>
 

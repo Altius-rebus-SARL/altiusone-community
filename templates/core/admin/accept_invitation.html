@@ -1,0 +1,88 @@
+{% extends "base_auth.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Accepter l'invitation" %}{% endblock %}
+
+{% block auth_content %}
+<div class="card-body">
+    <div class="text-center mb-4">
+        <h4>{% trans "Bienvenue sur AltiusOne" %}</h4>
+        <p class="text-muted">{% trans "Vous avez ete invite par" %} <strong>{{ invitation.invite_par.get_full_name|default:invitation.invite_par.username }}</strong></p>
+    </div>
+
+    {% if invitation.message_personnalise %}
+    <div class="alert alert-info mb-4">
+        <i class="ti ti-message me-2"></i>{{ invitation.message_personnalise }}
+    </div>
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger">
+            {{ form.non_field_errors }}
+        </div>
+        {% endif %}
+
+        <div class="row">
+            <!-- First Name -->
+            <div class="col-md-6 mb-3">
+                <label for="id_first_name" class="form-label">{% trans "Prenom" %} *</label>
+                {{ form.first_name }}
+                {% if form.first_name.errors %}<div class="text-danger f-s-12">{{ form.first_name.errors|join:", " }}</div>{% endif %}
+            </div>
+
+            <!-- Last Name -->
+            <div class="col-md-6 mb-3">
+                <label for="id_last_name" class="form-label">{% trans "Nom" %} *</label>
+                {{ form.last_name }}
+                {% if form.last_name.errors %}<div class="text-danger f-s-12">{{ form.last_name.errors|join:", " }}</div>{% endif %}
+            </div>
+
+            <!-- Phone -->
+            <div class="col-12 mb-3">
+                <label for="id_phone" class="form-label">{% trans "Telephone" %}</label>
+                {{ form.phone }}
+                {% if form.phone.errors %}<div class="text-danger f-s-12">{{ form.phone.errors|join:", " }}</div>{% endif %}
+            </div>
+
+            <!-- Password -->
+            <div class="col-md-6 mb-3">
+                <label for="id_password" class="form-label">{% trans "Mot de passe" %} *</label>
+                {{ form.password }}
+                {% if form.password.errors %}<div class="text-danger f-s-12">{{ form.password.errors|join:", " }}</div>{% endif %}
+                <small class="text-muted">{% trans "Minimum 12 caracteres" %}</small>
+            </div>
+
+            <!-- Password Confirm -->
+            <div class="col-md-6 mb-3">
+                <label for="id_password_confirm" class="form-label">{% trans "Confirmer" %} *</label>
+                {{ form.password_confirm }}
+                {% if form.password_confirm.errors %}<div class="text-danger f-s-12">{{ form.password_confirm.errors|join:", " }}</div>{% endif %}
+            </div>
+
+            <!-- Accept Terms -->
+            <div class="col-12 mb-3">
+                <div class="form-check">
+                    {{ form.accept_terms }}
+                    <label class="form-check-label" for="id_accept_terms">
+                        {% trans "J'accepte les" %} <a href="#" target="_blank">{% trans "conditions d'utilisation" %}</a>
+                    </label>
+                    {% if form.accept_terms.errors %}<div class="text-danger f-s-12">{{ form.accept_terms.errors|join:", " }}</div>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100 mt-3">
+            <i class="ti ti-check me-2"></i>{% trans "Creer mon compte" %}
+        </button>
+    </form>
+
+    <div class="text-center mt-4">
+        <small class="text-muted">
+            {% trans "Invitation valide jusqu'au" %} {{ invitation.date_expiration|date:"d/m/Y" }}
+        </small>
+    </div>
+</div>
+{% endblock %}

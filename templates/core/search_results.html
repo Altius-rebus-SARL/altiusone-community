@@ -100,7 +100,7 @@
                                         </h6>
                                         <p class="text-muted mb-0">{{ mandat.client.raison_sociale }}</p>
                                     </div>
-                                    <span class="badge bg-light-success">{{ mandat.get_type_mandat_display }}</span>
+                                    <span class="badge bg-light-success">{{ mandat.type_mandat_ref.libelle|default:mandat.get_type_mandat_display }}</span>
                                 </li>
                                 {% endfor %}
                             </ul>

@@ -1,6 +1,6 @@
 # apps/analytics/models.py
 from django.db import models
-from core.models import BaseModel, Mandat, User, Client
+from core.models import BaseModel, Mandat, User, Client, Periodicite
 from decimal import Decimal
 
 
@@ -87,6 +87,7 @@ class Indicateur(BaseModel):
         ('CUSTOM', 'Formule personnalisée'),
     ]
 
+    # Conservé pour compatibilité/migration
     PERIODICITE_CHOICES = [
         ('TEMPS_REEL', 'Temps réel'),
         ('JOUR', 'Journalier'),
@@ -115,9 +116,24 @@ class Indicateur(BaseModel):
     source_champ = models.CharField(max_length=100, blank=True)
     filtres_source = models.JSONField(default=dict, blank=True)
 
-    # Périodicité
-    periodicite = models.CharField(max_length=20, choices=PERIODICITE_CHOICES,
-                                   default='MOIS')
+    # Nouveau: Référence vers Periodicite
+    periodicite_ref = models.ForeignKey(
+        Periodicite,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='indicateurs',
+        verbose_name='Périodicité',
+        help_text='Fréquence de calcul de l\'indicateur'
+    )
+    # Ancien champ conservé pour compatibilité/migration
+    periodicite = models.CharField(
+        max_length=20,
+        choices=PERIODICITE_CHOICES,
+        default='MOIS',
+        verbose_name='Périodicité (ancien)',
+        blank=True
+    )
 
     # Objectifs
     objectif_min = models.DecimalField(max_digits=15, decimal_places=2,
@@ -307,6 +323,7 @@ class Rapport(BaseModel):
 class PlanificationRapport(BaseModel):
     """Planification de génération automatique de rapports"""
 
+    # Conservé pour compatibilité/migration
     FREQUENCE_CHOICES = [
         ('JOUR', 'Quotidien'),
         ('SEMAINE', 'Hebdomadaire'),
@@ -322,8 +339,23 @@ class PlanificationRapport(BaseModel):
                                null=True, blank=True,
                                related_name='planifications_rapports')
 
-    # Planification
-    frequence = models.CharField(max_length=20, choices=FREQUENCE_CHOICES)
+    # Nouveau: Référence vers Periodicite
+    frequence_ref = models.ForeignKey(
+        Periodicite,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='planifications_rapports',
+        verbose_name='Fréquence',
+        help_text='Fréquence de génération du rapport'
+    )
+    # Ancien champ conservé pour compatibilité/migration
+    frequence = models.CharField(
+        max_length=20,
+        choices=FREQUENCE_CHOICES,
+        verbose_name='Fréquence (ancien)',
+        blank=True
+    )
     jour_semaine = models.IntegerField(null=True, blank=True,
                                        help_text='1-7 pour lundi-dimanche')
     jour_mois = models.IntegerField(null=True, blank=True,

@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Invitations" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h3>{% trans "Gestion des invitations" %}</h3>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}"><i class="ti ti-home"></i></a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'core:admin-dashboard' %}">{% trans "Administration" %}</a></li>
+                        <li class="breadcrumb-item active">{% trans "Invitations" %}</li>
+                    </ol>
+                </div>
+                <div class="page-header-right">
+                    <div class="dropdown">
+                        <button class="btn btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            <i class="ti ti-plus me-2"></i>{% trans "Nouvelle invitation" %}
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a class="dropdown-item" href="{% url 'core:admin-invitation-staff-create' %}">
+                                    <i class="ti ti-user-shield me-2"></i>{% trans "Inviter un collaborateur" %}
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{% url 'core:admin-invitation-client-create' %}">
+                                    <i class="ti ti-building me-2"></i>{% trans "Inviter un client" %}
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row">
+        <div class="col-xl-3 col-sm-6">
+            <div class="card widget-1">
+                <div class="card-body">
+                    <div class="widget-content">
+                        <div class="widget-round primary">
+                            <i class="ti ti-mail"></i>
+                        </div>
+                        <div>
+                            <h4>{{ stats.total }}</h4>
+                            <span>{% trans "Total" %}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-sm-6">
+            <div class="card widget-1">
+                <div class="card-body">
+                    <div class="widget-content">
+                        <div class="widget-round info">
+                            <i class="ti ti-clock"></i>
+                        </div>
+                        <div>
+                            <h4>{{ stats.en_attente }}</h4>
+                            <span>{% trans "En attente" %}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-sm-6">
+            <div class="card widget-1">
+                <div class="card-body">
+                    <div class="widget-content">
+                        <div class="widget-round success">
+                            <i class="ti ti-check"></i>
+                        </div>
+                        <div>
+                            <h4>{{ stats.acceptees }}</h4>
+                            <span>{% trans "Acceptees" %}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-sm-6">
+            <div class="card widget-1">
+                <div class="card-body">
+                    <div class="widget-content">
+                        <div class="widget-round secondary">
+                            <i class="ti ti-clock-off"></i>
+                        </div>
+                        <div>
+                            <h4>{{ stats.expirees }}</h4>
+                            <span>{% trans "Expirees" %}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters & Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Liste des invitations" %}</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Filters -->
+                    <form method="get" class="row g-3 mb-4">
+                        <div class="col-md-3">
+                            <select name="statut" class="form-select">
+                                <option value="">{% trans "Tous statuts" %}</option>
+                                <option value="EN_ATTENTE" {% if request.GET.statut == 'EN_ATTENTE' %}selected{% endif %}>{% trans "En attente" %}</option>
+                                <option value="ACCEPTEE" {% if request.GET.statut == 'ACCEPTEE' %}selected{% endif %}>{% trans "Acceptee" %}</option>
+                                <option value="EXPIREE" {% if request.GET.statut == 'EXPIREE' %}selected{% endif %}>{% trans "Expiree" %}</option>
+                                <option value="ANNULEE" {% if request.GET.statut == 'ANNULEE' %}selected{% endif %}>{% trans "Annulee" %}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select name="type" class="form-select">
+                                <option value="">{% trans "Tous types" %}</option>
+                                <option value="STAFF" {% if request.GET.type == 'STAFF' %}selected{% endif %}>{% trans "Staff" %}</option>
+                                <option value="CLIENT" {% if request.GET.type == 'CLIENT' %}selected{% endif %}>{% trans "Client" %}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">{% trans "Filtrer" %}</button>
+                        </div>
+                    </form>
+
+                    <!-- Table -->
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "Email" %}</th>
+                                    <th>{% trans "Type" %}</th>
+                                    <th>{% trans "Invite par" %}</th>
+                                    <th>{% trans "Mandat" %}</th>
+                                    <th>{% trans "Statut" %}</th>
+                                    <th>{% trans "Expiration" %}</th>
+                                    <th>{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for invitation in invitations %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'core:admin-invitation-detail' invitation.pk %}">{{ invitation.email }}</a>
+                                    </td>
+                                    <td>
+                                        {% if invitation.type_invitation == 'STAFF' %}
+                                        <span class="badge bg-primary">{% trans "Staff" %}</span>
+                                        {% else %}
+                                        <span class="badge bg-warning">{% trans "Client" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ invitation.invite_par.get_full_name|default:invitation.invite_par.username }}</td>
+                                    <td>{{ invitation.mandat.numero|default:"-" }}</td>
+                                    <td>
+                                        {% if invitation.statut == 'EN_ATTENTE' %}
+                                        <span class="badge bg-info">{% trans "En attente" %}</span>
+                                        {% elif invitation.statut == 'ACCEPTEE' %}
+                                        <span class="badge bg-success">{% trans "Acceptee" %}</span>
+                                        {% elif invitation.statut == 'EXPIREE' %}
+                                        <span class="badge bg-secondary">{% trans "Expiree" %}</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">{% trans "Annulee" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ invitation.date_expiration|date:"d/m/Y" }}</td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'core:admin-invitation-detail' invitation.pk %}" class="btn btn-outline-primary" title="{% trans 'Voir' %}">
+                                                <i class="ti ti-eye"></i>
+                                            </a>
+                                            {% if invitation.statut == 'EN_ATTENTE' %}
+                                            <form method="post" action="{% url 'core:admin-invitation-resend' invitation.pk %}" class="d-inline">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-outline-success" title="{% trans 'Renvoyer' %}">
+                                                    <i class="ti ti-send"></i>
+                                                </button>
+                                            </form>
+                                            <form method="post" action="{% url 'core:admin-invitation-cancel' invitation.pk %}" class="d-inline">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-outline-danger" title="{% trans 'Annuler' %}">
+                                                    <i class="ti ti-x"></i>
+                                                </button>
+                                            </form>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted py-4">
+                                        {% trans "Aucune invitation trouvee" %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if page_obj %}
+                    <nav aria-label="Page navigation" class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}">
+                                    <i class="ti ti-chevron-left"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                            </li>
+                            {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}">
+                                    <i class="ti ti-chevron-right"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

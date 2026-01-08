@@ -1,0 +1,323 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{% if object %}{% trans "Modifier la configuration" %}{% else %}{% trans "Nouvelle configuration" %}{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h3>{% if object %}{% trans "Modifier la configuration" %}{% else %}{% trans "Nouvelle configuration email" %}{% endif %}</h3>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}"><i class="ti ti-home"></i></a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'mailing:configuration-list' %}">{% trans "Configurations" %}</a></li>
+                        <li class="breadcrumb-item active">{% if object %}{% trans "Modifier" %}{% else %}{% trans "Nouveau" %}{% endif %}</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="row">
+            <div class="col-12">
+                <div class="alert alert-danger">
+                    {{ form.non_field_errors }}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="row">
+            <!-- Informations generales -->
+            <div class="col-xl-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="ti ti-info-circle me-2"></i>{% trans "Informations generales" %}</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="id_nom" class="form-label">{% trans "Nom de la configuration" %} <span class="text-danger">*</span></label>
+                            {{ form.nom }}
+                            {% if form.nom.errors %}<div class="text-danger f-s-12">{{ form.nom.errors|join:", " }}</div>{% endif %}
+                            <small class="text-muted">{% trans "Un nom descriptif pour identifier cette configuration" %}</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="id_usage" class="form-label">{% trans "Usage" %} <span class="text-danger">*</span></label>
+                            {{ form.usage }}
+                            {% if form.usage.errors %}<div class="text-danger f-s-12">{{ form.usage.errors|join:", " }}</div>{% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="id_email_address" class="form-label">{% trans "Adresse email" %} <span class="text-danger">*</span></label>
+                            {{ form.email_address }}
+                            {% if form.email_address.errors %}<div class="text-danger f-s-12">{{ form.email_address.errors|join:", " }}</div>{% endif %}
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="id_from_name" class="form-label">{% trans "Nom expediteur" %}</label>
+                                {{ form.from_name }}
+                                {% if form.from_name.errors %}<div class="text-danger f-s-12">{{ form.from_name.errors|join:", " }}</div>{% endif %}
+                                <small class="text-muted">{% trans "Nom affiche lors de l'envoi" %}</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="id_reply_to" class="form-label">{% trans "Reply-To" %}</label>
+                                {{ form.reply_to }}
+                                {% if form.reply_to.errors %}<div class="text-danger f-s-12">{{ form.reply_to.errors|join:", " }}</div>{% endif %}
+                                <small class="text-muted">{% trans "Adresse de reponse" %}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Authentification -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="ti ti-lock me-2"></i>{% trans "Authentification" %}</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="id_username" class="form-label">{% trans "Nom d'utilisateur" %}</label>
+                            {{ form.username }}
+                            {% if form.username.errors %}<div class="text-danger f-s-12">{{ form.username.errors|join:", " }}</div>{% endif %}
+                            <small class="text-muted">{% trans "Laissez vide si identique a l'adresse email" %}</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="id_password_new" class="form-label">{% trans "Mot de passe" %}</label>
+                            {{ form.password_new }}
+                            {% if form.password_new.errors %}<div class="text-danger f-s-12">{{ form.password_new.errors|join:", " }}</div>{% endif %}
+                            <small class="text-muted">{{ form.password_new.help_text }}</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Options -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="ti ti-settings me-2"></i>{% trans "Options" %}</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check form-switch">
+                                    {{ form.est_defaut }}
+                                    <label class="form-check-label" for="id_est_defaut">
+                                        {% trans "Configuration par defaut" %}
+                                    </label>
+                                </div>
+                                <small class="text-muted">{% trans "Utilisee quand aucune configuration n'est specifiee" %}</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check form-switch">
+                                    {{ form.actif }}
+                                    <label class="form-check-label" for="id_actif">
+                                        {% trans "Active" %}
+                                    </label>
+                                </div>
+                                <small class="text-muted">{% trans "Desactiver pour suspendre temporairement" %}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Configuration serveurs -->
+            <div class="col-xl-6">
+                <!-- SMTP - Serveur sortant -->
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="ti ti-send me-2"></i>{% trans "Serveur sortant (SMTP)" %}</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-light border mb-3">
+                            <i class="ti ti-info-circle me-2"></i>
+                            {% trans "Configure l'envoi d'emails. Requis pour envoyer des messages." %}
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-8 mb-3">
+                                <label for="id_smtp_host" class="form-label">{% trans "Serveur SMTP" %}</label>
+                                {{ form.smtp_host }}
+                                {% if form.smtp_host.errors %}<div class="text-danger f-s-12">{{ form.smtp_host.errors|join:", " }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="id_smtp_port" class="form-label">{% trans "Port" %}</label>
+                                {{ form.smtp_port }}
+                                {% if form.smtp_port.errors %}<div class="text-danger f-s-12">{{ form.smtp_port.errors|join:", " }}</div>{% endif %}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="id_smtp_security" class="form-label">{% trans "Securite" %}</label>
+                            {{ form.smtp_security }}
+                            {% if form.smtp_security.errors %}<div class="text-danger f-s-12">{{ form.smtp_security.errors|join:", " }}</div>{% endif %}
+                            <small class="text-muted d-block mt-1">
+                                {% trans "STARTTLS: port 587 | SSL/TLS: port 465 | Aucune: port 25" %}
+                            </small>
+                        </div>
+
+                        <!-- Presets connus -->
+                        <div class="mt-3 pt-3 border-top">
+                            <label class="form-label text-muted f-s-12">{% trans "Configurations connues:" %}</label>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button type="button" class="btn btn-outline-secondary btn-sm preset-btn"
+                                        data-smtp-host="smtp.gmail.com" data-smtp-port="587" data-smtp-security="TLS">
+                                    <i class="ti ti-brand-google me-1"></i>Gmail
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm preset-btn"
+                                        data-smtp-host="smtp.office365.com" data-smtp-port="587" data-smtp-security="TLS">
+                                    <i class="ti ti-brand-windows me-1"></i>Outlook/O365
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm preset-btn"
+                                        data-smtp-host="smtp.mail.yahoo.com" data-smtp-port="587" data-smtp-security="TLS">
+                                    <i class="ti ti-mail me-1"></i>Yahoo
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- IMAP - Serveur entrant -->
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="ti ti-inbox me-2"></i>{% trans "Serveur entrant (IMAP)" %}</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-light border mb-3">
+                            <i class="ti ti-info-circle me-2"></i>
+                            {% trans "Configure la reception d'emails. Requis pour recevoir des messages." %}
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-8 mb-3">
+                                <label for="id_imap_host" class="form-label">{% trans "Serveur IMAP" %}</label>
+                                {{ form.imap_host }}
+                                {% if form.imap_host.errors %}<div class="text-danger f-s-12">{{ form.imap_host.errors|join:", " }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="id_imap_port" class="form-label">{% trans "Port" %}</label>
+                                {{ form.imap_port }}
+                                {% if form.imap_port.errors %}<div class="text-danger f-s-12">{{ form.imap_port.errors|join:", " }}</div>{% endif %}
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="id_imap_security" class="form-label">{% trans "Securite" %}</label>
+                                {{ form.imap_security }}
+                                {% if form.imap_security.errors %}<div class="text-danger f-s-12">{{ form.imap_security.errors|join:", " }}</div>{% endif %}
+                                <small class="text-muted d-block mt-1">
+                                    {% trans "SSL/TLS: port 993 | Aucune: port 143" %}
+                                </small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="id_imap_dossier" class="form-label">{% trans "Dossier a surveiller" %}</label>
+                                {{ form.imap_dossier }}
+                                {% if form.imap_dossier.errors %}<div class="text-danger f-s-12">{{ form.imap_dossier.errors|join:", " }}</div>{% endif %}
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check form-switch">
+                                    {{ form.analyse_ai_activee }}
+                                    <label class="form-check-label" for="id_analyse_ai_activee">
+                                        {% trans "Analyse IA des emails" %}
+                                    </label>
+                                </div>
+                                <small class="text-muted">{% trans "Categoriser et resumer automatiquement" %}</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check form-switch">
+                                    {{ form.extraire_pieces_jointes }}
+                                    <label class="form-check-label" for="id_extraire_pieces_jointes">
+                                        {% trans "Extraire les pieces jointes" %}
+                                    </label>
+                                </div>
+                                <small class="text-muted">{% trans "Sauvegarder les fichiers joints" %}</small>
+                            </div>
+                        </div>
+
+                        <!-- Presets connus -->
+                        <div class="mt-3 pt-3 border-top">
+                            <label class="form-label text-muted f-s-12">{% trans "Configurations connues:" %}</label>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button type="button" class="btn btn-outline-secondary btn-sm preset-btn"
+                                        data-imap-host="imap.gmail.com" data-imap-port="993" data-imap-security="SSL">
+                                    <i class="ti ti-brand-google me-1"></i>Gmail
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm preset-btn"
+                                        data-imap-host="outlook.office365.com" data-imap-port="993" data-imap-security="SSL">
+                                    <i class="ti ti-brand-windows me-1"></i>Outlook/O365
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm preset-btn"
+                                        data-imap-host="imap.mail.yahoo.com" data-imap-port="993" data-imap-security="SSL">
+                                    <i class="ti ti-mail me-1"></i>Yahoo
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Boutons -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body d-flex justify-content-between">
+                        <a href="{% url 'mailing:configuration-list' %}" class="btn btn-secondary">
+                            <i class="ti ti-arrow-left me-2"></i>{% trans "Retour" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ti ti-check me-2"></i>{% if object %}{% trans "Enregistrer" %}{% else %}{% trans "Creer" %}{% endif %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Gestion des presets
+    document.querySelectorAll('.preset-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            // SMTP presets
+            if (this.dataset.smtpHost) {
+                const smtpHost = document.getElementById('id_smtp_host');
+                const smtpPort = document.getElementById('id_smtp_port');
+                const smtpSecurity = document.getElementById('id_smtp_security');
+
+                if (smtpHost) smtpHost.value = this.dataset.smtpHost;
+                if (smtpPort) smtpPort.value = this.dataset.smtpPort;
+                if (smtpSecurity) smtpSecurity.value = this.dataset.smtpSecurity;
+            }
+
+            // IMAP presets
+            if (this.dataset.imapHost) {
+                const imapHost = document.getElementById('id_imap_host');
+                const imapPort = document.getElementById('id_imap_port');
+                const imapSecurity = document.getElementById('id_imap_security');
+
+                if (imapHost) imapHost.value = this.dataset.imapHost;
+                if (imapPort) imapPort.value = this.dataset.imapPort;
+                if (imapSecurity) imapSecurity.value = this.dataset.imapSecurity;
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

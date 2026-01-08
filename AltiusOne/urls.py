@@ -27,9 +27,10 @@ from comptabilite.api_urls import router as compta_router
 from tva.api_urls import router as tva_router
 from facturation.api_urls import router as factu_router
 from salaires.api_urls import router as salaires_router
-from documents.api_urls import router as docs_router
+from documents.api_urls import router as docs_router, chat_urlpatterns as docs_chat_urls
 from fiscalite.api_urls import router as fisc_router
 from analytics.api_urls import router as analytics_router
+from mailing.api_urls import router as mailing_router
 
 # Créer un router principal
 api_v1_router = DefaultRouter()
@@ -43,6 +44,7 @@ api_v1_router.registry.extend(salaires_router.registry)
 api_v1_router.registry.extend(docs_router.registry)
 api_v1_router.registry.extend(fisc_router.registry)
 api_v1_router.registry.extend(analytics_router.registry)
+api_v1_router.registry.extend(mailing_router.registry)
 
 
 class HealthCheckView(View):
@@ -62,7 +64,13 @@ urlpatterns = [
     
     # API v1 - Router principal
     path("api/v1/", include(api_v1_router.urls)),
-    
+
+    # API v1 - Documents Chat URLs additionnelles
+    path("api/v1/documents/", include(docs_chat_urls)),
+
+    # API v1 - Chat URLs (raccourci pour /api/v1/chat/)
+    path("api/v1/", include(docs_chat_urls)),
+
     # DRF browsable API auth
     path("api/v1/auth/", include("rest_framework.urls")),
     
@@ -97,6 +105,7 @@ urlpatterns += i18n_patterns(
     path("documents/", include("documents.urls", namespace="documents")),
     path("fiscalite/", include("fiscalite.urls", namespace="fiscalite")),
     path("analytics/", include("analytics.urls", namespace="analytics")),
+    path("mailing/", include("mailing.urls", namespace="mailing")),
     # Import/Export générique pour tous les modèles
     path("import-export/", include("core.import_export.urls", namespace="import_export")),
     prefix_default_language=True,

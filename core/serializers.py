@@ -11,6 +11,9 @@ from .models import (
     AuditLog,
     Notification,
     Tache,
+    TypeMandat,
+    TypeFacturation,
+    Periodicite,
 )
 
 User = get_user_model()
@@ -210,9 +213,83 @@ class ClientDetailSerializer(serializers.ModelSerializer):
         return client
 
 
+# =============================================================================
+# SERIALIZERS POUR LES TABLES DE RÉFÉRENCE
+# =============================================================================
+
+class PeriodiciteSerializer(serializers.ModelSerializer):
+    """Serializer pour les périodicités"""
+
+    class Meta:
+        model = Periodicite
+        fields = [
+            "id",
+            "code",
+            "libelle",
+            "description",
+            "nombre_mois",
+            "nombre_par_an",
+            "ordre",
+            "is_active",
+        ]
+
+
+class TypeMandatSerializer(serializers.ModelSerializer):
+    """Serializer pour les types de mandats"""
+
+    periodicite_defaut = PeriodiciteSerializer(read_only=True)
+
+    class Meta:
+        model = TypeMandat
+        fields = [
+            "id",
+            "code",
+            "libelle",
+            "description",
+            "icone",
+            "couleur",
+            "periodicite_defaut",
+            "modules_actifs",
+            "ordre",
+            "is_active",
+        ]
+
+
+class TypeFacturationSerializer(serializers.ModelSerializer):
+    """Serializer pour les types de facturation"""
+
+    class Meta:
+        model = TypeFacturation
+        fields = [
+            "id",
+            "code",
+            "libelle",
+            "description",
+            "necessite_forfait",
+            "necessite_taux_horaire",
+            "ordre",
+            "is_active",
+        ]
+
+
+# =============================================================================
+# SERIALIZERS POUR LES MANDATS
+# =============================================================================
+
 class MandatListSerializer(serializers.ModelSerializer):
     """Serializer léger pour liste de mandats"""
 
+    # Nouveaux champs (prioritaires)
+    type_mandat_libelle = serializers.CharField(
+        source="type_mandat_ref.libelle", read_only=True
+    )
+    periodicite_libelle = serializers.CharField(
+        source="periodicite_ref.libelle", read_only=True
+    )
+    type_facturation_libelle = serializers.CharField(
+        source="type_facturation_ref.libelle", read_only=True
+    )
+    # Anciens champs (fallback)
     type_mandat_display = serializers.CharField(
         source="get_type_mandat_display", read_only=True
     )
@@ -229,6 +306,14 @@ class MandatListSerializer(serializers.ModelSerializer):
             "numero",
             "client",
             "client_name",
+            # Nouveaux champs de référence
+            "type_mandat_ref",
+            "type_mandat_libelle",
+            "periodicite_ref",
+            "periodicite_libelle",
+            "type_facturation_ref",
+            "type_facturation_libelle",
+            # Anciens champs (compatibilité)
             "type_mandat",
             "type_mandat_display",
             "date_debut",
@@ -244,11 +329,25 @@ class MandatListSerializer(serializers.ModelSerializer):
 class MandatDetailSerializer(serializers.ModelSerializer):
     """Serializer détaillé pour un mandat"""
 
+    # Nouveaux champs avec serializers imbriqués
+    type_mandat_ref_detail = TypeMandatSerializer(
+        source="type_mandat_ref", read_only=True
+    )
+    periodicite_ref_detail = PeriodiciteSerializer(
+        source="periodicite_ref", read_only=True
+    )
+    type_facturation_ref_detail = TypeFacturationSerializer(
+        source="type_facturation_ref", read_only=True
+    )
+    # Anciens champs (fallback)
     type_mandat_display = serializers.CharField(
         source="get_type_mandat_display", read_only=True
     )
     periodicite_display = serializers.CharField(
         source="get_periodicite_display", read_only=True
+    )
+    type_facturation_display = serializers.CharField(
+        source="get_type_facturation_display", read_only=True
     )
     statut_display = serializers.CharField(source="get_statut_display", read_only=True)
     client = ClientListSerializer(read_only=True)

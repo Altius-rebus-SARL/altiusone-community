@@ -188,14 +188,25 @@
                                 <td>
                                     <div class="d-flex align-items-center">
                                         <div class="me-3">
-                                            {% if doc.extension == '.pdf' %}
+                                            {% if doc.extension in '.jpg,.jpeg,.png,.gif,.webp' %}
+                                                {% if doc.path_storage %}
+                                                <!-- Vignette pour les images -->
+                                                <a href="{% url 'documents:document-detail' doc.pk %}" title="{{ doc.nom_fichier }}">
+                                                    <img src="{% url 'documents:document-apercu' doc.pk %}"
+                                                         alt="{{ doc.nom_fichier }}"
+                                                         class="rounded"
+                                                         style="width: 40px; height: 40px; object-fit: cover;"
+                                                         onerror="this.onerror=null; this.outerHTML='<i class=\'ph ph-image text-info f-s-24\'></i>';">
+                                                </a>
+                                                {% else %}
+                                                <i class="ph ph-image text-info f-s-24"></i>
+                                                {% endif %}
+                                            {% elif doc.extension == '.pdf' %}
                                             <i class="ph ph-file-pdf text-danger f-s-24"></i>
                                             {% elif doc.extension in '.doc,.docx' %}
                                             <i class="ph ph-file-doc text-primary f-s-24"></i>
                                             {% elif doc.extension in '.xls,.xlsx' %}
                                             <i class="ph ph-file-xls text-success f-s-24"></i>
-                                            {% elif doc.extension in '.jpg,.jpeg,.png,.gif' %}
-                                            <i class="ph ph-image text-info f-s-24"></i>
                                             {% else %}
                                             <i class="ph ph-file text-secondary f-s-24"></i>
                                             {% endif %}

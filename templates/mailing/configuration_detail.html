@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Configuration" %} - {{ configuration.nom }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h3>{{ configuration.nom }}</h3>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}"><i class="ti ti-home"></i></a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'mailing:configuration-list' %}">{% trans "Configurations" %}</a></li>
+                        <li class="breadcrumb-item active">{{ configuration.nom }}</li>
+                    </ol>
+                </div>
+                <div class="page-header-right">
+                    <form method="post" action="{% url 'mailing:configuration-test' configuration.pk %}" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-info me-2">
+                            <i class="ti ti-plug me-2"></i>{% trans "Tester connexion" %}
+                        </button>
+                    </form>
+                    <a href="{% url 'mailing:configuration-update' configuration.pk %}" class="btn btn-primary">
+                        <i class="ti ti-edit me-2"></i>{% trans "Modifier" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Informations principales -->
+        <div class="col-xl-6">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5>{% trans "Informations generales" %}</h5>
+                    {% if configuration.actif %}
+                    <span class="badge bg-success">{% trans "Actif" %}</span>
+                    {% else %}
+                    <span class="badge bg-danger">{% trans "Inactif" %}</span>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Nom" %}</span>
+                            <span>{{ configuration.nom }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Type" %}</span>
+                            {% if configuration.type_config == 'SMTP' %}
+                            <span class="badge bg-info">SMTP (Envoi)</span>
+                            {% elif configuration.type_config == 'IMAP' %}
+                            <span class="badge bg-warning">IMAP (Reception)</span>
+                            {% else %}
+                            <span class="badge bg-primary">SMTP + IMAP</span>
+                            {% endif %}
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Usage" %}</span>
+                            <span>{{ configuration.get_usage_display }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Adresse email" %}</span>
+                            <span>{{ configuration.email_address }}</span>
+                        </li>
+                        {% if configuration.from_name %}
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Nom expediteur" %}</span>
+                            <span>{{ configuration.from_name }}</span>
+                        </li>
+                        {% endif %}
+                        {% if configuration.reply_to %}
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Reply-To" %}</span>
+                            <span>{{ configuration.reply_to }}</span>
+                        </li>
+                        {% endif %}
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Configuration par defaut" %}</span>
+                            {% if configuration.est_defaut %}
+                            <span class="badge bg-success"><i class="ti ti-star"></i> {% trans "Oui" %}</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{% trans "Non" %}</span>
+                            {% endif %}
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- SMTP Config -->
+            {% if configuration.type_config == 'SMTP' or configuration.type_config == 'BOTH' %}
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ti ti-send me-2"></i>{% trans "Configuration SMTP" %}</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Serveur" %}</span>
+                            <span>{{ configuration.smtp_host }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Port" %}</span>
+                            <span>{{ configuration.smtp_port }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Utilisateur" %}</span>
+                            <span>{{ configuration.username }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "TLS" %}</span>
+                            {% if configuration.smtp_use_tls %}
+                            <span class="badge bg-success"><i class="ti ti-lock"></i></span>
+                            {% else %}
+                            <span class="badge bg-secondary"><i class="ti ti-lock-off"></i></span>
+                            {% endif %}
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "SSL" %}</span>
+                            {% if configuration.smtp_use_ssl %}
+                            <span class="badge bg-success"><i class="ti ti-shield-lock"></i></span>
+                            {% else %}
+                            <span class="badge bg-secondary"><i class="ti ti-shield-off"></i></span>
+                            {% endif %}
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="col-xl-6">
+            <!-- IMAP Config -->
+            {% if configuration.type_config == 'IMAP' or configuration.type_config == 'BOTH' %}
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ti ti-inbox me-2"></i>{% trans "Configuration IMAP" %}</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Serveur" %}</span>
+                            <span>{{ configuration.imap_host }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Port" %}</span>
+                            <span>{{ configuration.imap_port }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Dossier" %}</span>
+                            <span>{{ configuration.imap_dossier|default:"INBOX" }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "SSL" %}</span>
+                            {% if configuration.imap_use_ssl %}
+                            <span class="badge bg-success"><i class="ti ti-shield-lock"></i></span>
+                            {% else %}
+                            <span class="badge bg-secondary"><i class="ti ti-shield-off"></i></span>
+                            {% endif %}
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Analyse IA" %}</span>
+                            {% if configuration.analyse_ai_activee %}
+                            <span class="badge bg-success"><i class="ti ti-robot"></i> {% trans "Activee" %}</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{% trans "Desactivee" %}</span>
+                            {% endif %}
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Statistiques -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ti ti-chart-bar me-2"></i>{% trans "Statistiques" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="p-3 border rounded">
+                                <h3 class="text-primary mb-0">{{ configuration.emails_envoyes.count }}</h3>
+                                <small class="text-muted">{% trans "Emails envoyes" %}</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="p-3 border rounded">
+                                <h3 class="text-info mb-0">{{ configuration.emails_recus.count }}</h3>
+                                <small class="text-muted">{% trans "Emails recus" %}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Templates associes -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5><i class="ti ti-template me-2"></i>{% trans "Templates associes" %}</h5>
+                    <a href="{% url 'mailing:template-create' %}" class="btn btn-sm btn-outline-primary">
+                        <i class="ti ti-plus"></i>
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if configuration.templates.exists %}
+                    <ul class="list-group list-group-flush">
+                        {% for template in configuration.templates.all %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <a href="{% url 'mailing:template-detail' template.pk %}">{{ template.nom }}</a>
+                                <br><small class="text-muted">{{ template.code }}</small>
+                            </div>
+                            {% if template.actif %}
+                            <span class="badge bg-success">{% trans "Actif" %}</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{% trans "Inactif" %}</span>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-muted text-center mb-0">{% trans "Aucun template associe" %}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Audit -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ti ti-history me-2"></i>{% trans "Audit" %}</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Cree le" %}</span>
+                            <span>{{ configuration.created_at|date:"d/m/Y H:i" }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Modifie le" %}</span>
+                            <span>{{ configuration.updated_at|date:"d/m/Y H:i" }}</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -68,7 +68,7 @@
                                     {% endif %}
                                 </td>
                                 <td><span class="badge bg-light-primary">{{ config.get_methode_calcul_display }}</span></td>
-                                <td><span class="badge bg-light-info">{{ config.get_periodicite_display }}</span></td>
+                                <td><span class="badge bg-light-info">{{ config.periodicite_ref.libelle|default:config.get_periodicite_display }}</span></td>
                                 <td>
                                     <a href="{% url 'tva:configuration-detail' config.pk %}" 
                                        class="btn btn-sm btn-light-primary"

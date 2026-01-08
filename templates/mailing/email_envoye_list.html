@@ -1,0 +1,360 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Emails envoyes" %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .mail-wrapper {
+        display: flex;
+        min-height: calc(100vh - 200px);
+    }
+    .mail-sidebar {
+        width: 260px;
+        min-width: 260px;
+        border-right: 1px solid var(--bs-border-color);
+        padding: 20px;
+        background: var(--bs-card-bg);
+    }
+    .mail-content {
+        flex: 1;
+        overflow: hidden;
+    }
+    .mail-header {
+        padding: 15px 20px;
+        border-bottom: 1px solid var(--bs-border-color);
+        background: var(--bs-card-bg);
+    }
+    .mail-list {
+        height: calc(100vh - 320px);
+        overflow-y: auto;
+    }
+    .mail-item {
+        display: flex;
+        align-items: center;
+        padding: 12px 20px;
+        border-bottom: 1px solid var(--bs-border-color);
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    .mail-item:hover {
+        background: var(--bs-tertiary-bg);
+    }
+    .mail-checkbox {
+        margin-right: 12px;
+    }
+    .mail-status {
+        margin-right: 12px;
+    }
+    .mail-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        margin-right: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        color: white;
+        background: linear-gradient(135deg, #42a5f5, #5c6bc0);
+    }
+    .mail-info {
+        flex: 1;
+        min-width: 0;
+    }
+    .mail-recipient {
+        font-size: 14px;
+        margin-bottom: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .mail-subject {
+        font-size: 13px;
+        color: var(--bs-secondary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .mail-meta {
+        text-align: right;
+        min-width: 100px;
+    }
+    .mail-date {
+        font-size: 12px;
+        color: var(--bs-secondary);
+    }
+    .folder-item {
+        display: flex;
+        align-items: center;
+        padding: 10px 15px;
+        border-radius: 6px;
+        margin-bottom: 4px;
+        cursor: pointer;
+        transition: background 0.2s;
+        text-decoration: none;
+        color: inherit;
+    }
+    .folder-item:hover, .folder-item.active {
+        background: var(--bs-primary-bg-subtle);
+    }
+    .folder-item.active {
+        color: var(--bs-primary);
+        font-weight: 600;
+    }
+    .folder-item i {
+        margin-right: 10px;
+        width: 20px;
+        text-align: center;
+    }
+    .folder-item .badge {
+        margin-left: auto;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h3>{% trans "Messagerie" %}</h3>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}"><i class="ti ti-home"></i></a></li>
+                        <li class="breadcrumb-item active">{% trans "Emails envoyes" %}</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="mail-wrapper">
+                <!-- Sidebar -->
+                <div class="mail-sidebar">
+                    <!-- Compose Button -->
+                    <button type="button" class="btn btn-primary w-100 mb-4" data-bs-toggle="modal" data-bs-target="#composeModal">
+                        <i class="ti ti-pencil me-2"></i>{% trans "Nouveau message" %}
+                    </button>
+
+                    <!-- Folders -->
+                    <div class="mb-4">
+                        <h6 class="text-muted text-uppercase f-s-12 mb-3">{% trans "Dossiers" %}</h6>
+                        <a href="{% url 'mailing:email-recu-list' %}" class="folder-item">
+                            <i class="ti ti-inbox"></i>
+                            <span>{% trans "Boite de reception" %}</span>
+                        </a>
+                        <div class="folder-item active">
+                            <i class="ti ti-send"></i>
+                            <span>{% trans "Envoyes" %}</span>
+                            {% if stats.total %}
+                            <span class="badge bg-primary">{{ stats.total }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Stats -->
+                    <div class="mb-4">
+                        <h6 class="text-muted text-uppercase f-s-12 mb-3">{% trans "Statistiques" %}</h6>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="f-s-12"><i class="ti ti-check text-success me-2"></i>{% trans "Delivres" %}</span>
+                            <span class="badge bg-success">{{ stats.envoyes|default:0 }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="f-s-12"><i class="ti ti-clock text-warning me-2"></i>{% trans "En attente" %}</span>
+                            <span class="badge bg-warning">{{ stats.en_attente|default:0 }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="f-s-12"><i class="ti ti-x text-danger me-2"></i>{% trans "Echecs" %}</span>
+                            <span class="badge bg-danger">{{ stats.echecs|default:0 }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Content -->
+                <div class="mail-content">
+                    <!-- Header -->
+                    <div class="mail-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="selectAll">
+                                </div>
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-light btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+                                        <i class="ti ti-filter me-1"></i>{% trans "Filtrer" %}
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="?statut=EN_ATTENTE">{% trans "En attente" %}</a></li>
+                                        <li><a class="dropdown-item" href="?statut=ENVOYE">{% trans "Envoyes" %}</a></li>
+                                        <li><a class="dropdown-item" href="?statut=ECHEC">{% trans "Echecs" %}</a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item" href="{% url 'mailing:email-envoye-list' %}">{% trans "Tous" %}</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <form method="get" class="d-flex gap-2">
+                                    <input type="text" name="q" class="form-control form-control-sm" style="width: 200px;" placeholder="{% trans 'Rechercher...' %}" value="{{ request.GET.q }}">
+                                    <button type="submit" class="btn btn-light btn-sm">
+                                        <i class="ti ti-search"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Mail List -->
+                    <div class="mail-list">
+                        {% for email in emails %}
+                        <div class="mail-item" onclick="window.location='{% url 'mailing:email-envoye-detail' email.pk %}'">
+                            <div class="mail-checkbox" onclick="event.stopPropagation();">
+                                <input type="checkbox" class="form-check-input mail-select">
+                            </div>
+                            <div class="mail-status">
+                                {% if email.statut == 'EN_ATTENTE' %}
+                                <span class="badge bg-warning-subtle text-warning" title="{% trans 'En attente' %}">
+                                    <i class="ti ti-clock"></i>
+                                </span>
+                                {% elif email.statut == 'ENVOYE' %}
+                                <span class="badge bg-success-subtle text-success" title="{% trans 'Envoye' %}">
+                                    <i class="ti ti-check"></i>
+                                </span>
+                                {% else %}
+                                <span class="badge bg-danger-subtle text-danger" title="{{ email.erreur_message }}">
+                                    <i class="ti ti-x"></i>
+                                </span>
+                                {% endif %}
+                            </div>
+                            <div class="mail-avatar">
+                                {{ email.destinataire|slice:":2"|upper }}
+                            </div>
+                            <div class="mail-info">
+                                <div class="mail-recipient">
+                                    {% trans "A:" %} {{ email.destinataire }}
+                                    {% if email.cc %}
+                                    <small class="text-muted ms-2">(+CC)</small>
+                                    {% endif %}
+                                </div>
+                                <div class="mail-subject">
+                                    {{ email.sujet|truncatechars:80 }}
+                                </div>
+                            </div>
+                            <div class="mail-meta">
+                                <div class="mail-date">
+                                    {{ email.created_at|date:"d/m/Y" }}<br>
+                                    <small>{{ email.created_at|time:"H:i" }}</small>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="text-center py-5">
+                            <div class="avatar avatar-xl bg-light mb-3">
+                                <i class="ti ti-send-off f-s-32 text-muted"></i>
+                            </div>
+                            <h5 class="text-muted">{% trans "Aucun email envoye" %}</h5>
+                            <p class="text-muted mb-4">{% trans "Vous n'avez pas encore envoye d'emails" %}</p>
+                            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#composeModal">
+                                <i class="ti ti-pencil me-2"></i>{% trans "Composer un email" %}
+                            </button>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if page_obj %}
+                    <div class="mail-header border-top">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted f-s-12">
+                                {% blocktrans with start=page_obj.start_index end=page_obj.end_index total=page_obj.paginator.count %}
+                                {{ start }} - {{ end }} sur {{ total }}
+                                {% endblocktrans %}
+                            </span>
+                            <div class="btn-group">
+                                {% if page_obj.has_previous %}
+                                <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" class="btn btn-light btn-sm">
+                                    <i class="ti ti-chevron-left"></i>
+                                </a>
+                                {% endif %}
+                                {% if page_obj.has_next %}
+                                <a href="?page={{ page_obj.next_page_number }}{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" class="btn btn-light btn-sm">
+                                    <i class="ti ti-chevron-right"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Compose Email Modal -->
+<div class="modal fade" id="composeModal" tabindex="-1" aria-labelledby="composeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="composeModalLabel">
+                    <i class="ti ti-pencil me-2"></i>{% trans "Nouveau message" %}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'mailing:email-compose' %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="compose_to" class="form-label">{% trans "Destinataire" %} <span class="text-danger">*</span></label>
+                        <input type="email" name="destinataire" id="compose_to" class="form-control" placeholder="destinataire@email.com" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="compose_cc" class="form-label">{% trans "CC" %}</label>
+                        <input type="text" name="cc" id="compose_cc" class="form-control" placeholder="cc1@email.com, cc2@email.com">
+                        <small class="text-muted">{% trans "Separez les adresses par des virgules" %}</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="compose_subject" class="form-label">{% trans "Sujet" %} <span class="text-danger">*</span></label>
+                        <input type="text" name="sujet" id="compose_subject" class="form-control" placeholder="{% trans 'Sujet du message' %}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="compose_message" class="form-label">{% trans "Message" %} <span class="text-danger">*</span></label>
+                        <textarea name="message" id="compose_message" class="form-control" rows="10" placeholder="{% trans 'Votre message...' %}" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="compose_attachments" class="form-label">{% trans "Pieces jointes" %}</label>
+                        <input type="file" name="pieces_jointes" id="compose_attachments" class="form-control" multiple>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="ti ti-x me-2"></i>{% trans "Annuler" %}
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="ti ti-send me-2"></i>{% trans "Envoyer" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Select all checkbox
+    const selectAll = document.getElementById('selectAll');
+    if (selectAll) {
+        selectAll.addEventListener('change', function() {
+            document.querySelectorAll('.mail-select').forEach(function(cb) {
+                cb.checked = selectAll.checked;
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

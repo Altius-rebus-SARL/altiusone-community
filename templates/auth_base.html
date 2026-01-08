@@ -1,89 +1,131 @@
-{% load static %}
-{% load i18n %}
+{% load static %} {% load i18n %}
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE|default:'fr' }}">
-
-<head>
-    <meta content="text/html; charset=UTF-8" http-equiv="Content-Type">
-    <meta content="IE=edge" http-equiv="X-UA-Compatible">
-    <meta content="width=device-width, initial-scale=1.0" name="viewport">
-    <meta content="Gestion fiduciaire complète pour la Suisse" name="description">
-    <meta content="fiduciaire, comptabilité, TVA, salaires, Suisse" name="keywords">
-    <meta content="AltiusOne" name="author">
-    <link href="{% static 'chartes/favicon.svg' %}" rel="icon" type="image/x-icon">
-    <link href="{% static 'chartes/favicon.svg' %}" rel="shortcut icon" type="image/x-icon">
+  <head>
+    <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+    <meta content="IE=edge" http-equiv="X-UA-Compatible" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <meta
+      content="Gestion fiduciaire complète pour la Suisse"
+      name="description"
+    />
+    <meta
+      content="fiduciaire, comptabilité, TVA, salaires, Suisse"
+      name="keywords"
+    />
+    <meta content="AltiusOne" name="author" />
+    <link
+      href="{% static 'assets/images/logo/favicon.png' %}"
+      rel="icon"
+      type="image/x-icon"
+    />
+    <link
+      href="{% static 'assets/images/logo/favicon.png' %}"
+      rel="shortcut icon"
+      type="image/x-icon"
+    />
 
     <title>{% block title %}AltiusOne{% endblock %} | AltiusOne</title>
 
     <!--font-awesome-css-->
-    <link href="{% static 'assets/vendor/fontawesome/css/all.css' %}" rel="stylesheet">
+    <link
+      href="{% static 'assets/vendor/fontawesome/css/all.css' %}"
+      rel="stylesheet"
+    />
 
     <!-- Fonts -->
-    <link href="https://fonts.googleapis.com" rel="preconnect">
-    <link crossorigin href="https://fonts.gstatic.com" rel="preconnect">
-    <link href="https://fonts.googleapis.com/css2?family=Rubik:ital,wght@0,300..900;1,300..900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin href="https://fonts.gstatic.com" rel="preconnect" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Rubik:ital,wght@0,300..900;1,300..900&display=swap"
+      rel="stylesheet"
+    />
 
     <!-- tabler icons-->
-    <link href="{% static 'assets/vendor/tabler-icons/tabler-icons.css' %}" rel="stylesheet" type="text/css">
+    <link
+      href="{% static 'assets/vendor/tabler-icons/tabler-icons.css' %}"
+      rel="stylesheet"
+      type="text/css"
+    />
 
     <!-- Bootstrap css-->
-    <link href="{% static 'assets/vendor/bootstrap/bootstrap.min.css' %}" rel="stylesheet" type="text/css">
+    <link
+      href="{% static 'assets/vendor/bootstrap/bootstrap.min.css' %}"
+      rel="stylesheet"
+      type="text/css"
+    />
 
     <!-- App css-->
-    <link href="{% static 'assets/css/style.css' %}" rel="stylesheet" type="text/css">
+    <link
+      href="{% static 'assets/css/style.css' %}"
+      rel="stylesheet"
+      type="text/css"
+    />
 
     <!-- Responsive css-->
-    <link href="{% static 'assets/css/responsive.css' %}" rel="stylesheet" type="text/css">
+    <link
+      href="{% static 'assets/css/responsive.css' %}"
+      rel="stylesheet"
+      type="text/css"
+    />
 
     {% block extra_css %}{% endblock %}
-</head>
+  </head>
 
-<body>
-<div class="app-wrapper d-block">
-    <div class="">
+  <body>
+    <div class="app-wrapper d-block">
+      <div class="">
         <!-- Body main section starts -->
         <main class="w-100 p-0">
-            <div class="container-fluid">
-                <div class="row">
-                    <div class="col-12 p-0">
-                        <div class="login-form-container">
-                            <!-- Logo -->
-                            <div class="mb-4">
-                                <a class="logo" href="{% url 'core:dashboard' %}">
-                                    <img alt="AltiusOne" src="{% static 'chartes/3.svg' %}">
-                                </a>
-                            </div>
+          <div class="container-fluid">
+            <div class="row">
+              <div class="col-12 p-0">
+                <div class="login-form-container">
+                  <!-- Logo -->
+                  <div class="mb-4">
+                    <a class="logo" href="{% url 'core:dashboard' %}">
+                      <img
+                        alt="AltiusOne"
+                        src="{% static 'assets/images/logo/3.png' %}"
+                      />
+                    </a>
+                  </div>
 
-                            <!-- Messages Django -->
-                            {% if messages %}
-                                {% for message in messages %}
-                                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                                    {{ message }}
-                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                                </div>
-                                {% endfor %}
-                            {% endif %}
+                  <!-- Messages Django -->
+                  {% if messages %} {% for message in messages %}
+                  <div
+                    class="alert alert-{{ message.tags }} alert-dismissible fade show"
+                    role="alert"
+                  >
+                    {{ message }}
+                    <button
+                      type="button"
+                      class="btn-close"
+                      data-bs-dismiss="alert"
+                      aria-label="Close"
+                    ></button>
+                  </div>
+                  {% endfor %} {% endif %}
 
-                            <!-- Contenu spécifique de chaque page -->
-                            <div class="form_container">
-                                {% block content %}{% endblock %}
-                            </div>
-                        </div>
-                    </div>
+                  <!-- Contenu spécifique de chaque page -->
+                  <div class="form_container">
+                    {% block content %}{% endblock %}
+                  </div>
                 </div>
+              </div>
             </div>
+          </div>
         </main>
         <!-- Body main section ends -->
+      </div>
     </div>
-</div>
 
-<!-- latest jquery-->
-<script src="{% static 'assets/js/jquery-3.6.3.min.js' %}"></script>
+    <!-- latest jquery-->
+    <script src="{% static 'assets/js/jquery-3.6.3.min.js' %}"></script>
 
-<!-- Bootstrap js-->
-<script src="{% static 'assets/vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
+    <!-- Bootstrap js-->
+    <script src="{% static 'assets/vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
 
-{% block extra_js %}{% endblock %}
-
-</body>
+    {% block extra_js %}{% endblock %}
+  </body>
 </html>

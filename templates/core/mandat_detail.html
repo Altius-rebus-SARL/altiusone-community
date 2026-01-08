@@ -19,7 +19,7 @@
                                 {{ mandat.client.raison_sociale }}
                             </a>
                         </p>
-                        <span class="badge bg-light-primary mt-2">{{ mandat.get_type_mandat_display }}</span>
+                        <span class="badge bg-light-primary mt-2">{{ mandat.type_mandat_ref.libelle|default:mandat.get_type_mandat_display }}</span>
                         <span class="badge bg-{{ mandat.statut|lower }} mt-2">{{ mandat.get_statut_display }}</span>
                     </div>
                     <div>
@@ -44,7 +44,7 @@
                         <ul class="list-group list-group-flush">
                             <li class="list-group-item d-flex justify-content-between">
                                 <span class="text-muted">{% trans "Type de mandat" %}</span>
-                                <span class="f-w-500">{{ mandat.get_type_mandat_display }}</span>
+                                <span class="f-w-500">{{ mandat.type_mandat_ref.libelle|default:mandat.get_type_mandat_display }}</span>
                             </li>
                             <li class="list-group-item d-flex justify-content-between">
                                 <span class="text-muted">{% trans "Responsable" %}</span>
@@ -56,11 +56,11 @@
                             </li>
                             <li class="list-group-item d-flex justify-content-between">
                                 <span class="text-muted">{% trans "Périodicité" %}</span>
-                                <span class="f-w-500">{{ mandat.get_periodicite_display }}</span>
+                                <span class="f-w-500">{{ mandat.periodicite_ref.libelle|default:mandat.get_periodicite_display }}</span>
                             </li>
                             <li class="list-group-item d-flex justify-content-between">
                                 <span class="text-muted">{% trans "Type facturation" %}</span>
-                                <span class="f-w-500">{{ mandat.get_type_facturation_display }}</span>
+                                <span class="f-w-500">{{ mandat.type_facturation_ref.libelle|default:mandat.get_type_facturation_display }}</span>
                             </li>
                             {% if mandat.montant_forfait %}
                             <li class="list-group-item d-flex justify-content-between">

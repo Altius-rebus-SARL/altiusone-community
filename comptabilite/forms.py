@@ -10,6 +10,7 @@ from .models import (
     EcritureComptable,
     PieceComptable,
     Lettrage,
+    TypePieceComptable,
 )
 from core.models import Mandat, ExerciceComptable
 
@@ -328,20 +329,248 @@ class EcritureComptableForm(forms.ModelForm):
         return cleaned_data
 
 
+class MultipleFileInput(forms.FileInput):
+    """Widget pour upload de fichiers multiples"""
+    allow_multiple_selected = True
+
+
+class MultipleFileField(forms.FileField):
+    """Champ pour upload de fichiers multiples"""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault('widget', MultipleFileInput(attrs={
+            'class': 'form-control',
+            'accept': '.pdf,.jpg,.jpeg,.png,.tiff,.gif'
+        }))
+        super().__init__(*args, **kwargs)
+
+    def clean(self, data, initial=None):
+        single_file_clean = super().clean
+        if isinstance(data, (list, tuple)):
+            result = [single_file_clean(d, initial) for d in data]
+        else:
+            result = [single_file_clean(data, initial)]
+        return result
+
+
 class PieceComptableForm(forms.ModelForm):
-    """Formulaire pour une pièce comptable"""
+    """Formulaire enrichi pour une pièce comptable avec upload de documents"""
+
+    # Champ pour upload de fichiers multiples
+    fichiers = MultipleFileField(
+        required=False,
+        label=_("Documents justificatifs"),
+        help_text=_("Uploadez les factures, reçus ou autres justificatifs (PDF, images)")
+    )
+
+    # Checkbox pour générer le numéro automatiquement
+    generer_numero = forms.BooleanField(
+        required=False,
+        initial=True,
+        label=_("Générer le numéro automatiquement"),
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'})
+    )
 
     class Meta:
         model = PieceComptable
-        fields = ["mandat", "journal", "numero_piece", "date_piece", "libelle"]
+        fields = [
+            "mandat", "journal", "type_piece", "numero_piece", "date_piece",
+            "libelle", "reference_externe", "tiers_nom", "tiers_numero_tva",
+            "montant_ht", "montant_tva", "montant_ttc", "dossier"
+        ]
+        widgets = {
+            "mandat": forms.Select(attrs={"class": "form-control select2", "id": "id_mandat"}),
+            "journal": forms.Select(attrs={"class": "form-control select2", "id": "id_journal"}),
+            "type_piece": forms.Select(attrs={"class": "form-control"}),
+            "numero_piece": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": _("Généré automatiquement si vide")
+            }),
+            "date_piece": forms.DateInput(
+                attrs={"class": "form-control", "type": "date"},
+                format='%Y-%m-%d'
+            ),
+            "libelle": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+            "reference_externe": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": _("Ex: Facture n° 2024-001")
+            }),
+            "tiers_nom": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": _("Nom du fournisseur/client")
+            }),
+            "tiers_numero_tva": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": _("CHE-123.456.789 TVA")
+            }),
+            "montant_ht": forms.NumberInput(attrs={
+                "class": "form-control",
+                "step": "0.01",
+                "placeholder": "0.00"
+            }),
+            "montant_tva": forms.NumberInput(attrs={
+                "class": "form-control",
+                "step": "0.01",
+                "placeholder": "0.00"
+            }),
+            "montant_ttc": forms.NumberInput(attrs={
+                "class": "form-control",
+                "step": "0.01",
+                "placeholder": "0.00"
+            }),
+            "dossier": forms.Select(attrs={"class": "form-control select2", "id": "id_dossier"}),
+        }
+        labels = {
+            "mandat": _("Mandat"),
+            "journal": _("Journal"),
+            "type_piece": _("Type de pièce"),
+            "numero_piece": _("Numéro de pièce"),
+            "date_piece": _("Date"),
+            "libelle": _("Libellé"),
+            "reference_externe": _("Référence externe"),
+            "tiers_nom": _("Tiers (fournisseur/client)"),
+            "tiers_numero_tva": _("N° TVA du tiers"),
+            "montant_ht": _("Montant HT"),
+            "montant_tva": _("Montant TVA"),
+            "montant_ttc": _("Montant TTC"),
+            "dossier": _("Dossier de classement"),
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        mandat_initial = kwargs.pop('mandat', None)
+        super().__init__(*args, **kwargs)
+
+        # Types de pièces actifs, ordonnés
+        self.fields['type_piece'].queryset = TypePieceComptable.objects.filter(
+            is_active=True
+        ).order_by('ordre', 'code')
+
+        # Afficher tous les mandats actifs (le filtrage par permission est géré par la vue)
+        self.fields['mandat'].queryset = Mandat.objects.filter(
+            statut='ACTIF',
+            is_active=True
+        ).select_related('client').order_by('numero')
+
+        # Déterminer le mandat sélectionné
+        mandat_selectionne = None
+        if self.instance and self.instance.pk and self.instance.mandat_id:
+            mandat_selectionne = self.instance.mandat
+        elif mandat_initial:
+            mandat_selectionne = mandat_initial
+        elif self.data.get('mandat'):
+            try:
+                mandat_selectionne = Mandat.objects.get(pk=self.data.get('mandat'))
+            except Mandat.DoesNotExist:
+                pass
+
+        # Filtrer les journaux et dossiers selon le mandat
+        from documents.models import Dossier
+
+        if mandat_selectionne:
+            # Journaux du mandat (peut être vide si le mandat n'a pas de journaux)
+            journaux_qs = Journal.objects.filter(
+                mandat=mandat_selectionne,
+                is_active=True
+            ).order_by('code')
+            self.fields['journal'].queryset = journaux_qs
+
+            # Si le mandat n'a pas de journaux, afficher un message approprié
+            if not journaux_qs.exists():
+                self.fields['journal'].empty_label = _("Aucun journal (optionnel)")
+            else:
+                self.fields['journal'].empty_label = _("Sélectionner un journal (optionnel)")
+
+            # Dossiers du mandat OU du client - affichage avec chemin complet
+            # Un dossier peut être rattaché au mandat OU au client du mandat
+            dossiers_qs = Dossier.objects.filter(
+                Q(mandat=mandat_selectionne) | Q(client=mandat_selectionne.client),
+                is_active=True
+            ).select_related('parent').order_by('nom')
+            self.fields['dossier'].queryset = dossiers_qs
+
+            # Message approprié pour les dossiers
+            if not dossiers_qs.exists():
+                self.fields['dossier'].empty_label = _("Aucun dossier disponible")
+            else:
+                self.fields['dossier'].empty_label = _("Sélectionner un dossier (optionnel)")
+        else:
+            # Pas de mandat sélectionné: listes vides avec message
+            self.fields['journal'].queryset = Journal.objects.none()
+            self.fields['journal'].empty_label = _("Sélectionnez d'abord un mandat")
+
+            self.fields['dossier'].queryset = Dossier.objects.none()
+            self.fields['dossier'].empty_label = _("Sélectionnez d'abord un mandat")
+
+        # Le journal est optionnel (certains mandats n'en ont pas)
+        self.fields['journal'].required = False
+        # Option vide par défaut pour le dossier
+        self.fields['dossier'].required = False
+        # Le numéro de pièce est optionnel si la génération automatique est activée
+        # La validation se fait dans clean()
+        self.fields['numero_piece'].required = False
+
+        # Si édition (instance déjà sauvegardée en base), ne pas permettre de changer le numéro généré
+        # Note: on utilise _state.adding pour vérifier si c'est une nouvelle instance
+        is_editing = self.instance.pk and not self.instance._state.adding
+        if is_editing:
+            self.fields['generer_numero'].initial = False
+            self.fields['generer_numero'].widget = forms.HiddenInput()
+            # Ne pas permettre de changer le mandat en édition
+            self.fields['mandat'].widget.attrs['disabled'] = True
+
+    def clean(self):
+        cleaned_data = super().clean()
+        generer_numero = cleaned_data.get('generer_numero')
+        numero_piece = cleaned_data.get('numero_piece')
+
+        # Si on ne génère pas automatiquement, le numéro est obligatoire
+        if not generer_numero and not numero_piece:
+            raise forms.ValidationError(
+                _("Le numéro de pièce est obligatoire si la génération automatique est désactivée")
+            )
+
+        # Calculer montant_ttc si non fourni
+        montant_ht = cleaned_data.get('montant_ht')
+        montant_tva = cleaned_data.get('montant_tva')
+        montant_ttc = cleaned_data.get('montant_ttc')
+
+        if montant_ht and montant_tva and not montant_ttc:
+            cleaned_data['montant_ttc'] = montant_ht + montant_tva
+
+        return cleaned_data
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+
+        # Générer le numéro si demandé
+        # Note: le journal n'est plus obligatoire, on peut générer un numéro
+        # avec juste le type de pièce ou un préfixe par défaut
+        if self.cleaned_data.get('generer_numero') and not instance.numero_piece:
+            if instance.date_piece:
+                instance.generer_numero()
+
+        if commit:
+            instance.save()
+            self._save_m2m()
+
+        return instance
+
+
+class PieceComptableQuickForm(forms.ModelForm):
+    """Formulaire simplifié pour création rapide de pièce comptable"""
+
+    class Meta:
+        model = PieceComptable
+        fields = ["mandat", "journal", "type_piece", "date_piece", "libelle"]
         widgets = {
             "mandat": forms.Select(attrs={"class": "form-control select2"}),
             "journal": forms.Select(attrs={"class": "form-control select2"}),
-            "numero_piece": forms.TextInput(attrs={"class": "form-control"}),
+            "type_piece": forms.Select(attrs={"class": "form-control"}),
             "date_piece": forms.DateInput(
                 attrs={"class": "form-control", "type": "date"}
             ),
-            "libelle": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+            "libelle": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
         }
 
 

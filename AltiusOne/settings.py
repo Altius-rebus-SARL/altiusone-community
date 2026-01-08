@@ -70,6 +70,7 @@ LOCAL_APPS = [
     "fiscalite",
     "core",
     "analytics",
+    "mailing",
 ]
 
 
@@ -251,15 +252,37 @@ CACHES = {
  
 
 # Email Configuration
-# EMAIL_BACKEND = config(
-#     "EMAIL_BACKEND", default="django.core.mail.backends.smtp.EmailBackend"
-# )
-# EMAIL_HOST = config("EMAIL_HOST", default="localhost")
-# EMAIL_PORT = config("EMAIL_PORT", default=587, cast=int)
-# EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=True, cast=bool)
-# EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
-# EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
-# DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@altiusone.ch")
+# Note: La configuration SMTP principale est gérée via le modèle ConfigurationEmail
+# Ces valeurs sont utilisées comme fallback si aucune configuration n'existe en base
+EMAIL_BACKEND = os.environ.get(
+    "EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend"
+)
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "localhost")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", 587))
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True").lower() in ('true', '1', 'yes')
+EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "False").lower() in ('true', '1', 'yes')
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "noreply@altiusone.ch")
+
+# Support email pour l'application
+ALTIUSONE_SUPPORT_EMAIL = os.environ.get("SUPPORT_EMAIL", "support@altiusone.ch")
+
+# ============================================================================
+# FERNET ENCRYPTION (pour chiffrer les mots de passe SMTP en base de données)
+# ============================================================================
+# Générer une clé: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+FERNET_KEYS = [
+    os.environ.get('FERNET_KEY', 'your-32-url-safe-base64-encoded-key-here'),
+]
+
+# ============================================================================
+# INVITATION SETTINGS
+# ============================================================================
+# Durée de validité des invitations (en jours)
+INVITATION_EXPIRY_DAYS = int(os.environ.get('INVITATION_EXPIRY_DAYS', 7))
+# Limite par défaut d'utilisateurs qu'un responsable client peut inviter par mandat
+INVITATION_DEFAULT_LIMIT_PER_MANDAT = int(os.environ.get('INVITATION_DEFAULT_LIMIT', 5))
 
 # Celery Configuration
 CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://redis:6379/0')
@@ -270,6 +293,25 @@ CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'Europe/Zurich'
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
+
+# Celery Beat - Taches planifiees
+CELERY_BEAT_SCHEDULE = {
+    # Traiter les documents en attente toutes les 5 minutes
+    'traiter-documents-en-attente': {
+        'task': 'documents.tasks.traiter_documents_en_attente',
+        'schedule': 300.0,  # 5 minutes
+    },
+    # Indexer les documents sans embedding toutes les heures
+    'indexer-documents-sans-embedding': {
+        'task': 'documents.tasks.indexer_documents_sans_embedding',
+        'schedule': 3600.0,  # 1 heure
+    },
+    # Verifier le service AI toutes les 15 minutes
+    'verifier-service-ai': {
+        'task': 'documents.tasks.verifier_service_ai',
+        'schedule': 900.0,  # 15 minutes
+    },
+}
 
 
 
@@ -582,37 +624,46 @@ else:
 
 
 # ============================================================================
-# SERVICE OCR EXTERNE
+# ALTIUSONE AI SDK
 # ============================================================================
-# L'OCR est géré par un service Django séparé avec PGVector pour les embeddings.
-# Cette application appelle le service via API REST.
+# Service AI unifie pour OCR, Embeddings, Classification et Extraction.
+# Utilise le SDK AltiusOne AI (https://pypi.org/project/altiusone-ai/)
+#
+# Configuration:
+# - AI_API_URL: URL de l'API (https://ai.altiusone.ch)
+# - AI_API_KEY: Cle API pour l'authentification
+#
+# Fonctionnalites:
+# - OCR: Extraction de texte depuis images/PDFs
+# - Embeddings: Vecteurs 768D pour recherche semantique (compatible PGVector)
+# - Classification: Detection automatique du type de document
+# - Extraction: Extraction structuree de donnees (factures, contrats, etc.)
+# - Chat: Assistant conversationnel IA
 
-OCR_SERVICE_ENABLED = os.environ.get('OCR_SERVICE_ENABLED', 'False').lower() in ('true', '1', 'yes')
-OCR_SERVICE_URL = os.environ.get('OCR_SERVICE_URL', 'http://ocr-service:8000')
-OCR_SERVICE_API_KEY = os.environ.get('OCR_SERVICE_API_KEY', '')
-OCR_SERVICE_TIMEOUT = int(os.environ.get('OCR_SERVICE_TIMEOUT', '60'))
+AI_API_URL = os.environ.get('AI_API_URL', 'https://ai.altiusone.ch')
+AI_API_KEY = os.environ.get('AI_API_KEY', '')
 
-
-# ============================================================================
-# EMBEDDINGS & RECHERCHE SÉMANTIQUE (PGVector)
-# ============================================================================
-# Utilise PGVector pour la recherche vectorielle.
-# Backend: OpenAI (recommandé) ou sentence-transformers (local/gratuit)
-
-# Backend: 'openai' ou 'local'
-EMBEDDING_BACKEND = os.environ.get('EMBEDDING_BACKEND', 'local')
-
-# OpenAI Configuration
-OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
-OPENAI_EMBEDDING_MODEL = os.environ.get('OPENAI_EMBEDDING_MODEL', 'text-embedding-3-small')
-
-# Modèle local (sentence-transformers) - multilingue FR/DE/IT/EN
-LOCAL_EMBEDDING_MODEL = os.environ.get('LOCAL_EMBEDDING_MODEL', 'paraphrase-multilingual-MiniLM-L12-v2')
-
-# Recherche hybride - pondération des scores
+# Recherche hybride - ponderation des scores
 SEARCH_FULLTEXT_WEIGHT = float(os.environ.get('SEARCH_FULLTEXT_WEIGHT', '0.4'))
 SEARCH_SEMANTIC_WEIGHT = float(os.environ.get('SEARCH_SEMANTIC_WEIGHT', '0.6'))
 SEARCH_SEMANTIC_THRESHOLD = float(os.environ.get('SEARCH_SEMANTIC_THRESHOLD', '0.5'))
+
+# ============================================================================
+# LEGACY - SERVICE OCR EXTERNE (DEPRECIE)
+# ============================================================================
+# Ces parametres sont conserves pour compatibilite mais ne sont plus utilises.
+# Tout le traitement AI passe maintenant par le SDK AltiusOne AI.
+
+OCR_SERVICE_ENABLED = False  # Deprecie - utiliser AI_API_KEY
+OCR_SERVICE_URL = os.environ.get('OCR_SERVICE_URL', '')
+OCR_SERVICE_API_KEY = os.environ.get('OCR_SERVICE_API_KEY', '')
+OCR_SERVICE_TIMEOUT = int(os.environ.get('OCR_SERVICE_TIMEOUT', '60'))
+
+# LEGACY - Configuration embeddings (DEPRECIE)
+# Le SDK AltiusOne AI genere des embeddings 768D directement
+EMBEDDING_BACKEND = 'altiusone'  # Fixe - utilise toujours le SDK
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')  # Non utilise
+LOCAL_EMBEDDING_MODEL = ''  # Non utilise
 
 
 
