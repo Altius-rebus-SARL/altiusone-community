@@ -13,6 +13,9 @@ django-cors-headers>=4.9.0
 django-filter>=25.0
 drf-spectacular>=0.28.0
 
+# OAuth2 / OIDC Provider (pour Docs)
+django-oauth-toolkit>=3.0.0
+
 # Celery & Redis
 celery>=5.4.0
 redis>=5.0.0
@@ -26,6 +29,12 @@ django-countries>=7.6.0
 reportlab>=4.4.0
 openpyxl>=3.1.0
 xlsxwriter>=3.2.0
+
+# Charts (Plotly pour génération d'images de graphiques)
+# Note: kaleido 0.2.1 est la dernière version stable avec navigateur intégré
+# Les versions >=1.0 nécessitent Chrome installé séparément et ont des problèmes de timeout
+plotly>=5.18.0
+kaleido==0.2.1
 
 # Import/Export
 django-import-export>=4.3.14

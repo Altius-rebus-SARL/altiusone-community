@@ -44,21 +44,18 @@
         <ul class="dropdown-menu">
           <li class="dropdown-item">
             <a class="f-w-500" href="{% url 'core:profile' %}">
-              <i class="ph-duotone ph-user-circle pe-1 f-s-20"></i> {% trans
-              "Profil" %}
+              <i class="ph-duotone ph-user-circle pe-1 f-s-20"></i> {% trans "Profil" %}
             </a>
           </li>
           <li class="dropdown-item">
             <a class="f-w-500" href="{% url 'core:settings' %}">
-              <i class="ph-duotone ph-gear pe-1 f-s-20"></i> {% trans
-              "Paramètres" %}
+              <i class="ph-duotone ph-gear pe-1 f-s-20"></i> {% trans "Paramètres" %}
             </a>
           </li>
           <li class="app-divider-v dotted py-1"></li>
           <li class="dropdown-item">
             <a class="mb-0 text-danger" href="{% url 'core:logout' %}">
-              <i class="ph-duotone ph-sign-out pe-1 f-s-20"></i> {% trans
-              "Déconnexion" %}
+              <i class="ph-duotone ph-sign-out pe-1 f-s-20"></i> {% trans "Déconnexion" %}
             </a>
           </li>
         </ul>
@@ -72,8 +69,7 @@
         <span>{% trans "Dashboard" %}</span>
       </li>
 
-      {% with is_active=request.resolver_match.url_name|default:"" %} {% with
-      ns=request.resolver_match.namespace|default:"" %}
+{% with is_active=request.resolver_match.url_name|default:"" ns=request.resolver_match.namespace|default:"" %}
 
       <li
         class="no-sub"
@@ -82,6 +78,16 @@
         <a href="{% url 'core:dashboard' %}">
           <i class="ti ti-home f-s-30"></i>
           {% trans "Tableau de bord" %}
+        </a>
+      </li>
+
+      <li
+        class="no-sub"
+        data-active="{% if ns == 'analytics' and is_active == 'dashboard-executif' %}true{% endif %}"
+      >
+        <a href="{% url 'analytics:dashboard-executif' %}">
+          <i class="ti ti-chart-infographic f-s-30"></i>
+          {% trans "Dashboard Exécutif" %}
         </a>
       </li>
 
@@ -415,6 +421,13 @@
               >{% trans "Alertes" %}</a
             >
           </li>
+          <li
+            data-active="{% if ns == 'analytics' and 'export' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'analytics:export-list' %}"
+              >{% trans "Exports" %}</a
+            >
+          </li>
         </ul>
       </li>
 
@@ -519,7 +532,8 @@
           </li>
         </ul>
       </li>
-      {% endif %} {% endwith %} {% endwith %}
+      {% endif %} 
+      {% endwith %}
     </ul>
   </div>
 

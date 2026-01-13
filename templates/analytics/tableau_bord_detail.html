@@ -3,21 +3,8 @@
 {% load static %}
 {% load i18n %}
 
-{% block title %}{{ tableau.nom }}{% endblock %}
+{% block title %} {{ tableau.nom }} {% endblock %}
 
-{% block extra_css %}
-<style>
-    .widget-card {
-        min-height: 200px;
-    }
-    .kpi-value {
-        font-size: 2.5rem;
-        font-weight: 700;
-    }
-    .kpi-trend-up { color: var(--bs-success); }
-    .kpi-trend-down { color: var(--bs-danger); }
-</style>
-{% endblock %}
 
 {% block content %}
 <!-- Breadcrumb -->
@@ -47,129 +34,139 @@
             <p class="text-muted mb-0">{{ tableau.description }}</p>
             {% if tableau.auto_refresh %}
             <span class="badge bg-light-success mt-1">
-                <i class="ph ph-arrow-clockwise me-1"></i>
+                <i class="ph-duotone ph-arrow-clockwise me-1"></i>
                 {% trans "Rafraîchissement automatique" %} ({{ tableau.refresh_interval }}s)
             </span>
             {% endif %}
         </div>
         <div class="d-flex gap-2">
-            {% if tableau.proprietaire == request.user or is_superadmin %}
-            <a href="{% url 'analytics:tableau-bord-update' tableau.pk %}" class="btn btn-light-secondary">
-                <i class="ph ph-pencil me-2"></i>{% trans "Modifier" %}
-            </a>
+            {% if not tableau.configuration.system %}
+                {% if tableau.proprietaire == request.user or is_superadmin %}
+                <a href="{% url 'analytics:tableau-bord-update' tableau.pk %}" class="btn btn-light-secondary">
+                    <i class="ph-duotone ph-pencil me-2"></i>{% trans "Modifier" %}
+                </a>
+                {% endif %}
             {% endif %}
             <button class="btn btn-light-primary" onclick="refreshDashboard()">
-                <i class="ph ph-arrow-clockwise me-2"></i>{% trans "Actualiser" %}
+                <i class="ph-duotone ph-arrow-clockwise me-2"></i>{% trans "Actualiser" %}
             </button>
         </div>
     </div>
 </div>
 
 <!-- Filtres -->
-{% if tableau.filtres_defaut %}
 <div class="row mb-4">
     <div class="col-12">
         <div class="card">
             <div class="card-body py-2">
-                <form method="get" class="d-flex gap-3 align-items-center">
-                    <span class="text-muted"><i class="ph ph-funnel me-1"></i>{% trans "Filtres:" %}</span>
-                    <select name="periode" class="form-select form-select-sm" style="width: auto;">
-                        <option value="mois">{% trans "Ce mois" %}</option>
-                        <option value="trimestre">{% trans "Ce trimestre" %}</option>
-                        <option value="annee">{% trans "Cette année" %}</option>
+                <form method="get" class="d-flex gap-3 align-items-center flex-wrap">
+                    <span class="text-muted"><i class="ph-duotone ph-funnel me-1"></i>{% trans "Filtres:" %}</span>
+                    <select name="annee" class="form-select form-select-sm" style="width: auto;">
+                        {% for year in annees %}
+                        <option value="{{ year }}" {% if year == annee_selectionnee %}selected{% endif %}>{{ year }}</option>
+                        {% endfor %}
                     </select>
-                    <button type="submit" class="btn btn-sm btn-primary">{% trans "Appliquer" %}</button>
+                    <select name="periode" class="form-select form-select-sm" style="width: auto;">
+                        <option value="annee" {% if periode == 'annee' %}selected{% endif %}>{% trans "Année complète" %}</option>
+                        <option value="trimestre" {% if periode == 'trimestre' %}selected{% endif %}>{% trans "Ce trimestre" %}</option>
+                        <option value="mois" {% if periode == 'mois' %}selected{% endif %}>{% trans "Ce mois" %}</option>
+                    </select>
+                    <button type="submit" class="btn btn-sm btn-primary">
+                        <i class="ph-duotone ph-funnel-simple me-1"></i>{% trans "Appliquer" %}
+                    </button>
                 </form>
             </div>
         </div>
     </div>
 </div>
-{% endif %}
 
-<!-- Widgets Grid -->
-<div class="row" id="dashboard-widgets">
-    <!-- Les widgets sont rendus dynamiquement selon la configuration -->
-    {% if configuration %}
-    <div class="col-12">
-        <div class="alert alert-info">
-            <i class="ph ph-info me-2"></i>
-            {% trans "Ce tableau de bord contient des widgets configurés. Le rendu dynamique sera implémenté prochainement." %}
+<!-- KPI Cards Row -->
+<div class="row" id="kpi-cards">
+    {% for widget in tableau.configuration.widgets %}
+    {% if widget.type == 'kpi_card' %}
+    <div class="col-md-6 col-lg-3 mb-4">
+        <div class="card h-100 hover-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="f-s-14 text-muted mb-1">{{ widget.label }}</p>
+                        <div class="f-s-24 f-w-700" id="kpi-{{ widget.metric }}">
+                            <span class="placeholder-glow">
+                                <span class="placeholder col-8"></span>
+                            </span>
+                        </div>
+                    </div>
+                    <span class="h-45 w-45 d-flex-center b-r-10 bg-light-{{ tableau.configuration.color|default:'primary' }}">
+                        <i class="ph-duotone ph-{{ tableau.configuration.icon|default:'chart-bar'|cut:'ph ph-'|cut:'ph-duotone ph-' }} f-s-20 text-{{ tableau.configuration.color|default:'primary' }}"></i>
+                    </span>
+                </div>
+                <div class="mt-2" id="kpi-trend-{{ widget.metric }}">
+                    <span class="badge bg-light-secondary">
+                        <i class="ph-duotone ph-minus me-1"></i>--
+                    </span>
+                </div>
+            </div>
         </div>
     </div>
     {% endif %}
+    {% endfor %}
+</div>
 
-    <!-- Exemple de widgets statiques -->
-    <div class="col-md-6 col-lg-3 mb-4">
-        <div class="card widget-card">
-            <div class="card-body text-center">
-                <p class="text-muted mb-2">{% trans "Chiffre d'affaires" %}</p>
-                <div class="kpi-value">CHF 125'450</div>
-                <span class="badge bg-light-success">
-                    <i class="ph ph-trend-up me-1"></i>+12.5%
-                </span>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-6 col-lg-3 mb-4">
-        <div class="card widget-card">
-            <div class="card-body text-center">
-                <p class="text-muted mb-2">{% trans "Factures impayées" %}</p>
-                <div class="kpi-value text-danger">8</div>
-                <span class="badge bg-light-danger">
-                    <i class="ph ph-trend-up me-1"></i>+2 vs mois dernier
-                </span>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-6 col-lg-3 mb-4">
-        <div class="card widget-card">
-            <div class="card-body text-center">
-                <p class="text-muted mb-2">{% trans "Heures facturées" %}</p>
-                <div class="kpi-value">342h</div>
-                <span class="badge bg-light-primary">
-                    <i class="ph ph-minus me-1"></i>{% trans "Stable" %}
-                </span>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-6 col-lg-3 mb-4">
-        <div class="card widget-card">
-            <div class="card-body text-center">
-                <p class="text-muted mb-2">{% trans "Taux de recouvrement" %}</p>
-                <div class="kpi-value text-success">94%</div>
-                <span class="badge bg-light-success">
-                    <i class="ph ph-check me-1"></i>{% trans "Objectif atteint" %}
-                </span>
-            </div>
-        </div>
-    </div>
-
-    <!-- Graphique d'évolution -->
-    <div class="col-lg-8 mb-4">
-        <div class="card">
-            <div class="card-header">
-                <h5>{% trans "Évolution du chiffre d'affaires" %}</h5>
+<!-- Charts Row -->
+<div class="row" id="charts-row">
+    {% for widget in tableau.configuration.widgets %}
+    {% if widget.type == 'chart' %}
+    <div class="col-lg-{% if widget.position.w >= 6 %}6{% else %}4{% endif %} mb-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">{{ widget.label }}</h5>
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-light-secondary" type="button" data-bs-toggle="dropdown">
+                        <i class="ph-duotone ph-dots-three-outline-vertical"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="#" onclick="exportChart('chart-{{ forloop.counter }}')"><i class="ph-duotone ph-download me-2"></i>{% trans "Exporter" %}</a></li>
+                    </ul>
+                </div>
             </div>
             <div class="card-body">
-                <canvas id="caChart" height="300"></canvas>
+                <div id="chart-{{ forloop.counter }}" class="chart-container"
+                     data-chart-type="{{ widget.chart_type }}"
+                     data-metric="{{ widget.metric }}"
+                     data-label="{{ widget.label }}"></div>
             </div>
         </div>
     </div>
-
-    <!-- Répartition par type -->
-    <div class="col-lg-4 mb-4">
-        <div class="card">
+    {% elif widget.type == 'table' %}
+    <div class="col-lg-{% if widget.position.w >= 6 %}6{% else %}4{% endif %} mb-4">
+        <div class="card h-100">
             <div class="card-header">
-                <h5>{% trans "Répartition par prestation" %}</h5>
+                <h5 class="mb-0">{{ widget.label }}</h5>
             </div>
-            <div class="card-body">
-                <canvas id="repartitionChart" height="300"></canvas>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0" id="table-{{ widget.metric }}">
+                        <thead class="bg-light">
+                            <tr>
+                                <th>{% trans "Description" %}</th>
+                                <th class="text-end">{% trans "Montant" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="2" class="text-center text-muted py-4">
+                                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                                    {% trans "Chargement..." %}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
+    {% endif %}
+    {% endfor %}
 </div>
 
 <!-- Métadonnées -->
@@ -179,15 +176,15 @@
             <div class="card-body">
                 <div class="row text-muted small">
                     <div class="col-auto">
-                        <i class="ph ph-user me-1"></i>
+                        <i class="ph-duotone ph-user me-1"></i>
                         {% trans "Créé par" %}: {{ tableau.proprietaire.get_full_name|default:tableau.proprietaire.username }}
                     </div>
                     <div class="col-auto">
-                        <i class="ph ph-calendar me-1"></i>
+                        <i class="ph-duotone ph-calendar me-1"></i>
                         {% trans "Créé le" %}: {{ tableau.created_at|date:"d.m.Y H:i" }}
                     </div>
                     <div class="col-auto">
-                        <i class="ph ph-clock me-1"></i>
+                        <i class="ph-duotone ph-clock me-1"></i>
                         {% trans "Modifié le" %}: {{ tableau.updated_at|date:"d.m.Y H:i" }}
                     </div>
                 </div>
@@ -198,64 +195,339 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- ApexCharts -->
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
+<!-- AltiusCharts Library -->
+{% include 'analytics/components/charts.html' %}
+
+{{ tableau.configuration|json_script:"tableau-config" }}
+
 <script>
-// Graphique CA
-const caCtx = document.getElementById('caChart').getContext('2d');
-new Chart(caCtx, {
-    type: 'line',
-    data: {
-        labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'],
-        datasets: [{
-            label: '{% trans "Chiffre d\'affaires" %}',
-            data: [95000, 102000, 98000, 110000, 115000, 108000, 125000, 118000, 130000, 125450, 0, 0],
-            borderColor: '#3b82f6',
-            backgroundColor: 'rgba(59, 130, 246, 0.1)',
-            fill: true,
-            tension: 0.4
-        }]
+// Configuration du tableau
+const tableauConfig = JSON.parse(document.getElementById('tableau-config').textContent);
+const tableauNom = "{{ tableau.nom }}";
+
+// Couleurs du thème
+const themeColors = {
+    primary: '#3b82f6',
+    success: '#10b981',
+    warning: '#f59e0b',
+    danger: '#ef4444',
+    info: '#06b6d4',
+    secondary: '#6b7280',
+    dark: '#1f2937'
+};
+
+const chartColor = themeColors['{{ tableau.configuration.color|default:"primary" }}'] || themeColors.primary;
+
+// Données de démonstration (à remplacer par API)
+const demoData = {
+    // KPIs
+    ca_total: { value: 125450, trend: 12.5, unit: 'CHF' },
+    marge_brute: { value: 45200, trend: 8.3, unit: 'CHF' },
+    resultat_net: { value: 32100, trend: -2.1, unit: 'CHF' },
+    tresorerie: { value: 89500, trend: 5.7, unit: 'CHF' },
+    factures_emises: { value: 47, trend: 15, unit: '' },
+    montant_facture: { value: 156800, trend: 18.2, unit: 'CHF' },
+    encaissements: { value: 142300, trend: 9.4, unit: 'CHF' },
+    creances_ouvertes: { value: 34500, trend: -12.3, unit: 'CHF' },
+    tva_collectee: { value: 12450, trend: 4.2, unit: 'CHF' },
+    tva_deductible: { value: 8200, trend: 2.1, unit: 'CHF' },
+    tva_a_payer: { value: 4250, trend: 8.5, unit: 'CHF' },
+    prochaine_echeance: { value: '15.02', trend: 0, unit: 'jours' },
+    masse_salariale: { value: 85600, trend: 3.2, unit: 'CHF' },
+    charges_sociales: { value: 12840, trend: 3.2, unit: 'CHF' },
+    effectif: { value: 8, trend: 0, unit: '' },
+    cout_moyen: { value: 10700, trend: 1.5, unit: 'CHF' },
+    nombre_clients: { value: 42, trend: 5, unit: '' },
+    nouveaux_clients: { value: 3, trend: 50, unit: '' },
+    ca_moyen_client: { value: 2987, trend: 7.2, unit: 'CHF' },
+    taux_retention: { value: 94, trend: 2, unit: '%' },
+    marge_moyenne: { value: 35.2, trend: 1.8, unit: '%' },
+    taux_rentabilite: { value: 28.5, trend: -0.5, unit: '%' },
+    heures_facturables: { value: 342, trend: 8, unit: 'h' },
+    taux_facturation: { value: 78, trend: 3, unit: '%' },
+    heures_totales: { value: 438, trend: 5, unit: 'h' },
+    heures_facturees: { value: 342, trend: 8, unit: 'h' },
+    taux_utilisation: { value: 78, trend: 3, unit: '%' },
+    heures_non_facturees: { value: 96, trend: -12, unit: 'h' },
+    total_actif: { value: 245000, trend: 4.5, unit: 'CHF' },
+    total_passif: { value: 245000, trend: 4.5, unit: 'CHF' },
+    ecritures_mois: { value: 156, trend: 12, unit: '' },
+    comptes_desequilibres: { value: 0, trend: 0, unit: '' },
+
+    // Charts data
+    evolution_ca: {
+        categories: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'],
+        series: [{ name: 'CA', data: [95000, 102000, 98000, 110000, 115000, 108000, 125000, 118000, 130000, 125450, 0, 0] }]
     },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: { display: false }
-        },
-        scales: {
-            y: {
-                beginAtZero: true,
-                ticks: {
-                    callback: function(value) {
-                        return 'CHF ' + value.toLocaleString();
-                    }
-                }
+    repartition_charges: {
+        labels: ['Salaires', 'Loyer', 'Fournitures', 'Marketing', 'Autres'],
+        series: [45, 20, 15, 12, 8]
+    },
+    factures_par_mois: {
+        categories: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'],
+        series: [{ name: 'Factures', data: [12, 15, 11, 18, 14, 16, 19, 13, 17, 15, 0, 0] }]
+    },
+    aging_creances: {
+        categories: ['0-30 jours', '31-60 jours', '61-90 jours', '> 90 jours'],
+        series: [{ name: 'Montant', data: [18500, 9200, 4800, 2000] }]
+    },
+    top_clients: {
+        categories: ['Client A', 'Client B', 'Client C', 'Client D', 'Client E'],
+        series: [{ name: 'CA', data: [35000, 28000, 22000, 18000, 12000] }]
+    },
+    repartition_ca_clients: {
+        series: [
+            { x: 'Client A', y: 35000 },
+            { x: 'Client B', y: 28000 },
+            { x: 'Client C', y: 22000 },
+            { x: 'Client D', y: 18000 },
+            { x: 'Autres', y: 22450 }
+        ]
+    },
+    evolution_tva: {
+        categories: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun'],
+        series: [
+            { name: 'TVA collectée', data: [8500, 9200, 8800, 10500, 11200, 12450] },
+            { name: 'TVA déductible', data: [5200, 5800, 5500, 6200, 7100, 8200] }
+        ]
+    },
+    evolution_masse_salariale: {
+        categories: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'],
+        series: [{ name: 'Masse salariale', data: [82000, 82000, 83500, 83500, 84200, 84200, 85600, 85600, 85600, 85600, 0, 0] }]
+    },
+    rentabilite_prestation: {
+        categories: ['Comptabilité', 'TVA', 'Salaires', 'Conseil', 'Audit'],
+        series: [{ name: 'Marge %', data: [42, 38, 35, 48, 32] }]
+    },
+    evolution_rentabilite: {
+        categories: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun'],
+        series: [{ name: 'Rentabilité', data: [26, 28, 27, 30, 29, 28.5] }]
+    },
+    heures_par_collaborateur: {
+        categories: ['Alice', 'Bob', 'Claire', 'David', 'Emma'],
+        series: [
+            { name: 'Facturées', data: [85, 72, 68, 58, 59] },
+            { name: 'Non facturées', data: [15, 28, 22, 12, 19] }
+        ]
+    },
+    repartition_activites: {
+        labels: ['Comptabilité', 'Conseil', 'Admin', 'Formation', 'Autres'],
+        series: [45, 25, 15, 10, 5]
+    },
+    mouvements_journaux: {
+        categories: ['Achats', 'Ventes', 'Banque', 'Salaires', 'OD'],
+        series: [{ name: 'Écritures', data: [45, 38, 32, 24, 17] }]
+    }
+};
+
+// Formater les valeurs
+function formatValue(value, unit) {
+    if (unit === 'CHF') {
+        return "CHF " + value.toLocaleString('fr-CH');
+    } else if (unit === '%') {
+        return value + '%';
+    } else if (unit === 'h') {
+        return value + 'h';
+    }
+    return value.toString();
+}
+
+// Mettre à jour les KPIs
+function updateKPIs() {
+    if (!tableauConfig.widgets) return;
+
+    tableauConfig.widgets.forEach(widget => {
+        if (widget.type === 'kpi_card' && demoData[widget.metric]) {
+            const data = demoData[widget.metric];
+            const kpiEl = document.getElementById('kpi-' + widget.metric);
+            const trendEl = document.getElementById('kpi-trend-' + widget.metric);
+
+            if (kpiEl) {
+                kpiEl.innerHTML = formatValue(data.value, data.unit);
+            }
+
+            if (trendEl) {
+                const trendClass = data.trend > 0 ? 'success' : (data.trend < 0 ? 'danger' : 'secondary');
+                const trendIcon = data.trend > 0 ? 'trend-up' : (data.trend < 0 ? 'trend-down' : 'minus');
+                trendEl.innerHTML = `
+                    <span class="badge bg-light-${trendClass}">
+                        <i class="ph-duotone ph-${trendIcon} me-1"></i>${data.trend > 0 ? '+' : ''}${data.trend}%
+                    </span>
+                `;
             }
         }
-    }
-});
+    });
+}
 
-// Graphique répartition
-const repCtx = document.getElementById('repartitionChart').getContext('2d');
-new Chart(repCtx, {
-    type: 'doughnut',
-    data: {
-        labels: ['Comptabilité', 'TVA', 'Salaires', 'Conseil', 'Autres'],
-        datasets: [{
-            data: [45, 20, 15, 12, 8],
-            backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#6b7280']
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: { position: 'bottom' }
+// Créer les graphiques
+function createCharts() {
+    const chartContainers = document.querySelectorAll('[id^="chart-"]');
+
+    chartContainers.forEach(container => {
+        const chartType = container.dataset.chartType;
+        const metric = container.dataset.metric;
+        const label = container.dataset.label;
+        const data = demoData[metric];
+
+        if (!data) {
+            container.innerHTML = '<div class="text-center text-muted py-5"><i class="ph-duotone ph-chart-bar f-s-30 mb-2"></i><p>Données non disponibles</p></div>';
+            return;
         }
-    }
+
+        let options = {};
+
+        switch(chartType) {
+            case 'line':
+                options = {
+                    chart: { type: 'line', height: 300, toolbar: { show: false } },
+                    series: data.series,
+                    xaxis: { categories: data.categories },
+                    colors: [chartColor],
+                    stroke: { curve: 'smooth', width: 3 },
+                    markers: { size: 4 },
+                    yaxis: {
+                        labels: {
+                            formatter: (val) => "CHF " + val.toLocaleString('fr-CH')
+                        }
+                    },
+                    tooltip: {
+                        y: { formatter: (val) => "CHF " + val.toLocaleString('fr-CH') }
+                    }
+                };
+                break;
+
+            case 'area':
+                options = {
+                    chart: { type: 'area', height: 300, toolbar: { show: false } },
+                    series: data.series,
+                    xaxis: { categories: data.categories },
+                    colors: [chartColor],
+                    fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.1 } },
+                    stroke: { curve: 'smooth', width: 2 },
+                    dataLabels: { enabled: false },
+                    yaxis: {
+                        labels: {
+                            formatter: (val) => "CHF " + val.toLocaleString('fr-CH')
+                        }
+                    }
+                };
+                break;
+
+            case 'bar':
+                options = {
+                    chart: { type: 'bar', height: 300, toolbar: { show: false } },
+                    series: data.series,
+                    xaxis: { categories: data.categories },
+                    colors: [chartColor],
+                    plotOptions: { bar: { borderRadius: 4, columnWidth: '60%' } },
+                    dataLabels: { enabled: false },
+                    yaxis: {
+                        labels: {
+                            formatter: (val) => typeof val === 'number' && val > 1000 ? "CHF " + val.toLocaleString('fr-CH') : val
+                        }
+                    }
+                };
+                break;
+
+            case 'horizontalBar':
+                options = {
+                    chart: { type: 'bar', height: 300, toolbar: { show: false } },
+                    series: data.series,
+                    xaxis: { categories: data.categories },
+                    colors: [chartColor],
+                    plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: '60%' } },
+                    dataLabels: { enabled: false },
+                    xaxis: {
+                        labels: {
+                            formatter: (val) => typeof val === 'number' && val > 1000 ? "CHF " + val.toLocaleString('fr-CH') : val
+                        }
+                    }
+                };
+                break;
+
+            case 'stackedBar':
+                options = {
+                    chart: { type: 'bar', height: 300, stacked: true, toolbar: { show: false } },
+                    series: data.series,
+                    xaxis: { categories: data.categories },
+                    colors: [chartColor, '#94a3b8'],
+                    plotOptions: { bar: { horizontal: true, borderRadius: 4 } },
+                    dataLabels: { enabled: false },
+                    legend: { position: 'top' }
+                };
+                break;
+
+            case 'donut':
+                options = {
+                    chart: { type: 'donut', height: 300 },
+                    series: data.series,
+                    labels: data.labels,
+                    colors: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#6b7280'],
+                    legend: { position: 'bottom' },
+                    dataLabels: { enabled: true, formatter: (val) => val.toFixed(1) + '%' },
+                    plotOptions: {
+                        pie: {
+                            donut: {
+                                size: '65%',
+                                labels: {
+                                    show: true,
+                                    total: {
+                                        show: true,
+                                        label: 'Total',
+                                        formatter: () => data.series.reduce((a, b) => a + b, 0).toLocaleString()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                };
+                break;
+
+            case 'treemap':
+                options = {
+                    chart: { type: 'treemap', height: 300, toolbar: { show: false } },
+                    series: [{ data: data.series }],
+                    colors: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444'],
+                    plotOptions: {
+                        treemap: {
+                            distributed: true,
+                            enableShades: false
+                        }
+                    },
+                    dataLabels: {
+                        enabled: true,
+                        formatter: (text, op) => text + '\n' + "CHF " + op.value.toLocaleString('fr-CH')
+                    }
+                };
+                break;
+
+            default:
+                container.innerHTML = '<div class="text-center text-muted py-5">Type de graphique non supporté</div>';
+                return;
+        }
+
+        const chart = new ApexCharts(container, options);
+        chart.render();
+    });
+}
+
+// Initialisation
+document.addEventListener('DOMContentLoaded', function() {
+    updateKPIs();
+    createCharts();
 });
 
+// Rafraîchir le dashboard
 function refreshDashboard() {
     location.reload();
+}
+
+// Export chart (placeholder)
+function exportChart(chartId) {
+    alert('Export du graphique ' + chartId + ' - Fonctionnalité à venir');
 }
 
 {% if tableau.auto_refresh %}

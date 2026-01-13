@@ -70,11 +70,13 @@
                                 <td class="text-muted">{% trans "Format" %}</td>
                                 <td>
                                     {% if rapport.format_fichier == 'PDF' %}
-                                    <i class="ph ph-file-pdf text-danger me-1"></i>
+                                    <i class="ph-duotone ph-file-pdf text-danger me-1"></i>
                                     {% elif rapport.format_fichier == 'EXCEL' %}
-                                    <i class="ph ph-file-xls text-success me-1"></i>
+                                    <i class="ph-duotone ph-file-xls text-success me-1"></i>
                                     {% elif rapport.format_fichier == 'CSV' %}
-                                    <i class="ph ph-file-csv text-primary me-1"></i>
+                                    <i class="ph-duotone ph-file-csv text-primary me-1"></i>
+                                    {% else %}
+                                    <i class="ph-duotone ph-file-html text-info me-1"></i>
                                     {% endif %}
                                     {{ rapport.format_fichier }}
                                 </td>
@@ -97,10 +99,10 @@
 
                 {% if rapport.fichier and rapport.statut == 'TERMINE' %}
                 <div class="text-center py-4 bg-light rounded mb-4">
-                    <i class="ph ph-file-text f-s-50 text-primary mb-3"></i>
+                    <i class="ph-duotone ph-file-text f-s-50 text-primary mb-3 d-block"></i>
                     <h5>{% trans "Rapport prêt au téléchargement" %}</h5>
                     <a href="{% url 'analytics:rapport-telecharger' rapport.pk %}" class="btn btn-primary btn-lg">
-                        <i class="ph ph-download me-2"></i>{% trans "Télécharger" %}
+                        <i class="ph-duotone ph-download me-2"></i>{% trans "Télécharger" %}
                         <span class="badge bg-white text-primary ms-2">{{ rapport.format_fichier }}</span>
                     </a>
                 </div>
@@ -111,20 +113,81 @@
                     </div>
                     <h5>{% trans "Génération en cours..." %}</h5>
                     <p class="text-muted">{% trans "Le rapport est en cours de génération. Veuillez patienter." %}</p>
-                    <button class="btn btn-light-primary" onclick="location.reload()">
-                        <i class="ph ph-arrow-clockwise me-2"></i>{% trans "Actualiser" %}
-                    </button>
+                    <div class="d-flex justify-content-center gap-2 flex-wrap">
+                        <button class="btn btn-light-primary" onclick="location.reload()">
+                            <i class="ph-duotone ph-arrow-clockwise me-2"></i>{% trans "Actualiser" %}
+                        </button>
+                        <!-- Bouton pour forcer la régénération si bloqué -->
+                        <form method="post" action="{% url 'analytics:rapport-regenerer' rapport.pk %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-warning" title="{% trans 'Si le rapport est bloqué depuis longtemps, cliquez pour forcer la régénération' %}">
+                                <i class="ph-duotone ph-arrow-counter-clockwise me-2"></i>{% trans "Forcer régénération" %}
+                            </button>
+                        </form>
+                    </div>
+                    <p class="text-muted small mt-2">
+                        <i class="ph-duotone ph-info me-1"></i>
+                        {% trans "Si la génération prend trop de temps, utilisez 'Forcer régénération'." %}
+                    </p>
                 </div>
                 {% elif rapport.statut == 'ERREUR' %}
                 <div class="alert alert-danger">
-                    <i class="ph ph-warning-circle me-2"></i>
-                    {% trans "Une erreur s'est produite lors de la génération du rapport." %}
+                    <i class="ph-duotone ph-warning-circle me-2"></i>
+                    <strong>{% trans "Une erreur s'est produite lors de la génération du rapport." %}</strong>
+                    {% if rapport.parametres.erreur %}
+                    <p class="mb-0 mt-2">{{ rapport.parametres.erreur }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- Message si pas de données -->
+                {% if 'donnée' in rapport.parametres.erreur|default:'' or 'data' in rapport.parametres.erreur|default:'' %}
+                <div class="alert alert-info mt-3">
+                    <i class="ph-duotone ph-info me-2"></i>
+                    <strong>{% trans "Conseil:" %}</strong>
+                    {% trans "Il semble qu'aucune donnée n'est disponible pour cette période. Vérifiez que:" %}
+                    <ul class="mb-0 mt-2">
+                        <li>{% trans "Des écritures comptables existent pour la période sélectionnée" %}</li>
+                        <li>{% trans "Le mandat sélectionné contient des données" %}</li>
+                        <li>{% trans "Les dates de début et fin sont correctes" %}</li>
+                    </ul>
                 </div>
                 {% endif %}
 
-                {% if rapport.parametres %}
-                <h6>{% trans "Paramètres utilisés" %}</h6>
-                <pre class="bg-light p-3 rounded"><code>{{ rapport.parametres|pprint }}</code></pre>
+                <div class="mt-3">
+                    <form method="post" action="{% url 'analytics:rapport-regenerer' rapport.pk %}" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ph-duotone ph-arrow-counter-clockwise me-2"></i>{% trans "Réessayer" %}
+                        </button>
+                    </form>
+                </div>
+                {% elif rapport.statut == 'TERMINE' and not rapport.fichier %}
+                <div class="alert alert-warning">
+                    <i class="ph-duotone ph-warning me-2"></i>
+                    <strong>{% trans "Rapport généré sans données" %}</strong>
+                    <p class="mb-0 mt-2">{% trans "Le rapport a été généré mais ne contient aucune donnée pour la période sélectionnée. Veuillez vérifier les paramètres et réessayer." %}</p>
+                </div>
+                {% endif %}
+
+                {% if rapport.parametres and rapport.parametres != '{}' %}
+                <div class="mt-4">
+                    <h6 class="text-muted">
+                        <i class="ph-duotone ph-gear me-1"></i>{% trans "Paramètres utilisés" %}
+                    </h6>
+                    <div class="bg-light p-3 rounded">
+                        <ul class="list-unstyled mb-0 small">
+                            {% if rapport.parametres.inclure_comparatif %}
+                            <li><i class="ph-duotone ph-check text-success me-1"></i>{% trans "Comparatif N-1 inclus" %}</li>
+                            {% endif %}
+                            {% if rapport.parametres.inclure_budget %}
+                            <li><i class="ph-duotone ph-check text-success me-1"></i>{% trans "Budget inclus" %}</li>
+                            {% endif %}
+                            {% if rapport.parametres.detail_comptes %}
+                            <li><i class="ph-duotone ph-check text-success me-1"></i>{% trans "Détail par compte" %}</li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
                 {% endif %}
             </div>
         </div>
@@ -164,7 +227,7 @@
             <div class="card-body">
                 {% if rapport.envoi_email and rapport.destinataires %}
                 <div class="alert alert-success mb-3">
-                    <i class="ph ph-check-circle me-2"></i>
+                    <i class="ph-duotone ph-check-circle me-2"></i>
                     {% trans "Rapport envoyé à" %}:
                     <ul class="mb-0 mt-2">
                         {% for dest in rapport.destinataires %}
@@ -174,17 +237,31 @@
                 </div>
                 {% endif %}
 
-                <form method="post" action="#">
+                {% if email_configured %}
+                <form method="post" action="{% url 'analytics:rapport-envoyer-email' rapport.pk %}">
                     {% csrf_token %}
                     <div class="mb-3">
                         <label class="form-label">{% trans "Destinataires" %}</label>
-                        <input type="email" name="email" class="form-control" placeholder="email@exemple.ch">
+                        <input type="email" name="emails" class="form-control" placeholder="email@exemple.ch" required>
                         <small class="text-muted">{% trans "Séparez les adresses par des virgules" %}</small>
                     </div>
-                    <button type="submit" class="btn btn-light-primary w-100" disabled>
-                        <i class="ph ph-envelope me-2"></i>{% trans "Envoyer" %}
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Message (optionnel)" %}</label>
+                        <textarea name="message" class="form-control" rows="3" placeholder="{% trans 'Ajoutez un message personnalisé...' %}"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-light-primary w-100">
+                        <i class="ph-duotone ph-envelope me-2"></i>{% trans "Envoyer par email" %}
                     </button>
                 </form>
+                {% else %}
+                <div class="alert alert-warning mb-0">
+                    <i class="ph-duotone ph-warning me-2"></i>
+                    {% trans "Pour envoyer des rapports par email, vous devez d'abord configurer les paramètres email." %}
+                    <a href="{% url 'mailing:configuration-list' %}" class="alert-link d-block mt-2">
+                        <i class="ph-duotone ph-gear me-1"></i>{% trans "Configurer l'email" %}
+                    </a>
+                </div>
+                {% endif %}
             </div>
         </div>
         {% endif %}
@@ -197,11 +274,11 @@
             </div>
             <div class="card-body">
                 <p class="mb-2">
-                    <i class="ph ph-repeat me-2"></i>
+                    <i class="ph-duotone ph-repeat me-2"></i>
                     {% trans "Ce rapport a été généré automatiquement." %}
                 </p>
                 <a href="#" class="btn btn-sm btn-light-secondary">
-                    {% trans "Voir la planification" %}
+                    <i class="ph-duotone ph-calendar me-1"></i>{% trans "Voir la planification" %}
                 </a>
             </div>
         </div>

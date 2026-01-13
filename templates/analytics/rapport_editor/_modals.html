@@ -1,0 +1,210 @@
+{% load i18n %}
+<!--
+    Modales pour l'éditeur de rapport
+-->
+
+<!-- Modal d'ajout de section -->
+<div class="modal fade" id="addSectionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="ph-duotone ph-plus-circle me-2"></i>
+                    {% trans "Ajouter une section" %}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <!-- Titre -->
+                    <div class="col-md-4">
+                        <div class="card section-type-card h-100" data-type="titre">
+                            <div class="card-body text-center py-4">
+                                <i class="ph-duotone ph-text-h-one f-s-40 text-primary mb-2 d-block"></i>
+                                <h6 class="mb-1">{% trans "Titre" %}</h6>
+                                <small class="text-muted">{% trans "Titre ou sous-titre" %}</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Texte -->
+                    <div class="col-md-4">
+                        <div class="card section-type-card h-100" data-type="texte">
+                            <div class="card-body text-center py-4">
+                                <i class="ph-duotone ph-text-align-left f-s-40 text-secondary mb-2 d-block"></i>
+                                <h6 class="mb-1">{% trans "Texte" %}</h6>
+                                <small class="text-muted">{% trans "Paragraphe libre" %}</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Graphique -->
+                    <div class="col-md-4">
+                        <div class="card section-type-card h-100" data-type="graphique">
+                            <div class="card-body text-center py-4">
+                                <i class="ph-duotone ph-chart-bar f-s-40 text-success mb-2 d-block"></i>
+                                <h6 class="mb-1">{% trans "Graphique" %}</h6>
+                                <small class="text-muted">{% trans "Graphique prédéfini" %}</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tableau -->
+                    <div class="col-md-4">
+                        <div class="card section-type-card h-100" data-type="tableau">
+                            <div class="card-body text-center py-4">
+                                <i class="ph-duotone ph-table f-s-40 text-info mb-2 d-block"></i>
+                                <h6 class="mb-1">{% trans "Tableau" %}</h6>
+                                <small class="text-muted">{% trans "Données tabulaires" %}</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- KPI -->
+                    <div class="col-md-4">
+                        <div class="card section-type-card h-100" data-type="kpi">
+                            <div class="card-body text-center py-4">
+                                <i class="ph-duotone ph-gauge f-s-40 text-warning mb-2 d-block"></i>
+                                <h6 class="mb-1">{% trans "KPI" %}</h6>
+                                <small class="text-muted">{% trans "Indicateurs clés" %}</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Saut de page -->
+                    <div class="col-md-4">
+                        <div class="card section-type-card h-100" data-type="saut_page">
+                            <div class="card-body text-center py-4">
+                                <i class="ph-duotone ph-file-dashed f-s-40 text-muted mb-2 d-block"></i>
+                                <h6 class="mb-1">{% trans "Saut de page" %}</h6>
+                                <small class="text-muted">{% trans "Nouvelle page PDF" %}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal d'édition de texte -->
+<div class="modal fade" id="editTextModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="ph-duotone ph-pencil-simple me-2"></i>
+                    <span id="editTextModalTitle">{% trans "Modifier le texte" %}</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editingSectionId">
+                <textarea id="section-text-editor"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    {% trans "Annuler" %}
+                </button>
+                <button type="button" class="btn btn-primary" id="saveTextSection">
+                    <i class="ph-duotone ph-check me-1"></i>
+                    {% trans "Enregistrer" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de sélection de graphique -->
+<div class="modal fade" id="selectChartModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="ph-duotone ph-chart-bar me-2"></i>
+                    {% trans "Choisir un graphique" %}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="chartSectionId">
+                <p class="text-muted mb-3">
+                    {% trans "Sélectionnez un graphique adapté à votre type de rapport:" %}
+                </p>
+                <div id="available-charts" class="row g-3">
+                    <!-- Rempli dynamiquement -->
+                    <div class="col-12 text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de configuration de tableau -->
+<div class="modal fade" id="configTableModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="ph-duotone ph-table me-2"></i>
+                    {% trans "Configuration du tableau" %}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="tableSectionId">
+                <div class="mb-3">
+                    <label class="form-label">{% trans "Titre du tableau" %}</label>
+                    <input type="text" id="tableTitle" class="form-control"
+                           placeholder="{% trans 'Ex: Détail des comptes' %}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">{% trans "Nombre de lignes max" %}</label>
+                    <input type="number" id="tableMaxRows" class="form-control"
+                           value="50" min="10" max="500">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    {% trans "Annuler" %}
+                </button>
+                <button type="button" class="btn btn-primary" id="saveTableConfig">
+                    <i class="ph-duotone ph-check me-1"></i>
+                    {% trans "Enregistrer" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmation de suppression -->
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title text-danger">
+                    <i class="ph-duotone ph-warning me-2"></i>
+                    {% trans "Confirmation" %}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="deleteSectionId">
+                <p>{% trans "Êtes-vous sûr de vouloir supprimer cette section ?" %}</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    {% trans "Annuler" %}
+                </button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteSection">
+                    <i class="ph-duotone ph-trash me-1"></i>
+                    {% trans "Supprimer" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

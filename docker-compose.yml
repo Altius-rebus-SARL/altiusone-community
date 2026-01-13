@@ -67,10 +67,10 @@ services:
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
     command: /app/entrypoint.sh
     volumes:
-      - .:/app
       - media:/app/media
       - static:/app/staticfiles
-      - ./logs:/app/logs
+      - logs:/app/logs
+      - ./oidc_rsa_key.pem:/app/oidc_rsa_key.pem:ro
     ports:
       - "${DJANGO_PORT:-8011}:8000"
     depends_on:
@@ -105,9 +105,9 @@ services:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
     volumes:
-      - .:/app
       - media:/app/media
-      - ./logs:/app/logs
+      - logs:/app/logs
+      - ./oidc_rsa_key.pem:/app/oidc_rsa_key.pem:ro
     depends_on:
       altiusone_postgres:
         condition: service_healthy
@@ -136,8 +136,8 @@ services:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
     volumes:
-      - .:/app
-      - ./logs:/app/logs
+      - logs:/app/logs
+      - ./oidc_rsa_key.pem:/app/oidc_rsa_key.pem:ro
     depends_on:
       altiusone_postgres:
         condition: service_healthy
@@ -176,6 +176,8 @@ volumes:
   media:
     driver: local
   static:
+    driver: local
+  logs:
     driver: local
 
 networks:

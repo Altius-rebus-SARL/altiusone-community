@@ -35,7 +35,7 @@ class TableauBordForm(forms.ModelForm):
             "description": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
             "visibilite": forms.Select(attrs={"class": "form-control"}),
             "utilisateurs_partage": forms.SelectMultiple(
-                attrs={"class": "form-control"}
+                attrs={"class": "form-control select2"}
             ),
             "configuration": forms.Textarea(
                 attrs={"class": "form-control", "rows": 10}
@@ -115,6 +115,15 @@ class IndicateurForm(forms.ModelForm):
 class RapportForm(forms.ModelForm):
     """Formulaire pour générer un rapport"""
 
+    # Champs optionnels pour les options
+    inclure_comparatif = forms.BooleanField(required=False, label=_('Inclure comparatif N-1'))
+    inclure_budget = forms.BooleanField(required=False, label=_('Inclure budget'))
+    detail_comptes = forms.BooleanField(required=False, initial=True, label=_('Détail par compte'))
+    envoi_email = forms.BooleanField(required=False, label=_('Envoyer par email'))
+    destinataires = forms.CharField(required=False, label=_('Destinataires'))
+    # Champ pour les sections du rapport (JSON)
+    sections_data = forms.CharField(required=False, widget=forms.HiddenInput())
+
     class Meta:
         model = Rapport
         fields = [
@@ -124,12 +133,11 @@ class RapportForm(forms.ModelForm):
             "date_debut",
             "date_fin",
             "format_fichier",
-            "parametres",
         ]
         widgets = {
-            "mandat": forms.Select(attrs={"class": "form-control"}),
+            "mandat": forms.Select(attrs={"class": "form-control select2"}),
             "nom": forms.TextInput(attrs={"class": "form-control"}),
-            "type_rapport": forms.Select(attrs={"class": "form-control"}),
+            "type_rapport": forms.RadioSelect(),
             "date_debut": forms.DateInput(
                 attrs={"class": "form-control", "type": "date"}
             ),
@@ -137,8 +145,48 @@ class RapportForm(forms.ModelForm):
                 attrs={"class": "form-control", "type": "date"}
             ),
             "format_fichier": forms.Select(attrs={"class": "form-control"}),
-            "parametres": forms.Textarea(attrs={"class": "form-control", "rows": 5}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Rendre le mandat optionnel
+        self.fields['mandat'].required = False
+        self.fields['mandat'].queryset = Mandat.objects.filter(statut='ACTIF').select_related('client')
+
+    def clean(self):
+        cleaned_data = super().clean()
+        date_debut = cleaned_data.get('date_debut')
+        date_fin = cleaned_data.get('date_fin')
+
+        if date_debut and date_fin and date_debut > date_fin:
+            raise forms.ValidationError(_('La date de début doit être antérieure à la date de fin.'))
+
+        # Construire les paramètres JSON à partir des options
+        cleaned_data['parametres'] = {
+            'inclure_comparatif': cleaned_data.get('inclure_comparatif', False),
+            'inclure_budget': cleaned_data.get('inclure_budget', False),
+            'detail_comptes': cleaned_data.get('detail_comptes', True),
+        }
+
+        # Gérer les destinataires email
+        if cleaned_data.get('envoi_email') and cleaned_data.get('destinataires'):
+            emails = [e.strip() for e in cleaned_data['destinataires'].split(',') if e.strip()]
+            cleaned_data['destinataires_list'] = emails
+        else:
+            cleaned_data['destinataires_list'] = []
+
+        # Parser les sections JSON
+        sections_json = cleaned_data.get('sections_data', '')
+        if sections_json:
+            try:
+                import json
+                cleaned_data['sections'] = json.loads(sections_json)
+            except json.JSONDecodeError:
+                cleaned_data['sections'] = []
+        else:
+            cleaned_data['sections'] = []
+
+        return cleaned_data
 
 
 class PlanificationRapportForm(forms.ModelForm):
@@ -160,7 +208,7 @@ class PlanificationRapportForm(forms.ModelForm):
             "actif",
         ]
         widgets = {
-            "mandat": forms.Select(attrs={"class": "form-control"}),
+            "mandat": forms.Select(attrs={"class": "form-control select2"}),
             "nom": forms.TextInput(attrs={"class": "form-control"}),
             "type_rapport": forms.Select(attrs={"class": "form-control"}),
             "frequence_ref": forms.Select(attrs={"class": "form-control"}),
@@ -202,7 +250,7 @@ class ComparaisonPeriodeForm(forms.ModelForm):
             "libelle_periode2",
         ]
         widgets = {
-            "mandat": forms.Select(attrs={"class": "form-control"}),
+            "mandat": forms.Select(attrs={"class": "form-control select2"}),
             "type_comparaison": forms.Select(attrs={"class": "form-control"}),
             "nom": forms.TextInput(attrs={"class": "form-control"}),
             "periode1_debut": forms.DateInput(
@@ -237,7 +285,7 @@ class ExportDonneesForm(forms.ModelForm):
             "filtres",
         ]
         widgets = {
-            "mandat": forms.Select(attrs={"class": "form-control"}),
+            "mandat": forms.Select(attrs={"class": "form-control select2"}),
             "nom": forms.TextInput(attrs={"class": "form-control"}),
             "type_export": forms.Select(attrs={"class": "form-control"}),
             "date_debut": forms.DateInput(

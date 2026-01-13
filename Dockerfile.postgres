@@ -1,30 +1,39 @@
 # apps/Dockerfile.postgres
-FROM postgis/postgis:17-3.5
+# Multi-stage build pour PostgreSQL 17 avec PostGIS et pgvector
 
-# Installer les dépendances pour compiler pgvector
-RUN apt-get update && apt-get install -y \
+# =============================================================================
+# Stage 1: Builder - Compilation de pgvector
+# =============================================================================
+FROM postgis/postgis:17-3.5 AS builder
+
+# Installer les dépendances de compilation
+RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     build-essential \
     postgresql-server-dev-17 \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Télécharger et compiler pgvector (wget plus fiable que git clone)
+# Télécharger et compiler pgvector
 RUN cd /tmp && \
     wget -q https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.0.tar.gz && \
     tar xzf v0.8.0.tar.gz && \
     cd pgvector-0.8.0 && \
     make clean && \
     make OPTFLAGS="" && \
-    make install && \
-    cd / && \
-    rm -rf /tmp/pgvector-0.8.0 /tmp/v0.8.0.tar.gz
+    make install
 
-# Nettoyer les dépendances de compilation
-RUN apt-get remove -y wget build-essential postgresql-server-dev-17 && \
-    apt-get autoremove -y && \
-    apt-get clean
+# =============================================================================
+# Stage 2: Runtime - Image finale
+# =============================================================================
+FROM postgis/postgis:17-3.5 AS runtime
 
-# Vérifier que l'extension est bien installée
+# Copier uniquement les fichiers pgvector compilés
+COPY --from=builder /usr/share/postgresql/17/extension/vector* /usr/share/postgresql/17/extension/
+COPY --from=builder /usr/lib/postgresql/17/lib/vector.so /usr/lib/postgresql/17/lib/
+
+# Nettoyer les caches apt de l'image de base
+RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Vérifier l'installation
 RUN ls -la /usr/share/postgresql/17/extension/vector*
-

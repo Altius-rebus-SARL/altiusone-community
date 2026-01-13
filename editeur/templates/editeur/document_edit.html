@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ document.titre }} - {% trans "Éditeur" %} - AltiusOne{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Plein écran pour l'éditeur */
+    .editor-container {
+        position: fixed;
+        top: 60px; /* Hauteur de la navbar */
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 100;
+        background: #fff;
+    }
+
+    .editor-toolbar {
+        height: 50px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        align-items: center;
+        padding: 0 1rem;
+        justify-content: space-between;
+    }
+
+    .editor-iframe-container {
+        height: calc(100% - 50px);
+        width: 100%;
+    }
+
+    .editor-iframe-container iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+    }
+
+    .collaborator-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.5rem;
+        border-radius: 1rem;
+        background: #e9ecef;
+        margin-left: 0.5rem;
+        font-size: 0.875rem;
+    }
+
+    .collaborator-badge .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #28a745;
+        margin-right: 0.5rem;
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+
+    .editor-loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        flex-direction: column;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="editor-container">
+    <!-- Barre d'outils -->
+    <div class="editor-toolbar">
+        <div class="d-flex align-items-center">
+            <a href="{% url 'editeur:document_detail' pk=document.pk %}" class="btn btn-sm btn-outline-secondary me-3">
+                <i class="bi bi-arrow-left me-1"></i>
+                {% trans "Retour" %}
+            </a>
+            <h5 class="mb-0 me-3">{{ document.titre }}</h5>
+            <span class="badge bg-{{ document.statut|lower }}">
+                {{ document.get_statut_display }}
+            </span>
+
+            <!-- Collaborateurs en ligne -->
+            {% if sessions %}
+            <div class="ms-3 d-flex align-items-center">
+                <small class="text-muted me-2">{% trans "En ligne:" %}</small>
+                {% for session in sessions %}
+                <span class="collaborator-badge" title="{{ session.utilisateur.email }}">
+                    <span class="status-dot"></span>
+                    {{ session.utilisateur.get_full_name|default:session.utilisateur.email|truncatechars:15 }}
+                </span>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="d-flex align-items-center">
+            <!-- Export -->
+            <div class="dropdown me-2">
+                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+                        data-bs-toggle="dropdown">
+                    <i class="bi bi-download me-1"></i>
+                    {% trans "Exporter" %}
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li>
+                        <a class="dropdown-item" href="{% url 'editeur:document_export' pk=document.pk format='pdf' %}">
+                            <i class="bi bi-file-pdf me-2"></i>PDF
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="{% url 'editeur:document_export' pk=document.pk format='docx' %}">
+                            <i class="bi bi-file-word me-2"></i>Word (.docx)
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="{% url 'editeur:document_export' pk=document.pk format='odt' %}">
+                            <i class="bi bi-file-text me-2"></i>OpenDocument (.odt)
+                        </a>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <a class="dropdown-item" href="{% url 'editeur:document_export' pk=document.pk format='md' %}">
+                            <i class="bi bi-markdown me-2"></i>Markdown
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Archiver dans GED -->
+            <form action="{% url 'editeur:document_archive' pk=document.pk %}" method="post" class="d-inline me-2">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-primary"
+                        onclick="return confirm('{% trans "Archiver ce document dans la GED ?" %}')">
+                    <i class="bi bi-archive me-1"></i>
+                    {% trans "Archiver" %}
+                </button>
+            </form>
+
+            <!-- Plein écran -->
+            <button class="btn btn-sm btn-outline-secondary" id="fullscreen-btn" title="{% trans 'Plein écran' %}">
+                <i class="bi bi-arrows-fullscreen"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Iframe de l'éditeur Docs -->
+    <div class="editor-iframe-container">
+        {% if docs_available %}
+        <iframe id="docs-editor"
+                src="{{ editor_url }}"
+                allow="clipboard-read; clipboard-write"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals">
+        </iframe>
+        {% else %}
+        <div class="editor-loading">
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                {% trans "L'éditeur collaboratif n'est pas disponible pour le moment." %}
+                {% if docs_error %}
+                <br><small class="text-muted">{{ docs_error }}</small>
+                {% endif %}
+            </div>
+            <a href="{% url 'editeur:document_detail' pk=document.pk %}" class="btn btn-primary">
+                {% trans "Retour au document" %}
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Plein écran
+    const fullscreenBtn = document.getElementById('fullscreen-btn');
+    const editorContainer = document.querySelector('.editor-container');
+
+    if (fullscreenBtn) {
+        fullscreenBtn.addEventListener('click', function() {
+            if (!document.fullscreenElement) {
+                editorContainer.requestFullscreen().catch(err => {
+                    console.log('Erreur plein écran:', err);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        });
+    }
+
+    // Écouter les messages de l'iframe (pour la synchronisation)
+    window.addEventListener('message', function(event) {
+        // Vérifier l'origine
+        const allowedOrigins = ['{{ editor_url|slice:":50" }}'];
+
+        // Gérer les événements de Docs
+        if (event.data && event.data.type) {
+            switch (event.data.type) {
+                case 'docs:ready':
+                    console.log('Éditeur Docs prêt');
+                    break;
+                case 'docs:saved':
+                    console.log('Document sauvegardé');
+                    break;
+                case 'docs:user-joined':
+                    console.log('Utilisateur rejoint:', event.data.user);
+                    // Mettre à jour la liste des collaborateurs
+                    break;
+                case 'docs:user-left':
+                    console.log('Utilisateur parti:', event.data.user);
+                    break;
+            }
+        }
+    });
+
+    // Avertir avant de quitter si des modifications non sauvegardées
+    let hasUnsavedChanges = false;
+
+    window.addEventListener('beforeunload', function(e) {
+        if (hasUnsavedChanges) {
+            e.preventDefault();
+            e.returnValue = '';
+        }
+    });
+});
+</script>
+{% endblock %}

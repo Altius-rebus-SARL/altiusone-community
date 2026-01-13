@@ -556,3 +556,295 @@ class ExportDonnees(BaseModel):
 
     def __str__(self):
         return f"{self.nom} - {self.date_demande.strftime('%Y-%m-%d %H:%M')}"
+
+
+class TypeGraphiqueRapport(BaseModel):
+    """
+    Graphiques prédéfinis et validés statistiquement pour les rapports.
+
+    Chaque graphique est associé à un ou plusieurs types de rapports et
+    utilise des données cohérentes (jamais de mélange montants/comptages).
+    """
+
+    TYPE_GRAPHIQUE_CHOICES = [
+        ('donut', 'Donut / Camembert'),
+        ('bar', 'Barres verticales'),
+        ('horizontal_bar', 'Barres horizontales'),
+        ('line', 'Ligne'),
+        ('area', 'Aire'),
+        ('stacked_bar', 'Barres empilées'),
+    ]
+
+    UNITE_DONNEES_CHOICES = [
+        ('CHF', 'Montants (CHF)'),
+        ('POURCENTAGE', 'Pourcentages (%)'),
+        ('NOMBRE', 'Nombres/Comptages'),
+    ]
+
+    # Identification
+    code = models.CharField(
+        max_length=100,
+        unique=True,
+        db_index=True,
+        help_text="Code unique ex: BILAN_REPARTITION_ACTIF_PASSIF"
+    )
+    nom = models.CharField(max_length=200)
+    description = models.TextField(
+        blank=True,
+        help_text="Description de ce que montre le graphique"
+    )
+
+    # Types de rapports compatibles (stocké en JSON array)
+    types_rapport_compatibles = models.JSONField(
+        default=list,
+        help_text='Liste des types de rapports: ["BILAN", "COMPTE_RESULTATS"]'
+    )
+
+    # Configuration du graphique
+    type_graphique = models.CharField(
+        max_length=20,
+        choices=TYPE_GRAPHIQUE_CHOICES
+    )
+    unite_donnees = models.CharField(
+        max_length=20,
+        choices=UNITE_DONNEES_CHOICES,
+        default='CHF',
+        help_text="Unité des données pour éviter les mélanges"
+    )
+
+    # Configuration de la source de données
+    config_source = models.JSONField(
+        default=dict,
+        help_text="""
+        Configuration pour récupérer les données:
+        {
+            "source": "ecritures_comptables",
+            "agregation": "sum",
+            "champ_valeur": "montant",
+            "grouper_par": "classe",
+            "filtres": {"classe__in": [1, 2]}
+        }
+        """
+    )
+
+    # Options d'affichage
+    options_affichage = models.JSONField(
+        default=dict,
+        help_text="""
+        Options de style et d'affichage:
+        {
+            "couleurs": ["#4680FF", "#2CA87F"],
+            "afficher_legende": true,
+            "afficher_valeurs": true,
+            "format_valeur": "currency"
+        }
+        """
+    )
+
+    # Ordre d'affichage et activation
+    ordre = models.PositiveIntegerField(default=0)
+    actif = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'types_graphique_rapport'
+        verbose_name = 'Type de graphique rapport'
+        verbose_name_plural = 'Types de graphiques rapport'
+        ordering = ['ordre', 'nom']
+
+    def __str__(self):
+        return f"{self.nom} ({self.get_type_graphique_display()})"
+
+    def est_compatible(self, type_rapport: str) -> bool:
+        """Vérifie si ce graphique est compatible avec un type de rapport."""
+        return type_rapport in self.types_rapport_compatibles
+
+
+class SectionRapport(BaseModel):
+    """
+    Section d'un rapport personnalisable.
+
+    Permet à l'utilisateur de composer son rapport avec différentes
+    sections (texte, graphiques, tableaux) dans l'ordre souhaité.
+    """
+
+    TYPE_SECTION_CHOICES = [
+        ('titre', 'Titre'),
+        ('texte', 'Texte/Paragraphe'),
+        ('graphique', 'Graphique'),
+        ('tableau', 'Tableau de données'),
+        ('kpi', 'Indicateurs clés (KPI)'),
+        ('saut_page', 'Saut de page'),
+        ('separateur', 'Séparateur horizontal'),
+    ]
+
+    # Rattachement au rapport
+    rapport = models.ForeignKey(
+        Rapport,
+        on_delete=models.CASCADE,
+        related_name='sections'
+    )
+
+    # Position et type
+    ordre = models.PositiveIntegerField(
+        default=0,
+        help_text="Position de la section dans le rapport"
+    )
+    type_section = models.CharField(
+        max_length=20,
+        choices=TYPE_SECTION_CHOICES
+    )
+
+    # Contenu selon le type
+    # Pour type='titre' ou 'texte': contenu HTML
+    contenu_texte = models.TextField(
+        blank=True,
+        help_text="Contenu HTML pour les sections titre/texte"
+    )
+
+    # Pour type='graphique': référence vers un graphique prédéfini
+    type_graphique = models.ForeignKey(
+        TypeGraphiqueRapport,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='sections_utilisant',
+        help_text="Graphique prédéfini à utiliser"
+    )
+
+    # Configuration spécifique (surcharge des options par défaut)
+    config = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="""
+        Configuration spécifique à cette section:
+        - Pour graphique: {"titre_personnalise": "Mon titre"}
+        - Pour tableau: {"colonnes": ["compte", "libelle", "solde"], "max_lignes": 20}
+        - Pour kpi: {"indicateurs": ["ca_total", "marge_brute"]}
+        """
+    )
+
+    # Visibilité
+    visible = models.BooleanField(
+        default=True,
+        help_text="Si False, la section n'apparaît pas dans le PDF"
+    )
+
+    class Meta:
+        db_table = 'sections_rapport'
+        verbose_name = 'Section de rapport'
+        verbose_name_plural = 'Sections de rapport'
+        ordering = ['rapport', 'ordre']
+        indexes = [
+            models.Index(fields=['rapport', 'ordre']),
+        ]
+
+    def __str__(self):
+        return f"{self.rapport.nom} - Section {self.ordre} ({self.get_type_section_display()})"
+
+
+class ModeleRapport(BaseModel):
+    """
+    Modèle de rapport réutilisable avec sections prédéfinies.
+
+    Permet de sauvegarder une configuration de rapport pour la réutiliser.
+    """
+
+    nom = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+
+    # Type de rapport associé
+    type_rapport = models.CharField(
+        max_length=30,
+        choices=Rapport.TYPE_RAPPORT_CHOICES
+    )
+
+    # Propriétaire (null = modèle système)
+    proprietaire = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='modeles_rapport',
+        help_text="Null pour les modèles système"
+    )
+
+    # Configuration des sections par défaut
+    sections_defaut = models.JSONField(
+        default=list,
+        help_text="""
+        Liste des sections par défaut:
+        [
+            {"type": "titre", "contenu": "Rapport {type_rapport}"},
+            {"type": "texte", "contenu": "<p>Introduction...</p>"},
+            {"type": "graphique", "code_graphique": "BILAN_REPARTITION"},
+            {"type": "tableau", "config": {"source": "comptes_bilan"}}
+        ]
+        """
+    )
+
+    # Paramètres par défaut du rapport
+    parametres_defaut = models.JSONField(
+        default=dict,
+        blank=True
+    )
+
+    # Activation et ordre
+    actif = models.BooleanField(default=True)
+    ordre = models.PositiveIntegerField(default=0)
+
+    # Statistiques d'utilisation
+    nombre_utilisations = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = 'modeles_rapport'
+        verbose_name = 'Modèle de rapport'
+        verbose_name_plural = 'Modèles de rapport'
+        ordering = ['type_rapport', 'ordre', 'nom']
+
+    def __str__(self):
+        return f"{self.nom} ({self.get_type_rapport_display()})"
+
+    def creer_sections_pour_rapport(self, rapport: Rapport) -> list:
+        """
+        Crée les sections pour un rapport basé sur ce modèle.
+
+        Returns:
+            Liste des SectionRapport créées
+        """
+        sections_creees = []
+
+        for idx, section_config in enumerate(self.sections_defaut):
+            section_data = {
+                'rapport': rapport,
+                'ordre': idx * 10,  # Espacement pour permettre l'insertion
+                'type_section': section_config.get('type', 'texte'),
+                'visible': True,
+            }
+
+            # Contenu texte
+            if section_config.get('contenu'):
+                section_data['contenu_texte'] = section_config['contenu']
+
+            # Graphique prédéfini
+            if section_config.get('code_graphique'):
+                try:
+                    type_graph = TypeGraphiqueRapport.objects.get(
+                        code=section_config['code_graphique'],
+                        actif=True
+                    )
+                    section_data['type_graphique'] = type_graph
+                except TypeGraphiqueRapport.DoesNotExist:
+                    pass
+
+            # Configuration additionnelle
+            if section_config.get('config'):
+                section_data['config'] = section_config['config']
+
+            section = SectionRapport.objects.create(**section_data)
+            sections_creees.append(section)
+
+        # Incrémenter le compteur d'utilisation
+        self.nombre_utilisations += 1
+        self.save(update_fields=['nombre_utilisations'])
+
+        return sections_creees

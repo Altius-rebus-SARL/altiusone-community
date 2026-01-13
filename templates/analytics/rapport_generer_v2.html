@@ -1,0 +1,1393 @@
+<!-- analytics/rapport_generer_v2.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load widget_tweaks %}
+
+{% block title %}{% trans "Générateur de rapports" %}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'assets/vendor/trumbowyg/trumbowyg.min.css' %}">
+<style>
+    /* Layout principal */
+    .rapport-editor-container {
+        display: flex;
+        height: calc(100vh - 180px);
+        min-height: 600px;
+    }
+
+    /* Panneau de configuration (gauche) */
+    .editor-panel {
+        width: 420px;
+        min-width: 380px;
+        max-width: 500px;
+        overflow-y: auto;
+        border-right: 1px solid var(--bs-border-color);
+        padding: 1rem;
+        background: var(--bs-body-bg);
+    }
+
+    /* Panneau de preview (droite) */
+    .preview-panel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background: #f5f5f5;
+        min-width: 0;
+    }
+
+    .preview-header {
+        padding: 0.75rem 1rem;
+        background: var(--bs-body-bg);
+        border-bottom: 1px solid var(--bs-border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .preview-content {
+        flex: 1;
+        overflow: auto;
+        padding: 1rem;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+    }
+
+    /* Iframe PDF */
+    .pdf-preview-frame {
+        width: 100%;
+        max-width: 800px;
+        height: 100%;
+        border: 1px solid var(--bs-border-color);
+        background: white;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    /* Liste des sections */
+    .sections-list {
+        min-height: 200px;
+        max-height: 400px;
+        overflow-y: auto;
+        border: 1px dashed var(--bs-border-color);
+        border-radius: 0.5rem;
+        padding: 0.5rem;
+        background: var(--bs-light-bg);
+    }
+
+    .section-item {
+        cursor: default;
+        transition: all 0.2s ease;
+    }
+
+    .section-item:hover {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .section-item.sortable-ghost {
+        opacity: 0.4;
+    }
+
+    .section-item.sortable-chosen {
+        background: var(--bs-primary-bg-subtle);
+    }
+
+    .section-handle {
+        cursor: move;
+    }
+
+    .section-item.hidden-section {
+        opacity: 0.5;
+    }
+
+    /* Boutons d'ajout */
+    .add-section-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+    }
+
+    .add-section-btn {
+        flex: 0 0 auto;
+    }
+
+    /* Cards de type de section dans modal */
+    .section-type-card {
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 2px solid transparent;
+    }
+
+    .section-type-card:hover {
+        border-color: var(--bs-primary);
+        transform: translateY(-2px);
+    }
+
+    /* Chart card dans sélection */
+    .chart-option-card {
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 2px solid transparent;
+    }
+
+    .chart-option-card:hover,
+    .chart-option-card.selected {
+        border-color: var(--bs-primary);
+    }
+
+    .chart-option-card.selected {
+        background: var(--bs-primary-bg-subtle);
+    }
+
+    /* Zoom controls */
+    .zoom-controls {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .zoom-controls .btn {
+        padding: 0.25rem 0.5rem;
+    }
+
+    /* Preview states */
+    .preview-loading,
+    .preview-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: var(--bs-secondary);
+    }
+
+    /* Compact form styling */
+    .form-compact .form-label {
+        margin-bottom: 0.25rem;
+        font-size: 0.875rem;
+    }
+
+    .form-compact .form-control,
+    .form-compact .form-select {
+        padding: 0.375rem 0.75rem;
+    }
+
+    /* Quick period buttons */
+    .period-shortcuts .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+
+    /* Trumbowyg adjustments */
+    .trumbowyg-box {
+        min-height: 150px;
+    }
+
+    /* Dark mode adjustments */
+    [data-theme="dark"] .preview-panel {
+        background: #1a1d21;
+    }
+
+    [data-theme="dark"] .pdf-preview-frame {
+        background: #2a2d31;
+    }
+
+    /* Select2 compact */
+    .select2-container--default .select2-selection--single {
+        height: calc(1.5em + 0.75rem + 2px);
+        padding: 0.375rem 0.75rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb compact -->
+<div class="row m-1 mb-2">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h5 class="mb-0">{% trans "Générateur de rapports" %}</h5>
+            <ul class="app-line-breadcrumbs mb-0" style="font-size: 0.8rem;">
+                <li><a href="{% url 'core:dashboard' %}"><i class="ph-duotone ph-house"></i></a></li>
+                <li><a href="{% url 'analytics:rapport-list' %}">{% trans "Rapports" %}</a></li>
+                <li class="active">{% trans "Nouveau" %}</li>
+            </ul>
+        </div>
+        <div>
+            <button type="button" class="btn btn-primary" id="btn-generer-final">
+                <i class="ph-duotone ph-file-pdf me-1"></i>
+                {% trans "Générer le rapport" %}
+            </button>
+        </div>
+    </div>
+</div>
+
+<form method="post" id="rapport-form">
+    {% csrf_token %}
+    <input type="hidden" name="sections_data" id="sections_data" value="">
+
+    <div class="rapport-editor-container">
+        <!-- PANNEAU GAUCHE: Configuration -->
+        <div class="editor-panel">
+            <!-- Type de rapport -->
+            <div class="card mb-3">
+                <div class="card-header py-2">
+                    <h6 class="mb-0">
+                        <i class="ph-duotone ph-file-text me-1"></i>
+                        {% trans "Type de rapport" %}
+                    </h6>
+                </div>
+                <div class="card-body py-2">
+                    <div class="row g-2">
+                        {% for value, label in form.type_rapport.field.choices %}
+                        {% if value %}
+                        <div class="col-6">
+                            <div class="form-check card-radio">
+                                <input type="radio" name="type_rapport" id="type_{{ value }}"
+                                       value="{{ value }}" class="form-check-input type-rapport-radio"
+                                       {% if form.type_rapport.value == value %}checked{% endif %}>
+                                <label class="form-check-label w-100" for="type_{{ value }}">
+                                    <div class="border rounded p-2 text-center {% if form.type_rapport.value == value %}border-primary bg-primary-subtle{% endif %}">
+                                        {% if value == 'BILAN' %}
+                                        <i class="ph-duotone ph-scales f-s-20 text-primary"></i>
+                                        {% elif value == 'COMPTE_RESULTATS' %}
+                                        <i class="ph-duotone ph-chart-bar f-s-20 text-success"></i>
+                                        {% elif value == 'BALANCE' %}
+                                        <i class="ph-duotone ph-list-numbers f-s-20 text-info"></i>
+                                        {% elif value == 'TRESORERIE' %}
+                                        <i class="ph-duotone ph-bank f-s-20 text-warning"></i>
+                                        {% elif value == 'TVA' %}
+                                        <i class="ph-duotone ph-receipt f-s-20 text-danger"></i>
+                                        {% elif value == 'SALAIRES' %}
+                                        <i class="ph-duotone ph-users f-s-20 text-purple"></i>
+                                        {% elif value == 'EVOLUTION_CA' %}
+                                        <i class="ph-duotone ph-trend-up f-s-20 text-success"></i>
+                                        {% elif value == 'RENTABILITE' %}
+                                        <i class="ph-duotone ph-chart-pie f-s-20 text-warning"></i>
+                                        {% else %}
+                                        <i class="ph-duotone ph-file-text f-s-20 text-secondary"></i>
+                                        {% endif %}
+                                        <small class="d-block mt-1" style="font-size: 0.7rem;">{{ label }}</small>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Paramètres -->
+            <div class="card mb-3">
+                <div class="card-header py-2">
+                    <h6 class="mb-0">
+                        <i class="ph-duotone ph-sliders me-1"></i>
+                        {% trans "Paramètres" %}
+                    </h6>
+                </div>
+                <div class="card-body py-2 form-compact">
+                    <div class="mb-2">
+                        <label class="form-label">{% trans "Nom du rapport" %}</label>
+                        {% render_field form.nom class="form-control form-control-sm" placeholder="Ex: Bilan annuel 2025" %}
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="form-label">{% trans "Mandat" %}</label>
+                            {% render_field form.mandat class="form-select form-select-sm select2" %}
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">{% trans "Format" %}</label>
+                            {% render_field form.format_fichier class="form-select form-select-sm" %}
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="form-label">{% trans "Du" %}</label>
+                            {% render_field form.date_debut class="form-control form-control-sm" type="date" %}
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">{% trans "Au" %}</label>
+                            {% render_field form.date_fin class="form-control form-control-sm" type="date" %}
+                        </div>
+                    </div>
+                    <div class="period-shortcuts">
+                        <small class="text-muted me-2">{% trans "Raccourcis:" %}</small>
+                        <div class="btn-group btn-group-sm">
+                            <button type="button" class="btn btn-light-secondary btn-period" data-period="month">
+                                {% trans "Mois" %}
+                            </button>
+                            <button type="button" class="btn btn-light-secondary btn-period" data-period="quarter">
+                                {% trans "Trimestre" %}
+                            </button>
+                            <button type="button" class="btn btn-light-secondary btn-period" data-period="year">
+                                {% trans "Année" %}
+                            </button>
+                            <button type="button" class="btn btn-light-secondary btn-period" data-period="lastyear">
+                                {% trans "N-1" %}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sections du rapport -->
+            <div class="card mb-3">
+                <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        <i class="ph-duotone ph-stack me-1"></i>
+                        {% trans "Contenu du rapport" %}
+                    </h6>
+                    <small class="text-muted" id="sections-count">0 sections</small>
+                </div>
+                <div class="card-body py-2">
+                    <div class="sections-list" id="sections-list">
+                        <!-- Sections ajoutées dynamiquement -->
+                        <div class="text-center text-muted py-4" id="no-sections-msg">
+                            <i class="ph-duotone ph-stack f-s-30 mb-2 d-block"></i>
+                            <small>{% trans "Aucune section. Ajoutez du contenu ci-dessous." %}</small>
+                        </div>
+                    </div>
+
+                    <!-- Boutons d'ajout rapide avec tooltips -->
+                    <div class="add-section-buttons">
+                        <button type="button" class="btn btn-sm btn-light-primary add-section-btn"
+                                data-type="titre" data-bs-toggle="tooltip" data-bs-placement="top"
+                                title="{% trans 'Ajouter un titre ou sous-titre au rapport' %}">
+                            <i class="ph-duotone ph-text-h-one"></i>
+                            <span class="d-none d-sm-inline ms-1">{% trans "Titre" %}</span>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-light-secondary add-section-btn"
+                                data-type="texte" data-bs-toggle="tooltip" data-bs-placement="top"
+                                title="{% trans 'Ajouter un paragraphe de texte, commentaire ou analyse' %}">
+                            <i class="ph-duotone ph-text-align-left"></i>
+                            <span class="d-none d-sm-inline ms-1">{% trans "Texte" %}</span>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-light-success add-section-btn"
+                                data-type="graphique" data-bs-toggle="tooltip" data-bs-placement="top"
+                                title="{% trans 'Ajouter un graphique statistique (barres, camembert, courbe...)' %}">
+                            <i class="ph-duotone ph-chart-bar"></i>
+                            <span class="d-none d-sm-inline ms-1">{% trans "Graphique" %}</span>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-light-info add-section-btn"
+                                data-type="tableau" data-bs-toggle="tooltip" data-bs-placement="top"
+                                title="{% trans 'Ajouter un tableau de données détaillées' %}">
+                            <i class="ph-duotone ph-table"></i>
+                            <span class="d-none d-sm-inline ms-1">{% trans "Tableau" %}</span>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-light-warning add-section-btn"
+                                data-type="kpi" data-bs-toggle="tooltip" data-bs-placement="top"
+                                title="{% trans 'Ajouter des indicateurs clés de performance (KPI)' %}">
+                            <i class="ph-duotone ph-gauge"></i>
+                            <span class="d-none d-sm-inline ms-1">{% trans "KPI" %}</span>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-light add-section-btn"
+                                data-type="saut_page" data-bs-toggle="tooltip" data-bs-placement="top"
+                                title="{% trans 'Forcer un saut de page dans le PDF' %}">
+                            <i class="ph-duotone ph-file-dashed"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Options -->
+            <div class="card mb-3">
+                <div class="card-header py-2">
+                    <h6 class="mb-0">
+                        <i class="ph-duotone ph-gear me-1"></i>
+                        {% trans "Options" %}
+                    </h6>
+                </div>
+                <div class="card-body py-2">
+                    <div class="form-check mb-2">
+                        <input type="checkbox" name="inclure_comparatif" id="inclure_comparatif" class="form-check-input">
+                        <label class="form-check-label small" for="inclure_comparatif">
+                            {% trans "Comparatif N-1" %}
+                        </label>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input type="checkbox" name="detail_comptes" id="detail_comptes" class="form-check-input" checked>
+                        <label class="form-check-label small" for="detail_comptes">
+                            {% trans "Détail par compte" %}
+                        </label>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input type="checkbox" name="envoi_email" id="envoi_email" class="form-check-input">
+                        <label class="form-check-label small" for="envoi_email">
+                            {% trans "Envoyer par email" %}
+                        </label>
+                    </div>
+                    <div id="email-options" style="display: none;" class="mt-2">
+                        <input type="text" name="destinataires" class="form-control form-control-sm"
+                               placeholder="email@exemple.ch">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PANNEAU DROITE: Preview PDF -->
+        <div class="preview-panel">
+            <div class="preview-header">
+                <div>
+                    <i class="ph-duotone ph-eye me-1"></i>
+                    <span class="fw-medium">{% trans "Aperçu du rapport" %}</span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <div class="zoom-controls">
+                        <button type="button" class="btn btn-light btn-sm" id="zoom-out"
+                                data-bs-toggle="tooltip" title="{% trans 'Réduire' %}">
+                            <i class="ph-duotone ph-minus"></i>
+                        </button>
+                        <span id="zoom-level" class="small">100%</span>
+                        <button type="button" class="btn btn-light btn-sm" id="zoom-in"
+                                data-bs-toggle="tooltip" title="{% trans 'Agrandir' %}">
+                            <i class="ph-duotone ph-plus"></i>
+                        </button>
+                    </div>
+                    <button type="button" class="btn btn-light btn-sm" id="refresh-preview"
+                            data-bs-toggle="tooltip" title="{% trans 'Actualiser' %}">
+                        <i class="ph-duotone ph-arrow-clockwise"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="preview-content">
+                <!-- État de chargement -->
+                <div class="preview-loading" id="preview-loading" style="display: none;">
+                    <div class="spinner-border text-primary mb-3" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p>{% trans "Génération de l'aperçu..." %}</p>
+                </div>
+
+                <!-- État vide -->
+                <div class="preview-empty" id="preview-empty">
+                    <i class="ph-duotone ph-file-pdf f-s-60 mb-3"></i>
+                    <p>{% trans "Configurez votre rapport pour voir l'aperçu" %}</p>
+                    <small class="text-muted">{% trans "Sélectionnez un type, une période et ajoutez des sections" %}</small>
+                </div>
+
+                <!-- Iframe pour le PDF -->
+                <iframe id="pdf-preview" class="pdf-preview-frame" style="display: none;"></iframe>
+            </div>
+        </div>
+    </div>
+</form>
+
+<!-- Templates JS pour les sections -->
+{% include "analytics/rapport_editor/_section_item.html" with is_template=True %}
+
+<!-- Modales -->
+{% include "analytics/rapport_editor/_modals.html" %}
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- Sortable.js -->
+<script src="{% static 'assets/vendor/sortable/Sortable.min.js' %}"></script>
+<!-- Trumbowyg -->
+<script src="{% static 'assets/vendor/trumbowyg/trumbowyg.min.js' %}"></script>
+
+<script>
+(function() {
+    'use strict';
+
+    // =========================================================================
+    // CONFIGURATION
+    // =========================================================================
+    var URLS = {
+        sectionsApi: function(rapportId) { return '/analytics/api/rapport/' + rapportId + '/sections/'; },
+        sectionDetailApi: function(rapportId, sectionId) { return '/analytics/api/rapport/' + rapportId + '/sections/' + sectionId + '/'; },
+        reorderApi: function(rapportId) { return '/analytics/api/rapport/' + rapportId + '/sections/reorder/'; },
+        previewPdfApi: function(rapportId) { return '/analytics/api/rapport/' + rapportId + '/preview-pdf/'; },
+        graphiquesApi: function(typeRapport) { return '/analytics/api/graphiques-disponibles/' + typeRapport + '/'; },
+        modelesApi: function(typeRapport) { return '/analytics/api/modeles-rapport/' + typeRapport + '/'; },
+        previewApi: '{% url "analytics:rapport-preview-api" %}'
+    };
+
+    var SECTION_ICONS = {
+        titre: '<i class="ph-duotone ph-text-h-one text-primary"></i>',
+        texte: '<i class="ph-duotone ph-text-align-left text-secondary"></i>',
+        graphique: '<i class="ph-duotone ph-chart-bar text-success"></i>',
+        tableau: '<i class="ph-duotone ph-table text-info"></i>',
+        kpi: '<i class="ph-duotone ph-gauge text-warning"></i>',
+        saut_page: '<i class="ph-duotone ph-file-dashed text-muted"></i>',
+        separateur: '<i class="ph-duotone ph-minus text-muted"></i>'
+    };
+
+    var SECTION_LABELS = {
+        titre: '{% trans "Titre" %}',
+        texte: '{% trans "Texte" %}',
+        graphique: '{% trans "Graphique" %}',
+        tableau: '{% trans "Tableau" %}',
+        kpi: '{% trans "KPI" %}',
+        saut_page: '{% trans "Saut de page" %}',
+        separateur: '{% trans "Séparateur" %}'
+    };
+
+    // =========================================================================
+    // ÉTAT DE L'APPLICATION
+    // =========================================================================
+    var rapportId = null;
+    var sections = [];
+    var availableCharts = [];
+    var sortableInstance = null;
+    var previewDebounceTimer = null;
+    var currentZoom = 100;
+
+    // =========================================================================
+    // INITIALISATION
+    // =========================================================================
+    document.addEventListener('DOMContentLoaded', function() {
+        initTooltips();
+        initSelect2();
+        initSortable();
+        initEventListeners();
+        initTrumbowyg();
+        updateSectionsCount();
+    });
+
+    // Initialiser les tooltips Bootstrap
+    function initTooltips() {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.forEach(function(tooltipTriggerEl) {
+            new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    }
+
+    // Initialiser Select2 pour le mandat
+    function initSelect2() {
+        if (typeof $ !== 'undefined' && typeof $.fn.select2 !== 'undefined') {
+            $('#id_mandat').select2({
+                theme: 'bootstrap-5',
+                width: '100%',
+                placeholder: '{% trans "Sélectionner un mandat" %}',
+                allowClear: true
+            });
+
+            // Écouter les changements Select2
+            $('#id_mandat').on('change', function() {
+                debouncePreview();
+            });
+        }
+    }
+
+    // Initialiser Sortable.js
+    function initSortable() {
+        var sectionsList = document.getElementById('sections-list');
+        if (sectionsList && typeof Sortable !== 'undefined') {
+            sortableInstance = new Sortable(sectionsList, {
+                handle: '.section-handle',
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                chosenClass: 'sortable-chosen',
+                onEnd: function(evt) {
+                    reorderSections();
+                }
+            });
+        }
+    }
+
+    // Initialiser Trumbowyg
+    function initTrumbowyg() {
+        if (typeof $ !== 'undefined' && typeof $.fn.trumbowyg !== 'undefined') {
+            $('#section-text-editor').trumbowyg({
+                btns: [
+                    ['viewHTML'],
+                    ['undo', 'redo'],
+                    ['formatting'],
+                    ['strong', 'em', 'del'],
+                    ['justifyLeft', 'justifyCenter', 'justifyRight'],
+                    ['unorderedList', 'orderedList'],
+                    ['horizontalRule'],
+                    ['removeformat']
+                ],
+                removeformatPasted: true,
+                autogrow: true
+            });
+        }
+    }
+
+    // =========================================================================
+    // EVENT LISTENERS
+    // =========================================================================
+    function initEventListeners() {
+        // Changement de type de rapport
+        document.querySelectorAll('.type-rapport-radio').forEach(function(radio) {
+            radio.addEventListener('change', onTypeRapportChange);
+        });
+
+        // Boutons de période
+        document.querySelectorAll('.btn-period').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                setPeriod(this.dataset.period);
+            });
+        });
+
+        // Boutons d'ajout de section
+        document.querySelectorAll('.add-section-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var type = this.dataset.type;
+                addSection(type);
+            });
+        });
+
+        // Cards de type dans modal
+        document.querySelectorAll('.section-type-card').forEach(function(card) {
+            card.addEventListener('click', function() {
+                var type = this.dataset.type;
+                var modal = bootstrap.Modal.getInstance(document.getElementById('addSectionModal'));
+                if (modal) modal.hide();
+                addSection(type);
+            });
+        });
+
+        // Sauvegarde texte
+        var saveTextBtn = document.getElementById('saveTextSection');
+        if (saveTextBtn) {
+            saveTextBtn.addEventListener('click', saveTextSection);
+        }
+
+        // Sauvegarde config tableau
+        var saveTableBtn = document.getElementById('saveTableConfig');
+        if (saveTableBtn) {
+            saveTableBtn.addEventListener('click', saveTableConfig);
+        }
+
+        // Confirmation suppression
+        var confirmDeleteBtn = document.getElementById('confirmDeleteSection');
+        if (confirmDeleteBtn) {
+            confirmDeleteBtn.addEventListener('click', confirmDeleteSection);
+        }
+
+        // Zoom controls
+        var zoomInBtn = document.getElementById('zoom-in');
+        var zoomOutBtn = document.getElementById('zoom-out');
+        if (zoomInBtn) zoomInBtn.addEventListener('click', function() { changeZoom(10); });
+        if (zoomOutBtn) zoomOutBtn.addEventListener('click', function() { changeZoom(-10); });
+
+        // Refresh preview
+        var refreshBtn = document.getElementById('refresh-preview');
+        if (refreshBtn) refreshBtn.addEventListener('click', refreshPreview);
+
+        // Toggle email options
+        var emailCheckbox = document.getElementById('envoi_email');
+        if (emailCheckbox) {
+            emailCheckbox.addEventListener('change', function() {
+                document.getElementById('email-options').style.display = this.checked ? 'block' : 'none';
+            });
+        }
+
+        // Changement de paramètres -> actualiser preview
+        ['date_debut', 'date_fin'].forEach(function(field) {
+            var el = document.getElementById('id_' + field);
+            if (el) {
+                el.addEventListener('change', debouncePreview);
+            }
+        });
+
+        // Bouton génération finale
+        var genererBtn = document.getElementById('btn-generer-final');
+        if (genererBtn) {
+            genererBtn.addEventListener('click', generateFinalReport);
+        }
+    }
+
+    // =========================================================================
+    // FONCTIONS DE PÉRIODE
+    // =========================================================================
+    function setPeriod(period) {
+        var today = new Date();
+        var debut, fin;
+
+        switch(period) {
+            case 'month':
+                debut = new Date(today.getFullYear(), today.getMonth(), 1);
+                fin = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                break;
+            case 'quarter':
+                var quarter = Math.floor(today.getMonth() / 3);
+                debut = new Date(today.getFullYear(), quarter * 3, 1);
+                fin = new Date(today.getFullYear(), quarter * 3 + 3, 0);
+                break;
+            case 'year':
+                debut = new Date(today.getFullYear(), 0, 1);
+                fin = new Date(today.getFullYear(), 11, 31);
+                break;
+            case 'lastyear':
+                debut = new Date(today.getFullYear() - 1, 0, 1);
+                fin = new Date(today.getFullYear() - 1, 11, 31);
+                break;
+            default:
+                return;
+        }
+
+        document.getElementById('id_date_debut').value = formatDate(debut);
+        document.getElementById('id_date_fin').value = formatDate(fin);
+        debouncePreview();
+    }
+
+    function formatDate(date) {
+        return date.toISOString().split('T')[0];
+    }
+
+    // =========================================================================
+    // GESTION DU TYPE DE RAPPORT
+    // =========================================================================
+    function onTypeRapportChange(e) {
+        var typeRapport = e.target.value;
+
+        // Mettre à jour les styles visuels
+        document.querySelectorAll('.type-rapport-radio').forEach(function(radio) {
+            var container = radio.closest('.form-check').querySelector('label > div');
+            if (container) {
+                container.classList.remove('border-primary', 'bg-primary-subtle');
+            }
+        });
+        var selectedContainer = e.target.closest('.form-check').querySelector('label > div');
+        if (selectedContainer) {
+            selectedContainer.classList.add('border-primary', 'bg-primary-subtle');
+        }
+
+        // Charger les graphiques disponibles pour ce type
+        loadAvailableCharts(typeRapport);
+
+        // Charger les sections par défaut si aucune section
+        if (sections.length === 0) {
+            loadDefaultSections(typeRapport);
+        }
+
+        debouncePreview();
+    }
+
+    // Charger les graphiques disponibles
+    function loadAvailableCharts(typeRapport) {
+        fetch(URLS.graphiquesApi(typeRapport))
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                availableCharts = data.graphiques || [];
+            })
+            .catch(function(error) {
+                console.error('Erreur chargement graphiques:', error);
+            });
+    }
+
+    // Charger les sections par défaut
+    function loadDefaultSections(typeRapport) {
+        sections = [
+            {
+                id: generateTempId(),
+                type_section: 'titre',
+                contenu_texte: '<h1>' + typeRapport + '</h1>',
+                visible: true
+            },
+            {
+                id: generateTempId(),
+                type_section: 'kpi',
+                config: {},
+                visible: true
+            },
+            {
+                id: generateTempId(),
+                type_section: 'tableau',
+                config: { source: 'auto' },
+                visible: true
+            }
+        ];
+
+        renderSections();
+        updateSectionsData();
+        debouncePreview();
+    }
+
+    // =========================================================================
+    // GESTION DES SECTIONS
+    // =========================================================================
+    function addSection(type) {
+        if (type === 'graphique') {
+            showChartSelectionModal();
+            return;
+        }
+
+        if (type === 'texte' || type === 'titre') {
+            showTextEditModal(null, type);
+            return;
+        }
+
+        if (type === 'tableau') {
+            showTableConfigModal(null);
+            return;
+        }
+
+        // Ajouter directement (kpi, saut_page, separateur)
+        var newSection = {
+            id: generateTempId(),
+            type_section: type,
+            contenu_texte: '',
+            config: {},
+            visible: true
+        };
+
+        sections.push(newSection);
+        renderSections();
+        updateSectionsData();
+        debouncePreview();
+    }
+
+    // Afficher modal sélection graphique
+    function showChartSelectionModal() {
+        var container = document.getElementById('available-charts');
+        var typeRapportEl = document.querySelector('.type-rapport-radio:checked');
+        var typeRapport = typeRapportEl ? typeRapportEl.value : null;
+
+        if (!typeRapport) {
+            alert("{% trans "Veuillez d'abord sélectionner un type de rapport" %}");
+            return;
+        }
+
+        // Charger les graphiques si nécessaire
+        if (availableCharts.length === 0) {
+            // Charger et afficher
+            container.innerHTML = '<div class="col-12 text-center py-4">' +
+                '<div class="spinner-border text-primary" role="status">' +
+                '<span class="visually-hidden">Loading...</span>' +
+                '</div>' +
+            '</div>';
+
+            fetch(URLS.graphiquesApi(typeRapport))
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    availableCharts = data.graphiques || [];
+                    renderChartOptions(container);
+                })
+                .catch(function(error) {
+                    console.error('Erreur chargement graphiques:', error);
+                    container.innerHTML = '<div class="col-12 text-center text-muted py-4">{% trans "Erreur de chargement des graphiques" %}</div>';
+                });
+        } else {
+            renderChartOptions(container);
+        }
+
+        var modalEl = document.getElementById('selectChartModal');
+        var existingModal = bootstrap.Modal.getInstance(modalEl);
+        if (existingModal) {
+            existingModal.show();
+        } else {
+            new bootstrap.Modal(modalEl).show();
+        }
+    }
+
+    // Rendre les options de graphiques
+    function renderChartOptions(container) {
+        if (availableCharts.length === 0) {
+            container.innerHTML = '<div class="col-12 text-center text-muted py-4">{% trans "Aucun graphique disponible pour ce type de rapport" %}</div>';
+            return;
+        }
+
+        container.innerHTML = availableCharts.map(function(chart) {
+            var iconType = chart.type_graphique === 'donut' ? 'pie' :
+                           chart.type_graphique === 'bar' ? 'bar' :
+                           chart.type_graphique === 'line' ? 'line-up' : 'bar';
+            return '<div class="col-md-6">' +
+                '<div class="card chart-option-card h-100" data-code="' + chart.code + '">' +
+                    '<div class="card-body py-3">' +
+                        '<div class="d-flex align-items-center mb-2">' +
+                            '<i class="ph-duotone ph-chart-' + iconType + ' f-s-24 text-primary me-2"></i>' +
+                            '<h6 class="mb-0">' + chart.nom + '</h6>' +
+                        '</div>' +
+                        '<small class="text-muted">' + (chart.description || '') + '</small>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+        }).join('');
+
+        // Event listeners pour les cartes
+        container.querySelectorAll('.chart-option-card').forEach(function(card) {
+            card.addEventListener('click', function() {
+                selectChartOption(this.dataset.code);
+            });
+        });
+    }
+
+    // Sélectionner un graphique
+    function selectChartOption(code) {
+        var chart = availableCharts.find(function(c) { return c.code === code; });
+        if (!chart) return;
+
+        var newSection = {
+            id: generateTempId(),
+            type_section: 'graphique',
+            type_graphique: chart,
+            config: { code_graphique: code },
+            visible: true
+        };
+
+        sections.push(newSection);
+        renderSections();
+        updateSectionsData();
+        debouncePreview();
+
+        hideModal('selectChartModal');
+    }
+
+    // Afficher modal édition texte
+    function showTextEditModal(sectionId, type) {
+        type = type || 'texte';
+        var modalEl = document.getElementById('editTextModal');
+        var titleEl = document.getElementById('editTextModalTitle');
+        var sectionIdInput = document.getElementById('editingSectionId');
+
+        titleEl.textContent = type === 'titre' ? '{% trans "Modifier le titre" %}' : '{% trans "Modifier le texte" %}';
+        sectionIdInput.value = sectionId || '';
+        sectionIdInput.dataset.type = type;
+
+        var content = '';
+        if (sectionId) {
+            var section = sections.find(function(s) { return s.id === sectionId; });
+            content = section ? section.contenu_texte : '';
+        } else {
+            content = type === 'titre' ? '<h1></h1>' : '<p></p>';
+        }
+
+        // Attendre que le modal soit affiché pour initialiser Trumbowyg
+        var existingModal = bootstrap.Modal.getInstance(modalEl);
+        if (existingModal) {
+            setTrumbowygContent(content);
+            existingModal.show();
+        } else {
+            var modal = new bootstrap.Modal(modalEl);
+            modalEl.addEventListener('shown.bs.modal', function onShown() {
+                setTrumbowygContent(content);
+                modalEl.removeEventListener('shown.bs.modal', onShown);
+            });
+            modal.show();
+        }
+    }
+
+    // Définir le contenu Trumbowyg
+    function setTrumbowygContent(content) {
+        if (typeof $ !== 'undefined' && typeof $.fn.trumbowyg !== 'undefined') {
+            $('#section-text-editor').trumbowyg('html', content);
+        }
+    }
+
+    // Sauvegarder section texte
+    function saveTextSection() {
+        var sectionIdInput = document.getElementById('editingSectionId');
+        var sectionId = sectionIdInput.value;
+        var type = sectionIdInput.dataset.type || 'texte';
+        var content = '';
+
+        if (typeof $ !== 'undefined' && typeof $.fn.trumbowyg !== 'undefined') {
+            content = $('#section-text-editor').trumbowyg('html');
+        }
+
+        if (sectionId) {
+            // Modifier existante
+            var section = sections.find(function(s) { return s.id === sectionId; });
+            if (section) {
+                section.contenu_texte = content;
+            }
+        } else {
+            // Créer nouvelle
+            sections.push({
+                id: generateTempId(),
+                type_section: type,
+                contenu_texte: content,
+                config: {},
+                visible: true
+            });
+        }
+
+        renderSections();
+        updateSectionsData();
+        debouncePreview();
+
+        hideModal('editTextModal');
+    }
+
+    // Afficher modal config tableau
+    function showTableConfigModal(sectionId) {
+        var modalEl = document.getElementById('configTableModal');
+        var sectionIdInput = document.getElementById('tableSectionId');
+
+        sectionIdInput.value = sectionId || '';
+
+        if (sectionId) {
+            var section = sections.find(function(s) { return s.id === sectionId; });
+            if (section && section.config) {
+                document.getElementById('tableTitle').value = section.config.titre || '';
+                document.getElementById('tableMaxRows').value = section.config.max_lignes || 50;
+            }
+        } else {
+            document.getElementById('tableTitle').value = '';
+            document.getElementById('tableMaxRows').value = 50;
+        }
+
+        var existingModal = bootstrap.Modal.getInstance(modalEl);
+        if (existingModal) {
+            existingModal.show();
+        } else {
+            new bootstrap.Modal(modalEl).show();
+        }
+    }
+
+    // Sauvegarder config tableau
+    function saveTableConfig() {
+        var sectionId = document.getElementById('tableSectionId').value;
+        var titre = document.getElementById('tableTitle').value;
+        var maxRows = parseInt(document.getElementById('tableMaxRows').value) || 50;
+
+        var config = {
+            titre: titre,
+            max_lignes: maxRows,
+            source: 'auto'
+        };
+
+        if (sectionId) {
+            var section = sections.find(function(s) { return s.id === sectionId; });
+            if (section) {
+                section.config = config;
+            }
+        } else {
+            sections.push({
+                id: generateTempId(),
+                type_section: 'tableau',
+                contenu_texte: '',
+                config: config,
+                visible: true
+            });
+        }
+
+        renderSections();
+        updateSectionsData();
+        debouncePreview();
+
+        hideModal('configTableModal');
+    }
+
+    // Demander suppression - GLOBAL pour onclick
+    window.requestDeleteSection = function(sectionId) {
+        document.getElementById('deleteSectionId').value = sectionId;
+        var modalEl = document.getElementById('confirmDeleteModal');
+        var existingModal = bootstrap.Modal.getInstance(modalEl);
+        if (existingModal) {
+            existingModal.show();
+        } else {
+            new bootstrap.Modal(modalEl).show();
+        }
+    };
+
+    // Confirmer suppression
+    function confirmDeleteSection() {
+        var sectionId = document.getElementById('deleteSectionId').value;
+        sections = sections.filter(function(s) { return s.id !== sectionId; });
+        renderSections();
+        updateSectionsData();
+        debouncePreview();
+        hideModal('confirmDeleteModal');
+    }
+
+    // Toggle visibilité - GLOBAL pour onclick
+    window.toggleSectionVisibility = function(sectionId) {
+        var section = sections.find(function(s) { return s.id === sectionId; });
+        if (section) {
+            section.visible = !section.visible;
+            renderSections();
+            updateSectionsData();
+            debouncePreview();
+        }
+    };
+
+    // Éditer section - GLOBAL pour onclick
+    window.editSection = function(sectionId) {
+        var section = sections.find(function(s) { return s.id === sectionId; });
+        if (!section) return;
+
+        if (section.type_section === 'titre' || section.type_section === 'texte') {
+            showTextEditModal(sectionId, section.type_section);
+        } else if (section.type_section === 'tableau') {
+            showTableConfigModal(sectionId);
+        } else if (section.type_section === 'graphique') {
+            // Pour les graphiques, on permet de les remplacer
+            showChartSelectionModal();
+        }
+    };
+
+    // Réordonner les sections après drag
+    function reorderSections() {
+        var items = document.querySelectorAll('.section-item');
+        var newOrder = [];
+        items.forEach(function(item, index) {
+            var id = item.dataset.sectionId;
+            var section = sections.find(function(s) { return s.id === id; });
+            if (section) {
+                section.ordre = index * 10;
+                newOrder.push(section);
+            }
+        });
+        sections = newOrder;
+        updateSectionsData();
+        debouncePreview();
+    }
+
+    // Rendre les sections
+    function renderSections() {
+        var container = document.getElementById('sections-list');
+
+        // Template pour message vide
+        var emptyMsgHtml = '<div class="text-center text-muted py-4" id="no-sections-msg">' +
+            '<i class="ph-duotone ph-stack f-s-30 mb-2 d-block"></i>' +
+            '<small>Aucune section. Ajoutez du contenu ci-dessous.</small>' +
+        '</div>';
+
+        if (sections.length === 0) {
+            container.innerHTML = emptyMsgHtml;
+        } else {
+            container.innerHTML = sections.map(function(section) {
+                var preview = '';
+                if (section.type_section === 'titre' || section.type_section === 'texte') {
+                    preview = stripHtml(section.contenu_texte || '').substring(0, 40);
+                } else if (section.type_graphique) {
+                    preview = section.type_graphique.nom || '';
+                } else if (section.config && section.config.titre) {
+                    preview = section.config.titre;
+                }
+
+                return '<div class="section-item card mb-2 ' + (section.visible ? '' : 'hidden-section') + '"' +
+                     ' data-section-id="' + section.id + '" data-section-type="' + section.type_section + '">' +
+                    '<div class="card-body py-2 px-3 d-flex align-items-center">' +
+                        '<div class="section-handle me-2 cursor-move">' +
+                            '<i class="ph-duotone ph-dots-six-vertical text-muted"></i>' +
+                        '</div>' +
+                        '<div class="section-icon me-2">' +
+                            (SECTION_ICONS[section.type_section] || '') +
+                        '</div>' +
+                        '<div class="section-info flex-grow-1">' +
+                            '<span class="section-type-label fw-medium">' + (SECTION_LABELS[section.type_section] || section.type_section) + '</span>' +
+                            '<small class="section-preview text-muted d-block text-truncate" style="max-width: 180px;">' +
+                                (preview || '&nbsp;') +
+                            '</small>' +
+                        '</div>' +
+                        '<div class="section-actions">' +
+                            '<button type="button" class="btn btn-sm btn-icon btn-light-primary" onclick="editSection(\'' + section.id + '\')">' +
+                                '<i class="ph-duotone ph-pencil-simple"></i>' +
+                            '</button>' +
+                            '<button type="button" class="btn btn-sm btn-icon btn-light-secondary" onclick="toggleSectionVisibility(\'' + section.id + '\')">' +
+                                '<i class="ph-duotone ph-eye' + (section.visible ? '' : '-slash') + '"></i>' +
+                            '</button>' +
+                            '<button type="button" class="btn btn-sm btn-icon btn-light-danger" onclick="requestDeleteSection(\'' + section.id + '\')">' +
+                                '<i class="ph-duotone ph-trash"></i>' +
+                            '</button>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+            }).join('');
+        }
+
+        updateSectionsCount();
+
+        // Réinitialiser sortable
+        if (sortableInstance) {
+            try { sortableInstance.destroy(); } catch(e) {}
+        }
+        initSortable();
+    }
+
+    // Mettre à jour le compteur de sections
+    function updateSectionsCount() {
+        var countEl = document.getElementById('sections-count');
+        var visibleCount = sections.filter(function(s) { return s.visible; }).length;
+        countEl.textContent = visibleCount + ' section' + (visibleCount > 1 ? 's' : '');
+    }
+
+    // =========================================================================
+    // PREVIEW
+    // =========================================================================
+    var previewRequestId = 0;
+
+    function debouncePreview() {
+        clearTimeout(previewDebounceTimer);
+        previewDebounceTimer = setTimeout(refreshPreview, 800);
+    }
+
+    function refreshPreview() {
+        var typeRapportEl = document.querySelector('.type-rapport-radio:checked');
+        var typeRapport = typeRapportEl ? typeRapportEl.value : null;
+        var mandatEl = document.getElementById('id_mandat');
+        var mandatId = mandatEl ? mandatEl.value : '';
+        var dateDebut = document.getElementById('id_date_debut').value;
+        var dateFin = document.getElementById('id_date_fin').value;
+
+        if (!typeRapport || !dateDebut || !dateFin) {
+            document.getElementById('preview-empty').style.display = 'flex';
+            document.getElementById('preview-loading').style.display = 'none';
+            document.getElementById('pdf-preview').style.display = 'none';
+            return;
+        }
+
+        // Afficher loading
+        document.getElementById('preview-empty').style.display = 'none';
+        document.getElementById('preview-loading').style.display = 'flex';
+        document.getElementById('pdf-preview').style.display = 'none';
+
+        // Incrémenter l'ID de requête
+        previewRequestId++;
+        var thisRequestId = previewRequestId;
+
+        // Préparer les données pour l'API
+        var requestData = {
+            type_rapport: typeRapport,
+            date_debut: dateDebut,
+            date_fin: dateFin,
+            mandat_id: mandatId || null,
+            sections: sections,
+            options: {
+                inclure_comparatif: document.getElementById('inclure_comparatif').checked,
+                detail_comptes: document.getElementById('detail_comptes').checked
+            }
+        };
+
+        // Appeler l'API de preview live
+        fetch('{% url "analytics:rapport-preview-live-api" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify(requestData)
+        })
+        .then(function(response) {
+            // Ignorer si une requête plus récente a été lancée
+            if (thisRequestId !== previewRequestId) {
+                return null;
+            }
+
+            if (!response.ok) {
+                return response.json().then(function(data) {
+                    throw new Error(data.error || 'Erreur serveur');
+                });
+            }
+            return response.blob();
+        })
+        .then(function(blob) {
+            if (!blob) return;
+
+            // Ignorer si une requête plus récente a été lancée
+            if (thisRequestId !== previewRequestId) {
+                return;
+            }
+
+            // Créer l'URL pour le blob PDF
+            var pdfUrl = URL.createObjectURL(blob);
+
+            // Afficher dans l'iframe
+            var iframe = document.getElementById('pdf-preview');
+            iframe.src = pdfUrl;
+            iframe.style.display = 'block';
+
+            document.getElementById('preview-loading').style.display = 'none';
+            document.getElementById('preview-empty').style.display = 'none';
+        })
+        .catch(function(error) {
+            // Ignorer si une requête plus récente a été lancée
+            if (thisRequestId !== previewRequestId) {
+                return;
+            }
+
+            console.error('Erreur preview:', error);
+            document.getElementById('preview-loading').style.display = 'none';
+            document.getElementById('preview-empty').style.display = 'flex';
+            document.getElementById('preview-empty').innerHTML =
+                '<i class="ph-duotone ph-warning f-s-60 mb-3 text-warning"></i>' +
+                '<p class="text-danger">' + error.message + '</p>' +
+                '<small class="text-muted">Veuillez réessayer ou vérifier les paramètres</small>';
+        });
+    }
+
+    // Changer le zoom
+    function changeZoom(delta) {
+        currentZoom = Math.max(50, Math.min(150, currentZoom + delta));
+        document.getElementById('zoom-level').textContent = currentZoom + '%';
+
+        var iframe = document.getElementById('pdf-preview');
+        iframe.style.transform = 'scale(' + (currentZoom / 100) + ')';
+        iframe.style.transformOrigin = 'top center';
+    }
+
+    // Générer le rapport final
+    function generateFinalReport() {
+        var typeRapportEl = document.querySelector('.type-rapport-radio:checked');
+        var typeRapport = typeRapportEl ? typeRapportEl.value : null;
+        var nom = document.getElementById('id_nom').value;
+        var dateDebut = document.getElementById('id_date_debut').value;
+        var dateFin = document.getElementById('id_date_fin').value;
+
+        if (!typeRapport || !nom || !dateDebut || !dateFin) {
+            alert("{% trans "Veuillez remplir tous les champs obligatoires" %}");
+            return;
+        }
+
+        if (sections.length === 0) {
+            alert("{% trans "Veuillez ajouter au moins une section au rapport" %}");
+            return;
+        }
+
+        // Mettre à jour les sections JSON avant soumission
+        updateSectionsData();
+
+        // Afficher un indicateur de chargement
+        var btn = document.getElementById('btn-generer-final');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> {% trans "Génération en cours..." %}';
+        }
+
+        // Soumettre le formulaire
+        document.getElementById('rapport-form').submit();
+    }
+
+    // =========================================================================
+    // HELPERS
+    // =========================================================================
+    function generateTempId() {
+        return 'temp_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    function stripHtml(html) {
+        var tmp = document.createElement('div');
+        tmp.innerHTML = html;
+        return tmp.textContent || tmp.innerText || '';
+    }
+
+    // Mettre à jour le champ hidden avec les sections JSON
+    function updateSectionsData() {
+        var sectionsInput = document.getElementById('sections_data');
+        if (sectionsInput) {
+            sectionsInput.value = JSON.stringify(sections);
+        }
+    }
+
+    // Cacher un modal proprement - fix pour aria-hidden warning
+    function hideModal(modalId) {
+        var modalEl = document.getElementById(modalId);
+        if (!modalEl) return;
+
+        // Retirer le focus de tout élément dans le modal avant de le cacher
+        // Cela évite le warning "Blocked aria-hidden on an element because its descendant retained focus"
+        var activeEl = document.activeElement;
+        if (modalEl.contains(activeEl)) {
+            activeEl.blur();
+        }
+
+        // Petit délai pour permettre au blur de s'effectuer avant de cacher le modal
+        setTimeout(function() {
+            var modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) {
+                modal.hide();
+            }
+        }, 10);
+    }
+
+})();
+</script>
+{% endblock %}

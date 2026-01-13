@@ -55,7 +55,7 @@
                                             {% elif value == 'SALAIRES' %}
                                             <i class="ph ph-users f-s-30 text-warning mb-2"></i>
                                             {% elif value == 'FACTURATION' %}
-                                            <i class="ph ph-invoice f-s-30 text-success mb-2"></i>
+                                            <i class="ph ph-file-text f-s-30 text-success mb-2"></i>
                                             {% else %}
                                             <i class="ph ph-database f-s-30 text-secondary mb-2"></i>
                                             {% endif %}
@@ -87,7 +87,7 @@
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="{{ form.mandat.id_for_label }}" class="form-label">{% trans "Mandat" %} *</label>
-                            {% render_field form.mandat class="form-select select-basic" %}
+                            {% render_field form.mandat class="form-select select2" %}
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="{{ form.format_export.id_for_label }}" class="form-label">{% trans "Format" %} *</label>

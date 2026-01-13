@@ -17,7 +17,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-only-key-change-i
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,django').split(',')
 
 # CSRF trusted origins (required for Django 4+)
 # Format: https://domain.com (must include protocol)
@@ -58,6 +58,8 @@ EXTERNAL_APPS = [
     'corsheaders',
     'django_countries',
     'import_export',
+    # OAuth2/OIDC Provider pour Docs
+    'oauth2_provider',
 ]
 
 
@@ -71,6 +73,7 @@ LOCAL_APPS = [
     "core",
     "analytics",
     "mailing",
+    "editeur",
 ]
 
 
@@ -702,3 +705,92 @@ IMPORT_EXPORT_FORMATS = [
 
 # Taille maximale des fichiers d'import (10MB)
 IMPORT_EXPORT_MAX_FILE_SIZE = 10 * 1024 * 1024
+
+
+# ============================================================================
+# ÉDITEUR COLLABORATIF (Docs - La Suite Numérique)
+# ============================================================================
+# Intégration de Docs (projet Franco-Allemand) pour l'édition collaborative
+# en temps réel. Auto-hébergé pour une souveraineté totale.
+#
+# Architecture:
+# - docs-api: Backend Django REST Framework (port 8072)
+# - docs-frontend: Frontend Next.js (port 3000)
+# - docs-collaboration: Serveur HocusPocus pour WebSocket (port 4444)
+#
+# Documentation: https://github.com/suitenumerique/docs
+
+# URL du backend Docs (API)
+DOCS_API_URL = os.environ.get('DOCS_API_URL', 'http://docs-api:8072')
+
+# URL du frontend Docs (pour les iframes et redirections)
+DOCS_FRONTEND_URL = os.environ.get('DOCS_FRONTEND_URL', 'http://localhost:3000')
+
+# Clé API pour l'authentification admin (communication serveur à serveur)
+DOCS_API_KEY = os.environ.get('DOCS_API_KEY', '')
+
+# URL du serveur de collaboration WebSocket (HocusPocus)
+DOCS_COLLABORATION_URL = os.environ.get('DOCS_COLLABORATION_URL', 'ws://docs-collaboration:4444')
+
+# Secret partagé pour les webhooks Docs -> AltiusOne
+DOCS_WEBHOOK_SECRET = os.environ.get('DOCS_WEBHOOK_SECRET', '')
+
+# Configuration du stockage Docs (utilise Minio/S3)
+DOCS_S3_BUCKET = os.environ.get('DOCS_S3_BUCKET', 'altiusone-docs')
+DOCS_S3_ENDPOINT = os.environ.get('DOCS_S3_ENDPOINT', 'http://minio:9000')
+DOCS_S3_ACCESS_KEY = os.environ.get('DOCS_S3_ACCESS_KEY', 'minio')
+DOCS_S3_SECRET_KEY = os.environ.get('DOCS_S3_SECRET_KEY', 'minio123')
+
+
+# ============================================================================
+# OAUTH2 / OIDC PROVIDER (pour Docs et autres clients)
+# ============================================================================
+# AltiusOne agit comme fournisseur d'identité OIDC pour les applications
+# tierces comme Docs (La Suite Numérique).
+#
+# Endpoints OIDC:
+# - Authorization: /o/authorize/
+# - Token: /o/token/
+# - UserInfo: /o/userinfo/
+# - JWKS: /o/jwks/
+
+OAUTH2_PROVIDER = {
+    # Durée de vie des tokens
+    'ACCESS_TOKEN_EXPIRE_SECONDS': 3600,  # 1 heure
+    'REFRESH_TOKEN_EXPIRE_SECONDS': 86400 * 7,  # 7 jours
+    'AUTHORIZATION_CODE_EXPIRE_SECONDS': 600,  # 10 minutes
+
+    # Scopes OIDC supportés
+    'SCOPES': {
+        'openid': 'OpenID Connect',
+        'email': 'Accès à l\'email',
+        'profile': 'Accès au profil',
+        'read': 'Lecture des données',
+        'write': 'Écriture des données',
+    },
+
+    # Utiliser OIDC
+    'OIDC_ENABLED': True,
+    'OIDC_ISS_ENDPOINT': os.environ.get('OIDC_ISSUER', 'http://localhost:8012'),
+    # Clé RSA pour signer les ID tokens OIDC - lue depuis fichier ou env
+    'OIDC_RSA_PRIVATE_KEY': (
+        open(BASE_DIR / 'oidc_rsa_key.pem').read()
+        if (BASE_DIR / 'oidc_rsa_key.pem').exists()
+        else os.environ.get('OIDC_RSA_PRIVATE_KEY', '')
+    ),
+
+    # Backend OAuth2 - OAuthLibCore pour supporter form-urlencoded (standard OAuth2)
+    # Note: JSONOAuthLibCore ne fonctionne qu'avec JSON, mais mozilla-django-oidc
+    # envoie des requêtes en application/x-www-form-urlencoded
+    'OAUTH2_BACKEND_CLASS': 'oauth2_provider.oauth2_backends.OAuthLibCore',
+
+    # Validateur OAuth2/OIDC personnalisé avec claims utilisateur
+    # Inclut email, name, etc. dans les réponses userinfo et id_token
+    'OAUTH2_VALIDATOR_CLASS': 'AltiusOne.oidc_claims.AltiusOneOAuth2Validator',
+
+    # Autoriser PKCE pour les apps mobiles/SPA
+    'PKCE_REQUIRED': False,
+}
+
+# URL de login pour OAuth2 - utilise le login de l'app core (pas l'admin)
+# LOGIN_URL est déjà défini plus haut comme "core:login"

@@ -1,0 +1,146 @@
+# =============================================================================
+# GitHub Actions - Build et Push des images Docs
+# =============================================================================
+# Ce workflow build les images Docker pour Docs et les push vers ghcr.io
+#
+# Déclenché par:
+# - Push d'un tag v*.*.* (release)
+# - Manuellement via workflow_dispatch
+# - Push sur main (pour latest)
+# =============================================================================
+
+name: Build Docs Images
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs-suite/**'
+      - 'docker-compose.docs.build.yml'
+      - '.github/workflows/build-docs-images.yml'
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., 1.0.0)'
+        required: false
+        default: 'latest'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/altiusone
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Clone docs-suite if not present
+        run: |
+          if [ ! -d "docs-suite" ]; then
+            git clone --depth 1 https://github.com/suitenumerique/docs docs-suite
+          fi
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION="${{ github.ref_name }}"
+            VERSION="${VERSION#v}"  # Remove 'v' prefix
+          else
+            VERSION="latest"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
+
+      # =========================================================================
+      # Build docs-api
+      # =========================================================================
+      - name: Build and push docs-api
+        uses: docker/build-push-action@v5
+        with:
+          context: ./docs-suite
+          file: ./docs-suite/Dockerfile
+          target: backend-production
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-docs-api:${{ steps.version.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-docs-api:latest
+          build-args: |
+            DOCKER_USER=1000
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # =========================================================================
+      # Build docs-frontend
+      # =========================================================================
+      - name: Build and push docs-frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./docs-suite
+          file: ./docs-suite/src/frontend/Dockerfile
+          target: frontend-production
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-docs-frontend:${{ steps.version.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-docs-frontend:latest
+          build-args: |
+            DOCKER_USER=1000
+            API_ORIGIN=http://docs-api:8000
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # =========================================================================
+      # Build docs-yprovider
+      # =========================================================================
+      - name: Build and push docs-yprovider
+        uses: docker/build-push-action@v5
+        with:
+          context: ./docs-suite
+          file: ./docs-suite/src/frontend/servers/y-provider/Dockerfile
+          target: y-provider
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-docs-yprovider:${{ steps.version.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-docs-yprovider:latest
+          build-args: |
+            DOCKER_USER=1000
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Summary
+        run: |
+          echo "## Images Built Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Image | Tag |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-----|" >> $GITHUB_STEP_SUMMARY
+          echo "| docs-api | \`${{ steps.version.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| docs-frontend | \`${{ steps.version.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| docs-yprovider | \`${{ steps.version.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Registry:** \`${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}\`" >> $GITHUB_STEP_SUMMARY
