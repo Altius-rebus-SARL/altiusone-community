@@ -210,7 +210,9 @@ volumes:
     driver: local
 
 # Le réseau est défini dans docker-compose.yml principal
+# Note: On ne déclare pas external: true car le nom du réseau varie selon le répertoire
+# En local (apps/): apps_altiusone_network
+# En production (/opt/altiusone/): altiusone_altiusone_network
+# Docker compose merge les networks automatiquement
 networks:
   altiusone_network:
-    external: true
-    name: apps_altiusone_network
