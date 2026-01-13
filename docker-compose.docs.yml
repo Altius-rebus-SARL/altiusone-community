@@ -149,13 +149,16 @@ services:
       - altiusone_network
 
   # ===========================================================================
-  # Docs Frontend (Next.js via Nginx) - Image custom (API_ORIGIN vide)
+  # Docs Frontend (Next.js via Nginx) - Image officielle La Suite Numérique
   # ===========================================================================
   docs-frontend:
-    image: apps-docs-frontend:latest
+    image: lasuite/impress-frontend:latest
     container_name: altiusone_docs_frontend
     restart: unless-stopped
     user: "1000"
+    environment:
+      # URL vide = utilise le même hôte (relatif), le proxy Nginx route /api/ vers le backend
+      NEXT_PUBLIC_API_ORIGIN: ""
     depends_on:
       - docs-api
     networks:
