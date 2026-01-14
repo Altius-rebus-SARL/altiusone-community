@@ -790,6 +790,11 @@ OAUTH2_PROVIDER = {
 
     # Autoriser PKCE pour les apps mobiles/SPA
     'PKCE_REQUIRED': False,
+
+    # Désactiver le hachage des secrets clients (défaut True depuis django-oauth-toolkit v2.x)
+    # Nécessaire car Docs (mozilla-django-oidc) envoie le secret en clair pour l'échange de tokens
+    # et la comparaison échoue si le secret est haché en base
+    'HASH_CLIENT_SECRET': False,
 }
 
 # URL de login pour OAuth2 - utilise le login de l'app core (pas l'admin)
