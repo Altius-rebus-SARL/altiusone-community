@@ -4,9 +4,8 @@
 # Éditeur collaboratif temps réel - Projet Franco-Allemand
 # À utiliser avec: docker compose -f docker-compose.yml -f docker-compose.docs.yml up
 #
-# NOTE: Cette version BUILD les images depuis docs-suite/ car les images
-# officielles (lasuite/impress-*) ne supportent pas le routing sous /docs/
-# (NEXT_PUBLIC_API_ORIGIN est fixé au build, pas au runtime).
+# NOTE: Cette version utilise les images officielles lasuite/impress-*.
+# Le routing des appels API est géré par nginx (map basé sur Referer).
 #
 # NOTE: Docs utilise sa propre base de données (altiusone_docs) pour éviter
 # les conflits de migrations avec AltiusOne (les deux ont une app 'core').
@@ -80,16 +79,10 @@ services:
       - altiusone_network
 
   # ===========================================================================
-  # Docs Backend (Django REST Framework) - Buildé depuis docs-suite
+  # Docs Backend (Django REST Framework) - Image officielle
   # ===========================================================================
   docs-api:
-    build:
-      context: ./docs-suite
-      dockerfile: Dockerfile
-      target: backend-production
-      args:
-        DOCKER_USER: "1000"
-    image: altiusone-docs-api:latest
+    image: lasuite/impress-backend:latest
     container_name: altiusone_docs_api
     restart: unless-stopped
     user: "1000"
@@ -156,21 +149,12 @@ services:
       - altiusone_network
 
   # ===========================================================================
-  # Docs Frontend (Next.js via Nginx) - Buildé depuis docs-suite
-  # IMPORTANT: API_ORIGIN vide = utilise window.location.origin au runtime
-  # Le nginx principal route /docs/api/ vers docs-nginx qui route vers docs-api
+  # Docs Frontend (Next.js via Nginx) - Image officielle
+  # NOTE: Le frontend fait des appels à /api/ (basé sur window.location.origin)
+  # Le nginx principal route ces appels vers docs-nginx grâce au map Referer
   # ===========================================================================
   docs-frontend:
-    build:
-      context: ./docs-suite
-      dockerfile: ./src/frontend/Dockerfile
-      target: frontend-production
-      args:
-        DOCKER_USER: "1000"
-        # URL vide = utilise window.location.origin au runtime
-        # Ceci permet au frontend de fonctionner sous n'importe quel domaine
-        API_ORIGIN: ""
-    image: altiusone-docs-frontend:latest
+    image: lasuite/impress-frontend:latest
     container_name: altiusone_docs_frontend
     restart: unless-stopped
     user: "1000"
@@ -198,16 +182,10 @@ services:
       - altiusone_network
 
   # ===========================================================================
-  # Y-Provider (WebSocket Server pour collaboration temps réel) - Buildé depuis docs-suite
+  # Y-Provider (WebSocket Server pour collaboration temps réel) - Image officielle
   # ===========================================================================
   docs-yprovider:
-    build:
-      context: ./docs-suite
-      dockerfile: ./src/frontend/servers/y-provider/Dockerfile
-      target: y-provider
-      args:
-        DOCKER_USER: "1000"
-    image: altiusone-docs-yprovider:latest
+    image: lasuite/impress-y-provider:latest
     container_name: altiusone_docs_yprovider
     restart: unless-stopped
     user: "1000"
