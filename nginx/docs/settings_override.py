@@ -53,16 +53,16 @@ class AltiusOneProduction(Production):
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
     # ==========================================================================
-    # Cookies - Configuration pour dev local (HTTP)
+    # Cookies - Configuration pour HTTPS en production
     # ==========================================================================
-    SESSION_COOKIE_SECURE = False
-    CSRF_COOKIE_SECURE = False
+    # En production HTTPS, les cookies doivent être Secure pour être envoyés
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
-    # SameSite=False (désactivé) pour permettre les redirections OIDC cross-origin
-    # En dev HTTP, on ne peut pas utiliser SameSite=None (qui requiert Secure=True)
-    # False = ne pas envoyer l'attribut SameSite du tout
-    SESSION_COOKIE_SAMESITE = False
-    CSRF_COOKIE_SAMESITE = False
+    # SameSite=None permet les redirections OIDC cross-origin (requiert Secure=True)
+    # "None" (string) = envoyer le cookie même en cross-origin
+    SESSION_COOKIE_SAMESITE = "None"
+    CSRF_COOKIE_SAMESITE = "None"
 
     # ==========================================================================
     # HSTS - Désactivé (géré par Nginx si besoin)
