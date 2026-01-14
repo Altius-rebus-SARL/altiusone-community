@@ -16,6 +16,9 @@ drf-spectacular>=0.28.0
 # OAuth2 / OIDC Provider (pour Docs)
 django-oauth-toolkit>=3.0.0
 
+# WSGI Server (Production)
+gunicorn>=23.0.0
+
 # Celery & Redis
 celery>=5.4.0
 redis>=5.0.0

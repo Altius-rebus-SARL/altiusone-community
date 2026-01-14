@@ -59,13 +59,16 @@ chmod -R 755 /app/media
 chown -R nobody:nogroup /app/staticfiles 2>/dev/null || true
 chown -R nobody:nogroup /app/media 2>/dev/null || true
 
-# Collecter les fichiers statiques sans effacer systématiquement
+# Collecter les fichiers statiques
 echo "Collecting static files..."
-if [ "$ENVIRONMENT" = "development" ] && [ "$FORCE_COLLECTSTATIC" = "true" ]; then
-    # En développement avec force, on efface et on collecte à nouveau
+if [ "$ENVIRONMENT" = "production" ]; then
+    # En production, toujours collecter pour s'assurer que les fichiers sont à jour
+    python manage.py collectstatic --noinput
+elif [ "$FORCE_COLLECTSTATIC" = "true" ]; then
+    # Force la collecte avec effacement
     python manage.py collectstatic --noinput --clear
 elif [ -d "/app/staticfiles" ] && [ "$(ls -A /app/staticfiles 2>/dev/null)" ]; then
-    # Si le répertoire existe et n'est pas vide, on ignore
+    # En développement, si le répertoire existe et n'est pas vide, on ignore
     echo "Static files directory already exists and is not empty. Skipping collection."
     echo "Set FORCE_COLLECTSTATIC=true to force collection."
 else
@@ -123,8 +126,21 @@ python manage.py load_swiss_chart_of_accounts || echo "Warning: Chart of account
 echo "Load swiss chart of accounts done"
 
 
-# === GESTION DES DONNEES ===
+# === DEMARRAGE DU SERVEUR ===
 
-# Démarrer le serveur
 echo "✓ Starting server..."
-exec python manage.py runserver 0.0.0.0:8000
+if [ "$ENVIRONMENT" = "production" ]; then
+    # Production: utiliser Gunicorn pour de meilleures performances
+    exec gunicorn AltiusOne.wsgi:application \
+        --bind 0.0.0.0:8000 \
+        --workers ${GUNICORN_WORKERS:-4} \
+        --threads ${GUNICORN_THREADS:-2} \
+        --timeout ${GUNICORN_TIMEOUT:-120} \
+        --access-logfile - \
+        --error-logfile - \
+        --capture-output \
+        --enable-stdio-inheritance
+else
+    # Développement: utiliser le serveur Django avec rechargement automatique
+    exec python manage.py runserver 0.0.0.0:8000
+fi
