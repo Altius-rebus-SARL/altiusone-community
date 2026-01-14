@@ -110,21 +110,25 @@ services:
       DJANGO_DEBUG: "True"
       DJANGO_SETTINGS_MODULE: settings_override
       DJANGO_CONFIGURATION: AltiusOneProduction
-      DJANGO_CSRF_TRUSTED_ORIGINS: "http://localhost:3000,http://localhost:8072,http://127.0.0.1:3000"
+      DJANGO_CSRF_TRUSTED_ORIGINS: "https://docs.${DOMAIN},https://${DOMAIN},http://localhost:3000,http://localhost:8072"
 
       # OIDC Configuration - Utilise AltiusOne comme provider
       # AltiusOne expose les endpoints OIDC via django-oauth-toolkit
+      # NOTE: En production, DOMAIN est défini dans .env (ex: demo.altiusone.ch)
+      # Les URLs internes (docker network) utilisent http://django:8000
+      # Les URLs externes (browser) utilisent https://${DOMAIN}
       OIDC_OP_JWKS_ENDPOINT: http://django:8000/o/.well-known/jwks.json
-      OIDC_OP_AUTHORIZATION_ENDPOINT: http://localhost:8012/o/authorize/
+      OIDC_OP_AUTHORIZATION_ENDPOINT: https://${DOMAIN}/o/authorize/
       OIDC_OP_TOKEN_ENDPOINT: http://django:8000/o/token/
       OIDC_OP_USER_ENDPOINT: http://django:8000/o/userinfo/
       OIDC_RP_CLIENT_ID: ${DOCS_OIDC_CLIENT_ID:-docs}
       OIDC_RP_CLIENT_SECRET: ${DOCS_OIDC_CLIENT_SECRET:-docs-secret-change-me}
       OIDC_RP_SIGN_ALGO: RS256
       OIDC_RP_SCOPES: "openid email profile"
-      LOGIN_REDIRECT_URL: http://localhost:3000
-      LOGIN_REDIRECT_URL_FAILURE: http://localhost:3000
-      LOGOUT_REDIRECT_URL: http://localhost:3000
+      # URLs de redirection vers le sous-domaine docs.{DOMAIN}
+      LOGIN_REDIRECT_URL: https://docs.${DOMAIN}/
+      LOGIN_REDIRECT_URL_FAILURE: https://docs.${DOMAIN}/
+      LOGOUT_REDIRECT_URL: https://docs.${DOMAIN}/
 
       # Y-Provider WebSocket
       Y_PROVIDER_URL: ws://docs-yprovider:4444
