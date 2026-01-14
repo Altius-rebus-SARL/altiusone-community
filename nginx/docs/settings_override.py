@@ -44,10 +44,13 @@ class AltiusOneProduction(Production):
         }
 
     # ==========================================================================
-    # SSL/HTTPS - Désactivé (géré par Nginx)
+    # SSL/HTTPS - Géré par Nginx
     # ==========================================================================
+    # Pas de redirection SSL par Django (c'est Nginx qui gère)
     SECURE_SSL_REDIRECT = False
-    SECURE_PROXY_SSL_HEADER = None
+    # Mais on fait confiance au header X-Forwarded-Proto pour request.is_secure()
+    # et request.build_absolute_uri() (crucial pour OIDC redirect_uri)
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
     # ==========================================================================
     # Cookies - Configuration pour dev local (HTTP)
