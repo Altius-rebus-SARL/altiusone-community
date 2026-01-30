@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<info>
+    <id>altiusone</id>
+    <name>AltiusOne</name>
+    <description>AltiusOne custom theme for Nextcloud</description>
+    <version>1.0.0</version>
+    <licence>AGPL</licence>
+    <author>AltiusOne</author>
+    <namespace>AltiusOne</namespace>
+    <types>
+        <theme/>
+    </types>
+    <dependencies>
+        <nextcloud min-version="28" max-version="30"/>
+    </dependencies>
+</info>

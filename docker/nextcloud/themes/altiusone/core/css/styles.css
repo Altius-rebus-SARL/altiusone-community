@@ -1,0 +1,110 @@
+/**
+ * AltiusOne Theme Styles for Nextcloud
+ * Primary Color: #0F626A (teal)
+ */
+
+:root {
+    /* AltiusOne Brand Colors */
+    --color-primary: #0F626A;
+    --color-primary-text: #FFFFFF;
+    --color-primary-hover: #0D5459;
+    --color-primary-light: rgba(15, 98, 106, 0.1);
+
+    /* Override Nextcloud defaults */
+    --color-main-background: #f5fbfb;
+    --color-background-dark: #0F626A;
+    --color-background-darker: #0D5459;
+}
+
+/* Header styling */
+#header {
+    background-color: #0F626A !important;
+}
+
+#header .logo {
+    background-size: contain;
+    background-repeat: no-repeat;
+}
+
+/* Primary buttons */
+.button.primary,
+.primary,
+input[type="submit"].primary,
+button.primary {
+    background-color: #0F626A !important;
+    border-color: #0F626A !important;
+}
+
+.button.primary:hover,
+.primary:hover,
+input[type="submit"].primary:hover,
+button.primary:hover {
+    background-color: #0D5459 !important;
+    border-color: #0D5459 !important;
+}
+
+/* Links */
+a {
+    color: #0F626A;
+}
+
+a:hover {
+    color: #0D5459;
+}
+
+/* Selection highlight */
+::selection {
+    background-color: rgba(15, 98, 106, 0.3);
+}
+
+/* Login page */
+body#body-login {
+    background-color: #0F626A;
+}
+
+body#body-login #header {
+    background-color: transparent !important;
+}
+
+/* App navigation active state */
+#app-navigation li.active > a,
+#app-navigation li:hover > a {
+    background-color: rgba(15, 98, 106, 0.1);
+}
+
+/* Checkbox and radio */
+input[type="checkbox"]:checked + label::before,
+input[type="radio"]:checked + label::before {
+    background-color: #0F626A;
+    border-color: #0F626A;
+}
+
+/* Progress bars */
+progress {
+    color: #0F626A;
+}
+
+progress::-webkit-progress-value {
+    background-color: #0F626A;
+}
+
+progress::-moz-progress-bar {
+    background-color: #0F626A;
+}
+
+/* Guest page background */
+#body-public #content-wrapper {
+    background-color: #f5fbfb;
+}
+
+/* File actions */
+.fileactions a:hover,
+.fileactions button:hover {
+    color: #0F626A;
+}
+
+/* Top bar icons */
+#header .header-right .notifications .notification-container,
+#header .header-right .settings {
+    color: #FFFFFF;
+}
