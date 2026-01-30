@@ -809,6 +809,9 @@ def permissions_context(request):
             <a href="...">Créer facture</a>
         {% endif %}
     """
+    import os
+    from django.conf import settings
+
     if not hasattr(request, 'user') or not request.user.is_authenticated:
         return {'user_permissions': {}, 'user_role': None, 'is_superadmin': False}
 
@@ -824,10 +827,19 @@ def permissions_context(request):
                 perms_by_app[app] = {}
             perms_by_app[app][code] = True
 
+    # URLs des services externes (Nextcloud, MinIO)
+    domain = os.environ.get('DOMAIN', 'localhost')
+    nextcloud_enabled = os.environ.get('NEXTCLOUD_ENABLED', 'False').lower() in ('true', '1', 'yes')
+    nextcloud_url = f"https://nextcloud.{domain}" if nextcloud_enabled else None
+    minio_url = f"https://minio.{domain}" if nextcloud_enabled else None
+
     return {
         'user_permissions': perms_by_app,
         'user_role': user.role.code if user.role else None,
         'is_superadmin': user.is_superuser,
+        'nextcloud_enabled': nextcloud_enabled,
+        'nextcloud_url': nextcloud_url,
+        'minio_url': minio_url,
     }
 
 
