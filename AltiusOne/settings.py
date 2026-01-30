@@ -564,9 +564,56 @@ TEMPLATES[0]['OPTIONS']['context_processors'].append(
 
 
 # ============================================================================
+# S3/MINIO STORAGE CONFIGURATION
+# ============================================================================
+# MinIO est utilisé comme backend S3-compatible pour:
+# - Les fichiers uploadés (documents, images, factures, etc.)
+# - Le partage avec Nextcloud via External Storage
+#
+# Architecture:
+# - Django écrit dans MinIO via django-storages (S3Boto3Storage)
+# - Nextcloud accède aux mêmes fichiers via External Storage S3
+# - Les médias Django sont ainsi disponibles dans Nextcloud
+
+USE_S3 = os.environ.get('USE_S3', 'False').lower() in ('true', '1', 'yes')
+
+if USE_S3:
+    # Configuration AWS/S3 pour MinIO
+    AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID', os.environ.get('MINIO_ROOT_USER', 'minio'))
+    AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY', os.environ.get('MINIO_ROOT_PASSWORD', 'minio123'))
+    AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME', 'altiusone-media')
+    AWS_S3_ENDPOINT_URL = os.environ.get('AWS_S3_ENDPOINT_URL', 'http://minio:9000')
+    AWS_S3_REGION_NAME = os.environ.get('AWS_S3_REGION_NAME', 'us-east-1')
+
+    # Options S3
+    AWS_S3_FILE_OVERWRITE = False
+    AWS_DEFAULT_ACL = None  # Géré par classe de storage
+    AWS_S3_SIGNATURE_VERSION = 's3v4'
+    AWS_S3_ADDRESSING_STYLE = 'path'  # MinIO utilise le style path
+    AWS_QUERYSTRING_AUTH = True  # URLs signées par défaut
+    AWS_S3_URL_PROTOCOL = 'http:'  # https: en production
+
+    # URL publique pour accès externe (navigateur)
+    # En production, utiliser l'URL externe de MinIO
+    AWS_S3_CUSTOM_DOMAIN = os.environ.get('AWS_S3_CUSTOM_DOMAIN', None)
+
+    # Durée des URLs signées (1 heure)
+    AWS_QUERYSTRING_EXPIRE = 3600
+
+    # Configuration STORAGES Django 4.2+
+    STORAGES = {
+        "default": {
+            "BACKEND": "core.storage.PublicMediaStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
+
+# ============================================================================
 # CLOUD STORAGE CONFIGURATION (Google Cloud Storage)
 # ============================================================================
-# Cette application est une instance du portail principal.
+# Alternative à MinIO pour les instances hébergées sur GCP.
 # Le stockage GCS (~10GB) est géré par le portail principal.
 
 GCS_ENABLED = os.environ.get('GCS_ENABLED', 'False').lower() in ('true', '1', 'yes')
