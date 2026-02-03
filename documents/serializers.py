@@ -43,6 +43,146 @@ class DocumentDetailSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+class DocumentUploadSerializer(serializers.ModelSerializer):
+    """
+    Serializer pour l'upload de documents.
+    Supporte deux modes:
+    - Upload classique avec fichier multipart (fichier)
+    - Upload base64 depuis mobile (fichier_base64 + fichier_nom + fichier_type)
+    """
+
+    # Mode classique - fichier multipart
+    fichier = serializers.FileField(write_only=True, required=False)
+
+    # Mode base64 pour React Native
+    fichier_base64 = serializers.CharField(write_only=True, required=False)
+    fichier_nom = serializers.CharField(write_only=True, required=False)
+    fichier_type = serializers.CharField(write_only=True, required=False, default='application/octet-stream')
+
+    class Meta:
+        model = Document
+        fields = [
+            "id",
+            "fichier",
+            "fichier_base64",
+            "fichier_nom",
+            "fichier_type",
+            "mandat",
+            "dossier",
+            "type_document",
+            "categorie",
+            "date_document",
+            "description",
+            "tags",
+            "confidentiel",
+        ]
+        read_only_fields = ["id"]
+        extra_kwargs = {
+            'dossier': {'required': False},
+            'type_document': {'required': False},
+            'categorie': {'required': False},
+            'date_document': {'required': False},
+            'description': {'required': False},
+            'tags': {'required': False},
+            'confidentiel': {'required': False},
+        }
+
+    def validate(self, attrs):
+        """Valider qu'on a soit un fichier, soit les données base64."""
+        fichier = attrs.get('fichier')
+        fichier_base64 = attrs.get('fichier_base64')
+        fichier_nom = attrs.get('fichier_nom')
+
+        print(f"[DocumentUploadSerializer] validate called")
+        print(f"[DocumentUploadSerializer] fichier present: {fichier is not None}")
+        print(f"[DocumentUploadSerializer] fichier_base64 present: {fichier_base64 is not None}")
+        print(f"[DocumentUploadSerializer] attrs keys: {attrs.keys()}")
+
+        if not fichier and not fichier_base64:
+            raise serializers.ValidationError({
+                'fichier': 'Un fichier est requis (fichier ou fichier_base64)'
+            })
+
+        if fichier_base64 and not fichier_nom:
+            raise serializers.ValidationError({
+                'fichier_nom': 'Le nom du fichier est requis avec fichier_base64'
+            })
+
+        return attrs
+
+    def create(self, validated_data):
+        import hashlib
+        import os
+        import uuid
+        import base64
+        from django.core.files.base import ContentFile
+
+        print(f"[DocumentUploadSerializer] create called with keys: {validated_data.keys()}")
+
+        # Extraire les données de fichier
+        fichier = validated_data.pop('fichier', None)
+        fichier_base64 = validated_data.pop('fichier_base64', None)
+        fichier_nom = validated_data.pop('fichier_nom', None)
+        fichier_type = validated_data.pop('fichier_type', 'application/octet-stream')
+
+        # Mode base64
+        if fichier_base64:
+            print(f"[DocumentUploadSerializer] Processing base64 file: {fichier_nom}")
+            # Décoder le base64
+            try:
+                # Supprimer le préfixe data:xxx;base64, si présent
+                if ';base64,' in fichier_base64:
+                    fichier_base64 = fichier_base64.split(';base64,')[1]
+                file_content = base64.b64decode(fichier_base64)
+            except Exception as e:
+                raise serializers.ValidationError({
+                    'fichier_base64': f'Erreur de décodage base64: {str(e)}'
+                })
+
+            file_name = fichier_nom
+            file_size = len(file_content)
+            mime_type = fichier_type
+
+        # Mode fichier classique
+        elif fichier:
+            print(f"[DocumentUploadSerializer] Processing multipart file: {fichier.name}")
+            file_content = fichier.read()
+            fichier.seek(0)
+            file_name = fichier.name
+            file_size = fichier.size
+            mime_type = fichier.content_type or 'application/octet-stream'
+
+        else:
+            raise serializers.ValidationError({'fichier': 'Aucun fichier fourni'})
+
+        # Calculer le hash
+        file_hash = hashlib.sha256(file_content).hexdigest()
+
+        # Générer le path_storage unique
+        path_storage = f"{validated_data['mandat'].id}/{uuid.uuid4()}/{file_name}"
+
+        # Créer le document
+        document = Document.objects.create(
+            **validated_data,
+            nom_original=file_name,
+            nom_fichier=file_name,
+            extension=os.path.splitext(file_name)[1].lower(),
+            mime_type=mime_type,
+            taille=file_size,
+            hash_fichier=file_hash,
+            path_storage=path_storage,
+            statut_traitement='UPLOAD',
+        )
+
+        print(f"[DocumentUploadSerializer] Document created: {document.id}")
+
+        return document
+
+    def to_representation(self, instance):
+        """Retourner les données complètes du document après création."""
+        return DocumentDetailSerializer(instance).data
+
+
 # ============================================================================
 # SERIALIZERS CHAT
 # ============================================================================

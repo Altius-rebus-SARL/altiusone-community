@@ -225,7 +225,8 @@ class Document(BaseModel):
     mandat = models.ForeignKey(Mandat, on_delete=models.CASCADE,
                                related_name='documents')
     dossier = models.ForeignKey(Dossier, on_delete=models.CASCADE,
-                                related_name='documents')
+                                related_name='documents',
+                                null=True, blank=True)
 
     # Fichier
     nom_fichier = models.CharField(max_length=255, db_index=True)

@@ -3,7 +3,7 @@ from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django_filters.rest_framework import DjangoFilterBackend
 from django.http import FileResponse, HttpResponse
 from django.db.models import Q
@@ -17,6 +17,7 @@ from .serializers import (
     TypeDocumentSerializer,
     DocumentListSerializer,
     DocumentDetailSerializer,
+    DocumentUploadSerializer,
 )
 
 
@@ -84,10 +85,14 @@ class DocumentViewSet(viewsets.ModelViewSet):
     """
     ViewSet complet pour la gestion des documents.
     Inclut upload, OCR, classification, extraction et validation.
+
+    Supporte deux modes d'upload:
+    - Multipart (fichier) - pour web et certaines apps mobiles
+    - JSON avec base64 (fichier_base64) - pour React Native et APIs
     """
 
     permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['mandat', 'dossier', 'type_document', 'statut_traitement', 'statut_validation']
     search_fields = ['nom_fichier', 'nom_original', 'description', 'ocr_text', 'tags']
@@ -102,29 +107,29 @@ class DocumentViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self):
         if self.action == "list":
             return DocumentListSerializer
+        if self.action == "create":
+            return DocumentUploadSerializer
         return DocumentDetailSerializer
 
-    def perform_create(self, serializer):
-        """Gère l'upload de document"""
-        file = self.request.FILES.get('file')
-        if file:
-            # Calculer le hash
-            file_content = file.read()
-            file_hash = hashlib.sha256(file_content).hexdigest()
-            file.seek(0)  # Reset file pointer
+    def get_serializer(self, *args, **kwargs):
+        """
+        Override pour mapper le champ 'file' vers 'fichier' si présent.
+        Permet de supporter les deux noms de champ côté client.
+        """
+        if self.action == "create":
+            print(f"[DocumentViewSet] get_serializer called for create action")
+            print(f"[DocumentViewSet] request.FILES: {self.request.FILES}")
+            print(f"[DocumentViewSet] request.data: {self.request.data}")
+            print(f"[DocumentViewSet] request.content_type: {self.request.content_type}")
 
-            # Extraire les métadonnées du fichier
-            serializer.save(
-                nom_original=file.name,
-                nom_fichier=file.name,
-                extension=os.path.splitext(file.name)[1].lower(),
-                mime_type=file.content_type,
-                taille=file.size,
-                hash_fichier=file_hash,
-                statut_traitement='UPLOAD',
-            )
-        else:
-            serializer.save()
+            if self.request.FILES:
+                # Accepter 'file' ou 'fichier' comme nom de champ
+                if 'file' in self.request.FILES and 'fichier' not in self.request.FILES:
+                    self.request.FILES['fichier'] = self.request.FILES['file']
+            else:
+                print(f"[DocumentViewSet] WARNING: No files in request.FILES!")
+
+        return super().get_serializer(*args, **kwargs)
 
     @action(detail=False, methods=['post'])
     def recherche(self, request):
