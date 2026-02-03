@@ -257,56 +257,74 @@ class Command(BaseCommand):
 
     def _create_users(self):
         """Crée les utilisateurs de la fiduciaire"""
-        User = get_user_model()
+        from core.models import Role
+        UserModel = get_user_model()
 
         self.stdout.write("👥 Création des utilisateurs...")
+
+        # Créer les rôles s'ils n'existent pas
+        roles_data = [
+            {'code': 'ADMIN', 'nom': 'Administrateur', 'niveau': 100, 'description': 'Accès complet'},
+            {'code': 'MANAGER', 'nom': 'Chef de bureau', 'niveau': 80, 'description': 'Gestion des mandats'},
+            {'code': 'COMPTABLE', 'nom': 'Comptable', 'niveau': 60, 'description': 'Comptabilité'},
+            {'code': 'ASSISTANT', 'nom': 'Assistant', 'niveau': 40, 'description': 'Tâches administratives'},
+            {'code': 'CLIENT', 'nom': 'Client', 'niveau': 10, 'description': 'Portail client'},
+        ]
+        for rd in roles_data:
+            Role.objects.get_or_create(
+                code=rd['code'],
+                defaults={'nom': rd['nom'], 'niveau': rd['niveau'], 'description': rd['description'], 'actif': True}
+            )
+
+        # Pré-charger les rôles
+        roles = {r.code: r for r in Role.objects.filter(actif=True)}
 
         users_data = [
             {
                 "username": "admin",
-                "role": "ADMIN",
+                "role_code": "ADMIN",
                 "first_name": "Admin",
                 "last_name": "System",
             },
             {
                 "username": "pierre.muller",
-                "role": "MANAGER",
+                "role_code": "MANAGER",
                 "first_name": "Pierre",
                 "last_name": "Müller",
             },
             {
                 "username": "marie.dubois",
-                "role": "COMPTABLE",
+                "role_code": "COMPTABLE",
                 "first_name": "Marie",
                 "last_name": "Dubois",
             },
             {
                 "username": "jean.favre",
-                "role": "COMPTABLE",
+                "role_code": "COMPTABLE",
                 "first_name": "Jean",
                 "last_name": "Favre",
             },
             {
                 "username": "anna.schmid",
-                "role": "ASSISTANT",
+                "role_code": "ASSISTANT",
                 "first_name": "Anna",
                 "last_name": "Schmid",
             },
             {
                 "username": "luca.rossi",
-                "role": "ASSISTANT",
+                "role_code": "ASSISTANT",
                 "first_name": "Luca",
                 "last_name": "Rossi",
             },
             {
                 "username": "sophie.martin",
-                "role": "COMPTABLE",
+                "role_code": "COMPTABLE",
                 "first_name": "Sophie",
                 "last_name": "Martin",
             },
             {
                 "username": "marco.bianchi",
-                "role": "ASSISTANT",
+                "role_code": "ASSISTANT",
                 "first_name": "Marco",
                 "last_name": "Bianchi",
             },
@@ -314,13 +332,14 @@ class Command(BaseCommand):
 
         users = []
         for data in users_data:
-            user, created = User.objects.get_or_create(
+            role = roles.get(data["role_code"])
+            user, created = UserModel.objects.get_or_create(
                 username=data["username"],
                 defaults={
                     "email": f"{data['username']}@altiusone.ch",
                     "first_name": data["first_name"],
                     "last_name": data["last_name"],
-                    "role": data["role"],
+                    "role": role,
                     "phone": self.fake.phone_number(),
                     "is_active": True,
                 },
@@ -328,6 +347,10 @@ class Command(BaseCommand):
             if created:
                 user.set_password("Test1234!")
                 user.save()
+            elif user.role is None and role:
+                # Mettre à jour le rôle si non défini
+                user.role = role
+                user.save(update_fields=['role'])
             users.append(user)
 
         self.stdout.write(f"  ✓ {len(users)} utilisateurs")
@@ -356,7 +379,7 @@ class Command(BaseCommand):
         ]
 
         adresses = []
-        for i in range(25):
+        for _ in range(25):
             city = random.choice(swiss_cities)
             adresse = Adresse.objects.create(
                 rue=self.fake.street_name(),
@@ -418,7 +441,7 @@ class Command(BaseCommand):
         clients = []
         managers = [u for u in users if u.is_comptable()]
 
-        for i in range(count):
+        for _ in range(count):
             form_juridique = random.choice(company_types)
             sector_key = random.choice(list(business_sectors.keys()))
             sector = business_sectors[sector_key]
@@ -445,15 +468,8 @@ class Command(BaseCommand):
                 date_fin_exercice=date(datetime.now().year, 12, 31),
                 statut="ACTIF",
                 responsable=random.choice(managers),
-                # Champs traduits
-                description_fr=sector["fr"],
-                description_de=sector["de"],
-                description_it=sector["it"],
-                description_en=sector["en"],
-                notes_fr=f"Client depuis {self.fake.year()}. Secteur: {sector['fr']}",
-                notes_de=f"Kunde seit {self.fake_de.year()}. Branche: {sector['de']}",
-                notes_it=f"Cliente dal {self.fake_it.year()}. Settore: {sector['it']}",
-                notes_en=f"Client since {self.fake_en.year()}. Sector: {sector['en']}",
+                description=sector["fr"],
+                notes=f"Client depuis {self.fake.year()}. Secteur: {sector['fr']}",
             )
             clients.append(client)
 
@@ -594,15 +610,8 @@ class Command(BaseCommand):
                     taux_horaire=type_data["taux"],
                     responsable=random.choice(managers),
                     statut="ACTIF",
-                    # Champs traduits
-                    description_fr=type_data["desc_fr"],
-                    description_de=type_data["desc_de"],
-                    description_it=type_data["desc_it"],
-                    description_en=type_data["desc_en"],
-                    conditions_particulieres_fr=type_data["cond_fr"],
-                    conditions_particulieres_de=type_data["cond_de"],
-                    conditions_particulieres_it=type_data["cond_it"],
-                    conditions_particulieres_en=type_data["cond_en"],
+                    description=type_data["desc_fr"],
+                    conditions_particulieres=type_data["cond_fr"],
                 )
 
                 team_size = random.randint(1, 3)
@@ -674,19 +683,13 @@ class Command(BaseCommand):
         ]
 
         count = 0
-        for i in range(30):
+        for _ in range(30):
             template = random.choice(notification_templates)
             Notification.objects.create(
                 destinataire=random.choice(users),
                 type_notification=template["type"],
-                titre_fr=template["titre_fr"],
-                titre_de=template["titre_de"],
-                titre_it=template["titre_it"],
-                titre_en=template["titre_en"],
-                message_fr=template["message_fr"],
-                message_de=template["message_de"],
-                message_it=template["message_it"],
-                message_en=template["message_en"],
+                titre=template["titre_fr"],
+                message=template["message_fr"],
                 lue=random.choice([True, False]),
                 mandat=random.choice(mandats) if random.random() > 0.3 else None,
             )
@@ -742,17 +745,11 @@ class Command(BaseCommand):
         ]
 
         count = 0
-        for i in range(40):
+        for _ in range(40):
             template = random.choice(tache_templates)
             Tache.objects.create(
-                titre_fr=template["titre_fr"],
-                titre_de=template["titre_de"],
-                titre_it=template["titre_it"],
-                titre_en=template["titre_en"],
-                description_fr=template["desc_fr"],
-                description_de=template["desc_de"],
-                description_it=template["desc_it"],
-                description_en=template["desc_en"],
+                titre=template["titre_fr"],
+                description=template["desc_fr"],
                 assigne_a=random.choice(users),
                 cree_par=random.choice(users),
                 mandat=random.choice(mandats),
@@ -777,17 +774,15 @@ class Command(BaseCommand):
 
         compta_mandats = [m for m in mandats if m.type_mandat in ["COMPTA", "GLOBAL"]]
 
+        # Récupérer le type de plan PME
+        from comptabilite.models import TypePlanComptable
+        type_pme = TypePlanComptable.objects.filter(code="PME").first()
+
         for mandat in compta_mandats[:5]:
             plan = PlanComptable.objects.create(
-                nom_fr=f"Plan comptable PME - {mandat.client.raison_sociale}",
-                nom_de=f"KMU-Kontenrahmen - {mandat.client.raison_sociale}",
-                nom_it=f"Piano contabile PMI - {mandat.client.raison_sociale}",
-                nom_en=f"SME Chart of Accounts - {mandat.client.raison_sociale}",
-                description_fr="Plan comptable selon le modèle PME suisse",
-                description_de="Kontenrahmen nach dem Schweizer KMU-Modell",
-                description_it="Piano contabile secondo il modello PMI svizzero",
-                description_en="Chart of accounts according to Swiss SME model",
-                type_plan="PME",
+                nom=f"Plan comptable PME - {mandat.client.raison_sociale}",
+                description="Plan comptable selon le modèle PME suisse",
+                type_plan=type_pme,
                 mandat=mandat,
             )
 
@@ -885,20 +880,12 @@ class Command(BaseCommand):
             Compte.objects.create(
                 plan_comptable=plan,
                 numero=numero,
-                libelle_fr=lib_fr,
-                libelle_de=lib_de,
-                libelle_it=lib_it,
-                libelle_en=lib_en,
-                libelle_court_fr=lib_fr,
-                libelle_court_de=lib_de,
-                libelle_court_it=lib_it,
-                libelle_court_en=lib_en,
+                libelle=lib_fr,
+                libelle_court=lib_fr,
                 type_compte=type_compte,
                 classe=classe,
                 niveau=len(numero),
                 imputable=True,
-                solde_debit=Decimal(str(random.randint(0, 10000))),
-                solde_credit=Decimal(str(random.randint(0, 10000))),
             )
 
     def _create_journaux(self, mandats):
@@ -1048,10 +1035,7 @@ class Command(BaseCommand):
             CodeTVA.objects.get_or_create(
                 code=code_data["code"],
                 defaults={
-                    "libelle_fr": code_data["libelle_fr"],
-                    "libelle_de": code_data["libelle_de"],
-                    "libelle_it": code_data["libelle_it"],
-                    "libelle_en": code_data["libelle_en"],
+                    "libelle": code_data["libelle_fr"],
                     "categorie": code_data["categorie"],
                     "actif": True,
                 },
@@ -1195,14 +1179,8 @@ class Command(BaseCommand):
             Prestation.objects.get_or_create(
                 code=p["code"],
                 defaults={
-                    "libelle_fr": p["libelle_fr"],
-                    "libelle_de": p["libelle_de"],
-                    "libelle_it": p["libelle_it"],
-                    "libelle_en": p["libelle_en"],
-                    "description_fr": p["desc_fr"],
-                    "description_de": p["desc_de"],
-                    "description_it": p["desc_it"],
-                    "description_en": p["desc_en"],
+                    "libelle": p["libelle_fr"],
+                    "description": p["desc_fr"],
                     "type_prestation": p["type"],
                     "prix_unitaire_ht": p["prix"],
                     "unite": "heure",
@@ -1224,7 +1202,7 @@ class Command(BaseCommand):
         comptables = [u for u in users if u.role and u.role.niveau >= 40]  # ASSISTANT and above
 
         for mandat in mandats[:5]:
-            for i in range(random.randint(5, 15)):
+            for _ in range(random.randint(5, 15)):
                 prestation = random.choice(prestations)
                 duree = random.randint(15, 480)
                 taux = prestation.taux_horaire
@@ -1256,7 +1234,7 @@ class Command(BaseCommand):
         prestations = list(Prestation.objects.all())
 
         for mandat in mandats[:5]:
-            for i in range(random.randint(2, 4)):
+            for _ in range(random.randint(2, 4)):
                 facture = Facture.objects.create(
                     mandat=mandat,
                     client=mandat.client,
@@ -1402,7 +1380,7 @@ class Command(BaseCommand):
         employe_counter = 0
 
         for mandat in salaires_mandats:
-            for i in range(random.randint(3, 6)):
+            for _ in range(random.randint(3, 6)):
                 employe_counter += 1
                 fonction_key = random.choice(list(fonctions.keys()))
                 fonction = fonctions[fonction_key]
@@ -1427,10 +1405,7 @@ class Command(BaseCommand):
                     date_entree=self.fake.date_between(
                         start_date="-5y", end_date="-1m"
                     ),
-                    fonction_fr=fonction["fr"],
-                    fonction_de=fonction["de"],
-                    fonction_it=fonction["it"],
-                    fonction_en=fonction["en"],
+                    fonction=fonction["fr"],
                     taux_occupation=Decimal("100"),
                     salaire_brut_mensuel=Decimal(str(random.randint(4500, 9000))),
                     nombre_heures_semaine=Decimal("42"),
@@ -1540,15 +1515,9 @@ class Command(BaseCommand):
 
         for i, cat in enumerate(categories):
             CategorieDocument.objects.get_or_create(
-                nom_fr=cat["nom_fr"],
+                nom=cat["nom_fr"],
                 defaults={
-                    "nom_de": cat["nom_de"],
-                    "nom_it": cat["nom_it"],
-                    "nom_en": cat["nom_en"],
-                    "description_fr": cat["desc_fr"],
-                    "description_de": cat["desc_de"],
-                    "description_it": cat["desc_it"],
-                    "description_en": cat["desc_en"],
+                    "description": cat["desc_fr"],
                     "ordre": i + 1,
                 },
             )
@@ -1600,10 +1569,7 @@ class Command(BaseCommand):
             TypeDocument.objects.get_or_create(
                 code=t["code"],
                 defaults={
-                    "libelle_fr": t["libelle_fr"],
-                    "libelle_de": t["libelle_de"],
-                    "libelle_it": t["libelle_it"],
-                    "libelle_en": t["libelle_en"],
+                    "libelle": t["libelle_fr"],
                     "type_document": t["type"],
                     "categorie": random.choice(categories) if categories else None,
                 },
@@ -1677,7 +1643,7 @@ class Command(BaseCommand):
             if not dossier:
                 continue
 
-            for i in range(random.randint(3, 8)):
+            for _ in range(random.randint(3, 8)):
                 desc_key = random.choice(list(descriptions.keys()))
                 desc = descriptions[desc_key]
 
@@ -1697,10 +1663,6 @@ class Command(BaseCommand):
                         start_date="-60d", end_date="today"
                     ),
                     statut_traitement="VALIDE",
-                    description_fr=desc["fr"],
-                    description_de=desc["de"],
-                    description_it=desc["it"],
-                    description_en=desc["en"],
                 )
                 count += 1
 
@@ -1806,14 +1768,8 @@ class Command(BaseCommand):
                 OptimisationFiscale.objects.create(
                     mandat=mandat,
                     categorie=opt["categorie"],
-                    titre_fr=opt["titre_fr"],
-                    titre_de=opt["titre_de"],
-                    titre_it=opt["titre_it"],
-                    titre_en=opt["titre_en"],
-                    description_fr=opt["desc_fr"],
-                    description_de=opt["desc_de"],
-                    description_it=opt["desc_it"],
-                    description_en=opt["desc_en"],
+                    titre=opt["titre_fr"],
+                    description=opt["desc_fr"],
                     economie_estimee=Decimal(str(random.randint(5000, 50000))),
                     annee_application=2025,
                     niveau_risque="FAIBLE",
@@ -1858,14 +1814,8 @@ class Command(BaseCommand):
         for user in users[:3]:
             for tb in tableaux:
                 TableauBord.objects.create(
-                    nom_fr=tb["nom_fr"],
-                    nom_de=tb["nom_de"],
-                    nom_it=tb["nom_it"],
-                    nom_en=tb["nom_en"],
-                    description_fr=tb["desc_fr"],
-                    description_de=tb["desc_de"],
-                    description_it=tb["desc_it"],
-                    description_en=tb["desc_en"],
+                    nom=tb["nom_fr"],
+                    description=tb["desc_fr"],
                     proprietaire=user,
                     visibilite="PRIVE",
                     configuration={
@@ -1932,14 +1882,8 @@ class Command(BaseCommand):
             Indicateur.objects.get_or_create(
                 code=ind["code"],
                 defaults={
-                    "nom_fr": ind["nom_fr"],
-                    "nom_de": ind["nom_de"],
-                    "nom_it": ind["nom_it"],
-                    "nom_en": ind["nom_en"],
-                    "description_fr": ind["desc_fr"],
-                    "description_de": ind["desc_de"],
-                    "description_it": ind["desc_it"],
-                    "description_en": ind["desc_en"],
+                    "nom": ind["nom_fr"],
+                    "description": ind["desc_fr"],
                     "categorie": ind["categorie"],
                     "type_calcul": "SOMME",
                     "periodicite": "MOIS",
@@ -1983,10 +1927,7 @@ class Command(BaseCommand):
         for mandat in mandats[:5]:
             for rap in rapports:
                 Rapport.objects.create(
-                    nom_fr=rap["nom_fr"],
-                    nom_de=rap["nom_de"],
-                    nom_it=rap["nom_it"],
-                    nom_en=rap["nom_en"],
+                    nom=rap["nom_fr"],
                     type_rapport=rap["type"],
                     mandat=mandat,
                     date_debut=date(2024, 1, 1),
