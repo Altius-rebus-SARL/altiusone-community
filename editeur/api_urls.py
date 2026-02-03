@@ -7,8 +7,8 @@ from rest_framework.routers import DefaultRouter
 from . import api_views
 
 router = DefaultRouter()
-router.register(r'documents', api_views.DocumentCollaboratifViewSet, basename='editeur-document')
-router.register(r'modeles', api_views.ModeleDocumentViewSet, basename='editeur-modele')
+router.register(r'documents', api_views.DocumentCollaboratifViewSet, basename='document')
+router.register(r'modeles', api_views.ModeleDocumentViewSet, basename='modele')
 
 urlpatterns = [
     # ViewSets

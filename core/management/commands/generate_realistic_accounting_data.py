@@ -11,7 +11,6 @@ from faker import Faker
 from decimal import Decimal
 import random
 from datetime import date, timedelta
-from dateutil.relativedelta import relativedelta
 
 from core.models import Mandat, ExerciceComptable
 from comptabilite.models import (
@@ -566,7 +565,7 @@ class Command(BaseCommand):
                         numero_ligne=2,
                         date_ecriture=date_ecriture,
                         compte=comptes["1100"],
-                        libelle=f"Règlement client",
+                        libelle="Règlement client",
                         montant_debit=Decimal("0"),
                         montant_credit=montant,
                         statut="VALIDE",
@@ -585,7 +584,7 @@ class Command(BaseCommand):
                         numero_ligne=1,
                         date_ecriture=date_ecriture,
                         compte=comptes["2000"],
-                        libelle=f"Paiement fournisseur",
+                        libelle="Paiement fournisseur",
                         montant_debit=montant,
                         montant_credit=Decimal("0"),
                         statut="VALIDE",
@@ -680,7 +679,7 @@ class Command(BaseCommand):
         total_factures = 0
 
         for mandat in mandats:
-            for i in range(factures_par_mandat):
+            for _ in range(factures_par_mandat):
                 date_emission = self.fake.date_between(start_date="-180d", end_date="today")
                 date_echeance = date_emission + timedelta(days=30)
 
@@ -786,7 +785,7 @@ class Command(BaseCommand):
 
     def _generate_payroll_data(self, mandats, employes_par_mandat):
         """Génère des employés et fiches de salaire"""
-        self.stdout.write(f"👥 Génération des données de salaires...")
+        self.stdout.write("👥 Génération des données de salaires...")
 
         salaires_mandats = [
             m for m in mandats

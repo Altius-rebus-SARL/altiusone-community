@@ -13,12 +13,12 @@ from .viewset import (
 app_name = "facturation"
 
 router = DefaultRouter()
-router.register(r"facturation/prestations", PrestationViewSet, basename="factu-prestation")
-router.register(r"facturation/temps", TimeTrackingViewSet, basename="factu-temps")
-router.register(r"facturation/factures", FactureViewSet, basename="factu-facture")
-router.register(r"facturation/lignes", LigneFactureViewSet, basename="factu-ligne")
-router.register(r"facturation/paiements", PaiementViewSet, basename="factu-paiement")
-router.register(r"facturation/relances", RelanceViewSet, basename="factu-relance")
+router.register(r"prestations", PrestationViewSet, basename="prestation")
+router.register(r"temps", TimeTrackingViewSet, basename="temps")
+router.register(r"factures", FactureViewSet, basename="facture")
+router.register(r"lignes", LigneFactureViewSet, basename="ligne")
+router.register(r"paiements", PaiementViewSet, basename="paiement")
+router.register(r"relances", RelanceViewSet, basename="relance")
 
 urlpatterns = [
     path("", include(router.urls)),

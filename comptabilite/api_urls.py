@@ -14,13 +14,13 @@ from .viewset import (
 app_name = "comptabilite"
 
 router = DefaultRouter()
-router.register(r"comptabilite/plans-comptables", PlanComptableViewSet, basename="compta-plan-comptable")
-router.register(r"comptabilite/comptes", CompteViewSet, basename="compta-compte")
-router.register(r"comptabilite/journaux", JournalViewSet, basename="compta-journal")
-router.register(r"comptabilite/ecritures", EcritureComptableViewSet, basename="compta-ecriture")
-router.register(r"comptabilite/pieces", PieceComptableViewSet, basename="compta-piece")
-router.register(r"comptabilite/lettrages", LettrageViewSet, basename="compta-lettrage")
-router.register(r"comptabilite/rapports", RapportsViewSet, basename="compta-rapport")
+router.register(r"plans-comptables", PlanComptableViewSet, basename="plan-comptable")
+router.register(r"comptes", CompteViewSet, basename="compte")
+router.register(r"journaux", JournalViewSet, basename="journal")
+router.register(r"ecritures", EcritureComptableViewSet, basename="ecriture")
+router.register(r"pieces", PieceComptableViewSet, basename="piece")
+router.register(r"lettrages", LettrageViewSet, basename="lettrage")
+router.register(r"rapports", RapportsViewSet, basename="rapport")
 
 urlpatterns = [
     path("", include(router.urls)),

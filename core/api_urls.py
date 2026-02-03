@@ -15,14 +15,14 @@ from .viewset import (
 app_name = "core"
 
 router = DefaultRouter()
-router.register(r"users", UserViewSet, basename="core-user")
-router.register(r"clients", ClientViewSet, basename="core-client")
-router.register(r"contacts", ContactViewSet, basename="core-contact")
-router.register(r"mandats", MandatViewSet, basename="core-mandat")
-router.register(r"exercices", ExerciceComptableViewSet, basename="core-exercice")
-router.register(r"audit-logs", AuditLogViewSet, basename="core-auditlog")
-router.register(r"notifications", NotificationViewSet, basename="core-notification")
-router.register(r"taches", TacheViewSet, basename="core-tache")
+router.register(r"users", UserViewSet, basename="user")
+router.register(r"clients", ClientViewSet, basename="client")
+router.register(r"contacts", ContactViewSet, basename="contact")
+router.register(r"mandats", MandatViewSet, basename="mandat")
+router.register(r"exercices", ExerciceComptableViewSet, basename="exercice")
+router.register(r"audit-logs", AuditLogViewSet, basename="auditlog")
+router.register(r"notifications", NotificationViewSet, basename="notification")
+router.register(r"taches", TacheViewSet, basename="tache")
 
 urlpatterns = [
     path("", include(router.urls)),

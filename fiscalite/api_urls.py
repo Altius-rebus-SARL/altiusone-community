@@ -13,12 +13,12 @@ from .viewset import (
 app_name = "fiscalite"
 
 router = DefaultRouter()
-router.register(r"fiscalite/declarations", DeclarationFiscaleViewSet, basename="fisc-declaration")
-router.register(r"fiscalite/annexes", AnnexeFiscaleViewSet, basename="fisc-annexe")
-router.register(r"fiscalite/corrections", CorrectionFiscaleViewSet, basename="fisc-correction")
-router.register(r"fiscalite/reports-pertes", ReportPerteViewSet, basename="fisc-report-perte")
-router.register(r"fiscalite/taux", TauxImpositionViewSet, basename="fisc-taux")
-router.register(r"fiscalite/optimisations", OptimisationFiscaleViewSet, basename="fisc-optimisation")
+router.register(r"declarations", DeclarationFiscaleViewSet, basename="declaration")
+router.register(r"annexes", AnnexeFiscaleViewSet, basename="annexe")
+router.register(r"corrections", CorrectionFiscaleViewSet, basename="correction")
+router.register(r"reports-pertes", ReportPerteViewSet, basename="report-perte")
+router.register(r"taux", TauxImpositionViewSet, basename="taux")
+router.register(r"optimisations", OptimisationFiscaleViewSet, basename="optimisation")
 
 urlpatterns = [
     path("", include(router.urls)),

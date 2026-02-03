@@ -14,13 +14,13 @@ from .viewset import (
 app_name = "tva"
 
 router = DefaultRouter()
-router.register(r"tva/configurations", ConfigurationTVAViewSet, basename="tva-configuration")
-router.register(r"tva/taux", TauxTVAViewSet, basename="tva-taux")
-router.register(r"tva/codes", CodeTVAViewSet, basename="tva-code")
-router.register(r"tva/declarations", DeclarationTVAViewSet, basename="tva-declaration")
-router.register(r"tva/lignes", LigneTVAViewSet, basename="tva-ligne")
-router.register(r"tva/operations", OperationTVAViewSet, basename="tva-operation")
-router.register(r"tva/corrections", CorrectionTVAViewSet, basename="tva-correction")
+router.register(r"configurations", ConfigurationTVAViewSet, basename="configuration")
+router.register(r"taux", TauxTVAViewSet, basename="taux")
+router.register(r"codes", CodeTVAViewSet, basename="code")
+router.register(r"declarations", DeclarationTVAViewSet, basename="declaration")
+router.register(r"lignes", LigneTVAViewSet, basename="ligne")
+router.register(r"operations", OperationTVAViewSet, basename="operation")
+router.register(r"corrections", CorrectionTVAViewSet, basename="correction")
 
 urlpatterns = [
     path("", include(router.urls)),

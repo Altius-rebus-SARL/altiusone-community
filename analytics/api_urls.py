@@ -15,16 +15,16 @@ from .viewset import (
 app_name = "analytics"
 
 router = DefaultRouter()
-router.register(r"analytics/tableaux-bord", TableauBordViewSet, basename="analytics-tableau-bord")
-router.register(r"analytics/indicateurs", IndicateurViewSet, basename="analytics-indicateur")
-router.register(r"analytics/valeurs", ValeurIndicateurViewSet, basename="analytics-valeur")
-router.register(r"analytics/rapports", RapportViewSet, basename="analytics-rapport")
+router.register(r"tableaux-bord", TableauBordViewSet, basename="tableau-bord")
+router.register(r"indicateurs", IndicateurViewSet, basename="indicateur")
+router.register(r"valeurs", ValeurIndicateurViewSet, basename="valeur")
+router.register(r"rapports", RapportViewSet, basename="rapport")
 router.register(
-    r"analytics/planifications", PlanificationRapportViewSet, basename="analytics-planification"
+    r"planifications", PlanificationRapportViewSet, basename="planification"
 )
-router.register(r"analytics/comparaisons", ComparaisonPeriodeViewSet, basename="analytics-comparaison")
-router.register(r"analytics/alertes", AlerteMetriqueViewSet, basename="analytics-alerte")
-router.register(r"analytics/exports", ExportDonneesViewSet, basename="analytics-export")
+router.register(r"comparaisons", ComparaisonPeriodeViewSet, basename="comparaison")
+router.register(r"alertes", AlerteMetriqueViewSet, basename="alerte")
+router.register(r"exports", ExportDonneesViewSet, basename="export")
 
 urlpatterns = [
     path("", include(router.urls)),

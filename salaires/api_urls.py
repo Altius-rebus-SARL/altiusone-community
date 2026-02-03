@@ -12,11 +12,11 @@ from .viewset import (
 app_name = "salaires"
 
 router = DefaultRouter()
-router.register(r"salaires/employes", EmployeViewSet, basename="salaires-employe")
-router.register(r"salaires/taux-cotisations", TauxCotisationViewSet, basename="salaires-taux-cotisation")
-router.register(r"salaires/fiches", FicheSalaireViewSet, basename="salaires-fiche")
-router.register(r"salaires/certificats", CertificatSalaireViewSet, basename="salaires-certificat")
-router.register(r"salaires/declarations", DeclarationCotisationsViewSet, basename="salaires-declaration")
+router.register(r"employes", EmployeViewSet, basename="employe")
+router.register(r"taux-cotisations", TauxCotisationViewSet, basename="taux-cotisation")
+router.register(r"fiches", FicheSalaireViewSet, basename="fiche")
+router.register(r"certificats", CertificatSalaireViewSet, basename="certificat")
+router.register(r"declarations", DeclarationCotisationsViewSet, basename="declaration")
 
 urlpatterns = [
     path("", include(router.urls)),
