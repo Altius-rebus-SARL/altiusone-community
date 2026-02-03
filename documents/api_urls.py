@@ -18,10 +18,10 @@ from .api_views import (
 app_name = "documents"
 
 router = DefaultRouter()
-router.register(r"dossiers", DossierViewSet, basename="dossier")
-router.register(r"types", TypeDocumentViewSet, basename="type")
-router.register(r"documents", DocumentViewSet, basename="document")
-router.register(r"chat/conversations", ConversationViewSet, basename="conversation")
+router.register(r"documents/dossiers", DossierViewSet, basename="docs-dossier")
+router.register(r"documents/types", TypeDocumentViewSet, basename="docs-type")
+router.register(r"documents/documents", DocumentViewSet, basename="docs-document")
+router.register(r"documents/chat/conversations", ConversationViewSet, basename="docs-conversation")
 
 # URLs additionnelles pour le chat
 chat_urlpatterns = [
