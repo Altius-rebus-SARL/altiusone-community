@@ -16,16 +16,90 @@ Usage:
         fichier = models.FileField(storage=DocumentStorage())
 """
 
+import os
+import re
+from urllib.parse import urlparse, urlunparse
 from django.conf import settings
 
 # Détecter le backend à utiliser
 USE_S3 = getattr(settings, 'USE_S3', False)
 
 
+def get_minio_public_url():
+    """
+    Dérive l'URL publique de MinIO à partir du domaine du site.
+    Pattern: site.altiusone.ch -> https://minio.site.altiusone.ch
+
+    Priorité:
+    1. Variable d'environnement AWS_S3_PUBLIC_URL (si définie explicitement)
+    2. Dérivée de ALLOWED_HOSTS (minio.{domain})
+    3. Fallback sur AWS_S3_ENDPOINT_URL (dev/interne)
+    """
+    # 1. URL publique explicite
+    explicit_url = os.environ.get('AWS_S3_PUBLIC_URL')
+    if explicit_url:
+        return explicit_url
+
+    # 2. Dériver de ALLOWED_HOSTS
+    allowed_hosts = os.environ.get('ALLOWED_HOSTS', '').split(',')
+    for host in allowed_hosts:
+        host = host.strip()
+        # Ignorer localhost et noms internes
+        if host and host not in ('localhost', '127.0.0.1', 'django', ''):
+            # Retourner l'URL publique MinIO
+            return f"https://minio.{host}"
+
+    # 3. Fallback - URL interne (développement)
+    return os.environ.get('AWS_S3_ENDPOINT_URL', 'http://minio:9000')
+
+
+def transform_url_to_public(url):
+    """
+    Transforme une URL MinIO interne en URL publique.
+    http://minio:9000/bucket/... -> https://minio.site.altiusone.ch/bucket/...
+    """
+    if not url:
+        return url
+
+    parsed = urlparse(url)
+    internal_hosts = ['minio', 'minio:9000', 'localhost:9000', '127.0.0.1:9000']
+
+    # Vérifier si c'est une URL interne
+    if parsed.netloc in internal_hosts:
+        public_url = get_minio_public_url()
+        public_parsed = urlparse(public_url)
+
+        # Reconstruire l'URL avec le host public
+        new_url = urlunparse((
+            public_parsed.scheme,  # https
+            public_parsed.netloc,  # minio.site.altiusone.ch
+            parsed.path,           # /bucket/path/file
+            parsed.params,
+            parsed.query,          # X-Amz-Signature=...
+            parsed.fragment
+        ))
+        return new_url
+
+    return url
+
+
 if USE_S3:
     from storages.backends.s3boto3 import S3Boto3Storage
 
-    class S3DocumentStorage(S3Boto3Storage):
+    class S3BaseStorage(S3Boto3Storage):
+        """
+        Classe de base pour tous les storages S3/MinIO.
+        Override url() pour transformer les URLs internes en URLs publiques.
+        """
+
+        def url(self, name, parameters=None, expire=None, http_method=None):
+            """
+            Génère l'URL et la transforme en URL publique si nécessaire.
+            """
+            internal_url = super().url(name, parameters, expire, http_method)
+            return transform_url_to_public(internal_url)
+
+    class S3DocumentStorage(S3BaseStorage):
         """
         Storage pour les documents (privés, URLs signées).
         Accessible dans Nextcloud via External Storage.
@@ -40,7 +114,7 @@ if USE_S3:
             'CacheControl': 'private, max-age=0, no-cache',
         }
 
-    class S3PublicMediaStorage(S3Boto3Storage):
+    class S3PublicMediaStorage(S3BaseStorage):
         """
         Storage pour les médias publics (images, logos).
         """
@@ -54,7 +128,7 @@ if USE_S3:
             'CacheControl': 'public, max-age=86400',  # 1 jour
         }
 
-    class S3ProfileImageStorage(S3Boto3Storage):
+    class S3ProfileImageStorage(S3BaseStorage):
         """
         Storage pour les photos de profil utilisateurs.
         """
@@ -68,7 +142,7 @@ if USE_S3:
             'CacheControl': 'public, max-age=3600',  # 1 heure
         }
 
-    class S3InvoiceStorage(S3Boto3Storage):
+    class S3InvoiceStorage(S3BaseStorage):
         """
         Storage pour les factures PDF (privées).
         """
@@ -83,7 +157,7 @@ if USE_S3:
             'ContentDisposition': 'attachment',
         }
 
-    class S3SalairesStorage(S3Boto3Storage):
+    class S3SalairesStorage(S3BaseStorage):
         """
         Storage pour les fiches de salaire et certificats (privés).
         """
@@ -97,7 +171,7 @@ if USE_S3:
             'CacheControl': 'private, no-cache',
         }
 
-    class S3FiscaliteStorage(S3Boto3Storage):
+    class S3FiscaliteStorage(S3BaseStorage):
         """
         Storage pour les documents fiscaux (privés).
         """
@@ -111,7 +185,7 @@ if USE_S3:
             'CacheControl': 'private, no-cache',
         }
 
-    class S3ExportStorage(S3Boto3Storage):
+    class S3ExportStorage(S3BaseStorage):
         """
         Storage pour les exports et rapports (privés, téléchargement).
         """
@@ -126,7 +200,7 @@ if USE_S3:
             'ContentDisposition': 'attachment',
         }
 
-    class S3TVAStorage(S3Boto3Storage):
+    class S3TVAStorage(S3BaseStorage):
         """
         Storage pour les déclarations TVA (privées).
         """
