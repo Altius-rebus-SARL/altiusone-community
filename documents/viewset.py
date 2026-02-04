@@ -8,9 +8,11 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.http import FileResponse, HttpResponse
 from django.db.models import Q
 from django.utils import timezone
+from django.conf import settings
 import hashlib
 import os
 
+from core.storage import DocumentStorage, get_storage_backend
 from .models import Dossier, TypeDocument, Document, TraitementDocument
 from .serializers import (
     DossierSerializer,
@@ -332,33 +334,58 @@ class DocumentViewSet(viewsets.ModelViewSet):
     def download(self, request, pk=None):
         """
         Télécharge le fichier document.
-        Retourne le fichier binaire avec les headers appropriés.
+        Retourne une URL signée pour télécharger le fichier depuis S3/MinIO.
         """
         document = self.get_object()
 
-        # TODO: Récupérer le fichier depuis S3/MinIO
-        # Pour l'instant, retourner une erreur si pas de fichier local
+        if not document.path_storage:
+            return Response(
+                {'error': 'Aucun fichier associé à ce document'},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
-        return Response(
-            {'error': 'Téléchargement non implémenté - intégration S3 requise'},
-            status=status.HTTP_501_NOT_IMPLEMENTED
-        )
+        try:
+            storage = get_storage_backend('document')
+            # Générer une URL signée pour le téléchargement
+            download_url = storage.url(document.path_storage)
+
+            return Response({
+                'url': download_url,
+                'nom_fichier': document.nom_fichier,
+                'mime_type': document.mime_type,
+                'taille': document.taille,
+            })
+        except Exception as e:
+            return Response(
+                {'error': f'Erreur lors de la génération du lien: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @action(detail=True, methods=['get'])
     def preview(self, request, pk=None):
         """
-        Génère un aperçu du document.
-        Pour les PDFs: première page en image
-        Pour les images: thumbnail
+        Génère une URL de prévisualisation du document.
+        Retourne une URL signée pour accéder au fichier depuis S3/MinIO.
         """
         document = self.get_object()
 
-        # TODO: Générer un aperçu
+        preview_url = None
+
+        if document.path_storage:
+            try:
+                storage = get_storage_backend('document')
+                # Générer une URL signée pour la prévisualisation
+                preview_url = storage.url(document.path_storage)
+            except Exception as e:
+                print(f"[Preview] Error generating URL: {e}")
+
         return Response({
-            'document_id': document.id,
+            'document_id': str(document.id),
             'nom': document.nom_fichier,
             'mime_type': document.mime_type,
-            'preview_url': None,  # À implémenter avec S3/MinIO
+            'extension': document.extension,
+            'taille': document.taille,
+            'url': preview_url,
             'ocr_text': document.ocr_text[:500] if document.ocr_text else None,
         })
 
