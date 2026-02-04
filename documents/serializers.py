@@ -159,15 +159,16 @@ class DocumentUploadSerializer(serializers.ModelSerializer):
         # Calculer le hash
         file_hash = hashlib.sha256(file_content).hexdigest()
 
-        # Générer le path_storage unique
+        # Générer le path_storage unique (sans le préfixe 'documents/' du storage)
         path_storage = f"{validated_data['mandat'].id}/{uuid.uuid4()}/{file_name}"
 
         # Upload le fichier vers S3/MinIO
         try:
             storage = get_storage_backend('document')
             # Le storage 'document' a location='documents', donc le path final sera documents/{path_storage}
-            saved_path = storage.save(path_storage, ContentFile(file_content))
-            print(f"[DocumentUploadSerializer] File uploaded to S3: {saved_path}")
+            # storage.save() ajoute automatiquement le préfixe 'documents/'
+            storage.save(path_storage, ContentFile(file_content))
+            print(f"[DocumentUploadSerializer] File uploaded to S3: documents/{path_storage}")
         except Exception as e:
             print(f"[DocumentUploadSerializer] S3 upload error: {e}")
             raise serializers.ValidationError({
@@ -175,6 +176,7 @@ class DocumentUploadSerializer(serializers.ModelSerializer):
             })
 
         # Créer le document
+        # On stocke path_storage SANS le préfixe 'documents/' car storage.url() l'ajoutera
         document = Document.objects.create(
             **validated_data,
             nom_original=file_name,
@@ -183,7 +185,7 @@ class DocumentUploadSerializer(serializers.ModelSerializer):
             mime_type=mime_type,
             taille=file_size,
             hash_fichier=file_hash,
-            path_storage=saved_path,  # Utiliser le path retourné par storage.save()
+            path_storage=path_storage,  # Chemin relatif au storage location
             statut_traitement='UPLOAD',
         )
 
