@@ -346,8 +346,12 @@ class DocumentViewSet(viewsets.ModelViewSet):
 
         try:
             storage = get_storage_backend('document')
+            # Nettoyer le path_storage : supprimer le préfixe 'documents/' si présent
+            path = document.path_storage
+            if path.startswith('documents/'):
+                path = path[len('documents/'):]
             # Générer une URL signée pour le téléchargement
-            download_url = storage.url(document.path_storage)
+            download_url = storage.url(path)
 
             return Response({
                 'url': download_url,
@@ -374,8 +378,13 @@ class DocumentViewSet(viewsets.ModelViewSet):
         if document.path_storage:
             try:
                 storage = get_storage_backend('document')
+                # Nettoyer le path_storage : supprimer le préfixe 'documents/' si présent
+                # car storage.url() ajoute automatiquement le location prefix
+                path = document.path_storage
+                if path.startswith('documents/'):
+                    path = path[len('documents/'):]
                 # Générer une URL signée pour la prévisualisation
-                preview_url = storage.url(document.path_storage)
+                preview_url = storage.url(path)
             except Exception as e:
                 print(f"[Preview] Error generating URL: {e}")
 
