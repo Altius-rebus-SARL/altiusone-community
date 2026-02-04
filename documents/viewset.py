@@ -12,7 +12,6 @@ from django.conf import settings
 import hashlib
 import os
 
-from core.storage import DocumentStorage, get_storage_backend
 from .models import Dossier, TypeDocument, Document, TraitementDocument
 from .serializers import (
     DossierSerializer,
@@ -338,23 +337,16 @@ class DocumentViewSet(viewsets.ModelViewSet):
         """
         document = self.get_object()
 
-        if not document.path_storage:
+        if not document.fichier:
             return Response(
                 {'error': 'Aucun fichier associé à ce document'},
                 status=status.HTTP_404_NOT_FOUND
             )
 
         try:
-            storage = get_storage_backend('document')
-            # Nettoyer le path_storage : supprimer le préfixe 'documents/' si présent
-            path = document.path_storage
-            if path.startswith('documents/'):
-                path = path[len('documents/'):]
-            # Générer une URL signée pour le téléchargement
-            download_url = storage.url(path)
-
+            # FileField génère automatiquement l'URL signée
             return Response({
-                'url': download_url,
+                'url': document.fichier.url,
                 'nom_fichier': document.nom_fichier,
                 'mime_type': document.mime_type,
                 'taille': document.taille,
@@ -375,16 +367,10 @@ class DocumentViewSet(viewsets.ModelViewSet):
 
         preview_url = None
 
-        if document.path_storage:
+        if document.fichier:
             try:
-                storage = get_storage_backend('document')
-                # Nettoyer le path_storage : supprimer le préfixe 'documents/' si présent
-                # car storage.url() ajoute automatiquement le location prefix
-                path = document.path_storage
-                if path.startswith('documents/'):
-                    path = path[len('documents/'):]
-                # Générer une URL signée pour la prévisualisation
-                preview_url = storage.url(path)
+                # FileField génère automatiquement l'URL signée
+                preview_url = document.fichier.url
             except Exception as e:
                 print(f"[Preview] Error generating URL: {e}")
 

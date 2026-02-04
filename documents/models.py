@@ -3,8 +3,18 @@ from django.db import models
 from django.contrib.postgres.indexes import GinIndex
 from pgvector.django import VectorField, HnswIndex
 from core.models import BaseModel, Mandat, Client, User
+from core.storage import DocumentStorage
 import hashlib
 import os
+import uuid
+
+
+def document_upload_path(instance, filename):
+    """
+    Génère le chemin d'upload pour un document.
+    Format: {mandat_id}/{uuid}/{filename}
+    """
+    return f"{instance.mandat_id}/{uuid.uuid4()}/{filename}"
 
 
 class Dossier(BaseModel):
@@ -235,9 +245,14 @@ class Document(BaseModel):
     mime_type = models.CharField(max_length=100)
     taille = models.BigIntegerField(help_text='Taille en octets')
 
-    # Stockage
-    path_storage = models.CharField(max_length=500, unique=True,
-                                    help_text='Chemin S3/Minio')
+    # Stockage - FileField avec storage S3/MinIO
+    fichier = models.FileField(
+        storage=DocumentStorage,
+        upload_to=document_upload_path,
+        null=True,
+        blank=True,
+        help_text='Fichier stocké dans S3/MinIO'
+    )
     hash_fichier = models.CharField(max_length=64, unique=True, db_index=True,
                                     help_text='SHA-256 du fichier')
 
