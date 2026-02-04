@@ -116,6 +116,7 @@ class DocumentUploadSerializer(serializers.ModelSerializer):
         import uuid
         import base64
         from django.core.files.base import ContentFile
+        from core.storage import get_storage_backend
 
         print(f"[DocumentUploadSerializer] create called with keys: {validated_data.keys()}")
 
@@ -161,6 +162,18 @@ class DocumentUploadSerializer(serializers.ModelSerializer):
         # Générer le path_storage unique
         path_storage = f"{validated_data['mandat'].id}/{uuid.uuid4()}/{file_name}"
 
+        # Upload le fichier vers S3/MinIO
+        try:
+            storage = get_storage_backend('document')
+            # Le storage 'document' a location='documents', donc le path final sera documents/{path_storage}
+            saved_path = storage.save(path_storage, ContentFile(file_content))
+            print(f"[DocumentUploadSerializer] File uploaded to S3: {saved_path}")
+        except Exception as e:
+            print(f"[DocumentUploadSerializer] S3 upload error: {e}")
+            raise serializers.ValidationError({
+                'fichier': f'Erreur lors de l\'upload vers le stockage: {str(e)}'
+            })
+
         # Créer le document
         document = Document.objects.create(
             **validated_data,
@@ -170,7 +183,7 @@ class DocumentUploadSerializer(serializers.ModelSerializer):
             mime_type=mime_type,
             taille=file_size,
             hash_fichier=file_hash,
-            path_storage=path_storage,
+            path_storage=saved_path,  # Utiliser le path retourné par storage.save()
             statut_traitement='UPLOAD',
         )
 
