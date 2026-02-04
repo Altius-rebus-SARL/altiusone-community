@@ -56,8 +56,39 @@ class FactureViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"])
     def generer_pdf(self, request, pk=None):
-        # TODO: Implémenter génération PDF
-        return Response({"message": "PDF généré"})
+        """Génère le PDF de la facture et retourne l'URL de téléchargement"""
+        facture = self.get_object()
+        avec_qr_bill = request.data.get("avec_qr_bill", False)
+
+        try:
+            facture.generer_pdf(avec_qr_bill=avec_qr_bill)
+            return Response({
+                "message": "PDF généré",
+                "url": facture.fichier_pdf.url if facture.fichier_pdf else None,
+                "nom_fichier": facture.fichier_pdf.name.split("/")[-1] if facture.fichier_pdf else None,
+            })
+        except Exception as e:
+            return Response(
+                {"error": f"Erreur lors de la génération du PDF: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=["get"])
+    def download_pdf(self, request, pk=None):
+        """Retourne l'URL présignée pour télécharger le PDF de la facture"""
+        facture = self.get_object()
+
+        if not facture.fichier_pdf:
+            return Response(
+                {"error": "Aucun PDF disponible pour cette facture"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        return Response({
+            "url": facture.fichier_pdf.url,
+            "nom_fichier": facture.fichier_pdf.name.split("/")[-1],
+            "numero_facture": facture.numero_facture,
+        })
 
 
 class LigneFactureViewSet(viewsets.ModelViewSet):
@@ -76,3 +107,19 @@ class RelanceViewSet(viewsets.ModelViewSet):
     queryset = Relance.objects.all()
     serializer_class = RelanceSerializer
     permission_classes = [IsAuthenticated]
+
+    @action(detail=True, methods=["get"])
+    def download_pdf(self, request, pk=None):
+        """Retourne l'URL présignée pour télécharger le PDF de la relance"""
+        relance = self.get_object()
+
+        if not relance.fichier_pdf:
+            return Response(
+                {"error": "Aucun PDF disponible pour cette relance"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        return Response({
+            "url": relance.fichier_pdf.url,
+            "nom_fichier": relance.fichier_pdf.name.split("/")[-1],
+        })
