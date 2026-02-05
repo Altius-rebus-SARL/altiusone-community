@@ -1,5 +1,6 @@
 # apps/comptabilite/models.py
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 from core.models import BaseModel, Mandat, User, ExerciceComptable
 from decimal import Decimal
 
@@ -22,41 +23,67 @@ class TypePlanComptable(BaseModel):
         max_length=20,
         unique=True,
         db_index=True,
-        help_text="Code unique (PME, OHADA, SWISSGAAP, etc.)"
+        verbose_name=_("Code"),
+        help_text=_("Code unique du type de plan (PME, OHADA, SWISSGAAP, etc.)")
     )
-    nom = models.CharField(max_length=200)
-    description = models.TextField(blank=True)
+    nom = models.CharField(
+        max_length=200,
+        verbose_name=_("Nom"),
+        help_text=_("Nom complet du type de plan comptable")
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name=_("Description"),
+        help_text=_("Description détaillée du plan comptable")
+    )
 
     # Région/Pays d'application
     pays = models.CharField(
         max_length=100,
         blank=True,
-        help_text="Pays d'application (Suisse, Zone OHADA, etc.)"
+        verbose_name=_("Pays"),
+        help_text=_("Pays d'application (Suisse, Zone OHADA, etc.)")
     )
     region = models.CharField(
         max_length=100,
         blank=True,
-        help_text="Région ou zone économique"
+        verbose_name=_("Région"),
+        help_text=_("Région ou zone économique d'application")
     )
 
     # Normes
     norme_comptable = models.CharField(
         max_length=100,
         blank=True,
-        help_text="Norme comptable de référence (CO, OHADA, IFRS, etc.)"
+        verbose_name=_("Norme comptable"),
+        help_text=_("Norme comptable de référence (CO, OHADA, IFRS, etc.)")
     )
 
     # Métadonnées
-    version = models.CharField(max_length=20, blank=True, help_text="Version du plan")
-    date_publication = models.DateField(null=True, blank=True)
+    version = models.CharField(
+        max_length=20,
+        blank=True,
+        verbose_name=_("Version"),
+        help_text=_("Version du plan comptable")
+    )
+    date_publication = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("Date de publication"),
+        help_text=_("Date de publication officielle de cette version")
+    )
 
     # Ordre d'affichage
-    ordre = models.IntegerField(default=0, help_text="Ordre d'affichage dans les listes")
+    ordre = models.IntegerField(
+        default=0,
+        verbose_name=_("Ordre"),
+        help_text=_("Ordre d'affichage dans les listes de sélection")
+    )
 
     class Meta:
         db_table = 'types_plans_comptables'
-        verbose_name = 'Type de plan comptable'
-        verbose_name_plural = 'Types de plans comptables'
+        verbose_name = _('Type de plan comptable')
+        verbose_name_plural = _('Types de plans comptables')
         ordering = ['ordre', 'code']
 
     def __str__(self):
@@ -81,46 +108,62 @@ class ClasseComptable(BaseModel):
     """
 
     TYPE_COMPTE_CHOICES = [
-        ('ACTIF', 'Actif'),
-        ('PASSIF', 'Passif'),
-        ('CHARGE', 'Charge'),
-        ('PRODUIT', 'Produit'),
-        ('RESULTAT', 'Résultat'),
+        ('ACTIF', _('Actif')),
+        ('PASSIF', _('Passif')),
+        ('CHARGE', _('Charge')),
+        ('PRODUIT', _('Produit')),
+        ('RESULTAT', _('Résultat')),
     ]
 
     type_plan = models.ForeignKey(
         TypePlanComptable,
         on_delete=models.CASCADE,
-        related_name='classes'
+        related_name='classes',
+        verbose_name=_("Type de plan"),
+        help_text=_("Type de plan comptable auquel appartient cette classe")
     )
 
-    numero = models.IntegerField(help_text="Numéro de la classe (1, 2, 3...)")
-    libelle = models.CharField(max_length=200)
-    description = models.TextField(blank=True)
+    numero = models.IntegerField(
+        verbose_name=_("Numéro"),
+        help_text=_("Numéro de la classe comptable (1, 2, 3...)")
+    )
+    libelle = models.CharField(
+        max_length=200,
+        verbose_name=_("Libellé"),
+        help_text=_("Libellé de la classe (ex: Actifs, Passifs)")
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name=_("Description"),
+        help_text=_("Description détaillée de la classe comptable")
+    )
 
     # Type de comptes dans cette classe
     type_compte = models.CharField(
         max_length=10,
         choices=TYPE_COMPTE_CHOICES,
-        help_text="Nature des comptes de cette classe"
+        verbose_name=_("Type de compte"),
+        help_text=_("Nature des comptes de cette classe (Actif, Passif, etc.)")
     )
 
     # Plage de numéros de comptes
     numero_debut = models.CharField(
         max_length=10,
         blank=True,
-        help_text="Premier numéro de compte (ex: 1000)"
+        verbose_name=_("Numéro de début"),
+        help_text=_("Premier numéro de compte de cette classe (ex: 1000)")
     )
     numero_fin = models.CharField(
         max_length=10,
         blank=True,
-        help_text="Dernier numéro de compte (ex: 1999)"
+        verbose_name=_("Numéro de fin"),
+        help_text=_("Dernier numéro de compte de cette classe (ex: 1999)")
     )
 
     class Meta:
         db_table = 'classes_comptables'
-        verbose_name = 'Classe comptable'
-        verbose_name_plural = 'Classes comptables'
+        verbose_name = _('Classe comptable')
+        verbose_name_plural = _('Classes comptables')
         unique_together = [['type_plan', 'numero']]
         ordering = ['type_plan', 'numero']
 
@@ -146,20 +189,36 @@ class PlanComptable(BaseModel):
         TypePlanComptable,
         on_delete=models.PROTECT,
         related_name='plans',
-        help_text="Type de plan comptable (PME, OHADA, etc.)"
+        verbose_name=_("Type de plan"),
+        help_text=_("Type de plan comptable (PME, OHADA, Swiss GAAP, etc.)")
     )
 
-    nom = models.CharField(max_length=300)
-    description = models.TextField(blank=True)
+    nom = models.CharField(
+        max_length=300,
+        verbose_name=_("Nom"),
+        help_text=_("Nom du plan comptable")
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name=_("Description"),
+        help_text=_("Description du plan comptable")
+    )
 
     # Template de base ou instance spécifique
-    is_template = models.BooleanField(default=False, db_index=True)
+    is_template = models.BooleanField(
+        default=False,
+        db_index=True,
+        verbose_name=_("Est un template"),
+        help_text=_("Indique si ce plan est un modèle réutilisable")
+    )
     mandat = models.ForeignKey(
         Mandat,
         on_delete=models.CASCADE,
         related_name='plans_comptables',
         null=True,
-        blank=True
+        blank=True,
+        verbose_name=_("Mandat"),
+        help_text=_("Mandat utilisant ce plan comptable (vide pour les templates)")
     )
 
     # Héritage de template
@@ -169,13 +228,14 @@ class PlanComptable(BaseModel):
         null=True,
         blank=True,
         related_name='derives',
-        help_text="Plan template de base"
+        verbose_name=_("Basé sur"),
+        help_text=_("Plan template de base dont celui-ci dérive")
     )
 
     class Meta:
         db_table = 'plans_comptables'
-        verbose_name = 'Plan comptable'
-        verbose_name_plural = 'Plans comptables'
+        verbose_name = _('Plan comptable')
+        verbose_name_plural = _('Plans comptables')
         ordering = ['-created_at']
 
     def __str__(self):
@@ -198,16 +258,18 @@ class Compte(BaseModel):
     """Compte du plan comptable"""
 
     TYPE_COMPTE_CHOICES = [
-        ('ACTIF', 'Actif'),
-        ('PASSIF', 'Passif'),
-        ('CHARGE', 'Charge'),
-        ('PRODUIT', 'Produit'),
+        ('ACTIF', _('Actif')),
+        ('PASSIF', _('Passif')),
+        ('CHARGE', _('Charge')),
+        ('PRODUIT', _('Produit')),
     ]
 
     plan_comptable = models.ForeignKey(
         PlanComptable,
         on_delete=models.CASCADE,
-        related_name='comptes'
+        related_name='comptes',
+        verbose_name=_("Plan comptable"),
+        help_text=_("Plan comptable auquel appartient ce compte")
     )
 
     # Lien optionnel vers la classe (pour cohérence)
@@ -217,18 +279,45 @@ class Compte(BaseModel):
         null=True,
         blank=True,
         related_name='comptes',
-        help_text="Classe comptable de référence"
+        verbose_name=_("Classe comptable"),
+        help_text=_("Classe comptable de référence (1=Actifs, 2=Passifs, etc.)")
     )
 
     # Numérotation
-    numero = models.CharField(max_length=20, db_index=True)
-    libelle = models.CharField(max_length=255)
-    libelle_court = models.CharField(max_length=100, blank=True)
+    numero = models.CharField(
+        max_length=20,
+        db_index=True,
+        verbose_name=_("Numéro"),
+        help_text=_("Numéro du compte (ex: 1000, 1100, 6000)")
+    )
+    libelle = models.CharField(
+        max_length=255,
+        verbose_name=_("Libellé"),
+        help_text=_("Libellé complet du compte")
+    )
+    libelle_court = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name=_("Libellé court"),
+        help_text=_("Libellé abrégé pour les états financiers")
+    )
 
     # Classification
-    type_compte = models.CharField(max_length=10, choices=TYPE_COMPTE_CHOICES)
-    classe = models.IntegerField(help_text="Numéro de classe (1-9)")
-    niveau = models.IntegerField(default=1, help_text="Niveau hiérarchique")
+    type_compte = models.CharField(
+        max_length=10,
+        choices=TYPE_COMPTE_CHOICES,
+        verbose_name=_("Type de compte"),
+        help_text=_("Nature du compte (Actif, Passif, Charge, Produit)")
+    )
+    classe = models.IntegerField(
+        verbose_name=_("Classe"),
+        help_text=_("Numéro de classe comptable (1-9)")
+    )
+    niveau = models.IntegerField(
+        default=1,
+        verbose_name=_("Niveau"),
+        help_text=_("Niveau hiérarchique du compte (1=principal, 2=sous-compte, etc.)")
+    )
 
     # Hiérarchie
     compte_parent = models.ForeignKey(
@@ -236,31 +325,66 @@ class Compte(BaseModel):
         on_delete=models.CASCADE,
         null=True,
         blank=True,
-        related_name='sous_comptes'
+        related_name='sous_comptes',
+        verbose_name=_("Compte parent"),
+        help_text=_("Compte de niveau supérieur pour la hiérarchie")
     )
 
     # Propriétés
-    est_collectif = models.BooleanField(default=False, help_text="Compte collectif (total)")
-    imputable = models.BooleanField(default=True, help_text="Peut recevoir des écritures")
-    lettrable = models.BooleanField(default=False, help_text="Lettrage possible")
-    obligatoire_tiers = models.BooleanField(default=False)
+    est_collectif = models.BooleanField(
+        default=False,
+        verbose_name=_("Compte collectif"),
+        help_text=_("Compte collectif (total) qui regroupe des sous-comptes")
+    )
+    imputable = models.BooleanField(
+        default=True,
+        verbose_name=_("Imputable"),
+        help_text=_("Indique si le compte peut recevoir des écritures comptables")
+    )
+    lettrable = models.BooleanField(
+        default=False,
+        verbose_name=_("Lettrable"),
+        help_text=_("Indique si le lettrage est possible sur ce compte")
+    )
+    obligatoire_tiers = models.BooleanField(
+        default=False,
+        verbose_name=_("Tiers obligatoire"),
+        help_text=_("Exige la saisie d'un tiers lors des écritures")
+    )
 
     # TVA
-    soumis_tva = models.BooleanField(default=False)
+    soumis_tva = models.BooleanField(
+        default=False,
+        verbose_name=_("Soumis à TVA"),
+        help_text=_("Indique si les opérations sur ce compte sont soumises à TVA")
+    )
     code_tva_defaut = models.CharField(
         max_length=10,
         blank=True,
-        help_text="Code TVA par défaut (200, 205, etc.)"
+        verbose_name=_("Code TVA par défaut"),
+        help_text=_("Code TVA appliqué par défaut (200, 205, 300, etc.)")
     )
 
     # Soldes
-    solde_debit = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    solde_credit = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    solde_debit = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Solde débit"),
+        help_text=_("Cumul des montants au débit")
+    )
+    solde_credit = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Solde crédit"),
+        help_text=_("Cumul des montants au crédit")
+    )
 
     class Meta:
         db_table = 'comptes'
-        verbose_name = 'Compte'
-        verbose_name_plural = 'Comptes'
+        verbose_name = _('Compte')
+        verbose_name_plural = _('Comptes')
         unique_together = [['plan_comptable', 'numero']]
         ordering = ['numero']
         indexes = [
@@ -296,37 +420,72 @@ class Journal(BaseModel):
     """Journal comptable"""
 
     TYPE_CHOICES = [
-        ('VTE', 'Ventes'),
-        ('ACH', 'Achats'),
-        ('BNQ', 'Banque'),
-        ('CAS', 'Caisse'),
-        ('OD', 'Opérations diverses'),
-        ('ANO', 'A-nouveaux'),
-        ('EXT', 'Extourne'),
+        ('VTE', _('Ventes')),
+        ('ACH', _('Achats')),
+        ('BNQ', _('Banque')),
+        ('CAS', _('Caisse')),
+        ('OD', _('Opérations diverses')),
+        ('ANO', _('A-nouveaux')),
+        ('EXT', _('Extourne')),
     ]
 
-    mandat = models.ForeignKey(Mandat, on_delete=models.CASCADE, related_name='journaux')
+    mandat = models.ForeignKey(
+        Mandat,
+        on_delete=models.CASCADE,
+        related_name='journaux',
+        verbose_name=_("Mandat"),
+        help_text=_("Mandat auquel appartient ce journal")
+    )
 
-    code = models.CharField(max_length=10, db_index=True)
-    libelle = models.CharField(max_length=100)
-    type_journal = models.CharField(max_length=10, choices=TYPE_CHOICES)
+    code = models.CharField(
+        max_length=10,
+        db_index=True,
+        verbose_name=_("Code"),
+        help_text=_("Code unique du journal (VTE, ACH, BNQ, etc.)")
+    )
+    libelle = models.CharField(
+        max_length=100,
+        verbose_name=_("Libellé"),
+        help_text=_("Libellé du journal")
+    )
+    type_journal = models.CharField(
+        max_length=10,
+        choices=TYPE_CHOICES,
+        verbose_name=_("Type de journal"),
+        help_text=_("Type de journal (Ventes, Achats, Banque, etc.)")
+    )
 
     compte_contrepartie_defaut = models.ForeignKey(
         Compte,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='+'
+        related_name='+',
+        verbose_name=_("Compte de contrepartie par défaut"),
+        help_text=_("Compte utilisé par défaut pour la contrepartie des écritures")
     )
 
-    numerotation_auto = models.BooleanField(default=True)
-    prefixe_piece = models.CharField(max_length=10, blank=True)
-    dernier_numero = models.IntegerField(default=0)
+    numerotation_auto = models.BooleanField(
+        default=True,
+        verbose_name=_("Numérotation automatique"),
+        help_text=_("Active la numérotation automatique des pièces")
+    )
+    prefixe_piece = models.CharField(
+        max_length=10,
+        blank=True,
+        verbose_name=_("Préfixe des pièces"),
+        help_text=_("Préfixe ajouté aux numéros de pièces (ex: FA, AV)")
+    )
+    dernier_numero = models.IntegerField(
+        default=0,
+        verbose_name=_("Dernier numéro"),
+        help_text=_("Dernier numéro de pièce utilisé dans ce journal")
+    )
 
     class Meta:
         db_table = 'journaux'
-        verbose_name = 'Journal'
-        verbose_name_plural = 'Journaux'
+        verbose_name = _('Journal')
+        verbose_name_plural = _('Journaux')
         unique_together = [['mandat', 'code']]
         ordering = ['code']
 
@@ -348,25 +507,34 @@ class EcritureComptable(BaseModel):
     """Écriture comptable (ligne)"""
 
     STATUT_CHOICES = [
-        ('BROUILLON', 'Brouillon'),
-        ('VALIDE', 'Validée'),
-        ('LETTRE', 'Lettrée'),
-        ('CLOTURE', 'Clôturée'),
-        ('EXTOURNE', 'Extournée'),
+        ('BROUILLON', _('Brouillon')),
+        ('VALIDE', _('Validée')),
+        ('LETTRE', _('Lettrée')),
+        ('CLOTURE', _('Clôturée')),
+        ('EXTOURNE', _('Extournée')),
     ]
 
     # Identification
     mandat = models.ForeignKey(
         Mandat,
         on_delete=models.CASCADE,
-        related_name='ecritures'
+        related_name='ecritures',
+        verbose_name=_("Mandat"),
+        help_text=_("Mandat concerné par cette écriture")
     )
     exercice = models.ForeignKey(
         ExerciceComptable,
         on_delete=models.PROTECT,
-        related_name='ecritures'
+        related_name='ecritures',
+        verbose_name=_("Exercice comptable"),
+        help_text=_("Exercice comptable de l'écriture")
     )
-    journal = models.ForeignKey(Journal, on_delete=models.PROTECT)
+    journal = models.ForeignKey(
+        Journal,
+        on_delete=models.PROTECT,
+        verbose_name=_("Journal"),
+        help_text=_("Journal comptable dans lequel est enregistrée l'écriture")
+    )
 
     # Lien vers la pièce comptable (nouveau)
     piece = models.ForeignKey(
@@ -375,57 +543,150 @@ class EcritureComptable(BaseModel):
         null=True,
         blank=True,
         related_name='ecritures',
-        help_text="Pièce comptable regroupant les écritures"
+        verbose_name=_("Pièce comptable"),
+        help_text=_("Pièce comptable regroupant les écritures")
     )
 
-    numero_piece = models.CharField(max_length=50, db_index=True)
-    numero_ligne = models.IntegerField(default=1)
+    numero_piece = models.CharField(
+        max_length=50,
+        db_index=True,
+        verbose_name=_("Numéro de pièce"),
+        help_text=_("Numéro de la pièce comptable")
+    )
+    numero_ligne = models.IntegerField(
+        default=1,
+        verbose_name=_("Numéro de ligne"),
+        help_text=_("Numéro de ligne dans la pièce")
+    )
 
     # Dates
-    date_ecriture = models.DateField(db_index=True)
-    date_valeur = models.DateField(null=True, blank=True)
-    date_echeance = models.DateField(null=True, blank=True)
+    date_ecriture = models.DateField(
+        db_index=True,
+        verbose_name=_("Date d'écriture"),
+        help_text=_("Date de l'écriture comptable")
+    )
+    date_valeur = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("Date de valeur"),
+        help_text=_("Date de valeur bancaire")
+    )
+    date_echeance = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("Date d'échéance"),
+        help_text=_("Date d'échéance du paiement")
+    )
 
     # Comptes
     compte = models.ForeignKey(
         Compte,
         on_delete=models.PROTECT,
-        related_name='ecritures'
+        related_name='ecritures',
+        verbose_name=_("Compte"),
+        help_text=_("Compte comptable mouvementé")
     )
-    compte_auxiliaire = models.CharField(max_length=50, blank=True)
+    compte_auxiliaire = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name=_("Compte auxiliaire"),
+        help_text=_("Compte auxiliaire (tiers, analytique)")
+    )
 
     # Libellé
-    libelle = models.TextField()
-    libelle_complement = models.CharField(max_length=255, blank=True)
+    libelle = models.TextField(
+        verbose_name=_("Libellé"),
+        help_text=_("Libellé de l'écriture comptable")
+    )
+    libelle_complement = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name=_("Complément de libellé"),
+        help_text=_("Informations complémentaires sur l'écriture")
+    )
 
     # Montants
-    montant_debit = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    montant_credit = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    devise = models.CharField(max_length=3, default='CHF')
-    taux_change = models.DecimalField(max_digits=10, decimal_places=6, default=1)
+    montant_debit = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Montant débit"),
+        help_text=_("Montant au débit (en devise du compte)")
+    )
+    montant_credit = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Montant crédit"),
+        help_text=_("Montant au crédit (en devise du compte)")
+    )
+    devise = models.CharField(
+        max_length=3,
+        default='CHF',
+        verbose_name=_("Devise"),
+        help_text=_("Code ISO de la devise (CHF, EUR, USD)")
+    )
+    taux_change = models.DecimalField(
+        max_digits=10,
+        decimal_places=6,
+        default=1,
+        verbose_name=_("Taux de change"),
+        help_text=_("Taux de change vers la devise de référence")
+    )
 
     # TVA
-    code_tva = models.CharField(max_length=10, blank=True)
-    montant_tva = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    code_tva = models.CharField(
+        max_length=10,
+        blank=True,
+        verbose_name=_("Code TVA"),
+        help_text=_("Code TVA applicable (200, 205, 300, etc.)")
+    )
+    montant_tva = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Montant TVA"),
+        help_text=_("Montant de TVA calculé")
+    )
 
     # Lettrage
-    code_lettrage = models.CharField(max_length=20, blank=True, db_index=True)
-    date_lettrage = models.DateField(null=True, blank=True)
+    code_lettrage = models.CharField(
+        max_length=20,
+        blank=True,
+        db_index=True,
+        verbose_name=_("Code de lettrage"),
+        help_text=_("Code identifiant le groupe de lettrage")
+    )
+    date_lettrage = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("Date de lettrage"),
+        help_text=_("Date à laquelle l'écriture a été lettrée")
+    )
 
     # Statut et validation
     statut = models.CharField(
         max_length=20,
         choices=STATUT_CHOICES,
         default='BROUILLON',
-        db_index=True
+        db_index=True,
+        verbose_name=_("Statut"),
+        help_text=_("Statut de l'écriture (Brouillon, Validée, etc.)")
     )
     valide_par = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
         null=True,
-        related_name='+'
+        related_name='+',
+        verbose_name=_("Validé par"),
+        help_text=_("Utilisateur ayant validé l'écriture")
     )
-    date_validation = models.DateTimeField(null=True, blank=True)
+    date_validation = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_("Date de validation"),
+        help_text=_("Date et heure de validation de l'écriture")
+    )
 
     # Document justificatif
     piece_justificative = models.ForeignKey(
@@ -433,7 +694,9 @@ class EcritureComptable(BaseModel):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='ecritures'
+        related_name='ecritures',
+        verbose_name=_("Pièce justificative"),
+        help_text=_("Document justificatif associé à l'écriture")
     )
 
     # Extourne
@@ -442,13 +705,15 @@ class EcritureComptable(BaseModel):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='extournes'
+        related_name='extournes',
+        verbose_name=_("Écriture extournée"),
+        help_text=_("Écriture d'origine si celle-ci est une extourne")
     )
 
     class Meta:
         db_table = 'ecritures_comptables'
-        verbose_name = 'Écriture comptable'
-        verbose_name_plural = 'Écritures comptables'
+        verbose_name = _('Écriture comptable')
+        verbose_name_plural = _('Écritures comptables')
         ordering = ['date_ecriture', 'numero_piece', 'numero_ligne']
         indexes = [
             models.Index(fields=['mandat', 'date_ecriture']),
@@ -466,10 +731,10 @@ class EcritureComptable(BaseModel):
 
         # Une écriture doit être soit au débit, soit au crédit
         if self.montant_debit and self.montant_credit:
-            raise ValidationError("Une écriture ne peut pas avoir débit ET crédit")
+            raise ValidationError(_("Une écriture ne peut pas avoir débit ET crédit"))
 
         if not self.montant_debit and not self.montant_credit:
-            raise ValidationError("Une écriture doit avoir un montant")
+            raise ValidationError(_("Une écriture doit avoir un montant"))
 
     @property
     def sens(self):
@@ -492,38 +757,51 @@ class TypePieceComptable(BaseModel):
     avec des paramètres de numérotation et comptabilisation par défaut.
     """
 
+    CATEGORIE_CHOICES = [
+        ('ACHAT', _('Achats')),
+        ('VENTE', _('Ventes')),
+        ('BANQUE', _('Banque')),
+        ('CAISSE', _('Caisse')),
+        ('OD', _('Opérations diverses')),
+        ('SALAIRE', _('Salaires')),
+        ('AUTRE', _('Autre')),
+    ]
+
     # Code unique pour identification
     code = models.CharField(
         max_length=20,
         unique=True,
         db_index=True,
-        help_text="Code unique (FAC_ACH, FAC_VTE, NDF, etc.)"
+        verbose_name=_("Code"),
+        help_text=_("Code unique du type de pièce (FAC_ACH, FAC_VTE, NDF, etc.)")
     )
-    libelle = models.CharField(max_length=100)
-    description = models.TextField(blank=True)
+    libelle = models.CharField(
+        max_length=100,
+        verbose_name=_("Libellé"),
+        help_text=_("Libellé du type de pièce")
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name=_("Description"),
+        help_text=_("Description détaillée du type de pièce")
+    )
 
     # Catégorie pour regroupement
-    CATEGORIE_CHOICES = [
-        ('ACHAT', 'Achats'),
-        ('VENTE', 'Ventes'),
-        ('BANQUE', 'Banque'),
-        ('CAISSE', 'Caisse'),
-        ('OD', 'Opérations diverses'),
-        ('SALAIRE', 'Salaires'),
-        ('AUTRE', 'Autre'),
-    ]
     categorie = models.CharField(
         max_length=20,
         choices=CATEGORIE_CHOICES,
         default='AUTRE',
-        db_index=True
+        db_index=True,
+        verbose_name=_("Catégorie"),
+        help_text=_("Catégorie de la pièce (Achats, Ventes, Banque, etc.)")
     )
 
     # Paramètres de numérotation
     prefixe_numero = models.CharField(
         max_length=10,
         blank=True,
-        help_text="Préfixe pour la numérotation automatique (ex: FAC, AVR)"
+        verbose_name=_("Préfixe de numéro"),
+        help_text=_("Préfixe pour la numérotation automatique (ex: FAC, AVR)")
     )
 
     # Compte par défaut (pour pré-remplissage)
@@ -533,7 +811,8 @@ class TypePieceComptable(BaseModel):
         null=True,
         blank=True,
         related_name='+',
-        help_text="Compte de charge par défaut"
+        verbose_name=_("Compte de charge par défaut"),
+        help_text=_("Compte de charge utilisé par défaut pour ce type de pièce")
     )
     compte_produit_defaut = models.ForeignKey(
         'Compte',
@@ -541,7 +820,8 @@ class TypePieceComptable(BaseModel):
         null=True,
         blank=True,
         related_name='+',
-        help_text="Compte de produit par défaut"
+        verbose_name=_("Compte de produit par défaut"),
+        help_text=_("Compte de produit utilisé par défaut pour ce type de pièce")
     )
 
     # Taux de TVA par défaut
@@ -550,22 +830,28 @@ class TypePieceComptable(BaseModel):
         decimal_places=2,
         null=True,
         blank=True,
-        help_text="Taux de TVA par défaut (ex: 8.10)"
+        verbose_name=_("Taux TVA par défaut"),
+        help_text=_("Taux de TVA appliqué par défaut (ex: 8.10)")
     )
 
     # Ordre d'affichage
-    ordre = models.IntegerField(default=0, help_text="Ordre d'affichage dans les listes")
+    ordre = models.IntegerField(
+        default=0,
+        verbose_name=_("Ordre"),
+        help_text=_("Ordre d'affichage dans les listes de sélection")
+    )
 
     # Est un type système (non supprimable)
     is_system = models.BooleanField(
         default=False,
-        help_text="Type système créé par défaut"
+        verbose_name=_("Type système"),
+        help_text=_("Indique si ce type est créé par défaut et non supprimable")
     )
 
     class Meta:
         db_table = 'types_pieces_comptables'
-        verbose_name = 'Type de pièce comptable'
-        verbose_name_plural = 'Types de pièces comptables'
+        verbose_name = _('Type de pièce comptable')
+        verbose_name_plural = _('Types de pièces comptables')
         ordering = ['ordre', 'code']
 
     def __str__(self):
@@ -596,30 +882,50 @@ class PieceComptable(BaseModel):
     """Regroupement d'écritures (pièce comptable)"""
 
     STATUT_CHOICES = [
-        ("BROUILLON", "Brouillon"),
-        ("VALIDE", "Validé"),
-        ("COMPTABILISE", "Comptabilisé"),
+        ("BROUILLON", _("Brouillon")),
+        ("VALIDE", _("Validé")),
+        ("COMPTABILISE", _("Comptabilisé")),
     ]
 
-    mandat = models.ForeignKey(Mandat, on_delete=models.CASCADE, related_name='pieces_comptables')
+    mandat = models.ForeignKey(
+        Mandat,
+        on_delete=models.CASCADE,
+        related_name='pieces_comptables',
+        verbose_name=_("Mandat"),
+        help_text=_("Mandat concerné par cette pièce")
+    )
     journal = models.ForeignKey(
         Journal,
         on_delete=models.PROTECT,
         related_name='pieces',
         null=True,
         blank=True,
-        help_text="Journal comptable (optionnel si le mandat n'en a pas)"
+        verbose_name=_("Journal"),
+        help_text=_("Journal comptable (optionnel si le mandat n'en a pas)")
     )
-    numero_piece = models.CharField(max_length=50, db_index=True)
-    date_piece = models.DateField(db_index=True)
-    libelle = models.TextField()
+    numero_piece = models.CharField(
+        max_length=50,
+        db_index=True,
+        verbose_name=_("Numéro de pièce"),
+        help_text=_("Numéro unique de la pièce comptable")
+    )
+    date_piece = models.DateField(
+        db_index=True,
+        verbose_name=_("Date de pièce"),
+        help_text=_("Date de la pièce comptable")
+    )
+    libelle = models.TextField(
+        verbose_name=_("Libellé"),
+        help_text=_("Description de la pièce comptable")
+    )
 
     # Type de pièce - FK vers TypePieceComptable
     type_piece = models.ForeignKey(
         TypePieceComptable,
         on_delete=models.PROTECT,
         related_name='pieces',
-        help_text="Type de pièce comptable"
+        verbose_name=_("Type de pièce"),
+        help_text=_("Type de pièce comptable (facture, avoir, etc.)")
     )
 
     # Documents justificatifs (nouveau champ ManyToMany)
@@ -627,7 +933,8 @@ class PieceComptable(BaseModel):
         'documents.Document',
         blank=True,
         related_name='pieces_comptables',
-        help_text="Documents justificatifs attachés à cette pièce"
+        verbose_name=_("Documents justificatifs"),
+        help_text=_("Documents justificatifs attachés à cette pièce")
     )
 
     # Dossier de classement (optionnel)
@@ -637,42 +944,95 @@ class PieceComptable(BaseModel):
         null=True,
         blank=True,
         related_name='pieces_comptables',
-        help_text="Dossier de classement des justificatifs"
+        verbose_name=_("Dossier"),
+        help_text=_("Dossier de classement des justificatifs")
     )
 
     # Informations extraites par OCR (stockées pour référence)
     metadata_ocr = models.JSONField(
         default=dict,
         blank=True,
-        help_text="Métadonnées extraites automatiquement par OCR"
+        verbose_name=_("Métadonnées OCR"),
+        help_text=_("Métadonnées extraites automatiquement par OCR")
     )
 
     # Référence externe (numéro facture fournisseur, etc.)
     reference_externe = models.CharField(
         max_length=100,
         blank=True,
-        help_text="Référence externe (ex: numéro facture fournisseur)"
+        verbose_name=_("Référence externe"),
+        help_text=_("Référence externe (ex: numéro facture fournisseur)")
     )
 
     # Tiers (fournisseur/client)
-    tiers_nom = models.CharField(max_length=200, blank=True)
-    tiers_numero_tva = models.CharField(max_length=50, blank=True)
+    tiers_nom = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name=_("Nom du tiers"),
+        help_text=_("Nom du fournisseur ou client")
+    )
+    tiers_numero_tva = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name=_("N° TVA du tiers"),
+        help_text=_("Numéro de TVA du fournisseur ou client")
+    )
 
     # Montants (peuvent être pré-remplis par OCR)
-    montant_ht = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    montant_tva = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    montant_ttc = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    montant_ht = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Montant HT"),
+        help_text=_("Montant hors taxes")
+    )
+    montant_tva = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Montant TVA"),
+        help_text=_("Montant de la TVA")
+    )
+    montant_ttc = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Montant TTC"),
+        help_text=_("Montant toutes taxes comprises")
+    )
 
     # Totaux (dénormalisé pour perf)
-    total_debit = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    total_credit = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    equilibree = models.BooleanField(default=True, db_index=True)
+    total_debit = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Total débit"),
+        help_text=_("Somme des montants au débit")
+    )
+    total_credit = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Total crédit"),
+        help_text=_("Somme des montants au crédit")
+    )
+    equilibree = models.BooleanField(
+        default=True,
+        db_index=True,
+        verbose_name=_("Équilibrée"),
+        help_text=_("Indique si la pièce est équilibrée (débit = crédit)")
+    )
 
     statut = models.CharField(
         max_length=20,
         choices=STATUT_CHOICES,
         default="BROUILLON",
-        db_index=True
+        db_index=True,
+        verbose_name=_("Statut"),
+        help_text=_("Statut de la pièce comptable")
     )
 
     # Validation
@@ -681,14 +1041,21 @@ class PieceComptable(BaseModel):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='pieces_validees'
+        related_name='pieces_validees',
+        verbose_name=_("Validé par"),
+        help_text=_("Utilisateur ayant validé la pièce")
     )
-    date_validation = models.DateTimeField(null=True, blank=True)
+    date_validation = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_("Date de validation"),
+        help_text=_("Date et heure de validation de la pièce")
+    )
 
     class Meta:
         db_table = "pieces_comptables"
-        verbose_name = "Pièce comptable"
-        verbose_name_plural = "Pièces comptables"
+        verbose_name = _("Pièce comptable")
+        verbose_name_plural = _("Pièces comptables")
         ordering = ["-date_piece", "-numero_piece"]
         # Numéro unique par mandat (journal peut être null)
         # La contrainte unique est gérée différemment pour permettre journal=null
@@ -757,7 +1124,7 @@ class PieceComptable(BaseModel):
         from django.utils import timezone
 
         if not self.equilibree:
-            raise ValueError("La pièce n'est pas équilibrée")
+            raise ValueError(_("La pièce n'est pas équilibrée"))
 
         self.statut = "VALIDE"
         self.valide_par = user
@@ -783,28 +1150,72 @@ class Lettrage(BaseModel):
     """Lettrage de comptes (rapprochement)"""
 
     STATUT_CHOICES = [
-        ("ACTIF", "Actif"),
-        ("ANNULE", "Annulé"),
+        ("ACTIF", _("Actif")),
+        ("ANNULE", _("Annulé")),
     ]
 
-    mandat = models.ForeignKey(Mandat, on_delete=models.CASCADE)
-    compte = models.ForeignKey(Compte, on_delete=models.PROTECT)
-    code_lettrage = models.CharField(max_length=20, unique=True)
+    mandat = models.ForeignKey(
+        Mandat,
+        on_delete=models.CASCADE,
+        verbose_name=_("Mandat"),
+        help_text=_("Mandat concerné par ce lettrage")
+    )
+    compte = models.ForeignKey(
+        Compte,
+        on_delete=models.PROTECT,
+        verbose_name=_("Compte"),
+        help_text=_("Compte comptable concerné par le lettrage")
+    )
+    code_lettrage = models.CharField(
+        max_length=20,
+        unique=True,
+        verbose_name=_("Code de lettrage"),
+        help_text=_("Code unique identifiant ce lettrage")
+    )
 
-    montant_total = models.DecimalField(max_digits=15, decimal_places=2)
-    solde = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    montant_total = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        verbose_name=_("Montant total"),
+        help_text=_("Montant total des écritures lettrées")
+    )
+    solde = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Solde"),
+        help_text=_("Solde résiduel du lettrage (0 si complet)")
+    )
 
-    date_lettrage = models.DateField()
-    lettre_par = models.ForeignKey(User, on_delete=models.PROTECT)
+    date_lettrage = models.DateField(
+        verbose_name=_("Date de lettrage"),
+        help_text=_("Date à laquelle le lettrage a été effectué")
+    )
+    lettre_par = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        verbose_name=_("Lettré par"),
+        help_text=_("Utilisateur ayant effectué le lettrage")
+    )
 
-    complet = models.BooleanField(default=False)
+    complet = models.BooleanField(
+        default=False,
+        verbose_name=_("Complet"),
+        help_text=_("Indique si le lettrage est complet (solde = 0)")
+    )
 
-    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default="ACTIF")
+    statut = models.CharField(
+        max_length=20,
+        choices=STATUT_CHOICES,
+        default="ACTIF",
+        verbose_name=_("Statut"),
+        help_text=_("Statut du lettrage (Actif ou Annulé)")
+    )
 
     class Meta:
         db_table = "lettrages"
-        verbose_name = "Lettrage"
-        verbose_name_plural = "Lettrages"
+        verbose_name = _("Lettrage")
+        verbose_name_plural = _("Lettrages")
         unique_together = [["mandat", "compte", "code_lettrage"]]
 
     def __str__(self):
