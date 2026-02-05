@@ -1,0 +1,287 @@
+<!-- modelforms/partials/form_field.html -->
+{% load i18n %}
+{% load modelforms_tags %}
+
+{% with field_id="field_"|add:mapping.source_model|add:"_"|add:mapping.field_name %}
+{% with field_name=mapping.source_model|add:"__"|add:mapping.field_name %}
+{% with is_required=mapping.required|default_if_none:False %}
+{% with default_value=default_values|default_if_none:''|get_item:mapping.field_name %}
+
+<div class="mb-3" id="{{ field_id }}_wrapper" {% if mapping.conditions %}data-conditions='{{ mapping.conditions|safe }}'{% endif %}>
+    <label class="form-label" for="{{ field_id }}">
+        {{ mapping.label|default:mapping.field_name }}
+        {% if is_required %}<span class="text-danger">*</span>{% endif %}
+    </label>
+
+    {% if mapping.widget_type == 'text' %}
+    <input type="text"
+           class="form-control"
+           id="{{ field_id }}"
+           name="{{ field_name }}"
+           {% if mapping.placeholder %}placeholder="{{ mapping.placeholder }}"{% endif %}
+           {% if default_value %}value="{{ default_value }}"{% endif %}
+           {% if mapping.min_length %}minlength="{{ mapping.min_length }}"{% endif %}
+           {% if mapping.max_length %}maxlength="{{ mapping.max_length }}"{% endif %}
+           {% if mapping.regex_pattern %}pattern="{{ mapping.regex_pattern }}"{% endif %}
+           {% if is_required %}required{% endif %}>
+
+    {% elif mapping.widget_type == 'textarea' %}
+    <textarea class="form-control"
+              id="{{ field_id }}"
+              name="{{ field_name }}"
+              rows="4"
+              {% if mapping.placeholder %}placeholder="{{ mapping.placeholder }}"{% endif %}
+              {% if mapping.min_length %}minlength="{{ mapping.min_length }}"{% endif %}
+              {% if mapping.max_length %}maxlength="{{ mapping.max_length }}"{% endif %}
+              {% if is_required %}required{% endif %}>{{ default_value }}</textarea>
+
+    {% elif mapping.widget_type == 'email' %}
+    <input type="email"
+           class="form-control"
+           id="{{ field_id }}"
+           name="{{ field_name }}"
+           {% if mapping.placeholder %}placeholder="{{ mapping.placeholder }}"{% else %}placeholder="email@example.com"{% endif %}
+           {% if default_value %}value="{{ default_value }}"{% endif %}
+           {% if is_required %}required{% endif %}>
+
+    {% elif mapping.widget_type == 'phone' %}
+    <input type="tel"
+           class="form-control"
+           id="{{ field_id }}"
+           name="{{ field_name }}"
+           {% if mapping.placeholder %}placeholder="{{ mapping.placeholder }}"{% else %}placeholder="+41 XX XXX XX XX"{% endif %}
+           {% if default_value %}value="{{ default_value }}"{% endif %}
+           {% if is_required %}required{% endif %}>
+
+    {% elif mapping.widget_type == 'number' %}
+    <input type="number"
+           class="form-control"
+           id="{{ field_id }}"
+           name="{{ field_name }}"
+           {% if mapping.placeholder %}placeholder="{{ mapping.placeholder }}"{% endif %}
+           {% if default_value %}value="{{ default_value }}"{% endif %}
+           {% if mapping.min_value %}min="{{ mapping.min_value }}"{% endif %}
+           {% if mapping.max_value %}max="{{ mapping.max_value }}"{% endif %}
+           {% if is_required %}required{% endif %}>
+
+    {% elif mapping.widget_type == 'decimal' or mapping.widget_type == 'currency' %}
+    <div class="input-group">
+        {% if mapping.widget_type == 'currency' %}
+        <span class="input-group-text">CHF</span>
+        {% endif %}
+        <input type="number"
+               class="form-control"
+               id="{{ field_id }}"
+               name="{{ field_name }}"
+               step="0.01"
+               {% if mapping.placeholder %}placeholder="{{ mapping.placeholder }}"{% else %}placeholder="0.00"{% endif %}
+               {% if default_value %}value="{{ default_value }}"{% endif %}
+               {% if mapping.min_value %}min="{{ mapping.min_value }}"{% endif %}
+               {% if mapping.max_value %}max="{{ mapping.max_value }}"{% endif %}
+               {% if is_required %}required{% endif %}>
+    </div>
+
+    {% elif mapping.widget_type == 'date' %}
+    <input type="date"
+           class="form-control"
+           id="{{ field_id }}"
+           name="{{ field_name }}"
+           {% if default_value %}value="{{ default_value }}"{% endif %}
+           {% if is_required %}required{% endif %}>
+
+    {% elif mapping.widget_type == 'datetime' %}
+    <input type="datetime-local"
+           class="form-control"
+           id="{{ field_id }}"
+           name="{{ field_name }}"
+           {% if default_value %}value="{{ default_value }}"{% endif %}
+           {% if is_required %}required{% endif %}>
+
+    {% elif mapping.widget_type == 'time' %}
+    <input type="time"
+           class="form-control"
+           id="{{ field_id }}"
+           name="{{ field_name }}"
+           {% if default_value %}value="{{ default_value }}"{% endif %}
+           {% if is_required %}required{% endif %}>
+
+    {% elif mapping.widget_type == 'select' %}
+    <select class="form-control select2"
+            id="{{ field_id }}"
+            name="{{ field_name }}"
+            {% if is_required %}required{% endif %}>
+        <option value="">-- {% trans "Sélectionner" %} --</option>
+        {% for option in mapping.options.choices %}
+        <option value="{{ option.value }}" {% if default_value == option.value %}selected{% endif %}>
+            {{ option.label }}
+        </option>
+        {% endfor %}
+    </select>
+
+    {% elif mapping.widget_type == 'radio' %}
+    <div class="d-flex flex-wrap gap-3">
+        {% for option in mapping.options.choices %}
+        <div class="form-check">
+            <input class="form-check-input"
+                   type="radio"
+                   id="{{ field_id }}_{{ forloop.counter }}"
+                   name="{{ field_name }}"
+                   value="{{ option.value }}"
+                   {% if default_value == option.value %}checked{% endif %}
+                   {% if is_required %}required{% endif %}>
+            <label class="form-check-label" for="{{ field_id }}_{{ forloop.counter }}">
+                {{ option.label }}
+            </label>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% elif mapping.widget_type == 'checkbox' %}
+    <div class="form-check">
+        <input class="form-check-input"
+               type="checkbox"
+               id="{{ field_id }}"
+               name="{{ field_name }}"
+               value="true"
+               {% if default_value %}checked{% endif %}>
+        <label class="form-check-label" for="{{ field_id }}">
+            {{ mapping.label|default:mapping.field_name }}
+        </label>
+    </div>
+
+    {% elif mapping.widget_type == 'autocomplete' %}
+    <select class="form-control select2"
+            id="{{ field_id }}"
+            name="{{ field_name }}"
+            data-ajax-url="{{ mapping.options.endpoint }}"
+            data-placeholder="{% trans 'Rechercher...' %}"
+            {% if is_required %}required{% endif %}>
+        {% if default_value %}
+        <option value="{{ default_value }}" selected>{{ default_value }}</option>
+        {% endif %}
+    </select>
+
+    {% elif mapping.widget_type == 'file' %}
+    <input type="file"
+           class="form-control"
+           id="{{ field_id }}"
+           name="{{ field_name }}"
+           {% if mapping.options.accept %}accept="{{ mapping.options.accept }}"{% endif %}
+           {% if is_required %}required{% endif %}>
+
+    {% elif mapping.widget_type == 'image' %}
+    <input type="file"
+           class="form-control"
+           id="{{ field_id }}"
+           name="{{ field_name }}"
+           accept="image/*"
+           {% if is_required %}required{% endif %}>
+
+    {% elif mapping.widget_type == 'iban' %}
+    <input type="text"
+           class="form-control"
+           id="{{ field_id }}"
+           name="{{ field_name }}"
+           placeholder="CH93 0076 2011 6238 5295 7"
+           pattern="[A-Z]{2}[0-9]{2}[A-Z0-9]{4}[0-9]{7}([A-Z0-9]?){0,16}"
+           {% if default_value %}value="{{ default_value }}"{% endif %}
+           {% if is_required %}required{% endif %}>
+
+    {% elif mapping.widget_type == 'avs' %}
+    <input type="text"
+           class="form-control"
+           id="{{ field_id }}"
+           name="{{ field_name }}"
+           placeholder="756.XXXX.XXXX.XX"
+           pattern="756\.[0-9]{4}\.[0-9]{4}\.[0-9]{2}"
+           {% if default_value %}value="{{ default_value }}"{% endif %}
+           {% if is_required %}required{% endif %}>
+
+    {% elif mapping.widget_type == 'ide' %}
+    <input type="text"
+           class="form-control"
+           id="{{ field_id }}"
+           name="{{ field_name }}"
+           placeholder="CHE-XXX.XXX.XXX"
+           pattern="CHE-[0-9]{3}\.[0-9]{3}\.[0-9]{3}"
+           {% if default_value %}value="{{ default_value }}"{% endif %}
+           {% if is_required %}required{% endif %}>
+
+    {% elif mapping.widget_type == 'country' %}
+    <select class="form-control select2"
+            id="{{ field_id }}"
+            name="{{ field_name }}"
+            {% if is_required %}required{% endif %}>
+        <option value="">-- {% trans "Sélectionner un pays" %} --</option>
+        <option value="CH" {% if default_value == "CH" %}selected{% endif %}>{% trans "Suisse" %}</option>
+        <option value="FR" {% if default_value == "FR" %}selected{% endif %}>{% trans "France" %}</option>
+        <option value="DE" {% if default_value == "DE" %}selected{% endif %}>{% trans "Allemagne" %}</option>
+        <option value="IT" {% if default_value == "IT" %}selected{% endif %}>{% trans "Italie" %}</option>
+        <option value="AT" {% if default_value == "AT" %}selected{% endif %}>{% trans "Autriche" %}</option>
+        <!-- More countries can be added dynamically -->
+    </select>
+
+    {% elif mapping.widget_type == 'canton' %}
+    <select class="form-control select2"
+            id="{{ field_id }}"
+            name="{{ field_name }}"
+            {% if is_required %}required{% endif %}>
+        <option value="">-- {% trans "Sélectionner un canton" %} --</option>
+        <option value="AG" {% if default_value == "AG" %}selected{% endif %}>Argovie</option>
+        <option value="AI" {% if default_value == "AI" %}selected{% endif %}>Appenzell Rhodes-Intérieures</option>
+        <option value="AR" {% if default_value == "AR" %}selected{% endif %}>Appenzell Rhodes-Extérieures</option>
+        <option value="BE" {% if default_value == "BE" %}selected{% endif %}>Berne</option>
+        <option value="BL" {% if default_value == "BL" %}selected{% endif %}>Bâle-Campagne</option>
+        <option value="BS" {% if default_value == "BS" %}selected{% endif %}>Bâle-Ville</option>
+        <option value="FR" {% if default_value == "FR" %}selected{% endif %}>Fribourg</option>
+        <option value="GE" {% if default_value == "GE" %}selected{% endif %}>Genève</option>
+        <option value="GL" {% if default_value == "GL" %}selected{% endif %}>Glaris</option>
+        <option value="GR" {% if default_value == "GR" %}selected{% endif %}>Grisons</option>
+        <option value="JU" {% if default_value == "JU" %}selected{% endif %}>Jura</option>
+        <option value="LU" {% if default_value == "LU" %}selected{% endif %}>Lucerne</option>
+        <option value="NE" {% if default_value == "NE" %}selected{% endif %}>Neuchâtel</option>
+        <option value="NW" {% if default_value == "NW" %}selected{% endif %}>Nidwald</option>
+        <option value="OW" {% if default_value == "OW" %}selected{% endif %}>Obwald</option>
+        <option value="SG" {% if default_value == "SG" %}selected{% endif %}>Saint-Gall</option>
+        <option value="SH" {% if default_value == "SH" %}selected{% endif %}>Schaffhouse</option>
+        <option value="SO" {% if default_value == "SO" %}selected{% endif %}>Soleure</option>
+        <option value="SZ" {% if default_value == "SZ" %}selected{% endif %}>Schwytz</option>
+        <option value="TG" {% if default_value == "TG" %}selected{% endif %}>Thurgovie</option>
+        <option value="TI" {% if default_value == "TI" %}selected{% endif %}>Tessin</option>
+        <option value="UR" {% if default_value == "UR" %}selected{% endif %}>Uri</option>
+        <option value="VD" {% if default_value == "VD" %}selected{% endif %}>Vaud</option>
+        <option value="VS" {% if default_value == "VS" %}selected{% endif %}>Valais</option>
+        <option value="ZG" {% if default_value == "ZG" %}selected{% endif %}>Zoug</option>
+        <option value="ZH" {% if default_value == "ZH" %}selected{% endif %}>Zurich</option>
+    </select>
+
+    {% elif mapping.widget_type == 'hidden' %}
+    <input type="hidden"
+           id="{{ field_id }}"
+           name="{{ field_name }}"
+           value="{{ default_value }}">
+
+    {% else %}
+    <!-- Default: text input -->
+    <input type="text"
+           class="form-control"
+           id="{{ field_id }}"
+           name="{{ field_name }}"
+           {% if mapping.placeholder %}placeholder="{{ mapping.placeholder }}"{% endif %}
+           {% if default_value %}value="{{ default_value }}"{% endif %}
+           {% if is_required %}required{% endif %}>
+    {% endif %}
+
+    {% if mapping.help_text %}
+    <small class="text-muted">{{ mapping.help_text }}</small>
+    {% endif %}
+
+    <div class="invalid-feedback">
+        {% trans "Ce champ est requis" %}
+    </div>
+</div>
+
+{% endwith %}
+{% endwith %}
+{% endwith %}
+{% endwith %}

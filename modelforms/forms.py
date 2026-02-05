@@ -18,7 +18,7 @@ class FormConfigurationForm(forms.ModelForm):
         choices=[],
         required=False,
         widget=forms.Select(attrs={
-            'class': 'form-select select2-model-search',
+            'class': 'form-control select2',
             'data-placeholder': _('Rechercher un modèle...'),
         }),
         help_text=_('Sélectionnez le modèle Django principal (optionnel pour multi-modèles)')
@@ -145,7 +145,7 @@ class ModelFieldMappingForm(forms.ModelForm):
         label=_('Modèle source'),
         choices=[],
         widget=forms.Select(attrs={
-            'class': 'form-select select2-model-search',
+            'class': 'form-control select2',
             'data-placeholder': _('Rechercher un modèle...'),
         }),
         help_text=_('Modèle Django d\'où provient le champ')
@@ -172,7 +172,7 @@ class ModelFieldMappingForm(forms.ModelForm):
         ]
         widgets = {
             'field_name': forms.Select(attrs={
-                'class': 'form-select select2-field-search',
+                'class': 'form-control select2',
                 'data-placeholder': _('Rechercher un champ...'),
             }),
             'field_path': forms.TextInput(attrs={
@@ -230,7 +230,7 @@ class ModelFieldMappingForm(forms.ModelForm):
 
         # Les choix de field_name seront remplis dynamiquement via AJAX/HTMX
         self.fields['field_name'].widget = forms.Select(attrs={
-            'class': 'form-select select2-field-search',
+            'class': 'form-control select2',
             'data-placeholder': _('Sélectionnez d\'abord un modèle...'),
         })
 
@@ -296,7 +296,7 @@ class AddFieldForm(forms.Form):
         label=_('Modèle source'),
         choices=[],
         widget=forms.Select(attrs={
-            'class': 'form-select select2-model-search',
+            'class': 'form-control select2',
             'id': 'add-field-source-model',
             'hx-get': '/modelforms/api/fields/',
             'hx-trigger': 'change',

@@ -562,8 +562,9 @@ def duplicate_configuration(request, pk):
     for mapping in original.field_mappings.all():
         ModelFieldMapping.objects.create(
             form_config=new_config,
+            source_model=mapping.source_model,
             field_name=mapping.field_name,
-            model_path=mapping.model_path,
+            field_path=mapping.field_path,
             widget_type=mapping.widget_type,
             label=mapping.label,
             help_text=mapping.help_text,
@@ -582,3 +583,210 @@ def duplicate_configuration(request, pk):
 
     messages.success(request, _('Configuration dupliquée avec succès.'))
     return redirect('modelforms:configuration-detail', pk=new_config.pk)
+
+
+# =============================================================================
+# REMPLISSAGE DE FORMULAIRES (pour les utilisateurs finaux)
+# =============================================================================
+
+class AvailableFormsListView(LoginRequiredMixin, ListView):
+    """Liste des formulaires disponibles à remplir."""
+
+    model = FormConfiguration
+    template_name = 'modelforms/available_forms_list.html'
+    context_object_name = 'forms'
+
+    def get_queryset(self):
+        """Retourne uniquement les formulaires actifs."""
+        return FormConfiguration.objects.filter(
+            status=FormConfiguration.Status.ACTIVE
+        ).order_by('category', 'name')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Grouper par catégorie
+        forms_by_category = {}
+        for form in context['forms']:
+            category_display = form.get_category_display()
+            if category_display not in forms_by_category:
+                forms_by_category[category_display] = []
+            forms_by_category[category_display].append(form)
+        context['forms_by_category'] = forms_by_category
+        context['categories'] = FormConfiguration.Category.choices
+        return context
+
+
+class FormFillView(LoginRequiredMixin, DetailView):
+    """Affiche un formulaire dynamique à remplir."""
+
+    model = FormConfiguration
+    template_name = 'modelforms/form_fill.html'
+    context_object_name = 'form_config'
+
+    def get_queryset(self):
+        """Seuls les formulaires actifs peuvent être remplis."""
+        return FormConfiguration.objects.filter(
+            status=FormConfiguration.Status.ACTIVE
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        config = self.object
+
+        # Récupérer les mappings de champs ordonnés
+        field_mappings = config.field_mappings.all().order_by('order')
+        context['field_mappings'] = field_mappings
+
+        # Grouper les champs par section si form_schema est défini
+        sections = config.form_schema.get('sections', [])
+        if sections:
+            # Créer un dictionnaire de champs par section
+            fields_by_section = {s['id']: [] for s in sections}
+            fields_by_section['_other'] = []  # Champs sans section
+
+            for mapping in field_mappings:
+                section_id = mapping.section or '_other'
+                if section_id in fields_by_section:
+                    fields_by_section[section_id].append(mapping)
+                else:
+                    fields_by_section['_other'].append(mapping)
+
+            context['sections'] = sections
+            context['fields_by_section'] = fields_by_section
+        else:
+            context['sections'] = []
+            context['fields_by_section'] = {'_all': list(field_mappings)}
+
+        # Valeurs par défaut avec résolution des variables
+        default_values = self._resolve_default_values(config.default_values)
+        context['default_values'] = default_values
+
+        # Générer le schéma JSON pour le frontend (si multi-modèle)
+        if config.is_multi_model:
+            context['source_models'] = config.source_models
+
+        return context
+
+    def _resolve_default_values(self, default_values):
+        """Résout les variables dynamiques dans les valeurs par défaut."""
+        from django.utils import timezone
+        import re
+
+        resolved = {}
+        user = self.request.user
+
+        for key, value in default_values.items():
+            if isinstance(value, str):
+                # Remplacer les variables
+                value = value.replace('{{today}}', timezone.now().strftime('%Y-%m-%d'))
+                value = value.replace('{{now}}', timezone.now().strftime('%Y-%m-%dT%H:%M'))
+                value = value.replace('{{current_user}}', str(user.pk))
+                value = value.replace('{{current_user.id}}', str(user.pk))
+                value = value.replace('{{current_user.username}}', user.username)
+                if hasattr(user, 'get_full_name'):
+                    value = value.replace('{{current_user.full_name}}', user.get_full_name())
+            resolved[key] = value
+
+        return resolved
+
+
+@login_required
+@require_http_methods(['POST'])
+def submit_form(request, pk):
+    """Traite la soumission d'un formulaire."""
+    config = get_object_or_404(
+        FormConfiguration,
+        pk=pk,
+        status=FormConfiguration.Status.ACTIVE
+    )
+
+    # Récupérer les données du formulaire
+    import json
+
+    # Gérer les données JSON ou POST standard
+    if request.content_type == 'application/json':
+        try:
+            submitted_data = json.loads(request.body)
+        except json.JSONDecodeError:
+            messages.error(request, _('Données JSON invalides.'))
+            return redirect('modelforms:form-fill', pk=pk)
+    else:
+        # Convertir POST en dictionnaire
+        submitted_data = {}
+        for key in request.POST:
+            if key != 'csrfmiddlewaretoken':
+                values = request.POST.getlist(key)
+                submitted_data[key] = values[0] if len(values) == 1 else values
+
+    # Récupérer le mandat si présent
+    mandat_id = submitted_data.pop('mandat', None)
+    mandat = None
+    if mandat_id:
+        from core.models import Mandat
+        try:
+            mandat = Mandat.objects.get(pk=mandat_id)
+        except Mandat.DoesNotExist:
+            pass
+
+    # Créer la soumission
+    submission = FormSubmission.objects.create(
+        form_config=config,
+        submitted_data=submitted_data,
+        submitted_by=request.user,
+        mandat=mandat,
+        status=FormSubmission.Status.PENDING if config.require_validation else FormSubmission.Status.PROCESSING,
+    )
+
+    # Si validation requise, on s'arrête là
+    if config.require_validation:
+        messages.success(
+            request,
+            _('Formulaire soumis avec succès. En attente de validation.')
+        )
+        return redirect('modelforms:submission-detail', pk=submission.pk)
+
+    # Sinon, traiter immédiatement
+    handler = SubmissionHandler(
+        form_config=config,
+        submitted_data=submitted_data,
+        user=request.user,
+        mandat=mandat,
+    )
+
+    success, records, errors = handler.process()
+
+    if success:
+        submission.status = FormSubmission.Status.COMPLETED
+        submission.created_records = records
+        submission.save()
+        messages.success(
+            request,
+            _('Formulaire traité avec succès. %(count)d enregistrement(s) créé(s).') % {'count': len(records)}
+        )
+    else:
+        submission.status = FormSubmission.Status.FAILED
+        submission.error_message = '; '.join(errors)
+        submission.error_details = {'errors': errors}
+        submission.save()
+        messages.error(
+            request,
+            _('Erreur lors du traitement: %(errors)s') % {'errors': '; '.join(errors)}
+        )
+
+    return redirect('modelforms:submission-detail', pk=submission.pk)
+
+
+@login_required
+def get_field_options(request, model_path):
+    """Retourne les options HTML pour un select de champs (HTMX)."""
+    try:
+        introspector = ModelIntrospector(model_path)
+        fields = introspector.get_fields()
+
+        options_html = '<option value="">-- Sélectionner un champ --</option>'
+        for field in fields:
+            options_html += f'<option value="{field["name"]}">{field["verbose_name"]} ({field["name"]})</option>'
+
+        return HttpResponse(options_html)
+    except ValueError as e:
+        return HttpResponse(f'<option value="">Erreur: {e}</option>')

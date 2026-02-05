@@ -1,0 +1,221 @@
+<!-- modelforms/form_fill.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load modelforms_tags %}
+
+{% block title %}{{ form_config.name }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{{ form_config.name }}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'modelforms:available-forms' %}">{% trans "Formulaires" %}</a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{{ form_config.name }}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<form method="post" action="{% url 'modelforms:form-submit' form_config.pk %}" class="app-form" enctype="multipart/form-data" id="dynamic-form">
+    {% csrf_token %}
+
+    <div class="row">
+        <!-- Main Form -->
+        <div class="col-lg-8">
+            {% if form_config.description %}
+            <div class="alert alert-info mb-4">
+                <i class="ph-duotone ph-info me-2"></i>
+                {{ form_config.description }}
+            </div>
+            {% endif %}
+
+            {% if sections %}
+            <!-- Formulaire avec sections -->
+            {% for section in sections %}
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5>
+                        {% if section.icon %}<i class="{{ section.icon }} me-2"></i>{% endif %}
+                        {{ section.title }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% with section_fields=fields_by_section|default_if_none:'' %}
+                    {% for mapping in fields_by_section|get_item:section.id %}
+                    {% include 'modelforms/partials/form_field.html' with mapping=mapping default_values=default_values %}
+                    {% empty %}
+                    <p class="text-muted">{% trans "Aucun champ dans cette section" %}</p>
+                    {% endfor %}
+                    {% endwith %}
+                </div>
+            </div>
+            {% endfor %}
+
+            <!-- Champs sans section -->
+            {% if fields_by_section._other %}
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5>{% trans "Autres informations" %}</h5>
+                </div>
+                <div class="card-body">
+                    {% for mapping in fields_by_section._other %}
+                    {% include 'modelforms/partials/form_field.html' with mapping=mapping default_values=default_values %}
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% else %}
+            <!-- Formulaire sans sections (tous les champs ensemble) -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Informations" %}</h5>
+                </div>
+                <div class="card-body">
+                    {% for mapping in field_mappings %}
+                    {% include 'modelforms/partials/form_field.html' with mapping=mapping default_values=default_values %}
+                    {% empty %}
+                    <p class="text-muted">{% trans "Aucun champ configuré pour ce formulaire" %}</p>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Form Info Card -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5>{% trans "Informations" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="h-45 w-45 d-flex-center rounded-circle bg-light-primary me-3">
+                            <i class="{{ form_config.icon|default:'ph-duotone ph-file-text' }} f-s-20 text-primary"></i>
+                        </div>
+                        <div>
+                            <h6 class="mb-0">{{ form_config.name }}</h6>
+                            <small class="text-muted">{{ form_config.code }}</small>
+                        </div>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <span class="badge bg-light-info">{{ form_config.get_category_display }}</span>
+                        {% if form_config.is_multi_model %}
+                        <span class="badge bg-light-secondary">{% trans "Multi-modèles" %}</span>
+                        {% endif %}
+                        {% if form_config.require_validation %}
+                        <span class="badge bg-light-warning">{% trans "Validation requise" %}</span>
+                        {% endif %}
+                    </div>
+
+                    {% if form_config.require_validation %}
+                    <div class="alert alert-warning small mb-0">
+                        <i class="ph-duotone ph-warning me-2"></i>
+                        {% trans "Ce formulaire nécessite une validation. Votre soumission sera examinée avant traitement." %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Actions Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Actions" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="ti ti-send me-2"></i>{% trans "Soumettre" %}
+                        </button>
+                        <button type="reset" class="btn btn-outline-secondary">
+                            <i class="ti ti-refresh me-2"></i>{% trans "Réinitialiser" %}
+                        </button>
+                        <a href="{% url 'modelforms:available-forms' %}" class="btn btn-outline-secondary">
+                            <i class="ti ti-arrow-left me-2"></i>{% trans "Retour" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Help Card -->
+            <div class="card bg-light-primary mt-3">
+                <div class="card-body">
+                    <h6><i class="ph-duotone ph-question me-2"></i>{% trans "Aide" %}</h6>
+                    <p class="small mb-0">
+                        {% trans "Les champs marqués d'un astérisque (*) sont obligatoires." %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Select2 on all select2 fields
+    if (typeof $ !== 'undefined' && $.fn.select2) {
+        $('.select2').select2({
+            theme: 'bootstrap-5',
+            width: '100%'
+        });
+    }
+
+    // Form validation
+    const form = document.getElementById('dynamic-form');
+    form.addEventListener('submit', function(e) {
+        let valid = true;
+
+        // Check required fields
+        form.querySelectorAll('[required]').forEach(function(field) {
+            if (!field.value.trim()) {
+                field.classList.add('is-invalid');
+                valid = false;
+            } else {
+                field.classList.remove('is-invalid');
+            }
+        });
+
+        if (!valid) {
+            e.preventDefault();
+            // Scroll to first invalid field
+            const firstInvalid = form.querySelector('.is-invalid');
+            if (firstInvalid) {
+                firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                firstInvalid.focus();
+            }
+        }
+    });
+
+    // Clear validation on input
+    form.querySelectorAll('input, select, textarea').forEach(function(field) {
+        field.addEventListener('input', function() {
+            this.classList.remove('is-invalid');
+        });
+    });
+
+    // Conditional field visibility
+    {% if form_config.form_schema.conditions %}
+    const conditions = {{ form_config.form_schema.conditions|safe }};
+    // TODO: Implement conditional visibility
+    {% endif %}
+});
+</script>
+{% endblock %}

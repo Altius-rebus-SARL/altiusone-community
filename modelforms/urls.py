@@ -117,4 +117,32 @@ urlpatterns = [
         views.reject_submission,
         name='submission-reject'
     ),
+
+    # ==========================================================================
+    # REMPLISSAGE DE FORMULAIRES (utilisateurs finaux)
+    # ==========================================================================
+    path(
+        'remplir/',
+        views.AvailableFormsListView.as_view(),
+        name='available-forms'
+    ),
+    path(
+        'remplir/<uuid:pk>/',
+        views.FormFillView.as_view(),
+        name='form-fill'
+    ),
+    path(
+        'remplir/<uuid:pk>/soumettre/',
+        views.submit_form,
+        name='form-submit'
+    ),
+
+    # ==========================================================================
+    # API HTMX
+    # ==========================================================================
+    path(
+        'api/fields/<path:model_path>/',
+        views.get_field_options,
+        name='api-field-options'
+    ),
 ]
