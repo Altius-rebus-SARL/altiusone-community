@@ -57,10 +57,16 @@ def traiter_document_ocr(self, document_id: str):
         document.statut_traitement = 'OCR_EN_COURS'
         document.save(update_fields=['statut_traitement'])
 
-        # Telecharger le fichier depuis le stockage
-        content = storage_service.telecharger_fichier(document.path_storage)
+        # Lire le fichier depuis le stockage (S3/MinIO)
+        if not document.fichier:
+            raise Exception(f"Fichier non disponible pour le document: {document.id}")
+
+        document.fichier.open('rb')
+        content = document.fichier.read()
+        document.fichier.close()
+
         if content is None:
-            raise Exception(f"Impossible de telecharger le fichier: {document.path_storage}")
+            raise Exception(f"Impossible de lire le fichier: {document.nom_fichier}")
 
         # Traitement complet via SDK AltiusOne AI
         result = ai_service.process_document(

@@ -874,30 +874,35 @@ class PieceComptableCreateView(LoginRequiredMixin, BusinessPermissionMixin, Crea
 
         for fichier in fichiers:
             try:
+                import hashlib
+                import os
+
+                # Calculer le hash du fichier
+                fichier.seek(0)
+                file_content = fichier.read()
+                file_hash = hashlib.sha256(file_content).hexdigest()
+                fichier.seek(0)
+
+                # Extension
+                _, ext = os.path.splitext(fichier.name)
+
                 # Créer le document
                 document = Document(
                     mandat=piece.mandat,
                     dossier=piece.dossier,
                     nom_fichier=fichier.name,
-                    type_mime=fichier.content_type,
+                    nom_original=fichier.name,
+                    extension=ext.lower(),
+                    mime_type=fichier.content_type,
                     taille=fichier.size,
+                    hash_fichier=file_hash,
+                    statut_traitement='UPLOAD',
                     created_by=self.request.user,
                 )
 
-                # Upload vers le stockage
-                upload_result = storage_service.upload_fichier(
-                    file_obj=fichier,
-                    filename=fichier.name,
-                    mandat_id=str(piece.mandat.id)
-                )
-
-                if not upload_result['success']:
-                    raise Exception(', '.join(upload_result.get('errors', ['Erreur upload'])))
-
-                document.path_storage = upload_result['path']
-                document.hash_fichier = upload_result['hash']
-
+                # Sauvegarder le document puis le fichier
                 document.save()
+                document.fichier.save(fichier.name, fichier, save=True)
                 documents_crees.append(document)
 
                 # Lancer le traitement OCR en arrière-plan
@@ -972,27 +977,34 @@ class PieceComptableUpdateView(LoginRequiredMixin, BusinessPermissionMixin, Upda
 
         for fichier in fichiers:
             try:
+                import hashlib
+                import os
+
+                # Calculer le hash du fichier
+                fichier.seek(0)
+                file_content = fichier.read()
+                file_hash = hashlib.sha256(file_content).hexdigest()
+                fichier.seek(0)
+
+                # Extension
+                _, ext = os.path.splitext(fichier.name)
+
                 document = Document(
                     mandat=piece.mandat,
                     dossier=piece.dossier,
                     nom_fichier=fichier.name,
-                    type_mime=fichier.content_type,
+                    nom_original=fichier.name,
+                    extension=ext.lower(),
+                    mime_type=fichier.content_type,
                     taille=fichier.size,
+                    hash_fichier=file_hash,
+                    statut_traitement='UPLOAD',
                     created_by=self.request.user,
                 )
 
-                path = storage_service.upload_file(
-                    fichier,
-                    f"pieces/{piece.mandat.id}/{piece.id}/"
-                )
-                document.path_storage = path
-
-                import hashlib
-                fichier.seek(0)
-                document.hash_fichier = hashlib.sha256(fichier.read()).hexdigest()
-                fichier.seek(0)
-
+                # Sauvegarder le document puis le fichier
                 document.save()
+                document.fichier.save(fichier.name, fichier, save=True)
                 documents_crees.append(document)
 
                 from documents.tasks import traiter_document_ocr
@@ -1026,7 +1038,8 @@ def piece_ajouter_document(request, pk):
     """Ajouter un document justificatif à une pièce existante (AJAX)"""
     from django.http import JsonResponse
     from documents.models import Document
-    from documents.storage import storage_service
+    import hashlib
+    import os
 
     piece = get_object_or_404(PieceComptable, pk=pk)
 
@@ -1038,26 +1051,31 @@ def piece_ajouter_document(request, pk):
         return JsonResponse({'error': 'No file provided'}, status=400)
 
     try:
+        # Calculer le hash du fichier
+        fichier.seek(0)
+        file_content = fichier.read()
+        file_hash = hashlib.sha256(file_content).hexdigest()
+        fichier.seek(0)
+
+        # Extension
+        _, ext = os.path.splitext(fichier.name)
+
         document = Document(
             mandat=piece.mandat,
             dossier=piece.dossier,
             nom_fichier=fichier.name,
-            type_mime=fichier.content_type,
+            nom_original=fichier.name,
+            extension=ext.lower(),
+            mime_type=fichier.content_type,
             taille=fichier.size,
+            hash_fichier=file_hash,
+            statut_traitement='UPLOAD',
             created_by=request.user,
         )
 
-        path = storage_service.upload_file(
-            fichier,
-            f"pieces/{piece.mandat.id}/{piece.id}/"
-        )
-        document.path_storage = path
-
-        import hashlib
-        fichier.seek(0)
-        document.hash_fichier = hashlib.sha256(fichier.read()).hexdigest()
-
+        # Sauvegarder le document puis le fichier
         document.save()
+        document.fichier.save(fichier.name, fichier, save=True)
         piece.documents_justificatifs.add(document)
 
         # Lancer OCR
@@ -1069,7 +1087,7 @@ def piece_ajouter_document(request, pk):
             'document': {
                 'id': str(document.id),
                 'nom': document.nom_fichier,
-                'type': document.type_mime,
+                'type': document.mime_type,
                 'taille': document.taille,
             }
         })

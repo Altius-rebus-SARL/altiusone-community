@@ -377,11 +377,20 @@ def traiter_document_async(document_id: str) -> None:
             moteur='Service OCR externe'
         )
 
-        # Télécharger le fichier
-        content = storage_service.telecharger_fichier(document.path_storage)
-        if content is None:
+        # Lire le fichier depuis le stockage (S3/MinIO)
+        if not document.fichier:
             traitement.statut = 'ERREUR'
-            traitement.erreur = "Impossible de télécharger le fichier"
+            traitement.erreur = "Fichier non disponible"
+            traitement.save()
+            return
+
+        try:
+            document.fichier.open('rb')
+            content = document.fichier.read()
+            document.fichier.close()
+        except Exception as e:
+            traitement.statut = 'ERREUR'
+            traitement.erreur = f"Impossible de lire le fichier: {e}"
             traitement.save()
             return
 

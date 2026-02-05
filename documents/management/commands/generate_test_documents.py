@@ -280,7 +280,6 @@ class Command(BaseCommand):
             mime_type=self.get_mime_type(extension),
             taille=taille,
             hash_fichier=hash_fichier,
-            path_storage=f"documents/{mandat.id}/{uuid.uuid4()}{extension}",
             date_document=date_document,
             date_upload=date_upload,
             statut_traitement='OCR_TERMINE' if with_ocr else 'UPLOAD',

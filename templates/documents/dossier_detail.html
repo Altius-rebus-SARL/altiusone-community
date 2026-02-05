@@ -139,7 +139,7 @@
                                     <div class="d-flex align-items-center">
                                         <div class="me-3">
                                             {% if doc.extension in '.jpg,.jpeg,.png,.gif,.webp' %}
-                                                {% if doc.path_storage %}
+                                                {% if doc.fichier %}
                                                 <!-- Vignette pour les images -->
                                                 <a href="{% url 'documents:document-detail' doc.pk %}" title="{{ doc.nom_fichier }}">
                                                     <img src="{% url 'documents:document-apercu' doc.pk %}"

@@ -411,23 +411,20 @@ class DocumentUploadView(LoginRequiredMixin, BusinessPermissionMixin, CreateView
         _, ext = os.path.splitext(fichier.name)
         document.extension = ext.lower()
 
-        # Upload vers le stockage (GCS ou local)
-        upload_result = storage_service.upload_fichier(
-            file_obj=fichier,
-            filename=fichier.name,
-            mandat_id=str(document.mandat_id)
-        )
+        # Calculer le hash du fichier
+        import hashlib
+        fichier.seek(0)
+        file_content = fichier.read()
+        document.hash_fichier = hashlib.sha256(file_content).hexdigest()
+        fichier.seek(0)  # Reset pour la sauvegarde
 
-        if not upload_result['success']:
-            for error in upload_result.get('errors', ['Erreur upload']):
-                messages.error(self.request, error)
-            return self.form_invalid(form)
-
-        document.path_storage = upload_result['path']
-        document.hash_fichier = upload_result['hash']
         document.statut_traitement = 'UPLOAD'
 
+        # Sauvegarder d'abord le document (sans le fichier)
         document.save()
+
+        # Puis sauvegarder le fichier via le FileField (utilise DocumentStorage/S3)
+        document.fichier.save(fichier.name, fichier, save=True)
 
         # Lancer le traitement OCR en arrière-plan si activé
         if getattr(settings, 'OCR_SERVICE_ENABLED', False):
@@ -440,16 +437,21 @@ class DocumentUploadView(LoginRequiredMixin, BusinessPermissionMixin, CreateView
 
 @login_required
 def document_telecharger(request, pk):
-    """Télécharge un document depuis GCS ou stockage local"""
-    from documents.storage import storage_service
-
+    """Télécharge un document depuis S3/MinIO ou stockage local"""
     document = get_object_or_404(Document, pk=pk)
 
-    # Récupérer le fichier depuis le stockage
-    content = storage_service.telecharger_fichier(document.path_storage)
+    # Vérifier que le fichier existe
+    if not document.fichier:
+        messages.error(request, _("Fichier non disponible"))
+        return redirect("documents:document-detail", pk=pk)
 
-    if content is None:
-        messages.error(request, _("Impossible de télécharger le fichier"))
+    try:
+        # Lire le contenu du fichier via le FileField
+        document.fichier.open('rb')
+        content = document.fichier.read()
+        document.fichier.close()
+    except Exception as e:
+        messages.error(request, _("Impossible de télécharger le fichier: %(error)s") % {'error': str(e)})
         return redirect("documents:document-detail", pk=pk)
 
     # Créer la réponse avec le contenu du fichier
@@ -466,20 +468,21 @@ def document_apercu(request, pk):
     Retourne l'aperçu d'un document (inline).
     Pour les images et PDF, renvoie le fichier directement.
     """
-    from documents.storage import storage_service
     from django.http import Http404
 
     document = get_object_or_404(Document, pk=pk)
 
-    # Vérifier que le path_storage existe
-    if not document.path_storage:
+    # Vérifier que le fichier existe
+    if not document.fichier:
         raise Http404("Fichier non disponible")
 
-    # Récupérer le fichier depuis le stockage
-    content = storage_service.telecharger_fichier(document.path_storage)
-
-    if content is None:
-        raise Http404("Fichier non trouvé sur le stockage")
+    try:
+        # Lire le contenu du fichier via le FileField
+        document.fichier.open('rb')
+        content = document.fichier.read()
+        document.fichier.close()
+    except Exception as e:
+        raise Http404(f"Fichier non trouvé sur le stockage: {e}")
 
     # Déterminer le Content-Type
     content_type = document.mime_type or mimetypes.guess_type(document.nom_fichier)[0] or 'application/octet-stream'
