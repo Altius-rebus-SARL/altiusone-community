@@ -1817,7 +1817,7 @@ class Command(BaseCommand):
                         file_content + str(uuid.uuid4()).encode()
                     ).hexdigest()
 
-                # Créer le document
+                # Créer le document (sans ocr_text pour tester le pipeline OCR)
                 doc = Document.objects.create(
                     mandat=mandat,
                     dossier=dossier,
@@ -1832,9 +1832,8 @@ class Command(BaseCommand):
                     date_document=self.fake.date_between(
                         start_date="-180d", end_date="today"
                     ),
-                    statut_traitement="VALIDE",
-                    ocr_text=content,  # Texte pour la vectorisation
-                    ocr_confidence=Decimal("95.00"),
+                    statut_traitement="UPLOAD",  # En attente de traitement OCR
+                    # ocr_text et ocr_confidence seront remplis par le pipeline OCR
                 )
 
                 # Sauvegarder le fichier
