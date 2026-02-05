@@ -100,12 +100,16 @@ if [ "$ENVIRONMENT" = "development" ] && [ "$RESET_MIGRATIONS" = "true" ]; then
     find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 fi
 
-echo "Creating any missing migrations..."
-python manage.py makemigrations
-
-if [ $? -ne 0 ]; then
-    echo "❌ Failed to create migrations. Exiting."
-    exit 1
+# En développement uniquement, créer les migrations manquantes
+if [ "$ENVIRONMENT" = "development" ]; then
+    echo "Creating any missing migrations (development only)..."
+    python manage.py makemigrations
+    if [ $? -ne 0 ]; then
+        echo "❌ Failed to create migrations. Exiting."
+        exit 1
+    fi
+else
+    echo "Skipping makemigrations in production (migrations should be committed to repo)"
 fi
 
 echo "Applying migrations..."
