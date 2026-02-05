@@ -283,6 +283,8 @@ class AltiusAIService:
         file_path: Optional[str] = None,
         file_content: Optional[bytes] = None,
         file_url: Optional[str] = None,
+        filename: Optional[str] = None,
+        mime_type: Optional[str] = None,
         language: str = 'auto'
     ) -> OCRResult:
         """
@@ -292,6 +294,8 @@ class AltiusAIService:
             file_path: Chemin vers le fichier local
             file_content: Contenu du fichier en bytes
             file_url: URL du fichier
+            filename: Nom du fichier (pour determiner le mime_type)
+            mime_type: Type MIME du fichier (prioritaire sur la detection)
             language: Langue du document (auto, fr, de, en, it)
 
         Returns:
@@ -302,12 +306,19 @@ class AltiusAIService:
                 # Lire le fichier et l'encoder en base64
                 with open(file_path, 'rb') as f:
                     file_content = f.read()
+                # Extraire le nom de fichier du chemin si non fourni
+                if not filename:
+                    filename = file_path.split('/')[-1]
 
             if file_content:
                 # Methode 1: Upload multipart via /ocr/file
                 import mimetypes
-                filename = file_path.split('/')[-1] if file_path else 'document'
-                mime_type = mimetypes.guess_type(filename)[0] or 'application/octet-stream'
+                # Utiliser le filename fourni, sinon extraire du path, sinon default
+                if not filename:
+                    filename = 'document'
+                # Utiliser le mime_type fourni, sinon deviner depuis le filename
+                if not mime_type:
+                    mime_type = mimetypes.guess_type(filename)[0] or 'application/octet-stream'
 
                 files = {'file': (filename, file_content, mime_type)}
                 params = {'language': language} if language != 'auto' else {}
@@ -670,7 +681,12 @@ Contenu (extrait):
 
         # 1. OCR
         try:
-            ocr_result = self.ocr(file_path=file_path, file_content=file_content)
+            ocr_result = self.ocr(
+                file_path=file_path,
+                file_content=file_content,
+                filename=filename,
+                mime_type=mime_type
+            )
             result['ocr'] = {
                 'text': ocr_result.text,
                 'confidence': ocr_result.confidence,
