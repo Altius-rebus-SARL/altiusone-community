@@ -6,6 +6,8 @@ Pattern suivi: core/viewset.py
 - ViewSets avec permissions appropriées
 - Actions personnalisées (@action)
 - Filtres et recherche
+
+Supporte les formulaires multi-modèles avec champs provenant de différentes apps Django.
 """
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
@@ -13,6 +15,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
+from django.db import models as db_models
 
 from core.permissions import IsManagerOrAbove, IsComptableOrAbove
 from .models import FormConfiguration, ModelFieldMapping, FormSubmission, FormTemplate
@@ -27,6 +30,7 @@ from .serializers import (
     FormTemplateListSerializer,
     FormTemplateDetailSerializer,
     ModelInfoSerializer,
+    ModelInfoGroupedSerializer,
     ModelSchemaSerializer,
 )
 from .services.introspector import ModelIntrospector
@@ -48,7 +52,7 @@ class FormConfigurationViewSet(viewsets.ModelViewSet):
         filters.SearchFilter,
         filters.OrderingFilter,
     ]
-    filterset_fields = ['status', 'category', 'target_model']
+    filterset_fields = ['status', 'category', 'target_model', 'is_multi_model']
     search_fields = ['code', 'name', 'description', 'target_model']
     ordering_fields = ['name', 'created_at', 'category']
     ordering = ['category', 'name']
@@ -80,16 +84,52 @@ class FormConfigurationViewSet(viewsets.ModelViewSet):
         """
         Retourne le schéma complet du formulaire pour le rendu frontend.
 
-        Combine:
-        - Configuration du formulaire
-        - Schéma du modèle cible (introspection)
-        - Mappings de champs personnalisés
+        Pour les formulaires multi-modèles:
+        - Combine les schémas de tous les modèles sources
+        - Groupe les champs par modèle
+
+        Pour les formulaires mono-modèle:
+        - Retourne le schéma du modèle cible
+        - Fusionne avec les mappings personnalisés
         """
         config = self.get_object()
 
-        # Introspection du modèle
+        if config.is_multi_model:
+            # Formulaire multi-modèle: combiner les schémas
+            model_schemas = {}
+            for model_path in (config.source_models or []):
+                try:
+                    introspector = ModelIntrospector(model_path, validate=False)
+                    model_schemas[model_path] = introspector.get_schema()
+                except ValueError as e:
+                    model_schemas[model_path] = {'error': str(e)}
+
+            # Récupérer les mappings personnalisés groupés par modèle
+            field_mappings_by_model = {}
+            for mapping in config.field_mappings.all():
+                model = mapping.source_model
+                if model not in field_mappings_by_model:
+                    field_mappings_by_model[model] = {}
+                field_mappings_by_model[model][mapping.field_name] = ModelFieldMappingSerializer(mapping).data
+
+            return Response({
+                'config': FormConfigurationDetailSerializer(config).data,
+                'is_multi_model': True,
+                'model_schemas': model_schemas,
+                'field_mappings_by_model': field_mappings_by_model,
+                'form_schema': config.form_schema,
+                'default_values': config.default_values,
+            })
+
+        # Formulaire mono-modèle: comportement classique
+        if not config.target_model:
+            return Response(
+                {'error': 'Aucun modèle cible défini pour ce formulaire'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         try:
-            introspector = ModelIntrospector(config.target_model)
+            introspector = ModelIntrospector(config.target_model, validate=False)
             model_schema = introspector.get_schema()
         except ValueError as e:
             return Response(
@@ -131,6 +171,7 @@ class FormConfigurationViewSet(viewsets.ModelViewSet):
 
         return Response({
             'config': FormConfigurationDetailSerializer(config).data,
+            'is_multi_model': False,
             'model_schema': model_schema,
             'form_schema': config.form_schema,
             'default_values': config.default_values,
@@ -158,6 +199,8 @@ class FormConfigurationViewSet(viewsets.ModelViewSet):
             description=original.description,
             category=original.category,
             target_model=original.target_model,
+            is_multi_model=original.is_multi_model,
+            source_models=original.source_models,
             related_models=original.related_models,
             form_schema=original.form_schema,
             default_values=original.default_values,
@@ -169,12 +212,13 @@ class FormConfigurationViewSet(viewsets.ModelViewSet):
             created_by=request.user,
         )
 
-        # Copier les mappings
+        # Copier les mappings avec les nouveaux noms de champs
         for mapping in original.field_mappings.all():
             ModelFieldMapping.objects.create(
                 form_config=new_config,
+                source_model=mapping.source_model,
                 field_name=mapping.field_name,
-                model_path=mapping.model_path,
+                field_path=mapping.field_path,
                 widget_type=mapping.widget_type,
                 label=mapping.label,
                 help_text=mapping.help_text,
@@ -195,6 +239,90 @@ class FormConfigurationViewSet(viewsets.ModelViewSet):
             FormConfigurationDetailSerializer(new_config).data,
             status=status.HTTP_201_CREATED
         )
+
+    @action(detail=True, methods=['post'])
+    def add_field(self, request, pk=None):
+        """
+        Ajoute un champ au formulaire.
+
+        Body:
+        {
+            "source_model": "core.Client",
+            "field_name": "raison_sociale",
+            "widget_type": "text",  // optionnel
+            "label": "Nom de l'entreprise",  // optionnel
+            ...
+        }
+        """
+        config = self.get_object()
+        data = request.data.copy()
+        data['form_config'] = config.id
+
+        # Valider le modèle source
+        source_model = data.get('source_model')
+        if not source_model:
+            return Response(
+                {'error': 'source_model est requis'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Calculer l'ordre si non fourni
+        if 'order' not in data:
+            max_order = config.field_mappings.aggregate(
+                max_order=db_models.Max('order')
+            )['max_order'] or 0
+            data['order'] = max_order + 10
+
+        # Créer le mapping
+        mapping = ModelFieldMapping.objects.create(
+            form_config=config,
+            source_model=source_model,
+            field_name=data.get('field_name', ''),
+            field_path=data.get('field_path', ''),
+            widget_type=data.get('widget_type', 'text'),
+            label=data.get('label', ''),
+            help_text=data.get('help_text', ''),
+            placeholder=data.get('placeholder', ''),
+            required=data.get('required'),
+            order=data.get('order', 0),
+            section=data.get('section', ''),
+            options=data.get('options', {}),
+        )
+
+        # Mettre à jour source_models si multi-modèle
+        if config.is_multi_model:
+            models_set = set(config.source_models or [])
+            models_set.add(source_model)
+            config.source_models = list(models_set)
+            config.save(update_fields=['source_models'])
+
+        return Response(
+            ModelFieldMappingSerializer(mapping).data,
+            status=status.HTTP_201_CREATED
+        )
+
+    @action(detail=True, methods=['delete'], url_path='remove-field/(?P<mapping_id>[0-9]+)')
+    def remove_field(self, request, pk=None, mapping_id=None):
+        """
+        Supprime un champ du formulaire.
+        """
+        config = self.get_object()
+        try:
+            mapping = config.field_mappings.get(id=mapping_id)
+            mapping.delete()
+
+            # Recalculer source_models si multi-modèle
+            if config.is_multi_model:
+                models_set = set(m.source_model for m in config.field_mappings.all())
+                config.source_models = list(models_set)
+                config.save(update_fields=['source_models'])
+
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except ModelFieldMapping.DoesNotExist:
+            return Response(
+                {'error': 'Mapping non trouvé'},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
 
 class FormSubmissionViewSet(viewsets.ModelViewSet):
@@ -332,7 +460,8 @@ class IntrospectionViewSet(viewsets.ViewSet):
     """
     ViewSet pour l'introspection des modèles Django.
 
-    Endpoints lecture seule pour explorer les modèles disponibles.
+    Endpoints pour explorer TOUS les modèles de TOUTES les applications Django.
+    Supporte la recherche pour intégration Select2.
     """
 
     permission_classes = [IsManagerOrAbove]
@@ -341,7 +470,38 @@ class IntrospectionViewSet(viewsets.ViewSet):
     def models(self, request):
         """
         Liste tous les modèles disponibles pour les formulaires.
+
+        Query params:
+        - grouped: Si 'true', retourne les modèles groupés par application
+        - q: Terme de recherche pour filtrer les modèles (pour Select2)
         """
+        grouped = request.query_params.get('grouped', 'false').lower() == 'true'
+        query = request.query_params.get('q', '').strip()
+
+        if query:
+            # Mode recherche (pour Select2)
+            models = ModelIntrospector.search_models(query)
+            return Response({
+                'results': [
+                    {
+                        'id': m['path'],
+                        'text': f"{m['verbose_name']} ({m['path']})",
+                        'path': m['path'],
+                        'app': m['app'],
+                        'name': m['name'],
+                        'verbose_name': m['verbose_name'],
+                    }
+                    for m in models
+                ]
+            })
+
+        if grouped:
+            # Mode groupé par application
+            models = ModelIntrospector.get_all_models()
+            serializer = ModelInfoGroupedSerializer(models, many=True)
+            return Response(serializer.data)
+
+        # Mode flat (liste simple)
         models = ModelIntrospector.get_allowed_models()
         serializer = ModelInfoSerializer(models, many=True)
         return Response(serializer.data)
@@ -355,9 +515,58 @@ class IntrospectionViewSet(viewsets.ViewSet):
             model_path: Chemin du modèle (ex: core.Client)
         """
         try:
-            introspector = ModelIntrospector(model_path)
+            introspector = ModelIntrospector(model_path, validate=False)
             schema = introspector.get_schema()
             return Response(schema)
+        except ValueError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=False, methods=['get'], url_path='fields/(?P<model_path>[^/.]+\\.[^/.]+)')
+    def fields(self, request, model_path=None):
+        """
+        Retourne les champs d'un modèle avec recherche optionnelle.
+
+        Query params:
+        - q: Terme de recherche pour filtrer les champs (pour Select2)
+        - include_system: Si 'true', inclut les champs système (id, created_at, etc.)
+
+        Args:
+            model_path: Chemin du modèle (ex: core.Client)
+        """
+        query = request.query_params.get('q', '').strip()
+        include_system = request.query_params.get('include_system', 'false').lower() == 'true'
+
+        try:
+            introspector = ModelIntrospector(model_path, validate=False)
+
+            if query:
+                # Mode recherche
+                fields = introspector.search_fields(query)
+            else:
+                fields = introspector.get_fields(include_system=include_system)
+
+            # Format Select2
+            return Response({
+                'model': model_path,
+                'results': [
+                    {
+                        'id': f['name'],
+                        'text': f"{f['label']} ({f['name']})",
+                        'name': f['name'],
+                        'type': f['type'],
+                        'widget_type': f['widget_type'],
+                        'label': f['label'],
+                        'required': f['required'],
+                        'help_text': f.get('help_text', ''),
+                        'choices': f.get('choices'),
+                        'related_model': f.get('related_model'),
+                    }
+                    for f in fields
+                ]
+            })
         except ValueError as e:
             return Response(
                 {'error': str(e)},
@@ -372,7 +581,7 @@ class IntrospectionViewSet(viewsets.ViewSet):
         Utile pour la validation côté client.
         """
         try:
-            introspector = ModelIntrospector(model_path)
+            introspector = ModelIntrospector(model_path, validate=False)
             json_schema = introspector.get_json_schema()
             return Response(json_schema)
         except ValueError as e:
@@ -455,7 +664,9 @@ class FormTemplateViewSet(viewsets.ModelViewSet):
             name=config_data.get('name', template.name),
             description=config_data.get('description', template.description),
             category=config_data.get('category', template.category),
-            target_model=config_data.get('target_model'),
+            target_model=config_data.get('target_model', ''),
+            is_multi_model=config_data.get('is_multi_model', False),
+            source_models=config_data.get('source_models', []),
             related_models=config_data.get('related_models', []),
             form_schema=config_data.get('form_schema', {}),
             default_values=config_data.get('default_values', {}),

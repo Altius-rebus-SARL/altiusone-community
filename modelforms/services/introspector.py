@@ -4,6 +4,8 @@ Service d'introspection des modèles Django.
 
 Ce module permet d'extraire automatiquement les métadonnées des modèles Django
 pour générer des schémas de formulaires dynamiques.
+
+Supporte TOUS les modèles de TOUTES les applications Django installées.
 """
 from typing import Dict, List, Optional, Any, Type
 from django.db import models
@@ -19,27 +21,56 @@ from django.core.validators import (
 )
 
 
-# Whitelist des modèles autorisés pour l'introspection (sécurité)
-ALLOWED_MODELS = {
-    # Core
-    'core.Client',
-    'core.Contact',
-    'core.Adresse',
-    'core.Mandat',
-    'core.CompteBancaire',
-    'core.Tache',
-    # Salaires
-    'salaires.Employe',
-    # Facturation (si existants)
-    'facturation.Facture',
-    'facturation.LigneFacture',
-    'facturation.Prestation',
-    'facturation.TimeTracking',
-    # Documents
-    'documents.Document',
-    # Comptabilité
-    'comptabilite.Ecriture',
-    'comptabilite.CompteComptable',
+# Apps Django système à exclure de l'introspection
+EXCLUDED_APPS = {
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+    'django.contrib.sites',
+    'rest_framework',
+    'rest_framework.authtoken',
+    'corsheaders',
+    'django_filters',
+    'oauth2_provider',
+    'oidc_provider',
+    'debug_toolbar',
+    'silk',
+    'django_extensions',
+    'celery',
+    'django_celery_beat',
+    'django_celery_results',
+}
+
+# Modèles système à toujours exclure
+EXCLUDED_MODELS = {
+    'contenttypes.ContentType',
+    'sessions.Session',
+    'admin.LogEntry',
+    'auth.Permission',
+    'auth.Group',
+    'authtoken.Token',
+    'authtoken.TokenProxy',
+    'oauth2_provider.AccessToken',
+    'oauth2_provider.Application',
+    'oauth2_provider.Grant',
+    'oauth2_provider.RefreshToken',
+    'oauth2_provider.IDToken',
+    'oidc_provider.Client',
+    'oidc_provider.Code',
+    'oidc_provider.Token',
+    'oidc_provider.RSAKey',
+    'oidc_provider.UserConsent',
+    'django_celery_beat.ClockedSchedule',
+    'django_celery_beat.CrontabSchedule',
+    'django_celery_beat.IntervalSchedule',
+    'django_celery_beat.PeriodicTask',
+    'django_celery_beat.PeriodicTasks',
+    'django_celery_beat.SolarSchedule',
+    'django_celery_results.TaskResult',
+    'django_celery_results.GroupResult',
 }
 
 
@@ -98,22 +129,25 @@ class ModelIntrospector:
     Introspecteur de modèles Django.
 
     Extrait les métadonnées des modèles pour générer des schémas de formulaires.
+    Supporte TOUS les modèles de l'application, pas seulement une whitelist.
     """
 
-    def __init__(self, model_path: str):
+    def __init__(self, model_path: str, validate: bool = True):
         """
         Initialise l'introspecteur.
 
         Args:
             model_path: Chemin du modèle (ex: 'core.Client')
+            validate: Si True, vérifie que le modèle n'est pas exclu
         """
         self.model_path = model_path
+        self.validate = validate
         self.model_class = self._get_model_class()
 
     def _get_model_class(self) -> Type[models.Model]:
         """Récupère la classe du modèle."""
-        if self.model_path not in ALLOWED_MODELS:
-            raise ValueError(f"Modèle non autorisé: {self.model_path}")
+        if self.validate and self.model_path in EXCLUDED_MODELS:
+            raise ValueError(f"Modèle système non autorisé: {self.model_path}")
 
         try:
             app_label, model_name = self.model_path.split('.')
@@ -122,26 +156,106 @@ class ModelIntrospector:
             raise ValueError(f"Modèle introuvable: {self.model_path}") from e
 
     @classmethod
-    def get_allowed_models(cls) -> List[Dict[str, str]]:
+    def get_all_models(cls, include_system: bool = False) -> List[Dict[str, Any]]:
         """
-        Retourne la liste des modèles autorisés avec leurs métadonnées.
+        Retourne TOUS les modèles disponibles, groupés par application.
+
+        Args:
+            include_system: Si True, inclut les modèles système (auth, admin, etc.)
+
+        Returns:
+            Liste de dictionnaires avec les métadonnées des modèles
         """
         result = []
-        for model_path in sorted(ALLOWED_MODELS):
-            try:
-                app_label, model_name = model_path.split('.')
-                model_class = apps.get_model(app_label, model_name)
-                result.append({
-                    'path': model_path,
-                    'app': app_label,
-                    'name': model_name,
-                    'verbose_name': str(model_class._meta.verbose_name),
-                    'verbose_name_plural': str(model_class._meta.verbose_name_plural),
+
+        for app_config in apps.get_app_configs():
+            # Exclure les apps système si demandé
+            if not include_system:
+                if app_config.name in EXCLUDED_APPS:
+                    continue
+                # Exclure les apps Django internes
+                if app_config.name.startswith('django.'):
+                    continue
+
+            app_models = []
+            for model in app_config.get_models():
+                model_path = f"{model._meta.app_label}.{model._meta.model_name}"
+
+                # Exclure les modèles système
+                if not include_system and model_path in EXCLUDED_MODELS:
+                    continue
+
+                # Capitaliser le nom du modèle
+                model_name = model._meta.model_name
+                model_name_display = model_name[0].upper() + model_name[1:] if model_name else model_name
+
+                app_models.append({
+                    'path': f"{model._meta.app_label}.{model_name_display}",
+                    'app': model._meta.app_label,
+                    'name': model_name_display,
+                    'verbose_name': str(model._meta.verbose_name),
+                    'verbose_name_plural': str(model._meta.verbose_name_plural),
+                    'field_count': len([
+                        f for f in model._meta.get_fields()
+                        if not (f.auto_created and not f.concrete)
+                    ]),
                 })
-            except LookupError:
-                # Le modèle n'existe pas dans cette installation
-                pass
+
+            if app_models:
+                result.append({
+                    'app_label': app_config.label,
+                    'app_name': app_config.verbose_name or app_config.label,
+                    'models': sorted(app_models, key=lambda x: x['name']),
+                })
+
+        return sorted(result, key=lambda x: x['app_label'])
+
+    @classmethod
+    def get_allowed_models(cls) -> List[Dict[str, str]]:
+        """
+        Retourne la liste des modèles disponibles (format flat pour compatibilité).
+
+        Cette méthode est conservée pour la compatibilité avec le code existant.
+        """
+        result = []
+        for app_group in cls.get_all_models():
+            for model_info in app_group['models']:
+                result.append({
+                    'path': model_info['path'],
+                    'app': model_info['app'],
+                    'name': model_info['name'],
+                    'verbose_name': model_info['verbose_name'],
+                    'verbose_name_plural': model_info['verbose_name_plural'],
+                })
         return result
+
+    @classmethod
+    def search_models(cls, query: str) -> List[Dict[str, str]]:
+        """
+        Recherche de modèles par nom ou app.
+
+        Args:
+            query: Terme de recherche (recherche insensible à la casse)
+
+        Returns:
+            Liste de modèles correspondants
+        """
+        query_lower = query.lower()
+        results = []
+
+        for model_info in cls.get_allowed_models():
+            # Recherche dans le nom, l'app, le verbose_name et le path
+            searchable = ' '.join([
+                model_info['name'],
+                model_info['app'],
+                model_info['verbose_name'],
+                model_info['path'],
+            ]).lower()
+
+            if query_lower in searchable:
+                results.append(model_info)
+
+        return results
 
     def get_schema(self) -> Dict[str, Any]:
         """
@@ -155,18 +269,23 @@ class ModelIntrospector:
             'suggested_groups': self.get_suggested_groups(),
         }
 
-    def get_fields(self) -> List[Dict[str, Any]]:
+    def get_fields(self, include_system: bool = False) -> List[Dict[str, Any]]:
         """
         Extrait les informations de tous les champs du modèle.
+
+        Args:
+            include_system: Si True, inclut les champs système (id, created_at, etc.)
         """
         fields = []
+        system_fields = {'id', 'pk', 'created_at', 'updated_at', 'created_by', 'is_active'}
+
         for field in self.model_class._meta.get_fields():
             # Ignorer les relations inverses
             if field.auto_created and not field.concrete:
                 continue
 
-            # Ignorer certains champs système
-            if field.name in ('id', 'pk', 'created_at', 'updated_at', 'created_by', 'is_active'):
+            # Ignorer certains champs système sauf si demandé
+            if not include_system and field.name in system_fields:
                 continue
 
             field_info = self._extract_field_info(field)
@@ -174,6 +293,31 @@ class ModelIntrospector:
                 fields.append(field_info)
 
         return fields
+
+    def search_fields(self, query: str) -> List[Dict[str, Any]]:
+        """
+        Recherche de champs par nom ou label.
+
+        Args:
+            query: Terme de recherche
+
+        Returns:
+            Liste de champs correspondants
+        """
+        query_lower = query.lower()
+        results = []
+
+        for field_info in self.get_fields(include_system=True):
+            searchable = ' '.join([
+                field_info['name'],
+                field_info.get('label', ''),
+                field_info.get('help_text', ''),
+            ]).lower()
+
+            if query_lower in searchable:
+                results.append(field_info)
+
+        return results
 
     def _extract_field_info(self, field: Field) -> Optional[Dict[str, Any]]:
         """
@@ -214,12 +358,14 @@ class ModelIntrospector:
         # Relations
         if isinstance(field, (ForeignKey, OneToOneField)):
             related_model = field.related_model
-            info['related_model'] = f"{related_model._meta.app_label}.{related_model._meta.model_name}"
+            model_name = related_model._meta.model_name
+            info['related_model'] = f"{related_model._meta.app_label}.{model_name[0].upper() + model_name[1:]}"
             info['related_verbose_name'] = str(related_model._meta.verbose_name)
 
         elif isinstance(field, ManyToManyField):
             related_model = field.related_model
-            info['related_model'] = f"{related_model._meta.app_label}.{related_model._meta.model_name}"
+            model_name = related_model._meta.model_name
+            info['related_model'] = f"{related_model._meta.app_label}.{model_name[0].upper() + model_name[1:]}"
             info['related_verbose_name'] = str(related_model._meta.verbose_name_plural)
             info['multiple'] = True
 

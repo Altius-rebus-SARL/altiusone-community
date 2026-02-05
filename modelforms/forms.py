@@ -1,11 +1,13 @@
 # apps/modelforms/forms.py
 """
 Formulaires Django pour la gestion des configurations de formulaires dynamiques.
+
+Supporte les formulaires multi-modèles avec champs provenant de différentes apps.
 """
 from django import forms
 from django.utils.translation import gettext_lazy as _
 from .models import FormConfiguration, ModelFieldMapping, FormTemplate
-from .services.introspector import ALLOWED_MODELS
+from .services.introspector import ModelIntrospector
 
 
 class FormConfigurationForm(forms.ModelForm):
@@ -14,8 +16,12 @@ class FormConfigurationForm(forms.ModelForm):
     target_model = forms.ChoiceField(
         label=_('Modèle cible'),
         choices=[],
-        widget=forms.Select(attrs={'class': 'form-select select-basic'}),
-        help_text=_('Sélectionnez le modèle Django pour ce formulaire')
+        required=False,
+        widget=forms.Select(attrs={
+            'class': 'form-select select2-model-search',
+            'data-placeholder': _('Rechercher un modèle...'),
+        }),
+        help_text=_('Sélectionnez le modèle Django principal (optionnel pour multi-modèles)')
     )
 
     class Meta:
@@ -25,6 +31,7 @@ class FormConfigurationForm(forms.ModelForm):
             'name',
             'description',
             'category',
+            'is_multi_model',
             'target_model',
             'icon',
             'status',
@@ -47,6 +54,11 @@ class FormConfigurationForm(forms.ModelForm):
             'category': forms.Select(attrs={
                 'class': 'form-select select-basic',
             }),
+            'is_multi_model': forms.CheckboxInput(attrs={
+                'class': 'form-check-input',
+                'data-bs-toggle': 'collapse',
+                'data-bs-target': '#multiModelOptions',
+            }),
             'icon': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'ph-file-text',
@@ -61,11 +73,22 @@ class FormConfigurationForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Construire les choix de modèles depuis la whitelist
+        # Construire les choix de modèles depuis l'introspection
         model_choices = [('', _('-- Sélectionner un modèle --'))]
-        for model_path in sorted(ALLOWED_MODELS):
-            model_choices.append((model_path, model_path))
+        for model_info in ModelIntrospector.get_allowed_models():
+            model_choices.append((model_info['path'], f"{model_info['verbose_name']} ({model_info['path']})"))
         self.fields['target_model'].choices = model_choices
+
+    def clean(self):
+        cleaned_data = super().clean()
+        is_multi_model = cleaned_data.get('is_multi_model', False)
+        target_model = cleaned_data.get('target_model', '')
+
+        # Pour un formulaire mono-modèle, target_model est requis
+        if not is_multi_model and not target_model:
+            self.add_error('target_model', _('Le modèle cible est requis pour un formulaire mono-modèle'))
+
+        return cleaned_data
 
 
 class FormConfigurationAdvancedForm(forms.ModelForm):
@@ -74,6 +97,7 @@ class FormConfigurationAdvancedForm(forms.ModelForm):
     class Meta:
         model = FormConfiguration
         fields = [
+            'source_models',
             'related_models',
             'form_schema',
             'default_values',
@@ -81,6 +105,11 @@ class FormConfigurationAdvancedForm(forms.ModelForm):
             'post_actions',
         ]
         widgets = {
+            'source_models': forms.Textarea(attrs={
+                'class': 'form-control font-monospace',
+                'rows': 4,
+                'placeholder': '["core.Client", "core.Contact", "tva.Declaration"]',
+            }),
             'related_models': forms.Textarea(attrs={
                 'class': 'form-control font-monospace',
                 'rows': 6,
@@ -112,11 +141,22 @@ class FormConfigurationAdvancedForm(forms.ModelForm):
 class ModelFieldMappingForm(forms.ModelForm):
     """Formulaire pour personnaliser un champ."""
 
+    source_model = forms.ChoiceField(
+        label=_('Modèle source'),
+        choices=[],
+        widget=forms.Select(attrs={
+            'class': 'form-select select2-model-search',
+            'data-placeholder': _('Rechercher un modèle...'),
+        }),
+        help_text=_('Modèle Django d\'où provient le champ')
+    )
+
     class Meta:
         model = ModelFieldMapping
         fields = [
+            'source_model',
             'field_name',
-            'model_path',
+            'field_path',
             'widget_type',
             'label',
             'help_text',
@@ -131,12 +171,13 @@ class ModelFieldMappingForm(forms.ModelForm):
             'section',
         ]
         widgets = {
-            'field_name': forms.TextInput(attrs={
-                'class': 'form-control',
+            'field_name': forms.Select(attrs={
+                'class': 'form-select select2-field-search',
+                'data-placeholder': _('Rechercher un champ...'),
             }),
-            'model_path': forms.TextInput(attrs={
+            'field_path': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': _('adresse_siege (optionnel)'),
+                'placeholder': _('adresse_siege.rue (optionnel)'),
             }),
             'widget_type': forms.Select(attrs={
                 'class': 'form-select select-basic',
@@ -178,6 +219,20 @@ class ModelFieldMappingForm(forms.ModelForm):
                 'placeholder': 'identity',
             }),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Construire les choix de modèles depuis l'introspection
+        model_choices = [('', _('-- Sélectionner un modèle --'))]
+        for model_info in ModelIntrospector.get_allowed_models():
+            model_choices.append((model_info['path'], f"{model_info['verbose_name']} ({model_info['path']})"))
+        self.fields['source_model'].choices = model_choices
+
+        # Les choix de field_name seront remplis dynamiquement via AJAX/HTMX
+        self.fields['field_name'].widget = forms.Select(attrs={
+            'class': 'form-select select2-field-search',
+            'data-placeholder': _('Sélectionnez d\'abord un modèle...'),
+        })
 
 
 class FieldMappingFormSet(forms.BaseInlineFormSet):
@@ -232,3 +287,36 @@ class FormSubmissionFilterForm(forms.Form):
             'onchange': 'this.form.submit()',
         }),
     )
+
+
+class AddFieldForm(forms.Form):
+    """Formulaire pour ajouter un champ au formulaire dynamiquement."""
+
+    source_model = forms.ChoiceField(
+        label=_('Modèle source'),
+        choices=[],
+        widget=forms.Select(attrs={
+            'class': 'form-select select2-model-search',
+            'id': 'add-field-source-model',
+            'hx-get': '/modelforms/api/fields/',
+            'hx-trigger': 'change',
+            'hx-target': '#add-field-name',
+            'hx-swap': 'innerHTML',
+        }),
+    )
+
+    field_name = forms.ChoiceField(
+        label=_('Champ'),
+        choices=[('', _('Sélectionnez d\'abord un modèle'))],
+        widget=forms.Select(attrs={
+            'class': 'form-select',
+            'id': 'add-field-name',
+        }),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        model_choices = [('', _('-- Sélectionner un modèle --'))]
+        for model_info in ModelIntrospector.get_allowed_models():
+            model_choices.append((model_info['path'], f"{model_info['verbose_name']} ({model_info['path']})"))
+        self.fields['source_model'].choices = model_choices

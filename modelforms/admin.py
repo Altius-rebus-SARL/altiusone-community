@@ -7,6 +7,7 @@ class ModelFieldMappingInline(admin.TabularInline):
     model = ModelFieldMapping
     extra = 0
     ordering = ['order', 'field_name']
+    fields = ['source_model', 'field_name', 'field_path', 'widget_type', 'label', 'required', 'order']
 
 
 @admin.register(FormConfiguration)
@@ -15,12 +16,13 @@ class FormConfigurationAdmin(admin.ModelAdmin):
         'code',
         'name',
         'category',
+        'is_multi_model',
         'target_model',
         'status',
         'require_validation',
         'created_at',
     ]
-    list_filter = ['status', 'category', 'require_validation']
+    list_filter = ['status', 'category', 'is_multi_model', 'require_validation']
     search_fields = ['code', 'name', 'target_model', 'description']
     readonly_fields = ['created_at', 'updated_at', 'created_by']
     inlines = [ModelFieldMappingInline]
@@ -29,8 +31,13 @@ class FormConfigurationAdmin(admin.ModelAdmin):
         (None, {
             'fields': ('code', 'name', 'description', 'category', 'icon')
         }),
+        ('Mode multi-modèles', {
+            'fields': ('is_multi_model', 'source_models'),
+            'description': 'Activez le mode multi-modèles pour collecter des données de plusieurs modèles Django.'
+        }),
         ('Modèle cible', {
-            'fields': ('target_model', 'related_models')
+            'fields': ('target_model', 'related_models'),
+            'description': 'Pour les formulaires mono-modèle, spécifiez le modèle cible.'
         }),
         ('Configuration', {
             'fields': ('form_schema', 'default_values', 'validation_rules', 'post_actions'),
@@ -50,14 +57,15 @@ class FormConfigurationAdmin(admin.ModelAdmin):
 class ModelFieldMappingAdmin(admin.ModelAdmin):
     list_display = [
         'form_config',
+        'source_model',
         'field_name',
-        'model_path',
+        'field_path',
         'widget_type',
         'required',
         'order',
     ]
-    list_filter = ['form_config', 'widget_type', 'required']
-    search_fields = ['field_name', 'label', 'form_config__code']
+    list_filter = ['form_config', 'source_model', 'widget_type', 'required']
+    search_fields = ['field_name', 'source_model', 'label', 'form_config__code']
     ordering = ['form_config', 'order', 'field_name']
 
 

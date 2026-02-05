@@ -60,15 +60,34 @@ class FormConfiguration(BaseModel):
         verbose_name=_('Catégorie')
     )
 
-    # Modèle cible
+    # Modèle principal (optionnel pour les formulaires multi-modèles)
     target_model = models.CharField(
         max_length=100,
+        blank=True,
         db_index=True,
-        verbose_name=_('Modèle cible'),
-        help_text=_('Chemin du modèle Django (ex: core.Client, salaires.Employe)')
+        verbose_name=_('Modèle principal'),
+        help_text=_('Modèle principal pour création (optionnel pour formulaires multi-modèles)')
     )
 
-    # Modèles liés (pour les formulaires avec relations)
+    # Mode multi-modèles
+    is_multi_model = models.BooleanField(
+        default=False,
+        verbose_name=_('Formulaire multi-modèles'),
+        help_text=_('Si coché, le formulaire peut collecter des données de plusieurs modèles')
+    )
+
+    # Modèles sources (pour les formulaires multi-modèles)
+    source_models = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name=_('Modèles sources'),
+        help_text=_("""
+        Liste des modèles utilisés dans ce formulaire.
+        Format: ["core.Client", "tva.Declaration", "salaires.Employe"]
+        """)
+    )
+
+    # Modèles liés (pour les formulaires avec relations/création automatique)
     related_models = models.JSONField(
         default=list,
         blank=True,
@@ -225,16 +244,22 @@ class ModelFieldMapping(models.Model):
     )
 
     # Identification du champ
+    source_model = models.CharField(
+        max_length=100,
+        default='',
+        verbose_name=_('Modèle source'),
+        help_text=_('Modèle Django d\'où provient le champ (ex: core.Client, tva.Declaration)')
+    )
     field_name = models.CharField(
         max_length=100,
         verbose_name=_('Nom du champ'),
         help_text=_('Nom du champ dans le modèle Django')
     )
-    model_path = models.CharField(
+    field_path = models.CharField(
         max_length=200,
         blank=True,
-        verbose_name=_('Chemin du modèle'),
-        help_text=_('Pour les champs imbriqués: adresse_siege.rue')
+        verbose_name=_('Chemin du champ'),
+        help_text=_('Pour les champs imbriqués via relation: adresse_siege.rue')
     )
 
     # Personnalisation de l'affichage
@@ -334,12 +359,13 @@ class ModelFieldMapping(models.Model):
         verbose_name = _('Mapping de champ')
         verbose_name_plural = _('Mappings de champs')
         ordering = ['form_config', 'order', 'field_name']
-        unique_together = [['form_config', 'field_name', 'model_path']]
+        unique_together = [['form_config', 'source_model', 'field_name', 'field_path']]
 
     def __str__(self):
-        if self.model_path:
-            return f"{self.form_config.code}: {self.model_path}.{self.field_name}"
-        return f"{self.form_config.code}: {self.field_name}"
+        display = f"{self.form_config.code}: {self.source_model}.{self.field_name}"
+        if self.field_path:
+            display += f" ({self.field_path})"
+        return display
 
 
 class FormSubmission(BaseModel):
