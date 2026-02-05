@@ -1,0 +1,584 @@
+# apps/modelforms/views.py
+"""
+Vues web pour la gestion des formulaires dynamiques.
+
+Interface HTMX pour créer, modifier et gérer les configurations de formulaires.
+"""
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
+from django.views.decorators.http import require_http_methods, require_POST
+from django.http import JsonResponse, HttpResponse
+from django.urls import reverse_lazy, reverse
+from django.contrib import messages
+from django.utils.translation import gettext_lazy as _
+from django.db.models import Count, Q
+from django.utils import timezone
+
+from core.permissions import BusinessPermissionMixin, permission_required_business
+from .models import FormConfiguration, ModelFieldMapping, FormSubmission, FormTemplate
+from .forms import (
+    FormConfigurationForm,
+    FormConfigurationAdvancedForm,
+    ModelFieldMappingForm,
+    ModelFieldMappingFormSet,
+    FormTemplateSelectForm,
+)
+from .services.introspector import ModelIntrospector
+from .services.submission_handler import SubmissionHandler
+
+
+# =============================================================================
+# CONFIGURATIONS
+# =============================================================================
+
+class FormConfigurationListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+    """Liste des configurations de formulaires."""
+
+    model = FormConfiguration
+    business_permission = 'modelforms.view_configurations'
+    template_name = 'modelforms/configuration_list.html'
+    context_object_name = 'configurations'
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = FormConfiguration.objects.annotate(
+            submission_count=Count('submissions'),
+            field_count=Count('field_mappings'),
+        ).order_by('category', 'name')
+
+        # Filtres
+        status = self.request.GET.get('status')
+        if status:
+            queryset = queryset.filter(status=status)
+
+        category = self.request.GET.get('category')
+        if category:
+            queryset = queryset.filter(category=category)
+
+        q = self.request.GET.get('q')
+        if q:
+            queryset = queryset.filter(
+                Q(code__icontains=q) |
+                Q(name__icontains=q) |
+                Q(target_model__icontains=q)
+            )
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['stats'] = {
+            'total': FormConfiguration.objects.count(),
+            'active': FormConfiguration.objects.filter(status='ACTIVE').count(),
+            'draft': FormConfiguration.objects.filter(status='DRAFT').count(),
+        }
+        context['categories'] = FormConfiguration.Category.choices
+        context['statuses'] = FormConfiguration.Status.choices
+        return context
+
+
+class FormConfigurationDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
+    """Détail d'une configuration de formulaire."""
+
+    model = FormConfiguration
+    business_permission = 'modelforms.view_configurations'
+    template_name = 'modelforms/configuration_detail.html'
+    context_object_name = 'configuration'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        config = self.object
+
+        # Introspection du modèle
+        try:
+            introspector = ModelIntrospector(config.target_model)
+            context['model_schema'] = introspector.get_schema()
+            context['json_schema'] = introspector.get_json_schema()
+        except ValueError:
+            context['model_schema'] = None
+            context['json_schema'] = {}
+
+        # Mappings de champs
+        context['field_mappings'] = config.field_mappings.all().order_by('order')
+
+        # Soumissions récentes
+        context['recent_submissions'] = config.submissions.order_by('-submitted_at')[:5]
+
+        # Stats
+        context['submission_count'] = config.submissions.count()
+
+        return context
+
+
+class FormConfigurationCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView):
+    """Création d'une configuration de formulaire."""
+
+    model = FormConfiguration
+    business_permission = 'modelforms.add_configuration'
+    template_name = 'modelforms/configuration_form.html'
+    form_class = FormConfigurationForm
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['templates'] = FormTemplate.objects.filter(is_active=True)
+        context['template_form'] = FormTemplateSelectForm()
+        return context
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        messages.success(self.request, _('Configuration créée avec succès.'))
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse('modelforms:configuration-detail', kwargs={'pk': self.object.pk})
+
+
+class FormConfigurationUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateView):
+    """Modification d'une configuration de formulaire."""
+
+    model = FormConfiguration
+    business_permission = 'modelforms.change_configuration'
+    template_name = 'modelforms/configuration_form.html'
+    form_class = FormConfigurationForm
+
+    def form_valid(self, form):
+        messages.success(self.request, _('Configuration modifiée avec succès.'))
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse('modelforms:configuration-detail', kwargs={'pk': self.object.pk})
+
+
+class FormConfigurationDeleteView(LoginRequiredMixin, BusinessPermissionMixin, DeleteView):
+    """Suppression d'une configuration de formulaire."""
+
+    model = FormConfiguration
+    business_permission = 'modelforms.delete_configuration'
+    template_name = 'modelforms/configuration_confirm_delete.html'
+    success_url = reverse_lazy('modelforms:configuration-list')
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(request, _('Configuration supprimée avec succès.'))
+        return super().delete(request, *args, **kwargs)
+
+
+# =============================================================================
+# CONFIGURATION AVANCÉE (JSON)
+# =============================================================================
+
+@login_required
+@permission_required_business('modelforms.change_configuration')
+def configuration_advanced(request, pk):
+    """Édition avancée de la configuration JSON."""
+    configuration = get_object_or_404(FormConfiguration, pk=pk)
+
+    if request.method == 'POST':
+        form = FormConfigurationAdvancedForm(request.POST, instance=configuration)
+        if form.is_valid():
+            form.save()
+            messages.success(request, _('Configuration avancée enregistrée.'))
+            return redirect('modelforms:configuration-detail', pk=pk)
+    else:
+        form = FormConfigurationAdvancedForm(instance=configuration)
+
+    return render(request, 'modelforms/configuration_advanced.html', {
+        'configuration': configuration,
+        'form': form,
+    })
+
+
+# =============================================================================
+# FIELD MAPPINGS (HTMX)
+# =============================================================================
+
+@login_required
+@permission_required_business('modelforms.change_configuration')
+def configuration_fields(request, pk):
+    """Gestion des mappings de champs avec HTMX."""
+    configuration = get_object_or_404(FormConfiguration, pk=pk)
+
+    if request.method == 'POST':
+        formset = ModelFieldMappingFormSet(request.POST, instance=configuration)
+        if formset.is_valid():
+            formset.save()
+            messages.success(request, _('Champs mis à jour avec succès.'))
+            if request.headers.get('HX-Request'):
+                return HttpResponse(
+                    status=200,
+                    headers={'HX-Trigger': 'fieldsUpdated'}
+                )
+            return redirect('modelforms:configuration-detail', pk=pk)
+    else:
+        formset = ModelFieldMappingFormSet(instance=configuration)
+
+    # Récupérer les champs du modèle pour suggestion
+    try:
+        introspector = ModelIntrospector(configuration.target_model)
+        model_fields = introspector.get_fields()
+    except ValueError:
+        model_fields = []
+
+    # Field mappings for display
+    field_mappings = configuration.field_mappings.all().order_by('order')
+
+    template = 'modelforms/partials/field_mappings.html' if request.headers.get('HX-Request') else 'modelforms/configuration_fields.html'
+
+    return render(request, template, {
+        'configuration': configuration,
+        'formset': formset,
+        'model_fields': model_fields,
+        'field_mappings': field_mappings,
+    })
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+@permission_required_business('modelforms.change_configuration')
+def add_field_mapping(request, pk):
+    """Ajoute ou modifie un mapping de champ (HTMX)."""
+    configuration = get_object_or_404(FormConfiguration, pk=pk)
+
+    # Edit existing mapping
+    mapping_id = request.GET.get('mapping_id') or request.POST.get('mapping_id')
+    if mapping_id:
+        mapping = get_object_or_404(ModelFieldMapping, pk=mapping_id, form_config=configuration)
+    else:
+        mapping = None
+
+    if request.method == 'POST':
+        form = ModelFieldMappingForm(request.POST, instance=mapping)
+        if form.is_valid():
+            new_mapping = form.save(commit=False)
+            new_mapping.form_config = configuration
+            if not new_mapping.order:
+                new_mapping.order = configuration.field_mappings.count()
+            new_mapping.save()
+
+            # Return the updated list
+            field_mappings = configuration.field_mappings.all().order_by('order')
+            return render(request, 'modelforms/partials/field_mappings.html', {
+                'configuration': configuration,
+                'field_mappings': field_mappings,
+            })
+    else:
+        # Pre-fill field_name if provided
+        initial = {}
+        field_name = request.GET.get('field_name')
+        if field_name:
+            initial['field_name'] = field_name
+        form = ModelFieldMappingForm(instance=mapping, initial=initial)
+
+    return render(request, 'modelforms/partials/add_field_form.html', {
+        'configuration': configuration,
+        'form': form,
+    })
+
+
+@login_required
+@require_http_methods(['DELETE', 'POST'])
+@permission_required_business('modelforms.change_configuration')
+def delete_field_mapping(request, pk, mapping_pk):
+    """Supprime un mapping de champ (HTMX)."""
+    configuration = get_object_or_404(FormConfiguration, pk=pk)
+    mapping = get_object_or_404(ModelFieldMapping, pk=mapping_pk, form_config=configuration)
+    mapping.delete()
+
+    if request.headers.get('HX-Request'):
+        # Return updated list
+        field_mappings = configuration.field_mappings.all().order_by('order')
+        return render(request, 'modelforms/partials/field_mappings.html', {
+            'configuration': configuration,
+            'field_mappings': field_mappings,
+        })
+
+    return redirect('modelforms:configuration-fields', pk=pk)
+
+
+# =============================================================================
+# INTROSPECTION (HTMX)
+# =============================================================================
+
+@login_required
+@permission_required_business('modelforms.introspect_models')
+def introspect_model(request, model_path):
+    """Retourne le schéma d'un modèle pour HTMX."""
+    try:
+        introspector = ModelIntrospector(model_path)
+        schema = introspector.get_schema()
+        return render(request, 'modelforms/partials/model_schema.html', {
+            'schema': schema,
+        })
+    except ValueError as e:
+        return HttpResponse(f'Erreur: {e}', status=400)
+
+
+# =============================================================================
+# TEMPLATES
+# =============================================================================
+
+class FormTemplateListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+    """Liste des templates de formulaires."""
+
+    model = FormTemplate
+    business_permission = 'modelforms.view_templates'
+    template_name = 'modelforms/template_list.html'
+    context_object_name = 'templates'
+
+    def get_queryset(self):
+        return FormTemplate.objects.filter(is_active=True).order_by('category', 'name')
+
+
+@login_required
+@require_POST
+@permission_required_business('modelforms.add_configuration')
+def instantiate_template(request, pk):
+    """Crée une configuration à partir d'un template."""
+    template = get_object_or_404(FormTemplate, pk=pk)
+    config_data = template.template_config.copy()
+
+    # Générer un code unique
+    base_code = config_data.get('code', template.code)
+    counter = 1
+    new_code = base_code
+    while FormConfiguration.objects.filter(code=new_code).exists():
+        new_code = f"{base_code}_{counter}"
+        counter += 1
+
+    # Extraire les field_mappings
+    field_mappings_data = config_data.pop('field_mappings', [])
+
+    # Créer la configuration
+    config = FormConfiguration.objects.create(
+        code=new_code,
+        name=config_data.get('name', template.name),
+        description=config_data.get('description', template.description),
+        category=config_data.get('category', template.category),
+        target_model=config_data.get('target_model', ''),
+        related_models=config_data.get('related_models', []),
+        form_schema=config_data.get('form_schema', {}),
+        default_values=config_data.get('default_values', {}),
+        validation_rules=config_data.get('validation_rules', []),
+        post_actions=config_data.get('post_actions', []),
+        status=FormConfiguration.Status.DRAFT,
+        require_validation=config_data.get('require_validation', False),
+        icon=template.icon,
+        created_by=request.user,
+    )
+
+    # Créer les mappings
+    for mapping_data in field_mappings_data:
+        ModelFieldMapping.objects.create(
+            form_config=config,
+            **mapping_data
+        )
+
+    messages.success(request, _('Configuration créée à partir du template.'))
+    return redirect('modelforms:configuration-detail', pk=config.pk)
+
+
+# =============================================================================
+# SOUMISSIONS
+# =============================================================================
+
+class FormSubmissionListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+    """Liste des soumissions de formulaires."""
+
+    model = FormSubmission
+    business_permission = 'modelforms.view_submissions'
+    template_name = 'modelforms/submission_list.html'
+    context_object_name = 'submissions'
+    paginate_by = 30
+
+    def get_queryset(self):
+        queryset = FormSubmission.objects.select_related(
+            'form_config',
+            'submitted_by',
+            'validated_by',
+        ).order_by('-submitted_at')
+
+        # Non-managers ne voient que leurs soumissions
+        if not self.request.user.is_manager():
+            queryset = queryset.filter(submitted_by=self.request.user)
+
+        # Filtres
+        status = self.request.GET.get('status')
+        if status:
+            queryset = queryset.filter(status=status)
+
+        form_config = self.request.GET.get('form_config')
+        if form_config:
+            queryset = queryset.filter(form_config_id=form_config)
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['stats'] = {
+            'total': FormSubmission.objects.count(),
+            'pending': FormSubmission.objects.filter(status='PENDING').count(),
+            'completed': FormSubmission.objects.filter(status='COMPLETED').count(),
+            'failed': FormSubmission.objects.filter(status='FAILED').count(),
+        }
+        context['statuses'] = FormSubmission.Status.choices
+        context['configurations'] = FormConfiguration.objects.filter(status='ACTIVE')
+        return context
+
+
+class FormSubmissionDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
+    """Détail d'une soumission."""
+
+    model = FormSubmission
+    business_permission = 'modelforms.view_submissions'
+    template_name = 'modelforms/submission_detail.html'
+    context_object_name = 'submission'
+
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related(
+            'form_config',
+            'submitted_by',
+            'validated_by',
+            'mandat',
+        )
+        # Non-managers ne voient que leurs soumissions
+        if not self.request.user.is_manager():
+            queryset = queryset.filter(submitted_by=self.request.user)
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        import json
+        context = super().get_context_data(**kwargs)
+        context['submitted_data'] = self.object.submitted_data or {}
+        context['raw_json'] = json.dumps(self.object.submitted_data or {}, indent=2, ensure_ascii=False)
+        return context
+
+
+@login_required
+@require_POST
+@permission_required_business('modelforms.validate_submission')
+def validate_submission(request, pk):
+    """Valide une soumission en attente."""
+    submission = get_object_or_404(FormSubmission, pk=pk)
+
+    if submission.status != FormSubmission.Status.PENDING:
+        messages.error(request, _('Seules les soumissions en attente peuvent être validées.'))
+        return redirect('modelforms:submission-detail', pk=pk)
+
+    notes = request.POST.get('notes', '')
+
+    # Traiter la soumission
+    handler = SubmissionHandler(
+        form_config=submission.form_config,
+        submitted_data=submission.submitted_data,
+        user=submission.submitted_by,
+        mandat=submission.mandat,
+    )
+
+    success, records, errors = handler.process()
+
+    if success:
+        submission.status = FormSubmission.Status.COMPLETED
+        submission.created_records = records
+        submission.validated_by = request.user
+        submission.validated_at = timezone.now()
+        submission.validation_notes = notes
+        submission.save()
+        messages.success(request, _('Soumission validée et enregistrements créés.'))
+    else:
+        submission.status = FormSubmission.Status.FAILED
+        submission.error_message = '; '.join(errors)
+        submission.error_details = {'errors': errors}
+        submission.save()
+        messages.error(request, _('Échec de la validation: ') + '; '.join(errors))
+
+    return redirect('modelforms:submission-detail', pk=pk)
+
+
+@login_required
+@require_POST
+@permission_required_business('modelforms.reject_submission')
+def reject_submission(request, pk):
+    """Rejette une soumission en attente."""
+    submission = get_object_or_404(FormSubmission, pk=pk)
+
+    if submission.status != FormSubmission.Status.PENDING:
+        messages.error(request, _('Seules les soumissions en attente peuvent être rejetées.'))
+        return redirect('modelforms:submission-detail', pk=pk)
+
+    reason = request.POST.get('reason', '')
+    if not reason:
+        messages.error(request, _('Une raison de rejet est requise.'))
+        return redirect('modelforms:submission-detail', pk=pk)
+
+    submission.status = FormSubmission.Status.REJECTED
+    submission.validated_by = request.user
+    submission.validated_at = timezone.now()
+    submission.validation_notes = reason
+    submission.save()
+
+    messages.success(request, _('Soumission rejetée.'))
+    return redirect('modelforms:submission-detail', pk=pk)
+
+
+# =============================================================================
+# DUPLICATION
+# =============================================================================
+
+@login_required
+@require_POST
+@permission_required_business('modelforms.add_configuration')
+def duplicate_configuration(request, pk):
+    """Duplique une configuration existante."""
+    original = get_object_or_404(FormConfiguration, pk=pk)
+
+    # Générer un nouveau code
+    base_code = f"{original.code}_COPY"
+    counter = 1
+    new_code = base_code
+    while FormConfiguration.objects.filter(code=new_code).exists():
+        new_code = f"{base_code}_{counter}"
+        counter += 1
+
+    # Créer la copie
+    new_config = FormConfiguration.objects.create(
+        code=new_code,
+        name=f"{original.name} (copie)",
+        description=original.description,
+        category=original.category,
+        target_model=original.target_model,
+        related_models=original.related_models,
+        form_schema=original.form_schema,
+        default_values=original.default_values,
+        validation_rules=original.validation_rules,
+        post_actions=original.post_actions,
+        status=FormConfiguration.Status.DRAFT,
+        require_validation=original.require_validation,
+        icon=original.icon,
+        created_by=request.user,
+    )
+
+    # Copier les mappings
+    for mapping in original.field_mappings.all():
+        ModelFieldMapping.objects.create(
+            form_config=new_config,
+            field_name=mapping.field_name,
+            model_path=mapping.model_path,
+            widget_type=mapping.widget_type,
+            label=mapping.label,
+            help_text=mapping.help_text,
+            placeholder=mapping.placeholder,
+            required=mapping.required,
+            min_value=mapping.min_value,
+            max_value=mapping.max_value,
+            min_length=mapping.min_length,
+            max_length=mapping.max_length,
+            regex_pattern=mapping.regex_pattern,
+            conditions=mapping.conditions,
+            order=mapping.order,
+            section=mapping.section,
+            options=mapping.options,
+        )
+
+    messages.success(request, _('Configuration dupliquée avec succès.'))
+    return redirect('modelforms:configuration-detail', pk=new_config.pk)

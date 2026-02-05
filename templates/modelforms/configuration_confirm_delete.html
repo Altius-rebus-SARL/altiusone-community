@@ -1,0 +1,83 @@
+<!-- modelforms/configuration_confirm_delete.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Supprimer la configuration" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Supprimer la configuration" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'modelforms:configuration-list' %}">{% trans "Formulaires dynamiques" %}</a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Supprimer" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <div class="mb-4">
+                    <i class="ph-duotone ph-warning-circle f-s-80 text-danger"></i>
+                </div>
+                <h4>{% trans "Confirmer la suppression" %}</h4>
+                <p class="text-muted">
+                    {% blocktrans with name=object.name %}
+                    Êtes-vous sûr de vouloir supprimer la configuration <strong>{{ name }}</strong> ?
+                    {% endblocktrans %}
+                </p>
+
+                {% if object.submissions.exists %}
+                <div class="alert alert-warning">
+                    <i class="ph-duotone ph-warning me-2"></i>
+                    {% blocktrans with count=object.submissions.count %}
+                    Cette configuration a {{ count }} soumission(s) associée(s) qui seront également supprimées.
+                    {% endblocktrans %}
+                </div>
+                {% endif %}
+
+                <div class="bg-light rounded p-3 mb-4">
+                    <div class="row text-start">
+                        <div class="col-6">
+                            <small class="text-muted">{% trans "Code" %}</small>
+                            <p class="mb-0"><code>{{ object.code }}</code></p>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">{% trans "Modèle cible" %}</small>
+                            <p class="mb-0"><code>{{ object.target_model }}</code></p>
+                        </div>
+                    </div>
+                </div>
+
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-flex gap-2 justify-content-center">
+                        <a href="{% url 'modelforms:configuration-detail' object.pk %}" class="btn btn-secondary">
+                            <i class="ti ti-arrow-left me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="ti ti-trash me-2"></i>{% trans "Supprimer définitivement" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

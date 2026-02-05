@@ -212,6 +212,31 @@ PERMISSIONS_METIER = {
         'admin_settings': _('Accéder aux paramètres d\'administration'),
         'backup_restore': _('Sauvegarder et restaurer'),
     },
+
+    # ============ MODULE MODELFORMS ============
+    'modelforms': {
+        # Configurations
+        'view_configurations': _('Consulter les configurations de formulaires'),
+        'add_configuration': _('Créer des configurations de formulaires'),
+        'change_configuration': _('Modifier les configurations de formulaires'),
+        'delete_configuration': _('Supprimer des configurations de formulaires'),
+
+        # Soumissions
+        'view_submissions': _('Consulter les soumissions'),
+        'view_all_submissions': _('Consulter toutes les soumissions'),
+        'add_submission': _('Soumettre des formulaires'),
+        'validate_submission': _('Valider les soumissions'),
+        'reject_submission': _('Rejeter les soumissions'),
+
+        # Templates
+        'view_templates': _('Consulter les templates'),
+        'add_template': _('Créer des templates'),
+        'change_template': _('Modifier les templates'),
+        'delete_template': _('Supprimer des templates'),
+
+        # Introspection
+        'introspect_models': _('Utiliser l\'introspection des modèles'),
+    },
 }
 
 
@@ -338,6 +363,21 @@ ROLE_PERMISSIONS = {
         'core.change_mandat',
         'core.view_users',
         'core.view_audit_log',
+
+        # Modelforms (complet)
+        'modelforms.view_configurations',
+        'modelforms.add_configuration',
+        'modelforms.change_configuration',
+        'modelforms.delete_configuration',
+        'modelforms.view_submissions',
+        'modelforms.view_all_submissions',
+        'modelforms.add_submission',
+        'modelforms.validate_submission',
+        'modelforms.reject_submission',
+        'modelforms.view_templates',
+        'modelforms.add_template',
+        'modelforms.change_template',
+        'modelforms.introspect_models',
     ],
 
     'COMPTABLE': [
@@ -409,6 +449,12 @@ ROLE_PERMISSIONS = {
         # Core
         'core.view_clients',
         'core.view_mandats',
+
+        # Modelforms (soumission)
+        'modelforms.view_configurations',
+        'modelforms.view_submissions',
+        'modelforms.add_submission',
+        'modelforms.view_templates',
     ],
 
     'ASSISTANT': [

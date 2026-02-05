@@ -1,0 +1,232 @@
+<!-- modelforms/configuration_form.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}
+{% if form.instance.pk %}{% trans "Modifier la configuration" %}{% else %}{% trans "Nouvelle configuration" %}{% endif %}
+{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">
+            {% if form.instance.pk %}{% trans "Modifier la configuration" %}{% else %}{% trans "Nouvelle configuration" %}{% endif %}
+        </h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'modelforms:configuration-list' %}">{% trans "Formulaires dynamiques" %}</a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">
+                    {% if form.instance.pk %}{{ form.instance.name }}{% else %}{% trans "Nouveau" %}{% endif %}
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<form method="post" class="app-form">
+    {% csrf_token %}
+
+    <div class="row">
+        <!-- Main Form -->
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Informations générales" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label" for="id_code">{% trans "Code" %} <span class="text-danger">*</span></label>
+                            {{ form.code }}
+                            {% if form.code.errors %}
+                            <div class="invalid-feedback d-block">{{ form.code.errors.0 }}</div>
+                            {% endif %}
+                            <small class="text-muted">{% trans "Identifiant unique (ex: CLIENT_RAPIDE)" %}</small>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label" for="id_name">{% trans "Nom" %} <span class="text-danger">*</span></label>
+                            {{ form.name }}
+                            {% if form.name.errors %}
+                            <div class="invalid-feedback d-block">{{ form.name.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="id_description">{% trans "Description" %}</label>
+                        {{ form.description }}
+                        {% if form.description.errors %}
+                        <div class="invalid-feedback d-block">{{ form.description.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label" for="id_category">{% trans "Catégorie" %} <span class="text-danger">*</span></label>
+                            {{ form.category }}
+                            {% if form.category.errors %}
+                            <div class="invalid-feedback d-block">{{ form.category.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label" for="id_icon">{% trans "Icône" %}</label>
+                            {{ form.icon }}
+                            {% if form.icon.errors %}
+                            <div class="invalid-feedback d-block">{{ form.icon.errors.0 }}</div>
+                            {% endif %}
+                            <small class="text-muted">{% trans "Classe CSS de l'icône (ex: ph-file-text)" %}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Target Model Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Modèle cible" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label" for="id_target_model">{% trans "Modèle Django" %} <span class="text-danger">*</span></label>
+                        <select name="target_model" id="id_target_model"
+                                class="form-select select-basic"
+                                hx-get="{% url 'modelforms:introspect-model' model_path='__MODEL__' %}"
+                                hx-trigger="change"
+                                hx-target="#model-schema-preview"
+                                hx-swap="innerHTML"
+                                hx-vals='js:{"model_path": document.getElementById("id_target_model").value}'>
+                            {% for value, label in form.fields.target_model.choices %}
+                            <option value="{{ value }}" {% if form.target_model.value == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                        {% if form.target_model.errors %}
+                        <div class="invalid-feedback d-block">{{ form.target_model.errors.0 }}</div>
+                        {% endif %}
+                        <small class="text-muted">{% trans "Le modèle Django sur lequel ce formulaire créera des enregistrements" %}</small>
+                    </div>
+
+                    <!-- Model Schema Preview -->
+                    <div id="model-schema-preview">
+                        {% if form.instance.pk and form.instance.target_model %}
+                        <div class="alert alert-info">
+                            <i class="ph-duotone ph-info me-2"></i>
+                            {% trans "Sélectionnez un modèle pour voir sa structure" %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Status Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Publication" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label" for="id_status">{% trans "Statut" %}</label>
+                        {{ form.status }}
+                        {% if form.status.errors %}
+                        <div class="invalid-feedback d-block">{{ form.status.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="form-check mb-3">
+                        {{ form.require_validation }}
+                        <label class="form-check-label" for="id_require_validation">
+                            {% trans "Nécessite validation" %}
+                        </label>
+                        <small class="d-block text-muted">{% trans "Les soumissions devront être validées avant traitement" %}</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Actions" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ti ti-device-floppy me-2"></i>
+                            {% if form.instance.pk %}{% trans "Enregistrer" %}{% else %}{% trans "Créer" %}{% endif %}
+                        </button>
+
+                        {% if form.instance.pk %}
+                        <a href="{% url 'modelforms:configuration-advanced' form.instance.pk %}" class="btn btn-outline-secondary">
+                            <i class="ti ti-settings me-2"></i>{% trans "Configuration avancée" %}
+                        </a>
+                        <a href="{% url 'modelforms:configuration-fields' form.instance.pk %}" class="btn btn-outline-info">
+                            <i class="ti ti-list me-2"></i>{% trans "Gérer les champs" %}
+                        </a>
+                        {% endif %}
+
+                        <a href="{% url 'modelforms:configuration-list' %}" class="btn btn-outline-secondary">
+                            <i class="ti ti-arrow-left me-2"></i>{% trans "Annuler" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Help Card -->
+            <div class="card bg-light-primary">
+                <div class="card-body">
+                    <h6><i class="ph-duotone ph-lightbulb me-2"></i>{% trans "Aide" %}</h6>
+                    <p class="small mb-0">
+                        {% trans "Commencez par créer la configuration de base, puis utilisez 'Gérer les champs' pour personnaliser les champs du formulaire." %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-generate code from name
+    const nameInput = document.getElementById('id_name');
+    const codeInput = document.getElementById('id_code');
+
+    if (nameInput && codeInput && !codeInput.value) {
+        nameInput.addEventListener('input', function() {
+            const code = this.value
+                .toUpperCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^A-Z0-9]+/g, '_')
+                .replace(/^_|_$/g, '')
+                .substring(0, 50);
+            codeInput.value = code;
+        });
+    }
+
+    // HTMX: Update introspection URL with selected model
+    document.getElementById('id_target_model').addEventListener('htmx:configRequest', function(evt) {
+        const model = this.value;
+        if (model) {
+            evt.detail.path = evt.detail.path.replace('__MODEL__', model);
+        } else {
+            evt.preventDefault();
+        }
+    });
+});
+</script>
+{% endblock %}

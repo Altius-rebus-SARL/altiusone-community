@@ -1,0 +1,209 @@
+<!-- modelforms/configuration_fields.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Gérer les champs" %} - {{ configuration.name }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Gérer les champs" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'modelforms:configuration-list' %}">{% trans "Formulaires dynamiques" %}</a>
+            </li>
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'modelforms:configuration-detail' configuration.pk %}">{{ configuration.code }}</a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Champs" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<div class="row">
+    <!-- Fields List -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>{% trans "Champs configurés" %} <span class="badge bg-primary ms-2" id="field-count">{{ field_mappings.count }}</span></h5>
+                <button type="button"
+                        class="btn btn-primary"
+                        hx-get="{% url 'modelforms:add-field-mapping' configuration.pk %}"
+                        hx-target="#add-field-modal .modal-body"
+                        hx-swap="innerHTML"
+                        data-bs-toggle="modal"
+                        data-bs-target="#add-field-modal">
+                    <i class="ti ti-plus me-2"></i>{% trans "Ajouter un champ" %}
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="field-mappings-list">
+                    {% include 'modelforms/partials/field_mappings.html' %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar: Model Schema -->
+    <div class="col-lg-4">
+        <!-- Actions -->
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Actions" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{% url 'modelforms:configuration-detail' configuration.pk %}" class="btn btn-outline-primary">
+                        <i class="ti ti-arrow-left me-2"></i>{% trans "Retour à la configuration" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Model Schema Reference -->
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Champs du modèle" %}</h5>
+                <small class="text-muted"><code>{{ configuration.target_model }}</code></small>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush" style="max-height: 400px; overflow-y: auto;">
+                    {% for field in model_fields %}
+                    <div class="list-group-item d-flex justify-content-between align-items-start">
+                        <div>
+                            <code class="text-primary">{{ field.name }}</code>
+                            <br>
+                            <small class="text-muted">{{ field.type }}</small>
+                            {% if field.required %}
+                            <span class="badge bg-danger-subtle text-danger ms-1">{% trans "requis" %}</span>
+                            {% endif %}
+                        </div>
+                        <button type="button"
+                                class="btn btn-sm btn-outline-primary"
+                                hx-get="{% url 'modelforms:add-field-mapping' configuration.pk %}?field_name={{ field.name }}"
+                                hx-target="#add-field-modal .modal-body"
+                                hx-swap="innerHTML"
+                                data-bs-toggle="modal"
+                                data-bs-target="#add-field-modal"
+                                title="{% trans 'Ajouter ce champ' %}">
+                            <i class="ti ti-plus"></i>
+                        </button>
+                    </div>
+                    {% empty %}
+                    <div class="list-group-item text-center text-muted">
+                        {% trans "Aucun champ disponible" %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Help -->
+        <div class="card bg-light-info">
+            <div class="card-body">
+                <h6><i class="ph-duotone ph-info me-2"></i>{% trans "Aide" %}</h6>
+                <ul class="small mb-0 ps-3">
+                    <li>{% trans "Cliquez sur '+' à côté d'un champ pour l'ajouter rapidement" %}</li>
+                    <li>{% trans "Utilisez le drag & drop pour réorganiser les champs" %}</li>
+                    <li>{% trans "Les champs requis du modèle doivent être inclus" %}</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Field Modal -->
+<div class="modal fade" id="add-field-modal" tabindex="-1" aria-labelledby="add-field-modal-label" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="add-field-modal-label">{% trans "Ajouter un champ" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Fermer' %}"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">{% trans "Chargement..." %}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Field Modal -->
+<div class="modal fade" id="edit-field-modal" tabindex="-1" aria-labelledby="edit-field-modal-label" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="edit-field-modal-label">{% trans "Modifier le champ" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Fermer' %}"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">{% trans "Chargement..." %}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.body.addEventListener('htmx:afterSwap', function(evt) {
+    // Refresh field count after HTMX swap
+    if (evt.detail.target.id === 'field-mappings-list') {
+        const count = document.querySelectorAll('#field-mappings-list .field-mapping-row').length;
+        document.getElementById('field-count').textContent = count;
+    }
+
+    // Close modal after successful form submission
+    if (evt.detail.target.classList.contains('modal-body')) {
+        const form = evt.detail.target.querySelector('form');
+        if (form) {
+            form.addEventListener('htmx:afterRequest', function(e) {
+                if (e.detail.successful) {
+                    const modal = bootstrap.Modal.getInstance(evt.detail.target.closest('.modal'));
+                    if (modal) modal.hide();
+                }
+            });
+        }
+    }
+});
+
+// Sortable for drag & drop reordering
+document.addEventListener('DOMContentLoaded', function() {
+    const list = document.getElementById('field-mappings-list');
+    if (list && typeof Sortable !== 'undefined') {
+        new Sortable(list.querySelector('tbody') || list, {
+            animation: 150,
+            handle: '.drag-handle',
+            onEnd: function(evt) {
+                // Update order via HTMX/AJAX
+                const items = list.querySelectorAll('.field-mapping-row');
+                const order = Array.from(items).map((item, index) => ({
+                    id: item.dataset.mappingId,
+                    order: index
+                }));
+                // POST order update
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -74,6 +74,7 @@ LOCAL_APPS = [
     "analytics",
     "mailing",
     "editeur",
+    "modelforms",
 ]
 
 

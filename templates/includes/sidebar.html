@@ -532,7 +532,46 @@
           </li>
         </ul>
       </li>
-      {% endif %} 
+
+      <!-- MODELFORMS Module - Form Builder -->
+      <li data-active="{% if ns == 'modelforms' %}true{% endif %}">
+        <a
+          data-expanded="{% if ns == 'modelforms' %}true{% else %}false{% endif %}"
+          data-bs-toggle="collapse"
+          href="#modelformsMenu"
+        >
+          <i class="ti ti-forms f-s-30"></i>
+          {% trans "Form Builder" %}
+        </a>
+        <ul
+          class="collapse"
+          data-show="{% if ns == 'modelforms' %}true{% endif %}"
+          id="modelformsMenu"
+        >
+          <li
+            data-active="{% if ns == 'modelforms' and 'configuration' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'modelforms:configuration-list' %}"
+              >{% trans "Configurations" %}</a
+            >
+          </li>
+          <li
+            data-active="{% if ns == 'modelforms' and 'template' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'modelforms:template-list' %}"
+              >{% trans "Templates" %}</a
+            >
+          </li>
+          <li
+            data-active="{% if ns == 'modelforms' and 'submission' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'modelforms:submission-list' %}"
+              >{% trans "Soumissions" %}</a
+            >
+          </li>
+        </ul>
+      </li>
+      {% endif %}
       {% endwith %}
     </ul>
   </div>

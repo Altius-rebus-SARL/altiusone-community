@@ -32,6 +32,7 @@ from fiscalite.api_urls import router as fisc_router
 from analytics.api_urls import router as analytics_router
 from mailing.api_urls import router as mailing_router
 from editeur.api_urls import urlpatterns as editeur_api_urls
+from modelforms.api_urls import router as modelforms_router
 
 # Créer un router principal
 api_v1_router = DefaultRouter()
@@ -46,6 +47,7 @@ api_v1_router.registry.extend(docs_router.registry)
 api_v1_router.registry.extend(fisc_router.registry)
 api_v1_router.registry.extend(analytics_router.registry)
 api_v1_router.registry.extend(mailing_router.registry)
+api_v1_router.registry.extend(modelforms_router.registry)
 
 
 class HealthCheckView(View):
@@ -122,6 +124,7 @@ urlpatterns += i18n_patterns(
     path("analytics/", include("analytics.urls", namespace="analytics")),
     path("mailing/", include("mailing.urls", namespace="mailing")),
     path("editeur/", include("editeur.urls", namespace="editeur")),
+    path("modelforms/", include("modelforms.urls", namespace="modelforms")),
     # Import/Export générique pour tous les modèles
     path("import-export/", include("core.import_export.urls", namespace="import_export")),
     prefix_default_language=True,
