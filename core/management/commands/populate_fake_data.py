@@ -3,11 +3,27 @@
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.contrib.auth import get_user_model
+from django.core.files.base import ContentFile
+from django.conf import settings
 from faker import Faker
 from decimal import Decimal
 import random
 from datetime import datetime, timedelta, date
 import uuid
+import os
+import hashlib
+import tempfile
+
+# faker-file imports for document generation
+try:
+    from faker_file.providers.pdf_file import PdfFileProvider
+    from faker_file.providers.docx_file import DocxFileProvider
+    from faker_file.providers.xlsx_file import XlsxFileProvider
+    from faker_file.providers.png_file import PngFileProvider
+    from faker_file.providers.txt_file import TxtFileProvider
+    FAKER_FILE_AVAILABLE = True
+except ImportError:
+    FAKER_FILE_AVAILABLE = False
 
 # Import all models
 from core.models import (
@@ -82,6 +98,14 @@ class Command(BaseCommand):
         self.fake_en = Faker("en_GB")
         self.fake = self.fake_fr  # Par défaut
 
+        # Register faker-file providers if available
+        if FAKER_FILE_AVAILABLE:
+            self.fake.add_provider(PdfFileProvider)
+            self.fake.add_provider(DocxFileProvider)
+            self.fake.add_provider(XlsxFileProvider)
+            self.fake.add_provider(PngFileProvider)
+            self.fake.add_provider(TxtFileProvider)
+
     def add_arguments(self, parser):
         parser.add_argument(
             "--clients",
@@ -105,6 +129,22 @@ class Command(BaseCommand):
             default=42,
             help="Seed pour reproductibilité",
         )
+        parser.add_argument(
+            "--with-files",
+            action="store_true",
+            help="Génère de vrais fichiers PDF/DOCX/XLSX pour les documents",
+        )
+        parser.add_argument(
+            "--documents-count",
+            type=int,
+            default=50,
+            help="Nombre de documents à créer (avec --with-files)",
+        )
+        parser.add_argument(
+            "--only-documents",
+            action="store_true",
+            help="Ne génère que les documents (skip autres données)",
+        )
 
     def handle(self, *args, **options):
         # Initialiser les seeds
@@ -113,6 +153,11 @@ class Command(BaseCommand):
 
         if options["clean"]:
             self._clean_data()
+
+        # Mode documents uniquement
+        if options["only_documents"]:
+            self._generate_documents_only(options)
+            return
 
         with transaction.atomic():
             self.stdout.write(
@@ -156,7 +201,10 @@ class Command(BaseCommand):
             self._create_categories_documents()
             self._create_types_documents()
             self._create_dossiers(clients)
-            self._create_documents(mandats)
+            if options["with_files"]:
+                self._create_documents_with_files(mandats, options["documents_count"])
+            else:
+                self._create_documents(mandats)
 
             # 7. Fiscalité
             self._create_taux_imposition()
@@ -169,6 +217,46 @@ class Command(BaseCommand):
             self._create_rapports(mandats, users)
 
             self.stdout.write(self.style.SUCCESS("✅ Données générées avec succès!"))
+
+    def _generate_documents_only(self, options):
+        """Génère uniquement des documents avec fichiers réels"""
+        if not FAKER_FILE_AVAILABLE:
+            self.stdout.write(
+                self.style.ERROR(
+                    "❌ faker-file non installé. Installez avec: "
+                    "pip install faker-file[common,pdf,docx,xlsx,images]"
+                )
+            )
+            return
+
+        self.stdout.write(
+            self.style.WARNING("📄 Génération des documents uniquement...")
+        )
+
+        mandats = list(Mandat.objects.all())
+        if not mandats:
+            self.stdout.write(
+                self.style.ERROR(
+                    "❌ Aucun mandat trouvé. Exécutez d'abord sans --only-documents"
+                )
+            )
+            return
+
+        # S'assurer que les catégories et types existent
+        self._create_categories_documents()
+        self._create_types_documents()
+
+        # Créer les dossiers si nécessaire
+        from core.models import Client
+        clients = list(Client.objects.all()[:10])
+        if clients:
+            self._create_dossiers(clients)
+
+        # Générer les documents avec fichiers
+        with transaction.atomic():
+            self._create_documents_with_files(mandats, options["documents_count"])
+
+        self.stdout.write(self.style.SUCCESS("✅ Documents générés avec succès!"))
 
     def _clean_data(self):
         """Supprime les données existantes"""
@@ -1655,7 +1743,6 @@ class Command(BaseCommand):
                     extension=".pdf",
                     mime_type="application/pdf",
                     taille=random.randint(10000, 1000000),
-                    path_storage=f"/storage/{mandat.id}/doc_{random.randint(1000, 9999)}.pdf",
                     hash_fichier=self.fake.sha256(),
                     type_document=random.choice(types_doc) if types_doc else None,
                     categorie=random.choice(categories) if categories else None,
@@ -1667,6 +1754,835 @@ class Command(BaseCommand):
                 count += 1
 
         self.stdout.write(f"  ✓ {count} documents")
+
+    def _create_documents_with_files(self, mandats, count=50):
+        """
+        Crée des documents avec de vrais fichiers PDF/DOCX/XLSX.
+        Les fichiers contiennent du texte métier suisse réaliste pour la vectorisation.
+        """
+        if not FAKER_FILE_AVAILABLE:
+            self.stdout.write(
+                self.style.ERROR(
+                    "❌ faker-file non disponible, création de documents sans fichiers"
+                )
+            )
+            self._create_documents(mandats)
+            return
+
+        self.stdout.write(f"📄 Création de {count} documents avec fichiers réels...")
+
+        dossiers = list(Dossier.objects.all())
+        types_doc = list(TypeDocument.objects.all())
+        categories = list(CategorieDocument.objects.all())
+
+        if not dossiers:
+            self.stdout.write(self.style.WARNING("⚠ Aucun dossier trouvé"))
+            return
+
+        # Templates de contenu métier suisse
+        document_templates = self._get_document_templates()
+
+        created = 0
+        for i in range(count):
+            mandat = random.choice(mandats)
+            dossier = next(
+                (d for d in dossiers if d.client == mandat.client),
+                random.choice(dossiers)
+            )
+
+            # Choisir un type de document et son template
+            doc_type = random.choice(list(document_templates.keys()))
+            template = document_templates[doc_type]
+
+            # Générer le contenu personnalisé
+            content = self._generate_document_content(template, mandat)
+
+            # Choisir le format de fichier
+            file_format = random.choice(template.get("formats", ["pdf"]))
+
+            try:
+                # Générer le fichier réel
+                file_data = self._generate_file(content, file_format, template)
+                if not file_data:
+                    continue
+
+                file_content, filename, mime_type, extension = file_data
+
+                # Calculer le hash
+                file_hash = hashlib.sha256(file_content).hexdigest()
+
+                # Vérifier si le hash existe déjà
+                if Document.objects.filter(hash_fichier=file_hash).exists():
+                    file_hash = hashlib.sha256(
+                        file_content + str(uuid.uuid4()).encode()
+                    ).hexdigest()
+
+                # Créer le document
+                doc = Document.objects.create(
+                    mandat=mandat,
+                    dossier=dossier,
+                    nom_fichier=filename,
+                    nom_original=filename,
+                    extension=extension,
+                    mime_type=mime_type,
+                    taille=len(file_content),
+                    hash_fichier=file_hash,
+                    type_document=random.choice(types_doc) if types_doc else None,
+                    categorie=random.choice(categories) if categories else None,
+                    date_document=self.fake.date_between(
+                        start_date="-180d", end_date="today"
+                    ),
+                    statut_traitement="VALIDE",
+                    ocr_text=content,  # Texte pour la vectorisation
+                    ocr_confidence=Decimal("95.00"),
+                )
+
+                # Sauvegarder le fichier
+                doc.fichier.save(filename, ContentFile(file_content), save=True)
+
+                created += 1
+
+                if created % 10 == 0:
+                    self.stdout.write(f"  → {created}/{count} documents créés...")
+
+            except Exception as e:
+                self.stdout.write(
+                    self.style.WARNING(f"  ⚠ Erreur création document: {e}")
+                )
+                continue
+
+        self.stdout.write(f"  ✓ {created} documents avec fichiers réels")
+
+    def _get_document_templates(self):
+        """Retourne les templates de documents métier suisses"""
+        return {
+            "facture_vente": {
+                "titre": "Facture",
+                "formats": ["pdf", "docx"],
+                "content_generator": self._generate_facture_content,
+            },
+            "facture_achat": {
+                "titre": "Facture fournisseur",
+                "formats": ["pdf"],
+                "content_generator": self._generate_facture_fournisseur_content,
+            },
+            "releve_bancaire": {
+                "titre": "Relevé bancaire",
+                "formats": ["pdf", "xlsx"],
+                "content_generator": self._generate_releve_bancaire_content,
+            },
+            "contrat_travail": {
+                "titre": "Contrat de travail",
+                "formats": ["pdf", "docx"],
+                "content_generator": self._generate_contrat_travail_content,
+            },
+            "fiche_salaire": {
+                "titre": "Fiche de salaire",
+                "formats": ["pdf"],
+                "content_generator": self._generate_fiche_salaire_content,
+            },
+            "declaration_tva": {
+                "titre": "Déclaration TVA",
+                "formats": ["pdf"],
+                "content_generator": self._generate_declaration_tva_content,
+            },
+            "bilan": {
+                "titre": "Bilan comptable",
+                "formats": ["pdf", "xlsx"],
+                "content_generator": self._generate_bilan_content,
+            },
+            "rapport_annuel": {
+                "titre": "Rapport annuel",
+                "formats": ["pdf", "docx"],
+                "content_generator": self._generate_rapport_annuel_content,
+            },
+            "pv_assemblee": {
+                "titre": "PV Assemblée générale",
+                "formats": ["pdf", "docx"],
+                "content_generator": self._generate_pv_assemblee_content,
+            },
+            "attestation_domicile": {
+                "titre": "Attestation de domicile",
+                "formats": ["pdf"],
+                "content_generator": self._generate_attestation_content,
+            },
+            "courrier_afc": {
+                "titre": "Correspondance AFC",
+                "formats": ["pdf"],
+                "content_generator": self._generate_courrier_afc_content,
+            },
+            "decompte_avs": {
+                "titre": "Décompte AVS",
+                "formats": ["pdf", "xlsx"],
+                "content_generator": self._generate_decompte_avs_content,
+            },
+        }
+
+    def _generate_document_content(self, template, mandat):
+        """Génère le contenu texte d'un document"""
+        generator = template.get("content_generator")
+        if generator:
+            return generator(mandat)
+        return self._generate_generic_content(mandat)
+
+    def _generate_file(self, content, file_format, template):
+        """Génère un fichier réel avec le contenu"""
+        try:
+            titre = template.get("titre", "Document")
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            base_name = f"{titre.replace(' ', '_')}_{timestamp}_{random.randint(1000, 9999)}"
+
+            if file_format == "pdf":
+                # Générer un PDF avec texte
+                file_obj = self.fake.pdf_file(
+                    content=content,
+                    max_nb_pages=random.randint(1, 5),
+                    wrap_chars_after=80,
+                )
+                filename = f"{base_name}.pdf"
+                mime_type = "application/pdf"
+                extension = ".pdf"
+
+            elif file_format == "docx":
+                # Générer un DOCX
+                file_obj = self.fake.docx_file(
+                    content=content,
+                    max_nb_pages=random.randint(1, 3),
+                    wrap_chars_after=80,
+                )
+                filename = f"{base_name}.docx"
+                mime_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                extension = ".docx"
+
+            elif file_format == "xlsx":
+                # Générer un XLSX avec données tabulaires
+                file_obj = self.fake.xlsx_file(
+                    content=content,
+                )
+                filename = f"{base_name}.xlsx"
+                mime_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                extension = ".xlsx"
+
+            else:
+                # Fallback en TXT
+                file_obj = self.fake.txt_file(
+                    content=content,
+                )
+                filename = f"{base_name}.txt"
+                mime_type = "text/plain"
+                extension = ".txt"
+
+            # Lire le contenu du fichier
+            with open(file_obj.data["filename"], "rb") as f:
+                file_content = f.read()
+
+            # Nettoyer le fichier temporaire
+            os.unlink(file_obj.data["filename"])
+
+            return file_content, filename, mime_type, extension
+
+        except Exception as e:
+            self.stdout.write(
+                self.style.WARNING(f"  ⚠ Erreur génération fichier {file_format}: {e}")
+            )
+            return None
+
+    # =========================================================================
+    # GÉNÉRATEURS DE CONTENU MÉTIER SUISSE
+    # =========================================================================
+
+    def _generate_facture_content(self, mandat):
+        """Génère le contenu d'une facture de vente"""
+        client = mandat.client
+        montant = Decimal(str(random.randint(500, 50000)))
+        tva = (montant * Decimal("8.1") / 100).quantize(Decimal("0.01"))
+
+        return f"""
+FACTURE N° {random.randint(10000, 99999)}
+
+AltiusOne Fiduciaire SA
+Rue du Marché 15
+1204 Genève
+Suisse
+CHE-123.456.789 TVA
+
+Facturé à:
+{client.raison_sociale}
+{client.adresse_siege.rue} {client.adresse_siege.numero}
+{client.adresse_siege.code_postal} {client.adresse_siege.localite}
+{client.ide_number if client.ide_number else ''}
+
+Date: {self.fake.date_between(start_date="-60d", end_date="today")}
+Échéance: {self.fake.date_between(start_date="today", end_date="+30d")}
+
+Description des prestations:
+---------------------------------------------------------------------------
+Tenue de la comptabilité - {self.fake.month_name()} 2024
+Services de conseil fiscal
+Établissement des décomptes TVA trimestriels
+Révision des comptes annuels
+Préparation de la déclaration d'impôt
+
+Montant HT:                                          CHF {montant:,.2f}
+TVA 8.1%:                                            CHF {tva:,.2f}
+---------------------------------------------------------------------------
+TOTAL TTC:                                           CHF {montant + tva:,.2f}
+
+Conditions de paiement: 30 jours net
+IBAN: CH93 0076 2011 6238 5295 7
+Référence QR: {random.randint(100000000000000000000000000, 999999999999999999999999999)}
+
+Merci de votre confiance.
+"""
+
+    def _generate_facture_fournisseur_content(self, mandat):
+        """Génère le contenu d'une facture fournisseur"""
+        fournisseur = self.fake.company()
+        montant = Decimal(str(random.randint(100, 15000)))
+        tva = (montant * Decimal("8.1") / 100).quantize(Decimal("0.01"))
+
+        return f"""
+FACTURE FOURNISSEUR
+
+{fournisseur}
+{self.fake.street_address()}
+{random.choice(['1200', '1003', '8001', '3000'])} {random.choice(['Genève', 'Lausanne', 'Zürich', 'Bern'])}
+CHE-{random.randint(100,999)}.{random.randint(100,999)}.{random.randint(100,999)} TVA
+
+Facture N°: {random.randint(1000, 9999)}
+Date: {self.fake.date_between(start_date="-30d", end_date="today")}
+
+Client:
+{mandat.client.raison_sociale}
+
+Articles / Services:
+---------------------------------------------------------------------------
+{self.fake.sentence(nb_words=6)}
+{self.fake.sentence(nb_words=4)}
+Frais de livraison
+
+Sous-total HT:                                       CHF {montant:,.2f}
+TVA 8.1%:                                            CHF {tva:,.2f}
+---------------------------------------------------------------------------
+Total à payer:                                       CHF {montant + tva:,.2f}
+
+Paiement à 30 jours
+IBAN: CH{random.randint(10,99)} {random.randint(1000,9999)} {random.randint(1000,9999)} {random.randint(1000,9999)} {random.randint(1000,9999)} {random.randint(0,9)}
+"""
+
+    def _generate_releve_bancaire_content(self, mandat):
+        """Génère le contenu d'un relevé bancaire"""
+        solde_initial = Decimal(str(random.randint(10000, 500000)))
+        operations = []
+        solde = solde_initial
+
+        for _ in range(random.randint(10, 25)):
+            is_credit = random.random() > 0.4
+            montant = Decimal(str(random.randint(100, 25000)))
+            if is_credit:
+                solde += montant
+                operations.append(f"+ {montant:>12,.2f}   {self.fake.sentence(nb_words=4)}")
+            else:
+                solde -= montant
+                operations.append(f"- {montant:>12,.2f}   {self.fake.sentence(nb_words=4)}")
+
+        operations_text = "\n".join(operations)
+
+        return f"""
+RELEVÉ DE COMPTE
+
+Banque Cantonale de Genève
+{mandat.client.raison_sociale}
+Compte: CH{random.randint(10,99)} 0076 {random.randint(1000,9999)} {random.randint(1000,9999)} {random.randint(1000,9999)} {random.randint(0,9)}
+
+Période: du {self.fake.date_between(start_date="-60d", end_date="-30d")} au {self.fake.date_between(start_date="-30d", end_date="today")}
+
+Solde initial:                                       CHF {solde_initial:,.2f}
+
+MOUVEMENTS
+---------------------------------------------------------------------------
+{operations_text}
+---------------------------------------------------------------------------
+
+Solde final:                                         CHF {solde:,.2f}
+
+Ce document est établi automatiquement et ne nécessite pas de signature.
+"""
+
+    def _generate_contrat_travail_content(self, mandat):
+        """Génère le contenu d'un contrat de travail"""
+        employe_nom = self.fake.name()
+        salaire = random.randint(4500, 12000)
+        date_debut = self.fake.date_between(start_date="-2y", end_date="-1m")
+
+        return f"""
+CONTRAT DE TRAVAIL
+
+Entre
+{mandat.client.raison_sociale}
+{mandat.client.adresse_siege.rue} {mandat.client.adresse_siege.numero}
+{mandat.client.adresse_siege.code_postal} {mandat.client.adresse_siege.localite}
+(ci-après "l'Employeur")
+
+Et
+{employe_nom}
+{self.fake.street_address()}
+{random.choice(['1200', '1003', '8001'])} {random.choice(['Genève', 'Lausanne', 'Zürich'])}
+(ci-après "l'Employé")
+
+Article 1 - Engagement
+L'Employeur engage l'Employé en qualité de {random.choice(['Comptable', 'Assistant administratif', 'Chef de projet', 'Analyste financier'])}.
+
+Article 2 - Durée
+Le présent contrat est conclu pour une durée indéterminée.
+Date d'entrée en fonction: {date_debut}
+
+Article 3 - Temps de travail
+Taux d'occupation: {random.choice([80, 100])}%
+Horaire hebdomadaire: {random.choice([40, 42])} heures
+
+Article 4 - Rémunération
+Salaire mensuel brut: CHF {salaire:,}.-
+13ème salaire: Oui
+Versement: fin de mois sur compte bancaire
+
+Article 5 - Vacances
+L'Employé bénéficie de {random.choice([20, 25])} jours de vacances par année civile.
+
+Article 6 - Assurances sociales
+- AVS/AI/APG: selon dispositions légales
+- LPP: affiliation à la caisse de pension de l'entreprise
+- LAA: assurance accidents professionnels et non professionnels
+
+Article 7 - Délai de résiliation
+Pendant la période d'essai (3 mois): 7 jours
+Après la période d'essai: 1 mois pour la fin d'un mois
+
+Fait en deux exemplaires à {mandat.client.adresse_siege.localite}, le {self.fake.date_between(start_date=date_debut - timedelta(days=30), end_date=date_debut)}
+
+L'Employeur                                          L'Employé
+_____________________                                _____________________
+"""
+
+    def _generate_fiche_salaire_content(self, mandat):
+        """Génère le contenu d'une fiche de salaire"""
+        employe_nom = self.fake.name()
+        salaire_brut = Decimal(str(random.randint(5000, 12000)))
+        avs = (salaire_brut * Decimal("5.3") / 100).quantize(Decimal("0.01"))
+        ac = (salaire_brut * Decimal("1.1") / 100).quantize(Decimal("0.01"))
+        lpp = (salaire_brut * Decimal("7.5") / 100).quantize(Decimal("0.01"))
+        total_deductions = avs + ac + lpp
+        net = salaire_brut - total_deductions
+
+        return f"""
+FICHE DE SALAIRE
+
+{mandat.client.raison_sociale}
+{mandat.client.adresse_siege.rue} {mandat.client.adresse_siege.numero}
+{mandat.client.adresse_siege.code_postal} {mandat.client.adresse_siege.localite}
+
+Employé: {employe_nom}
+N° AVS: 756.{random.randint(1000,9999)}.{random.randint(1000,9999)}.{random.randint(10,99)}
+Période: {self.fake.month_name()} 2024
+
+---------------------------------------------------------------------------
+GAINS
+Salaire de base                                      CHF {salaire_brut:,.2f}
+---------------------------------------------------------------------------
+Total brut                                           CHF {salaire_brut:,.2f}
+
+DÉDUCTIONS
+AVS/AI/APG (5.3%)                                   -CHF {avs:,.2f}
+Assurance chômage AC (1.1%)                         -CHF {ac:,.2f}
+LPP Prévoyance professionnelle                      -CHF {lpp:,.2f}
+---------------------------------------------------------------------------
+Total déductions                                    -CHF {total_deductions:,.2f}
+
+---------------------------------------------------------------------------
+SALAIRE NET À PAYER                                  CHF {net:,.2f}
+---------------------------------------------------------------------------
+
+Versement sur: IBAN CH{random.randint(10,99)} {random.randint(1000,9999)} {random.randint(1000,9999)} {random.randint(1000,9999)} {random.randint(1000,9999)} {random.randint(0,9)}
+Date de versement: {self.fake.date_between(start_date="-5d", end_date="today")}
+"""
+
+    def _generate_declaration_tva_content(self, mandat):
+        """Génère le contenu d'une déclaration TVA"""
+        ca = Decimal(str(random.randint(50000, 500000)))
+        tva_due = (ca * Decimal("8.1") / 100).quantize(Decimal("0.01"))
+        tva_prealable = (Decimal(str(random.randint(5000, 50000))) * Decimal("8.1") / 100).quantize(Decimal("0.01"))
+        tva_nette = tva_due - tva_prealable
+
+        return f"""
+DÉCLARATION TVA
+
+Administration fédérale des contributions AFC
+Division principale de la taxe sur la valeur ajoutée
+
+Contribuable: {mandat.client.raison_sociale}
+N° TVA: {mandat.client.tva_number if mandat.client.tva_number else f'CHE-{random.randint(100,999)}.{random.randint(100,999)}.{random.randint(100,999)} TVA'}
+
+Période: T{random.randint(1,4)} 2024
+Méthode: Effective
+
+---------------------------------------------------------------------------
+CHIFFRE D'AFFAIRES
+
+200 - Prestations au taux normal (8.1%)             CHF {ca:,.2f}
+205 - Prestations au taux réduit (2.6%)             CHF {Decimal(str(random.randint(0, 50000))):,.2f}
+220 - Prestations exonérées                         CHF {Decimal(str(random.randint(0, 20000))):,.2f}
+
+Total chiffre d'affaires                            CHF {ca:,.2f}
+
+---------------------------------------------------------------------------
+TVA DUE
+
+300 - TVA sur prestations imposables                CHF {tva_due:,.2f}
+
+---------------------------------------------------------------------------
+IMPÔT PRÉALABLE
+
+400 - Impôt préalable sur achats                    CHF {tva_prealable:,.2f}
+
+---------------------------------------------------------------------------
+DÉCOMPTE
+
+TVA due                                             CHF {tva_due:,.2f}
+./. Impôt préalable                                -CHF {tva_prealable:,.2f}
+---------------------------------------------------------------------------
+Montant dû à l'AFC                                  CHF {tva_nette:,.2f}
+
+Date limite de paiement: {self.fake.date_between(start_date="+10d", end_date="+30d")}
+"""
+
+    def _generate_bilan_content(self, mandat):
+        """Génère le contenu d'un bilan comptable"""
+        actifs_circulants = Decimal(str(random.randint(50000, 500000)))
+        actifs_immobilises = Decimal(str(random.randint(100000, 1000000)))
+        total_actif = actifs_circulants + actifs_immobilises
+
+        fonds_propres = Decimal(str(random.randint(50000, 300000)))
+        fonds_etrangers = total_actif - fonds_propres
+
+        return f"""
+BILAN AU 31 DÉCEMBRE 2024
+
+{mandat.client.raison_sociale}
+{mandat.client.ide_number}
+
+---------------------------------------------------------------------------
+ACTIF                                                          CHF
+---------------------------------------------------------------------------
+
+ACTIFS CIRCULANTS
+Liquidités                                          {Decimal(str(random.randint(10000, 100000))):>15,.2f}
+Débiteurs                                           {Decimal(str(random.randint(20000, 200000))):>15,.2f}
+Stock marchandises                                  {Decimal(str(random.randint(10000, 150000))):>15,.2f}
+Actifs transitoires                                 {Decimal(str(random.randint(5000, 50000))):>15,.2f}
+                                                   ----------------
+Total actifs circulants                             {actifs_circulants:>15,.2f}
+
+ACTIFS IMMOBILISÉS
+Machines et outillage                               {Decimal(str(random.randint(50000, 300000))):>15,.2f}
+Mobilier et installations                           {Decimal(str(random.randint(20000, 100000))):>15,.2f}
+Véhicules                                           {Decimal(str(random.randint(10000, 80000))):>15,.2f}
+Immobilisations financières                         {Decimal(str(random.randint(10000, 200000))):>15,.2f}
+                                                   ----------------
+Total actifs immobilisés                            {actifs_immobilises:>15,.2f}
+
+---------------------------------------------------------------------------
+TOTAL ACTIF                                         {total_actif:>15,.2f}
+---------------------------------------------------------------------------
+
+---------------------------------------------------------------------------
+PASSIF                                                         CHF
+---------------------------------------------------------------------------
+
+FONDS ÉTRANGERS
+Créanciers fournisseurs                             {Decimal(str(random.randint(20000, 150000))):>15,.2f}
+Dettes bancaires court terme                        {Decimal(str(random.randint(10000, 100000))):>15,.2f}
+Passifs transitoires                                {Decimal(str(random.randint(5000, 30000))):>15,.2f}
+Emprunts hypothécaires                              {Decimal(str(random.randint(50000, 500000))):>15,.2f}
+Provisions                                          {Decimal(str(random.randint(10000, 80000))):>15,.2f}
+                                                   ----------------
+Total fonds étrangers                               {fonds_etrangers:>15,.2f}
+
+FONDS PROPRES
+Capital-actions                                     {Decimal(str(random.randint(50000, 200000))):>15,.2f}
+Réserves légales                                    {Decimal(str(random.randint(10000, 50000))):>15,.2f}
+Bénéfice reporté                                    {Decimal(str(random.randint(5000, 30000))):>15,.2f}
+Résultat de l'exercice                              {Decimal(str(random.randint(-20000, 100000))):>15,.2f}
+                                                   ----------------
+Total fonds propres                                 {fonds_propres:>15,.2f}
+
+---------------------------------------------------------------------------
+TOTAL PASSIF                                        {total_actif:>15,.2f}
+---------------------------------------------------------------------------
+
+Établi conformément au Code des obligations suisse (CO).
+"""
+
+    def _generate_rapport_annuel_content(self, mandat):
+        """Génère le contenu d'un rapport annuel"""
+        return f"""
+RAPPORT ANNUEL 2024
+
+{mandat.client.raison_sociale}
+{mandat.client.adresse_siege.rue} {mandat.client.adresse_siege.numero}
+{mandat.client.adresse_siege.code_postal} {mandat.client.adresse_siege.localite}
+{mandat.client.ide_number}
+
+═══════════════════════════════════════════════════════════════════════════
+
+MESSAGE DU CONSEIL D'ADMINISTRATION
+
+Chers actionnaires,
+
+L'année 2024 a été marquée par {random.choice(['une croissance soutenue', 'une consolidation de nos activités', 'des défis économiques importants', 'une transformation digitale réussie'])}.
+Notre entreprise a su {random.choice(['maintenir sa position sur le marché', 's\'adapter aux nouvelles conditions du marché', 'développer de nouveaux services', 'renforcer ses partenariats stratégiques'])}.
+
+FAITS MARQUANTS DE L'EXERCICE
+
+• Chiffre d'affaires: CHF {random.randint(500000, 5000000):,}.-
+• Résultat net: CHF {random.randint(50000, 500000):,}.-
+• Effectif moyen: {random.randint(5, 50)} collaborateurs
+• Investissements: CHF {random.randint(50000, 500000):,}.-
+
+PERSPECTIVES 2025
+
+Pour l'année à venir, nous prévoyons de {random.choice(['poursuivre notre stratégie de développement', 'investir dans la digitalisation', 'renforcer notre présence en Suisse romande', 'développer notre offre de services'])}.
+Le marché suisse reste porteur et nous sommes confiants quant à nos perspectives de croissance.
+
+GOUVERNANCE D'ENTREPRISE
+
+Conseil d'administration:
+• Président: {self.fake.name()}
+• Vice-président: {self.fake.name()}
+• Administrateur: {self.fake.name()}
+
+Direction:
+• Directeur général: {self.fake.name()}
+• Directeur financier: {self.fake.name()}
+
+RAPPORT DE L'ORGANE DE RÉVISION
+
+En notre qualité d'organe de révision, nous avons effectué l'audit des comptes annuels de {mandat.client.raison_sociale} pour l'exercice arrêté au 31 décembre 2024.
+
+Notre audit a été effectué conformément aux Normes d'audit suisses (NAS). Ces normes requièrent que l'audit soit planifié et réalisé de façon à obtenir une assurance raisonnable que les comptes annuels ne contiennent pas d'anomalies significatives.
+
+Sur la base de nos travaux d'audit, nous recommandons d'approuver les comptes annuels présentés.
+
+{self.fake.city()}, le {self.fake.date_between(start_date="-30d", end_date="today")}
+
+L'organe de révision
+{self.fake.company()} SA
+"""
+
+    def _generate_pv_assemblee_content(self, mandat):
+        """Génère le contenu d'un PV d'assemblée générale"""
+        return f"""
+PROCÈS-VERBAL DE L'ASSEMBLÉE GÉNÉRALE ORDINAIRE
+
+{mandat.client.raison_sociale}
+{mandat.client.ide_number}
+
+Date: {self.fake.date_between(start_date="-90d", end_date="-30d")}
+Lieu: {mandat.client.adresse_siege.localite}
+Heure: {random.choice(['10h00', '14h00', '17h00'])}
+
+═══════════════════════════════════════════════════════════════════════════
+
+PRÉSENCES
+
+Actionnaires présents ou représentés détenant {random.randint(70, 100)}% du capital-actions.
+Le quorum étant atteint, l'assemblée peut valablement délibérer.
+
+Président de séance: {self.fake.name()}
+Secrétaire: {self.fake.name()}
+
+ORDRE DU JOUR
+
+1. Approbation du procès-verbal de la dernière assemblée
+2. Approbation du rapport annuel et des comptes 2024
+3. Affectation du résultat
+4. Décharge aux organes
+5. Élections statutaires
+6. Divers
+
+DÉLIBÉRATIONS
+
+1. APPROBATION DU PROCÈS-VERBAL
+Le procès-verbal de la dernière assemblée générale est approuvé à l'unanimité.
+
+2. RAPPORT ANNUEL ET COMPTES 2024
+Le président présente le rapport annuel et les comptes de l'exercice 2024.
+L'organe de révision recommande l'approbation des comptes.
+L'assemblée approuve les comptes annuels à l'unanimité.
+
+Résultat de l'exercice: CHF {random.randint(10000, 200000):,}.-
+
+3. AFFECTATION DU RÉSULTAT
+L'assemblée décide d'affecter le bénéfice comme suit:
+• Attribution aux réserves légales: CHF {random.randint(5000, 20000):,}.-
+• Dividende: CHF {random.randint(5000, 100000):,}.-
+• Report à nouveau: le solde
+
+4. DÉCHARGE AUX ORGANES
+L'assemblée donne décharge aux membres du conseil d'administration et à l'organe de révision pour leur gestion durant l'exercice écoulé.
+
+5. ÉLECTIONS
+Le conseil d'administration et l'organe de révision sont reconduits pour une nouvelle période d'un an.
+
+6. DIVERS
+Aucune question n'étant soulevée sous ce point, le président clôt la séance.
+
+L'ordre du jour étant épuisé, la séance est levée à {random.choice(['11h30', '15h30', '18h30'])}.
+
+Le Président                                         Le Secrétaire
+_____________________                                _____________________
+"""
+
+    def _generate_attestation_content(self, mandat):
+        """Génère le contenu d'une attestation"""
+        return f"""
+ATTESTATION DE DOMICILE FISCAL
+
+Je soussigné(e), responsable de la fiduciaire AltiusOne SA,
+
+ATTESTE PAR LA PRÉSENTE
+
+que la société:
+
+{mandat.client.raison_sociale}
+{mandat.client.ide_number}
+
+est domiciliée à l'adresse suivante:
+
+{mandat.client.adresse_siege.rue} {mandat.client.adresse_siege.numero}
+{mandat.client.adresse_siege.code_postal} {mandat.client.adresse_siege.localite}
+Canton: {mandat.client.adresse_siege.canton}
+Suisse
+
+Cette société est inscrite au Registre du commerce du canton de {mandat.client.adresse_siege.canton} et est soumise à l'impôt en Suisse.
+
+La présente attestation est délivrée pour servir et valoir ce que de droit.
+
+Fait à Genève, le {self.fake.date_between(start_date="-30d", end_date="today")}
+
+AltiusOne Fiduciaire SA
+
+_____________________
+Signature autorisée
+"""
+
+    def _generate_courrier_afc_content(self, mandat):
+        """Génère le contenu d'un courrier de l'AFC"""
+        return f"""
+Confédération suisse
+Administration fédérale des contributions AFC
+Division principale de la taxe sur la valeur ajoutée
+
+{mandat.client.raison_sociale}
+{mandat.client.adresse_siege.rue} {mandat.client.adresse_siege.numero}
+{mandat.client.adresse_siege.code_postal} {mandat.client.adresse_siege.localite}
+
+Berne, le {self.fake.date_between(start_date="-60d", end_date="-10d")}
+
+N° de référence: {random.randint(100000, 999999)}
+N° TVA: {mandat.client.tva_number if mandat.client.tva_number else f'CHE-{random.randint(100,999)}.{random.randint(100,999)}.{random.randint(100,999)} TVA'}
+
+Objet: {random.choice(['Confirmation de votre inscription au registre TVA', 'Rappel de paiement - Décompte TVA', 'Demande de renseignements', 'Notification de contrôle TVA'])}
+
+Madame, Monsieur,
+
+{random.choice([
+'Nous accusons réception de votre demande d\'inscription au registre des assujettis à la TVA. Après examen de votre dossier, nous avons le plaisir de vous informer que votre inscription a été validée.',
+'Nous nous référons à votre décompte TVA pour la période mentionnée ci-dessus. Nous constatons que le montant dû n\'a pas encore été réglé.',
+'Dans le cadre de nos contrôles réguliers, nous vous prions de bien vouloir nous faire parvenir les justificatifs relatifs à vos opérations TVA.',
+'Nous avons le plaisir de vous informer que votre demande a été traitée favorablement.'
+])}
+
+{random.choice([
+'Veuillez prendre note que le taux normal de TVA est de 8.1% depuis le 1er janvier 2024.',
+'Nous vous rappelons que les décomptes TVA doivent être soumis dans les 60 jours suivant la fin de la période.',
+'Pour tout renseignement complémentaire, vous pouvez nous contacter au numéro indiqué ci-dessous.',
+'Nous restons à votre disposition pour toute question concernant vos obligations TVA.'
+])}
+
+Avec nos salutations distinguées,
+
+Administration fédérale des contributions
+Division principale de la TVA
+
+Contact: tva@estv.admin.ch
+Téléphone: 058 465 22 22
+"""
+
+    def _generate_decompte_avs_content(self, mandat):
+        """Génère le contenu d'un décompte AVS"""
+        masse_salariale = Decimal(str(random.randint(200000, 2000000)))
+        taux_avs = Decimal("10.6")
+        cotisation_avs = (masse_salariale * taux_avs / 100).quantize(Decimal("0.01"))
+
+        return f"""
+DÉCOMPTE DE COTISATIONS AVS/AI/APG
+
+Caisse de compensation AVS
+Case postale
+1211 Genève 26
+
+Employeur:
+{mandat.client.raison_sociale}
+{mandat.client.adresse_siege.rue} {mandat.client.adresse_siege.numero}
+{mandat.client.adresse_siege.code_postal} {mandat.client.adresse_siege.localite}
+
+N° affilié: {random.randint(100, 999)}.{random.randint(1000, 9999)}
+Période: Année 2024
+
+═══════════════════════════════════════════════════════════════════════════
+
+CALCUL DES COTISATIONS
+
+Masse salariale brute                               CHF {masse_salariale:>15,.2f}
+
+Cotisations:
+AVS/AI/APG (10.6%)                                  CHF {cotisation_avs:>15,.2f}
+  - Part employeur (5.3%)                           CHF {(cotisation_avs/2):>15,.2f}
+  - Part employé (5.3%)                             CHF {(cotisation_avs/2):>15,.2f}
+
+Contribution frais d'administration (3%)            CHF {(cotisation_avs * Decimal('0.03')).quantize(Decimal('0.01')):>15,.2f}
+
+---------------------------------------------------------------------------
+TOTAL DÛ                                            CHF {(cotisation_avs * Decimal('1.03')).quantize(Decimal('0.01')):>15,.2f}
+---------------------------------------------------------------------------
+
+Acomptes versés                                    -CHF {(cotisation_avs * Decimal('0.9')).quantize(Decimal('0.01')):>15,.2f}
+---------------------------------------------------------------------------
+SOLDE À PAYER                                       CHF {(cotisation_avs * Decimal('0.13')).quantize(Decimal('0.01')):>15,.2f}
+
+Délai de paiement: {self.fake.date_between(start_date="+10d", end_date="+30d")}
+IBAN: CH{random.randint(10,99)} 0076 {random.randint(1000,9999)} {random.randint(1000,9999)} {random.randint(1000,9999)} {random.randint(0,9)}
+Référence: {random.randint(100000000000000, 999999999999999)}
+
+Les cotisations sont dues conformément à la LAVS et ses ordonnances d'application.
+"""
+
+    def _generate_generic_content(self, mandat):
+        """Génère du contenu générique pour un document"""
+        return f"""
+DOCUMENT
+
+{mandat.client.raison_sociale}
+{mandat.client.adresse_siege.rue} {mandat.client.adresse_siege.numero}
+{mandat.client.adresse_siege.code_postal} {mandat.client.adresse_siege.localite}
+
+Date: {self.fake.date_between(start_date="-60d", end_date="today")}
+
+{self.fake.text(max_nb_chars=2000)}
+
+Ce document est la propriété de {mandat.client.raison_sociale}.
+Tous droits réservés.
+"""
 
     # =========================================================================
     # FISCALITÉ
