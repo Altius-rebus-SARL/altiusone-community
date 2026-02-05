@@ -35,18 +35,42 @@ class ConfigurationTVA(BaseModel):
         ('SEMESTRIEL', 'Semestriel'),
     ]
 
-    mandat = models.OneToOneField(Mandat, on_delete=models.CASCADE,
-                                  related_name='config_tva')
+    mandat = models.OneToOneField(
+        Mandat, on_delete=models.CASCADE,
+        related_name='config_tva',
+        verbose_name='Mandat',
+        help_text='Mandat concerné par cette configuration TVA'
+    )
 
     # Assujettissement
-    assujetti_tva = models.BooleanField(default=True)
-    numero_tva = models.CharField('Numéro TVA', max_length=20, blank=True)
-    date_debut_assujettissement = models.DateField(null=True, blank=True)
-    date_fin_assujettissement = models.DateField(null=True, blank=True)
+    assujetti_tva = models.BooleanField(
+        default=True,
+        verbose_name='Assujetti TVA',
+        help_text='Indique si l\'entreprise est assujettie à la TVA'
+    )
+    numero_tva = models.CharField(
+        max_length=20, blank=True,
+        verbose_name='Numéro TVA',
+        help_text='Numéro IDE/TVA (ex: CHE-123.456.789 TVA)'
+    )
+    date_debut_assujettissement = models.DateField(
+        null=True, blank=True,
+        verbose_name='Début assujettissement',
+        help_text='Date de début d\'assujettissement à la TVA'
+    )
+    date_fin_assujettissement = models.DateField(
+        null=True, blank=True,
+        verbose_name='Fin assujettissement',
+        help_text='Date de fin d\'assujettissement (si applicable)'
+    )
 
     # Méthode
-    methode_calcul = models.CharField(max_length=20, choices=METHODE_CHOICES,
-                                      default='EFFECTIVE')
+    methode_calcul = models.CharField(
+        max_length=20, choices=METHODE_CHOICES,
+        default='EFFECTIVE',
+        verbose_name='Méthode de calcul',
+        help_text='Méthode de décompte TVA utilisée'
+    )
 
     # Nouveau: Référence vers Periodicite
     periodicite_ref = models.ForeignKey(
@@ -68,26 +92,44 @@ class ConfigurationTVA(BaseModel):
     )
 
     # Taux forfaitaires (si applicable)
-    taux_forfaitaire_ventes = models.DecimalField(max_digits=5, decimal_places=2,
-                                                  null=True, blank=True,
-                                                  help_text='Taux en %')
-    taux_forfaitaire_achats = models.DecimalField(max_digits=5, decimal_places=2,
-                                                  null=True, blank=True,
-                                                  help_text='Taux en %')
+    taux_forfaitaire_ventes = models.DecimalField(
+        max_digits=5, decimal_places=2,
+        null=True, blank=True,
+        verbose_name='Taux forfaitaire ventes',
+        help_text='Taux forfaitaire applicable aux ventes en %'
+    )
+    taux_forfaitaire_achats = models.DecimalField(
+        max_digits=5, decimal_places=2,
+        null=True, blank=True,
+        verbose_name='Taux forfaitaire achats',
+        help_text='Taux forfaitaire applicable aux achats en %'
+    )
 
     # Options
-    option_imposition_prestations = models.BooleanField(default=False,
-                                                        help_text="Option pour l'imposition de prestations exclues du champ de l'impôt")
-    option_reduction_deduction = models.BooleanField(default=False,
-                                                     help_text="Option pour la réduction de la déduction de l'impôt préalable")
+    option_imposition_prestations = models.BooleanField(
+        default=False,
+        verbose_name='Option imposition prestations',
+        help_text='Option pour l\'imposition de prestations exclues du champ de l\'impôt'
+    )
+    option_reduction_deduction = models.BooleanField(
+        default=False,
+        verbose_name='Option réduction déduction',
+        help_text='Option pour la réduction de la déduction de l\'impôt préalable'
+    )
 
     # Comptes de liaison
-    compte_tva_due = models.ForeignKey('comptabilite.Compte', on_delete=models.SET_NULL,
-                                       null=True, related_name='+',
-                                       help_text='Compte 2200')
-    compte_tva_prealable = models.ForeignKey('comptabilite.Compte', on_delete=models.SET_NULL,
-                                             null=True, related_name='+',
-                                             help_text='Compte 1170')
+    compte_tva_due = models.ForeignKey(
+        'comptabilite.Compte', on_delete=models.SET_NULL,
+        null=True, related_name='+',
+        verbose_name='Compte TVA due',
+        help_text='Compte de passif pour la TVA due (ex: 2200)'
+    )
+    compte_tva_prealable = models.ForeignKey(
+        'comptabilite.Compte', on_delete=models.SET_NULL,
+        null=True, related_name='+',
+        verbose_name='Compte TVA préalable',
+        help_text='Compte d\'actif pour l\'impôt préalable (ex: 1170)'
+    )
 
     class Meta:
         db_table = 'configurations_tva'
@@ -106,13 +148,32 @@ class TauxTVA(BaseModel):
         ('SPECIAL', 'Taux spécial hébergement'),
     ]
 
-    type_taux = models.CharField(max_length=10, choices=TYPE_CHOICES)
-    taux = models.DecimalField(max_digits=5, decimal_places=2, help_text='En %')
+    type_taux = models.CharField(
+        max_length=10, choices=TYPE_CHOICES,
+        verbose_name='Type de taux',
+        help_text='Catégorie du taux TVA'
+    )
+    taux = models.DecimalField(
+        max_digits=5, decimal_places=2,
+        verbose_name='Taux',
+        help_text='Taux de TVA en pourcentage'
+    )
 
-    date_debut = models.DateField()
-    date_fin = models.DateField(null=True, blank=True)
+    date_debut = models.DateField(
+        verbose_name='Date de début',
+        help_text='Date d\'entrée en vigueur du taux'
+    )
+    date_fin = models.DateField(
+        null=True, blank=True,
+        verbose_name='Date de fin',
+        help_text='Date de fin de validité (vide si toujours en vigueur)'
+    )
 
-    description = models.CharField(max_length=255)
+    description = models.CharField(
+        max_length=255,
+        verbose_name='Description',
+        help_text='Description du taux'
+    )
 
     class Meta:
         db_table = 'taux_tva'
@@ -147,23 +208,58 @@ class CodeTVA(BaseModel):
         ('CORRECTIONS', 'Corrections'),
     ]
 
-    code = models.CharField(max_length=10, unique=True, db_index=True)
-    libelle = models.CharField(max_length=255)
-    categorie = models.CharField(max_length=30, choices=CATEGORIE_CHOICES)
+    code = models.CharField(
+        max_length=10, unique=True, db_index=True,
+        verbose_name='Code',
+        help_text='Code du chiffre AFC (ex: 200, 302, 400)'
+    )
+    libelle = models.CharField(
+        max_length=255,
+        verbose_name='Libellé',
+        help_text='Intitulé du code TVA'
+    )
+    categorie = models.CharField(
+        max_length=30, choices=CATEGORIE_CHOICES,
+        verbose_name='Catégorie',
+        help_text='Section du décompte TVA'
+    )
 
-    ordre_affichage = models.IntegerField(default=0)
+    ordre_affichage = models.IntegerField(
+        default=0,
+        verbose_name='Ordre d\'affichage',
+        help_text='Position dans le formulaire de décompte'
+    )
 
     # Calcul automatique
-    taux_applicable = models.ForeignKey(TauxTVA, on_delete=models.SET_NULL,
-                                        null=True, blank=True)
-    formule = models.CharField(max_length=255, blank=True,
-                               help_text="Ex: 'base * taux / 100'")
+    taux_applicable = models.ForeignKey(
+        TauxTVA, on_delete=models.SET_NULL,
+        null=True, blank=True,
+        verbose_name='Taux applicable',
+        help_text='Taux TVA associé à ce code'
+    )
+    formule = models.CharField(
+        max_length=255, blank=True,
+        verbose_name='Formule',
+        help_text='Formule de calcul (ex: base * taux / 100)'
+    )
 
     # Compte(s) de liaison
-    comptes_associes = models.ManyToManyField('comptabilite.Compte', blank=True)
+    comptes_associes = models.ManyToManyField(
+        'comptabilite.Compte', blank=True,
+        verbose_name='Comptes associés',
+        help_text='Comptes comptables liés à ce code TVA'
+    )
 
-    actif = models.BooleanField(default=True)
-    description = models.TextField(blank=True)
+    actif = models.BooleanField(
+        default=True,
+        verbose_name='Actif',
+        help_text='Indique si ce code est utilisable'
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name='Description',
+        help_text='Explication détaillée du code'
+    )
 
     class Meta:
         db_table = 'codes_tva'
@@ -196,63 +292,173 @@ class DeclarationTVA(BaseModel):
     ]
 
     # Identification
-    mandat = models.ForeignKey(Mandat, on_delete=models.CASCADE,
-                               related_name='declarations_tva')
-    numero_declaration = models.CharField(max_length=50, unique=True, db_index=True)
+    mandat = models.ForeignKey(
+        Mandat, on_delete=models.CASCADE,
+        related_name='declarations_tva',
+        verbose_name='Mandat',
+        help_text='Mandat concerné par cette déclaration'
+    )
+    numero_declaration = models.CharField(
+        max_length=50, unique=True, db_index=True,
+        verbose_name='Numéro de déclaration',
+        help_text='Identifiant unique de la déclaration'
+    )
 
     # Période
-    annee = models.IntegerField(db_index=True)
-    trimestre = models.IntegerField(null=True, blank=True,
-                                    help_text='1, 2, 3 ou 4')
-    semestre = models.IntegerField(null=True, blank=True,
-                                   help_text='1 ou 2')
-    periode_debut = models.DateField()
-    periode_fin = models.DateField()
+    annee = models.IntegerField(
+        db_index=True,
+        verbose_name='Année',
+        help_text='Année fiscale'
+    )
+    trimestre = models.IntegerField(
+        null=True, blank=True,
+        verbose_name='Trimestre',
+        help_text='Trimestre (1, 2, 3 ou 4)'
+    )
+    semestre = models.IntegerField(
+        null=True, blank=True,
+        verbose_name='Semestre',
+        help_text='Semestre (1 ou 2)'
+    )
+    periode_debut = models.DateField(
+        verbose_name='Début de période',
+        help_text='Premier jour de la période déclarée'
+    )
+    periode_fin = models.DateField(
+        verbose_name='Fin de période',
+        help_text='Dernier jour de la période déclarée'
+    )
 
     # Type
-    type_decompte = models.CharField(max_length=20, choices=TYPE_DECOMPTE_CHOICES,
-                                     default='NORMAL')
-    methode = models.CharField(max_length=20)  # Copie de la méthode utilisée
+    type_decompte = models.CharField(
+        max_length=20, choices=TYPE_DECOMPTE_CHOICES,
+        default='NORMAL',
+        verbose_name='Type de décompte',
+        help_text='Nature de la déclaration'
+    )
+    methode = models.CharField(
+        max_length=20,
+        verbose_name='Méthode',
+        help_text='Méthode de calcul utilisée'
+    )
 
     # Montants globaux (dénormalisé pour performance)
-    chiffre_affaires_total = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    chiffre_affaires_imposable = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    chiffre_affaires_total = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name='CA total',
+        help_text='Chiffre d\'affaires total en CHF'
+    )
+    chiffre_affaires_imposable = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name='CA imposable',
+        help_text='Chiffre d\'affaires soumis à la TVA en CHF'
+    )
 
-    tva_due_total = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    tva_prealable_total = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    tva_due_total = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name='TVA due totale',
+        help_text='Total de la TVA due en CHF'
+    )
+    tva_prealable_total = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name='TVA préalable totale',
+        help_text='Total de l\'impôt préalable déductible en CHF'
+    )
 
-    deductions_total = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    corrections_total = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    deductions_total = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name='Déductions totales',
+        help_text='Total des déductions en CHF'
+    )
+    corrections_total = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name='Corrections totales',
+        help_text='Total des corrections en CHF'
+    )
 
-    solde_tva = models.DecimalField(max_digits=15, decimal_places=2, default=0,
-                                    help_text='Positif = à payer, Négatif = remboursement')
+    solde_tva = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name='Solde TVA',
+        help_text='Montant à payer (positif) ou à récupérer (négatif)'
+    )
 
     # Statut et soumission
-    statut = models.CharField(max_length=20, choices=STATUT_CHOICES,
-                              default='BROUILLON', db_index=True)
+    statut = models.CharField(
+        max_length=20, choices=STATUT_CHOICES,
+        default='BROUILLON', db_index=True,
+        verbose_name='Statut',
+        help_text='État d\'avancement de la déclaration'
+    )
 
-    date_creation_decompte = models.DateField(auto_now_add=True)
-    date_validation = models.DateTimeField(null=True, blank=True)
-    valide_par = models.ForeignKey(User, on_delete=models.SET_NULL,
-                                   null=True, related_name='+')
+    date_creation_decompte = models.DateField(
+        auto_now_add=True,
+        verbose_name='Date de création',
+        help_text='Date de création du décompte'
+    )
+    date_validation = models.DateTimeField(
+        null=True, blank=True,
+        verbose_name='Date de validation',
+        help_text='Date et heure de validation interne'
+    )
+    valide_par = models.ForeignKey(
+        User, on_delete=models.SET_NULL,
+        null=True, related_name='+',
+        verbose_name='Validé par',
+        help_text='Utilisateur ayant validé la déclaration'
+    )
 
-    date_soumission = models.DateTimeField(null=True, blank=True)
-    soumis_par = models.ForeignKey(User, on_delete=models.SET_NULL,
-                                   null=True, related_name='+')
+    date_soumission = models.DateTimeField(
+        null=True, blank=True,
+        verbose_name='Date de soumission',
+        help_text='Date et heure de soumission à l\'AFC'
+    )
+    soumis_par = models.ForeignKey(
+        User, on_delete=models.SET_NULL,
+        null=True, related_name='+',
+        verbose_name='Soumis par',
+        help_text='Utilisateur ayant soumis la déclaration'
+    )
 
-    numero_reference_afc = models.CharField(max_length=50, blank=True,
-                                            help_text='Numéro de référence AFC')
+    numero_reference_afc = models.CharField(
+        max_length=50, blank=True,
+        verbose_name='Référence AFC',
+        help_text='Numéro de référence attribué par l\'AFC'
+    )
 
-    date_echeance_paiement = models.DateField(null=True, blank=True)
-    date_paiement = models.DateField(null=True, blank=True)
+    date_echeance_paiement = models.DateField(
+        null=True, blank=True,
+        verbose_name='Échéance de paiement',
+        help_text='Date limite de paiement'
+    )
+    date_paiement = models.DateField(
+        null=True, blank=True,
+        verbose_name='Date de paiement',
+        help_text='Date effective du paiement'
+    )
 
     # Fichiers
-    fichier_xml = models.FileField(upload_to='tva/xml/', null=True, blank=True)
-    fichier_pdf = models.FileField(upload_to='tva/pdf/', null=True, blank=True)
+    fichier_xml = models.FileField(
+        upload_to='tva/xml/', null=True, blank=True,
+        verbose_name='Fichier XML',
+        help_text='Export XML pour soumission électronique'
+    )
+    fichier_pdf = models.FileField(
+        upload_to='tva/pdf/', null=True, blank=True,
+        verbose_name='Fichier PDF',
+        help_text='Version PDF de la déclaration'
+    )
 
     # Notes
-    remarques_internes = models.TextField(blank=True)
-    commentaires_afc = models.TextField(blank=True)
+    remarques_internes = models.TextField(
+        blank=True,
+        verbose_name='Remarques internes',
+        help_text='Notes internes sur cette déclaration'
+    )
+    commentaires_afc = models.TextField(
+        blank=True,
+        verbose_name='Commentaires AFC',
+        help_text='Commentaires reçus de l\'AFC'
+    )
 
     class Meta:
         db_table = 'declarations_tva'
@@ -710,27 +916,60 @@ class DeclarationTVA(BaseModel):
 class LigneTVA(BaseModel):
     """Ligne de décompte TVA"""
 
-    declaration = models.ForeignKey(DeclarationTVA, on_delete=models.CASCADE,
-                                    related_name='lignes')
-    code_tva = models.ForeignKey(CodeTVA, on_delete=models.PROTECT)
+    declaration = models.ForeignKey(
+        DeclarationTVA, on_delete=models.CASCADE,
+        related_name='lignes',
+        verbose_name='Déclaration',
+        help_text='Déclaration TVA contenant cette ligne'
+    )
+    code_tva = models.ForeignKey(
+        CodeTVA, on_delete=models.PROTECT,
+        verbose_name='Code TVA',
+        help_text='Code du chiffre AFC'
+    )
 
     # Montants
-    base_imposable = models.DecimalField(max_digits=15, decimal_places=2, default=0,
-                                         help_text='Montant HT')
-    taux_tva = models.DecimalField(max_digits=5, decimal_places=2, default=0,
-                                   help_text='Taux en %')
-    montant_tva = models.DecimalField(max_digits=15, decimal_places=2, default=0,
-                                      help_text='Montant TVA calculé')
+    base_imposable = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name='Base imposable',
+        help_text='Montant hors taxe en CHF'
+    )
+    taux_tva = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        verbose_name='Taux TVA',
+        help_text='Taux de TVA appliqué en %'
+    )
+    montant_tva = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name='Montant TVA',
+        help_text='Montant de TVA calculé en CHF'
+    )
 
     # Détails
-    libelle = models.CharField(max_length=255, blank=True)
-    description = models.TextField(blank=True)
+    libelle = models.CharField(
+        max_length=255, blank=True,
+        verbose_name='Libellé',
+        help_text='Description courte de la ligne'
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name='Description',
+        help_text='Détails complémentaires'
+    )
 
     # Calcul automatique ou manuel
-    calcul_automatique = models.BooleanField(default=True)
+    calcul_automatique = models.BooleanField(
+        default=True,
+        verbose_name='Calcul automatique',
+        help_text='Calculer automatiquement le montant TVA'
+    )
 
     # Ordre d'affichage
-    ordre = models.IntegerField(default=0)
+    ordre = models.IntegerField(
+        default=0,
+        verbose_name='Ordre',
+        help_text='Position d\'affichage dans la déclaration'
+    )
 
     class Meta:
         db_table = 'lignes_tva'
@@ -762,39 +1001,102 @@ class OperationTVA(BaseModel):
         ('AUTRE', 'Autre'),
     ]
 
-    mandat = models.ForeignKey(Mandat, on_delete=models.CASCADE)
-    declaration_tva = models.ForeignKey(DeclarationTVA, on_delete=models.CASCADE,
-                                        related_name='operations',
-                                        null=True, blank=True)
+    mandat = models.ForeignKey(
+        Mandat, on_delete=models.CASCADE,
+        verbose_name='Mandat',
+        help_text='Mandat concerné par cette opération'
+    )
+    declaration_tva = models.ForeignKey(
+        DeclarationTVA, on_delete=models.CASCADE,
+        related_name='operations',
+        null=True, blank=True,
+        verbose_name='Déclaration TVA',
+        help_text='Déclaration dans laquelle cette opération est intégrée'
+    )
 
     # Lien avec comptabilité
-    ecriture_comptable = models.ForeignKey('comptabilite.EcritureComptable',
-                                           on_delete=models.SET_NULL,
-                                           null=True, blank=True,
-                                           related_name='operations_tva')
+    ecriture_comptable = models.ForeignKey(
+        'comptabilite.EcritureComptable',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='operations_tva',
+        verbose_name='Écriture comptable',
+        help_text='Écriture comptable associée'
+    )
 
     # Détails opération
-    date_operation = models.DateField(db_index=True)
-    type_operation = models.CharField(max_length=20, choices=TYPE_OPERATION_CHOICES)
+    date_operation = models.DateField(
+        db_index=True,
+        verbose_name='Date de l\'opération',
+        help_text='Date de l\'opération TVA'
+    )
+    type_operation = models.CharField(
+        max_length=20, choices=TYPE_OPERATION_CHOICES,
+        verbose_name='Type d\'opération',
+        help_text='Nature de l\'opération'
+    )
 
     # Montants
-    montant_ht = models.DecimalField(max_digits=15, decimal_places=2)
-    code_tva = models.ForeignKey(CodeTVA, on_delete=models.PROTECT)
-    taux_tva = models.DecimalField(max_digits=5, decimal_places=2)
-    montant_tva = models.DecimalField(max_digits=15, decimal_places=2)
-    montant_ttc = models.DecimalField(max_digits=15, decimal_places=2)
+    montant_ht = models.DecimalField(
+        max_digits=15, decimal_places=2,
+        verbose_name='Montant HT',
+        help_text='Montant hors taxe en CHF'
+    )
+    code_tva = models.ForeignKey(
+        CodeTVA, on_delete=models.PROTECT,
+        verbose_name='Code TVA',
+        help_text='Code du chiffre AFC applicable'
+    )
+    taux_tva = models.DecimalField(
+        max_digits=5, decimal_places=2,
+        verbose_name='Taux TVA',
+        help_text='Taux de TVA appliqué en %'
+    )
+    montant_tva = models.DecimalField(
+        max_digits=15, decimal_places=2,
+        verbose_name='Montant TVA',
+        help_text='Montant de TVA en CHF'
+    )
+    montant_ttc = models.DecimalField(
+        max_digits=15, decimal_places=2,
+        verbose_name='Montant TTC',
+        help_text='Montant toutes taxes comprises en CHF'
+    )
 
     # Tiers
-    tiers = models.CharField(max_length=255, blank=True, help_text='Nom du client/fournisseur')
-    numero_tva_tiers = models.CharField(max_length=20, blank=True)
+    tiers = models.CharField(
+        max_length=255, blank=True,
+        verbose_name='Tiers',
+        help_text='Nom du client ou fournisseur'
+    )
+    numero_tva_tiers = models.CharField(
+        max_length=20, blank=True,
+        verbose_name='N° TVA tiers',
+        help_text='Numéro de TVA du tiers'
+    )
 
     # Justification
-    numero_facture = models.CharField(max_length=50, blank=True)
-    libelle = models.TextField()
+    numero_facture = models.CharField(
+        max_length=50, blank=True,
+        verbose_name='N° facture',
+        help_text='Numéro de la facture correspondante'
+    )
+    libelle = models.TextField(
+        verbose_name='Libellé',
+        help_text='Description de l\'opération'
+    )
 
     # Traitement
-    integre_declaration = models.BooleanField(default=False, db_index=True)
-    date_integration = models.DateTimeField(null=True, blank=True)
+    integre_declaration = models.BooleanField(
+        default=False, db_index=True,
+        verbose_name='Intégré à déclaration',
+        help_text='Indique si l\'opération a été intégrée à une déclaration'
+    )
+    date_integration = models.DateTimeField(
+        null=True, blank=True,
+        verbose_name='Date d\'intégration',
+        help_text='Date et heure d\'intégration à la déclaration'
+    )
 
     class Meta:
         db_table = 'operations_tva'
@@ -821,18 +1123,49 @@ class CorrectionTVA(BaseModel):
         ('AUTRE', 'Autre correction'),
     ]
 
-    declaration = models.ForeignKey(DeclarationTVA, on_delete=models.CASCADE,
-                                    related_name='corrections')
+    declaration = models.ForeignKey(
+        DeclarationTVA, on_delete=models.CASCADE,
+        related_name='corrections',
+        verbose_name='Déclaration',
+        help_text='Déclaration TVA concernée'
+    )
 
-    type_correction = models.CharField(max_length=30, choices=TYPE_CORRECTION_CHOICES)
-    code_tva = models.ForeignKey(CodeTVA, on_delete=models.PROTECT)
+    type_correction = models.CharField(
+        max_length=30, choices=TYPE_CORRECTION_CHOICES,
+        verbose_name='Type de correction',
+        help_text='Nature de la correction'
+    )
+    code_tva = models.ForeignKey(
+        CodeTVA, on_delete=models.PROTECT,
+        verbose_name='Code TVA',
+        help_text='Code du chiffre AFC concerné'
+    )
 
-    base_calcul = models.DecimalField(max_digits=15, decimal_places=2)
-    taux = models.DecimalField(max_digits=5, decimal_places=2)
-    montant_correction = models.DecimalField(max_digits=15, decimal_places=2)
+    base_calcul = models.DecimalField(
+        max_digits=15, decimal_places=2,
+        verbose_name='Base de calcul',
+        help_text='Montant servant de base au calcul en CHF'
+    )
+    taux = models.DecimalField(
+        max_digits=5, decimal_places=2,
+        verbose_name='Taux',
+        help_text='Taux appliqué pour la correction en %'
+    )
+    montant_correction = models.DecimalField(
+        max_digits=15, decimal_places=2,
+        verbose_name='Montant de correction',
+        help_text='Montant de la correction en CHF'
+    )
 
-    description = models.TextField()
-    justification = models.TextField(blank=True)
+    description = models.TextField(
+        verbose_name='Description',
+        help_text='Explication de la correction'
+    )
+    justification = models.TextField(
+        blank=True,
+        verbose_name='Justification',
+        help_text='Éléments justifiant cette correction'
+    )
 
     class Meta:
         db_table = 'corrections_tva'

@@ -57,7 +57,8 @@ class FormConfiguration(BaseModel):
         choices=Category.choices,
         default=Category.AUTRE,
         db_index=True,
-        verbose_name=_('Catégorie')
+        verbose_name=_('Catégorie'),
+        help_text=_('Catégorie du formulaire pour le regroupement')
     )
 
     # Modèle principal (optionnel pour les formulaires multi-modèles)
@@ -160,7 +161,8 @@ class FormConfiguration(BaseModel):
         choices=Status.choices,
         default=Status.DRAFT,
         db_index=True,
-        verbose_name=_('Statut')
+        verbose_name=_('Statut'),
+        help_text=_('Statut actuel du formulaire (Brouillon, Actif, Archivé)')
     )
     require_validation = models.BooleanField(
         default=False,
@@ -240,7 +242,8 @@ class ModelFieldMapping(models.Model):
         FormConfiguration,
         on_delete=models.CASCADE,
         related_name='field_mappings',
-        verbose_name=_('Configuration')
+        verbose_name=_('Configuration'),
+        help_text=_('Configuration de formulaire à laquelle appartient ce mapping')
     )
 
     # Identification du champ
@@ -267,7 +270,8 @@ class ModelFieldMapping(models.Model):
         max_length=20,
         choices=WidgetType.choices,
         default=WidgetType.TEXT,
-        verbose_name=_('Type de widget')
+        verbose_name=_('Type de widget'),
+        help_text=_('Type de composant d\'interface pour ce champ')
     )
     label = models.CharField(
         max_length=200,
@@ -278,12 +282,14 @@ class ModelFieldMapping(models.Model):
     help_text = models.CharField(
         max_length=500,
         blank=True,
-        verbose_name=_('Texte d\'aide')
+        verbose_name=_('Texte d\'aide'),
+        help_text=_('Texte explicatif affiché sous le champ')
     )
     placeholder = models.CharField(
         max_length=200,
         blank=True,
-        verbose_name=_('Placeholder')
+        verbose_name=_('Placeholder'),
+        help_text=_('Texte indicatif affiché quand le champ est vide')
     )
 
     # Validation
@@ -296,22 +302,26 @@ class ModelFieldMapping(models.Model):
     min_value = models.CharField(
         max_length=50,
         blank=True,
-        verbose_name=_('Valeur minimum')
+        verbose_name=_('Valeur minimum'),
+        help_text=_('Valeur minimum autorisée pour les champs numériques')
     )
     max_value = models.CharField(
         max_length=50,
         blank=True,
-        verbose_name=_('Valeur maximum')
+        verbose_name=_('Valeur maximum'),
+        help_text=_('Valeur maximum autorisée pour les champs numériques')
     )
     min_length = models.PositiveIntegerField(
         null=True,
         blank=True,
-        verbose_name=_('Longueur minimum')
+        verbose_name=_('Longueur minimum'),
+        help_text=_('Nombre minimum de caractères pour les champs texte')
     )
     max_length = models.PositiveIntegerField(
         null=True,
         blank=True,
-        verbose_name=_('Longueur maximum')
+        verbose_name=_('Longueur maximum'),
+        help_text=_('Nombre maximum de caractères pour les champs texte')
     )
     regex_pattern = models.CharField(
         max_length=500,
@@ -334,7 +344,8 @@ class ModelFieldMapping(models.Model):
     # Ordre et section
     order = models.PositiveIntegerField(
         default=0,
-        verbose_name=_('Ordre d\'affichage')
+        verbose_name=_('Ordre d\'affichage'),
+        help_text=_('Position du champ dans le formulaire (0 = premier)')
     )
     section = models.CharField(
         max_length=50,
@@ -391,7 +402,8 @@ class FormSubmission(BaseModel):
         FormConfiguration,
         on_delete=models.PROTECT,
         related_name='submissions',
-        verbose_name=_('Configuration')
+        verbose_name=_('Configuration'),
+        help_text=_('Configuration de formulaire utilisée pour cette soumission')
     )
 
     # Données soumises
@@ -405,11 +417,13 @@ class FormSubmission(BaseModel):
         'core.User',
         on_delete=models.PROTECT,
         related_name='form_submissions',
-        verbose_name=_('Soumis par')
+        verbose_name=_('Soumis par'),
+        help_text=_('Utilisateur ayant soumis le formulaire')
     )
     submitted_at = models.DateTimeField(
         auto_now_add=True,
-        verbose_name=_('Date de soumission')
+        verbose_name=_('Date de soumission'),
+        help_text=_('Date et heure de soumission du formulaire')
     )
 
     # Statut de traitement
@@ -418,7 +432,8 @@ class FormSubmission(BaseModel):
         choices=Status.choices,
         default=Status.PENDING,
         db_index=True,
-        verbose_name=_('Statut')
+        verbose_name=_('Statut'),
+        help_text=_('Statut de traitement de la soumission')
     )
 
     # Enregistrements créés
@@ -435,12 +450,14 @@ class FormSubmission(BaseModel):
     # Erreurs éventuelles
     error_message = models.TextField(
         blank=True,
-        verbose_name=_('Message d\'erreur')
+        verbose_name=_('Message d\'erreur'),
+        help_text=_('Message d\'erreur en cas d\'échec du traitement')
     )
     error_details = models.JSONField(
         default=dict,
         blank=True,
-        verbose_name=_('Détails de l\'erreur')
+        verbose_name=_('Détails de l\'erreur'),
+        help_text=_('Informations techniques détaillées sur l\'erreur')
     )
 
     # Validation (pour workflows)
@@ -450,16 +467,19 @@ class FormSubmission(BaseModel):
         null=True,
         blank=True,
         related_name='form_validations',
-        verbose_name=_('Validé par')
+        verbose_name=_('Validé par'),
+        help_text=_('Utilisateur ayant validé la soumission')
     )
     validated_at = models.DateTimeField(
         null=True,
         blank=True,
-        verbose_name=_('Date de validation')
+        verbose_name=_('Date de validation'),
+        help_text=_('Date et heure de validation de la soumission')
     )
     validation_notes = models.TextField(
         blank=True,
-        verbose_name=_('Notes de validation')
+        verbose_name=_('Notes de validation'),
+        help_text=_('Commentaires du validateur sur cette soumission')
     )
 
     # Contexte
@@ -514,16 +534,19 @@ class FormTemplate(models.Model):
     )
     name = models.CharField(
         max_length=200,
-        verbose_name=_('Nom')
+        verbose_name=_('Nom'),
+        help_text=_('Nom affiché du template')
     )
     description = models.TextField(
         blank=True,
-        verbose_name=_('Description')
+        verbose_name=_('Description'),
+        help_text=_('Description de l\'usage et du contenu du template')
     )
     category = models.CharField(
         max_length=20,
         choices=Category.choices,
-        verbose_name=_('Catégorie')
+        verbose_name=_('Catégorie'),
+        help_text=_('Catégorie du template pour le regroupement')
     )
 
     # Configuration complète
@@ -540,7 +563,8 @@ class FormTemplate(models.Model):
         max_length=50,
         blank=True,
         default='ph-file-text',
-        verbose_name=_('Icône')
+        verbose_name=_('Icône'),
+        help_text=_('Classe CSS de l\'icône (Phosphor Icons)')
     )
 
     # Métadonnées
@@ -551,15 +575,18 @@ class FormTemplate(models.Model):
     )
     is_active = models.BooleanField(
         default=True,
-        verbose_name=_('Actif')
+        verbose_name=_('Actif'),
+        help_text=_('Indique si le template est disponible pour utilisation')
     )
     created_at = models.DateTimeField(
         auto_now_add=True,
-        verbose_name=_('Date de création')
+        verbose_name=_('Date de création'),
+        help_text=_('Date de création du template')
     )
     updated_at = models.DateTimeField(
         auto_now=True,
-        verbose_name=_('Date de modification')
+        verbose_name=_('Date de modification'),
+        help_text=_('Date de dernière modification du template')
     )
 
     class Meta:

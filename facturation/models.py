@@ -1,5 +1,6 @@
 # apps/facturation/models.py
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 from core.models import BaseModel, Mandat, Client, User
 from decimal import Decimal
 from datetime import datetime, date, timedelta
@@ -9,48 +10,103 @@ class Prestation(BaseModel):
     """Prestation/Service fourni"""
 
     TYPE_CHOICES = [
-        ('COMPTABILITE', 'Comptabilité'),
-        ('TVA', 'TVA'),
-        ('SALAIRES', 'Salaires'),
-        ('CONSEIL', 'Conseil'),
-        ('AUDIT', 'Audit'),
-        ('FISCALITE', 'Fiscalité'),
-        ('JURIDIQUE', 'Juridique'),
-        ('CREATION', 'Création entreprise'),
-        ('AUTRE', 'Autre'),
+        ('COMPTABILITE', _('Comptabilité')),
+        ('TVA', _('TVA')),
+        ('SALAIRES', _('Salaires')),
+        ('CONSEIL', _('Conseil')),
+        ('AUDIT', _('Audit')),
+        ('FISCALITE', _('Fiscalité')),
+        ('JURIDIQUE', _('Juridique')),
+        ('CREATION', _('Création entreprise')),
+        ('AUTRE', _('Autre')),
     ]
 
     # Identification
-    code = models.CharField(max_length=50, unique=True, db_index=True)
-    libelle = models.CharField(max_length=255)
-    description = models.TextField(blank=True)
+    code = models.CharField(
+        max_length=50,
+        unique=True,
+        db_index=True,
+        verbose_name=_("Code"),
+        help_text=_("Code unique de la prestation")
+    )
+    libelle = models.CharField(
+        max_length=255,
+        verbose_name=_("Libellé"),
+        help_text=_("Libellé de la prestation")
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name=_("Description"),
+        help_text=_("Description détaillée de la prestation")
+    )
 
-    type_prestation = models.CharField(max_length=20, choices=TYPE_CHOICES)
+    type_prestation = models.CharField(
+        max_length=20,
+        choices=TYPE_CHOICES,
+        verbose_name=_("Type de prestation"),
+        help_text=_("Catégorie de la prestation")
+    )
 
     # Tarification par défaut
-    prix_unitaire_ht = models.DecimalField(max_digits=10, decimal_places=2,
-                                           null=True, blank=True)
-    unite = models.CharField(max_length=50, default='heure',
-                             help_text='heure, jour, forfait, unité')
+    prix_unitaire_ht = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Prix unitaire HT"),
+        help_text=_("Prix unitaire hors taxes par défaut")
+    )
+    unite = models.CharField(
+        max_length=50,
+        default='heure',
+        verbose_name=_("Unité"),
+        help_text=_("Unité de facturation (heure, jour, forfait, unité)")
+    )
 
-    taux_horaire = models.DecimalField(max_digits=10, decimal_places=2,
-                                       null=True, blank=True)
+    taux_horaire = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Taux horaire"),
+        help_text=_("Taux horaire de facturation")
+    )
 
     # TVA
-    soumis_tva = models.BooleanField(default=True)
-    taux_tva_defaut = models.DecimalField(max_digits=5, decimal_places=2, default=8.1)
+    soumis_tva = models.BooleanField(
+        default=True,
+        verbose_name=_("Soumis à TVA"),
+        help_text=_("Indique si la prestation est soumise à TVA")
+    )
+    taux_tva_defaut = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=8.1,
+        verbose_name=_("Taux TVA par défaut"),
+        help_text=_("Taux de TVA appliqué par défaut")
+    )
 
     # Compte comptable
-    compte_produit = models.ForeignKey('comptabilite.Compte',
-                                       on_delete=models.SET_NULL,
-                                       null=True, blank=True,
-                                       related_name='+')
+    compte_produit = models.ForeignKey(
+        'comptabilite.Compte',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='+',
+        verbose_name=_("Compte de produit"),
+        help_text=_("Compte comptable de produit associé")
+    )
 
-    actif = models.BooleanField(default=True)
+    actif = models.BooleanField(
+        default=True,
+        verbose_name=_("Actif"),
+        help_text=_("Indique si la prestation est active")
+    )
 
     class Meta:
         db_table = 'prestations'
-        verbose_name = 'Prestation'
+        verbose_name = _('Prestation')
+        verbose_name_plural = _('Prestations')
         ordering = ['code']
 
     def __str__(self):
@@ -61,42 +117,117 @@ class TimeTracking(BaseModel):
     """Suivi du temps de travail sur les prestations"""
 
     # Rattachement
-    mandat = models.ForeignKey(Mandat, on_delete=models.CASCADE,
-                               related_name='temps_travail')
-    utilisateur = models.ForeignKey(User, on_delete=models.PROTECT,
-                                    related_name='temps_travail')
-    prestation = models.ForeignKey(Prestation, on_delete=models.PROTECT,
-                                   related_name='temps_travail')
+    mandat = models.ForeignKey(
+        Mandat,
+        on_delete=models.CASCADE,
+        related_name='temps_travail',
+        verbose_name=_("Mandat"),
+        help_text=_("Mandat concerné par ce temps de travail")
+    )
+    utilisateur = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name='temps_travail',
+        verbose_name=_("Utilisateur"),
+        help_text=_("Collaborateur ayant effectué le travail")
+    )
+    prestation = models.ForeignKey(
+        Prestation,
+        on_delete=models.PROTECT,
+        related_name='temps_travail',
+        verbose_name=_("Prestation"),
+        help_text=_("Type de prestation effectuée")
+    )
 
     # Temps
-    date_travail = models.DateField(db_index=True)
-    heure_debut = models.TimeField(null=True, blank=True)
-    heure_fin = models.TimeField(null=True, blank=True)
-    duree_minutes = models.IntegerField(help_text='Durée en minutes')
+    date_travail = models.DateField(
+        db_index=True,
+        verbose_name=_("Date du travail"),
+        help_text=_("Date à laquelle le travail a été effectué")
+    )
+    heure_debut = models.TimeField(
+        null=True,
+        blank=True,
+        verbose_name=_("Heure de début"),
+        help_text=_("Heure de début du travail")
+    )
+    heure_fin = models.TimeField(
+        null=True,
+        blank=True,
+        verbose_name=_("Heure de fin"),
+        help_text=_("Heure de fin du travail")
+    )
+    duree_minutes = models.IntegerField(
+        verbose_name=_("Durée (minutes)"),
+        help_text=_("Durée du travail en minutes")
+    )
 
     # Description
-    description = models.TextField()
-    notes_internes = models.TextField(blank=True)
+    description = models.TextField(
+        verbose_name=_("Description"),
+        help_text=_("Description du travail effectué")
+    )
+    notes_internes = models.TextField(
+        blank=True,
+        verbose_name=_("Notes internes"),
+        help_text=_("Notes internes non visibles sur la facture")
+    )
 
     # Facturation
-    facturable = models.BooleanField(default=True)
-    taux_horaire = models.DecimalField(max_digits=10, decimal_places=2)
-    montant_ht = models.DecimalField(max_digits=10, decimal_places=2)
+    facturable = models.BooleanField(
+        default=True,
+        verbose_name=_("Facturable"),
+        help_text=_("Indique si ce temps est facturable au client")
+    )
+    taux_horaire = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        verbose_name=_("Taux horaire"),
+        help_text=_("Taux horaire appliqué pour ce travail")
+    )
+    montant_ht = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        verbose_name=_("Montant HT"),
+        help_text=_("Montant hors taxes calculé")
+    )
 
-    facture = models.ForeignKey('Facture', on_delete=models.SET_NULL,
-                                null=True, blank=True,
-                                related_name='temps_factures')
-    date_facturation = models.DateField(null=True, blank=True)
+    facture = models.ForeignKey(
+        'Facture',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='temps_factures',
+        verbose_name=_("Facture"),
+        help_text=_("Facture associée si ce temps a été facturé")
+    )
+    date_facturation = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("Date de facturation"),
+        help_text=_("Date à laquelle ce temps a été facturé")
+    )
 
     # Validation
-    valide = models.BooleanField(default=False)
-    valide_par = models.ForeignKey(User, on_delete=models.SET_NULL,
-                                   null=True, blank=True,
-                                   related_name='+')
+    valide = models.BooleanField(
+        default=False,
+        verbose_name=_("Validé"),
+        help_text=_("Indique si ce temps a été validé")
+    )
+    valide_par = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='+',
+        verbose_name=_("Validé par"),
+        help_text=_("Utilisateur ayant validé ce temps")
+    )
 
     class Meta:
         db_table = 'time_tracking'
-        verbose_name = 'Suivi du temps'
+        verbose_name = _('Suivi du temps')
+        verbose_name_plural = _('Suivis du temps')
         ordering = ['-date_travail', 'utilisateur']
         indexes = [
             models.Index(fields=['mandat', 'date_travail']),
@@ -157,117 +288,285 @@ class TimeTracking(BaseModel):
 
         return ligne
 
+
 class Facture(BaseModel):
     """Facture client"""
 
     STATUT_CHOICES = [
-        ('BROUILLON', 'Brouillon'),
-        ('PROFORMA', 'Pro forma'),
-        ('EMISE', 'Émise'),
-        ('ENVOYEE', 'Envoyée'),
-        ('RELANCEE', 'Relancée'),
-        ('PARTIELLEMENT_PAYEE', 'Partiellement payée'),
-        ('PAYEE', 'Payée'),
-        ('EN_RETARD', 'En retard'),
-        ('ANNULEE', 'Annulée'),
-        ('AVOIR', 'Avoir'),
+        ('BROUILLON', _('Brouillon')),
+        ('PROFORMA', _('Pro forma')),
+        ('EMISE', _('Émise')),
+        ('ENVOYEE', _('Envoyée')),
+        ('RELANCEE', _('Relancée')),
+        ('PARTIELLEMENT_PAYEE', _('Partiellement payée')),
+        ('PAYEE', _('Payée')),
+        ('EN_RETARD', _('En retard')),
+        ('ANNULEE', _('Annulée')),
+        ('AVOIR', _('Avoir')),
     ]
 
     TYPE_CHOICES = [
-        ('FACTURE', 'Facture'),
-        ('AVOIR', 'Avoir'),
-        ('ACOMPTE', 'Facture d\'acompte'),
+        ('FACTURE', _('Facture')),
+        ('AVOIR', _('Avoir')),
+        ('ACOMPTE', _("Facture d'acompte")),
     ]
 
     # Identification
-    numero_facture = models.CharField(max_length=50, unique=True, db_index=True)
-    mandat = models.ForeignKey(Mandat, on_delete=models.CASCADE,
-                               related_name='factures')
-    client = models.ForeignKey(Client, on_delete=models.PROTECT,
-                               related_name='factures')
+    numero_facture = models.CharField(
+        max_length=50,
+        unique=True,
+        db_index=True,
+        verbose_name=_("Numéro de facture"),
+        help_text=_("Numéro unique de la facture")
+    )
+    mandat = models.ForeignKey(
+        Mandat,
+        on_delete=models.CASCADE,
+        related_name='factures',
+        verbose_name=_("Mandat"),
+        help_text=_("Mandat concerné par cette facture")
+    )
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.PROTECT,
+        related_name='factures',
+        verbose_name=_("Client"),
+        help_text=_("Client facturé")
+    )
 
-    type_facture = models.CharField(max_length=20, choices=TYPE_CHOICES,
-                                    default='FACTURE')
+    type_facture = models.CharField(
+        max_length=20,
+        choices=TYPE_CHOICES,
+        default='FACTURE',
+        verbose_name=_("Type de facture"),
+        help_text=_("Type de document (Facture, Avoir, Acompte)")
+    )
 
     # Dates
-    date_emission = models.DateField(db_index=True)
-    date_echeance = models.DateField(db_index=True)
-    date_service_debut = models.DateField(null=True, blank=True,
-                                          help_text='Début période facturée')
-    date_service_fin = models.DateField(null=True, blank=True,
-                                        help_text='Fin période facturée')
+    date_emission = models.DateField(
+        db_index=True,
+        verbose_name=_("Date d'émission"),
+        help_text=_("Date d'émission de la facture")
+    )
+    date_echeance = models.DateField(
+        db_index=True,
+        verbose_name=_("Date d'échéance"),
+        help_text=_("Date limite de paiement")
+    )
+    date_service_debut = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("Début de période"),
+        help_text=_("Date de début de la période facturée")
+    )
+    date_service_fin = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("Fin de période"),
+        help_text=_("Date de fin de la période facturée")
+    )
 
     # Montants
-    montant_ht = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    montant_tva = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    montant_ttc = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    montant_ht = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Montant HT"),
+        help_text=_("Montant total hors taxes")
+    )
+    montant_tva = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Montant TVA"),
+        help_text=_("Montant total de la TVA")
+    )
+    montant_ttc = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Montant TTC"),
+        help_text=_("Montant total toutes taxes comprises")
+    )
 
     # Remises
-    remise_pourcent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
-    remise_montant = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    remise_pourcent = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Remise (%)"),
+        help_text=_("Pourcentage de remise globale")
+    )
+    remise_montant = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Montant remise"),
+        help_text=_("Montant de la remise calculée")
+    )
 
     # Paiement
-    delai_paiement_jours = models.IntegerField(default=30)
-    conditions_paiement = models.TextField(blank=True)
+    delai_paiement_jours = models.IntegerField(
+        default=30,
+        verbose_name=_("Délai de paiement (jours)"),
+        help_text=_("Nombre de jours accordés pour le paiement")
+    )
+    conditions_paiement = models.TextField(
+        blank=True,
+        verbose_name=_("Conditions de paiement"),
+        help_text=_("Conditions de paiement spécifiques")
+    )
 
     # QR-Bill Suisse
-    qr_reference = models.CharField(max_length=27, 
-                                    blank=True,
-                                    null=True, 
-                                    unique=True,
-                                    help_text='Référence QR structurée')
-    qr_iban = models.CharField(max_length=34, blank=True)
-    qr_code_image = models.ImageField(upload_to='factures/qr/',
-                                      null=True, blank=True)
+    qr_reference = models.CharField(
+        max_length=27,
+        blank=True,
+        null=True,
+        unique=True,
+        verbose_name=_("Référence QR"),
+        help_text=_("Référence QR structurée pour le paiement suisse")
+    )
+    qr_iban = models.CharField(
+        max_length=34,
+        blank=True,
+        verbose_name=_("IBAN QR"),
+        help_text=_("IBAN pour le QR-Bill")
+    )
+    qr_code_image = models.ImageField(
+        upload_to='factures/qr/',
+        null=True,
+        blank=True,
+        verbose_name=_("Image QR code"),
+        help_text=_("Image du QR code généré")
+    )
 
     # Statut
-    statut = models.CharField(max_length=30, choices=STATUT_CHOICES,
-                              default='BROUILLON', db_index=True)
+    statut = models.CharField(
+        max_length=30,
+        choices=STATUT_CHOICES,
+        default='BROUILLON',
+        db_index=True,
+        verbose_name=_("Statut"),
+        help_text=_("Statut actuel de la facture")
+    )
 
     # Paiements
-    montant_paye = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    montant_restant = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    montant_paye = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Montant payé"),
+        help_text=_("Montant total déjà payé")
+    )
+    montant_restant = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Montant restant"),
+        help_text=_("Montant restant à payer")
+    )
 
-    date_paiement_complet = models.DateField(null=True, blank=True)
+    date_paiement_complet = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("Date de paiement complet"),
+        help_text=_("Date à laquelle la facture a été entièrement payée")
+    )
 
     # Relances
-    nombre_relances = models.IntegerField(default=0)
-    date_derniere_relance = models.DateField(null=True, blank=True)
+    nombre_relances = models.IntegerField(
+        default=0,
+        verbose_name=_("Nombre de relances"),
+        help_text=_("Nombre de relances envoyées")
+    )
+    date_derniere_relance = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("Date dernière relance"),
+        help_text=_("Date de la dernière relance envoyée")
+    )
 
     # Avoir / Annulation
-    facture_origine = models.ForeignKey('self', on_delete=models.SET_NULL,
-                                        null=True, blank=True,
-                                        related_name='avoirs')
-    motif_annulation = models.TextField(blank=True)
+    facture_origine = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='avoirs',
+        verbose_name=_("Facture d'origine"),
+        help_text=_("Facture d'origine pour un avoir")
+    )
+    motif_annulation = models.TextField(
+        blank=True,
+        verbose_name=_("Motif d'annulation"),
+        help_text=_("Raison de l'annulation ou de l'avoir")
+    )
 
     # Fichiers
-    fichier_pdf = models.FileField(upload_to='factures/pdf/',
-                                   null=True, blank=True)
+    fichier_pdf = models.FileField(
+        upload_to='factures/pdf/',
+        null=True,
+        blank=True,
+        verbose_name=_("Fichier PDF"),
+        help_text=_("Fichier PDF de la facture")
+    )
 
     # Comptabilité
-    ecriture_comptable = models.ForeignKey('comptabilite.PieceComptable',
-                                           on_delete=models.SET_NULL,
-                                           null=True, blank=True,
-                                           related_name='factures')
+    ecriture_comptable = models.ForeignKey(
+        'comptabilite.PieceComptable',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='factures',
+        verbose_name=_("Pièce comptable"),
+        help_text=_("Pièce comptable associée")
+    )
 
     # Textes
-    introduction = models.TextField(blank=True,
-                                    help_text='Texte introduction facture')
-    conclusion = models.TextField(blank=True,
-                                  help_text='Texte conclusion/remerciements')
-    notes = models.TextField(blank=True, help_text='Notes internes')
+    introduction = models.TextField(
+        blank=True,
+        verbose_name=_("Introduction"),
+        help_text=_("Texte d'introduction de la facture")
+    )
+    conclusion = models.TextField(
+        blank=True,
+        verbose_name=_("Conclusion"),
+        help_text=_("Texte de conclusion/remerciements")
+    )
+    notes = models.TextField(
+        blank=True,
+        verbose_name=_("Notes internes"),
+        help_text=_("Notes internes non visibles sur la facture")
+    )
 
     # Création/validation
-    creee_par = models.ForeignKey(User, on_delete=models.PROTECT,
-                                  related_name='factures_creees')
-    date_validation = models.DateTimeField(null=True, blank=True)
-    validee_par = models.ForeignKey(User, on_delete=models.SET_NULL,
-                                    null=True, blank=True,
-                                    related_name='factures_validees')
+    creee_par = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name='factures_creees',
+        verbose_name=_("Créée par"),
+        help_text=_("Utilisateur ayant créé la facture")
+    )
+    date_validation = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_("Date de validation"),
+        help_text=_("Date et heure de validation")
+    )
+    validee_par = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='factures_validees',
+        verbose_name=_("Validée par"),
+        help_text=_("Utilisateur ayant validé la facture")
+    )
 
     class Meta:
         db_table = 'factures'
-        verbose_name = 'Facture'
+        verbose_name = _('Facture')
+        verbose_name_plural = _('Factures')
         ordering = ['-date_emission', 'numero_facture']
         indexes = [
             models.Index(fields=['client', 'statut']),
@@ -1040,7 +1339,7 @@ class Facture(BaseModel):
         canvas.setFont("Helvetica", 12)
         canvas.drawString(payment_x, 12 * mm, "CHF")
         canvas.drawString(payment_x + 25 * mm, 12 * mm, f"{self.montant_ttc:.2f}")
-    
+
     def calculer_totaux(self):
         """Recalcule tous les totaux à partir des lignes"""
         from django.db.models import Sum
@@ -1086,7 +1385,7 @@ class Facture(BaseModel):
     def valider(self, user):
         """Valide la facture"""
         if not self.lignes.exists():
-            raise ValueError("La facture doit avoir au moins une ligne")
+            raise ValueError(_("La facture doit avoir au moins une ligne"))
 
         # Recalculer les totaux
         self.calculer_totaux()
@@ -1198,43 +1497,114 @@ class Facture(BaseModel):
 class LigneFacture(BaseModel):
     """Ligne de facture"""
 
-    facture = models.ForeignKey(Facture, on_delete=models.CASCADE,
-                                related_name='lignes')
+    facture = models.ForeignKey(
+        Facture,
+        on_delete=models.CASCADE,
+        related_name='lignes',
+        verbose_name=_("Facture"),
+        help_text=_("Facture à laquelle appartient cette ligne")
+    )
 
     # Ordre d'affichage
-    ordre = models.IntegerField(default=0)
+    ordre = models.IntegerField(
+        default=0,
+        verbose_name=_("Ordre"),
+        help_text=_("Ordre d'affichage de la ligne")
+    )
 
     # Prestation/Produit
-    prestation = models.ForeignKey(Prestation, on_delete=models.SET_NULL,
-                                   null=True, blank=True)
+    prestation = models.ForeignKey(
+        Prestation,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name=_("Prestation"),
+        help_text=_("Prestation associée à cette ligne")
+    )
 
     # Description
-    description = models.TextField()
-    description_detaillee = models.TextField(blank=True)
+    description = models.TextField(
+        verbose_name=_("Description"),
+        help_text=_("Description de la ligne")
+    )
+    description_detaillee = models.TextField(
+        blank=True,
+        verbose_name=_("Description détaillée"),
+        help_text=_("Description détaillée additionnelle")
+    )
 
     # Quantité et prix
-    quantite = models.DecimalField(max_digits=10, decimal_places=2, default=1)
-    unite = models.CharField(max_length=50, default='heure')
-    prix_unitaire_ht = models.DecimalField(max_digits=10, decimal_places=2)
+    quantite = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=1,
+        verbose_name=_("Quantité"),
+        help_text=_("Quantité facturée")
+    )
+    unite = models.CharField(
+        max_length=50,
+        default='heure',
+        verbose_name=_("Unité"),
+        help_text=_("Unité de mesure")
+    )
+    prix_unitaire_ht = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        verbose_name=_("Prix unitaire HT"),
+        help_text=_("Prix unitaire hors taxes")
+    )
 
     # Montants
-    montant_ht = models.DecimalField(max_digits=15, decimal_places=2)
+    montant_ht = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        verbose_name=_("Montant HT"),
+        help_text=_("Montant hors taxes de la ligne")
+    )
 
     # TVA
-    taux_tva = models.DecimalField(max_digits=5, decimal_places=2, default=8.1)
-    montant_tva = models.DecimalField(max_digits=15, decimal_places=2)
-    montant_ttc = models.DecimalField(max_digits=15, decimal_places=2)
+    taux_tva = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=8.1,
+        verbose_name=_("Taux TVA"),
+        help_text=_("Taux de TVA appliqué")
+    )
+    montant_tva = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        verbose_name=_("Montant TVA"),
+        help_text=_("Montant de TVA calculé")
+    )
+    montant_ttc = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        verbose_name=_("Montant TTC"),
+        help_text=_("Montant toutes taxes comprises")
+    )
 
     # Remise spécifique ligne
-    remise_pourcent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    remise_pourcent = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Remise (%)"),
+        help_text=_("Pourcentage de remise sur cette ligne")
+    )
 
     # Lien time tracking
-    temps_factures = models.ManyToManyField(TimeTracking, blank=True,
-                                            related_name='lignes_facture')
+    temps_factures = models.ManyToManyField(
+        TimeTracking,
+        blank=True,
+        related_name='lignes_facture',
+        verbose_name=_("Temps facturés"),
+        help_text=_("Temps de travail associés à cette ligne")
+    )
 
     class Meta:
         db_table = 'lignes_facture'
-        verbose_name = 'Ligne de facture'
+        verbose_name = _('Ligne de facture')
+        verbose_name_plural = _('Lignes de facture')
         ordering = ['facture', 'ordre']
 
     def __str__(self):
@@ -1259,47 +1629,100 @@ class Paiement(BaseModel):
     """Paiement d'une facture"""
 
     MODE_PAIEMENT_CHOICES = [
-        ('VIREMENT', 'Virement bancaire'),
-        ('QR_BILL', 'QR-Bill'),
-        ('CARTE', 'Carte bancaire'),
-        ('ESPECES', 'Espèces'),
-        ('CHEQUE', 'Chèque'),
-        ('COMPENSATION', 'Compensation'),
-        ('AUTRE', 'Autre'),
+        ('VIREMENT', _('Virement bancaire')),
+        ('QR_BILL', _('QR-Bill')),
+        ('CARTE', _('Carte bancaire')),
+        ('ESPECES', _('Espèces')),
+        ('CHEQUE', _('Chèque')),
+        ('COMPENSATION', _('Compensation')),
+        ('AUTRE', _('Autre')),
     ]
 
-    facture = models.ForeignKey(Facture, on_delete=models.CASCADE,
-                                related_name='paiements')
+    facture = models.ForeignKey(
+        Facture,
+        on_delete=models.CASCADE,
+        related_name='paiements',
+        verbose_name=_("Facture"),
+        help_text=_("Facture concernée par ce paiement")
+    )
 
     # Montant
-    montant = models.DecimalField(max_digits=15, decimal_places=2)
-    devise = models.CharField(max_length=3, default='CHF')
+    montant = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        verbose_name=_("Montant"),
+        help_text=_("Montant du paiement")
+    )
+    devise = models.CharField(
+        max_length=3,
+        default='CHF',
+        verbose_name=_("Devise"),
+        help_text=_("Devise du paiement")
+    )
 
     # Date et mode
-    date_paiement = models.DateField(db_index=True)
-    mode_paiement = models.CharField(max_length=20, choices=MODE_PAIEMENT_CHOICES)
+    date_paiement = models.DateField(
+        db_index=True,
+        verbose_name=_("Date de paiement"),
+        help_text=_("Date du paiement")
+    )
+    mode_paiement = models.CharField(
+        max_length=20,
+        choices=MODE_PAIEMENT_CHOICES,
+        verbose_name=_("Mode de paiement"),
+        help_text=_("Mode de paiement utilisé")
+    )
 
     # Référence
-    reference = models.CharField(max_length=100, blank=True,
-                                 help_text='Référence bancaire, numéro transaction')
+    reference = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name=_("Référence"),
+        help_text=_("Référence bancaire ou numéro de transaction")
+    )
 
     # Validation
-    valide = models.BooleanField(default=False)
-    date_validation = models.DateTimeField(null=True, blank=True)
-    valide_par = models.ForeignKey(User, on_delete=models.SET_NULL,
-                                   null=True, blank=True)
+    valide = models.BooleanField(
+        default=False,
+        verbose_name=_("Validé"),
+        help_text=_("Indique si le paiement est validé")
+    )
+    date_validation = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_("Date de validation"),
+        help_text=_("Date et heure de validation")
+    )
+    valide_par = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name=_("Validé par"),
+        help_text=_("Utilisateur ayant validé le paiement")
+    )
 
     # Comptabilisation
-    ecriture_comptable = models.ForeignKey('comptabilite.EcritureComptable',
-                                           on_delete=models.SET_NULL,
-                                           null=True, blank=True,
-                                           related_name='paiements')
+    ecriture_comptable = models.ForeignKey(
+        'comptabilite.EcritureComptable',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='paiements',
+        verbose_name=_("Écriture comptable"),
+        help_text=_("Écriture comptable associée")
+    )
 
-    notes = models.TextField(blank=True)
+    notes = models.TextField(
+        blank=True,
+        verbose_name=_("Notes"),
+        help_text=_("Notes concernant ce paiement")
+    )
 
     class Meta:
         db_table = 'paiements'
-        verbose_name = 'Paiement'
+        verbose_name = _('Paiement')
+        verbose_name_plural = _('Paiements')
         ordering = ['-date_paiement']
         indexes = [
             models.Index(fields=['facture', 'date_paiement']),
@@ -1326,35 +1749,80 @@ class Relance(BaseModel):
     """Relance de paiement"""
 
     NIVEAU_CHOICES = [
-        (1, '1ère relance'),
-        (2, '2ème relance'),
-        (3, '3ème relance'),
-        (4, 'Mise en demeure'),
+        (1, _('1ère relance')),
+        (2, _('2ème relance')),
+        (3, _('3ème relance')),
+        (4, _('Mise en demeure')),
     ]
 
-    facture = models.ForeignKey(Facture, on_delete=models.CASCADE,
-                                related_name='relances')
+    facture = models.ForeignKey(
+        Facture,
+        on_delete=models.CASCADE,
+        related_name='relances',
+        verbose_name=_("Facture"),
+        help_text=_("Facture concernée par cette relance")
+    )
 
-    niveau = models.IntegerField(choices=NIVEAU_CHOICES)
-    date_relance = models.DateField(auto_now_add=True)
-    date_echeance = models.DateField(help_text='Nouvelle échéance')
+    niveau = models.IntegerField(
+        choices=NIVEAU_CHOICES,
+        verbose_name=_("Niveau"),
+        help_text=_("Niveau de la relance (1ère, 2ème, etc.)")
+    )
+    date_relance = models.DateField(
+        auto_now_add=True,
+        verbose_name=_("Date de relance"),
+        help_text=_("Date de création de la relance")
+    )
+    date_echeance = models.DateField(
+        verbose_name=_("Date d'échéance"),
+        help_text=_("Nouvelle date limite de paiement")
+    )
 
-    montant_frais = models.DecimalField(max_digits=10, decimal_places=2, default=0,
-                                        help_text='Frais de relance')
-    montant_interets = models.DecimalField(max_digits=10, decimal_places=2, default=0,
-                                           help_text='Intérêts de retard')
+    montant_frais = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Frais de relance"),
+        help_text=_("Montant des frais de relance")
+    )
+    montant_interets = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Intérêts de retard"),
+        help_text=_("Montant des intérêts de retard")
+    )
 
-    envoyee = models.BooleanField(default=False)
-    date_envoi = models.DateField(null=True, blank=True)
+    envoyee = models.BooleanField(
+        default=False,
+        verbose_name=_("Envoyée"),
+        help_text=_("Indique si la relance a été envoyée")
+    )
+    date_envoi = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("Date d'envoi"),
+        help_text=_("Date d'envoi de la relance")
+    )
 
-    fichier_pdf = models.FileField(upload_to='factures/relances/',
-                                   null=True, blank=True)
+    fichier_pdf = models.FileField(
+        upload_to='factures/relances/',
+        null=True,
+        blank=True,
+        verbose_name=_("Fichier PDF"),
+        help_text=_("Fichier PDF de la relance")
+    )
 
-    notes = models.TextField(blank=True)
+    notes = models.TextField(
+        blank=True,
+        verbose_name=_("Notes"),
+        help_text=_("Notes concernant cette relance")
+    )
 
     class Meta:
         db_table = 'relances'
-        verbose_name = 'Relance'
+        verbose_name = _('Relance')
+        verbose_name_plural = _('Relances')
         ordering = ['-date_relance']
 
     def __str__(self):

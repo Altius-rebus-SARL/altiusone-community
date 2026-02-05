@@ -30,40 +30,96 @@ class Dossier(BaseModel):
     ]
 
     # Hiérarchie
-    parent = models.ForeignKey('self', on_delete=models.CASCADE,
-                               null=True, blank=True,
-                               related_name='sous_dossiers')
+    parent = models.ForeignKey(
+        'self', on_delete=models.CASCADE,
+        null=True, blank=True,
+        related_name='sous_dossiers',
+        verbose_name='Dossier parent',
+        help_text='Dossier contenant celui-ci'
+    )
 
     # Rattachement
-    client = models.ForeignKey(Client, on_delete=models.CASCADE,
-                               null=True, blank=True,
-                               related_name='dossiers')
-    mandat = models.ForeignKey(Mandat, on_delete=models.CASCADE,
-                               null=True, blank=True,
-                               related_name='dossiers')
+    client = models.ForeignKey(
+        Client, on_delete=models.CASCADE,
+        null=True, blank=True,
+        related_name='dossiers',
+        verbose_name='Client',
+        help_text='Client propriétaire du dossier'
+    )
+    mandat = models.ForeignKey(
+        Mandat, on_delete=models.CASCADE,
+        null=True, blank=True,
+        related_name='dossiers',
+        verbose_name='Mandat',
+        help_text='Mandat associé au dossier'
+    )
 
     # Identification
-    nom = models.CharField(max_length=255)
-    type_dossier = models.CharField(max_length=20, choices=TYPE_CHOICES)
+    nom = models.CharField(
+        max_length=255,
+        verbose_name='Nom',
+        help_text='Nom du dossier'
+    )
+    type_dossier = models.CharField(
+        max_length=20, choices=TYPE_CHOICES,
+        verbose_name='Type de dossier',
+        help_text='Catégorie du dossier'
+    )
 
     # Chemin complet (dénormalisé pour performance)
-    chemin_complet = models.CharField(max_length=1000, db_index=True)
-    niveau = models.IntegerField(default=0, help_text='Profondeur dans l\'arborescence')
+    chemin_complet = models.CharField(
+        max_length=1000, db_index=True,
+        verbose_name='Chemin complet',
+        help_text='Chemin d\'accès complet dans l\'arborescence'
+    )
+    niveau = models.IntegerField(
+        default=0,
+        verbose_name='Niveau',
+        help_text='Profondeur dans l\'arborescence'
+    )
 
     # Métadonnées
-    description = models.TextField(blank=True)
-    tags = models.JSONField(default=list, blank=True)
+    description = models.TextField(
+        blank=True,
+        verbose_name='Description',
+        help_text='Description du contenu du dossier'
+    )
+    tags = models.JSONField(
+        default=list, blank=True,
+        verbose_name='Tags',
+        help_text='Étiquettes pour faciliter la recherche'
+    )
 
     # Droits d'accès
-    proprietaire = models.ForeignKey(User, on_delete=models.PROTECT,
-                                     related_name='dossiers_proprietaire')
-    acces_restreint = models.BooleanField(default=False)
-    utilisateurs_autorises = models.ManyToManyField(User, blank=True,
-                                                    related_name='dossiers_autorises')
+    proprietaire = models.ForeignKey(
+        User, on_delete=models.PROTECT,
+        related_name='dossiers_proprietaire',
+        verbose_name='Propriétaire',
+        help_text='Utilisateur propriétaire du dossier'
+    )
+    acces_restreint = models.BooleanField(
+        default=False,
+        verbose_name='Accès restreint',
+        help_text='Limiter l\'accès aux utilisateurs autorisés'
+    )
+    utilisateurs_autorises = models.ManyToManyField(
+        User, blank=True,
+        related_name='dossiers_autorises',
+        verbose_name='Utilisateurs autorisés',
+        help_text='Utilisateurs ayant accès si accès restreint'
+    )
 
     # Statistiques (dénormalisé)
-    nombre_documents = models.IntegerField(default=0)
-    taille_totale = models.BigIntegerField(default=0, help_text='En octets')
+    nombre_documents = models.IntegerField(
+        default=0,
+        verbose_name='Nombre de documents',
+        help_text='Nombre de documents dans ce dossier'
+    )
+    taille_totale = models.BigIntegerField(
+        default=0,
+        verbose_name='Taille totale',
+        help_text='Taille totale des documents en octets'
+    )
 
     class Meta:
         db_table = 'dossiers'
@@ -128,25 +184,55 @@ class Dossier(BaseModel):
 class CategorieDocument(BaseModel):
     """Catégories de documents"""
 
-    nom = models.CharField(max_length=100, unique=True)
-    description = models.TextField(blank=True)
+    nom = models.CharField(
+        max_length=100, unique=True,
+        verbose_name='Nom',
+        help_text='Nom de la catégorie'
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name='Description',
+        help_text='Description de la catégorie'
+    )
 
     # Classification automatique
-    mots_cles = models.JSONField(default=list, blank=True,
-                                 help_text='Mots-clés pour classification auto')
-    patterns_regex = models.JSONField(default=list, blank=True,
-                                      help_text='Patterns regex pour détection')
+    mots_cles = models.JSONField(
+        default=list, blank=True,
+        verbose_name='Mots-clés',
+        help_text='Mots-clés pour classification automatique'
+    )
+    patterns_regex = models.JSONField(
+        default=list, blank=True,
+        verbose_name='Patterns regex',
+        help_text='Expressions régulières pour détection automatique'
+    )
 
     # Icône et couleur pour UI
-    icone = models.CharField(max_length=50, blank=True)
-    couleur = models.CharField(max_length=7, blank=True, help_text='Code hex')
+    icone = models.CharField(
+        max_length=50, blank=True,
+        verbose_name='Icône',
+        help_text='Nom de l\'icône (ex: folder, file-text)'
+    )
+    couleur = models.CharField(
+        max_length=7, blank=True,
+        verbose_name='Couleur',
+        help_text='Code couleur hexadécimal (ex: #FF5733)'
+    )
 
     # Ordre affichage
-    ordre = models.IntegerField(default=0)
+    ordre = models.IntegerField(
+        default=0,
+        verbose_name='Ordre',
+        help_text='Position d\'affichage dans la liste'
+    )
 
-    parent = models.ForeignKey('self', on_delete=models.CASCADE,
-                               null=True, blank=True,
-                               related_name='sous_categories')
+    parent = models.ForeignKey(
+        'self', on_delete=models.CASCADE,
+        null=True, blank=True,
+        related_name='sous_categories',
+        verbose_name='Catégorie parente',
+        help_text='Catégorie de niveau supérieur'
+    )
 
     class Meta:
         db_table = 'categories_document'
@@ -180,26 +266,55 @@ class TypeDocument(BaseModel):
         ('AUTRE', 'Autre'),
     ]
 
-    code = models.CharField(max_length=50, unique=True)
-    libelle = models.CharField(max_length=100)
-    type_document = models.CharField(max_length=50, choices=TYPE_CHOICES)
+    code = models.CharField(
+        max_length=50, unique=True,
+        verbose_name='Code',
+        help_text='Code unique du type de document'
+    )
+    libelle = models.CharField(
+        max_length=100,
+        verbose_name='Libellé',
+        help_text='Nom affiché du type de document'
+    )
+    type_document = models.CharField(
+        max_length=50, choices=TYPE_CHOICES,
+        verbose_name='Type de document',
+        help_text='Catégorie prédéfinie du document'
+    )
 
-    categorie = models.ForeignKey(CategorieDocument, on_delete=models.PROTECT,
-                                  related_name='types_document')
+    categorie = models.ForeignKey(
+        CategorieDocument, on_delete=models.PROTECT,
+        related_name='types_document',
+        verbose_name='Catégorie',
+        help_text='Catégorie à laquelle appartient ce type'
+    )
 
     # Extraction automatique
-    champs_extraire = models.JSONField(default=list, blank=True, help_text="""
-    Liste des champs à extraire automatiquement:
-    ["montant", "date", "numero_facture", "fournisseur", "tva"]
-    """)
+    champs_extraire = models.JSONField(
+        default=list, blank=True,
+        verbose_name='Champs à extraire',
+        help_text='Liste des champs à extraire automatiquement (montant, date, etc.)'
+    )
 
     # Template OCR/AI
-    template_extraction = models.JSONField(default=dict, blank=True)
+    template_extraction = models.JSONField(
+        default=dict, blank=True,
+        verbose_name='Template d\'extraction',
+        help_text='Configuration du template pour l\'extraction AI/OCR'
+    )
 
     # Workflow
-    validation_requise = models.BooleanField(default=False)
-    validateurs = models.ManyToManyField(User, blank=True,
-                                         related_name='types_doc_validation')
+    validation_requise = models.BooleanField(
+        default=False,
+        verbose_name='Validation requise',
+        help_text='Exiger une validation manuelle pour ce type'
+    )
+    validateurs = models.ManyToManyField(
+        User, blank=True,
+        related_name='types_doc_validation',
+        verbose_name='Validateurs',
+        help_text='Utilisateurs habilités à valider ce type de document'
+    )
 
     class Meta:
         db_table = 'types_document'
@@ -232,18 +347,45 @@ class Document(BaseModel):
     ]
 
     # Rattachement
-    mandat = models.ForeignKey(Mandat, on_delete=models.CASCADE,
-                               related_name='documents')
-    dossier = models.ForeignKey(Dossier, on_delete=models.CASCADE,
-                                related_name='documents',
-                                null=True, blank=True)
+    mandat = models.ForeignKey(
+        Mandat, on_delete=models.CASCADE,
+        related_name='documents',
+        verbose_name='Mandat',
+        help_text='Mandat auquel appartient ce document'
+    )
+    dossier = models.ForeignKey(
+        Dossier, on_delete=models.CASCADE,
+        related_name='documents',
+        null=True, blank=True,
+        verbose_name='Dossier',
+        help_text='Dossier de classement'
+    )
 
     # Fichier
-    nom_fichier = models.CharField(max_length=255, db_index=True)
-    nom_original = models.CharField(max_length=255)
-    extension = models.CharField(max_length=10)
-    mime_type = models.CharField(max_length=100)
-    taille = models.BigIntegerField(help_text='Taille en octets')
+    nom_fichier = models.CharField(
+        max_length=255, db_index=True,
+        verbose_name='Nom du fichier',
+        help_text='Nom du fichier stocké'
+    )
+    nom_original = models.CharField(
+        max_length=255,
+        verbose_name='Nom original',
+        help_text='Nom du fichier lors de l\'upload'
+    )
+    extension = models.CharField(
+        max_length=10,
+        verbose_name='Extension',
+        help_text='Extension du fichier (pdf, jpg, etc.)'
+    )
+    mime_type = models.CharField(
+        max_length=100,
+        verbose_name='Type MIME',
+        help_text='Type MIME du fichier'
+    )
+    taille = models.BigIntegerField(
+        verbose_name='Taille',
+        help_text='Taille du fichier en octets'
+    )
 
     # Stockage - FileField avec storage S3/MinIO
     fichier = models.FileField(
@@ -251,96 +393,183 @@ class Document(BaseModel):
         upload_to=document_upload_path,
         null=True,
         blank=True,
+        verbose_name='Fichier',
         help_text='Fichier stocké dans S3/MinIO'
     )
-    hash_fichier = models.CharField(max_length=64, unique=True, db_index=True,
-                                    help_text='SHA-256 du fichier')
+    hash_fichier = models.CharField(
+        max_length=64, unique=True, db_index=True,
+        verbose_name='Hash du fichier',
+        help_text='Empreinte SHA-256 pour déduplication'
+    )
 
     # Classification
-    type_document = models.ForeignKey(TypeDocument, on_delete=models.SET_NULL,
-                                      null=True, blank=True)
-    categorie = models.ForeignKey(CategorieDocument, on_delete=models.SET_NULL,
-                                  null=True, blank=True)
+    type_document = models.ForeignKey(
+        TypeDocument, on_delete=models.SET_NULL,
+        null=True, blank=True,
+        verbose_name='Type de document',
+        help_text='Type de document identifié'
+    )
+    categorie = models.ForeignKey(
+        CategorieDocument, on_delete=models.SET_NULL,
+        null=True, blank=True,
+        verbose_name='Catégorie',
+        help_text='Catégorie de classement'
+    )
 
     # Dates
-    date_document = models.DateField(null=True, blank=True, db_index=True,
-                                     help_text='Date du document (extraite ou saisie)')
-    date_upload = models.DateTimeField(auto_now_add=True, db_index=True)
-    date_modification = models.DateTimeField(auto_now=True)
+    date_document = models.DateField(
+        null=True, blank=True, db_index=True,
+        verbose_name='Date du document',
+        help_text='Date figurant sur le document'
+    )
+    date_upload = models.DateTimeField(
+        auto_now_add=True, db_index=True,
+        verbose_name='Date d\'upload',
+        help_text='Date et heure de téléchargement'
+    )
+    date_modification = models.DateTimeField(
+        auto_now=True,
+        verbose_name='Date de modification',
+        help_text='Dernière modification'
+    )
 
     # OCR et extraction
-    ocr_text = models.TextField(blank=True, help_text='Texte extrait par OCR')
-    ocr_confidence = models.DecimalField(max_digits=5, decimal_places=2,
-                                         null=True, blank=True,
-                                         help_text='Score de confiance OCR (0-100)')
+    ocr_text = models.TextField(
+        blank=True,
+        verbose_name='Texte OCR',
+        help_text='Texte extrait par reconnaissance optique'
+    )
+    ocr_confidence = models.DecimalField(
+        max_digits=5, decimal_places=2,
+        null=True, blank=True,
+        verbose_name='Confiance OCR',
+        help_text='Score de confiance de l\'OCR (0-100)'
+    )
 
-    metadata_extraite = models.JSONField(default=dict, blank=True, help_text="""
-    Métadonnées extraites automatiquement:
-    {
-        "montant_ht": 1000.00,
-        "montant_tva": 81.00,
-        "montant_ttc": 1081.00,
-        "numero_facture": "FAC-2025-001",
-        "date_facture": "2025-01-15",
-        "fournisseur": "Entreprise XYZ",
-        "numero_tva_fournisseur": "CHE-123.456.789",
-        "iban": "CH93 0076 2011 6238 5295 7"
-    }
-    """)
+    metadata_extraite = models.JSONField(
+        default=dict, blank=True,
+        verbose_name='Métadonnées extraites',
+        help_text='Données extraites automatiquement (montants, dates, etc.)'
+    )
 
     # Classification AI
-    prediction_type = models.CharField(max_length=100, blank=True,
-                                       help_text='Type prédit par IA')
-    prediction_confidence = models.DecimalField(max_digits=5, decimal_places=2,
-                                                null=True, blank=True,
-                                                help_text='Score confiance prédiction')
+    prediction_type = models.CharField(
+        max_length=100, blank=True,
+        verbose_name='Type prédit',
+        help_text='Type de document prédit par l\'IA'
+    )
+    prediction_confidence = models.DecimalField(
+        max_digits=5, decimal_places=2,
+        null=True, blank=True,
+        verbose_name='Confiance prédiction',
+        help_text='Score de confiance de la prédiction (0-100)'
+    )
 
     # Tags et recherche
-    tags = models.JSONField(default=list, blank=True)
-    tags_auto = models.JSONField(default=list, blank=True,
-                                 help_text='Tags générés automatiquement')
+    tags = models.JSONField(
+        default=list, blank=True,
+        verbose_name='Tags',
+        help_text='Étiquettes manuelles'
+    )
+    tags_auto = models.JSONField(
+        default=list, blank=True,
+        verbose_name='Tags automatiques',
+        help_text='Étiquettes générées automatiquement'
+    )
 
     # Statuts
-    statut_traitement = models.CharField(max_length=30,
-                                         choices=STATUT_TRAITEMENT_CHOICES,
-                                         default='UPLOAD', db_index=True)
-    statut_validation = models.CharField(max_length=20,
-                                         choices=STATUT_VALIDATION_CHOICES,
-                                         default='EN_ATTENTE',
-                                         null=True, blank=True)
+    statut_traitement = models.CharField(
+        max_length=30,
+        choices=STATUT_TRAITEMENT_CHOICES,
+        default='UPLOAD', db_index=True,
+        verbose_name='Statut de traitement',
+        help_text='État du traitement automatique'
+    )
+    statut_validation = models.CharField(
+        max_length=20,
+        choices=STATUT_VALIDATION_CHOICES,
+        default='EN_ATTENTE',
+        null=True, blank=True,
+        verbose_name='Statut de validation',
+        help_text='État de la validation manuelle'
+    )
 
     # Validation
-    valide_par = models.ForeignKey(User, on_delete=models.SET_NULL,
-                                   null=True, blank=True,
-                                   related_name='documents_valides')
-    date_validation = models.DateTimeField(null=True, blank=True)
-    commentaire_validation = models.TextField(blank=True)
+    valide_par = models.ForeignKey(
+        User, on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='documents_valides',
+        verbose_name='Validé par',
+        help_text='Utilisateur ayant validé le document'
+    )
+    date_validation = models.DateTimeField(
+        null=True, blank=True,
+        verbose_name='Date de validation',
+        help_text='Date et heure de validation'
+    )
+    commentaire_validation = models.TextField(
+        blank=True,
+        verbose_name='Commentaire de validation',
+        help_text='Remarques du validateur'
+    )
 
     # Liens avec autres entités
-    ecriture_comptable = models.ForeignKey('comptabilite.EcritureComptable',
-                                           on_delete=models.SET_NULL,
-                                           null=True, blank=True,
-                                           related_name='documents')
-    facture = models.ForeignKey('facturation.Facture', on_delete=models.SET_NULL,
-                                null=True, blank=True,
-                                related_name='documents')
-    fiche_salaire = models.ForeignKey('salaires.FicheSalaire',
-                                      on_delete=models.SET_NULL,
-                                      null=True, blank=True,
-                                      related_name='documents')
+    ecriture_comptable = models.ForeignKey(
+        'comptabilite.EcritureComptable',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='documents',
+        verbose_name='Écriture comptable',
+        help_text='Écriture comptable associée'
+    )
+    facture = models.ForeignKey(
+        'facturation.Facture', on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='documents',
+        verbose_name='Facture',
+        help_text='Facture associée'
+    )
+    fiche_salaire = models.ForeignKey(
+        'salaires.FicheSalaire',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='documents',
+        verbose_name='Fiche de salaire',
+        help_text='Fiche de salaire associée'
+    )
 
     # Versioning
-    version = models.IntegerField(default=1)
-    document_parent = models.ForeignKey('self', on_delete=models.SET_NULL,
-                                        null=True, blank=True,
-                                        related_name='versions')
+    version = models.IntegerField(
+        default=1,
+        verbose_name='Version',
+        help_text='Numéro de version du document'
+    )
+    document_parent = models.ForeignKey(
+        'self', on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='versions',
+        verbose_name='Document parent',
+        help_text='Version précédente du document'
+    )
 
     # Sécurité
-    confidentiel = models.BooleanField(default=False)
+    confidentiel = models.BooleanField(
+        default=False,
+        verbose_name='Confidentiel',
+        help_text='Marquer comme document confidentiel'
+    )
 
     # Description
-    description = models.TextField(blank=True)
-    notes = models.TextField(blank=True)
+    description = models.TextField(
+        blank=True,
+        verbose_name='Description',
+        help_text='Description du document'
+    )
+    notes = models.TextField(
+        blank=True,
+        verbose_name='Notes',
+        help_text='Notes et remarques internes'
+    )
 
     class Meta:
         db_table = 'documents'
@@ -377,19 +606,49 @@ class Document(BaseModel):
 class VersionDocument(BaseModel):
     """Historique des versions d'un document"""
 
-    document = models.ForeignKey(Document, on_delete=models.CASCADE,
-                                 related_name='historique_versions')
+    document = models.ForeignKey(
+        Document, on_delete=models.CASCADE,
+        related_name='historique_versions',
+        verbose_name='Document',
+        help_text='Document concerné'
+    )
 
-    numero_version = models.IntegerField()
-    path_storage = models.CharField(max_length=500)
-    hash_fichier = models.CharField(max_length=64)
+    numero_version = models.IntegerField(
+        verbose_name='Numéro de version',
+        help_text='Numéro séquentiel de la version'
+    )
+    path_storage = models.CharField(
+        max_length=500,
+        verbose_name='Chemin de stockage',
+        help_text='Emplacement du fichier dans le stockage'
+    )
+    hash_fichier = models.CharField(
+        max_length=64,
+        verbose_name='Hash du fichier',
+        help_text='Empreinte SHA-256 de cette version'
+    )
 
-    taille = models.BigIntegerField()
+    taille = models.BigIntegerField(
+        verbose_name='Taille',
+        help_text='Taille du fichier en octets'
+    )
 
-    modifie_par = models.ForeignKey(User, on_delete=models.PROTECT)
-    date_modification = models.DateTimeField(auto_now_add=True)
+    modifie_par = models.ForeignKey(
+        User, on_delete=models.PROTECT,
+        verbose_name='Modifié par',
+        help_text='Utilisateur ayant créé cette version'
+    )
+    date_modification = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Date de modification',
+        help_text='Date de création de cette version'
+    )
 
-    commentaire = models.TextField(blank=True)
+    commentaire = models.TextField(
+        blank=True,
+        verbose_name='Commentaire',
+        help_text='Description des modifications'
+    )
 
     class Meta:
         db_table = 'versions_document'
@@ -419,23 +678,58 @@ class TraitementDocument(BaseModel):
         ('ERREUR', 'Erreur'),
     ]
 
-    document = models.ForeignKey(Document, on_delete=models.CASCADE,
-                                 related_name='traitements')
+    document = models.ForeignKey(
+        Document, on_delete=models.CASCADE,
+        related_name='traitements',
+        verbose_name='Document',
+        help_text='Document traité'
+    )
 
-    type_traitement = models.CharField(max_length=20, choices=TYPE_TRAITEMENT_CHOICES)
-    statut = models.CharField(max_length=20, choices=STATUT_CHOICES)
+    type_traitement = models.CharField(
+        max_length=20, choices=TYPE_TRAITEMENT_CHOICES,
+        verbose_name='Type de traitement',
+        help_text='Nature du traitement effectué'
+    )
+    statut = models.CharField(
+        max_length=20, choices=STATUT_CHOICES,
+        verbose_name='Statut',
+        help_text='État du traitement'
+    )
 
-    date_debut = models.DateTimeField(auto_now_add=True)
-    date_fin = models.DateTimeField(null=True, blank=True)
-    duree_secondes = models.IntegerField(null=True, blank=True)
+    date_debut = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Date de début',
+        help_text='Début du traitement'
+    )
+    date_fin = models.DateTimeField(
+        null=True, blank=True,
+        verbose_name='Date de fin',
+        help_text='Fin du traitement'
+    )
+    duree_secondes = models.IntegerField(
+        null=True, blank=True,
+        verbose_name='Durée',
+        help_text='Durée du traitement en secondes'
+    )
 
     # Résultats
-    resultat = models.JSONField(default=dict, blank=True)
-    erreur = models.TextField(blank=True)
+    resultat = models.JSONField(
+        default=dict, blank=True,
+        verbose_name='Résultat',
+        help_text='Données résultant du traitement'
+    )
+    erreur = models.TextField(
+        blank=True,
+        verbose_name='Erreur',
+        help_text='Message d\'erreur en cas d\'échec'
+    )
 
     # Moteur utilisé
-    moteur = models.CharField(max_length=100, blank=True,
-                              help_text='Ex: Tesseract 5.0, OpenAI GPT-4, etc.')
+    moteur = models.CharField(
+        max_length=100, blank=True,
+        verbose_name='Moteur',
+        help_text='Outil utilisé (Tesseract, OpenAI GPT-4, etc.)'
+    )
 
     class Meta:
         db_table = 'traitements_document'
@@ -449,18 +743,47 @@ class TraitementDocument(BaseModel):
 class RechercheDocument(models.Model):
     """Historique des recherches (pour analytics et amélioration)"""
 
-    utilisateur = models.ForeignKey(User, on_delete=models.CASCADE)
-    mandat = models.ForeignKey(Mandat, on_delete=models.CASCADE,
-                               null=True, blank=True)
+    utilisateur = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        verbose_name='Utilisateur',
+        help_text='Utilisateur ayant effectué la recherche'
+    )
+    mandat = models.ForeignKey(
+        Mandat, on_delete=models.CASCADE,
+        null=True, blank=True,
+        verbose_name='Mandat',
+        help_text='Mandat dans lequel la recherche a été effectuée'
+    )
 
-    requete = models.TextField()
-    filtres = models.JSONField(default=dict, blank=True)
+    requete = models.TextField(
+        verbose_name='Requête',
+        help_text='Texte de la recherche'
+    )
+    filtres = models.JSONField(
+        default=dict, blank=True,
+        verbose_name='Filtres',
+        help_text='Filtres appliqués à la recherche'
+    )
 
-    nombre_resultats = models.IntegerField()
-    documents_selectionnes = models.ManyToManyField(Document, blank=True)
+    nombre_resultats = models.IntegerField(
+        verbose_name='Nombre de résultats',
+        help_text='Nombre de documents trouvés'
+    )
+    documents_selectionnes = models.ManyToManyField(
+        Document, blank=True,
+        verbose_name='Documents sélectionnés',
+        help_text='Documents consultés parmi les résultats'
+    )
 
-    date_recherche = models.DateTimeField(auto_now_add=True, db_index=True)
-    duree_ms = models.IntegerField(help_text='Durée de la recherche en ms')
+    date_recherche = models.DateTimeField(
+        auto_now_add=True, db_index=True,
+        verbose_name='Date de recherche',
+        help_text='Date et heure de la recherche'
+    )
+    duree_ms = models.IntegerField(
+        verbose_name='Durée',
+        help_text='Durée de la recherche en millisecondes'
+    )
 
     class Meta:
         db_table = 'recherches_document'
@@ -491,32 +814,54 @@ class DocumentEmbedding(models.Model):
         Document,
         on_delete=models.CASCADE,
         related_name='embedding',
-        primary_key=True
+        primary_key=True,
+        verbose_name='Document',
+        help_text='Document associé à cet embedding'
     )
 
     # Vecteur d'embedding - dimension 768 (AltiusOne AI SDK)
-    embedding = VectorField(dimensions=768, null=True, blank=True)
+    embedding = VectorField(
+        dimensions=768, null=True, blank=True,
+        verbose_name='Embedding',
+        help_text='Vecteur de représentation sémantique'
+    )
 
     # Metadonnees
     model_used = models.CharField(
         max_length=50,
         choices=EMBEDDING_MODELS,
-        default='altiusone-768'
+        default='altiusone-768',
+        verbose_name='Modèle utilisé',
+        help_text='Modèle d\'embedding utilisé'
     )
-    dimensions = models.IntegerField(default=768)
+    dimensions = models.IntegerField(
+        default=768,
+        verbose_name='Dimensions',
+        help_text='Nombre de dimensions du vecteur'
+    )
 
     # Texte source utilisé pour l'embedding
     text_hash = models.CharField(
         max_length=64,
-        help_text='Hash SHA-256 du texte utilisé'
+        verbose_name='Hash du texte',
+        help_text='Empreinte SHA-256 du texte source'
     )
     text_length = models.IntegerField(
-        help_text='Longueur du texte en caractères'
+        verbose_name='Longueur du texte',
+        help_text='Nombre de caractères du texte source'
     )
 
     # Timestamps
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Date de création',
+        help_text='Date de génération de l\'embedding'
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name='Date de mise à jour',
+        help_text='Dernière mise à jour de l\'embedding'
+    )
 
     class Meta:
         db_table = 'document_embeddings'
@@ -612,24 +957,50 @@ class TextChunkEmbedding(models.Model):
     document = models.ForeignKey(
         Document,
         on_delete=models.CASCADE,
-        related_name='chunk_embeddings'
+        related_name='chunk_embeddings',
+        verbose_name='Document',
+        help_text='Document source du chunk'
     )
 
     # Position du chunk dans le document
-    chunk_index = models.IntegerField()
-    chunk_start = models.IntegerField(help_text='Position de debut dans le texte')
-    chunk_end = models.IntegerField(help_text='Position de fin dans le texte')
+    chunk_index = models.IntegerField(
+        verbose_name='Index du chunk',
+        help_text='Position du chunk dans la séquence'
+    )
+    chunk_start = models.IntegerField(
+        verbose_name='Début du chunk',
+        help_text='Position de début dans le texte (caractères)'
+    )
+    chunk_end = models.IntegerField(
+        verbose_name='Fin du chunk',
+        help_text='Position de fin dans le texte (caractères)'
+    )
 
     # Texte du chunk (pour affichage des resultats)
-    chunk_text = models.TextField()
+    chunk_text = models.TextField(
+        verbose_name='Texte du chunk',
+        help_text='Contenu textuel du chunk'
+    )
 
     # Embedding du chunk - dimension 768 (AltiusOne AI SDK)
-    embedding = VectorField(dimensions=768, null=True, blank=True)
+    embedding = VectorField(
+        dimensions=768, null=True, blank=True,
+        verbose_name='Embedding',
+        help_text='Vecteur de représentation sémantique du chunk'
+    )
 
     # Metadonnees
-    model_used = models.CharField(max_length=50, default='altiusone-768')
+    model_used = models.CharField(
+        max_length=50, default='altiusone-768',
+        verbose_name='Modèle utilisé',
+        help_text='Modèle d\'embedding utilisé'
+    )
 
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Date de création',
+        help_text='Date de génération de l\'embedding'
+    )
 
     class Meta:
         db_table = 'text_chunk_embeddings'
@@ -694,7 +1065,9 @@ class Conversation(BaseModel):
     utilisateur = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='conversations'
+        related_name='conversations',
+        verbose_name='Utilisateur',
+        help_text='Utilisateur propriétaire de la conversation'
     )
     mandat = models.ForeignKey(
         Mandat,
@@ -702,7 +1075,8 @@ class Conversation(BaseModel):
         null=True,
         blank=True,
         related_name='conversations',
-        help_text='Mandat pour contexte documentaire'
+        verbose_name='Mandat',
+        help_text='Mandat pour le contexte documentaire'
     )
     document = models.ForeignKey(
         Document,
@@ -710,32 +1084,41 @@ class Conversation(BaseModel):
         null=True,
         blank=True,
         related_name='conversations',
-        help_text='Document specifique pour le contexte'
+        verbose_name='Document',
+        help_text='Document spécifique comme contexte'
     )
 
     # Identification
     titre = models.CharField(
         max_length=255,
         blank=True,
-        help_text='Titre genere automatiquement ou defini par utilisateur'
+        verbose_name='Titre',
+        help_text='Titre de la conversation'
     )
-    description = models.TextField(blank=True)
+    description = models.TextField(
+        blank=True,
+        verbose_name='Description',
+        help_text='Description de la conversation'
+    )
 
     # Configuration
     modele_ia = models.CharField(
         max_length=50,
         default='altiusone-chat',
-        help_text='Modele AI utilise'
+        verbose_name='Modèle IA',
+        help_text='Modèle d\'intelligence artificielle utilisé'
     )
     temperature = models.DecimalField(
         max_digits=3,
         decimal_places=2,
         default=0.7,
-        help_text='Temperature pour generation (0-1)'
+        verbose_name='Température',
+        help_text='Créativité des réponses (0=déterministe, 1=créatif)'
     )
     contexte_systeme = models.TextField(
         blank=True,
-        help_text='Instructions systeme personnalisees'
+        verbose_name='Contexte système',
+        help_text='Instructions personnalisées pour l\'assistant'
     )
 
     # Statut
@@ -743,12 +1126,22 @@ class Conversation(BaseModel):
         max_length=20,
         choices=STATUT_CHOICES,
         default='ACTIVE',
-        db_index=True
+        db_index=True,
+        verbose_name='Statut',
+        help_text='État de la conversation'
     )
 
     # Statistiques
-    nombre_messages = models.IntegerField(default=0)
-    tokens_utilises = models.IntegerField(default=0)
+    nombre_messages = models.IntegerField(
+        default=0,
+        verbose_name='Nombre de messages',
+        help_text='Total des messages échangés'
+    )
+    tokens_utilises = models.IntegerField(
+        default=0,
+        verbose_name='Tokens utilisés',
+        help_text='Consommation totale de tokens'
+    )
 
     class Meta:
         db_table = 'conversations'
@@ -814,29 +1207,39 @@ class Message(BaseModel):
     conversation = models.ForeignKey(
         Conversation,
         on_delete=models.CASCADE,
-        related_name='messages'
+        related_name='messages',
+        verbose_name='Conversation',
+        help_text='Conversation contenant ce message'
     )
 
     role = models.CharField(
         max_length=20,
         choices=ROLE_CHOICES,
-        db_index=True
+        db_index=True,
+        verbose_name='Rôle',
+        help_text='Auteur du message (utilisateur, assistant ou système)'
     )
-    contenu = models.TextField()
+    contenu = models.TextField(
+        verbose_name='Contenu',
+        help_text='Texte du message'
+    )
 
     # Metadonnees AI
     tokens_prompt = models.IntegerField(
         default=0,
-        help_text='Tokens utilises pour le prompt'
+        verbose_name='Tokens prompt',
+        help_text='Nombre de tokens utilisés pour le prompt'
     )
     tokens_completion = models.IntegerField(
         default=0,
-        help_text='Tokens generes en reponse'
+        verbose_name='Tokens réponse',
+        help_text='Nombre de tokens générés en réponse'
     )
     duree_ms = models.IntegerField(
         null=True,
         blank=True,
-        help_text='Duree de generation en millisecondes'
+        verbose_name='Durée',
+        help_text='Durée de génération en millisecondes'
     )
 
     # Documents references
@@ -844,14 +1247,16 @@ class Message(BaseModel):
         Document,
         blank=True,
         related_name='messages_contexte',
-        help_text='Documents utilises comme contexte pour ce message'
+        verbose_name='Documents contexte',
+        help_text='Documents utilisés comme contexte pour ce message'
     )
 
     # Sources citees dans la reponse
     sources = models.JSONField(
         default=list,
         blank=True,
-        help_text='Sources citees par l\'assistant'
+        verbose_name='Sources',
+        help_text='Sources citées par l\'assistant'
     )
 
     # Feedback utilisateur
@@ -859,12 +1264,18 @@ class Message(BaseModel):
         max_length=20,
         choices=[
             ('POSITIF', 'Positif'),
-            ('NEGATIF', 'Negatif'),
+            ('NEGATIF', 'Négatif'),
         ],
         null=True,
-        blank=True
+        blank=True,
+        verbose_name='Feedback',
+        help_text='Évaluation de la réponse par l\'utilisateur'
     )
-    commentaire_feedback = models.TextField(blank=True)
+    commentaire_feedback = models.TextField(
+        blank=True,
+        verbose_name='Commentaire feedback',
+        help_text='Explication du feedback'
+    )
 
     class Meta:
         db_table = 'messages'

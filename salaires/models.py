@@ -33,18 +33,53 @@ class Employe(BaseModel):
     ]
     
     # Identification
-    mandat = models.ForeignKey(Mandat, on_delete=models.CASCADE, 
-                               related_name='employes')
-    matricule = models.CharField(max_length=50, db_index=True)
-    
+    mandat = models.ForeignKey(
+        Mandat, on_delete=models.CASCADE,
+        related_name='employes',
+        verbose_name='Mandat',
+        help_text='Mandat employeur'
+    )
+    matricule = models.CharField(
+        max_length=50, db_index=True,
+        verbose_name='Matricule',
+        help_text='Numéro d\'identification interne'
+    )
+
     # Identité
-    nom = models.CharField(max_length=100, db_index=True)
-    prenom = models.CharField(max_length=100)
-    nom_naissance = models.CharField('Nom de naissance', max_length=100, blank=True)
-    date_naissance = models.DateField()
-    lieu_naissance = models.CharField(max_length=100, blank=True)
-    nationalite = CountryField(default='CH', verbose_name='Nationalité')
-    sexe = models.CharField(max_length=1, choices=SEXE_CHOICES)
+    nom = models.CharField(
+        max_length=100, db_index=True,
+        verbose_name='Nom',
+        help_text='Nom de famille'
+    )
+    prenom = models.CharField(
+        max_length=100,
+        verbose_name='Prénom',
+        help_text='Prénom(s)'
+    )
+    nom_naissance = models.CharField(
+        max_length=100, blank=True,
+        verbose_name='Nom de naissance',
+        help_text='Nom de famille à la naissance (si différent)'
+    )
+    date_naissance = models.DateField(
+        verbose_name='Date de naissance',
+        help_text='Date de naissance de l\'employé'
+    )
+    lieu_naissance = models.CharField(
+        max_length=100, blank=True,
+        verbose_name='Lieu de naissance',
+        help_text='Ville et pays de naissance'
+    )
+    nationalite = CountryField(
+        default='CH',
+        verbose_name='Nationalité',
+        help_text='Nationalité de l\'employé'
+    )
+    sexe = models.CharField(
+        max_length=1, choices=SEXE_CHOICES,
+        verbose_name='Sexe',
+        help_text='Sexe de l\'employé'
+    )
     
     # Numéros officiels
     avs_number = models.CharField(
@@ -71,22 +106,46 @@ class Employe(BaseModel):
     date_validite_permis = models.DateField('Validité du permis', null=True, blank=True)
     
     # Coordonnées
-    adresse = models.ForeignKey(Adresse, on_delete=models.PROTECT,
-                                 related_name='employes')
-    email = models.EmailField(blank=True)
-    telephone = models.CharField(max_length=20, blank=True)
-    mobile = models.CharField(max_length=20, blank=True)
-    
+    adresse = models.ForeignKey(
+        Adresse, on_delete=models.PROTECT,
+        related_name='employes',
+        verbose_name='Adresse',
+        help_text='Adresse de domicile'
+    )
+    email = models.EmailField(
+        blank=True,
+        verbose_name='Email',
+        help_text='Adresse email personnelle'
+    )
+    telephone = models.CharField(
+        max_length=20, blank=True,
+        verbose_name='Téléphone',
+        help_text='Numéro de téléphone fixe'
+    )
+    mobile = models.CharField(
+        max_length=20, blank=True,
+        verbose_name='Mobile',
+        help_text='Numéro de téléphone portable'
+    )
+
     # Situation familiale
-    etat_civil = models.CharField(max_length=20, choices=[
-        ('CELIBATAIRE', 'Célibataire'),
-        ('MARIE', 'Marié(e)'),
-        ('DIVORCE', 'Divorcé(e)'),
-        ('VEUF', 'Veuf/Veuve'),
-        ('SEPARE', 'Séparé(e)'),
-        ('PARTENARIAT', 'Partenariat enregistré'),
-    ])
-    nombre_enfants = models.IntegerField(default=0)
+    etat_civil = models.CharField(
+        max_length=20, choices=[
+            ('CELIBATAIRE', 'Célibataire'),
+            ('MARIE', 'Marié(e)'),
+            ('DIVORCE', 'Divorcé(e)'),
+            ('VEUF', 'Veuf/Veuve'),
+            ('SEPARE', 'Séparé(e)'),
+            ('PARTENARIAT', 'Partenariat enregistré'),
+        ],
+        verbose_name='État civil',
+        help_text='Situation matrimoniale'
+    )
+    nombre_enfants = models.IntegerField(
+        default=0,
+        verbose_name='Nombre d\'enfants',
+        help_text='Nombre d\'enfants à charge'
+    )
     conjoint_travaille = models.BooleanField(
         'Conjoint actif',
         default=False,
@@ -102,42 +161,103 @@ class Employe(BaseModel):
     )
     
     # Emploi
-    type_contrat = models.CharField(max_length=20, choices=TYPE_CONTRAT_CHOICES)
-    date_entree = models.DateField(db_index=True)
-    date_sortie = models.DateField(null=True, blank=True, db_index=True)
-    date_fin_periode_essai = models.DateField(null=True, blank=True)
-    
-    fonction = models.CharField(max_length=100)
-    departement = models.CharField(max_length=100, blank=True)
-    
+    type_contrat = models.CharField(
+        max_length=20, choices=TYPE_CONTRAT_CHOICES,
+        verbose_name='Type de contrat',
+        help_text='Nature du contrat de travail'
+    )
+    date_entree = models.DateField(
+        db_index=True,
+        verbose_name='Date d\'entrée',
+        help_text='Date de début du contrat'
+    )
+    date_sortie = models.DateField(
+        null=True, blank=True, db_index=True,
+        verbose_name='Date de sortie',
+        help_text='Date de fin du contrat'
+    )
+    date_fin_periode_essai = models.DateField(
+        null=True, blank=True,
+        verbose_name='Fin période d\'essai',
+        help_text='Date de fin de la période d\'essai'
+    )
+
+    fonction = models.CharField(
+        max_length=100,
+        verbose_name='Fonction',
+        help_text='Intitulé du poste'
+    )
+    departement = models.CharField(
+        max_length=100, blank=True,
+        verbose_name='Département',
+        help_text='Service ou département'
+    )
+
     taux_occupation = models.DecimalField(
         max_digits=5,
         decimal_places=2,
         default=100,
+        verbose_name='Taux d\'occupation',
         help_text='Taux en % (100 = temps plein)'
     )
-    
+
     # Salaire
-    salaire_brut_mensuel = models.DecimalField(max_digits=10, decimal_places=2)
-    salaire_horaire = models.DecimalField(max_digits=10, decimal_places=2, 
-                                           null=True, blank=True)
-    
-    nombre_heures_semaine = models.DecimalField(max_digits=5, decimal_places=2, 
-                                                 default=42)
-    jours_vacances_annuel = models.IntegerField(default=20)
-    
+    salaire_brut_mensuel = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        verbose_name='Salaire brut mensuel',
+        help_text='Salaire brut mensuel en CHF'
+    )
+    salaire_horaire = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        null=True, blank=True,
+        verbose_name='Salaire horaire',
+        help_text='Salaire horaire en CHF (si applicable)'
+    )
+
+    nombre_heures_semaine = models.DecimalField(
+        max_digits=5, decimal_places=2,
+        default=42,
+        verbose_name='Heures par semaine',
+        help_text='Nombre d\'heures de travail hebdomadaires'
+    )
+    jours_vacances_annuel = models.IntegerField(
+        default=20,
+        verbose_name='Jours de vacances',
+        help_text='Nombre de jours de vacances annuels'
+    )
+
     # 13ème salaire
-    treizieme_salaire = models.BooleanField(default=True)
-    montant_13eme = models.DecimalField(max_digits=10, decimal_places=2, 
-                                         null=True, blank=True)
-    
+    treizieme_salaire = models.BooleanField(
+        default=True,
+        verbose_name='13ème salaire',
+        help_text='L\'employé bénéficie-t-il d\'un 13ème salaire ?'
+    )
+    montant_13eme = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        null=True, blank=True,
+        verbose_name='Montant 13ème',
+        help_text='Montant du 13ème salaire (si différent du salaire mensuel)'
+    )
+
     # Paiement
-    iban = models.CharField('IBAN', max_length=34, blank=True)
-    banque = models.CharField(max_length=100, blank=True)
-    
+    iban = models.CharField(
+        max_length=34, blank=True,
+        verbose_name='IBAN',
+        help_text='Numéro IBAN pour le versement du salaire'
+    )
+    banque = models.CharField(
+        max_length=100, blank=True,
+        verbose_name='Banque',
+        help_text='Nom de l\'établissement bancaire'
+    )
+
     # Statut
-    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, 
-                              default='ACTIF', db_index=True)
+    statut = models.CharField(
+        max_length=20, choices=STATUT_CHOICES,
+        default='ACTIF', db_index=True,
+        verbose_name='Statut',
+        help_text='Statut actuel de l\'employé'
+    )
     
     # Impôt à la source
     soumis_is = models.BooleanField('Soumis impôt à la source', default=False)
@@ -147,20 +267,18 @@ class Employe(BaseModel):
                                    null=True, blank=True)
     
     # Configuration paie
-    config_cotisations = models.JSONField(default=dict, blank=True, help_text="""
-    {
-        "avs_actif": true,
-        "lpp_actif": true,
-        "laa_actif": true,
-        "ijm_actif": true,
-        "caisse_avs": "Caisse AVS Genève",
-        "institution_lpp": "Swiss Life",
-        "numero_lpp": "123456"
-    }
-    """)
-    
+    config_cotisations = models.JSONField(
+        default=dict, blank=True,
+        verbose_name='Configuration cotisations',
+        help_text='Paramétrage des cotisations sociales au format JSON'
+    )
+
     # Notes
-    remarques = models.TextField(blank=True)
+    remarques = models.TextField(
+        blank=True,
+        verbose_name='Remarques',
+        help_text='Notes et observations'
+    )
     
     class Meta:
         db_table = 'employes'
@@ -338,31 +456,71 @@ class TauxCotisation(BaseModel):
         ('PARTAGE', 'Partagé employeur/employé'),
     ]
     
-    type_cotisation = models.CharField(max_length=20, choices=TYPE_COTISATION_CHOICES,
-                                        unique=True)
-    libelle = models.CharField(max_length=100)
-    
+    type_cotisation = models.CharField(
+        max_length=20, choices=TYPE_COTISATION_CHOICES,
+        unique=True,
+        verbose_name='Type de cotisation',
+        help_text='Nature de la cotisation sociale'
+    )
+    libelle = models.CharField(
+        max_length=100,
+        verbose_name='Libellé',
+        help_text='Description de la cotisation'
+    )
+
     # Taux
-    taux_total = models.DecimalField(max_digits=5, decimal_places=4,
-                                      help_text='Taux en % (ex: 5.35 pour AVS)')
-    taux_employeur = models.DecimalField(max_digits=5, decimal_places=4, default=0)
-    taux_employe = models.DecimalField(max_digits=5, decimal_places=4, default=0)
-    
-    repartition = models.CharField(max_length=20, choices=REPARTITION_CHOICES)
-    
+    taux_total = models.DecimalField(
+        max_digits=5, decimal_places=4,
+        verbose_name='Taux total',
+        help_text='Taux total en % (employeur + employé)'
+    )
+    taux_employeur = models.DecimalField(
+        max_digits=5, decimal_places=4, default=0,
+        verbose_name='Taux employeur',
+        help_text='Part employeur en %'
+    )
+    taux_employe = models.DecimalField(
+        max_digits=5, decimal_places=4, default=0,
+        verbose_name='Taux employé',
+        help_text='Part employé en %'
+    )
+
+    repartition = models.CharField(
+        max_length=20, choices=REPARTITION_CHOICES,
+        verbose_name='Répartition',
+        help_text='Mode de répartition de la cotisation'
+    )
+
     # Limites
-    salaire_min = models.DecimalField(max_digits=10, decimal_places=2, 
-                                       null=True, blank=True,
-                                       help_text='Salaire minimum pour cotisation')
-    salaire_max = models.DecimalField(max_digits=10, decimal_places=2,
-                                       null=True, blank=True,
-                                       help_text='Salaire maximum (plafond)')
-    
+    salaire_min = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        null=True, blank=True,
+        verbose_name='Salaire minimum',
+        help_text='Salaire minimum soumis à cotisation en CHF'
+    )
+    salaire_max = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        null=True, blank=True,
+        verbose_name='Salaire maximum',
+        help_text='Plafond de salaire soumis en CHF'
+    )
+
     # Validité
-    date_debut = models.DateField()
-    date_fin = models.DateField(null=True, blank=True)
-    
-    actif = models.BooleanField(default=True)
+    date_debut = models.DateField(
+        verbose_name='Date de début',
+        help_text='Date d\'entrée en vigueur'
+    )
+    date_fin = models.DateField(
+        null=True, blank=True,
+        verbose_name='Date de fin',
+        help_text='Date de fin de validité'
+    )
+
+    actif = models.BooleanField(
+        default=True,
+        verbose_name='Actif',
+        help_text='Indique si ce taux est actuellement applicable'
+    )
     
     class Meta:
         db_table = 'taux_cotisations'
@@ -395,94 +553,279 @@ class FicheSalaire(BaseModel):
     ]
     
     # Identification
-    employe = models.ForeignKey(Employe, on_delete=models.CASCADE,
-                                 related_name='fiches_salaire')
-    numero_fiche = models.CharField(max_length=50, unique=True, db_index=True)
-    
+    employe = models.ForeignKey(
+        Employe, on_delete=models.CASCADE,
+        related_name='fiches_salaire',
+        verbose_name='Employé',
+        help_text='Employé concerné'
+    )
+    numero_fiche = models.CharField(
+        max_length=50, unique=True, db_index=True,
+        verbose_name='Numéro de fiche',
+        help_text='Identifiant unique de la fiche'
+    )
+
     # Période
-    periode = models.DateField(db_index=True, help_text='Premier jour du mois')
-    annee = models.IntegerField()
-    mois = models.IntegerField()
-    
+    periode = models.DateField(
+        db_index=True,
+        verbose_name='Période',
+        help_text='Premier jour du mois concerné'
+    )
+    annee = models.IntegerField(
+        verbose_name='Année',
+        help_text='Année de la fiche'
+    )
+    mois = models.IntegerField(
+        verbose_name='Mois',
+        help_text='Mois de la fiche (1-12)'
+    )
+
     # Présence
-    jours_travailles = models.DecimalField(max_digits=5, decimal_places=2, default=0)
-    heures_travaillees = models.DecimalField(max_digits=6, decimal_places=2, default=0)
-    heures_supplementaires = models.DecimalField(max_digits=6, decimal_places=2, default=0)
-    jours_absence = models.DecimalField(max_digits=5, decimal_places=2, default=0)
-    jours_vacances = models.DecimalField(max_digits=5, decimal_places=2, default=0)
-    jours_maladie = models.DecimalField(max_digits=5, decimal_places=2, default=0)
-    
+    jours_travailles = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        verbose_name='Jours travaillés',
+        help_text='Nombre de jours effectivement travaillés'
+    )
+    heures_travaillees = models.DecimalField(
+        max_digits=6, decimal_places=2, default=0,
+        verbose_name='Heures travaillées',
+        help_text='Nombre d\'heures travaillées'
+    )
+    heures_supplementaires = models.DecimalField(
+        max_digits=6, decimal_places=2, default=0,
+        verbose_name='Heures supplémentaires',
+        help_text='Heures supplémentaires effectuées'
+    )
+    jours_absence = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        verbose_name='Jours d\'absence',
+        help_text='Jours d\'absence (hors vacances et maladie)'
+    )
+    jours_vacances = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        verbose_name='Jours de vacances',
+        help_text='Jours de vacances pris'
+    )
+    jours_maladie = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        verbose_name='Jours de maladie',
+        help_text='Jours d\'absence pour maladie'
+    )
+
     # Salaire brut
-    salaire_base = models.DecimalField(max_digits=10, decimal_places=2)
-    heures_supp_montant = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    primes = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    indemnites = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    treizieme_mois = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    
-    salaire_brut_total = models.DecimalField(max_digits=10, decimal_places=2)
+    salaire_base = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        verbose_name='Salaire de base',
+        help_text='Salaire mensuel de base en CHF'
+    )
+    heures_supp_montant = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Montant heures supp.',
+        help_text='Rémunération des heures supplémentaires en CHF'
+    )
+    primes = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Primes',
+        help_text='Primes et bonus en CHF'
+    )
+    indemnites = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Indemnités',
+        help_text='Indemnités diverses en CHF'
+    )
+    treizieme_mois = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='13ème mois',
+        help_text='Part du 13ème salaire versée ce mois'
+    )
+
+    salaire_brut_total = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        verbose_name='Salaire brut total',
+        help_text='Total du salaire brut en CHF'
+    )
     
     # Cotisations salariales (part employé)
-    avs_employe = models.DecimalField('AVS/AI/APG', max_digits=10, decimal_places=2, default=0)
-    ac_employe = models.DecimalField('AC', max_digits=10, decimal_places=2, default=0)
-    ac_supp_employe = models.DecimalField('AC supp.', max_digits=10, decimal_places=2, default=0)
-    lpp_employe = models.DecimalField('LPP', max_digits=10, decimal_places=2, default=0)
-    laa_employe = models.DecimalField('LAA', max_digits=10, decimal_places=2, default=0)
-    laac_employe = models.DecimalField('LAAC', max_digits=10, decimal_places=2, default=0)
-    ijm_employe = models.DecimalField('IJM', max_digits=10, decimal_places=2, default=0)
-    
-    total_cotisations_employe = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    
+    avs_employe = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='AVS/AI/APG',
+        help_text='Cotisation AVS/AI/APG employé en CHF'
+    )
+    ac_employe = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='AC',
+        help_text='Assurance chômage employé en CHF'
+    )
+    ac_supp_employe = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='AC supp.',
+        help_text='AC supplémentaire (salaires > 148\'200) en CHF'
+    )
+    lpp_employe = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='LPP',
+        help_text='Cotisation 2ème pilier employé en CHF'
+    )
+    laa_employe = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='LAA',
+        help_text='Assurance accidents employé en CHF'
+    )
+    laac_employe = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='LAAC',
+        help_text='Assurance accidents complémentaire en CHF'
+    )
+    ijm_employe = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='IJM',
+        help_text='Indemnités journalières maladie employé en CHF'
+    )
+
+    total_cotisations_employe = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Total cotisations employé',
+        help_text='Total des cotisations salariales en CHF'
+    )
+
     # Impôt à la source
-    impot_source = models.DecimalField('Impôt à la source', max_digits=10, 
-                                        decimal_places=2, default=0)
-    
+    impot_source = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Impôt à la source',
+        help_text='Retenue d\'impôt à la source en CHF'
+    )
+
     # Autres déductions
-    avance_salaire = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    saisie_salaire = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    autres_deductions = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    
-    total_deductions = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    
+    avance_salaire = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Avance sur salaire',
+        help_text='Retenue pour avance consentie en CHF'
+    )
+    saisie_salaire = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Saisie sur salaire',
+        help_text='Retenue pour saisie de salaire en CHF'
+    )
+    autres_deductions = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Autres déductions',
+        help_text='Autres retenues en CHF'
+    )
+
+    total_deductions = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Total déductions',
+        help_text='Total de toutes les déductions en CHF'
+    )
+
     # Allocations
-    allocations_familiales = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    autres_allocations = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    
+    allocations_familiales = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Allocations familiales',
+        help_text='Allocations familiales en CHF'
+    )
+    autres_allocations = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Autres allocations',
+        help_text='Autres allocations en CHF'
+    )
+
     # Salaire net
-    salaire_net = models.DecimalField(max_digits=10, decimal_places=2)
+    salaire_net = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        verbose_name='Salaire net',
+        help_text='Salaire net à payer en CHF'
+    )
     
     # Charges patronales (pour info)
-    avs_employeur = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    ac_employeur = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    lpp_employeur = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    laa_employeur = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    af_employeur = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    
-    total_charges_patronales = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    
+    avs_employeur = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='AVS employeur',
+        help_text='Part patronale AVS/AI/APG en CHF'
+    )
+    ac_employeur = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='AC employeur',
+        help_text='Part patronale assurance chômage en CHF'
+    )
+    lpp_employeur = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='LPP employeur',
+        help_text='Part patronale 2ème pilier en CHF'
+    )
+    laa_employeur = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='LAA employeur',
+        help_text='Part patronale assurance accidents en CHF'
+    )
+    af_employeur = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='AF employeur',
+        help_text='Allocations familiales (charge patronale) en CHF'
+    )
+
+    total_charges_patronales = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Total charges patronales',
+        help_text='Total des charges employeur en CHF'
+    )
+
     # Coût total employeur
-    cout_total_employeur = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    
+    cout_total_employeur = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Coût total employeur',
+        help_text='Coût complet pour l\'employeur en CHF'
+    )
+
     # Statut
-    statut = models.CharField(max_length=20, choices=STATUT_CHOICES,
-                              default='BROUILLON', db_index=True)
-    
-    date_validation = models.DateTimeField(null=True, blank=True)
-    valide_par = models.ForeignKey(User, on_delete=models.SET_NULL,
-                                     null=True, related_name='+')
-    
-    date_paiement = models.DateField(null=True, blank=True)
-    
+    statut = models.CharField(
+        max_length=20, choices=STATUT_CHOICES,
+        default='BROUILLON', db_index=True,
+        verbose_name='Statut',
+        help_text='État de la fiche de salaire'
+    )
+
+    date_validation = models.DateTimeField(
+        null=True, blank=True,
+        verbose_name='Date de validation',
+        help_text='Date et heure de validation'
+    )
+    valide_par = models.ForeignKey(
+        User, on_delete=models.SET_NULL,
+        null=True, related_name='+',
+        verbose_name='Validé par',
+        help_text='Utilisateur ayant validé la fiche'
+    )
+
+    date_paiement = models.DateField(
+        null=True, blank=True,
+        verbose_name='Date de paiement',
+        help_text='Date effective du paiement'
+    )
+
     # Fichier PDF
-    fichier_pdf = models.FileField(upload_to='salaires/fiches/', null=True, blank=True)
-    
+    fichier_pdf = models.FileField(
+        upload_to='salaires/fiches/', null=True, blank=True,
+        verbose_name='Fichier PDF',
+        help_text='Fiche de salaire au format PDF'
+    )
+
     # Lien comptabilité
-    ecriture_comptable = models.ForeignKey('comptabilite.PieceComptable',
-                                            on_delete=models.SET_NULL,
-                                            null=True, blank=True,
-                                            related_name='fiches_salaire')
-    
+    ecriture_comptable = models.ForeignKey(
+        'comptabilite.PieceComptable',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='fiches_salaire',
+        verbose_name='Pièce comptable',
+        help_text='Pièce comptable associée'
+    )
+
     # Notes
-    remarques = models.TextField(blank=True)
+    remarques = models.TextField(
+        blank=True,
+        verbose_name='Remarques',
+        help_text='Notes et observations'
+    )
     
     class Meta:
         db_table = 'fiches_salaire'
@@ -906,39 +1249,105 @@ class FicheSalaire(BaseModel):
 class CertificatSalaire(BaseModel):
     """Certificat de salaire annuel"""
     
-    employe = models.ForeignKey(Employe, on_delete=models.CASCADE,
-                                 related_name='certificats_salaire')
-    annee = models.IntegerField(db_index=True)
-    
+    employe = models.ForeignKey(
+        Employe, on_delete=models.CASCADE,
+        related_name='certificats_salaire',
+        verbose_name='Employé',
+        help_text='Employé concerné'
+    )
+    annee = models.IntegerField(
+        db_index=True,
+        verbose_name='Année',
+        help_text='Année fiscale du certificat'
+    )
+
     # Périodes
-    date_debut = models.DateField()
-    date_fin = models.DateField()
-    
+    date_debut = models.DateField(
+        verbose_name='Date de début',
+        help_text='Début de la période d\'emploi pour cette année'
+    )
+    date_fin = models.DateField(
+        verbose_name='Date de fin',
+        help_text='Fin de la période d\'emploi pour cette année'
+    )
+
     # Salaires bruts
-    salaire_brut_annuel = models.DecimalField(max_digits=12, decimal_places=2)
-    treizieme_salaire_annuel = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    primes_annuelles = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    
+    salaire_brut_annuel = models.DecimalField(
+        max_digits=12, decimal_places=2,
+        verbose_name='Salaire brut annuel',
+        help_text='Total des salaires bruts en CHF'
+    )
+    treizieme_salaire_annuel = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='13ème salaire annuel',
+        help_text='13ème salaire versé en CHF'
+    )
+    primes_annuelles = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Primes annuelles',
+        help_text='Total des primes et gratifications en CHF'
+    )
+
     # Cotisations annuelles
-    avs_annuel = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    ac_annuel = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    lpp_annuel = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    
+    avs_annuel = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='AVS annuel',
+        help_text='Total cotisations AVS/AI/APG employé en CHF'
+    )
+    ac_annuel = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='AC annuel',
+        help_text='Total assurance chômage employé en CHF'
+    )
+    lpp_annuel = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='LPP annuel',
+        help_text='Total cotisations 2ème pilier employé en CHF'
+    )
+
     # Allocations
-    allocations_familiales_annuel = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    
+    allocations_familiales_annuel = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Allocations familiales annuelles',
+        help_text='Total allocations familiales reçues en CHF'
+    )
+
     # Frais
-    frais_deplacement = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    frais_repas = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    
+    frais_deplacement = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Frais de déplacement',
+        help_text='Indemnités de déplacement en CHF'
+    )
+    frais_repas = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Frais de repas',
+        help_text='Indemnités de repas en CHF'
+    )
+
     # Impôt source
-    impot_source_annuel = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    
+    impot_source_annuel = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Impôt à la source annuel',
+        help_text='Total impôt à la source retenu en CHF'
+    )
+
     # Fichier
-    fichier_pdf = models.FileField(upload_to='salaires/certificats/', null=True, blank=True)
-    
-    date_generation = models.DateTimeField(auto_now_add=True)
-    genere_par = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    fichier_pdf = models.FileField(
+        upload_to='salaires/certificats/', null=True, blank=True,
+        verbose_name='Fichier PDF',
+        help_text='Certificat de salaire au format PDF'
+    )
+
+    date_generation = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Date de génération',
+        help_text='Date de création du certificat'
+    )
+    genere_par = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True,
+        verbose_name='Généré par',
+        help_text='Utilisateur ayant généré le certificat'
+    )
     
     class Meta:
         db_table = 'certificats_salaire'
@@ -1258,23 +1667,64 @@ class DeclarationCotisations(BaseModel):
         ('AF', 'Caisse allocations familiales'),
     ]
     
-    mandat = models.ForeignKey(Mandat, on_delete=models.CASCADE)
-    organisme = models.CharField(max_length=10, choices=ORGANISME_CHOICES)
-    
-    periode_debut = models.DateField()
-    periode_fin = models.DateField()
-    
-    masse_salariale = models.DecimalField(max_digits=15, decimal_places=2)
-    montant_cotisations = models.DecimalField(max_digits=12, decimal_places=2)
-    
-    date_declaration = models.DateField(auto_now_add=True)
-    date_echeance = models.DateField()
-    date_paiement = models.DateField(null=True, blank=True)
-    
-    numero_reference = models.CharField(max_length=50, blank=True)
-    
-    fichier_declaration = models.FileField(upload_to='salaires/declarations/', 
-                                           null=True, blank=True)
+    mandat = models.ForeignKey(
+        Mandat, on_delete=models.CASCADE,
+        verbose_name='Mandat',
+        help_text='Mandat employeur concerné'
+    )
+    organisme = models.CharField(
+        max_length=10, choices=ORGANISME_CHOICES,
+        verbose_name='Organisme',
+        help_text='Organisme destinataire de la déclaration'
+    )
+
+    periode_debut = models.DateField(
+        verbose_name='Début de période',
+        help_text='Premier jour de la période déclarée'
+    )
+    periode_fin = models.DateField(
+        verbose_name='Fin de période',
+        help_text='Dernier jour de la période déclarée'
+    )
+
+    masse_salariale = models.DecimalField(
+        max_digits=15, decimal_places=2,
+        verbose_name='Masse salariale',
+        help_text='Total des salaires soumis en CHF'
+    )
+    montant_cotisations = models.DecimalField(
+        max_digits=12, decimal_places=2,
+        verbose_name='Montant cotisations',
+        help_text='Total des cotisations dues en CHF'
+    )
+
+    date_declaration = models.DateField(
+        auto_now_add=True,
+        verbose_name='Date de déclaration',
+        help_text='Date de création de la déclaration'
+    )
+    date_echeance = models.DateField(
+        verbose_name='Date d\'échéance',
+        help_text='Date limite de paiement'
+    )
+    date_paiement = models.DateField(
+        null=True, blank=True,
+        verbose_name='Date de paiement',
+        help_text='Date effective du paiement'
+    )
+
+    numero_reference = models.CharField(
+        max_length=50, blank=True,
+        verbose_name='Numéro de référence',
+        help_text='Référence attribuée par l\'organisme'
+    )
+
+    fichier_declaration = models.FileField(
+        upload_to='salaires/declarations/',
+        null=True, blank=True,
+        verbose_name='Fichier déclaration',
+        help_text='Document de déclaration'
+    )
     
     class Meta:
         db_table = 'declarations_cotisations'

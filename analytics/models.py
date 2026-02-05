@@ -13,50 +13,75 @@ class TableauBord(BaseModel):
         ('TOUS', 'Tous'),
     ]
 
-    nom = models.CharField(max_length=100)
-    description = models.TextField(blank=True)
+    nom = models.CharField(
+        max_length=100,
+        verbose_name='Nom',
+        help_text='Nom du tableau de bord'
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name='Description',
+        help_text='Description détaillée du tableau de bord'
+    )
 
     # Propriétaire
-    proprietaire = models.ForeignKey(User, on_delete=models.CASCADE,
-                                     related_name='tableaux_bord')
+    proprietaire = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='tableaux_bord',
+        verbose_name='Propriétaire',
+        help_text='Utilisateur ayant créé ce tableau de bord'
+    )
 
     # Visibilité
-    visibilite = models.CharField(max_length=20, choices=VISIBILITE_CHOICES,
-                                  default='PRIVE')
-    utilisateurs_partage = models.ManyToManyField(User, blank=True,
-                                                  related_name='tableaux_partages')
+    visibilite = models.CharField(
+        max_length=20, choices=VISIBILITE_CHOICES,
+        default='PRIVE',
+        verbose_name='Visibilité',
+        help_text='Niveau de partage du tableau de bord'
+    )
+    utilisateurs_partage = models.ManyToManyField(
+        User, blank=True,
+        related_name='tableaux_partages',
+        verbose_name='Utilisateurs partagés',
+        help_text='Utilisateurs ayant accès à ce tableau de bord'
+    )
 
     # Configuration
-    configuration = models.JSONField(default=dict, help_text="""
-    Configuration des widgets et layout:
-    {
-        "layout": "grid",
-        "widgets": [
-            {
-                "type": "kpi_card",
-                "metric": "ca_mensuel",
-                "position": {"x": 0, "y": 0, "w": 3, "h": 2}
-            },
-            {
-                "type": "chart",
-                "chart_type": "line",
-                "metric": "evolution_ca",
-                "position": {"x": 3, "y": 0, "w": 6, "h": 4}
-            }
-        ]
-    }
-    """)
+    configuration = models.JSONField(
+        default=dict,
+        verbose_name='Configuration',
+        help_text='Configuration des widgets et layout au format JSON'
+    )
 
     # Filtres par défaut
-    filtres_defaut = models.JSONField(default=dict, blank=True)
+    filtres_defaut = models.JSONField(
+        default=dict, blank=True,
+        verbose_name='Filtres par défaut',
+        help_text='Filtres appliqués par défaut à l\'ouverture'
+    )
 
     # Paramètres
-    auto_refresh = models.BooleanField(default=False)
-    refresh_interval = models.IntegerField(default=300,
-                                           help_text='Intervalle en secondes')
+    auto_refresh = models.BooleanField(
+        default=False,
+        verbose_name='Actualisation automatique',
+        help_text='Actualise automatiquement les données'
+    )
+    refresh_interval = models.IntegerField(
+        default=300,
+        verbose_name='Intervalle d\'actualisation',
+        help_text='Intervalle en secondes entre deux actualisations'
+    )
 
-    favori = models.BooleanField(default=False)
-    ordre = models.IntegerField(default=0)
+    favori = models.BooleanField(
+        default=False,
+        verbose_name='Favori',
+        help_text='Marquer comme tableau de bord favori'
+    )
+    ordre = models.IntegerField(
+        default=0,
+        verbose_name='Ordre',
+        help_text='Position d\'affichage dans la liste'
+    )
 
     class Meta:
         db_table = 'tableaux_bord'
@@ -98,23 +123,56 @@ class Indicateur(BaseModel):
     ]
 
     # Identification
-    code = models.CharField(max_length=50, unique=True, db_index=True)
-    nom = models.CharField(max_length=100)
-    description = models.TextField(blank=True)
+    code = models.CharField(
+        max_length=50, unique=True, db_index=True,
+        verbose_name='Code',
+        help_text='Identifiant unique de l\'indicateur (ex: CA_MENSUEL)'
+    )
+    nom = models.CharField(
+        max_length=100,
+        verbose_name='Nom',
+        help_text='Libellé de l\'indicateur'
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name='Description',
+        help_text='Explication détaillée de l\'indicateur'
+    )
 
-    categorie = models.CharField(max_length=20, choices=CATEGORIE_CHOICES)
+    categorie = models.CharField(
+        max_length=20, choices=CATEGORIE_CHOICES,
+        verbose_name='Catégorie',
+        help_text='Domaine de l\'indicateur'
+    )
 
     # Calcul
-    type_calcul = models.CharField(max_length=20, choices=TYPE_CALCUL_CHOICES)
-    formule = models.TextField(blank=True, help_text="""
-    Formule de calcul si type_calcul = CUSTOM
-    Ex: (chiffre_affaires - charges) / chiffre_affaires * 100
-    """)
+    type_calcul = models.CharField(
+        max_length=20, choices=TYPE_CALCUL_CHOICES,
+        verbose_name='Type de calcul',
+        help_text='Méthode de calcul de l\'indicateur'
+    )
+    formule = models.TextField(
+        blank=True,
+        verbose_name='Formule',
+        help_text='Formule personnalisée si type_calcul = CUSTOM'
+    )
 
     # Source de données
-    source_table = models.CharField(max_length=100, blank=True)
-    source_champ = models.CharField(max_length=100, blank=True)
-    filtres_source = models.JSONField(default=dict, blank=True)
+    source_table = models.CharField(
+        max_length=100, blank=True,
+        verbose_name='Table source',
+        help_text='Nom de la table Django contenant les données'
+    )
+    source_champ = models.CharField(
+        max_length=100, blank=True,
+        verbose_name='Champ source',
+        help_text='Nom du champ à agréger'
+    )
+    filtres_source = models.JSONField(
+        default=dict, blank=True,
+        verbose_name='Filtres source',
+        help_text='Filtres à appliquer sur les données sources'
+    )
 
     # Nouveau: Référence vers Periodicite
     periodicite_ref = models.ForeignKey(
@@ -136,25 +194,56 @@ class Indicateur(BaseModel):
     )
 
     # Objectifs
-    objectif_min = models.DecimalField(max_digits=15, decimal_places=2,
-                                       null=True, blank=True)
-    objectif_cible = models.DecimalField(max_digits=15, decimal_places=2,
-                                         null=True, blank=True)
-    objectif_max = models.DecimalField(max_digits=15, decimal_places=2,
-                                       null=True, blank=True)
+    objectif_min = models.DecimalField(
+        max_digits=15, decimal_places=2,
+        null=True, blank=True,
+        verbose_name='Objectif minimum',
+        help_text='Seuil minimal acceptable'
+    )
+    objectif_cible = models.DecimalField(
+        max_digits=15, decimal_places=2,
+        null=True, blank=True,
+        verbose_name='Objectif cible',
+        help_text='Valeur cible à atteindre'
+    )
+    objectif_max = models.DecimalField(
+        max_digits=15, decimal_places=2,
+        null=True, blank=True,
+        verbose_name='Objectif maximum',
+        help_text='Seuil maximal souhaité'
+    )
 
     # Format affichage
-    unite = models.CharField(max_length=20, blank=True,
-                             help_text='CHF, %, h, etc.')
-    decimales = models.IntegerField(default=2)
+    unite = models.CharField(
+        max_length=20, blank=True,
+        verbose_name='Unité',
+        help_text='Unité d\'affichage (CHF, %, h, etc.)'
+    )
+    decimales = models.IntegerField(
+        default=2,
+        verbose_name='Décimales',
+        help_text='Nombre de décimales à afficher'
+    )
 
     # Seuils d'alerte
-    seuil_alerte_bas = models.DecimalField(max_digits=15, decimal_places=2,
-                                           null=True, blank=True)
-    seuil_alerte_haut = models.DecimalField(max_digits=15, decimal_places=2,
-                                            null=True, blank=True)
+    seuil_alerte_bas = models.DecimalField(
+        max_digits=15, decimal_places=2,
+        null=True, blank=True,
+        verbose_name='Seuil d\'alerte bas',
+        help_text='Valeur en dessous de laquelle une alerte est déclenchée'
+    )
+    seuil_alerte_haut = models.DecimalField(
+        max_digits=15, decimal_places=2,
+        null=True, blank=True,
+        verbose_name='Seuil d\'alerte haut',
+        help_text='Valeur au-dessus de laquelle une alerte est déclenchée'
+    )
 
-    actif = models.BooleanField(default=True)
+    actif = models.BooleanField(
+        default=True,
+        verbose_name='Actif',
+        help_text='Indique si l\'indicateur est utilisé'
+    )
 
     class Meta:
         db_table = 'indicateurs'
@@ -168,36 +257,88 @@ class Indicateur(BaseModel):
 class ValeurIndicateur(BaseModel):
     """Valeur d'un indicateur à un moment donné"""
 
-    indicateur = models.ForeignKey(Indicateur, on_delete=models.CASCADE,
-                                   related_name='valeurs')
-    mandat = models.ForeignKey(Mandat, on_delete=models.CASCADE,
-                               null=True, blank=True,
-                               related_name='valeurs_indicateurs')
+    indicateur = models.ForeignKey(
+        Indicateur, on_delete=models.CASCADE,
+        related_name='valeurs',
+        verbose_name='Indicateur',
+        help_text='Indicateur mesuré'
+    )
+    mandat = models.ForeignKey(
+        Mandat, on_delete=models.CASCADE,
+        null=True, blank=True,
+        related_name='valeurs_indicateurs',
+        verbose_name='Mandat',
+        help_text='Mandat concerné (optionnel pour indicateurs globaux)'
+    )
 
     # Période
-    date_mesure = models.DateField(db_index=True)
-    periode_debut = models.DateField(null=True, blank=True)
-    periode_fin = models.DateField(null=True, blank=True)
+    date_mesure = models.DateField(
+        db_index=True,
+        verbose_name='Date de mesure',
+        help_text='Date à laquelle la valeur a été mesurée'
+    )
+    periode_debut = models.DateField(
+        null=True, blank=True,
+        verbose_name='Début de période',
+        help_text='Date de début de la période de calcul'
+    )
+    periode_fin = models.DateField(
+        null=True, blank=True,
+        verbose_name='Fin de période',
+        help_text='Date de fin de la période de calcul'
+    )
 
     # Valeur
-    valeur = models.DecimalField(max_digits=15, decimal_places=4)
-    valeur_precedente = models.DecimalField(max_digits=15, decimal_places=4,
-                                            null=True, blank=True)
+    valeur = models.DecimalField(
+        max_digits=15, decimal_places=4,
+        verbose_name='Valeur',
+        help_text='Valeur mesurée de l\'indicateur'
+    )
+    valeur_precedente = models.DecimalField(
+        max_digits=15, decimal_places=4,
+        null=True, blank=True,
+        verbose_name='Valeur précédente',
+        help_text='Valeur de la période précédente pour comparaison'
+    )
 
     # Variation
-    variation_absolue = models.DecimalField(max_digits=15, decimal_places=4,
-                                            null=True, blank=True)
-    variation_pourcent = models.DecimalField(max_digits=10, decimal_places=2,
-                                             null=True, blank=True)
+    variation_absolue = models.DecimalField(
+        max_digits=15, decimal_places=4,
+        null=True, blank=True,
+        verbose_name='Variation absolue',
+        help_text='Différence avec la valeur précédente'
+    )
+    variation_pourcent = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        null=True, blank=True,
+        verbose_name='Variation en %',
+        help_text='Variation en pourcentage par rapport à la période précédente'
+    )
 
     # Statut par rapport aux objectifs
-    atteint_objectif = models.BooleanField(null=True, blank=True)
-    ecart_objectif = models.DecimalField(max_digits=15, decimal_places=2,
-                                         null=True, blank=True)
+    atteint_objectif = models.BooleanField(
+        null=True, blank=True,
+        verbose_name='Objectif atteint',
+        help_text='Indique si l\'objectif cible est atteint'
+    )
+    ecart_objectif = models.DecimalField(
+        max_digits=15, decimal_places=2,
+        null=True, blank=True,
+        verbose_name='Écart à l\'objectif',
+        help_text='Différence entre la valeur et l\'objectif cible'
+    )
 
     # Métadonnées calcul
-    date_calcul = models.DateTimeField(auto_now_add=True)
-    details_calcul = models.JSONField(default=dict, blank=True)
+    date_calcul = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Date de calcul',
+        help_text='Date et heure du calcul de cette valeur'
+    )
+    details_calcul = models.JSONField(
+        default=dict, blank=True,
+        verbose_name='Détails du calcul',
+        help_text='Informations techniques sur le calcul effectué'
+    )
 
     class Meta:
         db_table = 'valeurs_indicateur'
@@ -258,54 +399,117 @@ class Rapport(BaseModel):
     ]
 
     # Identification
-    nom = models.CharField(max_length=255)
-    type_rapport = models.CharField(max_length=30, choices=TYPE_RAPPORT_CHOICES)
+    nom = models.CharField(
+        max_length=255,
+        verbose_name='Nom',
+        help_text='Titre du rapport'
+    )
+    type_rapport = models.CharField(
+        max_length=30, choices=TYPE_RAPPORT_CHOICES,
+        verbose_name='Type de rapport',
+        help_text='Catégorie du rapport'
+    )
 
     # Rattachement
-    mandat = models.ForeignKey(Mandat, on_delete=models.CASCADE,
-                               null=True, blank=True,
-                               related_name='rapports')
+    mandat = models.ForeignKey(
+        Mandat, on_delete=models.CASCADE,
+        null=True, blank=True,
+        related_name='rapports',
+        verbose_name='Mandat',
+        help_text='Mandat concerné par ce rapport'
+    )
 
     # Période
-    date_debut = models.DateField()
-    date_fin = models.DateField()
+    date_debut = models.DateField(
+        verbose_name='Date de début',
+        help_text='Début de la période couverte par le rapport'
+    )
+    date_fin = models.DateField(
+        verbose_name='Date de fin',
+        help_text='Fin de la période couverte par le rapport'
+    )
 
     # Paramètres
-    parametres = models.JSONField(default=dict, help_text="""
-    Paramètres spécifiques au rapport:
-    {
-        "niveau_detail": "compte",
-        "inclure_budget": true,
-        "comparatif_n-1": true
-    }
-    """)
+    parametres = models.JSONField(
+        default=dict,
+        verbose_name='Paramètres',
+        help_text='Paramètres spécifiques au rapport au format JSON'
+    )
 
     # Génération
-    genere_par = models.ForeignKey(User, on_delete=models.PROTECT)
-    date_generation = models.DateTimeField(auto_now_add=True)
+    genere_par = models.ForeignKey(
+        User, on_delete=models.PROTECT,
+        verbose_name='Généré par',
+        help_text='Utilisateur ayant demandé la génération'
+    )
+    date_generation = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Date de génération',
+        help_text='Date et heure de création du rapport'
+    )
 
-    statut = models.CharField(max_length=20, choices=STATUT_CHOICES,
-                              default='EN_COURS')
+    statut = models.CharField(
+        max_length=20, choices=STATUT_CHOICES,
+        default='EN_COURS',
+        verbose_name='Statut',
+        help_text='État de génération du rapport'
+    )
 
     # Fichier
-    format_fichier = models.CharField(max_length=10, choices=FORMAT_CHOICES)
-    fichier = models.FileField(upload_to='rapports/', null=True, blank=True)
-    taille_fichier = models.IntegerField(null=True, blank=True)
+    format_fichier = models.CharField(
+        max_length=10, choices=FORMAT_CHOICES,
+        verbose_name='Format',
+        help_text='Format du fichier généré'
+    )
+    fichier = models.FileField(
+        upload_to='rapports/', null=True, blank=True,
+        verbose_name='Fichier',
+        help_text='Fichier du rapport généré'
+    )
+    taille_fichier = models.IntegerField(
+        null=True, blank=True,
+        verbose_name='Taille du fichier',
+        help_text='Taille en octets'
+    )
 
     # Métriques
-    duree_generation_secondes = models.IntegerField(null=True, blank=True)
-    nombre_pages = models.IntegerField(null=True, blank=True)
+    duree_generation_secondes = models.IntegerField(
+        null=True, blank=True,
+        verbose_name='Durée de génération',
+        help_text='Temps de génération en secondes'
+    )
+    nombre_pages = models.IntegerField(
+        null=True, blank=True,
+        verbose_name='Nombre de pages',
+        help_text='Nombre de pages du document'
+    )
 
     # Partage
-    envoi_email = models.BooleanField(default=False)
-    destinataires = models.JSONField(default=list, blank=True)
+    envoi_email = models.BooleanField(
+        default=False,
+        verbose_name='Envoi par email',
+        help_text='Envoyer automatiquement par email'
+    )
+    destinataires = models.JSONField(
+        default=list, blank=True,
+        verbose_name='Destinataires',
+        help_text='Liste des adresses email destinataires'
+    )
 
     # Planification
-    est_recurrent = models.BooleanField(default=False)
-    planification = models.ForeignKey('PlanificationRapport',
-                                      on_delete=models.SET_NULL,
-                                      null=True, blank=True,
-                                      related_name='rapports_generes')
+    est_recurrent = models.BooleanField(
+        default=False,
+        verbose_name='Récurrent',
+        help_text='Indique si ce rapport est généré automatiquement'
+    )
+    planification = models.ForeignKey(
+        'PlanificationRapport',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='rapports_generes',
+        verbose_name='Planification',
+        help_text='Planification ayant déclenché cette génération'
+    )
 
     class Meta:
         db_table = 'rapports'
@@ -332,12 +536,24 @@ class PlanificationRapport(BaseModel):
         ('ANNEE', 'Annuel'),
     ]
 
-    nom = models.CharField(max_length=255)
-    type_rapport = models.CharField(max_length=30)
+    nom = models.CharField(
+        max_length=255,
+        verbose_name='Nom',
+        help_text='Nom de la planification'
+    )
+    type_rapport = models.CharField(
+        max_length=30,
+        verbose_name='Type de rapport',
+        help_text='Type de rapport à générer'
+    )
 
-    mandat = models.ForeignKey(Mandat, on_delete=models.CASCADE,
-                               null=True, blank=True,
-                               related_name='planifications_rapports')
+    mandat = models.ForeignKey(
+        Mandat, on_delete=models.CASCADE,
+        null=True, blank=True,
+        related_name='planifications_rapports',
+        verbose_name='Mandat',
+        help_text='Mandat concerné par cette planification'
+    )
 
     # Nouveau: Référence vers Periodicite
     frequence_ref = models.ForeignKey(
@@ -356,26 +572,57 @@ class PlanificationRapport(BaseModel):
         verbose_name='Fréquence (ancien)',
         blank=True
     )
-    jour_semaine = models.IntegerField(null=True, blank=True,
-                                       help_text='1-7 pour lundi-dimanche')
-    jour_mois = models.IntegerField(null=True, blank=True,
-                                    help_text='1-31')
-    heure_generation = models.TimeField(default='08:00')
+    jour_semaine = models.IntegerField(
+        null=True, blank=True,
+        verbose_name='Jour de la semaine',
+        help_text='1 (lundi) à 7 (dimanche) pour les planifications hebdomadaires'
+    )
+    jour_mois = models.IntegerField(
+        null=True, blank=True,
+        verbose_name='Jour du mois',
+        help_text='1 à 31 pour les planifications mensuelles'
+    )
+    heure_generation = models.TimeField(
+        default='08:00',
+        verbose_name='Heure de génération',
+        help_text='Heure à laquelle le rapport est généré'
+    )
 
     # Paramètres
-    parametres = models.JSONField(default=dict)
-    format_fichier = models.CharField(max_length=10, default='PDF')
+    parametres = models.JSONField(
+        default=dict,
+        verbose_name='Paramètres',
+        help_text='Paramètres de génération du rapport'
+    )
+    format_fichier = models.CharField(
+        max_length=10, default='PDF',
+        verbose_name='Format',
+        help_text='Format du fichier généré'
+    )
 
     # Destinataires
-    destinataires = models.JSONField(default=list, help_text="""
-    Liste des destinataires:
-    ["email1@example.com", "email2@example.com"]
-    """)
+    destinataires = models.JSONField(
+        default=list,
+        verbose_name='Destinataires',
+        help_text='Liste des adresses email destinataires'
+    )
 
     # Statut
-    actif = models.BooleanField(default=True)
-    date_prochaine_execution = models.DateTimeField(null=True, blank=True)
-    date_derniere_execution = models.DateTimeField(null=True, blank=True)
+    actif = models.BooleanField(
+        default=True,
+        verbose_name='Actif',
+        help_text='Indique si la planification est active'
+    )
+    date_prochaine_execution = models.DateTimeField(
+        null=True, blank=True,
+        verbose_name='Prochaine exécution',
+        help_text='Date et heure de la prochaine génération'
+    )
+    date_derniere_execution = models.DateTimeField(
+        null=True, blank=True,
+        verbose_name='Dernière exécution',
+        help_text='Date et heure de la dernière génération'
+    )
 
     class Meta:
         db_table = 'planifications_rapport'
@@ -397,38 +644,66 @@ class ComparaisonPeriode(BaseModel):
         ('CUSTOM', 'Personnalisée'),
     ]
 
-    mandat = models.ForeignKey(Mandat, on_delete=models.CASCADE,
-                               related_name='comparaisons')
+    mandat = models.ForeignKey(
+        Mandat, on_delete=models.CASCADE,
+        related_name='comparaisons',
+        verbose_name='Mandat',
+        help_text='Mandat concerné par cette comparaison'
+    )
 
-    type_comparaison = models.CharField(max_length=20, choices=TYPE_COMPARAISON_CHOICES)
-    nom = models.CharField(max_length=255)
+    type_comparaison = models.CharField(
+        max_length=20, choices=TYPE_COMPARAISON_CHOICES,
+        verbose_name='Type de comparaison',
+        help_text='Mode de comparaison entre les périodes'
+    )
+    nom = models.CharField(
+        max_length=255,
+        verbose_name='Nom',
+        help_text='Intitulé de la comparaison'
+    )
 
     # Période 1
-    periode1_debut = models.DateField()
-    periode1_fin = models.DateField()
-    libelle_periode1 = models.CharField(max_length=100)
+    periode1_debut = models.DateField(
+        verbose_name='Début période 1',
+        help_text='Date de début de la première période'
+    )
+    periode1_fin = models.DateField(
+        verbose_name='Fin période 1',
+        help_text='Date de fin de la première période'
+    )
+    libelle_periode1 = models.CharField(
+        max_length=100,
+        verbose_name='Libellé période 1',
+        help_text='Nom affiché pour la première période'
+    )
 
     # Période 2
-    periode2_debut = models.DateField()
-    periode2_fin = models.DateField()
-    libelle_periode2 = models.CharField(max_length=100)
+    periode2_debut = models.DateField(
+        verbose_name='Début période 2',
+        help_text='Date de début de la deuxième période'
+    )
+    periode2_fin = models.DateField(
+        verbose_name='Fin période 2',
+        help_text='Date de fin de la deuxième période'
+    )
+    libelle_periode2 = models.CharField(
+        max_length=100,
+        verbose_name='Libellé période 2',
+        help_text='Nom affiché pour la deuxième période'
+    )
 
     # Résultats
-    resultats = models.JSONField(default=dict, help_text="""
-    Résultats de la comparaison:
-    {
-        "chiffre_affaires": {
-            "periode1": 1000000,
-            "periode2": 1200000,
-            "variation": 200000,
-            "variation_pct": 20.0
-        },
-        "charges": {...},
-        "resultat": {...}
-    }
-    """)
+    resultats = models.JSONField(
+        default=dict,
+        verbose_name='Résultats',
+        help_text='Résultats détaillés de la comparaison au format JSON'
+    )
 
-    date_calcul = models.DateTimeField(auto_now_add=True)
+    date_calcul = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Date de calcul',
+        help_text='Date et heure du calcul de la comparaison'
+    )
 
     class Meta:
         db_table = 'comparaisons_periode'
@@ -455,37 +730,92 @@ class AlerteMetrique(BaseModel):
         ('IGNOREE', 'Ignorée'),
     ]
 
-    indicateur = models.ForeignKey(Indicateur, on_delete=models.CASCADE,
-                                   related_name='alertes')
-    valeur_indicateur = models.ForeignKey(ValeurIndicateur, on_delete=models.CASCADE,
-                                          null=True, blank=True)
+    indicateur = models.ForeignKey(
+        Indicateur, on_delete=models.CASCADE,
+        related_name='alertes',
+        verbose_name='Indicateur',
+        help_text='Indicateur ayant déclenché l\'alerte'
+    )
+    valeur_indicateur = models.ForeignKey(
+        ValeurIndicateur, on_delete=models.CASCADE,
+        null=True, blank=True,
+        verbose_name='Valeur indicateur',
+        help_text='Valeur spécifique ayant déclenché l\'alerte'
+    )
 
-    mandat = models.ForeignKey(Mandat, on_delete=models.CASCADE,
-                               null=True, blank=True)
+    mandat = models.ForeignKey(
+        Mandat, on_delete=models.CASCADE,
+        null=True, blank=True,
+        verbose_name='Mandat',
+        help_text='Mandat concerné par l\'alerte'
+    )
 
     # Alerte
-    niveau = models.CharField(max_length=20, choices=NIVEAU_CHOICES)
-    message = models.TextField()
+    niveau = models.CharField(
+        max_length=20, choices=NIVEAU_CHOICES,
+        verbose_name='Niveau',
+        help_text='Niveau de criticité de l\'alerte'
+    )
+    message = models.TextField(
+        verbose_name='Message',
+        help_text='Description détaillée de l\'alerte'
+    )
 
-    valeur_detectee = models.DecimalField(max_digits=15, decimal_places=2)
-    seuil_depasse = models.DecimalField(max_digits=15, decimal_places=2)
+    valeur_detectee = models.DecimalField(
+        max_digits=15, decimal_places=2,
+        verbose_name='Valeur détectée',
+        help_text='Valeur ayant déclenché l\'alerte'
+    )
+    seuil_depasse = models.DecimalField(
+        max_digits=15, decimal_places=2,
+        verbose_name='Seuil dépassé',
+        help_text='Seuil qui a été franchi'
+    )
 
-    date_detection = models.DateTimeField(auto_now_add=True, db_index=True)
+    date_detection = models.DateTimeField(
+        auto_now_add=True, db_index=True,
+        verbose_name='Date de détection',
+        help_text='Date et heure de détection de l\'alerte'
+    )
 
     # Gestion
-    statut = models.CharField(max_length=20, choices=STATUT_CHOICES,
-                              default='ACTIVE', db_index=True)
+    statut = models.CharField(
+        max_length=20, choices=STATUT_CHOICES,
+        default='ACTIVE', db_index=True,
+        verbose_name='Statut',
+        help_text='État de traitement de l\'alerte'
+    )
 
-    acquittee_par = models.ForeignKey(User, on_delete=models.SET_NULL,
-                                      null=True, blank=True,
-                                      related_name='alertes_acquittees')
-    date_acquittement = models.DateTimeField(null=True, blank=True)
+    acquittee_par = models.ForeignKey(
+        User, on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='alertes_acquittees',
+        verbose_name='Acquittée par',
+        help_text='Utilisateur ayant pris en charge l\'alerte'
+    )
+    date_acquittement = models.DateTimeField(
+        null=True, blank=True,
+        verbose_name='Date d\'acquittement',
+        help_text='Date et heure de prise en charge'
+    )
 
-    commentaire = models.TextField(blank=True)
+    commentaire = models.TextField(
+        blank=True,
+        verbose_name='Commentaire',
+        help_text='Notes sur le traitement de l\'alerte'
+    )
 
     # Notification
-    notification_envoyee = models.BooleanField(default=False)
-    destinataires_notifies = models.JSONField(default=list, blank=True)
+    notification_envoyee = models.BooleanField(
+        default=False,
+        verbose_name='Notification envoyée',
+        help_text='Indique si une notification a été envoyée'
+    )
+    destinataires_notifies = models.JSONField(
+        default=list, blank=True,
+        verbose_name='Destinataires notifiés',
+        help_text='Liste des utilisateurs ayant reçu la notification'
+    )
 
     class Meta:
         db_table = 'alertes_metrique'
@@ -518,36 +848,93 @@ class ExportDonnees(BaseModel):
         ('XML', 'XML'),
     ]
 
-    nom = models.CharField(max_length=255)
-    type_export = models.CharField(max_length=30, choices=TYPE_EXPORT_CHOICES)
+    nom = models.CharField(
+        max_length=255,
+        verbose_name='Nom',
+        help_text='Nom de l\'export'
+    )
+    type_export = models.CharField(
+        max_length=30, choices=TYPE_EXPORT_CHOICES,
+        verbose_name='Type d\'export',
+        help_text='Catégorie de données à exporter'
+    )
 
-    mandat = models.ForeignKey(Mandat, on_delete=models.CASCADE,
-                               related_name='exports')
+    mandat = models.ForeignKey(
+        Mandat, on_delete=models.CASCADE,
+        related_name='exports',
+        verbose_name='Mandat',
+        help_text='Mandat dont les données sont exportées'
+    )
 
     # Période
-    date_debut = models.DateField()
-    date_fin = models.DateField()
+    date_debut = models.DateField(
+        verbose_name='Date de début',
+        help_text='Début de la période exportée'
+    )
+    date_fin = models.DateField(
+        verbose_name='Date de fin',
+        help_text='Fin de la période exportée'
+    )
 
     # Filtres
-    filtres = models.JSONField(default=dict, blank=True)
+    filtres = models.JSONField(
+        default=dict, blank=True,
+        verbose_name='Filtres',
+        help_text='Filtres appliqués aux données exportées'
+    )
 
     # Format
-    format_export = models.CharField(max_length=10, choices=FORMAT_CHOICES)
+    format_export = models.CharField(
+        max_length=10, choices=FORMAT_CHOICES,
+        verbose_name='Format d\'export',
+        help_text='Format du fichier d\'export'
+    )
 
     # Fichier
-    fichier = models.FileField(upload_to='exports/', null=True, blank=True)
-    taille_fichier = models.IntegerField(null=True, blank=True)
-    nombre_lignes = models.IntegerField(null=True, blank=True)
+    fichier = models.FileField(
+        upload_to='exports/', null=True, blank=True,
+        verbose_name='Fichier',
+        help_text='Fichier d\'export généré'
+    )
+    taille_fichier = models.IntegerField(
+        null=True, blank=True,
+        verbose_name='Taille du fichier',
+        help_text='Taille en octets'
+    )
+    nombre_lignes = models.IntegerField(
+        null=True, blank=True,
+        verbose_name='Nombre de lignes',
+        help_text='Nombre de lignes de données exportées'
+    )
 
     # Génération
-    demande_par = models.ForeignKey(User, on_delete=models.PROTECT)
-    date_demande = models.DateTimeField(auto_now_add=True)
-    date_generation = models.DateTimeField(null=True, blank=True)
+    demande_par = models.ForeignKey(
+        User, on_delete=models.PROTECT,
+        verbose_name='Demandé par',
+        help_text='Utilisateur ayant demandé l\'export'
+    )
+    date_demande = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Date de demande',
+        help_text='Date et heure de la demande d\'export'
+    )
+    date_generation = models.DateTimeField(
+        null=True, blank=True,
+        verbose_name='Date de génération',
+        help_text='Date et heure de fin de génération'
+    )
 
     # Sécurité
-    hash_fichier = models.CharField(max_length=64, blank=True)
-    date_expiration = models.DateTimeField(null=True, blank=True,
-                                           help_text='Date d\'expiration du lien de téléchargement')
+    hash_fichier = models.CharField(
+        max_length=64, blank=True,
+        verbose_name='Hash du fichier',
+        help_text='Empreinte SHA-256 du fichier pour vérification d\'intégrité'
+    )
+    date_expiration = models.DateTimeField(
+        null=True, blank=True,
+        verbose_name='Date d\'expiration',
+        help_text='Date d\'expiration du lien de téléchargement'
+    )
 
     class Meta:
         db_table = 'exports_donnees'
@@ -586,64 +973,67 @@ class TypeGraphiqueRapport(BaseModel):
         max_length=100,
         unique=True,
         db_index=True,
-        help_text="Code unique ex: BILAN_REPARTITION_ACTIF_PASSIF"
+        verbose_name='Code',
+        help_text='Code unique ex: BILAN_REPARTITION_ACTIF_PASSIF'
     )
-    nom = models.CharField(max_length=200)
+    nom = models.CharField(
+        max_length=200,
+        verbose_name='Nom',
+        help_text='Nom affiché du graphique'
+    )
     description = models.TextField(
         blank=True,
-        help_text="Description de ce que montre le graphique"
+        verbose_name='Description',
+        help_text='Description de ce que montre le graphique'
     )
 
     # Types de rapports compatibles (stocké en JSON array)
     types_rapport_compatibles = models.JSONField(
         default=list,
-        help_text='Liste des types de rapports: ["BILAN", "COMPTE_RESULTATS"]'
+        verbose_name='Types de rapports compatibles',
+        help_text='Liste des types de rapports compatibles avec ce graphique'
     )
 
     # Configuration du graphique
     type_graphique = models.CharField(
         max_length=20,
-        choices=TYPE_GRAPHIQUE_CHOICES
+        choices=TYPE_GRAPHIQUE_CHOICES,
+        verbose_name='Type de graphique',
+        help_text='Mode de représentation visuelle'
     )
     unite_donnees = models.CharField(
         max_length=20,
         choices=UNITE_DONNEES_CHOICES,
         default='CHF',
-        help_text="Unité des données pour éviter les mélanges"
+        verbose_name='Unité des données',
+        help_text='Unité des données pour éviter les mélanges'
     )
 
     # Configuration de la source de données
     config_source = models.JSONField(
         default=dict,
-        help_text="""
-        Configuration pour récupérer les données:
-        {
-            "source": "ecritures_comptables",
-            "agregation": "sum",
-            "champ_valeur": "montant",
-            "grouper_par": "classe",
-            "filtres": {"classe__in": [1, 2]}
-        }
-        """
+        verbose_name='Configuration source',
+        help_text='Configuration pour récupérer les données au format JSON'
     )
 
     # Options d'affichage
     options_affichage = models.JSONField(
         default=dict,
-        help_text="""
-        Options de style et d'affichage:
-        {
-            "couleurs": ["#4680FF", "#2CA87F"],
-            "afficher_legende": true,
-            "afficher_valeurs": true,
-            "format_valeur": "currency"
-        }
-        """
+        verbose_name='Options d\'affichage',
+        help_text='Options de style et d\'affichage au format JSON'
     )
 
     # Ordre d'affichage et activation
-    ordre = models.PositiveIntegerField(default=0)
-    actif = models.BooleanField(default=True)
+    ordre = models.PositiveIntegerField(
+        default=0,
+        verbose_name='Ordre',
+        help_text='Position d\'affichage dans la liste'
+    )
+    actif = models.BooleanField(
+        default=True,
+        verbose_name='Actif',
+        help_text='Indique si ce type de graphique est disponible'
+    )
 
     class Meta:
         db_table = 'types_graphique_rapport'
@@ -681,24 +1071,30 @@ class SectionRapport(BaseModel):
     rapport = models.ForeignKey(
         Rapport,
         on_delete=models.CASCADE,
-        related_name='sections'
+        related_name='sections',
+        verbose_name='Rapport',
+        help_text='Rapport contenant cette section'
     )
 
     # Position et type
     ordre = models.PositiveIntegerField(
         default=0,
-        help_text="Position de la section dans le rapport"
+        verbose_name='Ordre',
+        help_text='Position de la section dans le rapport'
     )
     type_section = models.CharField(
         max_length=20,
-        choices=TYPE_SECTION_CHOICES
+        choices=TYPE_SECTION_CHOICES,
+        verbose_name='Type de section',
+        help_text='Nature du contenu de la section'
     )
 
     # Contenu selon le type
     # Pour type='titre' ou 'texte': contenu HTML
     contenu_texte = models.TextField(
         blank=True,
-        help_text="Contenu HTML pour les sections titre/texte"
+        verbose_name='Contenu texte',
+        help_text='Contenu HTML pour les sections titre/texte'
     )
 
     # Pour type='graphique': référence vers un graphique prédéfini
@@ -708,25 +1104,23 @@ class SectionRapport(BaseModel):
         null=True,
         blank=True,
         related_name='sections_utilisant',
-        help_text="Graphique prédéfini à utiliser"
+        verbose_name='Type de graphique',
+        help_text='Graphique prédéfini à utiliser'
     )
 
     # Configuration spécifique (surcharge des options par défaut)
     config = models.JSONField(
         default=dict,
         blank=True,
-        help_text="""
-        Configuration spécifique à cette section:
-        - Pour graphique: {"titre_personnalise": "Mon titre"}
-        - Pour tableau: {"colonnes": ["compte", "libelle", "solde"], "max_lignes": 20}
-        - Pour kpi: {"indicateurs": ["ca_total", "marge_brute"]}
-        """
+        verbose_name='Configuration',
+        help_text='Configuration spécifique à cette section au format JSON'
     )
 
     # Visibilité
     visible = models.BooleanField(
         default=True,
-        help_text="Si False, la section n'apparaît pas dans le PDF"
+        verbose_name='Visible',
+        help_text='Si désactivé, la section n\'apparaît pas dans le PDF'
     )
 
     class Meta:
@@ -749,13 +1143,23 @@ class ModeleRapport(BaseModel):
     Permet de sauvegarder une configuration de rapport pour la réutiliser.
     """
 
-    nom = models.CharField(max_length=200)
-    description = models.TextField(blank=True)
+    nom = models.CharField(
+        max_length=200,
+        verbose_name='Nom',
+        help_text='Nom du modèle de rapport'
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name='Description',
+        help_text='Description du modèle et de son utilisation'
+    )
 
     # Type de rapport associé
     type_rapport = models.CharField(
         max_length=30,
-        choices=Rapport.TYPE_RAPPORT_CHOICES
+        choices=Rapport.TYPE_RAPPORT_CHOICES,
+        verbose_name='Type de rapport',
+        help_text='Type de rapport généré par ce modèle'
     )
 
     # Propriétaire (null = modèle système)
@@ -765,35 +1169,43 @@ class ModeleRapport(BaseModel):
         null=True,
         blank=True,
         related_name='modeles_rapport',
-        help_text="Null pour les modèles système"
+        verbose_name='Propriétaire',
+        help_text='Utilisateur propriétaire (vide pour les modèles système)'
     )
 
     # Configuration des sections par défaut
     sections_defaut = models.JSONField(
         default=list,
-        help_text="""
-        Liste des sections par défaut:
-        [
-            {"type": "titre", "contenu": "Rapport {type_rapport}"},
-            {"type": "texte", "contenu": "<p>Introduction...</p>"},
-            {"type": "graphique", "code_graphique": "BILAN_REPARTITION"},
-            {"type": "tableau", "config": {"source": "comptes_bilan"}}
-        ]
-        """
+        verbose_name='Sections par défaut',
+        help_text='Configuration des sections incluses dans ce modèle'
     )
 
     # Paramètres par défaut du rapport
     parametres_defaut = models.JSONField(
         default=dict,
-        blank=True
+        blank=True,
+        verbose_name='Paramètres par défaut',
+        help_text='Paramètres appliqués par défaut aux rapports générés'
     )
 
     # Activation et ordre
-    actif = models.BooleanField(default=True)
-    ordre = models.PositiveIntegerField(default=0)
+    actif = models.BooleanField(
+        default=True,
+        verbose_name='Actif',
+        help_text='Indique si ce modèle est disponible'
+    )
+    ordre = models.PositiveIntegerField(
+        default=0,
+        verbose_name='Ordre',
+        help_text='Position d\'affichage dans la liste des modèles'
+    )
 
     # Statistiques d'utilisation
-    nombre_utilisations = models.PositiveIntegerField(default=0)
+    nombre_utilisations = models.PositiveIntegerField(
+        default=0,
+        verbose_name='Nombre d\'utilisations',
+        help_text='Compteur de rapports générés avec ce modèle'
+    )
 
     class Meta:
         db_table = 'modeles_rapport'
