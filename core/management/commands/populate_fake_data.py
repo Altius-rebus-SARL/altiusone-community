@@ -1868,7 +1868,7 @@ class Command(BaseCommand):
             },
             "releve_bancaire": {
                 "titre": "Relevé bancaire",
-                "formats": ["pdf", "xlsx"],
+                "formats": ["pdf"],
                 "content_generator": self._generate_releve_bancaire_content,
             },
             "contrat_travail": {
@@ -1888,7 +1888,7 @@ class Command(BaseCommand):
             },
             "bilan": {
                 "titre": "Bilan comptable",
-                "formats": ["pdf", "xlsx"],
+                "formats": ["pdf"],
                 "content_generator": self._generate_bilan_content,
             },
             "rapport_annuel": {
@@ -1913,7 +1913,7 @@ class Command(BaseCommand):
             },
             "decompte_avs": {
                 "titre": "Décompte AVS",
-                "formats": ["pdf", "xlsx"],
+                "formats": ["pdf"],
                 "content_generator": self._generate_decompte_avs_content,
             },
         }
