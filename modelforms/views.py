@@ -642,20 +642,20 @@ class FormFillView(LoginRequiredMixin, DetailView):
         if sections:
             # Créer un dictionnaire de champs par section
             fields_by_section = {s['id']: [] for s in sections}
-            fields_by_section['_other'] = []  # Champs sans section
+            fields_by_section['other'] = []  # Champs sans section
 
             for mapping in field_mappings:
-                section_id = mapping.section or '_other'
+                section_id = mapping.section or 'other'
                 if section_id in fields_by_section:
                     fields_by_section[section_id].append(mapping)
                 else:
-                    fields_by_section['_other'].append(mapping)
+                    fields_by_section['other'].append(mapping)
 
             context['sections'] = sections
             context['fields_by_section'] = fields_by_section
         else:
             context['sections'] = []
-            context['fields_by_section'] = {'_all': list(field_mappings)}
+            context['fields_by_section'] = {'all': list(field_mappings)}
 
         # Valeurs par défaut avec résolution des variables
         default_values = self._resolve_default_values(config.default_values)

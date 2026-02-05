@@ -66,13 +66,13 @@
             {% endfor %}
 
             <!-- Champs sans section -->
-            {% if fields_by_section._other %}
+            {% if fields_by_section.other %}
             <div class="card mb-3">
                 <div class="card-header">
                     <h5>{% trans "Autres informations" %}</h5>
                 </div>
                 <div class="card-body">
-                    {% for mapping in fields_by_section._other %}
+                    {% for mapping in fields_by_section.other %}
                     {% include 'modelforms/partials/form_field.html' with mapping=mapping default_values=default_values %}
                     {% endfor %}
                 </div>
