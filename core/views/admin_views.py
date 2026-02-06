@@ -23,7 +23,7 @@ from django.utils.translation import gettext_lazy as _
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 
-from core.models import User, Role, Mandat, AccesMandat, Invitation
+from core.models import User, Role, Mandat, AccesMandat, Invitation, CollaborateurFiduciaire
 from core.forms import (
     UserForm,
     UserCreateForm,
@@ -33,6 +33,7 @@ from core.forms import (
     AcceptInvitationForm,
     AccesMandatForm,
     ForcePasswordChangeForm,
+    CollaborateurFiduciaireForm,
 )
 from core.services import InvitationService
 
@@ -682,3 +683,95 @@ class AdminDashboardView(LoginRequiredMixin, ManagerRequiredMixin, TemplateView)
         ).order_by('-created_at')[:5]
 
         return context
+
+
+# =============================================================================
+# ADMINISTRATION - COLLABORATEURS FIDUCIAIRE (PRESTATAIRES)
+# =============================================================================
+
+class CollaborateurFiduciaireListView(LoginRequiredMixin, ManagerRequiredMixin, ListView):
+    """Liste des affectations prestataires fiduciaires"""
+
+    model = CollaborateurFiduciaire
+    template_name = "core/admin/collaborateur_list.html"
+    context_object_name = "collaborateurs"
+    paginate_by = 25
+
+    def get_queryset(self):
+        queryset = CollaborateurFiduciaire.objects.select_related(
+            'utilisateur', 'mandat', 'mandat__client', 'created_by'
+        )
+
+        # Filtres
+        mandat_id = self.request.GET.get('mandat')
+        if mandat_id:
+            queryset = queryset.filter(mandat_id=mandat_id)
+
+        utilisateur_id = self.request.GET.get('utilisateur')
+        if utilisateur_id:
+            queryset = queryset.filter(utilisateur_id=utilisateur_id)
+
+        is_active = self.request.GET.get('active')
+        if is_active == '1':
+            queryset = queryset.filter(is_active=True)
+        elif is_active == '0':
+            queryset = queryset.filter(is_active=False)
+
+        return queryset.order_by('-created_at')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Mandats et prestataires pour les filtres
+        context['mandats'] = Mandat.objects.filter(statut='ACTIF').order_by('numero')
+        context['prestataires'] = User.objects.filter(
+            type_utilisateur=User.TypeUtilisateur.STAFF,
+            type_collaborateur='PRESTATAIRE',
+            is_active=True
+        ).order_by('last_name', 'first_name')
+
+        return context
+
+
+class CollaborateurFiduciaireCreateView(LoginRequiredMixin, ManagerRequiredMixin, CreateView):
+    """Créer une affectation prestataire"""
+
+    model = CollaborateurFiduciaire
+    form_class = CollaborateurFiduciaireForm
+    template_name = "core/admin/collaborateur_form.html"
+    success_url = reverse_lazy('core:admin-collaborateur-list')
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        messages.success(self.request, _("Affectation créée avec succès"))
+        return super().form_valid(form)
+
+
+class CollaborateurFiduciaireUpdateView(LoginRequiredMixin, ManagerRequiredMixin, UpdateView):
+    """Modifier une affectation prestataire"""
+
+    model = CollaborateurFiduciaire
+    form_class = CollaborateurFiduciaireForm
+    template_name = "core/admin/collaborateur_form.html"
+    success_url = reverse_lazy('core:admin-collaborateur-list')
+
+    def form_valid(self, form):
+        messages.success(self.request, _("Affectation modifiée avec succès"))
+        return super().form_valid(form)
+
+
+@login_required
+@require_http_methods(["POST"])
+def collaborateur_fiduciaire_toggle(request, pk):
+    """Active/désactive une affectation prestataire"""
+    if not (request.user.is_superuser or request.user.is_manager()):
+        return HttpResponseForbidden()
+
+    collab = get_object_or_404(CollaborateurFiduciaire, pk=pk)
+    collab.is_active = not collab.is_active
+    collab.save(update_fields=['is_active', 'updated_at'])
+
+    status = _("activée") if collab.is_active else _("désactivée")
+    messages.success(request, _("Affectation %(status)s") % {'status': status})
+
+    return redirect('core:admin-collaborateur-list')

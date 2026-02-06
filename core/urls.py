@@ -189,6 +189,13 @@ urlpatterns = [
     path("admin/acces-mandats/<uuid:pk>/modifier/", views.AccesMandatUpdateView.as_view(), name="admin-acces-mandat-update"),
     path("admin/acces-mandats/<uuid:pk>/toggle/", views.acces_mandat_toggle, name="admin-acces-mandat-toggle"),
     # ============================================================================
+    # ADMINISTRATION - COLLABORATEURS FIDUCIAIRE (PRESTATAIRES)
+    # ============================================================================
+    path("admin/collaborateurs/", views.CollaborateurFiduciaireListView.as_view(), name="admin-collaborateur-list"),
+    path("admin/collaborateurs/nouveau/", views.CollaborateurFiduciaireCreateView.as_view(), name="admin-collaborateur-create"),
+    path("admin/collaborateurs/<uuid:pk>/modifier/", views.CollaborateurFiduciaireUpdateView.as_view(), name="admin-collaborateur-update"),
+    path("admin/collaborateurs/<uuid:pk>/toggle/", views.collaborateur_fiduciaire_toggle, name="admin-collaborateur-toggle"),
+    # ============================================================================
     # ACCEPTATION INVITATION (PUBLIQUE)
     # ============================================================================
     path("invitation/<str:token>/", views.AcceptInvitationView.as_view(), name="invitation-accept"),

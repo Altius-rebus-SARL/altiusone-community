@@ -5,7 +5,8 @@ from django.contrib.auth.models import Permission
 from django.utils.translation import gettext_lazy as _
 from .models import (
     Client, Mandat, Contact, Tache, Adresse, ExerciceComptable, User,
-    TypeMandat, TypeFacturation, Periodicite, Role, AccesMandat, Invitation
+    TypeMandat, TypeFacturation, Periodicite, Role, AccesMandat, Invitation,
+    CollaborateurFiduciaire, TypeCollaborateur
 )
 
 
@@ -748,6 +749,53 @@ class AccesMandatForm(forms.ModelForm):
         self.fields['permissions'].queryset = Permission.objects.filter(
             content_type__app_label__in=['documents', 'comptabilite', 'facturation', 'tva']
         ).select_related('content_type').order_by('content_type__app_label', 'codename')
+
+        # Mandats actifs uniquement
+        self.fields['mandat'].queryset = Mandat.objects.filter(statut='ACTIF')
+
+
+class CollaborateurFiduciaireForm(forms.ModelForm):
+    """Formulaire pour gérer l'affectation d'un prestataire à un mandat"""
+
+    class Meta:
+        model = CollaborateurFiduciaire
+        fields = [
+            'utilisateur',
+            'mandat',
+            'role_sur_mandat',
+            'date_debut',
+            'date_fin',
+            'taux_horaire',
+            'is_active',
+            'notes',
+        ]
+        widgets = {
+            'utilisateur': forms.Select(attrs={'class': 'form-control select2'}),
+            'mandat': forms.Select(attrs={'class': 'form-control select2'}),
+            'role_sur_mandat': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': _('Ex: Comptable externe, Réviseur, Conseiller fiscal')
+            }),
+            'date_debut': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'date_fin': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'taux_horaire': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'step': '0.01',
+                'placeholder': _('CHF/heure')
+            }),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Limiter aux utilisateurs STAFF + PRESTATAIRE
+        self.fields['utilisateur'].queryset = User.objects.filter(
+            type_utilisateur=User.TypeUtilisateur.STAFF,
+            type_collaborateur=TypeCollaborateur.PRESTATAIRE,
+            is_active=True
+        )
 
         # Mandats actifs uniquement
         self.fields['mandat'].queryset = Mandat.objects.filter(statut='ACTIF')

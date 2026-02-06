@@ -102,6 +102,11 @@ from .admin_views import (
     AccesMandatCreateView,
     AccesMandatUpdateView,
     acces_mandat_toggle,
+    # Collaborateurs Fiduciaire (Prestataires)
+    CollaborateurFiduciaireListView,
+    CollaborateurFiduciaireCreateView,
+    CollaborateurFiduciaireUpdateView,
+    collaborateur_fiduciaire_toggle,
     # Changement mot de passe
     ForcePasswordChangeView,
 )
@@ -197,5 +202,9 @@ __all__ = [
     'AccesMandatCreateView',
     'AccesMandatUpdateView',
     'acces_mandat_toggle',
+    'CollaborateurFiduciaireListView',
+    'CollaborateurFiduciaireCreateView',
+    'CollaborateurFiduciaireUpdateView',
+    'collaborateur_fiduciaire_toggle',
     'ForcePasswordChangeView',
 ]
