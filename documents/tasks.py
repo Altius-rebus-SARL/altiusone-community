@@ -168,25 +168,47 @@ def traiter_document_ocr(self, document_id: str):
 @shared_task
 def traiter_documents_en_attente():
     """
-    Tache periodique pour traiter les documents en attente d'OCR.
+    Tache periodique pour traiter les documents en attente d'OCR et relancer ceux en erreur.
     A planifier via Celery Beat (ex: toutes les 5 minutes).
     """
     from documents.models import Document
     from documents.ai_service import ai_service
+    from django.db.models import Q
 
     if not ai_service.enabled:
         logger.warning("Service AI non configure, traitement en attente ignore")
-        return {'documents_queued': 0, 'reason': 'AI service not configured'}
+        return {'documents_queued': 0, 'errors_retried': 0, 'reason': 'AI service not configured'}
 
-    documents = Document.objects.filter(
+    # Documents en attente (nouveaux uploads)
+    documents_upload = Document.objects.filter(
         statut_traitement='UPLOAD'
-    ).order_by('date_upload')[:10]  # Traiter max 10 a la fois
+    ).order_by('date_upload')[:10]
 
-    for doc in documents:
+    # Documents en erreur a relancer (max 5 par cycle pour ne pas surcharger)
+    documents_erreur = Document.objects.filter(
+        statut_traitement='ERREUR'
+    ).order_by('updated_at')[:5]
+
+    # Relancer les documents en attente
+    for doc in documents_upload:
         traiter_document_ocr.delay(str(doc.id))
 
-    logger.info(f"Lance traitement AI pour {len(documents)} documents")
-    return {'documents_queued': len(documents)}
+    # Relancer les documents en erreur (reset du statut)
+    for doc in documents_erreur:
+        doc.statut_traitement = 'UPLOAD'
+        doc.save(update_fields=['statut_traitement'])
+        traiter_document_ocr.delay(str(doc.id))
+
+    total_upload = len(documents_upload)
+    total_erreur = len(documents_erreur)
+
+    if total_upload > 0 or total_erreur > 0:
+        logger.info(f"Lance traitement AI: {total_upload} nouveaux, {total_erreur} relances")
+
+    return {
+        'documents_queued': total_upload,
+        'errors_retried': total_erreur
+    }
 
 
 @shared_task
