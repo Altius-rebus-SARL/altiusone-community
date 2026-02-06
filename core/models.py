@@ -490,6 +490,11 @@ class User(AbstractUser):
             statut='ACTIF'
         ).distinct()
 
+    @property
+    def mandats_accessibles(self):
+        """Alias de get_accessible_mandats() pour compatibilité"""
+        return self.get_accessible_mandats()
+
     def get_acces_mandats(self):
         """Retourne les AccesMandat actifs de cet utilisateur"""
         return self.acces_mandats.filter(is_active=True).select_related('mandat')
