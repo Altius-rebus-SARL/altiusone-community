@@ -16,6 +16,7 @@ from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
 from django.db import models as db_models
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter, OpenApiTypes
 
 from core.permissions import IsManagerOrAbove, IsComptableOrAbove
 from .models import FormConfiguration, ModelFieldMapping, FormSubmission, FormTemplate
@@ -79,6 +80,10 @@ class FormConfigurationViewSet(viewsets.ModelViewSet):
 
         return queryset
 
+    @extend_schema(
+        responses={200: dict},
+        description="Retourne le schéma complet du formulaire pour le rendu frontend"
+    )
     @action(detail=True, methods=['get'])
     def schema(self, request, pk=None):
         """
@@ -177,6 +182,11 @@ class FormConfigurationViewSet(viewsets.ModelViewSet):
             'default_values': config.default_values,
         })
 
+    @extend_schema(
+        request=None,
+        responses={201: FormConfigurationDetailSerializer},
+        description="Duplique une configuration existante"
+    )
     @action(detail=True, methods=['post'])
     def duplicate(self, request, pk=None):
         """
@@ -240,6 +250,11 @@ class FormConfigurationViewSet(viewsets.ModelViewSet):
             status=status.HTTP_201_CREATED
         )
 
+    @extend_schema(
+        request=ModelFieldMappingSerializer,
+        responses={201: ModelFieldMappingSerializer},
+        description="Ajoute un champ au formulaire"
+    )
     @action(detail=True, methods=['post'])
     def add_field(self, request, pk=None):
         """
@@ -301,6 +316,10 @@ class FormConfigurationViewSet(viewsets.ModelViewSet):
             status=status.HTTP_201_CREATED
         )
 
+    @extend_schema(
+        responses={204: None},
+        description="Supprime un champ du formulaire"
+    )
     @action(detail=True, methods=['delete'], url_path='remove-field/(?P<mapping_id>[0-9]+)')
     def remove_field(self, request, pk=None, mapping_id=None):
         """
@@ -371,6 +390,11 @@ class FormSubmissionViewSet(viewsets.ModelViewSet):
 
         return queryset
 
+    @extend_schema(
+        request=dict,
+        responses={200: FormSubmissionDetailSerializer},
+        description="Valide une soumission en attente et crée les enregistrements"
+    )
     @action(detail=True, methods=['post'])
     def validate(self, request, pk=None):
         """
@@ -416,6 +440,11 @@ class FormSubmissionViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+    @extend_schema(
+        request=dict,
+        responses={200: FormSubmissionDetailSerializer},
+        description="Rejette une soumission en attente"
+    )
     @action(detail=True, methods=['post'])
     def reject(self, request, pk=None):
         """
@@ -444,6 +473,10 @@ class FormSubmissionViewSet(viewsets.ModelViewSet):
 
         return Response(FormSubmissionDetailSerializer(submission).data)
 
+    @extend_schema(
+        responses={200: FormSubmissionListSerializer(many=True)},
+        description="Liste les soumissions en attente de validation"
+    )
     @action(detail=False, methods=['get'])
     def pending(self, request):
         """
@@ -456,6 +489,16 @@ class FormSubmissionViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
+@extend_schema_view(
+    models=extend_schema(
+        parameters=[
+            OpenApiParameter(name='grouped', type=bool, description='Si true, retourne les modèles groupés par app'),
+            OpenApiParameter(name='q', type=str, description='Terme de recherche pour filtrer les modèles'),
+        ],
+        responses={200: dict},
+        description="Liste tous les modèles disponibles pour les formulaires"
+    ),
+)
 class IntrospectionViewSet(viewsets.ViewSet):
     """
     ViewSet pour l'introspection des modèles Django.
@@ -506,6 +549,10 @@ class IntrospectionViewSet(viewsets.ViewSet):
         serializer = ModelInfoSerializer(models, many=True)
         return Response(serializer.data)
 
+    @extend_schema(
+        responses={200: dict},
+        description="Retourne le schéma complet d'un modèle"
+    )
     @action(detail=False, methods=['get'], url_path='schema/(?P<model_path>[^/.]+\\.[^/.]+)')
     def schema(self, request, model_path=None):
         """
@@ -524,6 +571,14 @@ class IntrospectionViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name='q', type=str, description='Terme de recherche pour filtrer les champs'),
+            OpenApiParameter(name='include_system', type=bool, description='Inclut les champs système'),
+        ],
+        responses={200: dict},
+        description="Retourne les champs d'un modèle avec recherche optionnelle"
+    )
     @action(detail=False, methods=['get'], url_path='fields/(?P<model_path>[^/.]+\\.[^/.]+)')
     def fields(self, request, model_path=None):
         """
@@ -573,6 +628,10 @@ class IntrospectionViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+    @extend_schema(
+        responses={200: dict},
+        description="Retourne le JSON Schema d'un modèle"
+    )
     @action(detail=False, methods=['get'], url_path='json-schema/(?P<model_path>[^/.]+\\.[^/.]+)')
     def json_schema(self, request, model_path=None):
         """
@@ -639,6 +698,11 @@ class FormTemplateViewSet(viewsets.ModelViewSet):
             )
         return super().update(request, *args, **kwargs)
 
+    @extend_schema(
+        request=None,
+        responses={201: FormConfigurationDetailSerializer},
+        description="Crée une nouvelle configuration à partir d'un template"
+    )
     @action(detail=True, methods=['post'])
     def instantiate(self, request, pk=None):
         """
