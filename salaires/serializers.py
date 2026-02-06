@@ -19,6 +19,10 @@ class EmployeListSerializer(serializers.ModelSerializer):
     )
     mandat_numero = serializers.CharField(source="mandat.numero", read_only=True)
     age = serializers.IntegerField(read_only=True)
+    utilisateur_email = serializers.CharField(
+        source="utilisateur.email", read_only=True
+    )
+    a_compte_utilisateur = serializers.SerializerMethodField()
 
     class Meta:
         model = Employe
@@ -37,8 +41,14 @@ class EmployeListSerializer(serializers.ModelSerializer):
             "salaire_brut_mensuel",
             "mandat",
             "mandat_numero",
+            "utilisateur",
+            "utilisateur_email",
+            "a_compte_utilisateur",
             "created_at",
         ]
+
+    def get_a_compte_utilisateur(self, obj):
+        return obj.utilisateur is not None
 
 
 class EmployeDetailSerializer(serializers.ModelSerializer):
@@ -51,6 +61,7 @@ class EmployeDetailSerializer(serializers.ModelSerializer):
     sexe_display = serializers.CharField(source="get_sexe_display", read_only=True)
     mandat = MandatListSerializer(read_only=True)
     adresse = AdresseSerializer(read_only=True)
+    utilisateur = UserSerializer(read_only=True)
     age = serializers.IntegerField(read_only=True)
     salaire_annuel_brut = serializers.DecimalField(
         max_digits=12, decimal_places=2, read_only=True

@@ -15,6 +15,7 @@ from .models import (
     AuditLog,
     Notification,
     Tache,
+    CollaborateurFiduciaire,
 )
 from .serializers import (
     UserSerializer,
@@ -29,6 +30,8 @@ from .serializers import (
     AuditLogSerializer,
     NotificationSerializer,
     TacheSerializer,
+    CollaborateurFiduciaireListSerializer,
+    CollaborateurFiduciaireDetailSerializer,
 )
 
 
@@ -420,4 +423,98 @@ class TacheViewSet(viewsets.ModelViewSet):
             assigne_a=request.user, statut__in=["A_FAIRE", "EN_COURS"]
         )
         serializer = self.get_serializer(taches, many=True)
+        return Response(serializer.data)
+
+
+class IsManagerOrAbove:
+    """Permission: seuls les managers ou supérieurs peuvent accéder"""
+
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and (
+            request.user.is_superuser or request.user.is_manager()
+        )
+
+
+class CollaborateurFiduciaireViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet pour la gestion des affectations prestataires fiduciaires.
+    Réservé aux managers et administrateurs.
+    """
+
+    permission_classes = [IsAuthenticated, IsManagerOrAbove]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    filterset_fields = ["utilisateur", "mandat", "is_active"]
+    search_fields = [
+        "utilisateur__username",
+        "utilisateur__first_name",
+        "utilisateur__last_name",
+        "mandat__numero",
+        "mandat__client__raison_sociale",
+        "role_sur_mandat",
+    ]
+    ordering_fields = ["date_debut", "date_fin", "created_at"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return CollaborateurFiduciaire.objects.select_related(
+            "utilisateur", "mandat", "mandat__client"
+        ).filter(is_active=True)
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return CollaborateurFiduciaireListSerializer
+        return CollaborateurFiduciaireDetailSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    @action(detail=False, methods=["get"])
+    def par_prestataire(self, request):
+        """Liste les affectations groupées par prestataire"""
+        utilisateur_id = request.query_params.get("utilisateur_id")
+        if not utilisateur_id:
+            return Response(
+                {"error": "utilisateur_id requis"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        affectations = self.get_queryset().filter(utilisateur_id=utilisateur_id)
+        serializer = CollaborateurFiduciaireListSerializer(affectations, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"])
+    def par_mandat(self, request):
+        """Liste les prestataires affectés à un mandat"""
+        mandat_id = request.query_params.get("mandat_id")
+        if not mandat_id:
+            return Response(
+                {"error": "mandat_id requis"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        affectations = self.get_queryset().filter(mandat_id=mandat_id)
+        serializer = CollaborateurFiduciaireListSerializer(affectations, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["post"])
+    def desactiver(self, request, pk=None):
+        """Désactive une affectation (soft delete)"""
+        affectation = self.get_object()
+        affectation.is_active = False
+        affectation.save(update_fields=["is_active", "updated_at"])
+        return Response({"message": "Affectation désactivée"})
+
+    @action(detail=False, methods=["get"])
+    def prestataires_disponibles(self, request):
+        """Liste les prestataires fiduciaires disponibles pour affectation"""
+        from .models import TypeCollaborateur
+
+        prestataires = User.objects.filter(
+            type_utilisateur=User.TypeUtilisateur.STAFF,
+            type_collaborateur=TypeCollaborateur.PRESTATAIRE,
+            is_active=True,
+        )
+        serializer = UserSerializer(prestataires, many=True)
         return Response(serializer.data)

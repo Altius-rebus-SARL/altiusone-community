@@ -11,7 +11,7 @@ from django.db import transaction
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 
-from core.models import Invitation, Role, Mandat, AccesMandat
+from core.models import Invitation, Role, Mandat, AccesMandat, CollaborateurFiduciaire, TypeCollaborateur
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -35,10 +35,12 @@ class InvitationService:
         invite_par: User,
         role: Role = None,
         message: str = '',
-        forcer_changement_mdp: bool = True
+        forcer_changement_mdp: bool = True,
+        est_prestataire: bool = False,
+        mandats_assignes: List[Mandat] = None
     ) -> Invitation:
         """
-        Crée une invitation pour un collaborateur staff.
+        Crée une invitation pour un collaborateur staff (employé ou prestataire).
 
         Args:
             email: Email de l'invité
@@ -46,6 +48,8 @@ class InvitationService:
             role: Rôle à attribuer (optionnel)
             message: Message personnalisé
             forcer_changement_mdp: Forcer le changement de mot de passe
+            est_prestataire: Si True, crée une invitation STAFF_PRESTATAIRE
+            mandats_assignes: Liste des mandats à assigner (pour prestataires)
 
         Returns:
             Invitation créée
@@ -70,9 +74,16 @@ class InvitationService:
         expiry_days = getattr(settings, 'INVITATION_EXPIRY_DAYS', 7)
         date_expiration = timezone.now() + timedelta(days=expiry_days)
 
+        # Déterminer le type d'invitation
+        type_invitation = (
+            Invitation.TypeInvitation.STAFF_PRESTATAIRE
+            if est_prestataire
+            else Invitation.TypeInvitation.STAFF
+        )
+
         invitation = Invitation.objects.create(
             email=email,
-            type_invitation=Invitation.TypeInvitation.STAFF,
+            type_invitation=type_invitation,
             date_expiration=date_expiration,
             invite_par=invite_par,
             role_preassigne=role,
@@ -81,10 +92,14 @@ class InvitationService:
             created_by=invite_par
         )
 
+        # Ajouter les mandats assignés (pour prestataires)
+        if est_prestataire and mandats_assignes:
+            invitation.mandats_assignes.set(mandats_assignes)
+
         # Envoyer l'email d'invitation
         InvitationService._envoyer_email_invitation(invitation)
 
-        logger.info(f"Invitation staff créée pour {email} par {invite_par.username}")
+        logger.info(f"Invitation {type_invitation} créée pour {email} par {invite_par.username}")
         return invitation
 
     @staticmethod
@@ -243,12 +258,28 @@ class InvitationService:
         )
 
         # Configurer selon le type d'invitation
-        if invitation.type_invitation == Invitation.TypeInvitation.STAFF:
+        if invitation.type_invitation in [
+            Invitation.TypeInvitation.STAFF,
+            Invitation.TypeInvitation.STAFF_PRESTATAIRE
+        ]:
             user.type_utilisateur = User.TypeUtilisateur.STAFF
             user.is_staff = True  # Accès admin Django si nécessaire
+
+            # Définir le type de collaborateur
+            if invitation.type_invitation == Invitation.TypeInvitation.STAFF_PRESTATAIRE:
+                user.type_collaborateur = TypeCollaborateur.PRESTATAIRE
+            else:
+                user.type_collaborateur = TypeCollaborateur.EMPLOYE
         else:
+            # CLIENT ou CLIENT_PRESTATAIRE
             user.type_utilisateur = User.TypeUtilisateur.CLIENT
             user.is_staff = False
+
+            # Définir le type de collaborateur
+            if invitation.type_invitation == Invitation.TypeInvitation.CLIENT_PRESTATAIRE:
+                user.type_collaborateur = TypeCollaborateur.PRESTATAIRE
+            else:
+                user.type_collaborateur = TypeCollaborateur.EMPLOYE
 
         # Assigner le rôle
         if invitation.role_preassigne:
@@ -259,8 +290,21 @@ class InvitationService:
         user.doit_changer_mot_de_passe = invitation.forcer_changement_mdp
         user.save()
 
-        # Pour les invitations CLIENT, créer l'AccesMandat
-        if invitation.type_invitation == Invitation.TypeInvitation.CLIENT and invitation.mandat:
+        # Pour les invitations STAFF_PRESTATAIRE, créer les affectations CollaborateurFiduciaire
+        if invitation.type_invitation == Invitation.TypeInvitation.STAFF_PRESTATAIRE:
+            for mandat in invitation.mandats_assignes.all():
+                CollaborateurFiduciaire.objects.create(
+                    utilisateur=user,
+                    mandat=mandat,
+                    date_debut=timezone.now().date(),
+                    created_by=invitation.invite_par
+                )
+
+        # Pour les invitations CLIENT/CLIENT_PRESTATAIRE, créer l'AccesMandat
+        if invitation.type_invitation in [
+            Invitation.TypeInvitation.CLIENT,
+            Invitation.TypeInvitation.CLIENT_PRESTATAIRE
+        ] and invitation.mandat:
             acces = AccesMandat.objects.create(
                 utilisateur=user,
                 mandat=invitation.mandat,
@@ -378,10 +422,16 @@ class InvitationService:
         """
         from mailing.services import email_service
 
-        template_code = (
-            'INVITATION_STAFF'
-            if invitation.type_invitation == Invitation.TypeInvitation.STAFF
-            else 'INVITATION_CLIENT'
+        # Mapping des types d'invitation vers les templates
+        template_mapping = {
+            Invitation.TypeInvitation.STAFF: 'INVITATION_STAFF',
+            Invitation.TypeInvitation.STAFF_PRESTATAIRE: 'INVITATION_STAFF_PRESTATAIRE',
+            Invitation.TypeInvitation.CLIENT: 'INVITATION_CLIENT',
+            Invitation.TypeInvitation.CLIENT_PRESTATAIRE: 'INVITATION_CLIENT_PRESTATAIRE',
+        }
+        template_code = template_mapping.get(
+            invitation.type_invitation,
+            'INVITATION_CLIENT'
         )
 
         context = {
@@ -391,6 +441,7 @@ class InvitationService:
             'date_expiration': invitation.date_expiration,
             'message_personnalise': invitation.message_personnalise,
             'mandat': invitation.mandat,
+            'mandats_assignes': list(invitation.mandats_assignes.all()),
         }
 
         email_service.send_template_email(

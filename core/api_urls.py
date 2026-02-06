@@ -10,6 +10,7 @@ from .viewset import (
     AuditLogViewSet,
     NotificationViewSet,
     TacheViewSet,
+    CollaborateurFiduciaireViewSet,
 )
 
 app_name = "core"
@@ -23,6 +24,7 @@ router.register(r"exercices", ExerciceComptableViewSet, basename="exercice")
 router.register(r"audit-logs", AuditLogViewSet, basename="auditlog")
 router.register(r"notifications", NotificationViewSet, basename="notification")
 router.register(r"taches", TacheViewSet, basename="tache")
+router.register(r"collaborateurs", CollaborateurFiduciaireViewSet, basename="collaborateur")
 
 urlpatterns = [
     path("", include(router.urls)),

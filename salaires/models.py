@@ -1,5 +1,6 @@
 # apps/salaires/models.py
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 from core.models import BaseModel, Mandat, User, Adresse
 from decimal import Decimal
 from django.db.models import Q
@@ -43,6 +44,17 @@ class Employe(BaseModel):
         max_length=50, db_index=True,
         verbose_name='Matricule',
         help_text='Numéro d\'identification interne'
+    )
+
+    # Lien vers le compte utilisateur (si accès application)
+    utilisateur = models.OneToOneField(
+        'core.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='employe_record',
+        verbose_name=_('Compte utilisateur'),
+        help_text=_('Compte utilisateur lié (si accès application)')
     )
 
     # Identité

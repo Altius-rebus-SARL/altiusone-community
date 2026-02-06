@@ -303,6 +303,15 @@ class Role(models.Model):
         return cls.objects.filter(code=code, actif=True).first()
 
 
+class TypeCollaborateur(models.TextChoices):
+    """
+    Type de collaborateur: employé interne ou prestataire externe.
+    S'applique aussi bien aux STAFF (fiduciaire) qu'aux CLIENT (leurs employés/prestataires).
+    """
+    EMPLOYE = 'EMPLOYE', _('Employé')
+    PRESTATAIRE = 'PRESTATAIRE', _('Prestataire')
+
+
 class User(AbstractUser):
     """Utilisateur étendu avec intégration du système de rôles"""
 
@@ -329,6 +338,16 @@ class User(AbstractUser):
         default=TypeUtilisateur.STAFF,
         db_index=True,
         verbose_name=_('Type d\'utilisateur')
+    )
+
+    # Type de collaborateur (EMPLOYE = salarié/interne, PRESTATAIRE = externe/contractor)
+    type_collaborateur = models.CharField(
+        max_length=15,
+        choices=TypeCollaborateur.choices,
+        default=TypeCollaborateur.EMPLOYE,
+        db_index=True,
+        verbose_name=_("Type de collaborateur"),
+        help_text=_("Employé = salarié/interne, Prestataire = externe/contractor")
     )
 
     # Changement de mot de passe obligatoire (première connexion après invitation)
@@ -464,24 +483,59 @@ class User(AbstractUser):
         """Vérifie si l'utilisateur est un client externe"""
         return self.type_utilisateur == self.TypeUtilisateur.CLIENT
 
+    # =========================================================================
+    # Méthodes pour le type de collaborateur (EMPLOYE/PRESTATAIRE)
+    # =========================================================================
+
+    def is_employe(self):
+        """Vérifie si l'utilisateur est un employé (salarié/interne)"""
+        return self.type_collaborateur == TypeCollaborateur.EMPLOYE
+
+    def is_prestataire(self):
+        """Vérifie si l'utilisateur est un prestataire (externe/contractor)"""
+        return self.type_collaborateur == TypeCollaborateur.PRESTATAIRE
+
+    def is_fiduciaire_prestataire(self):
+        """Vérifie si l'utilisateur est un prestataire de la fiduciaire"""
+        return self.is_staff_user() and self.is_prestataire()
+
+    def get_employe_record(self):
+        """Retourne l'enregistrement Employe lié (si existe)"""
+        return getattr(self, 'employe_record', None)
+
     def get_accessible_mandats(self):
         """
         Retourne les mandats accessibles par cet utilisateur.
-        - STAFF: tous les mandats (ou selon rôle si pas manager)
-        - CLIENT: uniquement les mandats via AccesMandat
+
+        Logique:
+        - Superuser / Manager STAFF: tous les mandats actifs
+        - STAFF Employé: mandats où il est responsable ou dans l'équipe
+        - STAFF Prestataire: mandats via CollaborateurFiduciaire
+        - CLIENT: mandats via AccesMandat
         """
         from django.db.models import Q
 
-        if self.is_superuser or (self.is_staff_user() and self.is_manager()):
-            # Superuser ou manager staff: tous les mandats actifs
+        if self.is_superuser:
             return Mandat.objects.filter(statut='ACTIF')
 
         if self.is_staff_user():
-            # Staff non-manager: mandats où il est responsable ou dans l'équipe
-            return Mandat.objects.filter(
-                Q(responsable=self) | Q(equipe=self),
-                statut='ACTIF'
-            ).distinct()
+            if self.is_manager():
+                # Manager staff: tous les mandats actifs
+                return Mandat.objects.filter(statut='ACTIF')
+
+            if self.is_employe():
+                # Employé interne: responsable ou équipe
+                return Mandat.objects.filter(
+                    Q(responsable=self) | Q(equipe=self),
+                    statut='ACTIF'
+                ).distinct()
+            else:
+                # Prestataire fiduciaire: via affectations
+                return Mandat.objects.filter(
+                    prestataires_affectes__utilisateur=self,
+                    prestataires_affectes__is_active=True,
+                    statut='ACTIF'
+                ).distinct()
 
         # Client externe: uniquement via AccesMandat
         return Mandat.objects.filter(
@@ -1745,6 +1799,84 @@ class AccesMandat(BaseModel):
 
 
 # =============================================================================
+# COLLABORATEUR FIDUCIAIRE (Affectations prestataires → mandats)
+# =============================================================================
+
+class CollaborateurFiduciaire(BaseModel):
+    """
+    Affectation d'un prestataire fiduciaire à des mandats spécifiques.
+    Différent de AccesMandat qui gère les utilisateurs CLIENT.
+
+    Ce modèle permet de:
+    - Affecter des prestataires externes (type_collaborateur=PRESTATAIRE) à des mandats
+    - Définir des périodes d'affectation
+    - Optionnellement configurer un taux horaire spécifique au mandat
+    """
+
+    utilisateur = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='affectations_mandats',
+        verbose_name=_("Prestataire"),
+        limit_choices_to={'type_utilisateur': 'STAFF', 'type_collaborateur': 'PRESTATAIRE'}
+    )
+    mandat = models.ForeignKey(
+        'Mandat',
+        on_delete=models.CASCADE,
+        related_name='prestataires_affectes',
+        verbose_name=_("Mandat")
+    )
+
+    role_sur_mandat = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name=_("Rôle sur ce mandat"),
+        help_text=_("Ex: Comptable externe, Réviseur, Conseiller fiscal")
+    )
+
+    date_debut = models.DateField(verbose_name=_("Date de début"))
+    date_fin = models.DateField(null=True, blank=True, verbose_name=_("Date de fin"))
+
+    taux_horaire = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        null=True, blank=True,
+        verbose_name=_("Taux horaire spécifique"),
+        help_text=_("Taux horaire pour ce mandat (si différent du taux global)")
+    )
+
+    notes = models.TextField(blank=True, verbose_name=_("Notes"))
+
+    class Meta:
+        db_table = 'collaborateurs_fiduciaire'
+        verbose_name = _("Affectation prestataire")
+        verbose_name_plural = _("Affectations prestataires")
+        unique_together = ['utilisateur', 'mandat']
+        indexes = [
+            models.Index(fields=['utilisateur', 'is_active']),
+            models.Index(fields=['mandat', 'is_active']),
+        ]
+
+    def __str__(self):
+        return f"{self.utilisateur.get_full_name() or self.utilisateur.username} → {self.mandat.numero}"
+
+    def est_affectation_valide(self):
+        """Vérifie si l'affectation est actuellement valide"""
+        from django.utils import timezone
+        today = timezone.now().date()
+
+        if not self.is_active:
+            return False
+
+        if self.date_debut and today < self.date_debut:
+            return False
+
+        if self.date_fin and today > self.date_fin:
+            return False
+
+        return True
+
+
+# =============================================================================
 # INVITATION (Système d'invitation par email)
 # =============================================================================
 
@@ -1752,14 +1884,18 @@ class Invitation(BaseModel):
     """
     Invitation à rejoindre la plateforme ou à accéder à un mandat.
 
-    Deux flux:
-    1. Staff invite → n'importe qui (staff ou client)
-    2. Client responsable invite → uniquement pour son mandat
+    Quatre types d'invitation:
+    1. STAFF: Collaborateur interne (employé fiduciaire)
+    2. STAFF_PRESTATAIRE: Prestataire externe fiduciaire
+    3. CLIENT: Client externe (employé d'un client)
+    4. CLIENT_PRESTATAIRE: Prestataire d'un client
     """
 
     class TypeInvitation(models.TextChoices):
-        STAFF = 'STAFF', _('Invitation collaborateur')
-        CLIENT = 'CLIENT', _('Invitation client mandat')
+        STAFF = 'STAFF', _('Collaborateur interne')
+        STAFF_PRESTATAIRE = 'STAFF_PRESTATAIRE', _('Prestataire fiduciaire')
+        CLIENT = 'CLIENT', _('Client externe')
+        CLIENT_PRESTATAIRE = 'CLIENT_PRESTATAIRE', _('Prestataire client')
 
     class Statut(models.TextChoices):
         EN_ATTENTE = 'EN_ATTENTE', _('En attente')
@@ -1770,7 +1906,7 @@ class Invitation(BaseModel):
     # Informations de base
     email = models.EmailField(verbose_name=_('Email'))
     type_invitation = models.CharField(
-        max_length=10,
+        max_length=20,
         choices=TypeInvitation.choices,
         verbose_name=_('Type d\'invitation')
     )
@@ -1803,6 +1939,15 @@ class Invitation(BaseModel):
         related_name='invitations',
         verbose_name=_('Mandat'),
         help_text=_('Mandat auquel l\'invité aura accès (pour les clients)')
+    )
+
+    # Pour les invitations STAFF_PRESTATAIRE: mandats assignés
+    mandats_assignes = models.ManyToManyField(
+        'Mandat',
+        blank=True,
+        related_name='invitations_prestataires',
+        verbose_name=_('Mandats assignés'),
+        help_text=_('Mandats auxquels le prestataire sera affecté')
     )
 
     # Rôle pré-assigné (pour STAFF) ou permissions (pour CLIENT)

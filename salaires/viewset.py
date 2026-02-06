@@ -60,6 +60,132 @@ class EmployeViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(employes, many=True)
         return Response(serializer.data)
 
+    @action(detail=True, methods=["post"])
+    def lier_utilisateur(self, request, pk=None):
+        """
+        Lie un employé à un compte utilisateur existant.
+        Le compte doit exister et ne pas être déjà lié à un autre employé.
+        """
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        employe = self.get_object()
+
+        utilisateur_id = request.data.get("utilisateur_id")
+        if not utilisateur_id:
+            return Response(
+                {"error": "utilisateur_id requis"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            utilisateur = User.objects.get(id=utilisateur_id)
+        except User.DoesNotExist:
+            return Response(
+                {"error": "Utilisateur non trouvé"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Vérifier que l'utilisateur n'est pas déjà lié à un autre employé
+        if hasattr(utilisateur, "employe_record") and utilisateur.employe_record:
+            if utilisateur.employe_record.id != employe.id:
+                return Response(
+                    {"error": "Cet utilisateur est déjà lié à un autre employé"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        employe.utilisateur = utilisateur
+        employe.save(update_fields=["utilisateur", "updated_at"])
+
+        serializer = self.get_serializer(employe)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["post"])
+    def creer_compte(self, request, pk=None):
+        """
+        Crée un compte utilisateur pour cet employé et le lie automatiquement.
+        Utilise l'email de l'employé comme username.
+        """
+        from django.contrib.auth import get_user_model
+        from core.models import Role, TypeCollaborateur
+
+        User = get_user_model()
+        employe = self.get_object()
+
+        # Vérifier que l'employé n'a pas déjà un compte lié
+        if employe.utilisateur:
+            return Response(
+                {"error": "Cet employé a déjà un compte utilisateur lié"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Vérifier que l'email de l'employé est renseigné
+        if not employe.email:
+            return Response(
+                {"error": "L'employé doit avoir une adresse email"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Vérifier qu'aucun utilisateur n'existe avec cet email
+        if User.objects.filter(email=employe.email).exists():
+            return Response(
+                {"error": f"Un utilisateur avec l'email {employe.email} existe déjà"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Récupérer le rôle client par défaut
+        role_client = Role.objects.filter(code=Role.CLIENT, actif=True).first()
+
+        # Générer un mot de passe temporaire
+        import secrets
+
+        temp_password = secrets.token_urlsafe(12)
+
+        # Créer l'utilisateur
+        utilisateur = User.objects.create_user(
+            username=employe.email,
+            email=employe.email,
+            password=temp_password,
+            first_name=employe.prenom,
+            last_name=employe.nom,
+            type_utilisateur=User.TypeUtilisateur.CLIENT,
+            type_collaborateur=TypeCollaborateur.EMPLOYE,
+            role=role_client,
+            doit_changer_mot_de_passe=True,
+        )
+
+        # Lier l'employé à l'utilisateur
+        employe.utilisateur = utilisateur
+        employe.save(update_fields=["utilisateur", "updated_at"])
+
+        # TODO: Envoyer un email avec les identifiants
+        # from mailing.services import email_service
+        # email_service.send_template_email(...)
+
+        return Response(
+            {
+                "message": "Compte créé avec succès",
+                "utilisateur_id": str(utilisateur.id),
+                "email": utilisateur.email,
+                "mot_de_passe_temporaire": temp_password,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=True, methods=["post"])
+    def delier_utilisateur(self, request, pk=None):
+        """Supprime le lien entre un employé et son compte utilisateur"""
+        employe = self.get_object()
+
+        if not employe.utilisateur:
+            return Response(
+                {"error": "Cet employé n'a pas de compte utilisateur lié"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        employe.utilisateur = None
+        employe.save(update_fields=["utilisateur", "updated_at"])
+
+        return Response({"message": "Lien supprimé avec succès"})
+
 
 class TauxCotisationViewSet(viewsets.ModelViewSet):
     """ViewSet pour les taux de cotisations"""

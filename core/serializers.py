@@ -14,6 +14,7 @@ from .models import (
     TypeMandat,
     TypeFacturation,
     Periodicite,
+    CollaborateurFiduciaire,
 )
 
 User = get_user_model()
@@ -49,6 +50,12 @@ class UserSerializer(serializers.ModelSerializer):
     """Serializer pour les utilisateurs"""
 
     role_display = serializers.CharField(source="get_role_display", read_only=True)
+    type_utilisateur_display = serializers.CharField(
+        source="get_type_utilisateur_display", read_only=True
+    )
+    type_collaborateur_display = serializers.CharField(
+        source="get_type_collaborateur_display", read_only=True
+    )
     full_name = serializers.SerializerMethodField()
 
     class Meta:
@@ -62,6 +69,10 @@ class UserSerializer(serializers.ModelSerializer):
             "full_name",
             "role",
             "role_display",
+            "type_utilisateur",
+            "type_utilisateur_display",
+            "type_collaborateur",
+            "type_collaborateur_display",
             "phone",
             "mobile",
             "signature",
@@ -493,3 +504,79 @@ class TacheSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["cree_par", "created_at"]
+
+
+# =============================================================================
+# SERIALIZERS POUR COLLABORATEURS FIDUCIAIRE
+# =============================================================================
+
+class CollaborateurFiduciaireListSerializer(serializers.ModelSerializer):
+    """Serializer léger pour liste d'affectations prestataires"""
+
+    utilisateur_name = serializers.CharField(
+        source="utilisateur.get_full_name", read_only=True
+    )
+    utilisateur_email = serializers.CharField(
+        source="utilisateur.email", read_only=True
+    )
+    mandat_numero = serializers.CharField(source="mandat.numero", read_only=True)
+    client_name = serializers.CharField(
+        source="mandat.client.raison_sociale", read_only=True
+    )
+
+    class Meta:
+        model = CollaborateurFiduciaire
+        fields = [
+            "id",
+            "utilisateur",
+            "utilisateur_name",
+            "utilisateur_email",
+            "mandat",
+            "mandat_numero",
+            "client_name",
+            "role_sur_mandat",
+            "date_debut",
+            "date_fin",
+            "is_active",
+            "created_at",
+        ]
+
+
+class CollaborateurFiduciaireDetailSerializer(serializers.ModelSerializer):
+    """Serializer détaillé pour une affectation prestataire"""
+
+    utilisateur = UserSerializer(read_only=True)
+    mandat = MandatListSerializer(read_only=True)
+    utilisateur_id = serializers.UUIDField(write_only=True)
+    mandat_id = serializers.UUIDField(write_only=True)
+
+    class Meta:
+        model = CollaborateurFiduciaire
+        fields = [
+            "id",
+            "utilisateur",
+            "utilisateur_id",
+            "mandat",
+            "mandat_id",
+            "role_sur_mandat",
+            "date_debut",
+            "date_fin",
+            "taux_horaire",
+            "notes",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+
+    def create(self, validated_data):
+        utilisateur_id = validated_data.pop("utilisateur_id")
+        mandat_id = validated_data.pop("mandat_id")
+        validated_data["utilisateur_id"] = utilisateur_id
+        validated_data["mandat_id"] = mandat_id
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        # Ne pas permettre de changer utilisateur/mandat sur update
+        validated_data.pop("utilisateur_id", None)
+        validated_data.pop("mandat_id", None)
+        return super().update(instance, validated_data)
