@@ -53,13 +53,30 @@ class DossierViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def tree(self, request):
-        """Retourne l'arborescence des dossiers"""
+        """Retourne l'arborescence des dossiers
+
+        Pour un mandat donné, retourne:
+        - Les dossiers liés directement au mandat
+        - Les dossiers liés au client du mandat (si pas de mandat spécifique)
+        """
+        from core.models import Mandat
+
         mandat_id = request.query_params.get('mandat')
         client_id = request.query_params.get('client')
 
         queryset = self.get_queryset()
+
         if mandat_id:
-            queryset = queryset.filter(mandat_id=mandat_id)
+            # Récupérer le mandat pour avoir le client associé
+            try:
+                mandat = Mandat.objects.get(id=mandat_id)
+                # Inclure les dossiers du mandat OU du client (si pas de mandat spécifique)
+                queryset = queryset.filter(
+                    Q(mandat_id=mandat_id) |
+                    Q(mandat__isnull=True, client_id=mandat.client_id)
+                )
+            except Mandat.DoesNotExist:
+                queryset = queryset.none()
         elif client_id:
             queryset = queryset.filter(client_id=client_id)
 
