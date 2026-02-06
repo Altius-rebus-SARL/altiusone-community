@@ -23,9 +23,11 @@ from .serializers import (
 
 
 class DossierViewSet(viewsets.ModelViewSet):
-    """ViewSet pour gérer les dossiers GED"""
+    """ViewSet pour gérer les dossiers GED
 
-    queryset = Dossier.objects.all()
+    Permissions: Dossiers des mandats accessibles selon les permissions de l'utilisateur
+    """
+
     serializer_class = DossierSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
@@ -33,6 +35,21 @@ class DossierViewSet(viewsets.ModelViewSet):
     search_fields = ['nom', 'chemin_complet', 'description']
     ordering_fields = ['nom', 'created_at', 'niveau']
     ordering = ['chemin_complet']
+
+    def get_queryset(self):
+        user = self.request.user
+        base_queryset = Dossier.objects.select_related('mandat', 'client', 'parent')
+
+        # Superuser ou Manager: accès complet
+        if user.is_superuser or (user.is_staff_user() and user.is_manager()):
+            return base_queryset
+
+        # Filtrer par mandats accessibles
+        accessible_mandats = user.get_accessible_mandats()
+        return base_queryset.filter(
+            Q(mandat__in=accessible_mandats) |
+            Q(mandat__isnull=True, client__mandats__in=accessible_mandats)
+        ).distinct()
 
     @action(detail=False, methods=['get'])
     def tree(self, request):
@@ -90,6 +107,8 @@ class DocumentViewSet(viewsets.ModelViewSet):
     Supporte deux modes d'upload:
     - Multipart (fichier) - pour web et certaines apps mobiles
     - JSON avec base64 (fichier_base64) - pour React Native et APIs
+
+    Permissions: Documents des mandats accessibles selon les permissions de l'utilisateur
     """
 
     permission_classes = [IsAuthenticated]
@@ -101,9 +120,18 @@ class DocumentViewSet(viewsets.ModelViewSet):
     ordering = ['-date_upload']
 
     def get_queryset(self):
-        return Document.objects.select_related(
+        user = self.request.user
+        base_queryset = Document.objects.select_related(
             "mandat", "dossier", "type_document", "categorie", "valide_par"
         )
+
+        # Superuser ou Manager: accès complet
+        if user.is_superuser or (user.is_staff_user() and user.is_manager()):
+            return base_queryset
+
+        # Filtrer par mandats accessibles
+        accessible_mandats = user.get_accessible_mandats()
+        return base_queryset.filter(mandat__in=accessible_mandats)
 
     def get_serializer_class(self):
         if self.action == "list":

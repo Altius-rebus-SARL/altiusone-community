@@ -25,7 +25,14 @@ from .serializers import (
 
 
 class EmployeViewSet(viewsets.ModelViewSet):
-    """ViewSet pour les employés"""
+    """ViewSet pour les employés
+
+    Permissions:
+    - Superuser / Manager: tous les employés
+    - STAFF Employé: employés des mandats où il est responsable/équipe
+    - STAFF Prestataire: employés des mandats assignés via CollaborateurFiduciaire
+    - CLIENT: employés des mandats accessibles via AccesMandat
+    """
 
     permission_classes = [IsAuthenticated]
     filter_backends = [
@@ -38,7 +45,16 @@ class EmployeViewSet(viewsets.ModelViewSet):
     ordering = ["nom", "prenom"]
 
     def get_queryset(self):
-        return Employe.objects.select_related("mandat", "adresse")
+        user = self.request.user
+        base_queryset = Employe.objects.select_related("mandat", "adresse", "utilisateur")
+
+        # Superuser ou Manager: accès complet
+        if user.is_superuser or (user.is_staff_user() and user.is_manager()):
+            return base_queryset
+
+        # Filtrer par mandats accessibles
+        accessible_mandats = user.get_accessible_mandats()
+        return base_queryset.filter(mandat__in=accessible_mandats)
 
     def get_serializer_class(self):
         if self.action == "list":
@@ -215,7 +231,10 @@ class TauxCotisationViewSet(viewsets.ModelViewSet):
 
 
 class FicheSalaireViewSet(viewsets.ModelViewSet):
-    """ViewSet pour les fiches de salaire"""
+    """ViewSet pour les fiches de salaire
+
+    Permissions: Fiches des employés accessibles selon les permissions de l'utilisateur
+    """
 
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
@@ -223,7 +242,18 @@ class FicheSalaireViewSet(viewsets.ModelViewSet):
     ordering = ["-periode"]
 
     def get_queryset(self):
-        return FicheSalaire.objects.select_related("employe", "valide_par")
+        user = self.request.user
+        base_queryset = FicheSalaire.objects.select_related(
+            "employe", "employe__mandat", "valide_par"
+        )
+
+        # Superuser ou Manager: accès complet
+        if user.is_superuser or (user.is_staff_user() and user.is_manager()):
+            return base_queryset
+
+        # Filtrer par mandats accessibles
+        accessible_mandats = user.get_accessible_mandats()
+        return base_queryset.filter(employe__mandat__in=accessible_mandats)
 
     def get_serializer_class(self):
         if self.action == "list":
@@ -317,14 +347,30 @@ class FicheSalaireViewSet(viewsets.ModelViewSet):
 
 
 class CertificatSalaireViewSet(viewsets.ModelViewSet):
-    """ViewSet pour les certificats de salaire"""
+    """ViewSet pour les certificats de salaire
 
-    queryset = CertificatSalaire.objects.all()
+    Permissions: Certificats des employés accessibles selon les permissions de l'utilisateur
+    """
+
     serializer_class = CertificatSalaireSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ["employe", "annee"]
     ordering = ["-annee"]
+
+    def get_queryset(self):
+        user = self.request.user
+        base_queryset = CertificatSalaire.objects.select_related(
+            "employe", "employe__mandat", "genere_par"
+        )
+
+        # Superuser ou Manager: accès complet
+        if user.is_superuser or (user.is_staff_user() and user.is_manager()):
+            return base_queryset
+
+        # Filtrer par mandats accessibles
+        accessible_mandats = user.get_accessible_mandats()
+        return base_queryset.filter(employe__mandat__in=accessible_mandats)
 
     @action(detail=True, methods=["post"])
     def generer_pdf(self, request, pk=None):
@@ -344,11 +390,25 @@ class CertificatSalaireViewSet(viewsets.ModelViewSet):
 
 
 class DeclarationCotisationsViewSet(viewsets.ModelViewSet):
-    """ViewSet pour les déclarations de cotisations"""
+    """ViewSet pour les déclarations de cotisations
 
-    queryset = DeclarationCotisations.objects.all()
+    Permissions: Déclarations des mandats accessibles selon les permissions de l'utilisateur
+    """
+
     serializer_class = DeclarationCotisationsSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ["mandat", "organisme"]
     ordering = ["-date_declaration"]
+
+    def get_queryset(self):
+        user = self.request.user
+        base_queryset = DeclarationCotisations.objects.select_related("mandat")
+
+        # Superuser ou Manager: accès complet
+        if user.is_superuser or (user.is_staff_user() and user.is_manager()):
+            return base_queryset
+
+        # Filtrer par mandats accessibles
+        accessible_mandats = user.get_accessible_mandats()
+        return base_queryset.filter(mandat__in=accessible_mandats)
