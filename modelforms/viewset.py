@@ -489,16 +489,6 @@ class FormSubmissionViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-@extend_schema_view(
-    models=extend_schema(
-        parameters=[
-            OpenApiParameter(name='grouped', type=bool, description='Si true, retourne les modèles groupés par app'),
-            OpenApiParameter(name='q', type=str, description='Terme de recherche pour filtrer les modèles'),
-        ],
-        responses={200: dict},
-        description="Liste tous les modèles disponibles pour les formulaires"
-    ),
-)
 class IntrospectionViewSet(viewsets.ViewSet):
     """
     ViewSet pour l'introspection des modèles Django.
@@ -509,6 +499,14 @@ class IntrospectionViewSet(viewsets.ViewSet):
 
     permission_classes = [IsManagerOrAbove]
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name='grouped', type=bool, description='Si true, retourne les modèles groupés par app'),
+            OpenApiParameter(name='q', type=str, description='Terme de recherche pour filtrer les modèles'),
+        ],
+        responses={200: dict},
+        description="Liste tous les modèles disponibles pour les formulaires"
+    )
     @action(detail=False, methods=['get'])
     def models(self, request):
         """
