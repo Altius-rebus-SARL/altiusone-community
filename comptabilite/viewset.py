@@ -7,7 +7,6 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q, Sum, F
 from decimal import Decimal
 from datetime import date
-from drf_spectacular.utils import extend_schema, OpenApiParameter
 
 from .models import (
     PlanComptable,
@@ -521,15 +520,6 @@ class RapportsViewSet(viewsets.ViewSet):
 
     permission_classes = [IsAuthenticated]
 
-    @extend_schema(
-        parameters=[
-            OpenApiParameter(name='mandat', type=str, required=True),
-            OpenApiParameter(name='date_debut', type=str, required=True),
-            OpenApiParameter(name='date_fin', type=str, required=True),
-        ],
-        responses=BalanceSerializer(many=True),
-        description="Générer la balance des comptes"
-    )
     @action(detail=False, methods=["get"])
     def balance(self, request):
         """Générer la balance des comptes"""
@@ -580,14 +570,6 @@ class RapportsViewSet(viewsets.ViewSet):
         serializer = BalanceSerializer(balance_data, many=True)
         return Response(serializer.data)
 
-    @extend_schema(
-        parameters=[
-            OpenApiParameter(name='mandat', type=str, required=True),
-            OpenApiParameter(name='date', type=str, required=True),
-        ],
-        responses={200: BilanSerializer},
-        description="Générer le bilan"
-    )
     @action(detail=False, methods=["get"])
     def bilan(self, request):
         """Générer le bilan"""
@@ -622,15 +604,6 @@ class RapportsViewSet(viewsets.ViewSet):
         serializer = BilanSerializer(bilan_data)
         return Response(serializer.data)
 
-    @extend_schema(
-        parameters=[
-            OpenApiParameter(name='mandat', type=str, required=True),
-            OpenApiParameter(name='date_debut', type=str, required=True),
-            OpenApiParameter(name='date_fin', type=str, required=True),
-        ],
-        responses={200: CompteResultatsSerializer},
-        description="Générer le compte de résultats"
-    )
     @action(detail=False, methods=["get"])
     def compte_resultats(self, request):
         """Générer le compte de résultats"""

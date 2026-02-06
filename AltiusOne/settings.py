@@ -444,8 +444,6 @@ SPECTACULAR_SETTINGS = {
             }
         }
     },
-    # Exclure temporairement les endpoints problématiques
-    'PREPROCESSING_HOOKS': ['AltiusOne.spectacular_hooks.preprocess_exclude_problematic'],
 }
 
 # ============================================================================

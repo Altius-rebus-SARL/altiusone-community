@@ -236,8 +236,8 @@ class TypePieceComptableSerializer(serializers.ModelSerializer):
             "code",
             "libelle",
             "description",
+            "categorie",
             "prefixe_numero",
-            "sens_defaut",
             "ordre",
             "is_active",
         ]
@@ -331,7 +331,6 @@ class PieceComptableDetailSerializer(serializers.ModelSerializer):
             "statut",
             "dossier",
             "dossier_chemin",
-            "notes",
             "valide_par",
             "valide_par_name",
             "date_validation",
@@ -373,7 +372,6 @@ class PieceComptableCreateSerializer(serializers.ModelSerializer):
             "montant_tva",
             "montant_ttc",
             "dossier",
-            "notes",
             "generer_numero",
         ]
 
