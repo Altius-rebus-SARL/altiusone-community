@@ -288,7 +288,10 @@ class AltiusAIService:
         language: str = 'auto'
     ) -> OCRResult:
         """
-        Extrait le texte d'un document (image ou PDF).
+        Extrait le texte d'un document (image, PDF ou DOCX).
+
+        Pour les fichiers DOCX, l'extraction est faite localement sans OCR.
+        Pour les images et PDFs, utilise l'API OCR externe.
 
         Args:
             file_path: Chemin vers le fichier local
@@ -311,7 +314,6 @@ class AltiusAIService:
                     filename = file_path.split('/')[-1]
 
             if file_content:
-                # Methode 1: Upload multipart via /ocr/file
                 import mimetypes
                 # Utiliser le filename fourni, sinon extraire du path, sinon default
                 if not filename:
@@ -320,6 +322,11 @@ class AltiusAIService:
                 if not mime_type:
                     mime_type = mimetypes.guess_type(filename)[0] or 'application/octet-stream'
 
+                # Traitement local pour les fichiers DOCX (pas besoin d'OCR)
+                if mime_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' or filename.lower().endswith('.docx'):
+                    return self._extract_text_from_docx(file_content, filename)
+
+                # Pour les autres fichiers, utiliser l'API OCR
                 files = {'file': (filename, file_content, mime_type)}
                 params = {'language': language} if language != 'auto' else {}
 
@@ -357,6 +364,57 @@ class AltiusAIService:
         except Exception as e:
             logger.error(f"Erreur OCR: {e}")
             raise AIServiceError(f"Erreur lors de l'extraction OCR: {str(e)}")
+
+    def _extract_text_from_docx(self, file_content: bytes, filename: str) -> OCRResult:
+        """
+        Extrait le texte d'un fichier DOCX localement (sans OCR).
+
+        Args:
+            file_content: Contenu du fichier DOCX en bytes
+            filename: Nom du fichier
+
+        Returns:
+            OCRResult avec le texte extrait
+        """
+        import io
+        try:
+            from docx import Document as DocxDocument
+        except ImportError:
+            raise AIServiceError("python-docx non installe. Installez-le avec: pip install python-docx")
+
+        try:
+            # Charger le document DOCX depuis les bytes
+            doc = DocxDocument(io.BytesIO(file_content))
+
+            # Extraire le texte de tous les paragraphes
+            paragraphs = []
+            for para in doc.paragraphs:
+                if para.text.strip():
+                    paragraphs.append(para.text)
+
+            # Extraire aussi le texte des tableaux
+            for table in doc.tables:
+                for row in table.rows:
+                    row_text = []
+                    for cell in row.cells:
+                        if cell.text.strip():
+                            row_text.append(cell.text.strip())
+                    if row_text:
+                        paragraphs.append(' | '.join(row_text))
+
+            text = '\n'.join(paragraphs)
+
+            return OCRResult(
+                text=text,
+                confidence=100.0,  # Extraction directe, pas d'OCR
+                pages=1,
+                language='fr',
+                processing_time=0.0
+            )
+
+        except Exception as e:
+            logger.error(f"Erreur extraction DOCX {filename}: {e}")
+            raise AIServiceError(f"Erreur lors de l'extraction du texte DOCX: {str(e)}")
 
     # =========================================================================
     # EMBEDDINGS - VECTORISATION
