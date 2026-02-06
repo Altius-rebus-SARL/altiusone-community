@@ -527,7 +527,7 @@ class RapportsViewSet(viewsets.ViewSet):
             OpenApiParameter(name='date_debut', type=str, required=True),
             OpenApiParameter(name='date_fin', type=str, required=True),
         ],
-        responses={200: BalanceSerializer(many=True)},
+        responses=BalanceSerializer(many=True),
         description="Générer la balance des comptes"
     )
     @action(detail=False, methods=["get"])

@@ -474,7 +474,7 @@ class FormSubmissionViewSet(viewsets.ModelViewSet):
         return Response(FormSubmissionDetailSerializer(submission).data)
 
     @extend_schema(
-        responses={200: FormSubmissionListSerializer(many=True)},
+        responses=FormSubmissionListSerializer(many=True),
         description="Liste les soumissions en attente de validation"
     )
     @action(detail=False, methods=['get'])
