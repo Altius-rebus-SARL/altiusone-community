@@ -465,18 +465,19 @@ Contenu (extrait):
 {text[:3000]}"""
 
         try:
-            response = self.chat(message=user_prompt, system=system_prompt)
+            chat_response = self.chat(message=user_prompt, system=system_prompt)
+            response_text = chat_response.get('response', '') if isinstance(chat_response, dict) else str(chat_response)
 
             # Parser la reponse JSON
             import json
             try:
                 # Essayer de trouver le JSON dans la reponse
-                json_start = response.find('{')
-                json_end = response.rfind('}') + 1
+                json_start = response_text.find('{')
+                json_end = response_text.rfind('}') + 1
                 if json_start >= 0 and json_end > json_start:
-                    result = json.loads(response[json_start:json_end])
+                    result = json.loads(response_text[json_start:json_end])
                 else:
-                    result = json.loads(response)
+                    result = json.loads(response_text)
             except json.JSONDecodeError:
                 # Fallback si pas de JSON valide
                 result = {
