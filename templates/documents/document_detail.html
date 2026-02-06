@@ -250,6 +250,31 @@
                 <div class="app-divider-v dashed my-3"></div>
 
                 <div class="mb-3">
+                    <p class="text-muted f-s-12 mb-1">{% trans "Statut traitement" %}</p>
+                    {% if document.statut_traitement == 'OCR_TERMINE' %}
+                    <span class="badge text-light-success">
+                        <i class="ph ph-check-circle me-1"></i>{% trans "OCR terminé" %}
+                    </span>
+                    {% elif document.statut_traitement == 'UPLOAD' %}
+                    <span class="badge text-light-info">
+                        <i class="ph ph-upload me-1"></i>{% trans "En attente OCR" %}
+                    </span>
+                    {% elif document.statut_traitement == 'OCR_EN_COURS' %}
+                    <span class="badge text-light-warning">
+                        <i class="ph ph-spinner me-1"></i>{% trans "OCR en cours" %}
+                    </span>
+                    {% elif document.statut_traitement == 'ERREUR' %}
+                    <span class="badge text-light-danger">
+                        <i class="ph ph-warning me-1"></i>{% trans "Erreur OCR" %}
+                    </span>
+                    {% else %}
+                    <span class="badge text-light-secondary">{{ document.statut_traitement }}</span>
+                    {% endif %}
+                </div>
+
+                <div class="app-divider-v dashed my-3"></div>
+
+                <div class="mb-3">
                     <p class="text-muted f-s-12 mb-1">{% trans "Statut validation" %}</p>
                     {% if document.statut_validation == 'VALIDE' %}
                     <span class="badge text-light-success">
@@ -312,6 +337,14 @@
                     {% if document.statut_traitement == 'UPLOAD' %}
                     <a href="{% url 'documents:document-ocr' document.pk %}" class="btn btn-light-primary">
                         <i class="ph ph-scan me-2"></i>{% trans "Lancer OCR" %}
+                    </a>
+                    {% elif document.statut_traitement == 'ERREUR' %}
+                    <a href="{% url 'documents:document-ocr' document.pk %}" class="btn btn-warning">
+                        <i class="ph ph-arrow-clockwise me-2"></i>{% trans "Relancer OCR" %}
+                    </a>
+                    {% elif document.statut_traitement == 'OCR_TERMINE' %}
+                    <a href="{% url 'documents:document-ocr' document.pk %}" class="btn btn-light-secondary">
+                        <i class="ph ph-arrow-clockwise me-2"></i>{% trans "Relancer OCR" %}
                     </a>
                     {% endif %}
                     <button class="btn btn-light-secondary" disabled>

@@ -530,20 +530,25 @@ def document_valider(request, pk):
 
 @login_required
 def document_ocr(request, pk):
-    """Lance l'OCR sur un document via le service externe"""
+    """Lance ou relance l'OCR sur un document via le service AI"""
     from documents.tasks import traiter_document_ocr
-    from django.conf import settings
+    from documents.ai_service import ai_service
 
     document = get_object_or_404(Document, pk=pk)
 
-    # Vérifier si le service OCR est disponible
-    if not getattr(settings, 'OCR_SERVICE_ENABLED', False):
-        messages.warning(request, _("Le service OCR n'est pas activé"))
+    # Vérifier si le service AI est disponible
+    if not ai_service.enabled:
+        messages.warning(request, _("Le service AI n'est pas configuré. Vérifiez AI_API_KEY dans .env"))
         return redirect("documents:document-detail", pk=pk)
 
     # Vérifier que le document n'est pas déjà en traitement
     if document.statut_traitement in ['OCR_EN_COURS', 'CLASSIFICATION_EN_COURS', 'EXTRACTION_EN_COURS']:
         messages.warning(request, _("Le document est déjà en cours de traitement"))
+        return redirect("documents:document-detail", pk=pk)
+
+    # Vérifier que le document a un fichier
+    if not document.fichier:
+        messages.error(request, _("Le document n'a pas de fichier associé"))
         return redirect("documents:document-detail", pk=pk)
 
     # Lancer le traitement en arrière-plan
