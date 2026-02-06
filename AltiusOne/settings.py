@@ -444,6 +444,11 @@ SPECTACULAR_SETTINGS = {
             }
         }
     },
+    # Settings pour gérer les actions sans schéma explicite
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SCHEMA_PATH_PREFIX': r'/api/',
+    # Permettre la génération même sans serializer explicite
+    'DEFAULT_GENERATOR_CLASS': 'drf_spectacular.generators.SchemaGenerator',
 }
 
 # ============================================================================
