@@ -170,21 +170,36 @@ def traiter_documents_en_attente():
     """
     Tache periodique pour traiter les documents en attente d'OCR et relancer ceux en erreur.
     A planifier via Celery Beat (ex: toutes les 5 minutes).
+
+    Gere aussi les documents bloques (EN_COURS depuis plus de 5 minutes).
     """
     from documents.models import Document
     from documents.ai_service import ai_service
     from django.db.models import Q
+    from django.utils import timezone
+    from datetime import timedelta
 
     if not ai_service.enabled:
         logger.warning("Service AI non configure, traitement en attente ignore")
-        return {'documents_queued': 0, 'errors_retried': 0, 'reason': 'AI service not configured'}
+        return {'documents_queued': 0, 'errors_retried': 0, 'stuck_reset': 0, 'reason': 'AI service not configured'}
 
-    # Documents en attente (nouveaux uploads)
+    # 1. Reset des documents BLOQUES (EN_COURS depuis plus de 5 minutes)
+    seuil_blocage = timezone.now() - timedelta(minutes=5)
+    documents_bloques = Document.objects.filter(
+        statut_traitement__in=['OCR_EN_COURS', 'CLASSIFICATION_EN_COURS', 'EXTRACTION_EN_COURS'],
+        updated_at__lt=seuil_blocage
+    )
+    stuck_count = documents_bloques.count()
+    if stuck_count > 0:
+        logger.warning(f"Reset de {stuck_count} documents bloques depuis plus de 5 minutes")
+        documents_bloques.update(statut_traitement='UPLOAD')
+
+    # 2. Documents en attente (nouveaux uploads) - traiter par batch
     documents_upload = Document.objects.filter(
         statut_traitement='UPLOAD'
     ).order_by('date_upload')[:10]
 
-    # Documents en erreur a relancer (max 5 par cycle pour ne pas surcharger)
+    # 3. Documents en erreur a relancer (max 5 par cycle pour ne pas surcharger)
     documents_erreur = Document.objects.filter(
         statut_traitement='ERREUR'
     ).order_by('updated_at')[:5]
@@ -202,12 +217,13 @@ def traiter_documents_en_attente():
     total_upload = len(documents_upload)
     total_erreur = len(documents_erreur)
 
-    if total_upload > 0 or total_erreur > 0:
-        logger.info(f"Lance traitement AI: {total_upload} nouveaux, {total_erreur} relances")
+    if total_upload > 0 or total_erreur > 0 or stuck_count > 0:
+        logger.info(f"Traitement AI: {total_upload} nouveaux, {total_erreur} erreurs, {stuck_count} bloques resets")
 
     return {
         'documents_queued': total_upload,
-        'errors_retried': total_erreur
+        'errors_retried': total_erreur,
+        'stuck_reset': stuck_count
     }
 
 
