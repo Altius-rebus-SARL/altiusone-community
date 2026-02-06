@@ -122,7 +122,8 @@ class AltiusAIService:
     def __init__(self):
         self.api_url = getattr(settings, 'AI_API_URL', 'https://ai.altiusone.ch').rstrip('/')
         self.api_key = getattr(settings, 'AI_API_KEY', '')
-        self.timeout = 120  # Timeout pour les requetes longues (OCR, etc.)
+        self.timeout = 300  # Timeout augmente pour operations longues (300s = 5min)
+        self.timeout_short = 60  # Timeout court pour operations rapides (embeddings, health)
 
     @property
     def enabled(self) -> bool:
@@ -595,7 +596,8 @@ Contenu:
         system_prompt: Optional[str] = None,
         context: Optional[str] = None,
         history: Optional[List[Dict[str, str]]] = None,
-        temperature: float = 0.7
+        temperature: float = 0.7,
+        max_tokens: Optional[int] = None
     ) -> Dict[str, Any]:
         """
         Interroge l'assistant IA.
@@ -607,6 +609,7 @@ Contenu:
             context: Contexte additionnel (ex: contenu document)
             history: Historique de conversation [{role: 'user'|'assistant', content: '...'}]
             temperature: Temperature de generation (0.0-1.0)
+            max_tokens: Limite de tokens pour la reponse (reduit le temps de reponse)
 
         Returns:
             Dict avec 'response', 'tokens_prompt', 'tokens_completion'
@@ -633,13 +636,17 @@ Contenu:
         messages.append({'role': 'user', 'content': message})
 
         try:
+            request_data = {
+                'messages': messages,
+                'temperature': temperature
+            }
+            if max_tokens:
+                request_data['max_tokens'] = max_tokens
+
             response = self._make_request(
                 'POST',
                 '/chat',
-                json_data={
-                    'messages': messages,
-                    'temperature': temperature
-                }
+                json_data=request_data
             )
 
             # Extraire le contenu de la reponse - supporter differents formats
@@ -703,12 +710,15 @@ Format de reponse JSON:
     "type_document_suggere": "FACTURE_ACHAT"
 }}"""
 
+        # Limiter le texte pour eviter les timeouts (4000 chars max)
+        text_truncated = text[:4000] if len(text) > 4000 else text
+
         user_prompt = f"""Resume ce document:
 
-{text[:12000]}"""
+{text_truncated}"""
 
         try:
-            chat_response = self.chat(message=user_prompt, system=system_prompt, temperature=0.3)
+            chat_response = self.chat(message=user_prompt, system=system_prompt, temperature=0.3, max_tokens=1000)
             response_text = chat_response.get('response', '') if isinstance(chat_response, dict) else str(chat_response)
 
             # Parser la reponse JSON
@@ -764,9 +774,12 @@ Format de reponse JSON:
     "found_in_document": true
 }}"""
 
+        # Limiter le texte pour eviter les timeouts (4000 chars max)
+        text_truncated = text[:4000] if len(text) > 4000 else text
+
         user_prompt = f"""Document:
 ---
-{text[:10000]}
+{text_truncated}
 ---
 
 Question: {question}"""
@@ -776,7 +789,8 @@ Question: {question}"""
                 message=user_prompt,
                 system=system_prompt,
                 history=history,
-                temperature=0.2
+                temperature=0.2,
+                max_tokens=800  # Limiter pour eviter les timeouts
             )
             response_text = chat_response.get('response', '') if isinstance(chat_response, dict) else str(chat_response)
 
