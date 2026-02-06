@@ -7,6 +7,8 @@ Ce service centralise toutes les operations AI:
 - Embeddings (vecteurs 768D pour recherche semantique)
 - Extraction structuree (factures, contrats, etc.)
 - Chat IA (assistant conversationnel)
+- Resume de documents longs
+- Q&A contextuel sur documents
 
 Configuration via .env:
 - AI_API_KEY: Cle API AltiusOne
@@ -27,6 +29,13 @@ import requests
 from typing import Optional, Dict, Any, List, Union
 from dataclasses import dataclass
 from django.conf import settings
+
+# Import des schemas personnalises
+from documents.schemas import (
+    DOCUMENT_TYPE_SCHEMAS,
+    get_schema_for_document_type,
+    get_available_document_types,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -73,105 +82,41 @@ class AltiusAIService:
     - Chat IA contextuel
     """
 
-    # Schemas d'extraction predefinies
-    EXTRACTION_SCHEMAS = {
-        'FACTURE_ACHAT': {
-            'numero_facture': 'string',
-            'date_facture': 'string',
-            'date_echeance': 'string',
-            'fournisseur': {
-                'nom': 'string',
-                'adresse': 'string',
-                'numero_tva': 'string',
-                'iban': 'string'
-            },
-            'montant_ht': 'number',
-            'montant_tva': 'number',
-            'taux_tva': 'number',
-            'montant_ttc': 'number',
-            'devise': 'string',
-            'reference_client': 'string'
-        },
-        'FACTURE_VENTE': {
-            'numero_facture': 'string',
-            'date_facture': 'string',
-            'date_echeance': 'string',
-            'client': {
-                'nom': 'string',
-                'adresse': 'string',
-                'numero_tva': 'string'
-            },
-            'montant_ht': 'number',
-            'montant_tva': 'number',
-            'taux_tva': 'number',
-            'montant_ttc': 'number',
-            'devise': 'string'
-        },
-        'RELEVE_BANQUE': {
-            'banque': 'string',
-            'numero_compte': 'string',
-            'iban': 'string',
-            'periode_debut': 'string',
-            'periode_fin': 'string',
-            'solde_initial': 'number',
-            'solde_final': 'number',
-            'devise': 'string',
-            'nombre_operations': 'number'
-        },
-        'CONTRAT': {
-            'type_contrat': 'string',
-            'parties': [{'nom': 'string', 'role': 'string'}],
-            'date_signature': 'string',
-            'date_debut': 'string',
-            'date_fin': 'string',
-            'montant': 'number',
-            'devise': 'string',
-            'objet': 'string'
-        },
-        'FICHE_SALAIRE': {
-            'employe': {
-                'nom': 'string',
-                'prenom': 'string',
-                'numero_avs': 'string'
-            },
-            'employeur': 'string',
-            'periode': 'string',
-            'salaire_brut': 'number',
-            'deductions': 'number',
-            'salaire_net': 'number',
-            'devise': 'string'
-        },
-        'DEVIS': {
-            'numero_devis': 'string',
-            'date_devis': 'string',
-            'validite': 'string',
-            'client': {
-                'nom': 'string',
-                'adresse': 'string'
-            },
-            'montant_ht': 'number',
-            'montant_tva': 'number',
-            'montant_ttc': 'number',
-            'devise': 'string'
-        }
-    }
-
     # Mapping types de documents vers categories
     TYPE_TO_CATEGORY = {
+        # Comptabilite
+        'FACTURE': 'Comptabilite',
         'FACTURE_ACHAT': 'Comptabilite',
         'FACTURE_VENTE': 'Comptabilite',
-        'RELEVE_BANQUE': 'Banque',
-        'CONTRAT': 'Juridique',
-        'FICHE_SALAIRE': 'RH',
-        'CERTIFICAT_SALAIRE': 'RH',
-        'DECLARATION_TVA': 'Fiscal',
         'DEVIS': 'Commercial',
+        'OFFRE': 'Commercial',
         'BON_COMMANDE': 'Commercial',
         'BON_LIVRAISON': 'Logistique',
+
+        # Banque
+        'RELEVE_BANQUE': 'Banque',
+        'EXTRAIT_BANCAIRE': 'Banque',
+
+        # Contrats
+        'CONTRAT': 'Juridique',
+        'CONTRAT_TRAVAIL': 'RH',
+        'CONTRAT_BAIL': 'Juridique',
+
+        # RH / Salaires
+        'FICHE_SALAIRE': 'RH',
+        'CERTIFICAT_SALAIRE': 'RH',
+
+        # Fiscal
+        'DECLARATION_TVA': 'Fiscal',
+
+        # Administratif
         'ATTESTATION': 'Administratif',
+        'CORRESPONDANCE': 'Correspondance',
         'COURRIER': 'Correspondance',
         'EMAIL': 'Correspondance',
-        'AUTRE': 'Divers'
+
+        # Divers
+        'AUTRE': 'Divers',
     }
 
     def __init__(self):
@@ -509,18 +454,33 @@ class AltiusAIService:
         Returns:
             ClassificationResult avec type, confiance et tags
         """
-        # Construire le prompt de classification
-        types_disponibles = list(self.EXTRACTION_SCHEMAS.keys()) + ['ATTESTATION', 'COURRIER', 'EMAIL', 'AUTRE']
+        # Types de documents disponibles (depuis schemas.py)
+        types_disponibles = get_available_document_types()
 
-        system_prompt = f"""Tu es un assistant specialise dans la classification de documents professionnels suisses.
-Analyse le document et determine son type parmi: {', '.join(types_disponibles)}.
-Reponds UNIQUEMENT en JSON avec le format:
-{{"type_document": "TYPE", "confidence": 0.95, "tags": ["tag1", "tag2"], "raison": "explication"}}"""
+        system_prompt = f"""Tu es un assistant specialise dans la classification de documents professionnels suisses (fiduciaire, comptabilite, RH).
 
-        user_prompt = f"""Classifie ce document:
+Types de documents disponibles:
+- FACTURE_ACHAT, FACTURE_VENTE: Factures fournisseurs ou clients
+- CONTRAT_TRAVAIL: Contrats de travail (CDI, CDD, apprentissage)
+- CONTRAT_BAIL: Contrats de location (habitation, commercial)
+- CONTRAT: Autres contrats (prestation, vente, etc.)
+- FICHE_SALAIRE: Fiches/bulletins de paie mensuels
+- CERTIFICAT_SALAIRE: Certificats de salaire annuels
+- RELEVE_BANQUE, EXTRAIT_BANCAIRE: Releves de compte bancaire
+- DECLARATION_TVA: Declarations TVA trimestrielles/annuelles
+- DEVIS, OFFRE: Devis et offres commerciales
+- ATTESTATION: Attestations diverses (domicile, travail, etc.)
+- CORRESPONDANCE, COURRIER: Lettres et correspondance
+
+Analyse le document et determine son type.
+Reponds UNIQUEMENT en JSON valide:
+{{"type_document": "TYPE_EXACT", "confidence": 0.95, "tags": ["tag1", "tag2"], "raison": "breve explication"}}"""
+
+        user_prompt = f"""Classifie ce document suisse:
 Nom fichier: {filename or 'inconnu'}
-Contenu (extrait):
-{text[:3000]}"""
+
+Contenu:
+{text[:4000]}"""
 
         try:
             chat_response = self.chat(message=user_prompt, system=system_prompt)
@@ -571,40 +531,39 @@ Contenu (extrait):
         self,
         text: str,
         type_document: str,
-        custom_schema: Optional[Dict] = None
+        custom_schema: Optional[Dict] = None,
+        source_language: str = 'auto',
+        output_language: str = 'fr'
     ) -> ExtractionResult:
         """
         Extrait les metadonnees structurees d'un document.
 
+        Utilise les schemas personnalises definis dans documents/schemas.py
+        pour extraire des informations structurees (adresses, montants,
+        numeros TVA, AVS, noms, etc.)
+
         Args:
             text: Texte du document
-            type_document: Type de document (pour choisir le schema)
-            custom_schema: Schema personnalise (optionnel)
+            type_document: Type de document (FACTURE_ACHAT, CONTRAT_TRAVAIL, etc.)
+            custom_schema: Schema personnalise (prioritaire sur le schema predefini)
+            source_language: Langue du document source (auto, fr, de, it, en)
+            output_language: Langue de sortie pour les extractions (fr par defaut)
 
         Returns:
             ExtractionResult avec les donnees extraites
         """
-        # Determiner le schema a utiliser
-        schema = custom_schema or self.EXTRACTION_SCHEMAS.get(type_document, {})
-
-        if not schema:
-            # Schema generique pour documents inconnus
-            schema = {
-                'titre': 'string',
-                'date': 'string',
-                'expediteur': 'string',
-                'destinataire': 'string',
-                'sujet': 'string',
-                'montant': 'number'
-            }
+        # Utiliser le schema personnalise ou celui defini pour le type de document
+        schema = custom_schema or get_schema_for_document_type(type_document)
 
         try:
             response = self._make_request(
                 'POST',
                 '/extract',
                 json_data={
-                    'text': text[:10000],  # Limiter la taille
-                    'schema': schema
+                    'text': text[:15000],  # Augmente la limite pour documents longs
+                    'schema': schema,
+                    'source_language': source_language,
+                    'output_language': output_language,
                 }
             )
 
@@ -699,6 +658,145 @@ Contenu (extrait):
         except Exception as e:
             logger.error(f"Erreur chat IA: {e}")
             raise AIServiceError(f"Erreur lors de la requete chat: {str(e)}")
+
+    # =========================================================================
+    # RESUME ET Q&A SUR DOCUMENTS
+    # =========================================================================
+
+    def summarize_document(
+        self,
+        text: str,
+        max_length: str = 'medium',
+        language: str = 'fr'
+    ) -> Dict[str, Any]:
+        """
+        Genere un resume d'un document (utile pour documents longs).
+
+        Args:
+            text: Texte complet du document
+            max_length: Longueur du resume ('short', 'medium', 'long')
+            language: Langue du resume (fr, de, en, it)
+
+        Returns:
+            Dict avec 'summary', 'key_points', 'entities'
+        """
+        length_instructions = {
+            'short': '3-5 phrases maximum',
+            'medium': '1-2 paragraphes',
+            'long': '3-4 paragraphes detailles'
+        }
+
+        system_prompt = f"""Tu es un assistant specialise dans l'analyse de documents professionnels suisses.
+Genere un resume clair et structure en {language.upper()}.
+Longueur attendue: {length_instructions.get(max_length, '1-2 paragraphes')}
+
+Format de reponse JSON:
+{{
+    "summary": "Resume du document...",
+    "key_points": ["Point cle 1", "Point cle 2", ...],
+    "entities": {{
+        "personnes": ["Nom 1", "Nom 2"],
+        "organisations": ["Entreprise 1"],
+        "montants": ["CHF 1'000.00"],
+        "dates": ["15.01.2024"]
+    }},
+    "type_document_suggere": "FACTURE_ACHAT"
+}}"""
+
+        user_prompt = f"""Resume ce document:
+
+{text[:12000]}"""
+
+        try:
+            chat_response = self.chat(message=user_prompt, system=system_prompt, temperature=0.3)
+            response_text = chat_response.get('response', '') if isinstance(chat_response, dict) else str(chat_response)
+
+            # Parser la reponse JSON
+            import json
+            try:
+                json_start = response_text.find('{')
+                json_end = response_text.rfind('}') + 1
+                if json_start >= 0 and json_end > json_start:
+                    result = json.loads(response_text[json_start:json_end])
+                else:
+                    result = {'summary': response_text, 'key_points': [], 'entities': {}}
+            except json.JSONDecodeError:
+                result = {'summary': response_text, 'key_points': [], 'entities': {}}
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Erreur resume document: {e}")
+            return {'summary': '', 'key_points': [], 'entities': {}, 'error': str(e)}
+
+    def ask_document(
+        self,
+        text: str,
+        question: str,
+        history: Optional[List[Dict[str, str]]] = None,
+        language: str = 'fr'
+    ) -> Dict[str, Any]:
+        """
+        Pose une question sur un document specifique (Q&A contextuel).
+
+        Permet aux utilisateurs de poser des questions sur le contenu
+        d'un document et d'obtenir des reponses precises basees sur le texte.
+
+        Args:
+            text: Texte du document (OCR)
+            question: Question de l'utilisateur
+            history: Historique de conversation pour le suivi
+            language: Langue de reponse
+
+        Returns:
+            Dict avec 'answer', 'confidence', 'sources'
+        """
+        system_prompt = f"""Tu es un assistant expert pour analyser des documents professionnels suisses.
+Tu reponds aux questions en te basant UNIQUEMENT sur le contenu du document fourni.
+Si l'information n'est pas dans le document, dis-le clairement.
+Reponds en {language.upper()} de maniere precise et professionnelle.
+
+Format de reponse JSON:
+{{
+    "answer": "Reponse detaillee...",
+    "confidence": 0.95,
+    "sources": ["Extrait pertinent 1 du document...", "Extrait pertinent 2..."],
+    "found_in_document": true
+}}"""
+
+        user_prompt = f"""Document:
+---
+{text[:10000]}
+---
+
+Question: {question}"""
+
+        try:
+            chat_response = self.chat(
+                message=user_prompt,
+                system=system_prompt,
+                history=history,
+                temperature=0.2
+            )
+            response_text = chat_response.get('response', '') if isinstance(chat_response, dict) else str(chat_response)
+
+            # Parser la reponse JSON
+            import json
+            try:
+                json_start = response_text.find('{')
+                json_end = response_text.rfind('}') + 1
+                if json_start >= 0 and json_end > json_start:
+                    result = json.loads(response_text[json_start:json_end])
+                else:
+                    result = {'answer': response_text, 'confidence': 0.5, 'sources': [], 'found_in_document': True}
+            except json.JSONDecodeError:
+                result = {'answer': response_text, 'confidence': 0.5, 'sources': [], 'found_in_document': True}
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Erreur Q&A document: {e}")
+            return {'answer': '', 'confidence': 0, 'sources': [], 'error': str(e)}
 
     # =========================================================================
     # TRAITEMENT COMPLET DE DOCUMENT
