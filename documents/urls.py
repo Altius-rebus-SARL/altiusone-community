@@ -31,6 +31,10 @@ urlpatterns = [
     ),
     path("<uuid:pk>/valider/", views.document_valider, name="document-valider"),
     path("<uuid:pk>/ocr/", views.document_ocr, name="document-ocr"),
+    # AI Features
+    path("<uuid:pk>/summarize/", views.document_summarize, name="document-summarize"),
+    path("<uuid:pk>/ask/", views.document_ask, name="document-ask"),
+    path("<uuid:pk>/similar/", views.document_similar, name="document-similar"),
     # Recherche
     path("recherche/", views.recherche_documents, name="recherche"),
     # Catégories

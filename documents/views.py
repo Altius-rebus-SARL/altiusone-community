@@ -1076,3 +1076,214 @@ def api_tous_dossiers(request):
         'success': True,
         'dossiers': result
     })
+
+
+# ============ AI FEATURES (Résumé, Q&A, Documents similaires) ============
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def document_summarize(request, pk):
+    """
+    Génère un résumé du document via le service AI.
+
+    GET: Affiche la page de résumé
+    POST: Génère le résumé (AJAX)
+    """
+    from documents.ai_service import ai_service
+
+    document = get_object_or_404(Document, pk=pk)
+
+    # Vérifier que le service AI est disponible
+    if not ai_service.enabled:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'error': str(_("Le service AI n'est pas configuré"))
+            })
+        messages.warning(request, _("Le service AI n'est pas configuré"))
+        return redirect("documents:document-detail", pk=pk)
+
+    # Vérifier que le document a du texte
+    if not document.ocr_text:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'error': str(_("Le document n'a pas de texte extrait. Lancez l'OCR d'abord."))
+            })
+        messages.warning(request, _("Le document n'a pas de texte extrait. Lancez l'OCR d'abord."))
+        return redirect("documents:document-detail", pk=pk)
+
+    if request.method == 'POST':
+        # Générer le résumé
+        max_length = request.POST.get('max_length', 'medium')
+
+        try:
+            result = ai_service.summarize_document(
+                text=document.ocr_text,
+                max_length=max_length,
+                language='fr'
+            )
+
+            return JsonResponse({
+                'success': True,
+                'summary': result.get('summary', ''),
+                'key_points': result.get('key_points', []),
+                'entities': result.get('entities', {}),
+            })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
+
+    # GET: Afficher la page
+    return render(request, "documents/document_summarize.html", {
+        'document': document,
+    })
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def document_ask(request, pk):
+    """
+    Q&A sur un document spécifique (RAG-like).
+
+    GET: Affiche l'interface de Q&A
+    POST: Répond à une question (AJAX)
+    """
+    from documents.ai_service import ai_service
+
+    document = get_object_or_404(Document, pk=pk)
+
+    # Vérifier que le service AI est disponible
+    if not ai_service.enabled:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'error': str(_("Le service AI n'est pas configuré"))
+            })
+        messages.warning(request, _("Le service AI n'est pas configuré"))
+        return redirect("documents:document-detail", pk=pk)
+
+    # Vérifier que le document a du texte
+    if not document.ocr_text:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'error': str(_("Le document n'a pas de texte extrait"))
+            })
+        messages.warning(request, _("Le document n'a pas de texte extrait"))
+        return redirect("documents:document-detail", pk=pk)
+
+    if request.method == 'POST':
+        import json
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            data = request.POST
+
+        question = data.get('question', '').strip()
+        history = data.get('history', [])
+
+        if not question:
+            return JsonResponse({
+                'success': False,
+                'error': str(_("Veuillez poser une question"))
+            })
+
+        try:
+            result = ai_service.ask_document(
+                text=document.ocr_text,
+                question=question,
+                history=history,
+                language='fr'
+            )
+
+            return JsonResponse({
+                'success': True,
+                'answer': result.get('answer', ''),
+                'confidence': result.get('confidence', 0),
+                'sources': result.get('sources', []),
+            })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
+
+    # GET: Afficher l'interface
+    return render(request, "documents/document_ask.html", {
+        'document': document,
+    })
+
+
+@login_required
+def document_similar(request, pk):
+    """
+    Trouve les documents similaires via recherche sémantique.
+    """
+    from documents.search import search_service
+    from documents.models import DocumentEmbedding
+    from documents.embeddings import embedding_service
+
+    document = get_object_or_404(Document, pk=pk)
+
+    similar_documents = []
+    error_message = None
+
+    try:
+        # Vérifier si le document a un embedding
+        embedding_obj = DocumentEmbedding.objects.filter(document=document).first()
+
+        if not embedding_obj:
+            # Essayer de générer l'embedding
+            text = document.ocr_text or document.description or document.nom_fichier
+            if text:
+                search_service.index_document(document)
+                embedding_obj = DocumentEmbedding.objects.filter(document=document).first()
+
+        if embedding_obj and embedding_obj.embedding is not None:
+            # Rechercher les documents similaires
+            similar = DocumentEmbedding.search_similar(
+                query_embedding=embedding_obj.embedding,
+                limit=11,  # +1 car le document lui-même sera inclus
+                threshold=0.3,
+                mandat_id=None  # Chercher dans tous les mandats
+            )
+
+            for s in similar:
+                if str(s.document.id) != str(document.id):  # Exclure le document actuel
+                    similarity = 1 - s.distance
+                    similar_documents.append({
+                        'document': s.document,
+                        'similarity': similarity,
+                        'similarity_percent': int(similarity * 100),
+                    })
+
+            similar_documents = similar_documents[:10]  # Limiter à 10
+
+    except Exception as e:
+        error_message = str(e)
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({
+            'success': error_message is None,
+            'error': error_message,
+            'similar': [
+                {
+                    'id': str(s['document'].id),
+                    'nom_fichier': s['document'].nom_fichier,
+                    'similarity': s['similarity'],
+                    'similarity_percent': s['similarity_percent'],
+                    'type': s['document'].prediction_type or 'Inconnu',
+                    'mandat': s['document'].mandat.numero if s['document'].mandat else '',
+                }
+                for s in similar_documents
+            ]
+        })
+
+    return render(request, "documents/document_similar.html", {
+        'document': document,
+        'similar_documents': similar_documents,
+        'error_message': error_message,
+    })

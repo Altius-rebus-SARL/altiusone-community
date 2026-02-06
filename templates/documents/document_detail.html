@@ -327,6 +327,28 @@
         </div>
         {% endif %}
 
+        <!-- AI Features -->
+        {% if document.ocr_text %}
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-robot me-2"></i>{% trans "Fonctionnalités AI" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{% url 'documents:document-summarize' document.pk %}" class="btn btn-light-info">
+                        <i class="ph ph-text-align-justify me-2"></i>{% trans "Résumer le document" %}
+                    </a>
+                    <a href="{% url 'documents:document-ask' document.pk %}" class="btn btn-light-primary">
+                        <i class="ph ph-chat-circle me-2"></i>{% trans "Poser une question" %}
+                    </a>
+                    <a href="{% url 'documents:document-similar' document.pk %}" class="btn btn-light-secondary">
+                        <i class="ph ph-stack me-2"></i>{% trans "Documents similaires" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Actions -->
         <div class="card">
             <div class="card-header">

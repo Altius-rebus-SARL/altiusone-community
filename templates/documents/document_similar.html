@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{% trans "Documents similaires" %} - {{ document.nom_fichier }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Documents similaires" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'documents:document-list' %}">
+                    <span>{% trans "Documents" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'documents:document-detail' document.pk %}">
+                    <span>{{ document.nom_fichier|truncatechars:30 }}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Similaires" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-4">
+        <!-- Document source -->
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-file me-2"></i>{% trans "Document source" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    {% if document.extension == '.pdf' %}
+                    <i class="ph ph-file-pdf text-danger me-3" style="font-size: 48px;"></i>
+                    {% elif document.extension in '.jpg,.jpeg,.png,.gif,.webp' %}
+                    <i class="ph ph-image text-info me-3" style="font-size: 48px;"></i>
+                    {% elif document.extension in '.doc,.docx' %}
+                    <i class="ph ph-file-doc text-primary me-3" style="font-size: 48px;"></i>
+                    {% else %}
+                    <i class="ph ph-file text-secondary me-3" style="font-size: 48px;"></i>
+                    {% endif %}
+                    <div>
+                        <p class="f-w-600 mb-1">{{ document.nom_fichier|truncatechars:25 }}</p>
+                        <p class="text-muted f-s-12 mb-0">{{ document.taille|filesizeformat }}</p>
+                    </div>
+                </div>
+
+                <div class="mb-2">
+                    <span class="f-s-12 text-muted">{% trans "Type" %}:</span>
+                    <span class="badge text-light-primary ms-1">{{ document.prediction_type|default:"Non classé" }}</span>
+                </div>
+
+                {% if document.mandat %}
+                <div class="mb-2">
+                    <span class="f-s-12 text-muted">{% trans "Mandat" %}:</span>
+                    <span class="ms-1">{{ document.mandat.numero }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <p class="f-s-12 text-muted mb-2">
+                    <i class="ph ph-info me-1"></i>
+                    {% trans "La recherche de similarité utilise l'analyse sémantique pour trouver des documents au contenu proche, même s'ils utilisent des mots différents." %}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <!-- Similar documents -->
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5><i class="ph ph-stack me-2"></i>{% trans "Documents similaires" %}</h5>
+                    <span class="badge text-light-primary">{{ similar_documents|length }} {% trans "trouvés" %}</span>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if error_message %}
+                <div class="alert alert-danger">
+                    <i class="ph ph-warning me-2"></i>{{ error_message }}
+                </div>
+                {% elif similar_documents %}
+                <div class="list-group list-group-flush">
+                    {% for item in similar_documents %}
+                    <a href="{% url 'documents:document-detail' item.document.pk %}" class="list-group-item list-group-item-action">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center">
+                                {% if item.document.extension == '.pdf' %}
+                                <i class="ph ph-file-pdf text-danger me-3" style="font-size: 32px;"></i>
+                                {% elif item.document.extension in '.jpg,.jpeg,.png,.gif,.webp' %}
+                                <i class="ph ph-image text-info me-3" style="font-size: 32px;"></i>
+                                {% elif item.document.extension in '.doc,.docx' %}
+                                <i class="ph ph-file-doc text-primary me-3" style="font-size: 32px;"></i>
+                                {% else %}
+                                <i class="ph ph-file text-secondary me-3" style="font-size: 32px;"></i>
+                                {% endif %}
+                                <div>
+                                    <p class="mb-1 f-w-600">{{ item.document.nom_fichier|truncatechars:40 }}</p>
+                                    <p class="mb-0 f-s-12 text-muted">
+                                        {{ item.document.mandat.numero|default:"" }}
+                                        {% if item.document.prediction_type %}
+                                        <span class="badge text-light-secondary ms-1">{{ item.document.prediction_type }}</span>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                <div class="f-w-600 text-primary">{{ item.similarity_percent }}%</div>
+                                <div class="progress" style="width: 80px; height: 6px;">
+                                    <div class="progress-bar bg-primary" role="progressbar"
+                                         style="width: {{ item.similarity_percent }}%"
+                                         aria-valuenow="{{ item.similarity_percent }}" aria-valuemin="0" aria-valuemax="100">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="ph ph-magnifying-glass text-muted" style="font-size: 60px;"></i>
+                    <p class="text-muted mt-3">{% trans "Aucun document similaire trouvé" %}</p>
+                    <p class="text-muted f-s-12">{% trans "Les documents doivent avoir un texte extrait (OCR) pour être comparés." %}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

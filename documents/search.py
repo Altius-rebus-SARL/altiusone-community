@@ -50,7 +50,7 @@ class DocumentSearchService:
         user=None,
         search_type: str = 'hybrid',
         limit: int = 50,
-        semantic_threshold: float = 0.5,
+        semantic_threshold: float = 0.35,
         fulltext_weight: float = 0.4,
         semantic_weight: float = 0.6,
     ) -> List[SearchResult]:
