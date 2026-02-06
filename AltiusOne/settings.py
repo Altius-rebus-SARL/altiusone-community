@@ -444,11 +444,8 @@ SPECTACULAR_SETTINGS = {
             }
         }
     },
-    # Settings pour gérer les actions sans schéma explicite
-    'COMPONENT_SPLIT_REQUEST': True,
-    'SCHEMA_PATH_PREFIX': r'/api/',
-    # Permettre la génération même sans serializer explicite
-    'DEFAULT_GENERATOR_CLASS': 'drf_spectacular.generators.SchemaGenerator',
+    # Exclure temporairement les endpoints problématiques
+    'PREPROCESSING_HOOKS': ['AltiusOne.spectacular_hooks.preprocess_exclude_problematic'],
 }
 
 # ============================================================================
