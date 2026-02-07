@@ -349,7 +349,7 @@
                                         {% endif %}
                                     </td>
                                     <td>
-                                        <a href="{% url 'documents:document-detail' doc.pk %}" class="text-dark fw-medium">
+                                        <a href="{% url 'documents:document-detail' doc.pk %}?{% if current_client %}client={{ current_client.id }}&{% endif %}{% if current_mandat %}mandat={{ current_mandat.id }}&{% endif %}{% if current_parent %}parent={{ current_parent.id }}{% endif %}" class="text-dark fw-medium">
                                             {{ doc.nom_fichier|default:doc.nom_original|truncatechars:40 }}
                                         </a>
                                         {% if doc.dossier %}
@@ -378,7 +378,7 @@
                                     </td>
                                     <td>
                                         <div class="btn-group btn-group-sm">
-                                            <a href="{% url 'documents:document-detail' doc.pk %}" class="btn btn-outline-primary" title="{% trans 'Voir' %}">
+                                            <a href="{% url 'documents:document-detail' doc.pk %}?{% if current_client %}client={{ current_client.id }}&{% endif %}{% if current_mandat %}mandat={{ current_mandat.id }}&{% endif %}{% if current_parent %}parent={{ current_parent.id }}{% endif %}" class="btn btn-outline-primary" title="{% trans 'Voir' %}">
                                                 <i class="ph ph-eye"></i>
                                             </a>
                                             <a href="{% url 'documents:document-telecharger' doc.pk %}" class="btn btn-outline-success" title="{% trans 'Télécharger' %}">

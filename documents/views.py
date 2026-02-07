@@ -245,28 +245,66 @@ class DossierListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
 
             context['clients'] = clients_qs.order_by('raison_sociale')
 
-        # Statistiques globales
-        if user.is_manager():
-            total_dossiers = Dossier.objects.filter(is_active=True).count()
-            doc_stats = Document.objects.filter(is_active=True).aggregate(
+        # Statistiques CONTEXTUELLES selon le niveau de navigation
+        if parent_id:
+            # Stats du dossier courant
+            parent = context['current_parent']
+            # Compter les sous-dossiers directs
+            total_dossiers = Dossier.objects.filter(parent=parent, is_active=True).count()
+            # Compter les documents dans ce dossier
+            doc_stats = Document.objects.filter(dossier=parent, is_active=True).aggregate(
                 total_docs=Count('id'),
                 total_size=Sum('taille')
             )
-        else:
-            accessible_mandats = Mandat.objects.filter(
-                Q(responsable=user) | Q(equipe=user)
-            ).values_list('id', flat=True)
+        elif mandat_id:
+            # Stats du mandat courant
+            mandat = context['current_mandat']
             total_dossiers = Dossier.objects.filter(
-                Q(mandat_id__in=accessible_mandats) | Q(proprietaire=user),
+                Q(mandat=mandat) | Q(mandat__isnull=True, client=mandat.client),
+                parent__isnull=True,
+                is_active=True
+            ).distinct().count()
+            doc_stats = Document.objects.filter(mandat=mandat, is_active=True).aggregate(
+                total_docs=Count('id'),
+                total_size=Sum('taille')
+            )
+        elif client_id:
+            # Stats du client courant
+            client = context['current_client']
+            total_dossiers = Dossier.objects.filter(
+                Q(client=client) | Q(mandat__client=client),
                 is_active=True
             ).distinct().count()
             doc_stats = Document.objects.filter(
-                Q(mandat_id__in=accessible_mandats),
+                mandat__client=client,
                 is_active=True
             ).aggregate(
                 total_docs=Count('id'),
                 total_size=Sum('taille')
             )
+        else:
+            # Stats globales (niveau racine - tous les clients)
+            if user.is_manager():
+                total_dossiers = Dossier.objects.filter(is_active=True).count()
+                doc_stats = Document.objects.filter(is_active=True).aggregate(
+                    total_docs=Count('id'),
+                    total_size=Sum('taille')
+                )
+            else:
+                accessible_mandats = Mandat.objects.filter(
+                    Q(responsable=user) | Q(equipe=user)
+                ).values_list('id', flat=True)
+                total_dossiers = Dossier.objects.filter(
+                    Q(mandat_id__in=accessible_mandats) | Q(proprietaire=user),
+                    is_active=True
+                ).distinct().count()
+                doc_stats = Document.objects.filter(
+                    Q(mandat_id__in=accessible_mandats),
+                    is_active=True
+                ).aggregate(
+                    total_docs=Count('id'),
+                    total_size=Sum('taille')
+                )
 
         context["stats"] = {
             "total": total_dossiers,
@@ -460,6 +498,8 @@ class DocumentDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView
         )
 
     def get_context_data(self, **kwargs):
+        from core.models import Client, Mandat
+
         context = super().get_context_data(**kwargs)
         document = self.object
 
@@ -473,6 +513,71 @@ class DocumentDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView
 
         # Métadonnées formatées
         context["metadata_display"] = self.format_metadata(document.metadata_extraite)
+
+        # Fil d'Ariane contextuel
+        client_id = self.request.GET.get('client')
+        mandat_id = self.request.GET.get('mandat')
+        parent_id = self.request.GET.get('parent')
+
+        breadcrumb = []
+        context['nav_context'] = {}
+
+        if client_id or mandat_id or parent_id:
+            # Navigation contextuelle depuis les dossiers
+            if client_id:
+                try:
+                    client = Client.objects.get(id=client_id)
+                    breadcrumb.append({
+                        'label': client.raison_sociale,
+                        'url': f"?client={client_id}",
+                        'icon': 'buildings'
+                    })
+                    context['nav_context']['client'] = client
+                except Client.DoesNotExist:
+                    pass
+
+            if mandat_id:
+                try:
+                    mandat = Mandat.objects.select_related('client').get(id=mandat_id)
+                    if not client_id:
+                        breadcrumb.append({
+                            'label': mandat.client.raison_sociale,
+                            'url': f"?client={mandat.client_id}",
+                            'icon': 'buildings'
+                        })
+                    breadcrumb.append({
+                        'label': mandat.numero,
+                        'url': f"?mandat={mandat_id}",
+                        'icon': 'briefcase'
+                    })
+                    context['nav_context']['mandat'] = mandat
+                except Mandat.DoesNotExist:
+                    pass
+
+            if parent_id:
+                try:
+                    parent = Dossier.objects.select_related('client', 'mandat', 'parent').get(id=parent_id)
+                    # Construire l'arborescence des dossiers
+                    dossier_path = []
+                    current = parent
+                    while current:
+                        dossier_path.insert(0, current)
+                        current = current.parent
+
+                    for dossier in dossier_path:
+                        breadcrumb.append({
+                            'label': dossier.nom,
+                            'url': f"?parent={dossier.id}",
+                            'icon': 'folder'
+                        })
+                    context['nav_context']['parent'] = parent
+                except Dossier.DoesNotExist:
+                    pass
+
+            context['contextual_breadcrumb'] = breadcrumb
+            context['has_context'] = True
+        else:
+            context['has_context'] = False
 
         return context
 

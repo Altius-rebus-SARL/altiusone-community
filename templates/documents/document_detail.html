@@ -9,20 +9,39 @@
 <!-- Breadcrumb -->
 <div class="row m-1">
     <div class="col-12">
-        <h4 class="main-title">{{ document.nom_fichier }}</h4>
+        <h4 class="main-title">{{ document.nom_fichier|truncatechars:50 }}</h4>
         <ul class="app-line-breadcrumbs mb-3">
             <li>
                 <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
                     <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
                 </a>
             </li>
-            <li>
-                <a class="f-s-14 f-w-500" href="{% url 'documents:document-list' %}">
-                    <span>{% trans "Documents" %}</span>
-                </a>
-            </li>
+            {% if has_context %}
+                <!-- Fil d'Ariane contextuel -->
+                <li>
+                    <a class="f-s-14 f-w-500" href="{% url 'documents:dossier-list' %}">
+                        <span><i class="ph-duotone ph-folders f-s-16"></i> {% trans "Dossiers" %}</span>
+                    </a>
+                </li>
+                {% for item in contextual_breadcrumb %}
+                <li>
+                    <a class="f-s-14 f-w-500" href="{% url 'documents:dossier-list' %}{{ item.url }}">
+                        <span><i class="ph-duotone ph-{{ item.icon }} f-s-16"></i> {{ item.label|truncatechars:25 }}</span>
+                    </a>
+                </li>
+                {% endfor %}
+            {% else %}
+                <!-- Fil d'Ariane simple (liste documents) -->
+                <li>
+                    <a class="f-s-14 f-w-500" href="{% url 'documents:document-list' %}">
+                        <span><i class="ph-duotone ph-files f-s-16"></i> {% trans "Documents" %}</span>
+                    </a>
+                </li>
+            {% endif %}
             <li class="active">
-                <a class="f-s-14 f-w-500" href="#">{{ document.nom_fichier|truncatechars:30 }}</a>
+                <a class="f-s-14 f-w-500" href="#">
+                    <span><i class="ph-duotone ph-file f-s-16"></i> {{ document.nom_fichier|truncatechars:25 }}</span>
+                </a>
             </li>
         </ul>
     </div>
