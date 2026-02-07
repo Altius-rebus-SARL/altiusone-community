@@ -1,7 +1,7 @@
 # core/views/graph_views.py
 """
 Visualiseur de graphe relationnel pour AltiusOne.
-Approche network-centric: part des clients et suit les vraies relations.
+Inspiré par Epstein Visualizer - approche network-centric avec taille basée sur les connexions.
 """
 
 import json
@@ -12,88 +12,36 @@ from django.http import JsonResponse
 from django.views import View
 
 
-# Configuration visuelle
-NODE_STYLES = {
-    'Client': {
-        'color': '#3B82F6',
-        'borderColor': '#1D4ED8',
-        'size': 25,
-        'icon': 'building',
-    },
-    'Mandat': {
-        'color': '#10B981',
-        'borderColor': '#059669',
-        'size': 20,
-        'icon': 'briefcase',
-    },
-    'User': {
-        'color': '#8B5CF6',
-        'borderColor': '#7C3AED',
-        'size': 15,
-        'icon': 'user',
-    },
-    'ExerciceComptable': {
-        'color': '#F59E0B',
-        'borderColor': '#D97706',
-        'size': 12,
-        'icon': 'calendar',
-    },
-    'Dossier': {
-        'color': '#F97316',
-        'borderColor': '#EA580C',
-        'size': 14,
-        'icon': 'folder',
-    },
-    'Document': {
-        'color': '#A855F7',
-        'borderColor': '#9333EA',
-        'size': 10,
-        'icon': 'file',
-    },
-    'Facture': {
-        'color': '#EF4444',
-        'borderColor': '#DC2626',
-        'size': 14,
-        'icon': 'file-text',
-    },
-    'Employe': {
-        'color': '#14B8A6',
-        'borderColor': '#0D9488',
-        'size': 14,
-        'icon': 'users',
-    },
-    'Tache': {
-        'color': '#EC4899',
-        'borderColor': '#DB2777',
-        'size': 10,
-        'icon': 'check-square',
-    },
-    'default': {
-        'color': '#6B7280',
-        'borderColor': '#4B5563',
-        'size': 10,
-        'icon': 'circle',
-    }
+# Configuration visuelle par type
+NODE_COLORS = {
+    'Client': '#3B82F6',       # Bleu
+    'Mandat': '#10B981',       # Vert
+    'User': '#8B5CF6',         # Violet
+    'ExerciceComptable': '#F59E0B',  # Orange
+    'Dossier': '#F97316',      # Orange vif
+    'Document': '#EC4899',     # Rose
+    'Facture': '#EF4444',      # Rouge
+    'Employe': '#14B8A6',      # Teal
+    'Tache': '#06B6D4',        # Cyan
+    'Contact': '#84CC16',      # Lime
+    'default': '#6B7280',      # Gris
 }
 
-EDGE_STYLES = {
-    'client': {'color': '#3B82F6', 'size': 3},  # Relations vers client
-    'mandat': {'color': '#10B981', 'size': 2},  # Relations vers mandat
-    'user': {'color': '#8B5CF6', 'size': 1.5},  # Relations vers user
-    'default': {'color': '#94A3B8', 'size': 1},
+EDGE_COLORS = {
+    'owns': '#3B82F6',         # Client owns
+    'works_on': '#10B981',     # Mandat relations
+    'assigned': '#8B5CF6',     # User assignments
+    'contains': '#F97316',     # Folder contains
+    'default': '#94A3B8',      # Gris slate
 }
 
 
-def get_node_style(model_name):
-    return NODE_STYLES.get(model_name, NODE_STYLES['default'])
-
-
-def get_edge_style(relation_type):
-    return EDGE_STYLES.get(relation_type, EDGE_STYLES['default'])
+def get_node_color(node_type):
+    return NODE_COLORS.get(node_type, NODE_COLORS['default'])
 
 
 def get_detail_url(app_label, model_name, pk):
-    """Tente de générer l'URL de détail."""
+    """Génère l'URL de détail si possible."""
     patterns = [
         f'{app_label}:{model_name.lower()}-detail',
         f'core:{model_name.lower()}-detail',
@@ -107,120 +55,175 @@ def get_detail_url(app_label, model_name, pk):
 
 
 class GraphDataMixin:
-    """Génère les données du graphe en suivant les vraies relations."""
+    """Génère les données complètes du graphe sans limites artificielles."""
 
-    def get_graph_data(self, center_type=None, center_pk=None):
+    def get_graph_data(self, center_type=None, center_pk=None, max_hops=None):
         """
-        Génère un graphe centré sur les relations réelles.
-        Approche: Client → Mandats → (Documents, Exercices, Factures, Tâches, etc.)
+        Génère le graphe complet en suivant toutes les relations.
+        Taille des nodes basée sur le nombre de connexions.
         """
-        from core.models import Client, Mandat, User, ExerciceComptable, Tache
+        from core.models import Client, Mandat, User, ExerciceComptable, Tache, Contact
         from documents.models import Dossier, Document
 
-        nodes = {}
+        nodes = {}  # id -> node data
         edges = []
-        edge_ids = set()
-        stats = {}
+        edge_set = set()  # Pour éviter les doublons
+        connection_count = {}  # node_id -> count
 
-        def add_node(model_name, instance, label):
-            """Ajoute un node s'il n'existe pas."""
-            node_id = f"{model_name}:{instance.pk}"
+        def add_node(node_type, instance, label):
+            """Ajoute un node au graphe."""
+            node_id = f"{node_type}:{instance.pk}"
             if node_id not in nodes:
-                style = get_node_style(model_name)
                 nodes[node_id] = {
                     'id': node_id,
-                    'label': str(label)[:50],
-                    'nodeType': model_name,
-                    'color': style['color'],
-                    'borderColor': style['borderColor'],
-                    'size': style['size'],
-                    'icon': style['icon'],
+                    'label': str(label)[:40] if label else str(instance),
+                    'nodeType': node_type,
+                    'color': get_node_color(node_type),
                     'pk': str(instance.pk),
-                    'url': get_detail_url('core', model_name, instance.pk),
+                    'url': get_detail_url('core', node_type, instance.pk),
                 }
+                connection_count[node_id] = 0
             return node_id
 
-        def add_edge(source_id, target_id, relation_name, edge_type='default'):
-            """Ajoute un edge s'il n'existe pas."""
-            edge_id = f"{source_id}--{target_id}"
-            reverse_id = f"{target_id}--{source_id}"
-            if edge_id not in edge_ids and reverse_id not in edge_ids:
-                edge_ids.add(edge_id)
-                style = get_edge_style(edge_type)
+        def add_edge(source_id, target_id, relation, edge_type='default'):
+            """Ajoute une arête si elle n'existe pas."""
+            if source_id == target_id:
+                return
+            edge_key = tuple(sorted([source_id, target_id]))
+            if edge_key not in edge_set:
+                edge_set.add(edge_key)
                 edges.append({
-                    'id': edge_id,
                     'source': source_id,
                     'target': target_id,
-                    'label': relation_name,
-                    'color': style['color'],
-                    'size': style['size'],
+                    'label': relation,
+                    'color': EDGE_COLORS.get(edge_type, EDGE_COLORS['default']),
                 })
+                # Incrémenter le compteur de connexions
+                connection_count[source_id] = connection_count.get(source_id, 0) + 1
+                connection_count[target_id] = connection_count.get(target_id, 0) + 1
 
         # ============================================
-        # 1. CLIENTS (racine du graphe)
+        # CHARGER TOUTES LES DONNÉES
         # ============================================
-        clients = Client.objects.filter(is_active=True)[:10]
-        stats['Client'] = {'count': Client.objects.count(), 'displayed': len(clients), 'color': NODE_STYLES['Client']['color']}
 
+        # 1. CLIENTS
+        clients = Client.objects.filter(is_active=True).select_related()
         for client in clients:
-            client_node = add_node('Client', client, client.raison_sociale or client.nom_commercial)
+            client_id = add_node('Client', client, client.raison_sociale or client.nom_commercial or f"Client {client.pk}")
 
-            # ============================================
-            # 2. MANDATS du client
-            # ============================================
-            mandats = Mandat.objects.filter(client=client, statut='ACTIF')[:5]
-            for mandat in mandats:
-                mandat_node = add_node('Mandat', mandat, f"{mandat.numero}")
-                add_edge(client_node, mandat_node, 'mandat', 'client')
+        # 2. MANDATS avec leurs relations
+        mandats = Mandat.objects.filter(statut='ACTIF').select_related('client', 'responsable')
+        for mandat in mandats:
+            mandat_id = add_node('Mandat', mandat, mandat.numero or f"Mandat {mandat.pk}")
 
-                # Responsable du mandat
-                if mandat.responsable:
-                    user_node = add_node('User', mandat.responsable, mandat.responsable.get_full_name() or mandat.responsable.email)
-                    add_edge(mandat_node, user_node, 'responsable', 'user')
+            # Lien Client -> Mandat
+            if mandat.client_id:
+                client_id = f"Client:{mandat.client_id}"
+                if client_id in nodes:
+                    add_edge(client_id, mandat_id, 'mandat', 'owns')
 
-                # Équipe du mandat
-                for member in mandat.equipe.all()[:3]:
-                    user_node = add_node('User', member, member.get_full_name() or member.email)
-                    add_edge(mandat_node, user_node, 'équipe', 'user')
+            # Lien Mandat -> Responsable
+            if mandat.responsable_id:
+                user_id = add_node('User', mandat.responsable,
+                                   mandat.responsable.get_full_name() or mandat.responsable.email)
+                add_edge(mandat_id, user_id, 'responsable', 'assigned')
 
-                # Exercices comptables
-                exercices = ExerciceComptable.objects.filter(mandat=mandat)[:3]
-                for exercice in exercices:
-                    ex_node = add_node('ExerciceComptable', exercice, f"{exercice.annee}")
-                    add_edge(mandat_node, ex_node, 'exercice', 'mandat')
+        # 3. ÉQUIPES DES MANDATS
+        for mandat in mandats:
+            mandat_id = f"Mandat:{mandat.pk}"
+            if mandat_id in nodes:
+                for member in mandat.equipe.all():
+                    user_id = add_node('User', member, member.get_full_name() or member.email)
+                    add_edge(mandat_id, user_id, 'équipe', 'assigned')
 
-                # Tâches du mandat
-                taches = Tache.objects.filter(mandat=mandat)[:3]
-                for tache in taches:
-                    tache_node = add_node('Tache', tache, tache.titre[:30])
-                    add_edge(mandat_node, tache_node, 'tâche', 'mandat')
-                    if tache.assigne_a:
-                        user_node = add_node('User', tache.assigne_a, tache.assigne_a.get_full_name() or tache.assigne_a.email)
-                        add_edge(tache_node, user_node, 'assigné', 'user')
+        # 4. EXERCICES COMPTABLES
+        exercices = ExerciceComptable.objects.select_related('mandat')
+        for ex in exercices:
+            if ex.mandat_id:
+                mandat_id = f"Mandat:{ex.mandat_id}"
+                if mandat_id in nodes:
+                    ex_id = add_node('ExerciceComptable', ex, f"{ex.annee}")
+                    add_edge(mandat_id, ex_id, 'exercice', 'works_on')
 
-            # ============================================
-            # 3. DOSSIERS et DOCUMENTS du client
-            # ============================================
-            dossiers = Dossier.objects.filter(client=client)[:5]
-            for dossier in dossiers:
-                dossier_node = add_node('Dossier', dossier, dossier.nom)
-                add_edge(client_node, dossier_node, 'dossier', 'client')
+        # 5. TÂCHES
+        taches = Tache.objects.select_related('mandat', 'assigne_a', 'cree_par')
+        for tache in taches:
+            tache_id = add_node('Tache', tache, tache.titre[:30] if tache.titre else f"Tâche {tache.pk}")
 
-                # Documents dans le dossier
-                documents = Document.objects.filter(dossier=dossier)[:3]
-                for doc in documents:
-                    doc_node = add_node('Document', doc, doc.nom_fichier[:30])
-                    add_edge(dossier_node, doc_node, 'contient', 'default')
+            if tache.mandat_id:
+                mandat_id = f"Mandat:{tache.mandat_id}"
+                if mandat_id in nodes:
+                    add_edge(mandat_id, tache_id, 'tâche', 'works_on')
 
-        # Calculer les stats finales
-        node_types = {}
+            if tache.assigne_a_id:
+                user_id = add_node('User', tache.assigne_a,
+                                   tache.assigne_a.get_full_name() or tache.assigne_a.email)
+                add_edge(tache_id, user_id, 'assigné', 'assigned')
+
+        # 6. DOSSIERS
+        dossiers = Dossier.objects.select_related('client', 'mandat')
+        for dossier in dossiers:
+            dossier_id = add_node('Dossier', dossier, dossier.nom)
+
+            if dossier.client_id:
+                client_id = f"Client:{dossier.client_id}"
+                if client_id in nodes:
+                    add_edge(client_id, dossier_id, 'dossier', 'owns')
+
+            if dossier.mandat_id:
+                mandat_id = f"Mandat:{dossier.mandat_id}"
+                if mandat_id in nodes:
+                    add_edge(mandat_id, dossier_id, 'dossier', 'works_on')
+
+        # 7. DOCUMENTS
+        documents = Document.objects.select_related('dossier', 'mandat', 'uploaded_by')
+        for doc in documents:
+            doc_id = add_node('Document', doc, doc.nom_fichier[:25] if doc.nom_fichier else f"Doc {doc.pk}")
+
+            if doc.dossier_id:
+                dossier_id = f"Dossier:{doc.dossier_id}"
+                if dossier_id in nodes:
+                    add_edge(dossier_id, doc_id, 'contient', 'contains')
+
+            if doc.mandat_id:
+                mandat_id = f"Mandat:{doc.mandat_id}"
+                if mandat_id in nodes:
+                    add_edge(mandat_id, doc_id, 'document', 'works_on')
+
+        # 8. CONTACTS
+        try:
+            contacts = Contact.objects.select_related('client')
+            for contact in contacts:
+                contact_id = add_node('Contact', contact,
+                                      f"{contact.prenom} {contact.nom}" if hasattr(contact, 'prenom') else str(contact))
+                if contact.client_id:
+                    client_id = f"Client:{contact.client_id}"
+                    if client_id in nodes:
+                        add_edge(client_id, contact_id, 'contact', 'owns')
+        except Exception:
+            pass  # Model might not exist
+
+        # ============================================
+        # CALCULER LA TAILLE DES NODES
+        # Formule: base_size + (connections * factor)
+        # ============================================
+        BASE_SIZE = 8
+        SIZE_FACTOR = 3
+        MAX_SIZE = 50
+
+        for node_id, node in nodes.items():
+            connections = connection_count.get(node_id, 0)
+            size = min(BASE_SIZE + (connections * SIZE_FACTOR), MAX_SIZE)
+            node['size'] = size
+            node['connections'] = connections
+
+        # Stats par type
+        stats = {}
         for node in nodes.values():
             t = node['nodeType']
-            node_types[t] = node_types.get(t, 0) + 1
-
-        for t, count in node_types.items():
             if t not in stats:
-                stats[t] = {'count': count, 'displayed': count, 'color': get_node_style(t)['color']}
+                stats[t] = {'count': 0, 'color': node['color']}
+            stats[t]['count'] += 1
 
         return {
             'nodes': list(nodes.values()),
@@ -239,15 +242,11 @@ class GraphView(LoginRequiredMixin, GraphDataMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        center_type = self.kwargs.get('type')
-        center_pk = self.kwargs.get('pk')
-        graph_data = self.get_graph_data(center_type, center_pk)
+        graph_data = self.get_graph_data()
 
         context['graph_data'] = json.dumps(graph_data)
         context['graph_stats'] = graph_data['stats']
         context['graph_meta'] = graph_data['meta']
-        context['center_type'] = center_type
-        context['center_pk'] = center_pk
         return context
 
 
@@ -255,7 +254,7 @@ class GraphAPIView(LoginRequiredMixin, GraphDataMixin, View):
     """API pour récupérer les données du graphe."""
 
     def get(self, request, type=None, pk=None):
-        graph_data = self.get_graph_data(type, pk)
+        graph_data = self.get_graph_data()
         return JsonResponse(graph_data)
 
 
@@ -267,10 +266,10 @@ class GraphStatsAPIView(LoginRequiredMixin, View):
         from documents.models import Document, Dossier
 
         stats = {
-            'Client': {'count': Client.objects.count(), 'color': NODE_STYLES['Client']['color']},
-            'Mandat': {'count': Mandat.objects.count(), 'color': NODE_STYLES['Mandat']['color']},
-            'User': {'count': User.objects.count(), 'color': NODE_STYLES['User']['color']},
-            'Document': {'count': Document.objects.count(), 'color': NODE_STYLES['Document']['color']},
-            'Dossier': {'count': Dossier.objects.count(), 'color': NODE_STYLES['Dossier']['color']},
+            'Client': {'count': Client.objects.filter(is_active=True).count(), 'color': NODE_COLORS['Client']},
+            'Mandat': {'count': Mandat.objects.filter(statut='ACTIF').count(), 'color': NODE_COLORS['Mandat']},
+            'User': {'count': User.objects.filter(is_active=True).count(), 'color': NODE_COLORS['User']},
+            'Document': {'count': Document.objects.count(), 'color': NODE_COLORS['Document']},
+            'Dossier': {'count': Dossier.objects.count(), 'color': NODE_COLORS['Dossier']},
         }
         return JsonResponse({'stats': stats})
