@@ -180,6 +180,33 @@ class Dossier(BaseModel):
             return f"{self.nom} [{client_info}]"
         return self.nom
 
+    def get_total_documents_recursive(self):
+        """
+        Calcule le nombre total de documents dans ce dossier
+        et tous ses sous-dossiers récursivement.
+        """
+        # Documents directs dans ce dossier
+        total = self.documents.filter(is_active=True).count()
+        # Ajouter les documents de tous les sous-dossiers
+        for sous_dossier in self.sous_dossiers.filter(is_active=True):
+            total += sous_dossier.get_total_documents_recursive()
+        return total
+
+    def get_total_size_recursive(self):
+        """
+        Calcule la taille totale des documents dans ce dossier
+        et tous ses sous-dossiers récursivement.
+        """
+        from django.db.models import Sum
+        # Taille des documents directs
+        total = self.documents.filter(is_active=True).aggregate(
+            total=Sum('taille')
+        )['total'] or 0
+        # Ajouter la taille des sous-dossiers
+        for sous_dossier in self.sous_dossiers.filter(is_active=True):
+            total += sous_dossier.get_total_size_recursive()
+        return total
+
 
 class CategorieDocument(BaseModel):
     """Catégories de documents"""

@@ -284,11 +284,11 @@
                                             </div>
                                             <div class="text-center">
                                                 <p class="text-muted f-s-11 mb-0">{% trans "Documents" %}</p>
-                                                <p class="f-w-600 mb-0 text-success f-s-13">{{ dossier.nb_documents }}</p>
+                                                <p class="f-w-600 mb-0 text-success f-s-13">{{ dossier.get_total_documents_recursive }}</p>
                                             </div>
                                             <div class="text-center">
                                                 <p class="text-muted f-s-11 mb-0">{% trans "Taille" %}</p>
-                                                <p class="f-w-600 mb-0 text-secondary f-s-13">{{ dossier.taille_totale|filesizeformat }}</p>
+                                                <p class="f-w-600 mb-0 text-secondary f-s-13">{{ dossier.get_total_size_recursive|filesizeformat }}</p>
                                             </div>
                                         </div>
                                     </a>

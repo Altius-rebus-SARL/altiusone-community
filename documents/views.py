@@ -247,12 +247,22 @@ class DossierListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
 
         # Statistiques CONTEXTUELLES selon le niveau de navigation
         if parent_id:
-            # Stats du dossier courant
+            # Stats du dossier courant (récursif)
             parent = context['current_parent']
+
+            # Fonction pour récupérer tous les IDs de sous-dossiers récursivement
+            def get_all_subfolder_ids(dossier):
+                ids = [dossier.id]
+                for sous_dossier in Dossier.objects.filter(parent=dossier, is_active=True):
+                    ids.extend(get_all_subfolder_ids(sous_dossier))
+                return ids
+
+            all_folder_ids = get_all_subfolder_ids(parent)
+
             # Compter les sous-dossiers directs
             total_dossiers = Dossier.objects.filter(parent=parent, is_active=True).count()
-            # Compter les documents dans ce dossier
-            doc_stats = Document.objects.filter(dossier=parent, is_active=True).aggregate(
+            # Compter TOUS les documents (dossier actuel + tous les sous-dossiers récursivement)
+            doc_stats = Document.objects.filter(dossier_id__in=all_folder_ids, is_active=True).aggregate(
                 total_docs=Count('id'),
                 total_size=Sum('taille')
             )
