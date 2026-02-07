@@ -653,18 +653,18 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     });
 
-    // Simulation parameters
-    const width = 2000;
-    const height = 2000;
+    // Simulation parameters - MUCH stronger repulsion
+    const width = 5000;
+    const height = 5000;
     const centerX = width / 2;
     const centerY = height / 2;
 
-    // Forces
-    const repulsionStrength = 8000;
-    const attractionStrength = 0.0004;
-    const centeringStrength = 0.01;
-    const damping = 0.85;
-    const minDistance = 50;
+    // Forces - très forte répulsion pour bien espacer
+    const repulsionStrength = 50000;
+    const attractionStrength = 0.0001;
+    const centeringStrength = 0.005;
+    const damping = 0.9;
+    const minDistance = 100;
 
     // Run simulation
     for (let iter = 0; iter < iterations; iter++) {
@@ -743,11 +743,11 @@ document.addEventListener('DOMContentLoaded', function() {
   function initGraph() {
     graph = new graphology.Graph();
 
-    // Add nodes with valid coordinates
+    // Add nodes with valid coordinates - spread out initially
     graphData.nodes.forEach((node, index) => {
-      // Ensure valid numeric coordinates
+      // Start with wide spread to help force layout
       const angle = (2 * Math.PI * index) / graphData.nodes.length;
-      const radius = 200 + Math.random() * 300;
+      const radius = 500 + Math.random() * 1000;
       graph.addNode(node.id, {
         label: node.label || 'Sans nom',
         x: Math.cos(angle) * radius,
@@ -774,9 +774,9 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
 
-    // Apply force-directed layout
+    // Apply force-directed layout with more iterations
     console.log('Applying force layout to', graph.order, 'nodes...');
-    forceDirectedLayout(graph, 200);
+    forceDirectedLayout(graph, 500);
     console.log('Layout complete');
 
     // Create Sigma renderer
