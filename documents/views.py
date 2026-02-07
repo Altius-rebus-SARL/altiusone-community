@@ -190,12 +190,12 @@ class DossierListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
             context['current_client'] = mandat.client
             context['nav_level'] = 'dossiers'
 
-            # Récupérer les documents sans dossier (directement liés au mandat)
+            # Récupérer TOUS les documents du mandat (y compris ceux dans des dossiers)
+            # Si aucun dossier racine n'existe, on affiche tous les documents
             context['documents'] = Document.objects.filter(
                 mandat=mandat,
-                dossier__isnull=True,
                 is_active=True
-            ).select_related('type_document').order_by('-date_upload')
+            ).select_related('type_document', 'dossier').order_by('-date_upload')
 
         elif client_id:
             # On affiche les mandats d'un client

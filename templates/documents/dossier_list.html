@@ -352,7 +352,9 @@
                                         <a href="{% url 'documents:document-detail' doc.pk %}" class="text-dark fw-medium">
                                             {{ doc.nom_fichier|default:doc.nom_original|truncatechars:40 }}
                                         </a>
-                                        {% if doc.description %}
+                                        {% if doc.dossier %}
+                                        <br><small class="text-muted"><i class="ph ph-folder me-1"></i>{{ doc.dossier.nom }}</small>
+                                        {% elif doc.description %}
                                         <br><small class="text-muted">{{ doc.description|truncatechars:50 }}</small>
                                         {% endif %}
                                     </td>
