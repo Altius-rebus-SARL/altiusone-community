@@ -432,6 +432,42 @@ class DocumentViewSet(viewsets.ModelViewSet):
         })
 
     @action(detail=True, methods=['get'])
+    def stream(self, request, pk=None):
+        """
+        Stream le fichier document directement au client.
+        Utilisé par le mobile pour contourner les problèmes de signature MinIO.
+        """
+        from django.http import StreamingHttpResponse, FileResponse
+        document = self.get_object()
+
+        if not document.fichier:
+            return Response(
+                {'error': 'Aucun fichier associé à ce document'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            # Ouvrir le fichier depuis le storage (S3/MinIO ou local)
+            file_obj = document.fichier.open('rb')
+
+            # Streamer le fichier
+            response = FileResponse(
+                file_obj,
+                content_type=document.mime_type or 'application/octet-stream',
+                as_attachment=False
+            )
+            response['Content-Disposition'] = f'inline; filename="{document.nom_fichier}"'
+            if document.taille:
+                response['Content-Length'] = document.taille
+            return response
+
+        except Exception as e:
+            return Response(
+                {'error': f'Erreur lors de la lecture du fichier: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=['get'])
     def traitements(self, request, pk=None):
         """Liste l'historique des traitements d'un document"""
         document = self.get_object()
