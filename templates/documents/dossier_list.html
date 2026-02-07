@@ -296,6 +296,7 @@
                             </div>
                         </div>
                         {% empty %}
+                        {% if not documents %}
                         <div class="col-12">
                             <div class="text-center py-5">
                                 <i class="ph ph-folder-open f-s-48 text-muted d-block mb-3"></i>
@@ -307,9 +308,89 @@
                                 {% endif %}
                             </div>
                         </div>
+                        {% endif %}
                         {% endfor %}
                     {% endif %}
                 </div>
+
+                <!-- Documents du dossier courant -->
+                {% if documents %}
+                <div class="mt-4">
+                    <h6 class="text-muted mb-3">
+                        <i class="ph-duotone ph-files me-2"></i>{% trans "Documents" %} ({{ documents|length }})
+                    </h6>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 40px;"></th>
+                                    <th>{% trans "Nom" %}</th>
+                                    <th>{% trans "Type" %}</th>
+                                    <th>{% trans "Taille" %}</th>
+                                    <th>{% trans "Date" %}</th>
+                                    <th>{% trans "Statut" %}</th>
+                                    <th style="width: 100px;">{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for doc in documents %}
+                                <tr>
+                                    <td>
+                                        {% if doc.extension == 'pdf' %}
+                                            <i class="ph-duotone ph-file-pdf text-danger f-s-24"></i>
+                                        {% elif doc.extension in 'jpg,jpeg,png,gif,webp' %}
+                                            <i class="ph-duotone ph-file-image text-info f-s-24"></i>
+                                        {% elif doc.extension in 'doc,docx' %}
+                                            <i class="ph-duotone ph-file-doc text-primary f-s-24"></i>
+                                        {% elif doc.extension in 'xls,xlsx' %}
+                                            <i class="ph-duotone ph-file-xls text-success f-s-24"></i>
+                                        {% else %}
+                                            <i class="ph-duotone ph-file text-secondary f-s-24"></i>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'documents:document-detail' doc.pk %}" class="text-dark fw-medium">
+                                            {{ doc.nom_fichier|default:doc.nom_original|truncatechars:40 }}
+                                        </a>
+                                        {% if doc.description %}
+                                        <br><small class="text-muted">{{ doc.description|truncatechars:50 }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if doc.type_document %}
+                                            <span class="badge bg-light text-dark">{{ doc.type_document.libelle }}</span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ doc.taille|filesizeformat }}</td>
+                                    <td>{{ doc.date_upload|date:"d/m/Y H:i" }}</td>
+                                    <td>
+                                        {% if doc.statut_validation == 'VALIDE' %}
+                                            <span class="badge bg-success">{% trans "Validé" %}</span>
+                                        {% elif doc.statut_validation == 'REJETE' %}
+                                            <span class="badge bg-danger">{% trans "Rejeté" %}</span>
+                                        {% else %}
+                                            <span class="badge bg-warning text-dark">{% trans "En attente" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'documents:document-detail' doc.pk %}" class="btn btn-outline-primary" title="{% trans 'Voir' %}">
+                                                <i class="ph ph-eye"></i>
+                                            </a>
+                                            <a href="{% url 'documents:document-download' doc.pk %}" class="btn btn-outline-success" title="{% trans 'Télécharger' %}">
+                                                <i class="ph ph-download"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
             </div>
 
             <!-- Pagination -->
