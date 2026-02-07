@@ -663,7 +663,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Grouper les nodes par type
     const nodesByType = {};
     graph.forEachNode((node, attrs) => {
-      const type = attrs.type || 'unknown';
+      const type = attrs.nodeType || 'unknown';
       if (!nodesByType[type]) nodesByType[type] = [];
       nodesByType[type].push(node);
     });
@@ -698,8 +698,8 @@ document.addEventListener('DOMContentLoaded', function() {
         y: Math.random() * 100,
         size: node.size,
         color: node.color,
-        type: node.type,
-        type_label: node.type_label,
+        nodeType: node.type,  // Renommé pour éviter conflit avec Sigma
+        typeLabel: node.type_label,
         url: node.url,
         pk: node.pk,
         data: node.data,
@@ -714,7 +714,7 @@ document.addEventListener('DOMContentLoaded', function() {
           graph.addEdge(edge.source, edge.target, {
             size: edge.size || 1,
             color: edge.color || '#ccc',
-            type: edge.type,
+            edgeType: edge.type,  // Renommé pour éviter conflit avec Sigma
             label: edge.label,
           });
         } catch (e) {
@@ -792,14 +792,14 @@ document.addEventListener('DOMContentLoaded', function() {
   // Mettre à jour la visibilité des nodes
   function updateVisibility() {
     graph.forEachNode((node, attrs) => {
-      const hidden = hiddenTypes.has(attrs.type);
+      const hidden = hiddenTypes.has(attrs.nodeType);
       graph.setNodeAttribute(node, 'hidden', hidden);
     });
 
     graph.forEachEdge((edge, attrs, source, target) => {
       const sourceHidden = graph.getNodeAttribute(source, 'hidden');
       const targetHidden = graph.getNodeAttribute(target, 'hidden');
-      const relationHidden = hiddenRelations.has(attrs.type);
+      const relationHidden = hiddenRelations.has(attrs.edgeType);
       graph.setEdgeAttribute(edge, 'hidden', sourceHidden || targetHidden || relationHidden);
     });
 
@@ -895,7 +895,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Header
     document.getElementById('detailsIcon').style.background = attrs.color;
     document.getElementById('detailsTitle').textContent = attrs.label;
-    document.getElementById('detailsType').textContent = attrs.type_label;
+    document.getElementById('detailsType').textContent = attrs.typeLabel;
 
     // Champs
     const fieldsContainer = document.getElementById('detailsFields');
@@ -1011,7 +1011,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const containerRect = container.getBoundingClientRect();
 
     tooltip.querySelector('.tooltip-title').textContent = attrs.label;
-    tooltip.querySelector('.tooltip-type').textContent = attrs.type_label;
+    tooltip.querySelector('.tooltip-type').textContent = attrs.typeLabel;
 
     tooltip.style.left = (nodePosition.x + 20) + 'px';
     tooltip.style.top = (nodePosition.y - 10) + 'px';
