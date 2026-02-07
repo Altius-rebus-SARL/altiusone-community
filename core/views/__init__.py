@@ -74,6 +74,12 @@ from .main_views import (
     exercice_cloturer,
 )
 
+from .graph_views import (
+    GraphView,
+    GraphAPIView,
+    GraphStatsAPIView,
+)
+
 from .admin_views import (
     # Administration Dashboard
     AdminDashboardView,
@@ -207,4 +213,8 @@ __all__ = [
     'CollaborateurFiduciaireUpdateView',
     'collaborateur_fiduciaire_toggle',
     'ForcePasswordChangeView',
+    # Graphe
+    'GraphView',
+    'GraphAPIView',
+    'GraphStatsAPIView',
 ]

@@ -1,0 +1,1061 @@
+{% extends "base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}Graphe Relationnel - AltiusOne{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* Container principal */
+  .graph-container {
+    display: flex;
+    height: calc(100vh - 120px);
+    background: var(--bs-body-bg);
+  }
+
+  /* Panneau de gauche - Filtres et Légende */
+  .graph-sidebar {
+    width: 280px;
+    background: var(--bs-card-bg);
+    border-right: 1px solid var(--bs-border-color);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar-section {
+    padding: 16px;
+    border-bottom: 1px solid var(--bs-border-color);
+  }
+
+  .sidebar-section-title {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--bs-secondary);
+    margin-bottom: 12px;
+  }
+
+  /* Recherche */
+  .graph-search {
+    position: relative;
+  }
+
+  .graph-search input {
+    width: 100%;
+    padding: 10px 36px 10px 12px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 8px;
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    font-size: 14px;
+  }
+
+  .graph-search input:focus {
+    outline: none;
+    border-color: var(--bs-primary);
+    box-shadow: 0 0 0 3px rgba(0, 191, 99, 0.15);
+  }
+
+  .graph-search-icon {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--bs-secondary);
+  }
+
+  .search-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--bs-card-bg);
+    border: 1px solid var(--bs-border-color);
+    border-radius: 8px;
+    margin-top: 4px;
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    display: none;
+  }
+
+  .search-results.show {
+    display: block;
+  }
+
+  .search-result-item {
+    padding: 10px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--bs-border-color);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .search-result-item:hover {
+    background: var(--bs-tertiary-bg);
+  }
+
+  .search-result-item:last-child {
+    border-bottom: none;
+  }
+
+  .search-result-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .search-result-label {
+    font-size: 14px;
+    color: var(--bs-body-color);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .search-result-type {
+    font-size: 11px;
+    color: var(--bs-secondary);
+  }
+
+  /* Légende */
+  .legend-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: background 0.15s;
+    gap: 10px;
+  }
+
+  .legend-item:hover {
+    background: var(--bs-tertiary-bg);
+  }
+
+  .legend-item.disabled {
+    opacity: 0.4;
+  }
+
+  .legend-color {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+
+  .legend-label {
+    flex: 1;
+    font-size: 13px;
+    color: var(--bs-body-color);
+  }
+
+  .legend-count {
+    font-size: 12px;
+    color: var(--bs-secondary);
+    background: var(--bs-tertiary-bg);
+    padding: 2px 8px;
+    border-radius: 10px;
+  }
+
+  .legend-link {
+    color: var(--bs-secondary);
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  .legend-item:hover .legend-link {
+    opacity: 1;
+  }
+
+  /* Zone du graphe */
+  .graph-main {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #sigma-container {
+    width: 100%;
+    height: 100%;
+    background: var(--bs-body-bg);
+  }
+
+  /* Contrôles du graphe */
+  .graph-controls {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .graph-control-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    border: 1px solid var(--bs-border-color);
+    background: var(--bs-card-bg);
+    color: var(--bs-body-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .graph-control-btn:hover {
+    background: var(--bs-tertiary-bg);
+    border-color: var(--bs-primary);
+  }
+
+  /* Stats en haut */
+  .graph-stats {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    background: var(--bs-card-bg);
+    border: 1px solid var(--bs-border-color);
+    border-radius: 8px;
+    padding: 12px 16px;
+    display: flex;
+    gap: 24px;
+    font-size: 13px;
+  }
+
+  .graph-stat {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .graph-stat-value {
+    font-weight: 600;
+    color: var(--bs-body-color);
+  }
+
+  .graph-stat-label {
+    color: var(--bs-secondary);
+  }
+
+  /* Panneau de détails (droite) */
+  .graph-details {
+    width: 320px;
+    background: var(--bs-card-bg);
+    border-left: 1px solid var(--bs-border-color);
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .graph-details.show {
+    display: flex;
+  }
+
+  .details-header {
+    padding: 16px;
+    border-bottom: 1px solid var(--bs-border-color);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .details-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: white;
+  }
+
+  .details-title {
+    flex: 1;
+  }
+
+  .details-title h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+    color: var(--bs-body-color);
+  }
+
+  .details-title .type-badge {
+    font-size: 11px;
+    color: var(--bs-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+  }
+
+  .details-close {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: none;
+    color: var(--bs-secondary);
+    cursor: pointer;
+    border-radius: 6px;
+  }
+
+  .details-close:hover {
+    background: var(--bs-tertiary-bg);
+    color: var(--bs-body-color);
+  }
+
+  .details-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+  }
+
+  .details-section {
+    margin-bottom: 20px;
+  }
+
+  .details-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--bs-secondary);
+    margin-bottom: 8px;
+  }
+
+  .details-field {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--bs-border-color);
+  }
+
+  .details-field-label {
+    font-size: 13px;
+    color: var(--bs-secondary);
+  }
+
+  .details-field-value {
+    font-size: 13px;
+    color: var(--bs-body-color);
+    font-weight: 500;
+    text-align: right;
+    max-width: 60%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .details-connections {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .connection-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 10px;
+    background: var(--bs-tertiary-bg);
+    border-radius: 6px;
+    cursor: pointer;
+    gap: 8px;
+    transition: background 0.15s;
+  }
+
+  .connection-item:hover {
+    background: var(--bs-secondary-bg);
+  }
+
+  .connection-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .connection-label {
+    flex: 1;
+    font-size: 13px;
+    color: var(--bs-body-color);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .connection-type {
+    font-size: 11px;
+    color: var(--bs-secondary);
+  }
+
+  .details-actions {
+    padding: 16px;
+    border-top: 1px solid var(--bs-border-color);
+  }
+
+  .details-action-btn {
+    width: 100%;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 8px;
+    background: var(--bs-primary);
+    color: white;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    display: block;
+    text-align: center;
+    transition: background 0.15s;
+  }
+
+  .details-action-btn:hover {
+    background: var(--bs-primary-dark, #00a855);
+    color: white;
+  }
+
+  /* Loading */
+  .graph-loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+  }
+
+  .graph-loading .spinner-border {
+    width: 48px;
+    height: 48px;
+    border-width: 3px;
+  }
+
+  /* Tooltip au survol */
+  .graph-tooltip {
+    position: absolute;
+    background: var(--bs-card-bg);
+    border: 1px solid var(--bs-border-color);
+    border-radius: 8px;
+    padding: 10px 14px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    pointer-events: none;
+    z-index: 1000;
+    max-width: 250px;
+    display: none;
+  }
+
+  .graph-tooltip.show {
+    display: block;
+  }
+
+  .tooltip-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--bs-body-color);
+    margin-bottom: 4px;
+  }
+
+  .tooltip-type {
+    font-size: 11px;
+    color: var(--bs-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* Responsive */
+  @media (max-width: 1200px) {
+    .graph-sidebar {
+      width: 240px;
+    }
+    .graph-details {
+      width: 280px;
+    }
+  }
+
+  @media (max-width: 992px) {
+    .graph-sidebar {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      z-index: 100;
+      transform: translateX(-100%);
+      transition: transform 0.3s;
+    }
+    .graph-sidebar.show {
+      transform: translateX(0);
+    }
+    .graph-details {
+      position: absolute;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      z-index: 100;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="graph-container">
+  <!-- Sidebar gauche -->
+  <aside class="graph-sidebar" id="graphSidebar">
+    <!-- Recherche -->
+    <div class="sidebar-section">
+      <div class="graph-search">
+        <input type="text" id="graphSearch" placeholder="Rechercher une entité...">
+        <i class="bi bi-search graph-search-icon"></i>
+        <div class="search-results" id="searchResults"></div>
+      </div>
+    </div>
+
+    <!-- Légende -->
+    <div class="sidebar-section" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+      <div class="sidebar-section-title">Types d'entités</div>
+      <div class="legend-list" id="legendList">
+        <!-- Généré dynamiquement -->
+      </div>
+    </div>
+
+    <!-- Filtres relations -->
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Relations</div>
+      <div id="relationFilters">
+        <label class="legend-item">
+          <input type="checkbox" checked data-relation="ForeignKey" style="display:none;">
+          <span class="legend-color" style="background: #6B7280;"></span>
+          <span class="legend-label">Clé étrangère</span>
+        </label>
+        <label class="legend-item">
+          <input type="checkbox" checked data-relation="ManyToManyField" style="display:none;">
+          <span class="legend-color" style="background: #10B981;"></span>
+          <span class="legend-label">Many-to-Many</span>
+        </label>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Zone principale du graphe -->
+  <main class="graph-main">
+    <!-- Stats -->
+    <div class="graph-stats">
+      <div class="graph-stat">
+        <span class="graph-stat-value" id="nodeCount">0</span>
+        <span class="graph-stat-label">entités</span>
+      </div>
+      <div class="graph-stat">
+        <span class="graph-stat-value" id="edgeCount">0</span>
+        <span class="graph-stat-label">relations</span>
+      </div>
+    </div>
+
+    <!-- Container Sigma -->
+    <div id="sigma-container">
+      <div class="graph-loading" id="graphLoading">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Chargement...</span>
+        </div>
+        <p class="mt-3 text-muted">Chargement du graphe...</p>
+      </div>
+    </div>
+
+    <!-- Contrôles -->
+    <div class="graph-controls">
+      <button class="graph-control-btn" id="zoomIn" title="Zoom +">
+        <i class="bi bi-plus-lg"></i>
+      </button>
+      <button class="graph-control-btn" id="zoomOut" title="Zoom -">
+        <i class="bi bi-dash-lg"></i>
+      </button>
+      <button class="graph-control-btn" id="zoomReset" title="Recentrer">
+        <i class="bi bi-arrows-fullscreen"></i>
+      </button>
+      <button class="graph-control-btn" id="toggleSidebar" title="Filtres">
+        <i class="bi bi-funnel"></i>
+      </button>
+    </div>
+
+    <!-- Tooltip -->
+    <div class="graph-tooltip" id="graphTooltip">
+      <div class="tooltip-title"></div>
+      <div class="tooltip-type"></div>
+    </div>
+  </main>
+
+  <!-- Panneau de détails (droite) -->
+  <aside class="graph-details" id="graphDetails">
+    <div class="details-header">
+      <div class="details-icon" id="detailsIcon">
+        <i class="bi bi-building"></i>
+      </div>
+      <div class="details-title">
+        <h3 id="detailsTitle">-</h3>
+        <div class="type-badge" id="detailsType">-</div>
+      </div>
+      <button class="details-close" id="detailsClose">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+    <div class="details-content">
+      <div class="details-section">
+        <div class="details-section-title">Informations</div>
+        <div id="detailsFields">
+          <!-- Généré dynamiquement -->
+        </div>
+      </div>
+      <div class="details-section">
+        <div class="details-section-title">Connexions</div>
+        <div class="details-connections" id="detailsConnections">
+          <!-- Généré dynamiquement -->
+        </div>
+      </div>
+    </div>
+    <div class="details-actions">
+      <a href="#" class="details-action-btn" id="detailsLink">
+        <i class="bi bi-box-arrow-up-right me-2"></i>
+        Voir la fiche complète
+      </a>
+    </div>
+  </aside>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Graphology & Sigma.js via CDN -->
+<script src="https://cdn.jsdelivr.net/npm/graphology@0.25.4/dist/graphology.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/graphology-layout@0.6.1/dist/graphology-layout.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/graphology-layout-forceatlas2@0.10.1/dist/graphology-layout-forceatlas2.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sigma@2.4.0/build/sigma.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Données du graphe injectées par Django
+  const graphData = {{ graph_data|safe }};
+
+  // Éléments DOM
+  const container = document.getElementById('sigma-container');
+  const loading = document.getElementById('graphLoading');
+  const searchInput = document.getElementById('graphSearch');
+  const searchResults = document.getElementById('searchResults');
+  const legendList = document.getElementById('legendList');
+  const details = document.getElementById('graphDetails');
+  const tooltip = document.getElementById('graphTooltip');
+
+  // État
+  let renderer = null;
+  let graph = null;
+  let selectedNode = null;
+  let hoveredNode = null;
+  let hiddenTypes = new Set();
+  let hiddenRelations = new Set();
+
+  // Initialiser le graphe
+  function initGraph() {
+    // Créer le graphe Graphology
+    graph = new graphology.Graph();
+
+    // Ajouter les nodes
+    graphData.nodes.forEach(node => {
+      graph.addNode(node.id, {
+        label: node.label,
+        x: Math.random() * 100,
+        y: Math.random() * 100,
+        size: node.size,
+        color: node.color,
+        type: node.type,
+        type_label: node.type_label,
+        url: node.url,
+        pk: node.pk,
+        data: node.data,
+        icon: node.icon,
+      });
+    });
+
+    // Ajouter les edges
+    graphData.edges.forEach(edge => {
+      if (graph.hasNode(edge.source) && graph.hasNode(edge.target)) {
+        try {
+          graph.addEdge(edge.source, edge.target, {
+            size: edge.size || 1,
+            color: edge.color || '#ccc',
+            type: edge.type,
+            label: edge.label,
+          });
+        } catch (e) {
+          // Edge déjà existant
+        }
+      }
+    });
+
+    // Appliquer le layout ForceAtlas2
+    const settings = {
+      iterations: 100,
+      settings: {
+        gravity: 1,
+        scalingRatio: 2,
+        strongGravityMode: true,
+        slowDown: 5,
+      }
+    };
+
+    graphologyLayoutForceAtlas2.assign(graph, settings);
+
+    // Créer le renderer Sigma
+    renderer = new Sigma(graph, container, {
+      renderLabels: true,
+      labelFont: 'Inter, system-ui, sans-serif',
+      labelSize: 12,
+      labelWeight: '500',
+      labelColor: { color: '#374151' },
+      defaultNodeColor: '#9CA3AF',
+      defaultEdgeColor: '#E5E7EB',
+      minCameraRatio: 0.1,
+      maxCameraRatio: 10,
+    });
+
+    // Cacher le loading
+    loading.style.display = 'none';
+
+    // Mettre à jour les stats
+    document.getElementById('nodeCount').textContent = graph.order;
+    document.getElementById('edgeCount').textContent = graph.size;
+
+    // Générer la légende
+    generateLegend();
+
+    // Événements
+    setupEvents();
+  }
+
+  // Générer la légende
+  function generateLegend() {
+    legendList.innerHTML = '';
+
+    Object.entries(graphData.stats).forEach(([type, stat]) => {
+      const item = document.createElement('div');
+      item.className = 'legend-item';
+      item.dataset.type = type;
+      item.innerHTML = `
+        <span class="legend-color" style="background: ${stat.color};"></span>
+        <span class="legend-label">${stat.label}</span>
+        <span class="legend-count">${stat.displayed}</span>
+        ${stat.list_url ? `<a href="${stat.list_url}" class="legend-link" title="Voir la liste"><i class="bi bi-box-arrow-up-right"></i></a>` : ''}
+      `;
+
+      item.addEventListener('click', (e) => {
+        if (e.target.closest('.legend-link')) return;
+        toggleType(type, item);
+      });
+
+      legendList.appendChild(item);
+    });
+  }
+
+  // Toggle visibilité d'un type
+  function toggleType(type, item) {
+    if (hiddenTypes.has(type)) {
+      hiddenTypes.delete(type);
+      item.classList.remove('disabled');
+    } else {
+      hiddenTypes.add(type);
+      item.classList.add('disabled');
+    }
+    updateVisibility();
+  }
+
+  // Mettre à jour la visibilité des nodes
+  function updateVisibility() {
+    graph.forEachNode((node, attrs) => {
+      const hidden = hiddenTypes.has(attrs.type);
+      graph.setNodeAttribute(node, 'hidden', hidden);
+    });
+
+    graph.forEachEdge((edge, attrs, source, target) => {
+      const sourceHidden = graph.getNodeAttribute(source, 'hidden');
+      const targetHidden = graph.getNodeAttribute(target, 'hidden');
+      const relationHidden = hiddenRelations.has(attrs.type);
+      graph.setEdgeAttribute(edge, 'hidden', sourceHidden || targetHidden || relationHidden);
+    });
+
+    renderer.refresh();
+  }
+
+  // Setup des événements
+  function setupEvents() {
+    // Clic sur un node
+    renderer.on('clickNode', ({ node }) => {
+      selectNode(node);
+    });
+
+    // Survol node
+    renderer.on('enterNode', ({ node }) => {
+      hoveredNode = node;
+      highlightNeighbors(node);
+      showTooltip(node);
+    });
+
+    renderer.on('leaveNode', () => {
+      hoveredNode = null;
+      resetHighlight();
+      hideTooltip();
+    });
+
+    // Clic hors node
+    renderer.on('clickStage', () => {
+      deselectNode();
+    });
+
+    // Zoom
+    document.getElementById('zoomIn').addEventListener('click', () => {
+      const camera = renderer.getCamera();
+      camera.animatedZoom({ duration: 300 });
+    });
+
+    document.getElementById('zoomOut').addEventListener('click', () => {
+      const camera = renderer.getCamera();
+      camera.animatedUnzoom({ duration: 300 });
+    });
+
+    document.getElementById('zoomReset').addEventListener('click', () => {
+      const camera = renderer.getCamera();
+      camera.animatedReset({ duration: 300 });
+    });
+
+    // Toggle sidebar mobile
+    document.getElementById('toggleSidebar').addEventListener('click', () => {
+      document.getElementById('graphSidebar').classList.toggle('show');
+    });
+
+    // Fermer détails
+    document.getElementById('detailsClose').addEventListener('click', () => {
+      deselectNode();
+    });
+
+    // Recherche
+    searchInput.addEventListener('input', debounce(handleSearch, 200));
+    searchInput.addEventListener('focus', () => {
+      if (searchInput.value.length >= 2) {
+        searchResults.classList.add('show');
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.graph-search')) {
+        searchResults.classList.remove('show');
+      }
+    });
+
+    // Filtres relations
+    document.querySelectorAll('#relationFilters input').forEach(input => {
+      input.addEventListener('change', () => {
+        const relation = input.dataset.relation;
+        if (input.checked) {
+          hiddenRelations.delete(relation);
+        } else {
+          hiddenRelations.add(relation);
+        }
+        updateVisibility();
+      });
+    });
+  }
+
+  // Sélectionner un node
+  function selectNode(nodeId) {
+    selectedNode = nodeId;
+    details.classList.add('show');
+
+    const attrs = graph.getNodeAttributes(nodeId);
+
+    // Header
+    document.getElementById('detailsIcon').style.background = attrs.color;
+    document.getElementById('detailsTitle').textContent = attrs.label;
+    document.getElementById('detailsType').textContent = attrs.type_label;
+
+    // Champs
+    const fieldsContainer = document.getElementById('detailsFields');
+    fieldsContainer.innerHTML = '';
+    if (attrs.data) {
+      Object.entries(attrs.data).forEach(([key, value]) => {
+        fieldsContainer.innerHTML += `
+          <div class="details-field">
+            <span class="details-field-label">${key}</span>
+            <span class="details-field-value" title="${value}">${value}</span>
+          </div>
+        `;
+      });
+    }
+
+    // Connexions
+    const connectionsContainer = document.getElementById('detailsConnections');
+    connectionsContainer.innerHTML = '';
+
+    const neighbors = graph.neighbors(nodeId);
+    neighbors.slice(0, 20).forEach(neighborId => {
+      const neighborAttrs = graph.getNodeAttributes(neighborId);
+      const item = document.createElement('div');
+      item.className = 'connection-item';
+      item.innerHTML = `
+        <span class="connection-dot" style="background: ${neighborAttrs.color};"></span>
+        <span class="connection-label">${neighborAttrs.label}</span>
+        <span class="connection-type">${neighborAttrs.type_label}</span>
+      `;
+      item.addEventListener('click', () => {
+        focusNode(neighborId);
+        selectNode(neighborId);
+      });
+      connectionsContainer.appendChild(item);
+    });
+
+    if (neighbors.length > 20) {
+      connectionsContainer.innerHTML += `<div class="text-muted small p-2">+ ${neighbors.length - 20} autres connexions</div>`;
+    }
+
+    // Lien
+    const link = document.getElementById('detailsLink');
+    if (attrs.url) {
+      link.href = attrs.url;
+      link.style.display = 'block';
+    } else {
+      link.style.display = 'none';
+    }
+
+    // Centrer sur le node
+    focusNode(nodeId);
+  }
+
+  // Désélectionner
+  function deselectNode() {
+    selectedNode = null;
+    details.classList.remove('show');
+    resetHighlight();
+  }
+
+  // Centrer sur un node
+  function focusNode(nodeId) {
+    const camera = renderer.getCamera();
+    const nodePosition = renderer.getNodeDisplayData(nodeId);
+    camera.animate({
+      x: nodePosition.x,
+      y: nodePosition.y,
+      ratio: 0.5
+    }, { duration: 300 });
+  }
+
+  // Highlight voisinage
+  function highlightNeighbors(nodeId) {
+    const neighbors = new Set(graph.neighbors(nodeId));
+    neighbors.add(nodeId);
+
+    graph.forEachNode((node, attrs) => {
+      if (!neighbors.has(node)) {
+        graph.setNodeAttribute(node, 'color', '#E5E7EB');
+      }
+    });
+
+    graph.forEachEdge((edge, attrs, source, target) => {
+      if (!neighbors.has(source) || !neighbors.has(target)) {
+        graph.setEdgeAttribute(edge, 'color', '#F3F4F6');
+      }
+    });
+
+    renderer.refresh();
+  }
+
+  // Reset highlight
+  function resetHighlight() {
+    graphData.nodes.forEach(node => {
+      if (graph.hasNode(node.id)) {
+        graph.setNodeAttribute(node.id, 'color', node.color);
+      }
+    });
+
+    graphData.edges.forEach(edge => {
+      if (graph.hasEdge(edge.source, edge.target)) {
+        graph.setEdgeAttribute(graph.edge(edge.source, edge.target), 'color', edge.color);
+      }
+    });
+
+    renderer.refresh();
+  }
+
+  // Tooltip
+  function showTooltip(nodeId) {
+    const attrs = graph.getNodeAttributes(nodeId);
+    const nodePosition = renderer.getNodeDisplayData(nodeId);
+    const containerRect = container.getBoundingClientRect();
+
+    tooltip.querySelector('.tooltip-title').textContent = attrs.label;
+    tooltip.querySelector('.tooltip-type').textContent = attrs.type_label;
+
+    tooltip.style.left = (nodePosition.x + 20) + 'px';
+    tooltip.style.top = (nodePosition.y - 10) + 'px';
+    tooltip.classList.add('show');
+  }
+
+  function hideTooltip() {
+    tooltip.classList.remove('show');
+  }
+
+  // Recherche
+  function handleSearch() {
+    const query = searchInput.value.toLowerCase().trim();
+
+    if (query.length < 2) {
+      searchResults.classList.remove('show');
+      return;
+    }
+
+    const results = graphData.nodes
+      .filter(node => node.label.toLowerCase().includes(query))
+      .slice(0, 10);
+
+    if (results.length === 0) {
+      searchResults.innerHTML = '<div class="p-3 text-muted text-center">Aucun résultat</div>';
+    } else {
+      searchResults.innerHTML = results.map(node => `
+        <div class="search-result-item" data-id="${node.id}">
+          <span class="search-result-dot" style="background: ${node.color};"></span>
+          <span class="search-result-label">${node.label}</span>
+          <span class="search-result-type">${node.type_label}</span>
+        </div>
+      `).join('');
+
+      searchResults.querySelectorAll('.search-result-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const nodeId = item.dataset.id;
+          focusNode(nodeId);
+          selectNode(nodeId);
+          searchResults.classList.remove('show');
+          searchInput.value = '';
+        });
+      });
+    }
+
+    searchResults.classList.add('show');
+  }
+
+  // Debounce utility
+  function debounce(func, wait) {
+    let timeout;
+    return function(...args) {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+  }
+
+  // Lancer l'initialisation
+  initGraph();
+});
+</script>
+{% endblock %}

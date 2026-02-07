@@ -518,3 +518,65 @@ class CollaborateurFiduciaireViewSet(viewsets.ModelViewSet):
         )
         serializer = UserSerializer(prestataires, many=True)
         return Response(serializer.data)
+
+
+class GraphViewSet(viewsets.ViewSet):
+    """
+    ViewSet pour l'API du graphe relationnel.
+    Utilisé par l'application mobile React Native.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def list(self, request):
+        """
+        GET /api/v1/core/graph/
+        Retourne le graphe complet (nodes + edges).
+        """
+        from .views.graph_views import GraphDataMixin
+
+        mixin = GraphDataMixin()
+        graph_data = mixin.get_graph_data()
+        return Response(graph_data)
+
+    def retrieve(self, request, pk=None):
+        """
+        GET /api/v1/core/graph/{type}:{pk}/
+        Retourne un sous-graphe centré sur une entité.
+        """
+        from .views.graph_views import GraphDataMixin
+
+        # pk format: "client:uuid" ou "mandat:uuid"
+        if ':' in str(pk):
+            entity_type, entity_pk = pk.split(':', 1)
+        else:
+            entity_type = request.query_params.get('type')
+            entity_pk = pk
+
+        mixin = GraphDataMixin()
+        graph_data = mixin.get_graph_data(center_type=entity_type, center_pk=entity_pk)
+        return Response(graph_data)
+
+    @action(detail=False, methods=["get"])
+    def stats(self, request):
+        """
+        GET /api/v1/core/graph/stats/
+        Retourne les statistiques du graphe par type d'entité.
+        """
+        from django.apps import apps
+        from .views.graph_views import GRAPH_CONFIG, get_list_url
+
+        stats = {}
+        for model_label, config in GRAPH_CONFIG['models'].items():
+            try:
+                app_label, model_name = model_label.split('.')
+                model = apps.get_model(app_label, model_name)
+                stats[model_label] = {
+                    'count': model.objects.count(),
+                    'color': config['color'],
+                    'label': model._meta.verbose_name_plural,
+                    'list_url': get_list_url(model),
+                }
+            except (LookupError, ValueError):
+                continue
+
+        return Response({'stats': stats})

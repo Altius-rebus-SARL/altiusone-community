@@ -203,4 +203,12 @@ urlpatterns = [
     # CHANGEMENT MOT DE PASSE OBLIGATOIRE
     # ============================================================================
     path("force-password-change/", views.ForcePasswordChangeView.as_view(), name="force-password-change"),
+    # ============================================================================
+    # GRAPHE RELATIONNEL
+    # ============================================================================
+    path("graph/", views.GraphView.as_view(), name="graph"),
+    path("graph/<str:type>/<uuid:pk>/", views.GraphView.as_view(), name="graph-centered"),
+    path("api/graph/", views.GraphAPIView.as_view(), name="graph-api"),
+    path("api/graph/<str:type>/<uuid:pk>/", views.GraphAPIView.as_view(), name="graph-api-centered"),
+    path("api/graph/stats/", views.GraphStatsAPIView.as_view(), name="graph-stats-api"),
 ]

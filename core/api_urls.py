@@ -1,4 +1,4 @@
-# apps/core/urls.py
+# apps/core/api_urls.py
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .viewset import (
@@ -11,6 +11,7 @@ from .viewset import (
     NotificationViewSet,
     TacheViewSet,
     CollaborateurFiduciaireViewSet,
+    GraphViewSet,
 )
 
 app_name = "core"
@@ -25,6 +26,7 @@ router.register(r"audit-logs", AuditLogViewSet, basename="auditlog")
 router.register(r"notifications", NotificationViewSet, basename="notification")
 router.register(r"taches", TacheViewSet, basename="tache")
 router.register(r"collaborateurs", CollaborateurFiduciaireViewSet, basename="collaborateur")
+router.register(r"graph", GraphViewSet, basename="graph")
 
 urlpatterns = [
     path("", include(router.urls)),
