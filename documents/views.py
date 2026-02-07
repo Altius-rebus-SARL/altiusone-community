@@ -83,7 +83,12 @@ class ChatView(LoginRequiredMixin, TemplateView):
 
 
 class DossierListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
-    """Liste des dossiers"""
+    """
+    Liste des dossiers avec navigation hiérarchique:
+    - Niveau 0: Clients (racine)
+    - Niveau 1: Mandats du client sélectionné
+    - Niveau 2+: Dossiers et sous-dossiers
+    """
 
     model = Dossier
     template_name = "documents/dossier_list.html"
@@ -92,49 +97,171 @@ class DossierListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     business_permission = 'documents.view_documents'
 
     def get_queryset(self):
-        queryset = Dossier.objects.select_related(
-            "parent", "client", "mandat", "proprietaire"
-        ).annotate(nb_documents=Count("documents"))
+        from core.models import Client
+
+        user = self.request.user
+        client_id = self.request.GET.get('client')
+        mandat_id = self.request.GET.get('mandat')
+        parent_id = self.request.GET.get('parent')
+
+        # Si on a un parent, on affiche les sous-dossiers
+        if parent_id:
+            queryset = Dossier.objects.filter(
+                parent_id=parent_id,
+                is_active=True
+            ).select_related("parent", "client", "mandat", "proprietaire")
+        # Si on a un mandat, on affiche les dossiers racines du mandat
+        elif mandat_id:
+            queryset = Dossier.objects.filter(
+                Q(mandat_id=mandat_id) | Q(mandat__isnull=True, client__mandats__id=mandat_id),
+                parent__isnull=True,
+                is_active=True
+            ).select_related("parent", "client", "mandat", "proprietaire").distinct()
+        # Si on a un client, on affiche les mandats (pas les dossiers)
+        elif client_id:
+            # Retourne un queryset vide - on affichera les mandats dans le contexte
+            queryset = Dossier.objects.none()
+        else:
+            # Niveau racine: on retourne un queryset vide, on affichera les clients
+            queryset = Dossier.objects.none()
+
+        # Annoter avec le nombre de documents
+        queryset = queryset.annotate(nb_documents=Count("documents"))
 
         # Filtrer selon le rôle
-        user = self.request.user
-        if not user.is_manager():
+        if not user.is_manager() and (mandat_id or parent_id):
             queryset = queryset.filter(
                 Q(mandat__responsable=user)
                 | Q(mandat__equipe=user)
                 | Q(proprietaire=user)
             ).distinct()
 
-        # Appliquer les filtres
-        if self.request.GET:
-            self.filterset = DossierFilter(self.request.GET, queryset=queryset)
-            if self.filterset.is_valid():
-                return self.filterset.qs.order_by("chemin_complet")
-
-        self.filterset = DossierFilter(queryset=queryset)
-        return queryset.order_by("chemin_complet")
+        self.filterset = None
+        return queryset.order_by("nom")
 
     def get_context_data(self, **kwargs):
+        from core.models import Client, Mandat
+
         context = super().get_context_data(**kwargs)
-        context["filter"] = self.filterset
+        user = self.request.user
 
-        full_queryset = self.get_queryset()
+        client_id = self.request.GET.get('client')
+        mandat_id = self.request.GET.get('mandat')
+        parent_id = self.request.GET.get('parent')
 
-        # Calculer les statistiques depuis les documents réels
-        dossier_ids = list(full_queryset.values_list('id', flat=True))
-        doc_stats = Document.objects.filter(
-            dossier_id__in=dossier_ids,
-            is_active=True
-        ).aggregate(
-            total_docs=Count('id'),
-            total_size=Sum('taille')
-        )
+        # Niveau de navigation actuel
+        context['nav_level'] = 'clients'  # Par défaut
+        context['current_client'] = None
+        context['current_mandat'] = None
+        context['current_parent'] = None
+        context['breadcrumb_items'] = []
+
+        # Construire le fil d'ariane et déterminer le niveau
+        if parent_id:
+            # On navigue dans les sous-dossiers
+            parent = Dossier.objects.select_related('client', 'mandat', 'parent').get(id=parent_id)
+            context['current_parent'] = parent
+            context['nav_level'] = 'subfolders'
+
+            # Construire l'arborescence complète
+            breadcrumb = []
+            current = parent
+            while current:
+                breadcrumb.insert(0, current)
+                current = current.parent
+            context['breadcrumb_items'] = breadcrumb
+
+            if parent.mandat:
+                context['current_mandat'] = parent.mandat
+                context['current_client'] = parent.mandat.client
+            elif parent.client:
+                context['current_client'] = parent.client
+
+        elif mandat_id:
+            # On affiche les dossiers d'un mandat
+            mandat = Mandat.objects.select_related('client').get(id=mandat_id)
+            context['current_mandat'] = mandat
+            context['current_client'] = mandat.client
+            context['nav_level'] = 'dossiers'
+
+        elif client_id:
+            # On affiche les mandats d'un client
+            client = Client.objects.get(id=client_id)
+            context['current_client'] = client
+            context['nav_level'] = 'mandats'
+
+            # Récupérer les mandats du client
+            mandats_qs = Mandat.objects.filter(
+                client_id=client_id,
+                is_active=True,
+                statut='ACTIF'
+            )
+            if not user.is_manager():
+                mandats_qs = mandats_qs.filter(
+                    Q(responsable=user) | Q(equipe=user)
+                ).distinct()
+
+            # Annoter avec le nombre de dossiers et documents
+            mandats_qs = mandats_qs.annotate(
+                nb_dossiers=Count('dossiers', distinct=True),
+                nb_documents=Count('documents', distinct=True)
+            )
+            context['mandats'] = mandats_qs.order_by('numero')
+
+        else:
+            # Niveau racine: afficher les clients
+            context['nav_level'] = 'clients'
+
+            # Récupérer les clients qui ont des dossiers
+            clients_qs = Client.objects.filter(
+                is_active=True
+            ).annotate(
+                nb_mandats=Count('mandats', filter=Q(mandats__is_active=True, mandats__statut='ACTIF'), distinct=True),
+                nb_dossiers=Count('dossiers', distinct=True),
+                nb_documents=Count('mandats__documents', distinct=True)
+            ).filter(
+                Q(nb_mandats__gt=0) | Q(nb_dossiers__gt=0)
+            )
+
+            if not user.is_manager():
+                # Filtrer les clients accessibles
+                accessible_mandats = Mandat.objects.filter(
+                    Q(responsable=user) | Q(equipe=user)
+                ).values_list('client_id', flat=True)
+                clients_qs = clients_qs.filter(id__in=accessible_mandats)
+
+            context['clients'] = clients_qs.order_by('raison_sociale')
+
+        # Statistiques globales
+        if user.is_manager():
+            total_dossiers = Dossier.objects.filter(is_active=True).count()
+            doc_stats = Document.objects.filter(is_active=True).aggregate(
+                total_docs=Count('id'),
+                total_size=Sum('taille')
+            )
+        else:
+            accessible_mandats = Mandat.objects.filter(
+                Q(responsable=user) | Q(equipe=user)
+            ).values_list('id', flat=True)
+            total_dossiers = Dossier.objects.filter(
+                Q(mandat_id__in=accessible_mandats) | Q(proprietaire=user),
+                is_active=True
+            ).distinct().count()
+            doc_stats = Document.objects.filter(
+                Q(mandat_id__in=accessible_mandats),
+                is_active=True
+            ).aggregate(
+                total_docs=Count('id'),
+                total_size=Sum('taille')
+            )
 
         context["stats"] = {
-            "total": full_queryset.count(),
+            "total": total_dossiers,
             "total_documents": doc_stats['total_docs'] or 0,
             "total_taille": doc_stats['total_size'] or 0,
         }
+
+        context["filter"] = self.filterset
 
         return context
 
