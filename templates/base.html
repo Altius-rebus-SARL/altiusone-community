@@ -218,6 +218,15 @@
           </div>
         </div>
 
+        <!-- Bouton Graphe Relationnel -->
+        <a
+          href="{% url 'core:graph' %}"
+          class="fab-btn fab-graph"
+          title="{% trans 'Graphe relationnel' %}"
+        >
+          <i class="ti ti-topology-star-3"></i>
+        </a>
+
         <!-- Bouton Assistant IA -->
         <div
           id="ai-chat-fab"
@@ -393,6 +402,26 @@
       }
 
       /* Bouton Assistant IA */
+      .fab-graph {
+        background: linear-gradient(
+          135deg,
+          #06b6d4 0%,
+          #0891b2 100%
+        );
+        color: white;
+        text-decoration: none;
+      }
+
+      .fab-graph:hover {
+        box-shadow: 0 6px 20px rgba(6, 182, 212, 0.5);
+        color: white;
+      }
+
+      .fab-graph i {
+        color: white;
+        font-size: 24px;
+      }
+
       .fab-chat {
         background: linear-gradient(
           135deg,
@@ -500,6 +529,10 @@
       }
 
       /* Dark mode */
+      .dark .fab-graph {
+        background: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%);
+      }
+
       .dark .fab-chat {
         background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
       }

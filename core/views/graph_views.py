@@ -256,7 +256,7 @@ class GraphDataMixin:
                 'count': queryset.count(),
                 'displayed': len(instances),
                 'color': config['color'],
-                'label': model._meta.verbose_name_plural,
+                'label': str(model._meta.verbose_name_plural),
                 'list_url': get_list_url(model),
             }
 
@@ -271,7 +271,7 @@ class GraphDataMixin:
                     'id': node_id,
                     'label': get_instance_label(instance, config['label_field']),
                     'type': model_label,
-                    'type_label': model._meta.verbose_name,
+                    'type_label': str(model._meta.verbose_name),
                     'color': config['color'],
                     'size': config['size'],
                     'icon': config['icon'],
@@ -369,7 +369,8 @@ class GraphDataMixin:
                                   'DecimalField', 'IntegerField', 'BooleanField', 'EmailField'):
                     value = getattr(instance, field.name, None)
                     if value is not None:
-                        data[field.verbose_name or field.name] = str(value)[:100]
+                        key = str(field.verbose_name) if field.verbose_name else field.name
+                        data[key] = str(value)[:100]
 
         return dict(list(data.items())[:8])  # Limite à 8 champs
 
@@ -418,7 +419,7 @@ class GraphStatsAPIView(LoginRequiredMixin, View):
                 stats[model_label] = {
                     'count': model.objects.count(),
                     'color': config['color'],
-                    'label': model._meta.verbose_name_plural,
+                    'label': str(model._meta.verbose_name_plural),
                     'list_url': get_list_url(model),
                 }
             except (LookupError, ValueError):
