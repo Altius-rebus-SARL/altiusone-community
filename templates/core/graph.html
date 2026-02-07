@@ -658,30 +658,84 @@ document.addEventListener('DOMContentLoaded', function() {
   let hiddenTypes = new Set();
   let hiddenRelations = new Set();
 
-  // Layout circulaire par type - groupes les nodes par type en cercles concentriques
-  function applyCircularLayout(graph) {
-    // Grouper les nodes par type
-    const nodesByType = {};
+  // Layout force-directed simple - place les nodes connectés proches
+  function applyForceLayout(graph) {
+    const nodes = [];
+    const nodeIndex = {};
+
+    // Collecter les nodes
     graph.forEachNode((node, attrs) => {
-      const type = attrs.nodeType || 'unknown';
-      if (!nodesByType[type]) nodesByType[type] = [];
-      nodesByType[type].push(node);
+      nodeIndex[node] = nodes.length;
+      nodes.push({
+        id: node,
+        x: attrs.x,
+        y: attrs.y,
+        size: attrs.size,
+        nodeType: attrs.nodeType,
+      });
     });
 
-    const types = Object.keys(nodesByType);
-    const centerX = 0, centerY = 0;
+    // Collecter les edges
+    const links = [];
+    graph.forEachEdge((edge, attrs, source, target) => {
+      links.push({ source: nodeIndex[source], target: nodeIndex[target] });
+    });
 
-    types.forEach((type, typeIndex) => {
-      const nodes = nodesByType[type];
-      const radius = 50 + typeIndex * 80; // Cercles concentriques
+    // Simulation force simple (100 itérations)
+    const iterations = 80;
+    const repulsion = 500;
+    const attraction = 0.02;
+    const damping = 0.9;
 
-      nodes.forEach((node, nodeIndex) => {
-        const angle = (2 * Math.PI * nodeIndex) / nodes.length;
-        // Ajouter un petit offset aléatoire pour éviter les superpositions
-        const jitter = (Math.random() - 0.5) * 20;
-        graph.setNodeAttribute(node, 'x', centerX + (radius + jitter) * Math.cos(angle));
-        graph.setNodeAttribute(node, 'y', centerY + (radius + jitter) * Math.sin(angle));
+    // Velocities
+    nodes.forEach(n => { n.vx = 0; n.vy = 0; });
+
+    for (let i = 0; i < iterations; i++) {
+      // Répulsion entre tous les nodes
+      for (let a = 0; a < nodes.length; a++) {
+        for (let b = a + 1; b < nodes.length; b++) {
+          const dx = nodes[b].x - nodes[a].x;
+          const dy = nodes[b].y - nodes[a].y;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          const force = repulsion / (dist * dist);
+          const fx = (dx / dist) * force;
+          const fy = (dy / dist) * force;
+          nodes[a].vx -= fx;
+          nodes[a].vy -= fy;
+          nodes[b].vx += fx;
+          nodes[b].vy += fy;
+        }
+      }
+
+      // Attraction pour les edges
+      links.forEach(link => {
+        const a = nodes[link.source];
+        const b = nodes[link.target];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const force = dist * attraction;
+        const fx = (dx / dist) * force;
+        const fy = (dy / dist) * force;
+        a.vx += fx;
+        a.vy += fy;
+        b.vx -= fx;
+        b.vy -= fy;
       });
+
+      // Appliquer les velocités avec damping
+      nodes.forEach(n => {
+        n.x += n.vx * damping;
+        n.y += n.vy * damping;
+        n.vx *= damping;
+        n.vy *= damping;
+      });
+    }
+
+    // Appliquer les positions au graphe
+    nodes.forEach(n => {
+      graph.setNodeAttribute(n.id, 'x', n.x);
+      graph.setNodeAttribute(n.id, 'y', n.y);
     });
   }
 
@@ -690,53 +744,65 @@ document.addEventListener('DOMContentLoaded', function() {
     // Créer le graphe Graphology
     graph = new graphology.Graph();
 
-    // Ajouter les nodes
+    // Ajouter les nodes avec les nouvelles propriétés
     graphData.nodes.forEach(node => {
       graph.addNode(node.id, {
         label: node.label,
-        x: Math.random() * 100,
-        y: Math.random() * 100,
-        size: node.size,
-        color: node.color,
-        nodeType: node.type,  // Renommé pour éviter conflit avec Sigma
-        typeLabel: node.type_label,
+        x: Math.random() * 200 - 100,
+        y: Math.random() * 200 - 100,
+        size: node.size || 15,
+        color: node.color || '#6B7280',
+        borderColor: node.borderColor || node.color,
+        nodeType: node.nodeType,
         url: node.url,
         pk: node.pk,
-        data: node.data,
         icon: node.icon,
       });
     });
 
-    // Ajouter les edges
+    // Ajouter les edges avec couleurs visibles
     graphData.edges.forEach(edge => {
       if (graph.hasNode(edge.source) && graph.hasNode(edge.target)) {
         try {
           graph.addEdge(edge.source, edge.target, {
-            size: edge.size || 1,
-            color: edge.color || '#ccc',
-            edgeType: edge.type,  // Renommé pour éviter conflit avec Sigma
+            size: edge.size || 2,
+            color: edge.color || '#64748B',
             label: edge.label,
           });
         } catch (e) {
-          // Edge déjà existant
+          // Edge déjà existant - ignorer
         }
       }
     });
 
-    // Layout circulaire par type (rapide et lisible)
-    applyCircularLayout(graph);
+    // Layout par clusters - place les nodes liés ensemble
+    applyForceLayout(graph);
 
-    // Créer le renderer Sigma
+    // Créer le renderer Sigma avec meilleure config
     renderer = new Sigma(graph, container, {
+      // Labels
       renderLabels: true,
-      labelFont: 'Inter, system-ui, sans-serif',
-      labelSize: 12,
-      labelWeight: '500',
-      labelColor: { color: '#374151' },
-      defaultNodeColor: '#9CA3AF',
-      defaultEdgeColor: '#E5E7EB',
-      minCameraRatio: 0.1,
-      maxCameraRatio: 10,
+      labelFont: 'Inter, -apple-system, sans-serif',
+      labelSize: 14,
+      labelWeight: '600',
+      labelColor: { color: '#1F2937' },
+      // Nodes
+      defaultNodeColor: '#6B7280',
+      nodeProgramClasses: {},
+      // Edges - TRÈS IMPORTANT pour visibilité
+      defaultEdgeColor: '#64748B',
+      defaultEdgeType: 'arrow',
+      renderEdgeLabels: false,
+      // Camera
+      minCameraRatio: 0.08,
+      maxCameraRatio: 3,
+      // Performance
+      hideEdgesOnMove: false,
+      hideLabelsOnMove: false,
+      // Réduire les nodes
+      labelRenderedSizeThreshold: 6,
+      // Z-index
+      zIndex: true,
     });
 
     // Cacher le loading
@@ -762,14 +828,12 @@ document.addEventListener('DOMContentLoaded', function() {
       item.className = 'legend-item';
       item.dataset.type = type;
       item.innerHTML = `
-        <span class="legend-color" style="background: ${stat.color};"></span>
-        <span class="legend-label">${stat.label}</span>
-        <span class="legend-count">${stat.displayed}</span>
-        ${stat.list_url ? `<a href="${stat.list_url}" class="legend-link" title="Voir la liste"><i class="bi bi-box-arrow-up-right"></i></a>` : ''}
+        <span class="legend-color" style="background: ${stat.color}; border: 2px solid ${stat.color}; box-shadow: 0 0 0 2px white, 0 0 0 4px ${stat.color}40;"></span>
+        <span class="legend-label">${type}</span>
+        <span class="legend-count">${stat.displayed || stat.count}</span>
       `;
 
       item.addEventListener('click', (e) => {
-        if (e.target.closest('.legend-link')) return;
         toggleType(type, item);
       });
 
@@ -895,7 +959,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Header
     document.getElementById('detailsIcon').style.background = attrs.color;
     document.getElementById('detailsTitle').textContent = attrs.label;
-    document.getElementById('detailsType').textContent = attrs.typeLabel;
+    document.getElementById('detailsType').textContent = attrs.nodeType;
 
     // Champs
     const fieldsContainer = document.getElementById('detailsFields');
@@ -923,7 +987,7 @@ document.addEventListener('DOMContentLoaded', function() {
       item.innerHTML = `
         <span class="connection-dot" style="background: ${neighborAttrs.color};"></span>
         <span class="connection-label">${neighborAttrs.label}</span>
-        <span class="connection-type">${neighborAttrs.type_label}</span>
+        <span class="connection-type">${neighborAttrs.nodeType}</span>
       `;
       item.addEventListener('click', () => {
         focusNode(neighborId);
@@ -1011,7 +1075,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const containerRect = container.getBoundingClientRect();
 
     tooltip.querySelector('.tooltip-title').textContent = attrs.label;
-    tooltip.querySelector('.tooltip-type').textContent = attrs.typeLabel;
+    tooltip.querySelector('.tooltip-type').textContent = attrs.nodeType;
 
     tooltip.style.left = (nodePosition.x + 20) + 'px';
     tooltip.style.top = (nodePosition.y - 10) + 'px';
@@ -1042,7 +1106,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <div class="search-result-item" data-id="${node.id}">
           <span class="search-result-dot" style="background: ${node.color};"></span>
           <span class="search-result-label">${node.label}</span>
-          <span class="search-result-type">${node.type_label}</span>
+          <span class="search-result-type">${node.nodeType}</span>
         </div>
       `).join('');
 
