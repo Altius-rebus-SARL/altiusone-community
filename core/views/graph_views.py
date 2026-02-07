@@ -144,9 +144,10 @@ GRAPH_CONFIG = {
         'OneToOneField': {'color': '#3B82F6', 'width': 2, 'style': 'solid'},
         'ManyToManyField': {'color': '#10B981', 'width': 1, 'style': 'dashed'},
     },
-    # Limites
-    'max_nodes': 500,
-    'max_edges': 2000,
+    # Limites - réduites pour performance
+    'max_nodes': 100,
+    'max_edges': 300,
+    'nodes_per_type': 15,  # Max nodes par type de modèle
 }
 
 
@@ -248,8 +249,8 @@ class GraphDataMixin:
                 # TODO: Filtrer par proximité au centre
                 pass
 
-            # Appliquer la limite
-            instances = queryset[:GRAPH_CONFIG['max_nodes'] // len(GRAPH_CONFIG['models'])]
+            # Appliquer la limite par type
+            instances = list(queryset[:GRAPH_CONFIG['nodes_per_type']])
 
             # Stats
             stats[model_label] = {
