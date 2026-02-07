@@ -176,7 +176,7 @@ class GraphDataMixin:
                     add_edge(mandat_id, dossier_id, 'dossier', 'works_on')
 
         # 7. DOCUMENTS
-        documents = Document.objects.select_related('dossier', 'mandat', 'uploaded_by')
+        documents = Document.objects.select_related('dossier', 'mandat', 'created_by')
         for doc in documents:
             doc_id = add_node('Document', doc, doc.nom_fichier[:25] if doc.nom_fichier else f"Doc {doc.pk}")
 
