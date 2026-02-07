@@ -89,8 +89,10 @@ class DossierViewSet(viewsets.ModelViewSet):
                 'nom': dossier.nom,
                 'type_dossier': dossier.type_dossier,
                 'chemin_complet': dossier.chemin_complet,
-                'nombre_documents': dossier.nombre_documents,
-                'enfants': [build_tree(enfant) for enfant in dossier.sous_dossiers.all()]
+                'nombre_documents': dossier.get_total_documents_recursive(),
+                'nombre_sous_dossiers': dossier.sous_dossiers.filter(is_active=True).count(),
+                'taille_totale': dossier.get_total_size_recursive(),
+                'enfants': [build_tree(enfant) for enfant in dossier.sous_dossiers.filter(is_active=True)]
             }
 
         tree = [build_tree(d) for d in racines]
