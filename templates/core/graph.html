@@ -728,10 +728,12 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     }
 
-    // Apply final positions
+    // Apply final positions (ensure valid numbers)
     nodes.forEach(n => {
-      graph.setNodeAttribute(n.id, 'x', n.x);
-      graph.setNodeAttribute(n.id, 'y', n.y);
+      const x = isFinite(n.x) ? n.x : 0;
+      const y = isFinite(n.y) ? n.y : 0;
+      graph.setNodeAttribute(n.id, 'x', x);
+      graph.setNodeAttribute(n.id, 'y', y);
     });
   }
 
@@ -741,18 +743,21 @@ document.addEventListener('DOMContentLoaded', function() {
   function initGraph() {
     graph = new graphology.Graph();
 
-    // Add nodes
-    graphData.nodes.forEach(node => {
+    // Add nodes with valid coordinates
+    graphData.nodes.forEach((node, index) => {
+      // Ensure valid numeric coordinates
+      const angle = (2 * Math.PI * index) / graphData.nodes.length;
+      const radius = 200 + Math.random() * 300;
       graph.addNode(node.id, {
-        label: node.label,
-        x: (Math.random() - 0.5) * 1000,
-        y: (Math.random() - 0.5) * 1000,
-        size: node.size,
-        color: node.color,
-        nodeType: node.nodeType,
-        connections: node.connections,
-        url: node.url,
-        pk: node.pk,
+        label: node.label || 'Sans nom',
+        x: Math.cos(angle) * radius,
+        y: Math.sin(angle) * radius,
+        size: node.size || 10,
+        color: node.color || '#6b7280',
+        nodeType: node.nodeType || 'unknown',
+        connections: node.connections || 0,
+        url: node.url || null,
+        pk: node.pk || '',
       });
     });
 
