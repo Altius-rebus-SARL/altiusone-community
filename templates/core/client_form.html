@@ -338,27 +338,26 @@ document.addEventListener('DOMContentLoaded', function() {
             ideInput.value = company.ide_number;
         }
 
-        // Try to match legal form
-        if (formeJuridiqueSelect && company.legal_form) {
-            const legalFormMap = {
-                'Société anonyme': 'SA',
-                'Aktiengesellschaft': 'SA',
-                'Société à responsabilité limitée': 'SARL',
-                'Gesellschaft mit beschränkter Haftung': 'SARL',
-                'Société en nom collectif': 'SNC',
-                'Kollektivgesellschaft': 'SNC',
-                'Entreprise individuelle': 'EI',
-                'Einzelunternehmen': 'EI',
-                'Société coopérative': 'COOP',
-                'Genossenschaft': 'COOP',
-                'Association': 'ASSOC',
-                'Verein': 'ASSOC',
-                'Fondation': 'FOND',
-                'Stiftung': 'FOND',
-            };
+        // Extract legal form from company name (SA, SARL, SNC, AG, GmbH, etc.)
+        if (formeJuridiqueSelect) {
+            const name = company.name.toUpperCase();
+            const legalFormPatterns = [
+                { pattern: /\bSA\b/, value: 'SA' },
+                { pattern: /\bAG\b/, value: 'SA' },
+                { pattern: /\bSARL\b/, value: 'SARL' },
+                { pattern: /\bGMBH\b/, value: 'SARL' },
+                { pattern: /\bSNC\b/, value: 'SNC' },
+                { pattern: /\bSC\b/, value: 'SC' },
+                { pattern: /\bCOOP\b/, value: 'COOP' },
+                { pattern: /\bGENOSSENSCHAFT\b/, value: 'COOP' },
+                { pattern: /\bASSOCIATION\b/, value: 'ASSOC' },
+                { pattern: /\bVEREIN\b/, value: 'ASSOC' },
+                { pattern: /\bFONDATION\b/, value: 'FOND' },
+                { pattern: /\bSTIFTUNG\b/, value: 'FOND' },
+            ];
 
-            for (const [key, value] of Object.entries(legalFormMap)) {
-                if (company.legal_form.includes(key) || company.name.includes(value)) {
+            for (const { pattern, value } of legalFormPatterns) {
+                if (pattern.test(name)) {
                     const option = formeJuridiqueSelect.querySelector(`option[value="${value}"]`);
                     if (option) {
                         formeJuridiqueSelect.value = value;
