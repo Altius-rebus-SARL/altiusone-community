@@ -813,133 +813,17 @@ document.addEventListener('DOMContentLoaded', function() {
   let totalNodesByType = {};
 
   // ============================================
-  // FORCE-DIRECTED LAYOUT (Barnes-Hut optimized)
-  // ============================================
-  function forceDirectedLayout(graph, iterations = 300) {
-    const nodes = [];
-    const nodeIndex = {};
-    const links = [];
-
-    // Build node array
-    graph.forEachNode((id, attrs) => {
-      nodeIndex[id] = nodes.length;
-      nodes.push({
-        id,
-        x: attrs.x || (Math.random() - 0.5) * 1000,
-        y: attrs.y || (Math.random() - 0.5) * 1000,
-        vx: 0,
-        vy: 0,
-        size: attrs.size || 10,
-      });
-    });
-
-    // Build link array
-    graph.forEachEdge((edge, attrs, source, target) => {
-      links.push({
-        source: nodeIndex[source],
-        target: nodeIndex[target],
-      });
-    });
-
-    // Simulation parameters - MUCH stronger repulsion
-    const width = 5000;
-    const height = 5000;
-    const centerX = width / 2;
-    const centerY = height / 2;
-
-    // Forces - très forte répulsion pour bien espacer
-    const repulsionStrength = 50000;
-    const attractionStrength = 0.0001;
-    const centeringStrength = 0.005;
-    const damping = 0.9;
-    const minDistance = 100;
-
-    // Run simulation
-    for (let iter = 0; iter < iterations; iter++) {
-      const alpha = 1 - iter / iterations; // Cooling
-
-      // Reset forces
-      nodes.forEach(n => { n.fx = 0; n.fy = 0; });
-
-      // Repulsion (all pairs - simplified)
-      for (let i = 0; i < nodes.length; i++) {
-        for (let j = i + 1; j < nodes.length; j++) {
-          const a = nodes[i];
-          const b = nodes[j];
-          let dx = b.x - a.x;
-          let dy = b.y - a.y;
-          let dist = Math.sqrt(dx * dx + dy * dy) || 1;
-
-          if (dist < minDistance) dist = minDistance;
-
-          const force = (repulsionStrength * alpha) / (dist * dist);
-          const fx = (dx / dist) * force;
-          const fy = (dy / dist) * force;
-
-          a.fx -= fx;
-          a.fy -= fy;
-          b.fx += fx;
-          b.fy += fy;
-        }
-      }
-
-      // Attraction (links)
-      links.forEach(link => {
-        const a = nodes[link.source];
-        const b = nodes[link.target];
-        const dx = b.x - a.x;
-        const dy = b.y - a.y;
-        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-
-        const force = dist * attractionStrength * alpha;
-        const fx = dx * force;
-        const fy = dy * force;
-
-        a.fx += fx;
-        a.fy += fy;
-        b.fx -= fx;
-        b.fy -= fy;
-      });
-
-      // Centering
-      nodes.forEach(n => {
-        n.fx += (centerX - n.x) * centeringStrength * alpha;
-        n.fy += (centerY - n.y) * centeringStrength * alpha;
-      });
-
-      // Apply forces
-      nodes.forEach(n => {
-        n.vx = (n.vx + n.fx) * damping;
-        n.vy = (n.vy + n.fy) * damping;
-        n.x += n.vx;
-        n.y += n.vy;
-      });
-    }
-
-    // Apply final positions (ensure valid numbers)
-    nodes.forEach(n => {
-      const x = isFinite(n.x) ? n.x : 0;
-      const y = isFinite(n.y) ? n.y : 0;
-      graph.setNodeAttribute(n.id, 'x', x);
-      graph.setNodeAttribute(n.id, 'y', y);
-    });
-  }
-
-  // ============================================
   // INITIALIZE GRAPH
   // ============================================
   function initGraph() {
     graph = new graphology.Graph();
 
-    // Add nodes with valid coordinates - spread out initially
-    graphData.nodes.forEach((node, index) => {
-      // Start with wide spread to help force layout
-      const angle = (2 * Math.PI * index) / graphData.nodes.length;
-      const radius = 500 + Math.random() * 1000;
+    // Add nodes - use positions from backend (circular layout)
+    graphData.nodes.forEach((node) => {
       graph.addNode(node.id, {
         label: node.label || 'Sans nom',
-        x: Math.cos(angle) * radius,
-        y: Math.sin(angle) * radius,
+        x: node.x || 0,
+        y: node.y || 0,
         size: node.size || 10,
         color: node.color || '#6b7280',
         nodeType: node.nodeType || 'unknown',
@@ -962,10 +846,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
 
-    // Apply force-directed layout with more iterations
-    console.log('Applying force layout to', graph.order, 'nodes...');
-    forceDirectedLayout(graph, 500);
-    console.log('Layout complete');
+    console.log('Graph loaded with', graph.order, 'nodes using circular layout from backend');
 
     // Create Sigma renderer avec paramètres avancés
     renderer = new Sigma(graph, container, {
