@@ -138,6 +138,39 @@
   .search-result-type {
     font-size: 11px;
     color: #64748b;
+    background: #0f172a;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  .search-count {
+    padding: 8px 12px;
+    font-size: 11px;
+    color: #64748b;
+    border-bottom: 1px solid #334155;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .search-box .clear-search {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #64748b;
+    cursor: pointer;
+    padding: 4px;
+    display: none;
+  }
+
+  .search-box .clear-search.show {
+    display: block;
+  }
+
+  .search-box .clear-search:hover {
+    color: #f1f5f9;
   }
 
   /* Stats */
@@ -170,7 +203,7 @@
   .legend-list {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 6px;
     max-height: 300px;
     overflow-y: auto;
   }
@@ -179,41 +212,114 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 8px 10px;
-    border-radius: 6px;
+    padding: 10px 12px;
+    border-radius: 8px;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: all 0.2s;
+    background: #0f172a;
   }
 
   .legend-item:hover {
     background: #334155;
+    transform: translateX(4px);
   }
 
   .legend-item.disabled {
-    opacity: 0.4;
+    opacity: 0.35;
+  }
+
+  .legend-item.disabled .legend-dot {
+    background: #475569 !important;
+  }
+
+  .legend-checkbox {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #475569;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+
+  .legend-item:not(.disabled) .legend-checkbox {
+    background: #3b82f6;
+    border-color: #3b82f6;
+  }
+
+  .legend-checkbox i {
+    font-size: 10px;
+    color: white;
   }
 
   .legend-dot {
-    width: 14px;
-    height: 14px;
+    width: 12px;
+    height: 12px;
     border-radius: 50%;
     flex-shrink: 0;
-    border: 2px solid rgba(255,255,255,0.3);
+    box-shadow: 0 0 8px currentColor;
+  }
+
+  .legend-info {
+    flex: 1;
+    min-width: 0;
   }
 
   .legend-label {
-    flex: 1;
     font-size: 13px;
     color: #e2e8f0;
+    font-weight: 500;
+  }
+
+  .legend-bar {
+    height: 4px;
+    background: #334155;
+    border-radius: 2px;
+    margin-top: 4px;
+    overflow: hidden;
+  }
+
+  .legend-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.3s ease;
   }
 
   .legend-count {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
     color: #94a3b8;
-    background: #0f172a;
+    background: #1e293b;
     padding: 2px 8px;
     border-radius: 10px;
+    min-width: 32px;
+    text-align: center;
+  }
+
+  /* Buttons row in legend */
+  .legend-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .legend-btn {
+    flex: 1;
+    padding: 6px 10px;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    color: #94a3b8;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .legend-btn:hover {
+    background: #334155;
+    color: #f1f5f9;
   }
 
   /* ============================================
@@ -228,7 +334,48 @@
   #sigma-container {
     width: 100%;
     height: 100%;
-    background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+    background: radial-gradient(ellipse at center, #1a2744 0%, #0c1222 70%, #060a10 100%);
+  }
+
+  /* Info banner */
+  .graph-info-banner {
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(30, 41, 59, 0.95);
+    backdrop-filter: blur(8px);
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    z-index: 10;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
+
+  .banner-stat {
+    text-align: center;
+  }
+
+  .banner-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: #f1f5f9;
+  }
+
+  .banner-label {
+    font-size: 10px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .banner-divider {
+    width: 1px;
+    height: 30px;
+    background: #334155;
   }
 
   /* Loading */
@@ -287,15 +434,22 @@
   /* Tooltip */
   .graph-tooltip {
     position: absolute;
-    background: #1e293b;
-    border: 1px solid #334155;
-    border-radius: 8px;
-    padding: 12px 16px;
+    background: rgba(30, 41, 59, 0.98);
+    backdrop-filter: blur(10px);
+    border: 1px solid #475569;
+    border-radius: 10px;
+    padding: 14px 18px;
     pointer-events: none;
     z-index: 1000;
     display: none;
-    max-width: 250px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+    max-width: 280px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    animation: tooltipFadeIn 0.15s ease;
+  }
+
+  @keyframes tooltipFadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 
   .graph-tooltip.show { display: block; }
@@ -303,30 +457,41 @@
   .tooltip-header {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     margin-bottom: 8px;
   }
 
   .tooltip-dot {
-    width: 12px;
-    height: 12px;
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
+    box-shadow: 0 0 10px currentColor;
   }
 
   .tooltip-label {
     font-weight: 600;
     color: #f1f5f9;
-    font-size: 14px;
+    font-size: 15px;
   }
 
   .tooltip-type {
     font-size: 12px;
-    color: #64748b;
+    color: #94a3b8;
+    background: #0f172a;
+    padding: 3px 8px;
+    border-radius: 4px;
+    display: inline-block;
+    margin-bottom: 6px;
   }
 
   .tooltip-connections {
     font-size: 12px;
-    color: #94a3b8;
+    color: #64748b;
+  }
+
+  .tooltip-connections strong {
+    color: #3b82f6;
+    font-weight: 600;
   }
 
   /* ============================================
@@ -508,9 +673,11 @@
 
     <!-- Recherche -->
     <div class="sidebar-section">
+      <div class="sidebar-section-title">{% trans "Recherche" %}</div>
       <div class="search-box">
         <i class="ti ti-search"></i>
-        <input type="text" id="graphSearch" placeholder="{% trans 'Rechercher...' %}">
+        <input type="text" id="graphSearch" placeholder="{% trans 'Rechercher une entité...' %}">
+        <button class="clear-search" id="clearSearch"><i class="ti ti-x"></i></button>
         <div class="search-results" id="searchResults"></div>
       </div>
     </div>
@@ -540,6 +707,24 @@
   <!-- Zone graphe -->
   <main class="graph-main">
     <div id="sigma-container"></div>
+
+    <!-- Info Banner -->
+    <div class="graph-info-banner" id="graphBanner" style="display: none;">
+      <div class="banner-stat">
+        <div class="banner-value" id="bannerNodes">0</div>
+        <div class="banner-label">{% trans "Entités" %}</div>
+      </div>
+      <div class="banner-divider"></div>
+      <div class="banner-stat">
+        <div class="banner-value" id="bannerEdges">0</div>
+        <div class="banner-label">{% trans "Relations" %}</div>
+      </div>
+      <div class="banner-divider"></div>
+      <div class="banner-stat">
+        <div class="banner-value" id="bannerTypes">0</div>
+        <div class="banner-label">{% trans "Types" %}</div>
+      </div>
+    </div>
 
     <!-- Loading -->
     <div class="graph-loading" id="graphLoading">
@@ -622,7 +807,10 @@ document.addEventListener('DOMContentLoaded', function() {
   let renderer = null;
   let graph = null;
   let selectedNode = null;
+  let hoveredNode = null;
+  let hoveredNeighbors = new Set();
   let hiddenTypes = new Set();
+  let totalNodesByType = {};
 
   // ============================================
   // FORCE-DIRECTED LAYOUT (Barnes-Hut optimized)
@@ -779,50 +967,112 @@ document.addEventListener('DOMContentLoaded', function() {
     forceDirectedLayout(graph, 500);
     console.log('Layout complete');
 
-    // Create Sigma renderer
+    // Create Sigma renderer avec paramètres avancés
     renderer = new Sigma(graph, container, {
+      // Labels
       renderLabels: true,
       labelFont: 'Inter, system-ui, sans-serif',
       labelSize: 14,
-      labelWeight: '500',
-      labelColor: { color: '#e2e8f0' },
-      labelDensity: 0.5,
-      labelGridCellSize: 100,
-      labelRenderedSizeThreshold: 8,
+      labelWeight: '600',
+      labelColor: { color: '#f1f5f9' },
+      labelDensity: 0.4,
+      labelGridCellSize: 120,
+      labelRenderedSizeThreshold: 6,
 
+      // Couleurs par défaut
       defaultNodeColor: '#6b7280',
-      defaultEdgeColor: '#475569',
+      defaultEdgeColor: '#334155',
 
-      minCameraRatio: 0.02,
-      maxCameraRatio: 5,
+      // Zoom
+      minCameraRatio: 0.01,
+      maxCameraRatio: 10,
+
+      // Effets visuels
+      stagePadding: 50,
+      allowInvalidContainer: true,
+      zIndex: true,
 
       nodeReducer: (node, data) => {
         const hidden = hiddenTypes.has(data.nodeType);
-        return {
-          ...data,
-          hidden,
-          highlighted: node === selectedNode,
-          color: node === selectedNode ? '#ffffff' : data.color,
-        };
+        const res = { ...data, hidden };
+
+        // Si un nœud est sélectionné
+        if (selectedNode) {
+          if (node === selectedNode) {
+            res.highlighted = true;
+            res.color = '#ffffff';
+            res.zIndex = 2;
+          } else if (hoveredNeighbors.has(node)) {
+            res.zIndex = 1;
+          } else {
+            res.color = '#3a4255';
+            res.label = '';
+            res.zIndex = 0;
+          }
+        }
+        // Si un nœud est survolé (et pas sélectionné)
+        else if (hoveredNode) {
+          if (node === hoveredNode) {
+            res.highlighted = true;
+            res.zIndex = 2;
+          } else if (hoveredNeighbors.has(node)) {
+            res.zIndex = 1;
+          } else {
+            res.color = '#3a4255';
+            res.label = '';
+            res.zIndex = 0;
+          }
+        }
+
+        return res;
       },
 
       edgeReducer: (edge, data) => {
         const [source, target] = graph.extremities(edge);
         const sourceHidden = hiddenTypes.has(graph.getNodeAttribute(source, 'nodeType'));
         const targetHidden = hiddenTypes.has(graph.getNodeAttribute(target, 'nodeType'));
-        return {
-          ...data,
-          hidden: sourceHidden || targetHidden,
-        };
+
+        if (sourceHidden || targetHidden) {
+          return { ...data, hidden: true };
+        }
+
+        // Effet hover/selection sur les arêtes
+        const activeNode = selectedNode || hoveredNode;
+        if (activeNode) {
+          if (source === activeNode || target === activeNode) {
+            // Arête connectée au nœud actif
+            const nodeColor = graph.getNodeAttribute(activeNode, 'color');
+            return {
+              ...data,
+              color: nodeColor,
+              size: 3,
+              zIndex: 1,
+            };
+          } else {
+            // Arête non connectée
+            return {
+              ...data,
+              color: '#1e293b',
+              size: 0.5,
+              zIndex: 0,
+            };
+          }
+        }
+
+        return data;
       },
     });
 
-    // Hide loading
+    // Hide loading, show banner
     loading.style.display = 'none';
+    document.getElementById('graphBanner').style.display = 'flex';
 
     // Update stats
     document.getElementById('nodeCount').textContent = graph.order;
     document.getElementById('edgeCount').textContent = graph.size;
+    document.getElementById('bannerNodes').textContent = graph.order;
+    document.getElementById('bannerEdges').textContent = graph.size;
+    document.getElementById('bannerTypes').textContent = Object.keys(graphData.stats).length;
 
     // Generate legend
     generateLegend();
@@ -837,29 +1087,110 @@ document.addEventListener('DOMContentLoaded', function() {
   function generateLegend() {
     legendList.innerHTML = '';
 
+    // Calculer le total et les stats par type
+    let maxCount = 0;
     Object.entries(graphData.stats).forEach(([type, stat]) => {
+      totalNodesByType[type] = stat.count;
+      if (stat.count > maxCount) maxCount = stat.count;
+    });
+
+    // Boutons Tous / Aucun
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'legend-actions';
+    actionsDiv.innerHTML = `
+      <button class="legend-btn" id="showAllTypes">
+        <i class="ti ti-eye"></i> Tous
+      </button>
+      <button class="legend-btn" id="hideAllTypes">
+        <i class="ti ti-eye-off"></i> Aucun
+      </button>
+    `;
+    legendList.appendChild(actionsDiv);
+
+    // Trier par nombre décroissant
+    const sortedTypes = Object.entries(graphData.stats)
+      .sort((a, b) => b[1].count - a[1].count);
+
+    sortedTypes.forEach(([type, stat]) => {
+      const percentage = maxCount > 0 ? (stat.count / maxCount) * 100 : 0;
       const item = document.createElement('div');
       item.className = 'legend-item';
       item.dataset.type = type;
       item.innerHTML = `
-        <span class="legend-dot" style="background: ${stat.color};"></span>
-        <span class="legend-label">${type}</span>
+        <span class="legend-checkbox">
+          <i class="ti ti-check"></i>
+        </span>
+        <span class="legend-dot" style="background: ${stat.color}; color: ${stat.color};"></span>
+        <span class="legend-info">
+          <span class="legend-label">${type}</span>
+          <div class="legend-bar">
+            <div class="legend-bar-fill" style="width: ${percentage}%; background: ${stat.color};"></div>
+          </div>
+        </span>
         <span class="legend-count">${stat.count}</span>
       `;
 
       item.addEventListener('click', () => {
-        if (hiddenTypes.has(type)) {
-          hiddenTypes.delete(type);
-          item.classList.remove('disabled');
-        } else {
-          hiddenTypes.add(type);
-          item.classList.add('disabled');
-        }
-        renderer.refresh();
+        toggleType(type, item);
       });
 
       legendList.appendChild(item);
     });
+
+    // Event listeners pour les boutons
+    document.getElementById('showAllTypes').addEventListener('click', (e) => {
+      e.stopPropagation();
+      hiddenTypes.clear();
+      legendList.querySelectorAll('.legend-item').forEach(item => {
+        item.classList.remove('disabled');
+      });
+      renderer.refresh();
+      updateVisibleCount();
+    });
+
+    document.getElementById('hideAllTypes').addEventListener('click', (e) => {
+      e.stopPropagation();
+      Object.keys(graphData.stats).forEach(type => hiddenTypes.add(type));
+      legendList.querySelectorAll('.legend-item').forEach(item => {
+        item.classList.add('disabled');
+      });
+      renderer.refresh();
+      updateVisibleCount();
+    });
+  }
+
+  function toggleType(type, item) {
+    if (hiddenTypes.has(type)) {
+      hiddenTypes.delete(type);
+      item.classList.remove('disabled');
+    } else {
+      hiddenTypes.add(type);
+      item.classList.add('disabled');
+    }
+    renderer.refresh();
+    updateVisibleCount();
+  }
+
+  function updateVisibleCount() {
+    let visibleNodes = 0;
+    let visibleEdges = 0;
+
+    graph.forEachNode((node, attrs) => {
+      if (!hiddenTypes.has(attrs.nodeType)) {
+        visibleNodes++;
+      }
+    });
+
+    graph.forEachEdge((edge, attrs, source, target) => {
+      const sourceType = graph.getNodeAttribute(source, 'nodeType');
+      const targetType = graph.getNodeAttribute(target, 'nodeType');
+      if (!hiddenTypes.has(sourceType) && !hiddenTypes.has(targetType)) {
+        visibleEdges++;
+      }
+    });
+
+    document.getElementById('nodeCount').textContent = visibleNodes;
+    document.getElementById('edgeCount').textContent = visibleEdges;
   }
 
   // ============================================
@@ -871,13 +1202,24 @@ document.addEventListener('DOMContentLoaded', function() {
       selectNode(node);
     });
 
-    // Hover node
+    // Hover node - avec mise en évidence des connexions
     renderer.on('enterNode', ({ node }) => {
+      // Ne pas changer le hover si on a une sélection active
+      if (!selectedNode) {
+        hoveredNode = node;
+        hoveredNeighbors = new Set(graph.neighbors(node));
+        renderer.refresh();
+      }
       showTooltip(node);
       container.style.cursor = 'pointer';
     });
 
     renderer.on('leaveNode', () => {
+      if (!selectedNode) {
+        hoveredNode = null;
+        hoveredNeighbors.clear();
+        renderer.refresh();
+      }
       hideTooltip();
       container.style.cursor = 'default';
     });
@@ -912,27 +1254,39 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Search
+    const clearSearchBtn = document.getElementById('clearSearch');
+
     searchInput.addEventListener('input', () => {
       const query = searchInput.value.toLowerCase().trim();
+
+      // Afficher/cacher le bouton clear
+      clearSearchBtn.classList.toggle('show', query.length > 0);
+
       if (query.length < 2) {
         searchResults.classList.remove('show');
         return;
       }
 
-      const results = graphData.nodes
-        .filter(n => n.label.toLowerCase().includes(query))
-        .slice(0, 10);
+      const allResults = graphData.nodes.filter(n =>
+        n.label.toLowerCase().includes(query) ||
+        n.nodeType.toLowerCase().includes(query)
+      );
+      const results = allResults.slice(0, 10);
+      const totalCount = allResults.length;
 
-      if (results.length === 0) {
-        searchResults.innerHTML = '<div style="padding: 12px; color: #64748b; text-align: center;">Aucun résultat</div>';
+      if (totalCount === 0) {
+        searchResults.innerHTML = '<div style="padding: 12px; color: #64748b; text-align: center;">{% trans "Aucun résultat" %}</div>';
       } else {
-        searchResults.innerHTML = results.map(node => `
+        const countHtml = `<div class="search-count">${totalCount} résultat${totalCount > 1 ? 's' : ''}</div>`;
+        const resultsHtml = results.map(node => `
           <div class="search-result-item" data-id="${node.id}">
             <span class="search-result-dot" style="background: ${node.color};"></span>
-            <span class="search-result-label">${node.label}</span>
+            <span class="search-result-label">${highlightMatch(node.label, query)}</span>
             <span class="search-result-type">${node.nodeType}</span>
           </div>
         `).join('');
+
+        searchResults.innerHTML = countHtml + resultsHtml;
 
         searchResults.querySelectorAll('.search-result-item').forEach(item => {
           item.addEventListener('click', () => {
@@ -941,6 +1295,7 @@ document.addEventListener('DOMContentLoaded', function() {
             selectNode(nodeId);
             searchResults.classList.remove('show');
             searchInput.value = '';
+            clearSearchBtn.classList.remove('show');
           });
         });
       }
@@ -948,8 +1303,25 @@ document.addEventListener('DOMContentLoaded', function() {
       searchResults.classList.add('show');
     });
 
+    clearSearchBtn.addEventListener('click', () => {
+      searchInput.value = '';
+      searchResults.classList.remove('show');
+      clearSearchBtn.classList.remove('show');
+      searchInput.focus();
+    });
+
     searchInput.addEventListener('blur', () => {
       setTimeout(() => searchResults.classList.remove('show'), 200);
+    });
+
+    // Keyboard navigation
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        searchInput.value = '';
+        searchResults.classList.remove('show');
+        clearSearchBtn.classList.remove('show');
+        searchInput.blur();
+      }
     });
 
     // Close details
@@ -961,6 +1333,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // ============================================
   function selectNode(nodeId) {
     selectedNode = nodeId;
+    hoveredNeighbors = new Set(graph.neighbors(nodeId));
     renderer.refresh();
     showDetails(nodeId);
     focusNode(nodeId);
@@ -968,6 +1341,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function deselectNode() {
     selectedNode = null;
+    hoveredNode = null;
+    hoveredNeighbors.clear();
     renderer.refresh();
     details.classList.remove('show');
   }
@@ -1023,15 +1398,33 @@ document.addEventListener('DOMContentLoaded', function() {
   function showTooltip(nodeId) {
     const attrs = graph.getNodeAttributes(nodeId);
 
-    tooltip.querySelector('.tooltip-dot').style.background = attrs.color;
+    const dotEl = tooltip.querySelector('.tooltip-dot');
+    dotEl.style.background = attrs.color;
+    dotEl.style.color = attrs.color;
+
     tooltip.querySelector('.tooltip-label').textContent = attrs.label;
     tooltip.querySelector('.tooltip-type').textContent = attrs.nodeType;
-    tooltip.querySelector('.tooltip-connections').textContent = `${attrs.connections} connexions`;
+    tooltip.querySelector('.tooltip-connections').innerHTML =
+      `<strong>${attrs.connections}</strong> connexion${attrs.connections > 1 ? 's' : ''}`;
 
-    // Position tooltip near cursor
+    // Position tooltip near cursor with boundary detection
     const moveHandler = (e) => {
-      tooltip.style.left = (e.clientX + 15) + 'px';
-      tooltip.style.top = (e.clientY + 15) + 'px';
+      const tooltipWidth = 280;
+      const tooltipHeight = 120;
+      let x = e.clientX + 15;
+      let y = e.clientY + 15;
+
+      // Prevent overflow on right
+      if (x + tooltipWidth > window.innerWidth) {
+        x = e.clientX - tooltipWidth - 15;
+      }
+      // Prevent overflow on bottom
+      if (y + tooltipHeight > window.innerHeight) {
+        y = e.clientY - tooltipHeight - 15;
+      }
+
+      tooltip.style.left = x + 'px';
+      tooltip.style.top = y + 'px';
     };
     container.addEventListener('mousemove', moveHandler);
     container._tooltipMoveHandler = moveHandler;
@@ -1044,6 +1437,18 @@ document.addEventListener('DOMContentLoaded', function() {
     if (container._tooltipMoveHandler) {
       container.removeEventListener('mousemove', container._tooltipMoveHandler);
     }
+  }
+
+  // ============================================
+  // UTILITY FUNCTIONS
+  // ============================================
+  function highlightMatch(text, query) {
+    const regex = new RegExp(`(${escapeRegex(query)})`, 'gi');
+    return text.replace(regex, '<strong style="color: #3b82f6;">$1</strong>');
+  }
+
+  function escapeRegex(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
   // Initialize
