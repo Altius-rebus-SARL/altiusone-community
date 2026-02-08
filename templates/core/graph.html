@@ -431,83 +431,32 @@
     border-color: #3b82f6;
   }
 
-  /* Tooltip */
-  .graph-tooltip {
-    position: absolute;
-    background: rgba(30, 41, 59, 0.98);
-    backdrop-filter: blur(10px);
-    border: 1px solid #475569;
-    border-radius: 10px;
-    padding: 14px 18px;
-    pointer-events: none;
-    z-index: 1000;
-    display: none;
-    max-width: 280px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-    animation: tooltipFadeIn 0.15s ease;
-  }
-
-  @keyframes tooltipFadeIn {
-    from { opacity: 0; transform: translateY(4px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  .graph-tooltip.show { display: block; }
-
-  .tooltip-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 8px;
-  }
-
-  .tooltip-dot {
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    box-shadow: 0 0 10px currentColor;
-  }
-
-  .tooltip-label {
-    font-weight: 600;
-    color: #f1f5f9;
-    font-size: 15px;
-  }
-
-  .tooltip-type {
-    font-size: 12px;
-    color: #94a3b8;
-    background: #0f172a;
-    padding: 3px 8px;
-    border-radius: 4px;
-    display: inline-block;
-    margin-bottom: 6px;
-  }
-
-  .tooltip-connections {
-    font-size: 12px;
-    color: #64748b;
-  }
-
-  .tooltip-connections strong {
-    color: #3b82f6;
-    font-weight: 600;
-  }
-
   /* ============================================
-     PANNEAU DÉTAILS (DROITE)
+     PANNEAU DÉTAILS (DROITE) - SUPERPOSITION
      ============================================ */
   .graph-details {
-    width: 320px;
-    background: #1e293b;
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 340px;
+    background: rgba(30, 41, 59, 0.98);
+    backdrop-filter: blur(10px);
     border-left: 1px solid #334155;
     display: none;
     flex-direction: column;
-    flex-shrink: 0;
+    z-index: 100;
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.4);
   }
 
   .graph-details.show {
     display: flex;
+    animation: slideIn 0.2s ease;
+  }
+
+  @keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
   }
 
   .details-header {
@@ -757,19 +706,8 @@
       </button>
     </div>
 
-    <!-- Tooltip -->
-    <div class="graph-tooltip" id="graphTooltip">
-      <div class="tooltip-header">
-        <span class="tooltip-dot"></span>
-        <span class="tooltip-label"></span>
-      </div>
-      <div class="tooltip-type"></div>
-      <div class="tooltip-connections"></div>
-    </div>
-  </main>
-
-  <!-- Panneau détails -->
-  <aside class="graph-details" id="graphDetails">
+    <!-- Panneau détails (superposé à droite du graphe) -->
+    <aside class="graph-details" id="graphDetails">
     <div class="details-header">
       <div class="details-title">
         <span class="details-dot" id="detailsDot"></span>
@@ -791,7 +729,8 @@
       </div>
     </div>
     <div class="details-actions" id="detailsActions"></div>
-  </aside>
+    </aside>
+  </main>
 </div>
 {% endblock %}
 
@@ -811,7 +750,6 @@ document.addEventListener('DOMContentLoaded', function() {
   const searchResults = document.getElementById('searchResults');
   const legendList = document.getElementById('legendList');
   const details = document.getElementById('graphDetails');
-  const tooltip = document.getElementById('graphTooltip');
 
   let renderer = null;
   let graph = null;
@@ -1105,20 +1043,18 @@ document.addEventListener('DOMContentLoaded', function() {
   // EVENTS
   // ============================================
   function setupEvents() {
-    // Click on node
+    // Click on node - sélection et affichage des détails
     renderer.on('clickNode', ({ node }) => {
       selectNode(node);
     });
 
-    // Hover node - avec mise en évidence des connexions
+    // Hover node - mise en évidence des connexions
     renderer.on('enterNode', ({ node }) => {
-      // Ne pas changer le hover si on a une sélection active
       if (!selectedNode) {
         hoveredNode = node;
         hoveredNeighbors = new Set(graph.neighbors(node));
         renderer.refresh();
       }
-      showTooltip(node);
       container.style.cursor = 'pointer';
     });
 
@@ -1128,7 +1064,6 @@ document.addEventListener('DOMContentLoaded', function() {
         hoveredNeighbors.clear();
         renderer.refresh();
       }
-      hideTooltip();
       container.style.cursor = 'default';
     });
 
@@ -1345,53 +1280,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     details.classList.add('show');
-  }
-
-  // ============================================
-  // TOOLTIP
-  // ============================================
-  function showTooltip(nodeId) {
-    const attrs = graph.getNodeAttributes(nodeId);
-
-    const dotEl = tooltip.querySelector('.tooltip-dot');
-    dotEl.style.background = attrs.color;
-    dotEl.style.color = attrs.color;
-
-    tooltip.querySelector('.tooltip-label').textContent = attrs.label;
-    tooltip.querySelector('.tooltip-type').textContent = attrs.nodeType;
-    tooltip.querySelector('.tooltip-connections').innerHTML =
-      `<strong>${attrs.connections}</strong> connexion${attrs.connections > 1 ? 's' : ''}`;
-
-    // Position tooltip near cursor with boundary detection
-    const moveHandler = (e) => {
-      const tooltipWidth = 280;
-      const tooltipHeight = 120;
-      let x = e.clientX + 15;
-      let y = e.clientY + 15;
-
-      // Prevent overflow on right
-      if (x + tooltipWidth > window.innerWidth) {
-        x = e.clientX - tooltipWidth - 15;
-      }
-      // Prevent overflow on bottom
-      if (y + tooltipHeight > window.innerHeight) {
-        y = e.clientY - tooltipHeight - 15;
-      }
-
-      tooltip.style.left = x + 'px';
-      tooltip.style.top = y + 'px';
-    };
-    container.addEventListener('mousemove', moveHandler);
-    container._tooltipMoveHandler = moveHandler;
-
-    tooltip.classList.add('show');
-  }
-
-  function hideTooltip() {
-    tooltip.classList.remove('show');
-    if (container._tooltipMoveHandler) {
-      container.removeEventListener('mousemove', container._tooltipMoveHandler);
-    }
   }
 
   // ============================================
