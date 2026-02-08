@@ -271,11 +271,22 @@ class GraphDataMixin:
                 connection_count[target_id] = connection_count.get(target_id, 0) + 1
 
         # ==============================================
-        # 1. NŒUD CENTRAL: AltiusOne (la fiduciaire)
+        # 1. NŒUD CENTRAL: Entreprise (la fiduciaire)
         # ==============================================
-        fiduciaire_id = add_node('Fiduciaire', 'main', 'AltiusOne', {
-            'description': 'Fiduciaire principale'
-        })
+        from core.models import Entreprise
+        entreprise = Entreprise.get_instance()
+        if entreprise:
+            fiduciaire_id = add_node('Fiduciaire', entreprise.pk, entreprise.raison_sociale, {
+                'description': entreprise.but[:100] if entreprise.but else '',
+                'ide': entreprise.ide_number,
+                'forme_juridique': entreprise.get_forme_juridique_display(),
+                'siege': entreprise.siege,
+            })
+        else:
+            # Fallback si pas d'entreprise configurée
+            fiduciaire_id = add_node('Fiduciaire', 'main', 'AltiusOne', {
+                'description': 'Fiduciaire principale'
+            })
 
         # ==============================================
         # 2. UTILISATEURS STAFF (collaborateurs)

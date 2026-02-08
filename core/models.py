@@ -913,6 +913,240 @@ class CompteBancaire(models.Model):
         return compte
 
 
+# =============================================================================
+# ENTREPRISE (Fiduciaire principale - singleton)
+# =============================================================================
+
+class Entreprise(models.Model):
+    """
+    Entreprise principale (fiduciaire) propriétaire de l'instance AltiusOne.
+
+    Ce modèle est un singleton - une seule instance existe par installation.
+    Il représente la fiduciaire qui utilise AltiusOne pour gérer ses clients.
+    """
+
+    FORME_JURIDIQUE_CHOICES = [
+        ('EI', _('Entreprise individuelle')),
+        ('RC', _('Raison collective')),
+        ('SC', _('Société en commandite')),
+        ('SNC', _('Société en nom collectif')),
+        ('SARL', _('Société à responsabilité limitée')),
+        ('SA', _('Société anonyme')),
+        ('SC_SIMPLE', _('Société en commandite simple')),
+        ('SC_ACTIONS', _('Société en commandite par actions')),
+        ('COOP', _('Société coopérative')),
+        ('ASSOC', _('Association')),
+        ('FOND', _('Fondation')),
+    ]
+
+    STATUT_CHOICES = [
+        ('ACTIVE', _('Active')),
+        ('INACTIVE', _('Inactive')),
+        ('EN_LIQUIDATION', _('En liquidation')),
+        ('RADIEE', _('Radiée')),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    # Identification
+    raison_sociale = models.CharField(
+        max_length=255,
+        verbose_name=_('Raison sociale'),
+        help_text=_('Nom officiel de l\'entreprise')
+    )
+    nom_commercial = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name=_('Nom commercial'),
+        help_text=_('Nom utilisé commercialement si différent')
+    )
+    forme_juridique = models.CharField(
+        max_length=20,
+        choices=FORME_JURIDIQUE_CHOICES,
+        verbose_name=_('Forme juridique')
+    )
+
+    # Numéros officiels suisses
+    ide_number = models.CharField(
+        max_length=20,
+        unique=True,
+        validators=[RegexValidator(
+            r'^CHE-\d{3}\.\d{3}\.\d{3}$',
+            'Format IDE invalide (CHE-XXX.XXX.XXX)'
+        )],
+        verbose_name=_('Numéro IDE'),
+        help_text=_('Numéro d\'identification des entreprises (CHE-XXX.XXX.XXX)')
+    )
+    ch_id = models.CharField(
+        max_length=30,
+        blank=True,
+        verbose_name=_('CH-ID'),
+        help_text=_('Numéro CH-ID (CH-XXX-XXXXXXX-X)')
+    )
+    ofrc_id = models.CharField(
+        max_length=20,
+        blank=True,
+        verbose_name=_('OFRC-ID'),
+        help_text=_('Numéro de l\'Office fédéral du registre du commerce')
+    )
+    tva_number = models.CharField(
+        max_length=20,
+        blank=True,
+        verbose_name=_('Numéro TVA'),
+        help_text=_('Numéro TVA si assujetti')
+    )
+
+    # Adresse
+    adresse = models.ForeignKey(
+        Adresse,
+        on_delete=models.PROTECT,
+        related_name='entreprises',
+        verbose_name=_('Adresse du siège'),
+        null=True,
+        blank=True
+    )
+    siege = models.CharField(
+        max_length=100,
+        verbose_name=_('Siège'),
+        help_text=_('Localité du siège social')
+    )
+
+    # Contact
+    email = models.EmailField(
+        blank=True,
+        verbose_name=_('Email')
+    )
+    telephone = models.CharField(
+        max_length=20,
+        blank=True,
+        verbose_name=_('Téléphone')
+    )
+    site_web = models.URLField(
+        blank=True,
+        verbose_name=_('Site web')
+    )
+
+    # Informations légales
+    but = models.TextField(
+        blank=True,
+        verbose_name=_('But'),
+        help_text=_('But de l\'entreprise tel qu\'inscrit au RC')
+    )
+    date_creation = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_('Date de création'),
+        help_text=_('Date de création/commencement de l\'entreprise')
+    )
+    date_inscription_rc = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_('Date d\'inscription RC'),
+        help_text=_('Date d\'inscription au registre du commerce')
+    )
+    canton_rc = models.CharField(
+        max_length=2,
+        choices=SwissCantons.choices,
+        blank=True,
+        verbose_name=_('Canton du RC'),
+        help_text=_('Canton du registre du commerce')
+    )
+
+    # Publications FOSC
+    derniere_publication_fosc = models.TextField(
+        blank=True,
+        verbose_name=_('Dernière publication FOSC'),
+        help_text=_('Dernière publication à la Feuille officielle suisse du commerce')
+    )
+
+    # Statut
+    statut = models.CharField(
+        max_length=20,
+        choices=STATUT_CHOICES,
+        default='ACTIVE',
+        verbose_name=_('Statut')
+    )
+
+    # Logo et branding
+    logo = models.ImageField(
+        upload_to='entreprise/logo/',
+        blank=True,
+        null=True,
+        verbose_name=_('Logo'),
+        help_text=_('Logo de l\'entreprise (utilisé sur les documents)')
+    )
+
+    # Associés/Propriétaires (stocké en JSON pour flexibilité)
+    associes = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name=_('Associés'),
+        help_text=_('Liste des associés avec leurs informations')
+    )
+
+    # Métadonnées
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_('Date de création'))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_('Date de modification'))
+
+    class Meta:
+        db_table = 'entreprise'
+        verbose_name = _('Entreprise')
+        verbose_name_plural = _('Entreprises')
+
+    def __str__(self):
+        return f"{self.raison_sociale} ({self.ide_number})"
+
+    def save(self, *args, **kwargs):
+        # Singleton: s'assurer qu'il n'y a qu'une seule instance
+        if not self.pk and Entreprise.objects.exists():
+            raise ValueError(_('Il ne peut y avoir qu\'une seule entreprise par installation.'))
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get_instance(cls):
+        """Retourne l'instance unique de l'entreprise, ou None si non configurée."""
+        return cls.objects.first()
+
+    @classmethod
+    def get_or_create_default(cls):
+        """Retourne l'instance ou crée une instance par défaut."""
+        instance = cls.objects.first()
+        if not instance:
+            instance = cls.objects.create(
+                raison_sociale='Altius Academy SNC',
+                forme_juridique='SNC',
+                ide_number='CHE-138.647.564',
+                ch_id='CH-550-1237137-3',
+                ofrc_id='1613327',
+                siege='Echallens',
+                canton_rc='VD',
+                but='offrir des services de haute qualité aux particuliers et aux entreprises '
+                    'dans des domaines variés tels que l\'ingénierie, l\'éducation et d\'autres '
+                    'prestations de services, en visant l\'excellence et la satisfaction du client.',
+                date_creation='2023-11-01',
+                date_inscription_rc='2023-11-16',
+                statut='ACTIVE',
+                associes=[
+                    {
+                        'nom': 'Guindo',
+                        'prenom': 'Paul dit Akouni',
+                        'origine': 'du Mali',
+                        'domicile': 'Echallens',
+                        'signature': 'individuelle'
+                    },
+                    {
+                        'nom': 'Guindo',
+                        'prenom': 'Sandy',
+                        'origine': 'de Lausanne',
+                        'domicile': 'Echallens',
+                        'signature': 'individuelle'
+                    }
+                ],
+                derniere_publication_fosc='No. 1005890308 de 21.11.2023 - Nouvelle inscription'
+            )
+        return instance
+
+
 class Client(BaseModel):
     """Client de la fiduciaire"""
 
