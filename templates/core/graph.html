@@ -879,14 +879,14 @@ document.addEventListener('DOMContentLoaded', function() {
       `;
     }).join('');
 
-    // Clic sur connexion
+    // Clic sur connexion - juste sélectionner, pas de zoom automatique
     connectionList.querySelectorAll('.connection-item').forEach(item => {
       item.addEventListener('click', () => {
         const id = item.dataset.id;
         selectedNode = id;
         renderer.refresh();
         showDetails(id);
-        focusOnNode(id);
+        // PAS de focusOnNode - l'utilisateur contrôle le zoom
       });
     });
 
@@ -898,7 +898,7 @@ document.addEventListener('DOMContentLoaded', function() {
       : '';
 
     details.classList.add('show');
-    focusOnNode(nodeId);
+    // PAS de focusOnNode - le graphe reste à sa position actuelle
   }
 
   function closeDetails() {
