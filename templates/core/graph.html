@@ -615,6 +615,15 @@
     text-overflow: ellipsis;
   }
 
+  .connection-type {
+    font-size: 10px;
+    color: #64748b;
+    background: #0f172a;
+    padding: 2px 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+
   .details-actions {
     padding: 16px 20px;
     border-top: 1px solid #334155;
@@ -850,23 +859,23 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Create Sigma renderer avec paramètres avancés
     renderer = new Sigma(graph, container, {
-      // Labels
+      // Labels - couleur sombre pour lisibilité
       renderLabels: true,
       labelFont: 'Inter, system-ui, sans-serif',
-      labelSize: 14,
+      labelSize: 12,
       labelWeight: '600',
-      labelColor: { color: '#f1f5f9' },
-      labelDensity: 0.4,
-      labelGridCellSize: 120,
-      labelRenderedSizeThreshold: 6,
+      labelColor: { color: '#1e293b' },  // Texte sombre pour contraste
+      labelDensity: 0.5,
+      labelGridCellSize: 100,
+      labelRenderedSizeThreshold: 8,
 
       // Couleurs par défaut
       defaultNodeColor: '#6b7280',
-      defaultEdgeColor: '#334155',
+      defaultEdgeColor: '#475569',
 
       // Zoom
-      minCameraRatio: 0.01,
-      maxCameraRatio: 10,
+      minCameraRatio: 0.02,
+      maxCameraRatio: 8,
 
       // Effets visuels
       stagePadding: 50,
@@ -880,14 +889,17 @@ document.addEventListener('DOMContentLoaded', function() {
         // Si un nœud est sélectionné
         if (selectedNode) {
           if (node === selectedNode) {
+            // Nœud sélectionné: très visible avec halo
             res.highlighted = true;
-            res.color = '#ffffff';
-            res.zIndex = 2;
+            res.size = data.size * 1.5;
+            res.zIndex = 3;
           } else if (hoveredNeighbors.has(node)) {
-            res.zIndex = 1;
+            // Voisins du nœud sélectionné: bien visibles
+            res.size = data.size * 1.2;
+            res.zIndex = 2;
           } else {
-            res.color = '#3a4255';
-            res.label = '';
+            // Autres nœuds: atténués mais visibles
+            res.color = mixColors(data.color, '#0f172a', 0.6);
             res.zIndex = 0;
           }
         }
@@ -895,12 +907,14 @@ document.addEventListener('DOMContentLoaded', function() {
         else if (hoveredNode) {
           if (node === hoveredNode) {
             res.highlighted = true;
-            res.zIndex = 2;
+            res.size = data.size * 1.3;
+            res.zIndex = 3;
           } else if (hoveredNeighbors.has(node)) {
-            res.zIndex = 1;
+            res.size = data.size * 1.1;
+            res.zIndex = 2;
           } else {
-            res.color = '#3a4255';
-            res.label = '';
+            // Atténués mais toujours visibles
+            res.color = mixColors(data.color, '#0f172a', 0.5);
             res.zIndex = 0;
           }
         }
@@ -921,20 +935,20 @@ document.addEventListener('DOMContentLoaded', function() {
         const activeNode = selectedNode || hoveredNode;
         if (activeNode) {
           if (source === activeNode || target === activeNode) {
-            // Arête connectée au nœud actif
+            // Arête connectée au nœud actif - très visible
             const nodeColor = graph.getNodeAttribute(activeNode, 'color');
             return {
               ...data,
               color: nodeColor,
-              size: 3,
-              zIndex: 1,
+              size: 2.5,
+              zIndex: 2,
             };
           } else {
-            // Arête non connectée
+            // Arête non connectée - atténuée mais visible
             return {
               ...data,
-              color: '#1e293b',
-              size: 0.5,
+              color: 'rgba(71, 85, 105, 0.3)',
+              size: 0.8,
               zIndex: 0,
             };
           }
@@ -943,6 +957,19 @@ document.addEventListener('DOMContentLoaded', function() {
         return data;
       },
     });
+
+    // Fonction utilitaire pour mélanger les couleurs
+    function mixColors(color1, color2, ratio) {
+      const hex = (c) => parseInt(c, 16);
+      const c1 = color1.replace('#', '');
+      const c2 = color2.replace('#', '');
+
+      const r = Math.round(hex(c1.slice(0,2)) * (1-ratio) + hex(c2.slice(0,2)) * ratio);
+      const g = Math.round(hex(c1.slice(2,4)) * (1-ratio) + hex(c2.slice(2,4)) * ratio);
+      const b = Math.round(hex(c1.slice(4,6)) * (1-ratio) + hex(c2.slice(4,6)) * ratio);
+
+      return `rgb(${r}, ${g}, ${b})`;
+    }
 
     // Hide loading, show banner
     loading.style.display = 'none';
@@ -1231,7 +1258,29 @@ document.addEventListener('DOMContentLoaded', function() {
   function focusNode(nodeId) {
     const attrs = graph.getNodeAttributes(nodeId);
     const camera = renderer.getCamera();
-    camera.animate({ x: attrs.x, y: attrs.y, ratio: 0.3 }, { duration: 300 });
+    // Zoom modéré pour garder le contexte visible
+    const currentRatio = camera.getState().ratio;
+    const targetRatio = Math.min(currentRatio, 0.5); // Ne pas zoomer plus que 0.5
+    camera.animate({ x: attrs.x, y: attrs.y, ratio: targetRatio }, { duration: 300 });
+  }
+
+  function getEntityUrl(nodeType, pk) {
+    // Génère l'URL de détail selon le type d'entité
+    const urlPatterns = {
+      'Client': `/fr/clients/${pk}/`,
+      'Mandat': `/fr/mandats/${pk}/`,
+      'User': `/fr/users/${pk}/`,
+      'Facture': `/fr/facturation/factures/${pk}/`,
+      'Document': `/fr/documents/${pk}/`,
+      'Dossier': `/fr/documents/dossiers/${pk}/`,
+      'Contact': `/fr/clients/contacts/${pk}/`,
+      'Tache': `/fr/taches/${pk}/`,
+      'ExerciceComptable': `/fr/comptabilite/exercices/${pk}/`,
+      'Paiement': `/fr/facturation/paiements/${pk}/`,
+      'Entreprise': `/fr/admin/core/entreprise/${pk}/change/`,
+      'Fiduciaire': `/fr/admin/core/entreprise/`,
+    };
+    return urlPatterns[nodeType] || null;
   }
 
   function showDetails(nodeId) {
@@ -1240,34 +1289,59 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('detailsDot').style.background = attrs.color;
     document.getElementById('detailsLabel').textContent = attrs.label;
     document.getElementById('detailsType').textContent = attrs.nodeType;
-    document.getElementById('detailsConnections').textContent = `${attrs.connections} connexions`;
+    document.getElementById('detailsConnections').textContent = `${attrs.connections} connexion${attrs.connections > 1 ? 's' : ''}`;
 
-    // Connections list
+    // Connections list avec liens
     const connectionList = document.getElementById('connectionList');
-    const neighbors = graph.neighbors(nodeId).slice(0, 15);
+    const neighbors = graph.neighbors(nodeId).slice(0, 20);
 
     connectionList.innerHTML = neighbors.map(neighborId => {
       const neighborAttrs = graph.getNodeAttributes(neighborId);
+      const neighborUrl = getEntityUrl(neighborAttrs.nodeType, neighborAttrs.pk);
       return `
-        <div class="connection-item" data-id="${neighborId}">
+        <div class="connection-item" data-id="${neighborId}" data-url="${neighborUrl || ''}">
           <span class="connection-dot" style="background: ${neighborAttrs.color};"></span>
           <span class="connection-label">${neighborAttrs.label}</span>
+          <span class="connection-type">${neighborAttrs.nodeType}</span>
+          ${neighborUrl ? '<i class="ti ti-external-link" style="color: #64748b; font-size: 12px;"></i>' : ''}
         </div>
       `;
     }).join('');
 
     connectionList.querySelectorAll('.connection-item').forEach(item => {
-      item.addEventListener('click', () => {
-        selectNode(item.dataset.id);
+      item.addEventListener('click', (e) => {
+        // Shift+click ou Ctrl+click ouvre le lien
+        if ((e.shiftKey || e.ctrlKey) && item.dataset.url) {
+          window.open(item.dataset.url, '_blank');
+        } else {
+          // Click simple sélectionne le nœud
+          selectNode(item.dataset.id);
+        }
+      });
+
+      // Double-click ouvre le lien
+      item.addEventListener('dblclick', () => {
+        if (item.dataset.url) {
+          window.location.href = item.dataset.url;
+        }
       });
     });
 
-    // Action button
+    // Action button - générer l'URL
     const actionsContainer = document.getElementById('detailsActions');
-    if (attrs.url) {
-      actionsContainer.innerHTML = `<a href="${attrs.url}" class="details-btn">Voir les détails</a>`;
+    const entityUrl = attrs.url || getEntityUrl(attrs.nodeType, attrs.pk);
+    if (entityUrl) {
+      actionsContainer.innerHTML = `
+        <a href="${entityUrl}" class="details-btn">
+          <i class="ti ti-eye"></i> Voir les détails
+        </a>
+      `;
     } else {
-      actionsContainer.innerHTML = '';
+      actionsContainer.innerHTML = `
+        <div style="color: #64748b; font-size: 12px; text-align: center;">
+          Double-cliquez sur une connexion pour l'ouvrir
+        </div>
+      `;
     }
 
     details.classList.add('show');
