@@ -1,3 +1,4 @@
+{# templates/core/graph.html #}
 {% extends "base.html" %}
 {% load static %}
 {% load i18n %}
@@ -7,7 +8,7 @@
 {% block extra_css %}
 <style>
   /* ============================================
-     LAYOUT PRINCIPAL
+     LAYOUT PRINCIPAL - Flex avec 3 colonnes
      ============================================ */
   .graph-page {
     display: flex;
@@ -17,47 +18,42 @@
   }
 
   /* ============================================
-     SIDEBAR GAUCHE
+     SIDEBAR GAUCHE (fixe)
      ============================================ */
   .graph-sidebar {
-    width: 280px;
+    width: 260px;
     background: #1e293b;
     border-right: 1px solid #334155;
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
+    z-index: 10;
   }
 
   .sidebar-header {
-    padding: 20px;
+    padding: 16px;
     border-bottom: 1px solid #334155;
   }
 
   .sidebar-header h1 {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 600;
     color: #f1f5f9;
-    margin: 0 0 4px 0;
-  }
-
-  .sidebar-header p {
-    font-size: 13px;
-    color: #94a3b8;
     margin: 0;
   }
 
   .sidebar-section {
-    padding: 16px 20px;
+    padding: 12px 16px;
     border-bottom: 1px solid #334155;
   }
 
   .sidebar-section-title {
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 1px;
     color: #64748b;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
   }
 
   /* Search */
@@ -67,30 +63,26 @@
 
   .search-box input {
     width: 100%;
-    padding: 10px 12px 10px 36px;
+    padding: 8px 10px 8px 32px;
     background: #0f172a;
     border: 1px solid #334155;
-    border-radius: 8px;
+    border-radius: 6px;
     color: #f1f5f9;
-    font-size: 14px;
-  }
-
-  .search-box input::placeholder {
-    color: #64748b;
+    font-size: 13px;
   }
 
   .search-box input:focus {
     outline: none;
     border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
   }
 
   .search-box i {
     position: absolute;
-    left: 12px;
+    left: 10px;
     top: 50%;
     transform: translateY(-50%);
     color: #64748b;
+    font-size: 14px;
   }
 
   .search-results {
@@ -100,8 +92,8 @@
     right: 0;
     background: #1e293b;
     border: 1px solid #334155;
-    border-radius: 8px;
-    max-height: 300px;
+    border-radius: 6px;
+    max-height: 250px;
     overflow-y: auto;
     z-index: 1000;
     display: none;
@@ -110,10 +102,10 @@
   .search-results.show { display: block; }
 
   .search-result-item {
-    padding: 10px 12px;
+    padding: 8px 10px;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     cursor: pointer;
     border-bottom: 1px solid #334155;
   }
@@ -123,259 +115,104 @@
   }
 
   .search-result-dot {
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
-    flex-shrink: 0;
   }
 
   .search-result-label {
     flex: 1;
     color: #f1f5f9;
-    font-size: 13px;
+    font-size: 12px;
   }
 
   .search-result-type {
-    font-size: 11px;
+    font-size: 10px;
     color: #64748b;
-    background: #0f172a;
-    padding: 2px 6px;
-    border-radius: 4px;
-  }
-
-  .search-count {
-    padding: 8px 12px;
-    font-size: 11px;
-    color: #64748b;
-    border-bottom: 1px solid #334155;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  .search-box .clear-search {
-    position: absolute;
-    right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    background: none;
-    border: none;
-    color: #64748b;
-    cursor: pointer;
-    padding: 4px;
-    display: none;
-  }
-
-  .search-box .clear-search.show {
-    display: block;
-  }
-
-  .search-box .clear-search:hover {
-    color: #f1f5f9;
   }
 
   /* Stats */
-  .stats-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+  .stats-row {
+    display: flex;
     gap: 8px;
   }
 
   .stat-card {
+    flex: 1;
     background: #0f172a;
-    border-radius: 8px;
-    padding: 12px;
+    border-radius: 6px;
+    padding: 10px;
     text-align: center;
   }
 
   .stat-value {
-    font-size: 24px;
+    font-size: 20px;
     font-weight: 700;
     color: #f1f5f9;
   }
 
   .stat-label {
-    font-size: 11px;
+    font-size: 10px;
     color: #64748b;
-    text-transform: uppercase;
   }
 
   /* Legend */
   .legend-list {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    max-height: 300px;
+    gap: 2px;
+    max-height: calc(100vh - 350px);
     overflow-y: auto;
   }
 
   .legend-item {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    border-radius: 8px;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 4px;
     cursor: pointer;
-    transition: all 0.2s;
-    background: #0f172a;
   }
 
   .legend-item:hover {
     background: #334155;
-    transform: translateX(4px);
   }
 
   .legend-item.disabled {
-    opacity: 0.35;
-  }
-
-  .legend-item.disabled .legend-dot {
-    background: #475569 !important;
-  }
-
-  .legend-checkbox {
-    width: 16px;
-    height: 16px;
-    border: 2px solid #475569;
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-    flex-shrink: 0;
-  }
-
-  .legend-item:not(.disabled) .legend-checkbox {
-    background: #3b82f6;
-    border-color: #3b82f6;
-  }
-
-  .legend-checkbox i {
-    font-size: 10px;
-    color: white;
+    opacity: 0.3;
   }
 
   .legend-dot {
-    width: 12px;
-    height: 12px;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
-    flex-shrink: 0;
-    box-shadow: 0 0 8px currentColor;
-  }
-
-  .legend-info {
-    flex: 1;
-    min-width: 0;
   }
 
   .legend-label {
-    font-size: 13px;
+    flex: 1;
+    font-size: 12px;
     color: #e2e8f0;
-    font-weight: 500;
-  }
-
-  .legend-bar {
-    height: 4px;
-    background: #334155;
-    border-radius: 2px;
-    margin-top: 4px;
-    overflow: hidden;
-  }
-
-  .legend-bar-fill {
-    height: 100%;
-    border-radius: 2px;
-    transition: width 0.3s ease;
   }
 
   .legend-count {
     font-size: 11px;
-    font-weight: 600;
-    color: #94a3b8;
-    background: #1e293b;
-    padding: 2px 8px;
-    border-radius: 10px;
-    min-width: 32px;
-    text-align: center;
-  }
-
-  /* Buttons row in legend */
-  .legend-actions {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 10px;
-  }
-
-  .legend-btn {
-    flex: 1;
-    padding: 6px 10px;
-    background: #0f172a;
-    border: 1px solid #334155;
-    border-radius: 6px;
-    color: #94a3b8;
-    font-size: 11px;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .legend-btn:hover {
-    background: #334155;
-    color: #f1f5f9;
+    color: #64748b;
   }
 
   /* ============================================
-     ZONE GRAPHE
+     ZONE GRAPHE (centre) - position relative pour le panneau
      ============================================ */
   .graph-main {
     flex: 1;
     position: relative;
     overflow: hidden;
+    min-width: 0; /* Important pour flex */
   }
 
   #sigma-container {
     width: 100%;
     height: 100%;
-    background: radial-gradient(ellipse at center, #1a2744 0%, #0c1222 70%, #060a10 100%);
-  }
-
-  /* Info banner */
-  .graph-info-banner {
-    position: absolute;
-    top: 16px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(30, 41, 59, 0.95);
-    backdrop-filter: blur(8px);
-    border: 1px solid #334155;
-    border-radius: 10px;
-    padding: 10px 20px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    z-index: 10;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-  }
-
-  .banner-stat {
-    text-align: center;
-  }
-
-  .banner-value {
-    font-size: 18px;
-    font-weight: 700;
-    color: #f1f5f9;
-  }
-
-  .banner-label {
-    font-size: 10px;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  .banner-divider {
-    width: 1px;
-    height: 30px;
-    background: #334155;
+    background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
   }
 
   /* Loading */
@@ -386,103 +223,161 @@
     transform: translate(-50%, -50%);
     text-align: center;
     color: #94a3b8;
+    z-index: 5;
   }
 
   .graph-loading .spinner {
-    width: 48px;
-    height: 48px;
+    width: 40px;
+    height: 40px;
     border: 3px solid #334155;
     border-top-color: #3b82f6;
     border-radius: 50%;
     animation: spin 1s linear infinite;
-    margin: 0 auto 16px;
+    margin: 0 auto 12px;
   }
 
   @keyframes spin {
     to { transform: rotate(360deg); }
   }
 
-  /* Controls */
+  /* Controls (en bas à gauche du graphe) */
   .graph-controls {
     position: absolute;
-    bottom: 20px;
-    right: 20px;
+    bottom: 16px;
+    left: 16px;
     display: flex;
-    flex-direction: column;
-    gap: 8px;
+    gap: 6px;
+    z-index: 20;
   }
 
   .control-btn {
-    width: 40px;
-    height: 40px;
-    background: #1e293b;
+    width: 36px;
+    height: 36px;
+    background: rgba(30, 41, 59, 0.9);
     border: 1px solid #334155;
-    border-radius: 8px;
+    border-radius: 6px;
     color: #e2e8f0;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all 0.2s;
   }
 
   .control-btn:hover {
     background: #334155;
-    border-color: #3b82f6;
   }
 
   /* ============================================
-     PANNEAU DÉTAILS (DROITE) - SUPERPOSITION
+     TOOLTIP (survol) - info-bulle près du curseur
+     ============================================ */
+  .graph-tooltip {
+    position: fixed;
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid #475569;
+    border-radius: 8px;
+    padding: 12px 14px;
+    pointer-events: none;
+    z-index: 1000;
+    display: none;
+    min-width: 180px;
+    max-width: 280px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+  }
+
+  .graph-tooltip.show { display: block; }
+
+  .tooltip-name {
+    font-weight: 600;
+    color: #f1f5f9;
+    font-size: 14px;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .tooltip-name .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .tooltip-type {
+    font-size: 11px;
+    color: #94a3b8;
+    margin-bottom: 8px;
+    padding-left: 18px;
+  }
+
+  .tooltip-stats {
+    display: flex;
+    gap: 12px;
+    padding-left: 18px;
+  }
+
+  .tooltip-stat {
+    font-size: 11px;
+    color: #64748b;
+  }
+
+  .tooltip-stat strong {
+    color: #3b82f6;
+  }
+
+  /* ============================================
+     PANNEAU DÉTAILS (droite) - SUPERPOSÉ sur le graphe
      ============================================ */
   .graph-details {
     position: absolute;
     top: 0;
     right: 0;
     bottom: 0;
-    width: 340px;
+    width: 320px;
     background: rgba(30, 41, 59, 0.98);
-    backdrop-filter: blur(10px);
     border-left: 1px solid #334155;
     display: none;
     flex-direction: column;
-    z-index: 100;
-    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.4);
+    z-index: 50;
+    box-shadow: -4px 0 20px rgba(0,0,0,0.3);
   }
 
   .graph-details.show {
     display: flex;
-    animation: slideIn 0.2s ease;
-  }
-
-  @keyframes slideIn {
-    from { transform: translateX(100%); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
   }
 
   .details-header {
-    padding: 20px;
+    padding: 16px;
     border-bottom: 1px solid #334155;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .details-title {
     display: flex;
     align-items: center;
     gap: 12px;
   }
 
   .details-dot {
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
+    flex-shrink: 0;
   }
 
-  .details-label {
-    font-size: 16px;
+  .details-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .details-name {
+    font-size: 15px;
     font-weight: 600;
     color: #f1f5f9;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .details-type {
+    font-size: 12px;
+    color: #94a3b8;
   }
 
   .details-close {
@@ -491,6 +386,7 @@
     color: #64748b;
     cursor: pointer;
     padding: 4px;
+    font-size: 18px;
   }
 
   .details-close:hover {
@@ -500,32 +396,29 @@
   .details-content {
     flex: 1;
     overflow-y: auto;
-    padding: 20px;
+    padding: 16px;
   }
 
   .details-section {
-    margin-bottom: 20px;
+    margin-bottom: 16px;
   }
 
   .details-section-title {
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 1px;
     color: #64748b;
-    margin-bottom: 10px;
-  }
-
-  .details-type {
-    color: #94a3b8;
-    font-size: 13px;
     margin-bottom: 8px;
   }
 
-  .details-connections {
+  .details-meta {
+    font-size: 13px;
+    color: #94a3b8;
+  }
+
+  .details-meta strong {
     color: #3b82f6;
-    font-weight: 600;
-    font-size: 14px;
   }
 
   .connection-list {
@@ -538,11 +431,10 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 10px;
+    padding: 8px;
     background: #0f172a;
     border-radius: 6px;
     cursor: pointer;
-    transition: background 0.2s;
   }
 
   .connection-item:hover {
@@ -555,9 +447,9 @@
     border-radius: 50%;
   }
 
-  .connection-label {
+  .connection-name {
     flex: 1;
-    font-size: 13px;
+    font-size: 12px;
     color: #e2e8f0;
     white-space: nowrap;
     overflow: hidden;
@@ -567,55 +459,31 @@
   .connection-type {
     font-size: 10px;
     color: #64748b;
-    background: #0f172a;
-    padding: 2px 6px;
-    border-radius: 4px;
-    flex-shrink: 0;
   }
 
   .details-actions {
-    padding: 16px 20px;
+    padding: 12px 16px;
     border-top: 1px solid #334155;
   }
 
   .details-btn {
+    display: block;
     width: 100%;
     padding: 10px;
     background: #3b82f6;
     border: none;
-    border-radius: 8px;
+    border-radius: 6px;
     color: white;
     font-weight: 500;
-    cursor: pointer;
-    transition: background 0.2s;
-    text-decoration: none;
-    display: block;
+    font-size: 13px;
     text-align: center;
+    text-decoration: none;
+    cursor: pointer;
   }
 
   .details-btn:hover {
     background: #2563eb;
     color: white;
-  }
-
-  /* ============================================
-     RESPONSIVE
-     ============================================ */
-  @media (max-width: 1024px) {
-    .graph-sidebar { width: 240px; }
-    .graph-details { width: 280px; }
-  }
-
-  @media (max-width: 768px) {
-    .graph-sidebar { display: none; }
-    .graph-details {
-      position: absolute;
-      right: 0;
-      top: 0;
-      bottom: 0;
-      width: 100%;
-      max-width: 320px;
-    }
   }
 </style>
 {% endblock %}
@@ -626,16 +494,13 @@
   <aside class="graph-sidebar">
     <div class="sidebar-header">
       <h1>{% trans "Graphe Relationnel" %}</h1>
-      <p>{% trans "Explorez les connexions" %}</p>
     </div>
 
     <!-- Recherche -->
     <div class="sidebar-section">
-      <div class="sidebar-section-title">{% trans "Recherche" %}</div>
       <div class="search-box">
         <i class="ti ti-search"></i>
-        <input type="text" id="graphSearch" placeholder="{% trans 'Rechercher une entité...' %}">
-        <button class="clear-search" id="clearSearch"><i class="ti ti-x"></i></button>
+        <input type="text" id="graphSearch" placeholder="{% trans 'Rechercher...' %}">
         <div class="search-results" id="searchResults"></div>
       </div>
     </div>
@@ -643,13 +508,13 @@
     <!-- Stats -->
     <div class="sidebar-section">
       <div class="sidebar-section-title">{% trans "Statistiques" %}</div>
-      <div class="stats-grid">
+      <div class="stats-row">
         <div class="stat-card">
-          <div class="stat-value" id="nodeCount">0</div>
+          <div class="stat-value" id="nodeCount">-</div>
           <div class="stat-label">{% trans "Entités" %}</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value" id="edgeCount">0</div>
+          <div class="stat-value" id="edgeCount">-</div>
           <div class="stat-label">{% trans "Relations" %}</div>
         </div>
       </div>
@@ -657,116 +522,115 @@
 
     <!-- Légende -->
     <div class="sidebar-section" style="flex: 1; overflow: hidden;">
-      <div class="sidebar-section-title">{% trans "Types d'entités" %}</div>
+      <div class="sidebar-section-title">{% trans "Types" %}</div>
       <div class="legend-list" id="legendList"></div>
     </div>
   </aside>
 
-  <!-- Zone graphe -->
+  <!-- Zone graphe (avec panneau détails superposé) -->
   <main class="graph-main">
     <div id="sigma-container"></div>
-
-    <!-- Info Banner -->
-    <div class="graph-info-banner" id="graphBanner" style="display: none;">
-      <div class="banner-stat">
-        <div class="banner-value" id="bannerNodes">0</div>
-        <div class="banner-label">{% trans "Entités" %}</div>
-      </div>
-      <div class="banner-divider"></div>
-      <div class="banner-stat">
-        <div class="banner-value" id="bannerEdges">0</div>
-        <div class="banner-label">{% trans "Relations" %}</div>
-      </div>
-      <div class="banner-divider"></div>
-      <div class="banner-stat">
-        <div class="banner-value" id="bannerTypes">0</div>
-        <div class="banner-label">{% trans "Types" %}</div>
-      </div>
-    </div>
 
     <!-- Loading -->
     <div class="graph-loading" id="graphLoading">
       <div class="spinner"></div>
-      <div>{% trans "Chargement du graphe..." %}</div>
+      <div>{% trans "Chargement..." %}</div>
     </div>
 
     <!-- Controls -->
     <div class="graph-controls">
-      <button class="control-btn" id="zoomIn" title="{% trans 'Zoom +' %}">
-        <i class="ti ti-plus"></i>
-      </button>
-      <button class="control-btn" id="zoomOut" title="{% trans 'Zoom -' %}">
-        <i class="ti ti-minus"></i>
-      </button>
-      <button class="control-btn" id="zoomFit" title="{% trans 'Ajuster' %}">
-        <i class="ti ti-arrows-maximize"></i>
-      </button>
-      <button class="control-btn" id="fullscreen" title="{% trans 'Plein écran' %}">
-        <i class="ti ti-maximize"></i>
-      </button>
+      <button class="control-btn" id="zoomIn" title="Zoom +"><i class="ti ti-plus"></i></button>
+      <button class="control-btn" id="zoomOut" title="Zoom -"><i class="ti ti-minus"></i></button>
+      <button class="control-btn" id="zoomReset" title="Reset"><i class="ti ti-arrows-maximize"></i></button>
     </div>
 
-    <!-- Panneau détails (superposé à droite du graphe) -->
+    <!-- Tooltip (survol) -->
+    <div class="graph-tooltip" id="graphTooltip">
+      <div class="tooltip-name">
+        <span class="dot" id="tooltipDot"></span>
+        <span id="tooltipName"></span>
+      </div>
+      <div class="tooltip-type" id="tooltipType"></div>
+      <div class="tooltip-stats">
+        <span class="tooltip-stat"><strong id="tooltipConnections">0</strong> connexions</span>
+      </div>
+    </div>
+
+    <!-- Panneau détails (clic) - SUPERPOSÉ -->
     <aside class="graph-details" id="graphDetails">
-    <div class="details-header">
-      <div class="details-title">
+      <div class="details-header">
         <span class="details-dot" id="detailsDot"></span>
-        <span class="details-label" id="detailsLabel"></span>
+        <div class="details-info">
+          <div class="details-name" id="detailsName"></div>
+          <div class="details-type" id="detailsType"></div>
+        </div>
+        <button class="details-close" id="detailsClose"><i class="ti ti-x"></i></button>
       </div>
-      <button class="details-close" id="detailsClose">
-        <i class="ti ti-x"></i>
-      </button>
-    </div>
-    <div class="details-content">
-      <div class="details-section">
-        <div class="details-section-title">{% trans "Informations" %}</div>
-        <div class="details-type" id="detailsType"></div>
-        <div class="details-connections" id="detailsConnections"></div>
+      <div class="details-content">
+        <div class="details-section">
+          <div class="details-section-title">{% trans "Informations" %}</div>
+          <div class="details-meta" id="detailsMeta"></div>
+        </div>
+        <div class="details-section">
+          <div class="details-section-title">{% trans "Connexions" %}</div>
+          <div class="connection-list" id="connectionList"></div>
+        </div>
       </div>
-      <div class="details-section">
-        <div class="details-section-title">{% trans "Connexions" %}</div>
-        <div class="connection-list" id="connectionList"></div>
-      </div>
-    </div>
-    <div class="details-actions" id="detailsActions"></div>
+      <div class="details-actions" id="detailsActions"></div>
     </aside>
   </main>
 </div>
 {% endblock %}
 
 {% block extra_js %}
-<!-- Graphology & Sigma.js -->
 <script src="https://cdn.jsdelivr.net/npm/graphology@0.25.4/dist/graphology.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sigma@2.4.0/build/sigma.min.js"></script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+  // Données du graphe (positions circulaires calculées par le backend)
   const graphData = {{ graph_data|safe }};
 
-  // DOM elements
+  // Éléments DOM
   const container = document.getElementById('sigma-container');
   const loading = document.getElementById('graphLoading');
+  const tooltip = document.getElementById('graphTooltip');
+  const details = document.getElementById('graphDetails');
   const searchInput = document.getElementById('graphSearch');
   const searchResults = document.getElementById('searchResults');
   const legendList = document.getElementById('legendList');
-  const details = document.getElementById('graphDetails');
 
   let renderer = null;
   let graph = null;
   let selectedNode = null;
   let hoveredNode = null;
-  let hoveredNeighbors = new Set();
   let hiddenTypes = new Set();
-  let totalNodesByType = {};
+
+  // URLs par type d'entité
+  const entityUrls = {
+    'Client': (pk) => `/fr/clients/${pk}/`,
+    'Mandat': (pk) => `/fr/mandats/${pk}/`,
+    'User': (pk) => `/fr/users/${pk}/`,
+    'Facture': (pk) => `/fr/facturation/factures/${pk}/`,
+    'Document': (pk) => `/fr/documents/${pk}/`,
+    'Dossier': (pk) => `/fr/documents/dossiers/${pk}/`,
+    'Contact': (pk) => `/fr/clients/contacts/${pk}/`,
+    'Tache': (pk) => `/fr/taches/${pk}/`,
+    'Fiduciaire': () => `/fr/admin/core/entreprise/`,
+  };
+
+  function getEntityUrl(type, pk) {
+    return entityUrls[type] ? entityUrls[type](pk) : null;
+  }
 
   // ============================================
-  // INITIALIZE GRAPH
+  // INITIALISATION DU GRAPHE
   // ============================================
   function initGraph() {
     graph = new graphology.Graph();
 
-    // Add nodes - use positions from backend (circular layout)
-    graphData.nodes.forEach((node) => {
+    // Ajouter les nœuds avec positions du backend
+    graphData.nodes.forEach(node => {
       graph.addNode(node.id, {
         label: node.label || 'Sans nom',
         x: node.x || 0,
@@ -775,86 +639,59 @@ document.addEventListener('DOMContentLoaded', function() {
         color: node.color || '#6b7280',
         nodeType: node.nodeType || 'unknown',
         connections: node.connections || 0,
-        url: node.url || null,
         pk: node.pk || '',
       });
     });
 
-    // Add edges
+    // Ajouter les arêtes
     graphData.edges.forEach(edge => {
       if (graph.hasNode(edge.source) && graph.hasNode(edge.target)) {
         try {
           graph.addEdge(edge.source, edge.target, {
-            color: edge.color,
-            size: 1.5,
-            label: edge.label,
+            color: edge.color || 'rgba(100,116,139,0.4)',
+            size: 1,
           });
         } catch (e) {}
       }
     });
 
-    console.log('Graph loaded with', graph.order, 'nodes using circular layout from backend');
-
-    // Create Sigma renderer avec paramètres avancés
+    // Créer le renderer Sigma
     renderer = new Sigma(graph, container, {
-      // Labels - couleur sombre pour lisibilité
       renderLabels: true,
       labelFont: 'Inter, system-ui, sans-serif',
       labelSize: 12,
-      labelWeight: '600',
-      labelColor: { color: '#1e293b' },  // Texte sombre pour contraste
-      labelDensity: 0.5,
-      labelGridCellSize: 100,
-      labelRenderedSizeThreshold: 8,
+      labelWeight: '500',
+      labelColor: { color: '#cbd5e1' },
+      labelDensity: 0.4,
+      labelGridCellSize: 80,
+      labelRenderedSizeThreshold: 10,
 
-      // Couleurs par défaut
       defaultNodeColor: '#6b7280',
-      defaultEdgeColor: '#475569',
+      defaultEdgeColor: 'rgba(100,116,139,0.3)',
 
-      // Zoom
-      minCameraRatio: 0.02,
-      maxCameraRatio: 8,
-
-      // Effets visuels
-      stagePadding: 50,
-      allowInvalidContainer: true,
-      zIndex: true,
+      minCameraRatio: 0.05,
+      maxCameraRatio: 3,
 
       nodeReducer: (node, data) => {
-        const hidden = hiddenTypes.has(data.nodeType);
-        const res = { ...data, hidden };
+        const res = { ...data };
 
-        // Si un nœud est sélectionné
-        if (selectedNode) {
-          if (node === selectedNode) {
-            // Nœud sélectionné: très visible avec halo
-            res.highlighted = true;
-            res.size = data.size * 1.5;
-            res.zIndex = 3;
-          } else if (hoveredNeighbors.has(node)) {
-            // Voisins du nœud sélectionné: bien visibles
-            res.size = data.size * 1.2;
-            res.zIndex = 2;
-          } else {
-            // Autres nœuds: atténués mais visibles
-            res.color = mixColors(data.color, '#0f172a', 0.6);
-            res.zIndex = 0;
-          }
+        // Cacher par type
+        if (hiddenTypes.has(data.nodeType)) {
+          res.hidden = true;
+          return res;
         }
-        // Si un nœud est survolé (et pas sélectionné)
-        else if (hoveredNode) {
-          if (node === hoveredNode) {
-            res.highlighted = true;
-            res.size = data.size * 1.3;
-            res.zIndex = 3;
-          } else if (hoveredNeighbors.has(node)) {
-            res.size = data.size * 1.1;
-            res.zIndex = 2;
-          } else {
-            // Atténués mais toujours visibles
-            res.color = mixColors(data.color, '#0f172a', 0.5);
-            res.zIndex = 0;
-          }
+
+        // Nœud sélectionné
+        if (selectedNode === node) {
+          res.highlighted = true;
+          res.size = data.size * 1.5;
+          res.zIndex = 2;
+        }
+        // Nœud survolé
+        else if (hoveredNode === node) {
+          res.highlighted = true;
+          res.size = data.size * 1.3;
+          res.zIndex = 2;
         }
 
         return res;
@@ -862,439 +699,264 @@ document.addEventListener('DOMContentLoaded', function() {
 
       edgeReducer: (edge, data) => {
         const [source, target] = graph.extremities(edge);
-        const sourceHidden = hiddenTypes.has(graph.getNodeAttribute(source, 'nodeType'));
-        const targetHidden = hiddenTypes.has(graph.getNodeAttribute(target, 'nodeType'));
+        const sourceType = graph.getNodeAttribute(source, 'nodeType');
+        const targetType = graph.getNodeAttribute(target, 'nodeType');
 
-        if (sourceHidden || targetHidden) {
+        if (hiddenTypes.has(sourceType) || hiddenTypes.has(targetType)) {
           return { ...data, hidden: true };
         }
 
-        // Effet hover/selection sur les arêtes
-        const activeNode = selectedNode || hoveredNode;
-        if (activeNode) {
-          if (source === activeNode || target === activeNode) {
-            // Arête connectée au nœud actif - très visible
-            const nodeColor = graph.getNodeAttribute(activeNode, 'color');
-            return {
-              ...data,
-              color: nodeColor,
-              size: 2.5,
-              zIndex: 2,
-            };
-          } else {
-            // Arête non connectée - atténuée mais visible
-            return {
-              ...data,
-              color: 'rgba(71, 85, 105, 0.3)',
-              size: 0.8,
-              zIndex: 0,
-            };
-          }
+        // Mettre en évidence les arêtes du nœud actif
+        if (selectedNode && (source === selectedNode || target === selectedNode)) {
+          return { ...data, size: 2, color: '#3b82f6', zIndex: 1 };
+        }
+        if (hoveredNode && (source === hoveredNode || target === hoveredNode)) {
+          return { ...data, size: 1.5, color: '#60a5fa', zIndex: 1 };
         }
 
         return data;
       },
     });
 
-    // Fonction utilitaire pour mélanger les couleurs
-    function mixColors(color1, color2, ratio) {
-      const hex = (c) => parseInt(c, 16);
-      const c1 = color1.replace('#', '');
-      const c2 = color2.replace('#', '');
-
-      const r = Math.round(hex(c1.slice(0,2)) * (1-ratio) + hex(c2.slice(0,2)) * ratio);
-      const g = Math.round(hex(c1.slice(2,4)) * (1-ratio) + hex(c2.slice(2,4)) * ratio);
-      const b = Math.round(hex(c1.slice(4,6)) * (1-ratio) + hex(c2.slice(4,6)) * ratio);
-
-      return `rgb(${r}, ${g}, ${b})`;
-    }
-
-    // Hide loading, show banner
+    // Cacher le loading
     loading.style.display = 'none';
-    document.getElementById('graphBanner').style.display = 'flex';
 
-    // Update stats
+    // Stats
     document.getElementById('nodeCount').textContent = graph.order;
     document.getElementById('edgeCount').textContent = graph.size;
-    document.getElementById('bannerNodes').textContent = graph.order;
-    document.getElementById('bannerEdges').textContent = graph.size;
-    document.getElementById('bannerTypes').textContent = Object.keys(graphData.stats).length;
 
-    // Generate legend
+    // Légende
     generateLegend();
 
-    // Setup events
+    // Événements
     setupEvents();
   }
 
   // ============================================
-  // LEGEND
+  // LÉGENDE
   // ============================================
   function generateLegend() {
     legendList.innerHTML = '';
 
-    // Calculer le total et les stats par type
-    let maxCount = 0;
-    Object.entries(graphData.stats).forEach(([type, stat]) => {
-      totalNodesByType[type] = stat.count;
-      if (stat.count > maxCount) maxCount = stat.count;
-    });
-
-    // Boutons Tous / Aucun
-    const actionsDiv = document.createElement('div');
-    actionsDiv.className = 'legend-actions';
-    actionsDiv.innerHTML = `
-      <button class="legend-btn" id="showAllTypes">
-        <i class="ti ti-eye"></i> Tous
-      </button>
-      <button class="legend-btn" id="hideAllTypes">
-        <i class="ti ti-eye-off"></i> Aucun
-      </button>
-    `;
-    legendList.appendChild(actionsDiv);
-
-    // Trier par nombre décroissant
     const sortedTypes = Object.entries(graphData.stats)
       .sort((a, b) => b[1].count - a[1].count);
 
     sortedTypes.forEach(([type, stat]) => {
-      const percentage = maxCount > 0 ? (stat.count / maxCount) * 100 : 0;
       const item = document.createElement('div');
       item.className = 'legend-item';
-      item.dataset.type = type;
       item.innerHTML = `
-        <span class="legend-checkbox">
-          <i class="ti ti-check"></i>
-        </span>
-        <span class="legend-dot" style="background: ${stat.color}; color: ${stat.color};"></span>
-        <span class="legend-info">
-          <span class="legend-label">${type}</span>
-          <div class="legend-bar">
-            <div class="legend-bar-fill" style="width: ${percentage}%; background: ${stat.color};"></div>
-          </div>
-        </span>
+        <span class="legend-dot" style="background: ${stat.color};"></span>
+        <span class="legend-label">${type}</span>
         <span class="legend-count">${stat.count}</span>
       `;
 
       item.addEventListener('click', () => {
-        toggleType(type, item);
+        if (hiddenTypes.has(type)) {
+          hiddenTypes.delete(type);
+          item.classList.remove('disabled');
+        } else {
+          hiddenTypes.add(type);
+          item.classList.add('disabled');
+        }
+        renderer.refresh();
       });
 
       legendList.appendChild(item);
     });
-
-    // Event listeners pour les boutons
-    document.getElementById('showAllTypes').addEventListener('click', (e) => {
-      e.stopPropagation();
-      hiddenTypes.clear();
-      legendList.querySelectorAll('.legend-item').forEach(item => {
-        item.classList.remove('disabled');
-      });
-      renderer.refresh();
-      updateVisibleCount();
-    });
-
-    document.getElementById('hideAllTypes').addEventListener('click', (e) => {
-      e.stopPropagation();
-      Object.keys(graphData.stats).forEach(type => hiddenTypes.add(type));
-      legendList.querySelectorAll('.legend-item').forEach(item => {
-        item.classList.add('disabled');
-      });
-      renderer.refresh();
-      updateVisibleCount();
-    });
-  }
-
-  function toggleType(type, item) {
-    if (hiddenTypes.has(type)) {
-      hiddenTypes.delete(type);
-      item.classList.remove('disabled');
-    } else {
-      hiddenTypes.add(type);
-      item.classList.add('disabled');
-    }
-    renderer.refresh();
-    updateVisibleCount();
-  }
-
-  function updateVisibleCount() {
-    let visibleNodes = 0;
-    let visibleEdges = 0;
-
-    graph.forEachNode((node, attrs) => {
-      if (!hiddenTypes.has(attrs.nodeType)) {
-        visibleNodes++;
-      }
-    });
-
-    graph.forEachEdge((edge, attrs, source, target) => {
-      const sourceType = graph.getNodeAttribute(source, 'nodeType');
-      const targetType = graph.getNodeAttribute(target, 'nodeType');
-      if (!hiddenTypes.has(sourceType) && !hiddenTypes.has(targetType)) {
-        visibleEdges++;
-      }
-    });
-
-    document.getElementById('nodeCount').textContent = visibleNodes;
-    document.getElementById('edgeCount').textContent = visibleEdges;
   }
 
   // ============================================
-  // EVENTS
+  // ÉVÉNEMENTS
   // ============================================
   function setupEvents() {
-    // Click on node - sélection et affichage des détails
-    renderer.on('clickNode', ({ node }) => {
-      selectNode(node);
-    });
-
-    // Hover node - mise en évidence des connexions
+    // Survol - afficher tooltip
     renderer.on('enterNode', ({ node }) => {
-      if (!selectedNode) {
-        hoveredNode = node;
-        hoveredNeighbors = new Set(graph.neighbors(node));
-        renderer.refresh();
-      }
+      hoveredNode = node;
+      renderer.refresh();
+      showTooltip(node);
       container.style.cursor = 'pointer';
     });
 
     renderer.on('leaveNode', () => {
-      if (!selectedNode) {
-        hoveredNode = null;
-        hoveredNeighbors.clear();
-        renderer.refresh();
-      }
+      hoveredNode = null;
+      renderer.refresh();
+      hideTooltip();
       container.style.cursor = 'default';
     });
 
-    // Click on stage (deselect)
+    // Clic - afficher détails
+    renderer.on('clickNode', ({ node }) => {
+      selectedNode = node;
+      renderer.refresh();
+      showDetails(node);
+    });
+
+    // Clic sur le fond - fermer détails
     renderer.on('clickStage', () => {
-      deselectNode();
+      closeDetails();
     });
 
     // Zoom controls
     document.getElementById('zoomIn').addEventListener('click', () => {
-      const camera = renderer.getCamera();
-      camera.animatedZoom({ duration: 200 });
+      renderer.getCamera().animatedZoom({ duration: 200 });
     });
-
     document.getElementById('zoomOut').addEventListener('click', () => {
-      const camera = renderer.getCamera();
-      camera.animatedUnzoom({ duration: 200 });
+      renderer.getCamera().animatedUnzoom({ duration: 200 });
+    });
+    document.getElementById('zoomReset').addEventListener('click', () => {
+      renderer.getCamera().animatedReset({ duration: 300 });
     });
 
-    document.getElementById('zoomFit').addEventListener('click', () => {
-      const camera = renderer.getCamera();
-      camera.animatedReset({ duration: 300 });
-    });
+    // Fermer détails
+    document.getElementById('detailsClose').addEventListener('click', closeDetails);
 
-    document.getElementById('fullscreen').addEventListener('click', () => {
-      if (document.fullscreenElement) {
-        document.exitFullscreen();
-      } else {
-        document.querySelector('.graph-page').requestFullscreen();
-      }
-    });
-
-    // Search
-    const clearSearchBtn = document.getElementById('clearSearch');
-
-    searchInput.addEventListener('input', () => {
-      const query = searchInput.value.toLowerCase().trim();
-
-      // Afficher/cacher le bouton clear
-      clearSearchBtn.classList.toggle('show', query.length > 0);
-
-      if (query.length < 2) {
-        searchResults.classList.remove('show');
-        return;
-      }
-
-      const allResults = graphData.nodes.filter(n =>
-        n.label.toLowerCase().includes(query) ||
-        n.nodeType.toLowerCase().includes(query)
-      );
-      const results = allResults.slice(0, 10);
-      const totalCount = allResults.length;
-
-      if (totalCount === 0) {
-        searchResults.innerHTML = '<div style="padding: 12px; color: #64748b; text-align: center;">{% trans "Aucun résultat" %}</div>';
-      } else {
-        const countHtml = `<div class="search-count">${totalCount} résultat${totalCount > 1 ? 's' : ''}</div>`;
-        const resultsHtml = results.map(node => `
-          <div class="search-result-item" data-id="${node.id}">
-            <span class="search-result-dot" style="background: ${node.color};"></span>
-            <span class="search-result-label">${highlightMatch(node.label, query)}</span>
-            <span class="search-result-type">${node.nodeType}</span>
-          </div>
-        `).join('');
-
-        searchResults.innerHTML = countHtml + resultsHtml;
-
-        searchResults.querySelectorAll('.search-result-item').forEach(item => {
-          item.addEventListener('click', () => {
-            const nodeId = item.dataset.id;
-            focusNode(nodeId);
-            selectNode(nodeId);
-            searchResults.classList.remove('show');
-            searchInput.value = '';
-            clearSearchBtn.classList.remove('show');
-          });
-        });
-      }
-
-      searchResults.classList.add('show');
-    });
-
-    clearSearchBtn.addEventListener('click', () => {
-      searchInput.value = '';
-      searchResults.classList.remove('show');
-      clearSearchBtn.classList.remove('show');
-      searchInput.focus();
-    });
-
+    // Recherche
+    searchInput.addEventListener('input', handleSearch);
     searchInput.addEventListener('blur', () => {
       setTimeout(() => searchResults.classList.remove('show'), 200);
     });
-
-    // Keyboard navigation
-    searchInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        searchInput.value = '';
-        searchResults.classList.remove('show');
-        clearSearchBtn.classList.remove('show');
-        searchInput.blur();
-      }
-    });
-
-    // Close details
-    document.getElementById('detailsClose').addEventListener('click', deselectNode);
   }
 
   // ============================================
-  // NODE SELECTION
+  // TOOLTIP (survol)
   // ============================================
-  function selectNode(nodeId) {
-    selectedNode = nodeId;
-    hoveredNeighbors = new Set(graph.neighbors(nodeId));
-    renderer.refresh();
-    showDetails(nodeId);
-    focusNode(nodeId);
-  }
-
-  function deselectNode() {
-    selectedNode = null;
-    hoveredNode = null;
-    hoveredNeighbors.clear();
-    renderer.refresh();
-    details.classList.remove('show');
-  }
-
-  function focusNode(nodeId) {
+  function showTooltip(nodeId) {
     const attrs = graph.getNodeAttributes(nodeId);
-    const camera = renderer.getCamera();
-    // Zoom modéré pour garder le contexte visible
-    const currentRatio = camera.getState().ratio;
-    const targetRatio = Math.min(currentRatio, 0.5); // Ne pas zoomer plus que 0.5
-    camera.animate({ x: attrs.x, y: attrs.y, ratio: targetRatio }, { duration: 300 });
-  }
 
-  function getEntityUrl(nodeType, pk) {
-    // Génère l'URL de détail selon le type d'entité
-    const urlPatterns = {
-      'Client': `/fr/clients/${pk}/`,
-      'Mandat': `/fr/mandats/${pk}/`,
-      'User': `/fr/users/${pk}/`,
-      'Facture': `/fr/facturation/factures/${pk}/`,
-      'Document': `/fr/documents/${pk}/`,
-      'Dossier': `/fr/documents/dossiers/${pk}/`,
-      'Contact': `/fr/clients/contacts/${pk}/`,
-      'Tache': `/fr/taches/${pk}/`,
-      'ExerciceComptable': `/fr/comptabilite/exercices/${pk}/`,
-      'Paiement': `/fr/facturation/paiements/${pk}/`,
-      'Entreprise': `/fr/admin/core/entreprise/${pk}/change/`,
-      'Fiduciaire': `/fr/admin/core/entreprise/`,
+    document.getElementById('tooltipDot').style.background = attrs.color;
+    document.getElementById('tooltipName').textContent = attrs.label;
+    document.getElementById('tooltipType').textContent = attrs.nodeType;
+    document.getElementById('tooltipConnections').textContent = attrs.connections;
+
+    // Positionner près du curseur
+    const moveHandler = (e) => {
+      let x = e.clientX + 15;
+      let y = e.clientY + 15;
+
+      // Éviter débordement
+      if (x + 280 > window.innerWidth) x = e.clientX - 290;
+      if (y + 100 > window.innerHeight) y = e.clientY - 110;
+
+      tooltip.style.left = x + 'px';
+      tooltip.style.top = y + 'px';
     };
-    return urlPatterns[nodeType] || null;
+
+    document.addEventListener('mousemove', moveHandler);
+    tooltip._moveHandler = moveHandler;
+    tooltip.classList.add('show');
   }
 
+  function hideTooltip() {
+    tooltip.classList.remove('show');
+    if (tooltip._moveHandler) {
+      document.removeEventListener('mousemove', tooltip._moveHandler);
+    }
+  }
+
+  // ============================================
+  // PANNEAU DÉTAILS (clic)
+  // ============================================
   function showDetails(nodeId) {
     const attrs = graph.getNodeAttributes(nodeId);
 
     document.getElementById('detailsDot').style.background = attrs.color;
-    document.getElementById('detailsLabel').textContent = attrs.label;
+    document.getElementById('detailsName').textContent = attrs.label;
     document.getElementById('detailsType').textContent = attrs.nodeType;
-    document.getElementById('detailsConnections').textContent = `${attrs.connections} connexion${attrs.connections > 1 ? 's' : ''}`;
+    document.getElementById('detailsMeta').innerHTML = `<strong>${attrs.connections}</strong> connexion${attrs.connections > 1 ? 's' : ''}`;
 
-    // Connections list avec liens
+    // Liste des connexions
+    const neighbors = graph.neighbors(nodeId);
     const connectionList = document.getElementById('connectionList');
-    const neighbors = graph.neighbors(nodeId).slice(0, 20);
 
-    connectionList.innerHTML = neighbors.map(neighborId => {
-      const neighborAttrs = graph.getNodeAttributes(neighborId);
-      const neighborUrl = getEntityUrl(neighborAttrs.nodeType, neighborAttrs.pk);
+    connectionList.innerHTML = neighbors.slice(0, 20).map(neighborId => {
+      const n = graph.getNodeAttributes(neighborId);
       return `
-        <div class="connection-item" data-id="${neighborId}" data-url="${neighborUrl || ''}">
-          <span class="connection-dot" style="background: ${neighborAttrs.color};"></span>
-          <span class="connection-label">${neighborAttrs.label}</span>
-          <span class="connection-type">${neighborAttrs.nodeType}</span>
-          ${neighborUrl ? '<i class="ti ti-external-link" style="color: #64748b; font-size: 12px;"></i>' : ''}
+        <div class="connection-item" data-id="${neighborId}">
+          <span class="connection-dot" style="background: ${n.color};"></span>
+          <span class="connection-name">${n.label}</span>
+          <span class="connection-type">${n.nodeType}</span>
         </div>
       `;
     }).join('');
 
+    // Clic sur connexion
     connectionList.querySelectorAll('.connection-item').forEach(item => {
-      item.addEventListener('click', (e) => {
-        // Shift+click ou Ctrl+click ouvre le lien
-        if ((e.shiftKey || e.ctrlKey) && item.dataset.url) {
-          window.open(item.dataset.url, '_blank');
-        } else {
-          // Click simple sélectionne le nœud
-          selectNode(item.dataset.id);
-        }
-      });
-
-      // Double-click ouvre le lien
-      item.addEventListener('dblclick', () => {
-        if (item.dataset.url) {
-          window.location.href = item.dataset.url;
-        }
+      item.addEventListener('click', () => {
+        const id = item.dataset.id;
+        selectedNode = id;
+        renderer.refresh();
+        showDetails(id);
+        focusOnNode(id);
       });
     });
 
-    // Action button - générer l'URL
-    const actionsContainer = document.getElementById('detailsActions');
-    const entityUrl = attrs.url || getEntityUrl(attrs.nodeType, attrs.pk);
-    if (entityUrl) {
-      actionsContainer.innerHTML = `
-        <a href="${entityUrl}" class="details-btn">
-          <i class="ti ti-eye"></i> Voir les détails
-        </a>
-      `;
-    } else {
-      actionsContainer.innerHTML = `
-        <div style="color: #64748b; font-size: 12px; text-align: center;">
-          Double-cliquez sur une connexion pour l'ouvrir
-        </div>
-      `;
-    }
+    // Bouton action
+    const url = getEntityUrl(attrs.nodeType, attrs.pk);
+    const actions = document.getElementById('detailsActions');
+    actions.innerHTML = url
+      ? `<a href="${url}" class="details-btn"><i class="ti ti-external-link"></i> Ouvrir</a>`
+      : '';
 
     details.classList.add('show');
+    focusOnNode(nodeId);
+  }
+
+  function closeDetails() {
+    selectedNode = null;
+    renderer.refresh();
+    details.classList.remove('show');
+  }
+
+  function focusOnNode(nodeId) {
+    const attrs = graph.getNodeAttributes(nodeId);
+    renderer.getCamera().animate(
+      { x: attrs.x, y: attrs.y, ratio: 0.4 },
+      { duration: 300 }
+    );
   }
 
   // ============================================
-  // UTILITY FUNCTIONS
+  // RECHERCHE
   // ============================================
-  function highlightMatch(text, query) {
-    const regex = new RegExp(`(${escapeRegex(query)})`, 'gi');
-    return text.replace(regex, '<strong style="color: #3b82f6;">$1</strong>');
+  function handleSearch() {
+    const query = searchInput.value.toLowerCase().trim();
+
+    if (query.length < 2) {
+      searchResults.classList.remove('show');
+      return;
+    }
+
+    const results = graphData.nodes
+      .filter(n => n.label.toLowerCase().includes(query))
+      .slice(0, 8);
+
+    if (results.length === 0) {
+      searchResults.innerHTML = '<div style="padding: 10px; color: #64748b; text-align: center;">Aucun résultat</div>';
+    } else {
+      searchResults.innerHTML = results.map(node => `
+        <div class="search-result-item" data-id="${node.id}">
+          <span class="search-result-dot" style="background: ${node.color};"></span>
+          <span class="search-result-label">${node.label}</span>
+          <span class="search-result-type">${node.nodeType}</span>
+        </div>
+      `).join('');
+
+      searchResults.querySelectorAll('.search-result-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const id = item.dataset.id;
+          selectedNode = id;
+          renderer.refresh();
+          showDetails(id);
+          searchResults.classList.remove('show');
+          searchInput.value = '';
+        });
+      });
+    }
+
+    searchResults.classList.add('show');
   }
 
-  function escapeRegex(string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  }
-
-  // Initialize
+  // Initialiser
   initGraph();
 });
 </script>
