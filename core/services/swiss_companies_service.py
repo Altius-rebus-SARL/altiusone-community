@@ -116,8 +116,9 @@ class SwissCompaniesService:
         if not search_term or len(search_term) < 3:
             return []
 
-        # Check cache first
-        cache_key = f"swiss_company_search:{search_term.lower()}:{limit}"
+        # Check cache first - sanitize key (no spaces for memcached compatibility)
+        safe_term = search_term.lower().replace(" ", "_")
+        cache_key = f"swiss_search:{safe_term}:{limit}"
         try:
             cached = cache.get(cache_key)
             if cached is not None:
