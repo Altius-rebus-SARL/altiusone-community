@@ -163,6 +163,67 @@ class ClientViewSet(viewsets.ModelViewSet):
         }
         return Response(stats)
 
+    @action(detail=False, methods=["get"])
+    def search_swiss(self, request):
+        """
+        Search Swiss companies via LINDAS API (Zefix registry).
+        Used for autocomplete when creating new clients.
+
+        Query params:
+            q: Search term (min 3 characters)
+            limit: Max results (default 10, max 50)
+
+        Returns list of companies with IDE, name, legal form, address, etc.
+        """
+        from .services import SwissCompaniesService
+
+        search_term = request.query_params.get("q", "").strip()
+        if len(search_term) < 3:
+            return Response(
+                {"error": "Le terme de recherche doit contenir au moins 3 caractères"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            limit = min(int(request.query_params.get("limit", 10)), 50)
+        except ValueError:
+            limit = 10
+
+        companies = SwissCompaniesService.search(search_term, limit=limit)
+        results = [company.to_dict() for company in companies]
+
+        return Response({
+            "count": len(results),
+            "results": results,
+        })
+
+    @action(detail=False, methods=["get"], url_path=r"swiss/(?P<uid>[\w\-\.]+)")
+    def get_swiss_company(self, request, uid=None):
+        """
+        Get a specific Swiss company by UID.
+
+        Path param:
+            uid: Company UID (9 digits or CHE-XXX.XXX.XXX format)
+
+        Returns company details if found.
+        """
+        from .services import SwissCompaniesService
+
+        if not uid:
+            return Response(
+                {"error": "UID requis"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        company = SwissCompaniesService.get_by_uid(uid)
+        if not company:
+            return Response(
+                {"error": "Entreprise non trouvée"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return Response(company.to_dict())
+
 
 class ContactViewSet(viewsets.ModelViewSet):
     """
