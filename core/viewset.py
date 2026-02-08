@@ -163,11 +163,12 @@ class ClientViewSet(viewsets.ModelViewSet):
         }
         return Response(stats)
 
-    @action(detail=False, methods=["get"])
+    @action(detail=False, methods=["get"], permission_classes=[])
     def search_swiss(self, request):
         """
         Search Swiss companies via LINDAS API (Zefix registry).
         Used for autocomplete when creating new clients.
+        Public endpoint (no auth required) - Zefix data is public.
 
         Query params:
             q: Search term (min 3 characters)
@@ -197,10 +198,11 @@ class ClientViewSet(viewsets.ModelViewSet):
             "results": results,
         })
 
-    @action(detail=False, methods=["get"], url_path=r"swiss/(?P<uid>[\w\-\.]+)")
+    @action(detail=False, methods=["get"], url_path=r"swiss/(?P<uid>[\w\-\.]+)", permission_classes=[])
     def get_swiss_company(self, request, uid=None):
         """
         Get a specific Swiss company by UID.
+        Public endpoint (no auth required) - Zefix data is public.
 
         Path param:
             uid: Company UID (9 digits or CHE-XXX.XXX.XXX format)
