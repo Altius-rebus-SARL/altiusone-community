@@ -190,7 +190,7 @@ class TacheForm(forms.ModelForm):
             "titre": forms.TextInput(attrs={"class": "form-control"}),
             "description": forms.Textarea(attrs={"class": "form-control", "rows": 4}),
             "assigne_a": forms.Select(attrs={"class": "form-control"}),
-            "mandat": forms.Select(attrs={"class": "form-control"}),
+            "mandat": forms.Select(attrs={"class": "form-control select2"}),
             "priorite": forms.Select(attrs={"class": "form-control"}),
             "date_echeance": forms.DateInput(
                 attrs={"class": "form-control", "type": "date"}

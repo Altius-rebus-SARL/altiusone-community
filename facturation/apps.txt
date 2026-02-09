@@ -477,7 +477,7 @@ class FactureForm(forms.ModelForm):
             "notes",
         ]
         widgets = {
-            "mandat": forms.Select(attrs={"class": "form-control"}),
+            "mandat": forms.Select(attrs={"class": "form-control "}),
             "client": forms.Select(attrs={"class": "form-control"}),
             "type_facture": forms.Select(attrs={"class": "form-control"}),
             "date_emission": forms.DateInput(

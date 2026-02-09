@@ -38,12 +38,12 @@ class DeclarationFiscaleForm(forms.ModelForm):
             "impot_cantonal",
             "impot_communal",
             "remarques",
-        ]
+        ] 
         widgets = {
-            "mandat": forms.Select(attrs={"class": "form-control"}),
+            "mandat": forms.Select(attrs={"class": "form-control select2"}),
             "type_declaration": forms.Select(attrs={"class": "form-control"}),
             "type_impot": forms.Select(attrs={"class": "form-control"}),
-            "exercice_comptable": forms.Select(attrs={"class": "form-control"}),
+            "exercice_comptable": forms.Select(attrs={"class": "form-control select2"}),
             "annee_fiscale": forms.NumberInput(attrs={"class": "form-control"}),
             "periode_debut": forms.DateInput(
                 attrs={"class": "form-control", "type": "date"}
@@ -51,7 +51,7 @@ class DeclarationFiscaleForm(forms.ModelForm):
             "periode_fin": forms.DateInput(
                 attrs={"class": "form-control", "type": "date"}
             ),
-            "canton": forms.Select(attrs={"class": "form-control"}),
+            "canton": forms.Select(attrs={"class": "form-control select2"}),
             "commune": forms.TextInput(attrs={"class": "form-control"}),
             "numero_contribuable": forms.TextInput(attrs={"class": "form-control"}),
             "benefice_avant_impots": forms.NumberInput(
@@ -129,7 +129,7 @@ class ReportPerteForm(forms.ModelForm):
         model = ReportPerte
         fields = ["mandat", "annee_origine", "montant_perte", "annee_expiration"]
         widgets = {
-            "mandat": forms.Select(attrs={"class": "form-control"}),
+            "mandat": forms.Select(attrs={"class": "form-control select2"}),
             "annee_origine": forms.NumberInput(attrs={"class": "form-control"}),
             "montant_perte": forms.NumberInput(
                 attrs={"class": "form-control", "step": "0.01"}
@@ -182,7 +182,7 @@ class OptimisationFiscaleForm(forms.ModelForm):
             "notes",
         ]
         widgets = {
-            "mandat": forms.Select(attrs={"class": "form-control"}),
+            "mandat": forms.Select(attrs={"class": "form-control select2"}),
             "categorie": forms.Select(attrs={"class": "form-control"}),
             "titre": forms.TextInput(attrs={"class": "form-control"}),
             "description": forms.Textarea(attrs={"class": "form-control", "rows": 5}),

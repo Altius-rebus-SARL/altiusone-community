@@ -35,7 +35,7 @@ class ConfigurationTVAForm(forms.ModelForm):
             "compte_tva_prealable",
         ]
         widgets = {
-            "mandat": forms.Select(attrs={"class": "form-control"}),
+            "mandat": forms.Select(attrs={"class": "form-control select2"}),
             "assujetti_tva": forms.CheckboxInput(attrs={"class": "form-check-input"}),
             "numero_tva": forms.TextInput(attrs={"class": "form-control"}),
             "date_debut_assujettissement": forms.DateInput(
@@ -228,7 +228,7 @@ class OperationTVAForm(forms.ModelForm):
             "libelle",
         ]
         widgets = {
-            "mandat": forms.Select(attrs={"class": "form-control"}),
+            "mandat": forms.Select(attrs={"class": "form-control select2"}),
             "date_operation": forms.DateInput(
                 attrs={"class": "form-control", "type": "date"}
             ),
