@@ -120,6 +120,7 @@
                     <table class="table table-sm table-hover mb-0">
                         <thead>
                             <tr>
+                                <th style="width: 30px;"></th>
                                 <th>{% trans "Champ" %}</th>
                                 <th>{% trans "Label" %}</th>
                                 <th>{% trans "Type" %}</th>
@@ -127,9 +128,10 @@
                                 <th>{% trans "Section" %}</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="fields-sortable">
                             {% for mapping in field_mappings %}
-                            <tr>
+                            <tr data-id="{{ mapping.pk }}">
+                                <td class="drag-handle" style="cursor: grab;"><i class="ti ti-grip-vertical text-muted"></i></td>
                                 <td><code>{{ mapping.field_name }}</code></td>
                                 <td>{{ mapping.label|default:"-" }}</td>
                                 <td><span class="badge bg-light text-dark">{{ mapping.widget_type }}</span></td>
@@ -273,4 +275,35 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tbody = document.getElementById('fields-sortable');
+    if (!tbody) return;
+
+    Sortable.create(tbody, {
+        handle: '.drag-handle',
+        animation: 150,
+        onEnd: function() {
+            const rows = tbody.querySelectorAll('tr[data-id]');
+            const order = [];
+            rows.forEach(function(row, index) {
+                order.push({id: parseInt(row.dataset.id), order: index});
+            });
+
+            fetch("{% url 'modelforms:reorder-fields' configuration.pk %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({order: order})
+            });
+        }
+    });
+});
+</script>
 {% endblock %}

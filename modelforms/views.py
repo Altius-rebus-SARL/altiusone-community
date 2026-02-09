@@ -506,7 +506,7 @@ def reject_submission(request, pk):
         messages.error(request, _('Seules les soumissions en attente peuvent être rejetées.'))
         return redirect('modelforms:submission-detail', pk=pk)
 
-    reason = request.POST.get('reason', '')
+    reason = request.POST.get('validation_notes', '')
     if not reason:
         messages.error(request, _('Une raison de rejet est requise.'))
         return redirect('modelforms:submission-detail', pk=pk)
@@ -774,6 +774,29 @@ def submit_form(request, pk):
         )
 
     return redirect('modelforms:submission-detail', pk=submission.pk)
+
+
+@login_required
+@require_POST
+@permission_required_business('modelforms.change_configuration')
+def reorder_fields(request, pk):
+    """Sauvegarde le nouvel ordre des champs (AJAX)."""
+    import json
+    configuration = get_object_or_404(FormConfiguration, pk=pk)
+
+    try:
+        data = json.loads(request.body)
+        order_list = data.get('order', [])
+    except (json.JSONDecodeError, AttributeError):
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    for item in order_list:
+        ModelFieldMapping.objects.filter(
+            pk=item['id'],
+            form_config=configuration,
+        ).update(order=item['order'])
+
+    return JsonResponse({'status': 'ok'})
 
 
 @login_required

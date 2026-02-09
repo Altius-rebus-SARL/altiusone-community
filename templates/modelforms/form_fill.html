@@ -212,10 +212,101 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Conditional field visibility
-    {% if form_config.form_schema.conditions %}
-    const conditions = {{ form_config.form_schema.conditions|safe }};
-    // TODO: Implement conditional visibility
-    {% endif %}
+    (function() {
+        const wrappers = form.querySelectorAll('[data-conditions]');
+        if (!wrappers.length) return;
+
+        function getFieldValue(fieldName) {
+            // Field names in the form use source_model__field_name format
+            // Try to find by the field_name part (conditions reference the logical name)
+            const inputs = form.querySelectorAll('input, select, textarea');
+            for (const input of inputs) {
+                const name = input.name || '';
+                // Match field_name at the end after __ separator, or exact match
+                if (name === fieldName || name.endsWith('__' + fieldName)) {
+                    if (input.type === 'radio') {
+                        const checked = form.querySelector('input[name="' + name + '"]:checked');
+                        return checked ? checked.value : '';
+                    }
+                    if (input.type === 'checkbox') {
+                        return input.checked ? 'true' : 'false';
+                    }
+                    return input.value;
+                }
+            }
+            return '';
+        }
+
+        function evaluateCondition(condition) {
+            const value = getFieldValue(condition.field);
+            switch (condition.operator) {
+                case 'equals':
+                case 'eq':
+                    return value === String(condition.value);
+                case 'not_equals':
+                case 'neq':
+                    return value !== String(condition.value);
+                case 'contains':
+                    return value.includes(String(condition.value));
+                case 'not_empty':
+                    return value.trim() !== '';
+                case 'empty':
+                    return value.trim() === '';
+                case 'gt':
+                    return parseFloat(value) > parseFloat(condition.value);
+                case 'lt':
+                    return parseFloat(value) < parseFloat(condition.value);
+                case 'in':
+                    return Array.isArray(condition.value) && condition.value.map(String).includes(value);
+                default:
+                    return true;
+            }
+        }
+
+        function applyConditions() {
+            wrappers.forEach(function(wrapper) {
+                let conditions;
+                try {
+                    conditions = JSON.parse(wrapper.getAttribute('data-conditions'));
+                } catch(e) { return; }
+
+                // Support single condition object or array of conditions
+                const condList = Array.isArray(conditions) ? conditions : [conditions];
+                const visible = condList.every(evaluateCondition);
+
+                wrapper.style.display = visible ? '' : 'none';
+                // Disable hidden fields so they are not submitted
+                wrapper.querySelectorAll('input, select, textarea').forEach(function(el) {
+                    el.disabled = !visible;
+                });
+            });
+        }
+
+        // Collect all trigger field names from conditions
+        const triggerFields = new Set();
+        wrappers.forEach(function(wrapper) {
+            try {
+                const conditions = JSON.parse(wrapper.getAttribute('data-conditions'));
+                const condList = Array.isArray(conditions) ? conditions : [conditions];
+                condList.forEach(function(c) { if (c.field) triggerFields.add(c.field); });
+            } catch(e) {}
+        });
+
+        // Listen to changes on trigger fields
+        form.querySelectorAll('input, select, textarea').forEach(function(input) {
+            const name = input.name || '';
+            for (const trigger of triggerFields) {
+                if (name === trigger || name.endsWith('__' + trigger)) {
+                    input.addEventListener('change', applyConditions);
+                    input.addEventListener('input', applyConditions);
+                    break;
+                }
+            }
+        });
+
+        // Initial evaluation
+        applyConditions();
+    })();
 });
 </script>
 {% endblock %}

@@ -70,6 +70,11 @@ urlpatterns = [
         views.delete_field_mapping,
         name='delete-field-mapping'
     ),
+    path(
+        'configurations/<uuid:pk>/champs/reorder/',
+        views.reorder_fields,
+        name='reorder-fields'
+    ),
 
     # ==========================================================================
     # INTROSPECTION (HTMX)

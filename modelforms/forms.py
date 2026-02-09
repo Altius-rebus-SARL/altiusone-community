@@ -6,7 +6,7 @@ Supporte les formulaires multi-modèles avec champs provenant de différentes ap
 """
 from django import forms
 from django.utils.translation import gettext_lazy as _
-from .models import FormConfiguration, ModelFieldMapping, FormTemplate
+from .models import FormConfiguration, ModelFieldMapping, FormSubmission, FormTemplate
 from .services.introspector import ModelIntrospector
 
 
@@ -270,7 +270,7 @@ class FormSubmissionFilterForm(forms.Form):
     status = forms.ChoiceField(
         required=False,
         label=_('Statut'),
-        choices=[('', _('Tous les statuts'))] + list(FormConfiguration.Status.choices),
+        choices=[('', _('Tous les statuts'))] + list(FormSubmission.Status.choices),
         widget=forms.Select(attrs={
             'class': 'form-select select-basic',
             'onchange': 'this.form.submit()',

@@ -600,6 +600,18 @@
         </ul>
       </li>
       {% endif %}
+
+      <!-- MODELFORMS - Formulaires disponibles (tous les utilisateurs authentifiés) -->
+      <li
+        class="no-sub"
+        data-active="{% if ns == 'modelforms' and 'available' in is_active or ns == 'modelforms' and 'form-fill' in is_active %}true{% endif %}"
+      >
+        <a href="{% url 'modelforms:available-forms' %}">
+          <i class="ti ti-forms f-s-30"></i>
+          {% trans "Formulaires" %}
+        </a>
+      </li>
+
       {% endwith %}
     </ul>
   </div>
