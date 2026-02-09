@@ -504,9 +504,6 @@ class DeclarationTVA(BaseModel):
         """Calcule automatiquement la déclaration depuis les opérations"""
         from django.db.models import Sum
 
-        # Supprimer les lignes existantes
-        self.lignes.all().delete()
-
         # Récupérer les opérations non intégrées de la période
         operations = OperationTVA.objects.filter(
             mandat=self.mandat,
@@ -515,54 +512,67 @@ class DeclarationTVA(BaseModel):
             integre_declaration=False,
         )
 
-        # Grouper par code TVA
-        operations_groupees = {}
-        for op in operations:
-            code = op.code_tva.code
-            if code not in operations_groupees:
-                operations_groupees[code] = {
-                    "code_tva": op.code_tva,
-                    "base_imposable": Decimal("0"),
-                    "montant_tva": Decimal("0"),
-                    "operations": [],
-                }
+        if operations.exists():
+            # Supprimer les lignes existantes seulement si on a des opérations
+            self.lignes.all().delete()
 
-            operations_groupees[code]["base_imposable"] += op.montant_ht
-            operations_groupees[code]["montant_tva"] += op.montant_tva
-            operations_groupees[code]["operations"].append(op)
+            # Grouper par code TVA
+            operations_groupees = {}
+            for op in operations:
+                code = op.code_tva.code
+                if code not in operations_groupees:
+                    operations_groupees[code] = {
+                        "code_tva": op.code_tva,
+                        "base_imposable": Decimal("0"),
+                        "montant_tva": Decimal("0"),
+                        "operations": [],
+                    }
 
-        # Créer les lignes
-        ordre = 0
-        for code, data in operations_groupees.items():
-            ordre += 1
-            ligne = LigneTVA.objects.create(
-                declaration=self,
-                code_tva=data["code_tva"],
-                base_imposable=data["base_imposable"],
-                taux_tva=data["code_tva"].taux_applicable.taux
-                if data["code_tva"].taux_applicable
-                else Decimal("0"),
-                montant_tva=data["montant_tva"],
-                libelle=f"Opérations {self.periode_debut} - {self.periode_fin}",
-                calcul_automatique=True,
-                ordre=ordre,
-            )
+                operations_groupees[code]["base_imposable"] += op.montant_ht
+                operations_groupees[code]["montant_tva"] += op.montant_tva
+                operations_groupees[code]["operations"].append(op)
 
-            # Marquer les opérations comme intégrées
-            for op in data["operations"]:
-                op.integre_declaration = True
-                op.declaration_tva = self
-                op.date_integration = datetime.now()
-                op.save()
+            # Créer les lignes
+            ordre = 0
+            for code, data in operations_groupees.items():
+                ordre += 1
+                LigneTVA.objects.create(
+                    declaration=self,
+                    code_tva=data["code_tva"],
+                    base_imposable=data["base_imposable"],
+                    taux_tva=data["code_tva"].taux_applicable.taux
+                    if data["code_tva"].taux_applicable
+                    else Decimal("0"),
+                    montant_tva=data["montant_tva"],
+                    libelle=f"Opérations {self.periode_debut} - {self.periode_fin}",
+                    calcul_automatique=True,
+                    ordre=ordre,
+                )
 
-        # Recalculer les totaux (via signals ou manuellement)
-        self.recalculer_totaux()
+                # Marquer les opérations comme intégrées
+                for op in data["operations"]:
+                    op.integre_declaration = True
+                    op.declaration_tva = self
+                    op.date_integration = datetime.now()
+                    op.save()
+
+            # Recalculer les totaux depuis les lignes
+            self.recalculer_totaux()
+        else:
+            # Pas d'opérations : calculer le solde depuis les montants saisis
+            self.calculer_solde()
 
         return self
 
     def recalculer_totaux(self):
-        """Recalcule tous les totaux de la déclaration"""
+        """Recalcule tous les totaux de la déclaration depuis les lignes"""
         from django.db.models import Sum
+
+        lignes = self.lignes.all()
+        if not lignes.exists():
+            # Pas de lignes : garder les montants saisis, juste recalculer le solde
+            self.calculer_solde()
+            return
 
         # Chiffre d'affaires
         self.chiffre_affaires_total = self.lignes.filter(
@@ -590,7 +600,8 @@ class DeclarationTVA(BaseModel):
             "montant_correction__sum"
         ] or Decimal("0")
 
-        # Solde
+        # Sauvegarder les totaux et calculer le solde
+        self.save()
         self.calculer_solde()
 
     def valider(self, user):
