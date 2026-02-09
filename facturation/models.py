@@ -1121,9 +1121,8 @@ class Facture(BaseModel):
         suffix = "_qr" if avec_qr_bill else ""
         filename = f"facture_{self.numero_facture}{suffix}.pdf"
 
-        self.fichier_pdf.save(filename, ContentFile(pdf_content), save=True)
-
-        return self.fichier_pdf
+        from core.pdf import save_pdf_overwrite
+        return save_pdf_overwrite(self, 'fichier_pdf', pdf_content, filename)
 
     def _wrap_text(self, text, max_chars):
         """Découpe un texte en lignes de max_chars caractères"""

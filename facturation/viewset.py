@@ -4,6 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
+from core.pdf import PDFViewSetMixin
 from .models import Prestation, TimeTracking, Facture, LigneFacture, Paiement, Relance
 from .serializers import (
     PrestationSerializer,
@@ -36,7 +37,7 @@ class TimeTrackingViewSet(viewsets.ModelViewSet):
         return Response({"montant_ht": montant})
 
 
-class FactureViewSet(viewsets.ModelViewSet):
+class FactureViewSet(PDFViewSetMixin, viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     filterset_fields = ["client", "mandat", "statut"]
 

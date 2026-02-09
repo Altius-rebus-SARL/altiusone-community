@@ -7,6 +7,7 @@ from .models import (
     CertificatSalaire,
     DeclarationCotisations,
     DeclarationCotisationsLigne,
+    CertificatTravail,
 )
 from core.serializers import MandatListSerializer, UserSerializer, AdresseSerializer
 
@@ -457,4 +458,42 @@ class DeclarationCotisationsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DeclarationCotisations
+        fields = "__all__"
+
+
+class CertificatTravailListSerializer(serializers.ModelSerializer):
+    """Serializer léger pour liste de certificats de travail"""
+
+    employe_nom = serializers.CharField(source="employe.__str__", read_only=True)
+    type_certificat_display = serializers.CharField(
+        source="get_type_certificat_display", read_only=True
+    )
+
+    class Meta:
+        model = CertificatTravail
+        fields = [
+            "id",
+            "employe",
+            "employe_nom",
+            "type_certificat",
+            "type_certificat_display",
+            "date_emission",
+            "date_debut_emploi",
+            "date_fin_emploi",
+            "fonction_principale",
+            "fichier_pdf",
+        ]
+
+
+class CertificatTravailDetailSerializer(serializers.ModelSerializer):
+    """Serializer détaillé pour un certificat de travail"""
+
+    employe = EmployeListSerializer(read_only=True)
+    emis_par = UserSerializer(read_only=True)
+    type_certificat_display = serializers.CharField(
+        source="get_type_certificat_display", read_only=True
+    )
+
+    class Meta:
+        model = CertificatTravail
         fields = "__all__"

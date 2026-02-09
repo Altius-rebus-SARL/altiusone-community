@@ -7,6 +7,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Sum
 from django.utils import timezone
 from django.db.models import Q
+from core.pdf import PDFViewSetMixin
 
 from .models import (
     ConfigurationTVA,
@@ -80,7 +81,7 @@ class CodeTVAViewSet(viewsets.ModelViewSet):
     ordering = ["categorie", "ordre_affichage", "code"]
 
 
-class DeclarationTVAViewSet(viewsets.ModelViewSet):
+class DeclarationTVAViewSet(PDFViewSetMixin, viewsets.ModelViewSet):
     """ViewSet pour les déclarations TVA"""
 
     permission_classes = [IsAuthenticated]

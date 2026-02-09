@@ -6,6 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
 from core.models import Mandat
+from core.pdf import PDFViewSetMixin
 
 from .models import (
     Employe,
@@ -13,6 +14,7 @@ from .models import (
     FicheSalaire,
     CertificatSalaire,
     DeclarationCotisations,
+    CertificatTravail,
 )
 from .serializers import (
     EmployeListSerializer,
@@ -28,6 +30,8 @@ from .serializers import (
     DeclarationCotisationsListSerializer,
     DeclarationCotisationsDetailSerializer,
     DeclarationCotisationsCreateSerializer,
+    CertificatTravailListSerializer,
+    CertificatTravailDetailSerializer,
 )
 
 
@@ -237,7 +241,7 @@ class TauxCotisationViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-class FicheSalaireViewSet(viewsets.ModelViewSet):
+class FicheSalaireViewSet(PDFViewSetMixin, viewsets.ModelViewSet):
     """ViewSet pour les fiches de salaire
 
     Permissions: Fiches des employés accessibles selon les permissions de l'utilisateur
@@ -311,14 +315,18 @@ class FicheSalaireViewSet(viewsets.ModelViewSet):
         """Générer le PDF d'une fiche de salaire"""
         fiche = self.get_object()
 
-        # TODO: Implémenter la génération PDF
-
-        return Response(
-            {
+        try:
+            fiche.generer_pdf()
+            return Response({
                 "message": "PDF généré",
-                "fichier": fiche.fichier_pdf.url if fiche.fichier_pdf else None,
-            }
-        )
+                "url": fiche.fichier_pdf.url if fiche.fichier_pdf else None,
+                "nom_fichier": fiche.fichier_pdf.name.split('/')[-1] if fiche.fichier_pdf else None,
+            })
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @action(detail=False, methods=["post"])
     def generer_lot(self, request):
@@ -353,7 +361,7 @@ class FicheSalaireViewSet(viewsets.ModelViewSet):
         )
 
 
-class CertificatSalaireViewSet(viewsets.ModelViewSet):
+class CertificatSalaireViewSet(PDFViewSetMixin, viewsets.ModelViewSet):
     """ViewSet pour les certificats de salaire - Formulaire 11 suisse
 
     Permissions: Certificats des employés accessibles selon les permissions de l'utilisateur
@@ -600,7 +608,7 @@ class CertificatSalaireViewSet(viewsets.ModelViewSet):
         })
 
 
-class DeclarationCotisationsViewSet(viewsets.ModelViewSet):
+class DeclarationCotisationsViewSet(PDFViewSetMixin, viewsets.ModelViewSet):
     """ViewSet pour les déclarations de cotisations
 
     Permissions: Déclarations des mandats accessibles selon les permissions de l'utilisateur
@@ -613,6 +621,7 @@ class DeclarationCotisationsViewSet(viewsets.ModelViewSet):
     - POST /declarations/generer_masse/ - Génération en masse
     """
 
+    pdf_field_name = 'fichier_declaration'
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter, filters.SearchFilter]
     filterset_fields = ["mandat", "organisme", "statut", "annee", "mois"]
@@ -817,3 +826,55 @@ class DeclarationCotisationsViewSet(viewsets.ModelViewSet):
             "message": f"{len(resultats['crees'])} déclarations créées",
             "resultats": resultats,
         })
+
+
+class CertificatTravailViewSet(PDFViewSetMixin, viewsets.ModelViewSet):
+    """ViewSet pour les certificats de travail
+
+    Permissions: Certificats des employés accessibles selon les permissions de l'utilisateur
+    """
+
+    pdf_field_name = 'fichier_pdf'
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['employe', 'type_certificat']
+    search_fields = ['employe__nom', 'employe__prenom']
+    ordering = ['-date_emission']
+
+    def get_queryset(self):
+        user = self.request.user
+        base_queryset = CertificatTravail.objects.select_related(
+            "employe", "employe__mandat", "emis_par"
+        )
+
+        if user.is_superuser or (user.is_staff_user() and user.is_manager()):
+            return base_queryset
+
+        accessible_mandats = user.get_accessible_mandats()
+        return base_queryset.filter(employe__mandat__in=accessible_mandats)
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return CertificatTravailListSerializer
+        return CertificatTravailDetailSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(emis_par=self.request.user)
+
+    @action(detail=True, methods=["post"])
+    def generer_pdf(self, request, pk=None):
+        """Générer le PDF du certificat de travail"""
+        certificat = self.get_object()
+
+        try:
+            certificat.generer_pdf()
+            return Response({
+                "message": "PDF généré",
+                "url": certificat.fichier_pdf.url if certificat.fichier_pdf else None,
+                "nom_fichier": certificat.fichier_pdf.name.split('/')[-1] if certificat.fichier_pdf else None,
+            })
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

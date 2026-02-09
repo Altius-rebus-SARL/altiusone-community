@@ -904,13 +904,11 @@ class DeclarationTVA(BaseModel):
         buffer.close()
 
         # Sauvegarder le fichier dans le modèle
-        self.fichier_pdf.save(
-            f"TVA_{self.numero_declaration}.pdf",
-            ContentFile(pdf_content),
-            save=True
+        from core.pdf import save_pdf_overwrite
+        return save_pdf_overwrite(
+            self, 'fichier_pdf', pdf_content,
+            f"TVA_{self.numero_declaration}.pdf"
         )
-
-        return self.fichier_pdf
 
 
 class LigneTVA(BaseModel):
