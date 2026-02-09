@@ -203,6 +203,36 @@
                             </div>
                         </div>
 
+                        <!-- NPA -->
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label for="{{ form.npa.id_for_label }}" class="form-label">
+                                    {{ form.npa.label }}
+                                </label>
+                                {{ form.npa }}
+                                {% if form.npa.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.npa.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Localité -->
+                        <div class="col-md-9">
+                            <div class="mb-3">
+                                <label for="{{ form.localite.id_for_label }}" class="form-label">
+                                    {{ form.localite.label }}
+                                </label>
+                                {{ form.localite }}
+                                {% if form.localite.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.localite.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
                         <!-- Email -->
                         <div class="col-md-6">
                             <div class="mb-3">
@@ -306,6 +336,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const ofrcIdInput = document.getElementById('{{ form.ofrc_id.id_for_label }}');
     const siegeInput = document.getElementById('{{ form.siege.id_for_label }}');
     const cantonRcSelect = document.getElementById('{{ form.canton_rc.id_for_label }}');
+    const npaInput = document.getElementById('{{ form.npa.id_for_label }}');
+    const localiteInput = document.getElementById('{{ form.localite.id_for_label }}');
     const formeJuridiqueSelect = document.getElementById('{{ form.forme_juridique.id_for_label }}');
     const resultsContainer = document.getElementById('autocomplete-results');
 
@@ -418,9 +450,23 @@ document.addEventListener('DOMContentLoaded', function() {
             ofrcIdInput.value = company.ofrc_id;
         }
 
-        // Fill Siege (legal seat)
-        if (siegeInput && company.legal_seat) {
-            siegeInput.value = company.legal_seat;
+        // Fill Siege (legal seat) - use address city if legal_seat is empty
+        if (siegeInput) {
+            if (company.legal_seat) {
+                siegeInput.value = company.legal_seat;
+            } else if (company.address && company.address.city) {
+                siegeInput.value = company.address.city;
+            }
+        }
+
+        // Fill NPA and Localité from address
+        if (company.address) {
+            if (npaInput && company.address.postal_code) {
+                npaInput.value = company.address.postal_code;
+            }
+            if (localiteInput && company.address.city) {
+                localiteInput.value = company.address.city;
+            }
         }
 
         // Fill Canton RC
@@ -484,7 +530,7 @@ document.addEventListener('DOMContentLoaded', function() {
         hideResults();
 
         // Visual feedback for all filled fields
-        const filledFields = [raisonSocialeInput, ideInput, chIdInput, ofrcIdInput, siegeInput].filter(f => f && f.value);
+        const filledFields = [raisonSocialeInput, ideInput, chIdInput, ofrcIdInput, siegeInput, npaInput, localiteInput].filter(f => f && f.value);
         filledFields.forEach(field => field.classList.add('is-valid'));
         setTimeout(() => {
             filledFields.forEach(field => field.classList.remove('is-valid'));

@@ -1216,6 +1216,18 @@ class Client(BaseModel):
         help_text='Canton du registre du commerce',
         verbose_name=_('Canton RC')
     )
+    npa = models.CharField(
+        max_length=10,
+        blank=True,
+        help_text='Numéro postal',
+        verbose_name=_('NPA')
+    )
+    localite = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text='Localité',
+        verbose_name=_('Localité')
+    )
 
     # Coordonnées
     adresse_siege = models.ForeignKey(Adresse, on_delete=models.PROTECT,
