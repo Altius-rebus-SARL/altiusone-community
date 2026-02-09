@@ -338,30 +338,51 @@ document.addEventListener('DOMContentLoaded', function() {
             ideInput.value = company.ide_number;
         }
 
-        // Extract legal form from company name (SA, SARL, SNC, AG, GmbH, etc.)
+        // Map legal form from Zefix code to our form values
         if (formeJuridiqueSelect) {
-            const name = company.name.toUpperCase();
-            const legalFormPatterns = [
-                { pattern: /\bSA\b/, value: 'SA' },
-                { pattern: /\bAG\b/, value: 'SA' },
-                { pattern: /\bSARL\b/, value: 'SARL' },
-                { pattern: /\bGMBH\b/, value: 'SARL' },
-                { pattern: /\bSNC\b/, value: 'SNC' },
-                { pattern: /\bSC\b/, value: 'SC' },
-                { pattern: /\bCOOP\b/, value: 'COOP' },
-                { pattern: /\bGENOSSENSCHAFT\b/, value: 'COOP' },
-                { pattern: /\bASSOCIATION\b/, value: 'ASSOC' },
-                { pattern: /\bVEREIN\b/, value: 'ASSOC' },
-                { pattern: /\bFONDATION\b/, value: 'FOND' },
-                { pattern: /\bSTIFTUNG\b/, value: 'FOND' },
-            ];
+            // eCH-0097 legal form codes mapping
+            const legalFormCodeMap = {
+                '0101': 'EI',      // Entreprise individuelle
+                '0103': 'SNC',     // Société en nom collectif
+                '0104': 'SC',      // Société en commandite
+                '0105': 'SC',      // Société en commandite par actions
+                '0106': 'SA',      // Société anonyme
+                '0107': 'SARL',    // Société à responsabilité limitée
+                '0108': 'COOP',    // Société coopérative
+                '0109': 'ASSOC',   // Association
+                '0110': 'FOND',    // Fondation
+            };
 
-            for (const { pattern, value } of legalFormPatterns) {
-                if (pattern.test(name)) {
-                    const option = formeJuridiqueSelect.querySelector(`option[value="${value}"]`);
+            // Try to match by code first
+            let matched = false;
+            if (company.legal_form_code) {
+                const formValue = legalFormCodeMap[company.legal_form_code];
+                if (formValue) {
+                    const option = formeJuridiqueSelect.querySelector(`option[value="${formValue}"]`);
                     if (option) {
-                        formeJuridiqueSelect.value = value;
-                        break;
+                        formeJuridiqueSelect.value = formValue;
+                        matched = true;
+                    }
+                }
+            }
+
+            // Fallback: extract from company name
+            if (!matched) {
+                const name = company.name.toUpperCase();
+                const patterns = [
+                    { pattern: /\bSA\b/, value: 'SA' },
+                    { pattern: /\bAG\b/, value: 'SA' },
+                    { pattern: /\bSÀRL\b|\bSARL\b/, value: 'SARL' },
+                    { pattern: /\bGMBH\b/, value: 'SARL' },
+                    { pattern: /\bSNC\b/, value: 'SNC' },
+                ];
+                for (const { pattern, value } of patterns) {
+                    if (pattern.test(name)) {
+                        const option = formeJuridiqueSelect.querySelector(`option[value="${value}"]`);
+                        if (option) {
+                            formeJuridiqueSelect.value = value;
+                            break;
+                        }
                     }
                 }
             }

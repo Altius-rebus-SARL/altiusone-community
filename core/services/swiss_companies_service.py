@@ -22,9 +22,12 @@ class SwissCompany:
     uid: str
     name: str
     legal_form: str
+    legal_form_code: str
     legal_seat: str
     canton: str
     status: str
+    ch_id: str = ""
+    ofrc_id: str = ""
     address_street: Optional[str] = None
     address_number: Optional[str] = None
     address_postal_code: Optional[str] = None
@@ -37,9 +40,12 @@ class SwissCompany:
             'ide_number': self.format_ide(),
             'name': self.name,
             'legal_form': self.legal_form,
+            'legal_form_code': self.legal_form_code,
             'legal_seat': self.legal_seat,
             'canton': self.canton,
             'status': self.status,
+            'ch_id': self.ch_id,
+            'ofrc_id': self.ofrc_id,
             'address': {
                 'street': self.address_street,
                 'number': self.address_number,
@@ -54,6 +60,15 @@ class SwissCompany:
             return f"CHE-{self.uid[:3]}.{self.uid[3:6]}.{self.uid[6:]}"
         return self.uid
 
+    def format_ch_id(self) -> str:
+        """Format CH-ID (CH-XXX-XXXXXXX-X)."""
+        if self.ch_id and len(self.ch_id) >= 12:
+            # CH62640200449 -> CH-626-4020044-9
+            ch = self.ch_id.replace("CH", "")
+            if len(ch) >= 10:
+                return f"CH-{ch[:3]}-{ch[3:10]}-{ch[10:]}"
+        return self.ch_id
+
 
 class SwissCompaniesService:
     """Service to search Swiss companies using Zefix LINDAS SPARQL API."""
@@ -62,8 +77,8 @@ class SwissCompaniesService:
         PREFIX schema: <http://schema.org/>
         PREFIX admin: <https://schema.ld.admin.ch/>
 
-        SELECT DISTINCT ?name ?uid ?legalForm ?seat ?canton ?status
-                        ?street ?streetNumber ?postalCode ?city
+        SELECT DISTINCT ?name ?uid ?legalFormCode ?legalForm ?seat ?canton ?status
+                        ?chid ?ofrcid ?street ?streetNumber ?postalCode ?city
         WHERE {{
             ?company a admin:ZefixOrganisation ;
                      schema:name ?name ;
@@ -72,21 +87,49 @@ class SwissCompaniesService:
             FILTER(CONTAINS(STR(?uidUri), "CHE"))
             BIND(REPLACE(REPLACE(STR(?uidUri), ".*CHE", ""), "[^0-9]", "") AS ?uid)
 
+            # Legal form via additionalType
             OPTIONAL {{
-                ?company admin:legalForm ?legalFormUri .
-                ?legalFormUri schema:name ?legalForm .
-                FILTER(LANG(?legalForm) = "fr" || LANG(?legalForm) = "")
+                ?company schema:additionalType ?legalFormUri .
+                BIND(REPLACE(STR(?legalFormUri), ".*/", "") AS ?legalFormCode)
+                OPTIONAL {{
+                    ?legalFormUri schema:name ?legalForm .
+                    FILTER(LANG(?legalForm) = "fr")
+                }}
             }}
-            OPTIONAL {{ ?company admin:legalSeat ?seat }}
+
+            # Seat (municipality)
+            OPTIONAL {{
+                ?company schema:municipality ?municipalityUri .
+                ?municipalityUri schema:name ?seat .
+            }}
+
+            # Canton
             OPTIONAL {{
                 ?company admin:canton ?cantonUri .
                 BIND(REPLACE(STR(?cantonUri), ".*/", "") AS ?canton)
             }}
+
+            # Status
             OPTIONAL {{
                 ?company admin:status ?statusUri .
                 BIND(REPLACE(STR(?statusUri), ".*/", "") AS ?status)
             }}
 
+            # CH-ID
+            OPTIONAL {{
+                ?company schema:identifier ?chidUri .
+                FILTER(CONTAINS(STR(?chidUri), "/CHID/"))
+                BIND(REPLACE(STR(?chidUri), ".*/CHID/", "") AS ?chid)
+            }}
+
+            # OFRC-ID (from EHRAID URL)
+            OPTIONAL {{
+                ?company schema:identifier ?ofrcUri .
+                FILTER(CONTAINS(STR(?ofrcUri), "/EHRAID"))
+                BIND(REPLACE(REPLACE(STR(?ofrcUri), ".*/company/", ""), "/EHRAID", "") AS ?ofrcid)
+            }}
+
+            # Address
             OPTIONAL {{
                 ?company schema:address ?address .
                 OPTIONAL {{ ?address schema:streetAddress ?street }}
@@ -179,9 +222,12 @@ class SwissCompaniesService:
                 uid=binding.get("uid", {}).get("value", ""),
                 name=binding.get("name", {}).get("value", ""),
                 legal_form=binding.get("legalForm", {}).get("value", ""),
+                legal_form_code=binding.get("legalFormCode", {}).get("value", ""),
                 legal_seat=binding.get("seat", {}).get("value", ""),
                 canton=binding.get("canton", {}).get("value", ""),
                 status=binding.get("status", {}).get("value", ""),
+                ch_id=binding.get("chid", {}).get("value", ""),
+                ofrc_id=binding.get("ofrcid", {}).get("value", ""),
                 address_street=binding.get("street", {}).get("value"),
                 address_number=binding.get("streetNumber", {}).get("value"),
                 address_postal_code=binding.get("postalCode", {}).get("value"),
@@ -208,7 +254,7 @@ class SwissCompaniesService:
         if not clean_uid or len(clean_uid) != 9 or not clean_uid.isdigit():
             return None
 
-        cache_key = f"swiss_company_uid:{clean_uid}"
+        cache_key = f"swiss_uid:{clean_uid}"
         try:
             cached = cache.get(cache_key)
             if cached is not None:
@@ -220,8 +266,8 @@ class SwissCompaniesService:
             PREFIX schema: <http://schema.org/>
             PREFIX admin: <https://schema.ld.admin.ch/>
 
-            SELECT DISTINCT ?name ?legalForm ?seat ?canton ?status
-                            ?street ?streetNumber ?postalCode ?city
+            SELECT DISTINCT ?name ?legalFormCode ?legalForm ?seat ?canton ?status
+                            ?chid ?ofrcid ?street ?streetNumber ?postalCode ?city
             WHERE {{
                 ?company a admin:ZefixOrganisation ;
                          schema:name ?name ;
@@ -230,18 +276,39 @@ class SwissCompaniesService:
                 FILTER(CONTAINS(STR(?uidUri), "CHE{clean_uid}"))
 
                 OPTIONAL {{
-                    ?company admin:legalForm ?legalFormUri .
-                    ?legalFormUri schema:name ?legalForm .
-                    FILTER(LANG(?legalForm) = "fr" || LANG(?legalForm) = "")
+                    ?company schema:additionalType ?legalFormUri .
+                    BIND(REPLACE(STR(?legalFormUri), ".*/", "") AS ?legalFormCode)
+                    OPTIONAL {{
+                        ?legalFormUri schema:name ?legalForm .
+                        FILTER(LANG(?legalForm) = "fr")
+                    }}
                 }}
-                OPTIONAL {{ ?company admin:legalSeat ?seat }}
+
+                OPTIONAL {{
+                    ?company schema:municipality ?municipalityUri .
+                    ?municipalityUri schema:name ?seat .
+                }}
+
                 OPTIONAL {{
                     ?company admin:canton ?cantonUri .
                     BIND(REPLACE(STR(?cantonUri), ".*/", "") AS ?canton)
                 }}
+
                 OPTIONAL {{
                     ?company admin:status ?statusUri .
                     BIND(REPLACE(STR(?statusUri), ".*/", "") AS ?status)
+                }}
+
+                OPTIONAL {{
+                    ?company schema:identifier ?chidUri .
+                    FILTER(CONTAINS(STR(?chidUri), "/CHID/"))
+                    BIND(REPLACE(STR(?chidUri), ".*/CHID/", "") AS ?chid)
+                }}
+
+                OPTIONAL {{
+                    ?company schema:identifier ?ofrcUri .
+                    FILTER(CONTAINS(STR(?ofrcUri), "/EHRAID"))
+                    BIND(REPLACE(REPLACE(STR(?ofrcUri), ".*/company/", ""), "/EHRAID", "") AS ?ofrcid)
                 }}
 
                 OPTIONAL {{
@@ -276,9 +343,12 @@ class SwissCompaniesService:
                 uid=clean_uid,
                 name=binding.get("name", {}).get("value", ""),
                 legal_form=binding.get("legalForm", {}).get("value", ""),
+                legal_form_code=binding.get("legalFormCode", {}).get("value", ""),
                 legal_seat=binding.get("seat", {}).get("value", ""),
                 canton=binding.get("canton", {}).get("value", ""),
                 status=binding.get("status", {}).get("value", ""),
+                ch_id=binding.get("chid", {}).get("value", ""),
+                ofrc_id=binding.get("ofrcid", {}).get("value", ""),
                 address_street=binding.get("street", {}).get("value"),
                 address_number=binding.get("streetNumber", {}).get("value"),
                 address_postal_code=binding.get("postalCode", {}).get("value"),
