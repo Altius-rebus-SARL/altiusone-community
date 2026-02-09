@@ -27,6 +27,7 @@ urlpatterns = [
     ),
     path("fiches/<uuid:pk>/valider/", views.fiche_valider, name="fiche-valider"),
     path("fiches/<uuid:pk>/pdf/", views.fiche_generer_pdf, name="fiche-pdf"),
+    path("fiches/<uuid:pk>/preview-pdf/", views.fiche_preview_pdf, name="fiche-preview-pdf"),
     path(
         "fiches/generer-masse/", views.generer_fiches_masse, name="generer-fiches-masse"
     ),
@@ -72,6 +73,11 @@ urlpatterns = [
         name="certificat-pdf",
     ),
     path(
+        "certificats/<uuid:pk>/preview-pdf/",
+        views.certificat_preview_pdf,
+        name="certificat-preview-pdf",
+    ),
+    path(
         "employes/<uuid:employe_pk>/certificat/",
         views.generer_certificat,
         name="generer-certificat",
@@ -101,6 +107,11 @@ urlpatterns = [
         "certificats-travail/<uuid:pk>/pdf/",
         views.certificat_travail_generer_pdf,
         name="certificat-travail-pdf",
+    ),
+    path(
+        "certificats-travail/<uuid:pk>/preview-pdf/",
+        views.certificat_travail_preview_pdf,
+        name="certificat-travail-preview-pdf",
     ),
     path(
         "employes/<uuid:employe_pk>/certificat-travail/",
@@ -157,5 +168,10 @@ urlpatterns = [
         "declarations-cotisations/<uuid:pk>/telecharger-pdf/",
         views.declaration_telecharger_pdf,
         name="declaration-cotisations-telecharger-pdf",
+    ),
+    path(
+        "declarations-cotisations/<uuid:pk>/preview-pdf/",
+        views.declaration_preview_pdf,
+        name="declaration-cotisations-preview-pdf",
     ),
 ]

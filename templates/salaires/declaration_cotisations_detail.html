@@ -364,6 +364,9 @@
                     </form>
 
                     {% if declaration.fichier_declaration %}
+                    <a href="{% url 'salaires:declaration-cotisations-preview-pdf' declaration.pk %}" class="btn btn-outline-danger w-100" target="_blank">
+                        <i class="ph ph-eye me-2"></i>{% trans "Aperçu PDF" %}
+                    </a>
                     <a href="{% url 'salaires:declaration-cotisations-telecharger-pdf' declaration.pk %}" class="btn btn-danger w-100">
                         <i class="ph ph-download me-2"></i>{% trans "Télécharger PDF" %}
                     </a>

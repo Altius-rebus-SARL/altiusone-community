@@ -113,6 +113,9 @@
                 <button class="btn btn-outline-secondary" onclick="window.print()">
                     <i class="ph ph-printer me-2"></i>{% trans "Imprimer" %}
                 </button>
+                <a href="{% url 'salaires:certificat-preview-pdf' certificat.pk %}" class="btn btn-outline-primary" target="_blank">
+                    <i class="ph ph-eye me-2"></i>{% trans "Aperçu PDF" %}
+                </a>
                 <a href="{% url 'salaires:certificat-pdf' certificat.pk %}" class="btn btn-primary">
                     <i class="ph ph-file-pdf me-2"></i>{% trans "PDF Formulaire 11" %}
                 </a>

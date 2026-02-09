@@ -320,60 +320,87 @@ def fiche_valider(request, pk):
     return redirect("salaires:fiche-detail", pk=pk)
 
 
-@login_required
-def fiche_generer_pdf(request, pk):
-    """Génère le PDF d'une fiche de salaire"""
+def _serve_pdf(request, instance, field_name, filename, redirect_url, generate=True, inline=False):
+    """
+    Utilitaire interne : génère (optionnel) et sert un PDF.
+
+    Args:
+        instance: Instance du modèle avec generer_pdf()
+        field_name: Nom du champ FileField ('fichier_pdf', 'fichier_declaration')
+        filename: Nom du fichier pour Content-Disposition
+        redirect_url: URL de redirection en cas d'erreur
+        generate: Si True, appelle instance.generer_pdf() avant de servir
+        inline: Si True, Content-Disposition: inline (preview), sinon attachment (download)
+    """
     from django.http import FileResponse
 
-    fiche = get_object_or_404(FicheSalaire, pk=pk)
-
     try:
-        # Générer le PDF
-        fichier = fiche.generer_pdf()
+        if generate:
+            instance.generer_pdf()
 
-        # Retourner le fichier PDF
-        if fichier:
-            response = FileResponse(
-                fichier.open("rb"),
-                content_type="application/pdf"
-            )
-            response["Content-Disposition"] = f'attachment; filename="fiche_salaire_{fiche.numero_fiche}.pdf"'
+        field = getattr(instance, field_name)
+        if field:
+            response = FileResponse(field.open("rb"), content_type="application/pdf")
+            disposition = "inline" if inline else "attachment"
+            response["Content-Disposition"] = f'{disposition}; filename="{filename}"'
+            if inline:
+                response["X-Frame-Options"] = "SAMEORIGIN"
+                response["Cache-Control"] = "private, max-age=3600"
             return response
 
         messages.error(request, _("Erreur lors de la génération du PDF"))
-        return redirect("salaires:fiche-detail", pk=pk)
-
     except Exception as e:
         messages.error(request, _("Erreur lors de la génération du PDF: %(error)s") % {'error': str(e)})
-        return redirect("salaires:fiche-detail", pk=pk)
+
+    if isinstance(redirect_url, tuple):
+        return redirect(redirect_url[0], pk=redirect_url[1])
+    return redirect(redirect_url)
+
+
+@login_required
+def fiche_generer_pdf(request, pk):
+    """Génère et télécharge le PDF d'une fiche de salaire"""
+    fiche = get_object_or_404(FicheSalaire, pk=pk)
+    return _serve_pdf(
+        request, fiche, 'fichier_pdf',
+        f"fiche_salaire_{fiche.numero_fiche}.pdf",
+        ("salaires:fiche-detail", pk),
+    )
+
+
+@login_required
+def fiche_preview_pdf(request, pk):
+    """Aperçu inline du PDF d'une fiche de salaire"""
+    fiche = get_object_or_404(FicheSalaire, pk=pk)
+    return _serve_pdf(
+        request, fiche, 'fichier_pdf',
+        f"fiche_salaire_{fiche.numero_fiche}.pdf",
+        ("salaires:fiche-detail", pk),
+        inline=True,
+    )
 
 
 @login_required
 def certificat_generer_pdf(request, pk):
-    """Génère le PDF d'un certificat de salaire annuel"""
-    from django.http import FileResponse
-
+    """Génère et télécharge le PDF d'un certificat de salaire annuel"""
     certificat = get_object_or_404(CertificatSalaire, pk=pk)
+    return _serve_pdf(
+        request, certificat, 'fichier_pdf',
+        f"certificat_salaire_{certificat.employe.matricule}_{certificat.annee}.pdf",
+        ("salaires:certificat-detail", pk),
+    )
 
-    try:
-        # Générer le PDF
-        fichier = certificat.generer_pdf()
 
-        # Retourner le fichier PDF
-        if fichier:
-            response = FileResponse(
-                fichier.open("rb"),
-                content_type="application/pdf"
-            )
-            response["Content-Disposition"] = f'attachment; filename="certificat_salaire_{certificat.employe.matricule}_{certificat.annee}.pdf"'
-            return response
-
-        messages.error(request, _("Erreur lors de la génération du PDF"))
-        return redirect("salaires:certificat-detail", pk=pk)
-
-    except Exception as e:
-        messages.error(request, _("Erreur lors de la génération du PDF: %(error)s") % {'error': str(e)})
-        return redirect("salaires:certificat-detail", pk=pk)
+@login_required
+def certificat_preview_pdf(request, pk):
+    """Aperçu inline du PDF d'un certificat de salaire"""
+    certificat = get_object_or_404(CertificatSalaire, pk=pk)
+    return _serve_pdf(
+        request, certificat, 'fichier_pdf',
+        f"certificat_salaire_{certificat.employe.matricule}_{certificat.annee}.pdf",
+        ("salaires:certificat-detail", pk),
+        inline=True,
+    )
 
 
 @login_required
@@ -849,31 +876,27 @@ class CertificatTravailUpdateView(LoginRequiredMixin, BusinessPermissionMixin, U
 
 @login_required
 def certificat_travail_generer_pdf(request, pk):
-    """Génère le PDF d'un certificat de travail"""
-    from django.http import FileResponse
-
+    """Génère et télécharge le PDF d'un certificat de travail"""
     certificat = get_object_or_404(CertificatTravail, pk=pk)
+    type_suffix = certificat.type_certificat.lower()
+    return _serve_pdf(
+        request, certificat, 'fichier_pdf',
+        f"certificat_travail_{certificat.employe.matricule}_{type_suffix}.pdf",
+        ("salaires:certificat-travail-detail", pk),
+    )
 
-    try:
-        # Générer le PDF
-        fichier = certificat.generer_pdf()
 
-        # Retourner le fichier PDF
-        if fichier:
-            response = FileResponse(
-                fichier.open("rb"),
-                content_type="application/pdf"
-            )
-            type_suffix = certificat.type_certificat.lower()
-            response["Content-Disposition"] = f'attachment; filename="certificat_travail_{certificat.employe.matricule}_{type_suffix}.pdf"'
-            return response
-
-        messages.error(request, _("Erreur lors de la génération du PDF"))
-        return redirect("salaires:certificat-travail-detail", pk=pk)
-
-    except Exception as e:
-        messages.error(request, _("Erreur lors de la génération du PDF: %(error)s") % {'error': str(e)})
-        return redirect("salaires:certificat-travail-detail", pk=pk)
+@login_required
+def certificat_travail_preview_pdf(request, pk):
+    """Aperçu inline du PDF d'un certificat de travail"""
+    certificat = get_object_or_404(CertificatTravail, pk=pk)
+    type_suffix = certificat.type_certificat.lower()
+    return _serve_pdf(
+        request, certificat, 'fichier_pdf',
+        f"certificat_travail_{certificat.employe.matricule}_{type_suffix}.pdf",
+        ("salaires:certificat-travail-detail", pk),
+        inline=True,
+    )
 
 
 # ============ DÉCLARATIONS COTISATIONS ============
@@ -1096,17 +1119,26 @@ def declaration_generer_pdf(request, pk):
 def declaration_telecharger_pdf(request, pk):
     """Télécharge le PDF de la déclaration"""
     declaration = get_object_or_404(DeclarationCotisations, pk=pk)
-
-    if not declaration.fichier_declaration:
-        messages.error(request, _("Aucun fichier PDF disponible"))
-        return redirect('salaires:declaration-cotisations-detail', pk=pk)
-
-    response = HttpResponse(
-        declaration.fichier_declaration.read(),
-        content_type='application/pdf'
+    return _serve_pdf(
+        request, declaration, 'fichier_declaration',
+        declaration.fichier_declaration.name.split("/")[-1] if declaration.fichier_declaration else "declaration.pdf",
+        ("salaires:declaration-cotisations-detail", pk),
+        generate=False,
     )
-    response['Content-Disposition'] = f'attachment; filename="{declaration.fichier_declaration.name.split("/")[-1]}"'
-    return response
+
+
+@login_required
+@permission_required_business('salaires.manage_cotisations')
+def declaration_preview_pdf(request, pk):
+    """Aperçu inline du PDF de la déclaration"""
+    declaration = get_object_or_404(DeclarationCotisations, pk=pk)
+    return _serve_pdf(
+        request, declaration, 'fichier_declaration',
+        declaration.fichier_declaration.name.split("/")[-1] if declaration.fichier_declaration else "declaration.pdf",
+        ("salaires:declaration-cotisations-detail", pk),
+        generate=False,
+        inline=True,
+    )
 
 
 @login_required
