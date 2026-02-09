@@ -10,6 +10,7 @@ from .models import (
     Adresse,
     Client,
     Contact,
+    Devise,
     Mandat,
     ExerciceComptable,
     AuditLog,
@@ -197,6 +198,35 @@ class ClientViewSet(viewsets.ModelViewSet):
             "count": len(results),
             "results": results,
         })
+
+    @action(detail=False, methods=["get"], url_path="validate-vat")
+    def validate_vat(self, request):
+        """
+        Valider un numero de TVA europeen via VIES.
+        GET /api/v1/core/clients/validate-vat/?vat_number=FR40303265045
+        """
+        from .services import ViesValidationService
+
+        vat_number = request.query_params.get("vat_number", "").strip()
+        if not vat_number:
+            return Response(
+                {"error": "Parametre vat_number requis"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        result = ViesValidationService.validate_full_number(vat_number)
+        data = {
+            "valid": result.valid,
+            "country_code": result.country_code,
+            "vat_number": result.vat_number,
+            "name": result.name,
+            "address": result.address,
+            "request_date": str(result.request_date) if result.request_date else None,
+        }
+        if result.error:
+            data["error"] = result.error
+
+        return Response(data)
 
     @action(detail=False, methods=["get"], url_path=r"swiss/(?P<uid>[\w\-\.]+)", permission_classes=[])
     def get_swiss_company(self, request, uid=None):
@@ -581,6 +611,84 @@ class CollaborateurFiduciaireViewSet(viewsets.ModelViewSet):
         )
         serializer = UserSerializer(prestataires, many=True)
         return Response(serializer.data)
+
+
+class DeviseViewSet(viewsets.ViewSet):
+    """ViewSet pour les devises et taux de change SNB."""
+    permission_classes = [IsAuthenticated]
+
+    def list(self, request):
+        """Liste des devises actives avec leurs taux."""
+        devises = Devise.objects.filter(actif=True).order_by('code')
+        data = [
+            {
+                'code': d.code,
+                'nom': d.nom,
+                'symbole': d.symbole,
+                'taux_change': str(d.taux_change),
+                'date_taux': str(d.date_taux) if d.date_taux else None,
+                'est_devise_base': d.est_devise_base,
+            }
+            for d in devises
+        ]
+        return Response(data)
+
+    @action(detail=False, methods=['get'], url_path='taux-snb')
+    def taux_snb(self, request):
+        """Preview des taux SNB sans sauvegarder."""
+        from .services import SNBExchangeRateService
+
+        date_str = request.query_params.get('date')
+        target_date = None
+        if date_str:
+            try:
+                from datetime import datetime
+                target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            except ValueError:
+                return Response(
+                    {'error': 'Format de date invalide (YYYY-MM-DD)'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        result = SNBExchangeRateService.fetch_rates(target_date=target_date)
+        if result.error:
+            return Response({'error': result.error}, status=status.HTTP_502_BAD_GATEWAY)
+
+        return Response({
+            'source': result.source,
+            'date': str(result.fetch_date),
+            'rates': [
+                {
+                    'currency': r.currency,
+                    'rate': str(r.rate),
+                    'date': str(r.date),
+                    'base_currency': r.base_currency,
+                }
+                for r in result.rates
+            ],
+        })
+
+    @action(detail=False, methods=['post'], url_path='update-rates')
+    def update_rates(self, request):
+        """Met a jour les taux de change en BD depuis la SNB."""
+        from .services import SNBExchangeRateService
+
+        date_str = request.data.get('date')
+        target_date = None
+        if date_str:
+            try:
+                from datetime import datetime
+                target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            except ValueError:
+                return Response(
+                    {'error': 'Format de date invalide (YYYY-MM-DD)'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        result = SNBExchangeRateService.update_devise_rates(target_date=target_date)
+        if result.get('errors'):
+            return Response(result, status=status.HTTP_207_MULTI_STATUS)
+        return Response(result)
 
 
 class AdresseViewSet(viewsets.GenericViewSet):

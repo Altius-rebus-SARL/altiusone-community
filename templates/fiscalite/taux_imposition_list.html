@@ -23,6 +23,75 @@
     </div>
 </div>
 
+<!-- Fetch ESTV -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-cloud-arrow-down me-2"></i>{% trans "Importer depuis l'ESTV" %}</h5>
+            </div>
+            <div class="card-body">
+                <form id="form-estv" class="row align-items-end">
+                    <div class="col-md-2">
+                        <label class="form-label">{% trans "Canton" %}</label>
+                        <select class="form-select" id="estv-canton" required>
+                            <option value="">{% trans "Choisir..." %}</option>
+                            <option value="ZH">Zürich (ZH)</option>
+                            <option value="BE">Bern (BE)</option>
+                            <option value="LU">Luzern (LU)</option>
+                            <option value="UR">Uri (UR)</option>
+                            <option value="SZ">Schwyz (SZ)</option>
+                            <option value="OW">Obwalden (OW)</option>
+                            <option value="NW">Nidwalden (NW)</option>
+                            <option value="GL">Glarus (GL)</option>
+                            <option value="ZG">Zug (ZG)</option>
+                            <option value="FR">Fribourg (FR)</option>
+                            <option value="SO">Solothurn (SO)</option>
+                            <option value="BS">Basel-Stadt (BS)</option>
+                            <option value="BL">Basel-Landschaft (BL)</option>
+                            <option value="SH">Schaffhausen (SH)</option>
+                            <option value="AR">Appenzell A.Rh. (AR)</option>
+                            <option value="AI">Appenzell I.Rh. (AI)</option>
+                            <option value="SG">St. Gallen (SG)</option>
+                            <option value="GR">Graubünden (GR)</option>
+                            <option value="AG">Aargau (AG)</option>
+                            <option value="TG">Thurgau (TG)</option>
+                            <option value="TI">Ticino (TI)</option>
+                            <option value="VD">Vaud (VD)</option>
+                            <option value="VS">Valais (VS)</option>
+                            <option value="NE">Neuchâtel (NE)</option>
+                            <option value="GE">Genève (GE)</option>
+                            <option value="JU">Jura (JU)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">{% trans "N° BFS commune" %}</label>
+                        <input type="number" class="form-control" id="estv-bfs" placeholder="ex: 261" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">{% trans "Année" %}</label>
+                        <input type="number" class="form-control" id="estv-year" value="2025" required>
+                    </div>
+                    <div class="col-md-3">
+                        <button type="button" class="btn btn-outline-info w-100" id="btn-estv-preview">
+                            <i class="ph ph-eye me-1"></i>{% trans "Preview ESTV" %}
+                        </button>
+                    </div>
+                    <div class="col-md-3">
+                        <button type="button" class="btn btn-success w-100" id="btn-estv-fetch" disabled>
+                            <i class="ph ph-cloud-arrow-down me-1"></i>{% trans "Importer & sauvegarder" %}
+                        </button>
+                    </div>
+                </form>
+                <!-- Preview result -->
+                <div id="estv-preview-zone" class="mt-3" style="display:none;">
+                    <div class="alert alert-info mb-0" id="estv-preview-result"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Liste -->
 <div class="row">
     <div class="col-12">
@@ -146,4 +215,98 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const csrfToken = '{{ csrf_token }}';
+const btnPreview = document.getElementById('btn-estv-preview');
+const btnFetch = document.getElementById('btn-estv-fetch');
+
+btnPreview.addEventListener('click', function() {
+    const canton = document.getElementById('estv-canton').value;
+    const bfs = document.getElementById('estv-bfs').value;
+    const year = document.getElementById('estv-year').value;
+
+    if (!canton || !bfs || !year) {
+        alert('{% trans "Veuillez remplir tous les champs." %}');
+        return;
+    }
+
+    btnPreview.disabled = true;
+    btnPreview.innerHTML = '<i class="ph ph-spinner me-1"></i>{% trans "Chargement..." %}';
+
+    fetch('/api/v1/taux/preview-estv/?canton=' + canton + '&commune_bfs_nr=' + bfs + '&year=' + year)
+        .then(r => r.json())
+        .then(data => {
+            btnPreview.disabled = false;
+            btnPreview.innerHTML = '<i class="ph ph-eye me-1"></i>{% trans "Preview ESTV" %}';
+
+            if (data.error) {
+                document.getElementById('estv-preview-result').innerHTML =
+                    '<i class="ph ph-warning me-2"></i>' + data.error;
+                document.getElementById('estv-preview-result').className = 'alert alert-danger mb-0';
+            } else {
+                let html = '<strong>' + data.canton + ' - ' + (data.commune || 'BFS ' + bfs) + ' (' + data.year + ')</strong><br>';
+                if (data.federal_rate) html += '{% trans "Taux fédéral" %}: ' + data.federal_rate + '%<br>';
+                if (data.cantonal_rate) html += '{% trans "Taux cantonal" %}: ' + data.cantonal_rate + '%<br>';
+                if (data.communal_rate) html += '{% trans "Taux communal" %}: ' + data.communal_rate + '%<br>';
+                if (data.multiplicateurs) {
+                    html += '<br><strong>{% trans "Multiplicateurs" %}:</strong><br>';
+                    for (const [key, val] of Object.entries(data.multiplicateurs)) {
+                        html += key + ': ' + val + '<br>';
+                    }
+                }
+                document.getElementById('estv-preview-result').innerHTML = html;
+                document.getElementById('estv-preview-result').className = 'alert alert-info mb-0';
+                btnFetch.disabled = false;
+            }
+            document.getElementById('estv-preview-zone').style.display = 'block';
+        })
+        .catch(err => {
+            btnPreview.disabled = false;
+            btnPreview.innerHTML = '<i class="ph ph-eye me-1"></i>{% trans "Preview ESTV" %}';
+            alert(err);
+        });
+});
+
+btnFetch.addEventListener('click', function() {
+    const canton = document.getElementById('estv-canton').value;
+    const bfs = document.getElementById('estv-bfs').value;
+    const year = document.getElementById('estv-year').value;
+
+    btnFetch.disabled = true;
+    btnFetch.innerHTML = '<i class="ph ph-spinner me-1"></i>{% trans "Import en cours..." %}';
+
+    fetch('/api/v1/taux/fetch-estv/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({canton: canton, commune_bfs_nr: parseInt(bfs), year: parseInt(year)}),
+    })
+    .then(r => r.json())
+    .then(data => {
+        btnFetch.innerHTML = '<i class="ph ph-cloud-arrow-down me-1"></i>{% trans "Importer & sauvegarder" %}';
+
+        if (data.error) {
+            alert(data.error);
+            btnFetch.disabled = false;
+        } else {
+            document.getElementById('estv-preview-result').innerHTML =
+                '<i class="ph ph-check-circle me-2"></i><strong>{% trans "Import réussi!" %}</strong> ' +
+                (data.created || 0) + ' {% trans "créés" %}, ' +
+                (data.updated || 0) + ' {% trans "mis à jour" %}';
+            document.getElementById('estv-preview-result').className = 'alert alert-success mb-0';
+            setTimeout(function() { location.reload(); }, 2000);
+        }
+    })
+    .catch(err => {
+        btnFetch.disabled = false;
+        btnFetch.innerHTML = '<i class="ph ph-cloud-arrow-down me-1"></i>{% trans "Importer & sauvegarder" %}';
+        alert(err);
+    });
+});
+</script>
 {% endblock %}

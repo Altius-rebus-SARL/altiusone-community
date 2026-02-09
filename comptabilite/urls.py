@@ -143,6 +143,22 @@ urlpatterns = [
     path("ecritures/export/excel/", views.export_ecritures_excel, name="ecriture-export-excel"),
 
     # =========================================================================
+    # IMPORT RELEVÉ BANCAIRE (camt.053)
+    # =========================================================================
+    path(
+        "releves-bancaires/import/",
+        views.ReleveBancaireImportView.as_view(),
+        name="releve-bancaire-import",
+    ),
+    # =========================================================================
+    # PAIEMENTS FOURNISSEURS (pain.001)
+    # =========================================================================
+    path(
+        "paiements/",
+        views.PaiementListView.as_view(),
+        name="paiement-list",
+    ),
+    # =========================================================================
     # API AJAX (filtrage dynamique)
     # =========================================================================
     path(

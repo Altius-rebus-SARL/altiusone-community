@@ -5,6 +5,7 @@ from .viewset import (
     UserViewSet,
     ClientViewSet,
     ContactViewSet,
+    DeviseViewSet,
     MandatViewSet,
     ExerciceComptableViewSet,
     AuditLogViewSet,
@@ -27,6 +28,7 @@ router.register(r"audit-logs", AuditLogViewSet, basename="auditlog")
 router.register(r"notifications", NotificationViewSet, basename="notification")
 router.register(r"taches", TacheViewSet, basename="tache")
 router.register(r"collaborateurs", CollaborateurFiduciaireViewSet, basename="collaborateur")
+router.register(r"devises", DeviseViewSet, basename="devise")
 router.register(r"adresses", AdresseViewSet, basename="adresse")
 router.register(r"graph", GraphViewSet, basename="graph")
 
@@ -56,6 +58,14 @@ CLIENTS:
 - GET    /api/v1/core/clients/{id}/mandats/     Mandats du client
 - GET    /api/v1/core/clients/{id}/contacts/    Contacts du client
 - GET    /api/v1/core/clients/statistics/       Statistiques clients
+- GET    /api/v1/core/clients/search_swiss/    Recherche entreprises suisses (Zefix)
+- GET    /api/v1/core/clients/swiss/{uid}/     Détail entreprise par UID
+- GET    /api/v1/core/clients/validate-vat/    Validation TVA européenne (VIES)
+
+DEVISES:
+- GET    /api/v1/core/devises/                 Liste des devises actives
+- GET    /api/v1/core/devises/taux-snb/        Preview taux SNB (sans sauvegarde)
+- POST   /api/v1/core/devises/update-rates/    Mise à jour taux de change en BD
 
 CONTACTS:
 - GET    /api/v1/core/contacts/                 Liste des contacts

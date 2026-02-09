@@ -72,6 +72,8 @@ from .main_views import (
     ExerciceCreateView,
     ExerciceUpdateView,
     exercice_cloturer,
+    # Devises
+    DeviseListView,
 )
 
 from .graph_views import (
@@ -185,6 +187,8 @@ __all__ = [
     'ExerciceCreateView',
     'ExerciceUpdateView',
     'exercice_cloturer',
+    # Devises
+    'DeviseListView',
     # Administration
     'AdminDashboardView',
     'UserListView',

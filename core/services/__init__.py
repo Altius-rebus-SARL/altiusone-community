@@ -7,6 +7,8 @@ from .document_service import DocumentService
 from .invitation_service import InvitationService
 from .swiss_companies_service import SwissCompaniesService
 from .swiss_post_address_service import SwissPostAddressService
+from .snb_exchange_rate_service import SNBExchangeRateService
+from .vies_validation_service import ViesValidationService
 
 __all__ = [
     'ExportService',
@@ -15,4 +17,6 @@ __all__ = [
     'InvitationService',
     'SwissCompaniesService',
     'SwissPostAddressService',
+    'SNBExchangeRateService',
+    'ViesValidationService',
 ]

@@ -1690,3 +1690,59 @@ def export_ecritures_excel(request):
     return ExportService.generate_excel_streaming(
         queryset, fields, field_labels, 'ecritures', 'Écritures'
     )
+
+
+# =============================================================================
+# IMPORT RELEVÉ BANCAIRE (camt.053)
+# =============================================================================
+class ReleveBancaireImportView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+    """Page d'import de relevés bancaires camt.053."""
+    template_name = "comptabilite/releve_bancaire_import.html"
+    model = Journal
+    context_object_name = "journaux"
+    permission_code = "comptabilite.view"
+
+    def get_queryset(self):
+        return Journal.objects.filter(
+            plan_comptable__mandat__fiduciaire=self.request.user.fiduciaire
+        ).select_related("plan_comptable__mandat")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        from core.models import Mandat, ExerciceComptable
+        context["mandats"] = Mandat.objects.filter(
+            fiduciaire=self.request.user.fiduciaire, actif=True
+        )
+        context["exercices"] = ExerciceComptable.objects.filter(
+            mandat__fiduciaire=self.request.user.fiduciaire
+        ).select_related("mandat")
+        context["comptes_banque"] = Compte.objects.filter(
+            plan_comptable__mandat__fiduciaire=self.request.user.fiduciaire,
+            numero__startswith="10",
+        ).select_related("plan_comptable__mandat")
+        return context
+
+
+# =============================================================================
+# PAIEMENTS FOURNISSEURS (pain.001)
+# =============================================================================
+class PaiementListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+    """Page de génération de fichiers pain.001."""
+    template_name = "comptabilite/paiement_list.html"
+    model = PieceComptable
+    context_object_name = "pieces"
+    permission_code = "comptabilite.view"
+
+    def get_queryset(self):
+        return PieceComptable.objects.none()
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        from core.models import Mandat, CompteBancaire
+        context["mandats"] = Mandat.objects.filter(
+            fiduciaire=self.request.user.fiduciaire, actif=True
+        )
+        context["comptes_bancaires"] = CompteBancaire.objects.filter(
+            client__mandats__fiduciaire=self.request.user.fiduciaire, actif=True
+        ).distinct()
+        return context

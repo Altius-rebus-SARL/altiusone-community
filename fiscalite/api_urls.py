@@ -66,6 +66,9 @@ TAUX D'IMPOSITION:
 - PUT    /api/v1/fiscalite/taux/{id}/                  Modifier taux
 - DELETE /api/v1/fiscalite/taux/{id}/                  Supprimer taux
 - POST   /api/v1/fiscalite/taux/{id}/calculer_impot/   Calculer impôt
+- GET    /api/v1/fiscalite/taux/preview-estv/          Preview taux ESTV (sans sauvegarde)
+- POST   /api/v1/fiscalite/taux/fetch-estv/            Fetch + sauvegarde taux ESTV
+- POST   /api/v1/fiscalite/taux/import-csv/            Import CSV fallback
 
 OPTIMISATIONS FISCALES:
 - GET    /api/v1/fiscalite/optimisations/              Liste optimisations

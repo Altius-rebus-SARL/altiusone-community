@@ -289,6 +289,8 @@ INVITATION_EXPIRY_DAYS = int(os.environ.get('INVITATION_EXPIRY_DAYS', 7))
 INVITATION_DEFAULT_LIMIT_PER_MANDAT = int(os.environ.get('INVITATION_DEFAULT_LIMIT', 5))
 
 # Celery Configuration
+from celery.schedules import crontab  # noqa: E402
+
 CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://redis:6379/0')
 CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'redis://redis:6379/0')
 CELERY_ACCEPT_CONTENT = ['json']
@@ -314,6 +316,11 @@ CELERY_BEAT_SCHEDULE = {
     'verifier-service-ai': {
         'task': 'documents.tasks.verifier_service_ai',
         'schedule': 900.0,  # 15 minutes
+    },
+    # Mise a jour quotidienne des taux de change SNB a 07h30
+    'update-snb-exchange-rates': {
+        'task': 'core.tasks.update_snb_exchange_rates',
+        'schedule': crontab(hour=7, minute=30),
     },
 }
 

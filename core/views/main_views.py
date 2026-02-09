@@ -1297,5 +1297,20 @@ def exercice_cloturer(request, pk):
     messages.success(request, msg)
     return redirect("core:exercice-detail", pk=pk)
 # ============================================================================
+# DEVISES & TAUX DE CHANGE
+# ============================================================================
+
+
+class DeviseListView(LoginRequiredMixin, ListView):
+    """Liste des devises actives avec taux de change."""
+
+    template_name = "core/devise_list.html"
+    context_object_name = "devises"
+
+    def get_queryset(self):
+        from core.models import Devise
+        return Devise.objects.filter(actif=True).order_by("code")
+
+# ============================================================================
 # FIN DES VUES ADDITIONNELLES
 # ============================================================================

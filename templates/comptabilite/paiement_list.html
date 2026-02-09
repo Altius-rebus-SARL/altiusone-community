@@ -1,0 +1,185 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Paiements fournisseurs" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Paiements fournisseurs (pain.001)" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Paiements" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Filtre mandat -->
+<div class="row mb-3">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <label class="form-label">{% trans "Sélectionner un mandat" %}</label>
+                <select class="form-select" id="select-mandat">
+                    <option value="">{% trans "Choisir..." %}</option>
+                    {% for mandat in mandats %}
+                    <option value="{{ mandat.id }}">{{ mandat }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <label class="form-label">{% trans "Compte bancaire débiteur" %}</label>
+                <select class="form-select" id="select-compte-bancaire">
+                    <option value="">{% trans "Choisir..." %}</option>
+                    {% for cb in comptes_bancaires %}
+                    <option value="{{ cb.id }}">{{ cb.libelle }} - {{ cb.iban }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 d-flex align-items-end">
+        <div class="card w-100">
+            <div class="card-body">
+                <button type="button" class="btn btn-primary w-100" id="btn-load-factures" disabled>
+                    <i class="ph ph-magnifying-glass me-1"></i>{% trans "Charger les factures" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Factures a payer -->
+<div class="row" id="factures-zone" style="display:none;">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="ph ph-invoice me-2"></i>{% trans "Factures fournisseurs validées" %}</h5>
+                <button type="button" class="btn btn-success btn-sm" id="btn-generer-pain001" disabled>
+                    <i class="ph ph-download me-1"></i>{% trans "Générer pain.001" %}
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width:40px;">
+                                    <input type="checkbox" id="check-all" class="form-check-input">
+                                </th>
+                                <th>{% trans "N° pièce" %}</th>
+                                <th>{% trans "Date" %}</th>
+                                <th>{% trans "Fournisseur" %}</th>
+                                <th>{% trans "Libellé" %}</th>
+                                <th class="text-end">{% trans "Montant TTC" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody id="factures-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const csrfToken = '{{ csrf_token }}';
+const mandatSelect = document.getElementById('select-mandat');
+const compteSelect = document.getElementById('select-compte-bancaire');
+const btnLoad = document.getElementById('btn-load-factures');
+const btnGenerer = document.getElementById('btn-generer-pain001');
+
+function updateBtnState() {
+    btnLoad.disabled = !mandatSelect.value;
+}
+mandatSelect.addEventListener('change', updateBtnState);
+
+btnLoad.addEventListener('click', function() {
+    fetch('/api/v1/paiements/a-payer/?mandat=' + mandatSelect.value)
+        .then(r => r.json())
+        .then(data => {
+            const tbody = document.getElementById('factures-tbody');
+            tbody.innerHTML = '';
+            if (!data.results || data.results.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">{% trans "Aucune facture fournisseur validée" %}</td></tr>';
+                document.getElementById('factures-zone').style.display = 'block';
+                return;
+            }
+            data.results.forEach(p => {
+                const row = document.createElement('tr');
+                row.innerHTML =
+                    '<td><input type="checkbox" class="form-check-input piece-check" value="' + p.id + '"></td>' +
+                    '<td><span class="f-w-600">' + p.numero_piece + '</span></td>' +
+                    '<td class="text-muted">' + p.date_piece + '</td>' +
+                    '<td>' + (p.tiers_nom || '-') + '</td>' +
+                    '<td class="text-muted">' + p.libelle + '</td>' +
+                    '<td class="text-end f-w-600">' + p.montant_ttc + ' CHF</td>';
+                tbody.appendChild(row);
+            });
+            document.getElementById('factures-zone').style.display = 'block';
+            updateGenererBtn();
+        })
+        .catch(err => alert(err));
+});
+
+document.addEventListener('change', function(e) {
+    if (e.target.id === 'check-all') {
+        document.querySelectorAll('.piece-check').forEach(c => c.checked = e.target.checked);
+    }
+    updateGenererBtn();
+});
+
+function updateGenererBtn() {
+    const checked = document.querySelectorAll('.piece-check:checked');
+    btnGenerer.disabled = checked.length === 0 || !compteSelect.value;
+}
+
+compteSelect.addEventListener('change', updateGenererBtn);
+
+btnGenerer.addEventListener('click', function() {
+    const pieceIds = Array.from(document.querySelectorAll('.piece-check:checked')).map(c => c.value);
+    const compteBancaireId = compteSelect.value;
+
+    if (!compteBancaireId) {
+        alert('{% trans "Veuillez sélectionner un compte bancaire débiteur." %}');
+        return;
+    }
+
+    fetch('/api/v1/paiements/generer-pain001/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({piece_ids: pieceIds, compte_bancaire_id: compteBancaireId}),
+    })
+    .then(response => {
+        if (!response.ok) return response.json().then(d => { throw new Error(d.error); });
+        return response.blob();
+    })
+    .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'pain001.xml';
+        a.click();
+        window.URL.revokeObjectURL(url);
+    })
+    .catch(err => alert(err));
+});
+</script>
+{% endblock %}

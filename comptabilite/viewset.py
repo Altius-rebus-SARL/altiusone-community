@@ -515,6 +515,179 @@ class LettrageViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
+class BankStatementViewSet(viewsets.ViewSet):
+    """ViewSet pour l'import de releves bancaires camt.053."""
+    permission_classes = [IsAuthenticated]
+
+    @action(detail=False, methods=['post'])
+    def preview(self, request):
+        """
+        Upload XML camt.053 et retourne un preview JSON sans sauvegarder.
+        POST /api/v1/comptabilite/releves-bancaires/preview/
+        """
+        from comptabilite.services import Camt053ParserService
+
+        xml_file = request.FILES.get('file')
+        if not xml_file:
+            return Response(
+                {'error': 'Fichier XML requis'}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        xml_content = xml_file.read()
+        statement = Camt053ParserService.parse(xml_content)
+
+        if statement.error:
+            return Response({'error': statement.error}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({
+            'statement_id': statement.statement_id,
+            'iban': statement.iban,
+            'currency': statement.currency,
+            'opening_balance': str(statement.opening_balance),
+            'closing_balance': str(statement.closing_balance),
+            'entries_count': len(statement.entries),
+            'entries': [
+                {
+                    'booking_date': str(e.booking_date) if e.booking_date else None,
+                    'value_date': str(e.value_date) if e.value_date else None,
+                    'amount': str(e.amount),
+                    'currency': e.currency,
+                    'credit_debit': e.credit_debit,
+                    'counterparty_name': e.counterparty_name,
+                    'counterparty_iban': e.counterparty_iban,
+                    'reference': e.reference,
+                    'remittance_info': e.remittance_info,
+                    'end_to_end_id': e.end_to_end_id,
+                    'bank_reference': e.bank_reference,
+                }
+                for e in statement.entries
+            ],
+        })
+
+    @action(detail=False, methods=['post'])
+    def importer(self, request):
+        """
+        Upload XML camt.053 et cree les ecritures en brouillon.
+        POST /api/v1/comptabilite/releves-bancaires/importer/
+        """
+        from comptabilite.services import Camt053ParserService
+        from core.models import Mandat, ExerciceComptable
+
+        xml_file = request.FILES.get('file')
+        mandat_id = request.data.get('mandat_id')
+        journal_id = request.data.get('journal_id')
+        compte_banque_id = request.data.get('compte_banque_id')
+        exercice_id = request.data.get('exercice_id')
+
+        if not all([xml_file, mandat_id, journal_id, compte_banque_id, exercice_id]):
+            return Response(
+                {'error': 'file, mandat_id, journal_id, compte_banque_id et exercice_id requis'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        xml_content = xml_file.read()
+        statement = Camt053ParserService.parse(xml_content)
+        if statement.error:
+            return Response({'error': statement.error}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            mandat = Mandat.objects.get(id=mandat_id)
+            journal = Journal.objects.get(id=journal_id)
+            from comptabilite.models import Compte
+            compte_banque = Compte.objects.get(id=compte_banque_id)
+            exercice = ExerciceComptable.objects.get(id=exercice_id)
+        except (Mandat.DoesNotExist, Journal.DoesNotExist, Compte.DoesNotExist,
+                ExerciceComptable.DoesNotExist) as e:
+            return Response(
+                {'error': f'Objet non trouve: {e}'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        result = Camt053ParserService.generate_ecritures(
+            statement, mandat, journal, compte_banque, exercice, request.user
+        )
+        return Response(result, status=status.HTTP_201_CREATED)
+
+
+class PaymentViewSet(viewsets.ViewSet):
+    """ViewSet pour la generation de fichiers pain.001."""
+    permission_classes = [IsAuthenticated]
+
+    @action(detail=False, methods=['get'], url_path='a-payer')
+    def a_payer(self, request):
+        """
+        Liste des factures fournisseurs validees en attente de paiement.
+        GET /api/v1/comptabilite/paiements/a-payer/?mandat=...
+        """
+        mandat_id = request.query_params.get('mandat')
+        if not mandat_id:
+            return Response(
+                {'error': 'Parametre mandat requis'}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        pieces = PieceComptable.objects.filter(
+            mandat_id=mandat_id,
+            type_piece__code='FAC_ACH',
+            statut='VALIDE',
+        ).select_related('type_piece').order_by('-date_piece')
+
+        data = [
+            {
+                'id': str(p.id),
+                'numero_piece': p.numero_piece,
+                'date_piece': str(p.date_piece),
+                'libelle': p.libelle,
+                'tiers_nom': p.tiers_nom,
+                'montant_ttc': str(p.montant_ttc) if p.montant_ttc else '0.00',
+                'reference_externe': p.reference_externe,
+            }
+            for p in pieces
+        ]
+        return Response({'count': len(data), 'results': data})
+
+    @action(detail=False, methods=['post'], url_path='generer-pain001')
+    def generer_pain001(self, request):
+        """
+        Genere un fichier XML pain.001.
+        POST /api/v1/comptabilite/paiements/generer-pain001/
+        Body: {piece_ids: [...], compte_bancaire_id: "..."}
+        """
+        from comptabilite.services import Pain001GeneratorService
+        from core.models import CompteBancaire
+
+        piece_ids = request.data.get('piece_ids', [])
+        compte_bancaire_id = request.data.get('compte_bancaire_id')
+
+        if not piece_ids or not compte_bancaire_id:
+            return Response(
+                {'error': 'piece_ids et compte_bancaire_id requis'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            compte_bancaire = CompteBancaire.objects.get(id=compte_bancaire_id)
+        except CompteBancaire.DoesNotExist:
+            return Response(
+                {'error': 'Compte bancaire non trouve'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        order = Pain001GeneratorService.from_pieces_comptables(piece_ids, compte_bancaire)
+
+        if not order.payments:
+            return Response(
+                {'error': 'Aucune piece valide trouvee pour les IDs fournis'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        xml_bytes = Pain001GeneratorService.generate(order)
+
+        from django.http import HttpResponse
+        response = HttpResponse(xml_bytes, content_type='application/xml')
+        response['Content-Disposition'] = f'attachment; filename="pain001_{order.message_id}.xml"'
+        return response
+
+
 class RapportsViewSet(viewsets.ViewSet):
     """ViewSet pour les rapports comptables"""
 

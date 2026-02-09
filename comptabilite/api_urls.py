@@ -8,6 +8,8 @@ from .viewset import (
     EcritureComptableViewSet,
     PieceComptableViewSet,
     LettrageViewSet,
+    BankStatementViewSet,
+    PaymentViewSet,
     RapportsViewSet,
 )
 
@@ -20,6 +22,8 @@ router.register(r"journaux", JournalViewSet, basename="journal")
 router.register(r"ecritures", EcritureComptableViewSet, basename="ecriture")
 router.register(r"pieces", PieceComptableViewSet, basename="piece")
 router.register(r"lettrages", LettrageViewSet, basename="lettrage")
+router.register(r"releves-bancaires", BankStatementViewSet, basename="releve-bancaire")
+router.register(r"paiements", PaymentViewSet, basename="paiement-bancaire")
 router.register(r"rapports", RapportsViewSet, basename="rapport")
 
 urlpatterns = [
@@ -79,6 +83,14 @@ LETTRAGES:
 - GET    /api/v1/comptabilite/lettrages/{id}/            Détail lettrage
 - DELETE /api/v1/comptabilite/lettrages/{id}/            Supprimer lettrage
 - GET    /api/v1/comptabilite/lettrages/{id}/ecritures/  Écritures lettrées
+
+RELEVÉS BANCAIRES (camt.053):
+- POST   /api/v1/comptabilite/releves-bancaires/preview/   Preview XML camt.053
+- POST   /api/v1/comptabilite/releves-bancaires/importer/  Import XML → écritures brouillon
+
+PAIEMENTS (pain.001):
+- GET    /api/v1/comptabilite/paiements/a-payer/           Factures fournisseurs à payer
+- POST   /api/v1/comptabilite/paiements/generer-pain001/   Générer fichier pain.001 XML
 
 RAPPORTS:
 - GET    /api/v1/comptabilite/rapports/balance/          Balance des comptes
