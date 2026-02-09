@@ -746,9 +746,9 @@ class DeclarationCotisationsViewSet(viewsets.ModelViewSet):
         # Filtrer les mandats accessibles
         user = request.user
         if mandats_ids:
-            mandats = Mandat.objects.filter(id__in=mandats_ids, actif=True)
+            mandats = Mandat.objects.filter(id__in=mandats_ids, is_active=True)
         else:
-            mandats = Mandat.objects.filter(actif=True)
+            mandats = Mandat.objects.filter(is_active=True)
 
         if not user.is_superuser and not (user.is_staff_user() and user.is_manager()):
             accessible_mandats = user.get_accessible_mandats()

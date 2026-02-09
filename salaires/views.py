@@ -967,7 +967,7 @@ class DeclarationCotisationsCreateView(LoginRequiredMixin, BusinessPermissionMix
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['mandats'] = Mandat.objects.select_related('client').filter(actif=True)
+        context['mandats'] = Mandat.objects.select_related('client').filter(is_active=True)
         context['organismes'] = DeclarationCotisations.ORGANISME_CHOICES
         context['current_year'] = datetime.now().year
         context['current_month'] = datetime.now().month
@@ -1128,9 +1128,9 @@ def declarations_generer_masse(request):
             organismes = [o[0] for o in DeclarationCotisations.ORGANISME_CHOICES]
 
         if mandats_ids:
-            mandats = Mandat.objects.filter(id__in=mandats_ids, actif=True)
+            mandats = Mandat.objects.filter(id__in=mandats_ids, is_active=True)
         else:
-            mandats = Mandat.objects.filter(actif=True)
+            mandats = Mandat.objects.filter(is_active=True)
 
         resultats = {'crees': [], 'existants': [], 'erreurs': []}
 
@@ -1202,7 +1202,7 @@ def declarations_generer_masse(request):
 
         return render(request, 'salaires/declaration_cotisations_generer_masse.html', {
             'resultats': resultats,
-            'mandats': Mandat.objects.filter(actif=True).select_related('client'),
+            'mandats': Mandat.objects.filter(is_active=True).select_related('client'),
             'organismes': DeclarationCotisations.ORGANISME_CHOICES,
             'current_year': datetime.now().year,
             'current_month': datetime.now().month,
@@ -1210,7 +1210,7 @@ def declarations_generer_masse(request):
 
     # GET
     return render(request, 'salaires/declaration_cotisations_generer_masse.html', {
-        'mandats': Mandat.objects.filter(actif=True).select_related('client'),
+        'mandats': Mandat.objects.filter(is_active=True).select_related('client'),
         'organismes': DeclarationCotisations.ORGANISME_CHOICES,
         'current_year': datetime.now().year,
         'current_month': datetime.now().month,
