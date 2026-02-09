@@ -1187,8 +1187,35 @@ class Client(BaseModel):
         help_text='Format: CHE-123.456.789',
         verbose_name=_('Numéro IDE')
     )
+    ch_id = models.CharField(
+        max_length=30,
+        blank=True,
+        help_text='Numéro CH-ID (CH-XXX-XXXXXXX-X)',
+        verbose_name=_('CH-ID')
+    )
+    ofrc_id = models.CharField(
+        max_length=20,
+        blank=True,
+        help_text="Numéro de l'Office fédéral du registre du commerce",
+        verbose_name=_('OFRC-ID')
+    )
     tva_number = models.CharField(max_length=20, blank=True, db_index=True, verbose_name=_('Numéro TVA'))
     rc_number = models.CharField(max_length=50, blank=True, verbose_name=_('Numéro RC'))
+
+    # Siège social
+    siege = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text='Localité du siège social',
+        verbose_name=_('Siège')
+    )
+    canton_rc = models.CharField(
+        max_length=2,
+        blank=True,
+        choices=SwissCantons.choices,
+        help_text='Canton du registre du commerce',
+        verbose_name=_('Canton RC')
+    )
 
     # Coordonnées
     adresse_siege = models.ForeignKey(Adresse, on_delete=models.PROTECT,
