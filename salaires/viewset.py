@@ -20,6 +20,9 @@ from .serializers import (
     FicheSalaireListSerializer,
     FicheSalaireDetailSerializer,
     CertificatSalaireSerializer,
+    CertificatSalaireListSerializer,
+    CertificatSalaireDetailSerializer,
+    CertificatSalaireCreateSerializer,
     DeclarationCotisationsSerializer,
 )
 
@@ -347,21 +350,32 @@ class FicheSalaireViewSet(viewsets.ModelViewSet):
 
 
 class CertificatSalaireViewSet(viewsets.ModelViewSet):
-    """ViewSet pour les certificats de salaire
+    """ViewSet pour les certificats de salaire - Formulaire 11 suisse
 
     Permissions: Certificats des employés accessibles selon les permissions de l'utilisateur
+
+    Actions disponibles:
+    - list: Liste des certificats
+    - retrieve: Détail d'un certificat
+    - create: Créer un certificat (avec option auto_calculer)
+    - update/partial_update: Modifier un certificat
+    - delete: Supprimer un certificat
+    - calculer: Recalculer depuis les fiches de salaire
+    - generer_pdf: Générer le PDF Formulaire 11
+    - valider: Marquer comme vérifié
+    - signer: Signer le certificat
     """
 
-    serializer_class = CertificatSalaireSerializer
     permission_classes = [IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ["employe", "annee"]
-    ordering = ["-annee"]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter, filters.SearchFilter]
+    filterset_fields = ["employe", "annee", "statut", "est_signe"]
+    search_fields = ["employe__nom", "employe__prenom", "employe__matricule"]
+    ordering = ["-annee", "-created_at"]
 
     def get_queryset(self):
         user = self.request.user
         base_queryset = CertificatSalaire.objects.select_related(
-            "employe", "employe__mandat", "genere_par"
+            "employe", "employe__mandat", "employe__mandat__client", "genere_par"
         )
 
         # Superuser ou Manager: accès complet
@@ -372,21 +386,214 @@ class CertificatSalaireViewSet(viewsets.ModelViewSet):
         accessible_mandats = user.get_accessible_mandats()
         return base_queryset.filter(employe__mandat__in=accessible_mandats)
 
+    def get_serializer_class(self):
+        if self.action == "list":
+            return CertificatSalaireListSerializer
+        elif self.action == "create":
+            return CertificatSalaireCreateSerializer
+        elif self.action in ["retrieve", "update", "partial_update"]:
+            return CertificatSalaireDetailSerializer
+        return CertificatSalaireSerializer
+
+    def perform_create(self, serializer):
+        """Enregistre l'utilisateur qui crée le certificat"""
+        serializer.save(genere_par=self.request.user)
+
     @action(detail=True, methods=["post"])
-    def generer_pdf(self, request, pk=None):
-        """Générer le PDF du certificat de salaire"""
+    def calculer(self, request, pk=None):
+        """Recalculer le certificat depuis les fiches de salaire validées.
+
+        Agrège toutes les fiches de salaire validées de l'année pour remplir
+        automatiquement les champs du Formulaire 11.
+        """
         certificat = self.get_object()
 
-        # TODO: Implémenter la génération PDF
+        try:
+            certificat.calculer_depuis_fiches(save=True)
+            return Response({
+                "message": "Certificat recalculé avec succès",
+                "statut": certificat.statut,
+                "chiffre_8_total_brut": str(certificat.chiffre_8_total_brut),
+                "chiffre_11_net": str(certificat.chiffre_11_net),
+                "date_debut": certificat.date_debut.isoformat() if certificat.date_debut else None,
+                "date_fin": certificat.date_fin.isoformat() if certificat.date_fin else None,
+            })
+        except ValueError as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        return Response(
-            {
-                "message": "PDF généré",
-                "fichier": certificat.fichier_pdf.url
-                if certificat.fichier_pdf
-                else None,
-            }
-        )
+    @action(detail=True, methods=["post"])
+    def generer_pdf(self, request, pk=None):
+        """Générer le PDF du certificat de salaire au format Formulaire 11.
+
+        Le PDF généré est conforme au format officiel suisse de l'AFC.
+        """
+        certificat = self.get_object()
+
+        try:
+            certificat.generer_pdf_formulaire11()
+            return Response({
+                "message": "PDF Formulaire 11 généré avec succès",
+                "fichier": certificat.fichier_pdf.url if certificat.fichier_pdf else None,
+                "filename": certificat.fichier_pdf.name if certificat.fichier_pdf else None,
+            })
+        except Exception as e:
+            return Response(
+                {"error": f"Erreur lors de la génération du PDF: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=["post"])
+    def valider(self, request, pk=None):
+        """Marquer le certificat comme vérifié.
+
+        Un certificat vérifié peut ensuite être signé.
+        """
+        certificat = self.get_object()
+
+        try:
+            certificat.valider(user=request.user)
+            return Response({
+                "message": "Certificat validé",
+                "statut": certificat.statut,
+            })
+        except ValueError as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=True, methods=["post"])
+    def signer(self, request, pk=None):
+        """Signer le certificat.
+
+        Paramètres requis:
+        - lieu: Lieu de signature
+        - nom_signataire: Nom de la personne qui signe
+
+        Paramètres optionnels:
+        - telephone: Numéro de téléphone pour questions
+        """
+        certificat = self.get_object()
+
+        lieu = request.data.get("lieu")
+        nom_signataire = request.data.get("nom_signataire")
+        telephone = request.data.get("telephone", "")
+
+        if not lieu:
+            return Response(
+                {"error": "Le lieu de signature est requis"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not nom_signataire:
+            return Response(
+                {"error": "Le nom du signataire est requis"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            certificat.signer(
+                lieu=lieu,
+                nom_signataire=nom_signataire,
+                telephone=telephone,
+                user=request.user
+            )
+            return Response({
+                "message": "Certificat signé",
+                "statut": certificat.statut,
+                "date_signature": certificat.date_signature.isoformat() if certificat.date_signature else None,
+                "lieu_signature": certificat.lieu_signature,
+                "nom_signataire": certificat.nom_signataire,
+            })
+        except ValueError as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=False, methods=["post"])
+    def generer_masse(self, request):
+        """Générer des certificats de salaire pour plusieurs employés.
+
+        Paramètres:
+        - annee: Année fiscale (requis)
+        - employes: Liste d'IDs d'employés (optionnel, sinon tous les employés accessibles)
+        - auto_calculer: Si True, calcule automatiquement (défaut: True)
+        """
+        annee = request.data.get("annee")
+        employes_ids = request.data.get("employes", [])
+        auto_calculer = request.data.get("auto_calculer", True)
+
+        if not annee:
+            return Response(
+                {"error": "L'année est requise"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Récupérer les employés accessibles
+        from .models import Employe
+        user = request.user
+
+        if user.is_superuser or (user.is_staff_user() and user.is_manager()):
+            queryset = Employe.objects.filter(statut='ACTIF')
+        else:
+            accessible_mandats = user.get_accessible_mandats()
+            queryset = Employe.objects.filter(mandat__in=accessible_mandats, statut='ACTIF')
+
+        if employes_ids:
+            queryset = queryset.filter(id__in=employes_ids)
+
+        resultats = {
+            "crees": [],
+            "existants": [],
+            "erreurs": [],
+        }
+
+        for employe in queryset:
+            # Vérifier si un certificat existe déjà
+            if CertificatSalaire.objects.filter(employe=employe, annee=annee).exists():
+                resultats["existants"].append({
+                    "employe_id": employe.id,
+                    "employe_nom": str(employe),
+                })
+                continue
+
+            try:
+                from datetime import date
+                certificat = CertificatSalaire.objects.create(
+                    employe=employe,
+                    annee=annee,
+                    date_debut=date(annee, 1, 1),
+                    date_fin=date(annee, 12, 31),
+                    genere_par=request.user,
+                )
+
+                if auto_calculer:
+                    try:
+                        certificat.calculer_depuis_fiches(save=True)
+                    except ValueError:
+                        pass  # Pas de fiches, le certificat reste en brouillon
+
+                resultats["crees"].append({
+                    "certificat_id": certificat.id,
+                    "employe_id": employe.id,
+                    "employe_nom": str(employe),
+                    "statut": certificat.statut,
+                })
+            except Exception as e:
+                resultats["erreurs"].append({
+                    "employe_id": employe.id,
+                    "employe_nom": str(employe),
+                    "erreur": str(e),
+                })
+
+        return Response({
+            "message": f"{len(resultats['crees'])} certificats créés",
+            "resultats": resultats,
+        })
 
 
 class DeclarationCotisationsViewSet(viewsets.ModelViewSet):

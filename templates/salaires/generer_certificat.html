@@ -32,9 +32,10 @@
     <div class="col-lg-6 mx-auto">
         <div class="card">
             <div class="card-header">
-                <h5><i class="ph ph-certificate me-2"></i>{% trans "Générer le certificat de salaire" %}</h5>
+                <h5><i class="ph ph-certificate me-2"></i>{% trans "Formulaire 11 - Certificat de salaire" %}</h5>
             </div>
             <div class="card-body">
+                <!-- Info employé -->
                 <div class="mb-4">
                     <h6 class="mb-3">{% trans "Employé" %}</h6>
                     <div class="d-flex align-items-center">
@@ -45,6 +46,7 @@
                             <p class="mb-0 f-w-600">{{ employe.prenom }} {{ employe.nom }}</p>
                             <p class="text-muted f-s-12 mb-0">{% trans "Matricule" %}: {{ employe.matricule }}</p>
                             <p class="text-muted f-s-12 mb-0">{% trans "AVS" %}: {{ employe.avs_number }}</p>
+                            <p class="text-muted f-s-12 mb-0">{% trans "Taux" %}: {{ employe.taux_occupation }}%</p>
                         </div>
                     </div>
                 </div>
@@ -53,27 +55,49 @@
 
                 <form method="post" class="app-form">
                     {% csrf_token %}
-                    
+
                     <div class="mb-4">
                         <label class="form-label">{% trans "Année" %} <span class="text-danger">*</span></label>
-                        <input type="number" 
-                               name="annee" 
-                               class="form-control" 
-                               min="2020" 
-                               max="2099" 
-                               value="{{ current_year }}" 
+                        <input type="number"
+                               name="annee"
+                               class="form-control"
+                               min="2020"
+                               max="2099"
+                               value="{{ current_year }}"
                                required>
                         <small class="text-muted">
                             {% trans "Année du certificat à générer" %}
                         </small>
                     </div>
 
+                    <!-- Option calcul automatique -->
+                    <div class="mb-4">
+                        <div class="form-check">
+                            <input type="checkbox" name="auto_calculer" id="auto_calculer" class="form-check-input" checked>
+                            <label class="form-check-label fw-bold" for="auto_calculer">
+                                {% trans "Calculer automatiquement depuis les fiches de salaire" %}
+                            </label>
+                        </div>
+                        <small class="text-muted ms-4">
+                            {% trans "Agrège les données des fiches de salaire validées pour l'année sélectionnée" %}
+                        </small>
+                    </div>
+
+                    <!-- Options avancées -->
+                    <div class="mb-4" id="options-manuelles" style="display: none;">
+                        <div class="alert alert-warning">
+                            <i class="ph ph-warning me-2"></i>
+                            {% trans "Mode manuel: vous devrez saisir tous les montants manuellement après création" %}
+                        </div>
+                    </div>
+
                     <div class="alert alert-info">
                         <h6 class="mb-3"><i class="ph ph-info me-2"></i>{% trans "Information" %}</h6>
                         <ul class="mb-0 f-s-14">
-                            <li class="mb-2">{% trans "Le certificat sera généré à partir des fiches de salaire validées" %}</li>
-                            <li class="mb-2">{% trans "Tous les montants seront calculés automatiquement" %}</li>
-                            <li>{% trans "Si un certificat existe déjà, il ne sera pas recréé" %}</li>
+                            <li class="mb-2">{% trans "Le certificat sera créé au format Formulaire 11 officiel" %}</li>
+                            <li class="mb-2">{% trans "Les montants des chiffres 8 (brut) et 11 (net) sont calculés automatiquement" %}</li>
+                            <li class="mb-2">{% trans "Vous pourrez modifier le certificat et générer le PDF ensuite" %}</li>
+                            <li>{% trans "Si un certificat existe déjà pour cette année, il ne sera pas recréé" %}</li>
                         </ul>
                     </div>
 
@@ -90,4 +114,17 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const autoCalculer = document.getElementById('auto_calculer');
+    const optionsManuelles = document.getElementById('options-manuelles');
+
+    autoCalculer.addEventListener('change', function() {
+        optionsManuelles.style.display = this.checked ? 'none' : 'block';
+    });
+});
+</script>
 {% endblock %}

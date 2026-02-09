@@ -30,11 +30,16 @@ urlpatterns = [
     path(
         "fiches/generer-masse/", views.generer_fiches_masse, name="generer-fiches-masse"
     ),
-    # Certificats de salaire
+    # Certificats de salaire (Formulaire 11)
     path(
         "certificats/",
         views.CertificatSalaireListView.as_view(),
         name="certificat-list",
+    ),
+    path(
+        "certificats/generer-masse/",
+        views.certificat_generer_masse,
+        name="certificat-generer-masse",
     ),
     path(
         "certificats/<uuid:pk>/",
@@ -42,14 +47,34 @@ urlpatterns = [
         name="certificat-detail",
     ),
     path(
-        "employes/<uuid:employe_pk>/certificat/",
-        views.generer_certificat,
-        name="generer-certificat",
+        "certificats/<uuid:pk>/modifier/",
+        views.CertificatSalaireUpdateView.as_view(),
+        name="certificat-edit",
+    ),
+    path(
+        "certificats/<uuid:pk>/recalculer/",
+        views.certificat_recalculer,
+        name="certificat-recalculer",
+    ),
+    path(
+        "certificats/<uuid:pk>/valider/",
+        views.certificat_valider,
+        name="certificat-valider",
+    ),
+    path(
+        "certificats/<uuid:pk>/signer/",
+        views.certificat_signer,
+        name="certificat-signer",
     ),
     path(
         "certificats/<uuid:pk>/pdf/",
         views.certificat_generer_pdf,
         name="certificat-pdf",
+    ),
+    path(
+        "employes/<uuid:employe_pk>/certificat/",
+        views.generer_certificat,
+        name="generer-certificat",
     ),
     # Certificats de travail
     path(

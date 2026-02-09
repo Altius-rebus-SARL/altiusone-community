@@ -1259,8 +1259,30 @@ class FicheSalaire(BaseModel):
 
 
 class CertificatSalaire(BaseModel):
-    """Certificat de salaire annuel"""
-    
+    """
+    Certificat de salaire annuel - Formulaire 11 officiel suisse
+    Conforme aux directives de l'Administration fédérale des contributions (AFC)
+    """
+
+    # Choix pour le type d'occupation (Section F)
+    TYPE_OCCUPATION_CHOICES = [
+        ('PLEIN_TEMPS', 'Plein temps'),
+        ('TEMPS_PARTIEL', 'Temps partiel'),
+        ('HORAIRE', 'Travail à l\'heure'),
+    ]
+
+    # Statut du certificat
+    STATUT_CHOICES = [
+        ('BROUILLON', 'Brouillon'),
+        ('CALCULE', 'Calculé'),
+        ('VERIFIE', 'Vérifié'),
+        ('SIGNE', 'Signé'),
+        ('ENVOYE', 'Envoyé'),
+    ]
+
+    # ==================== SECTION A-B: EMPLOYEUR ====================
+    # (Les données employeur sont récupérées via employe.mandat.client)
+
     employe = models.ForeignKey(
         Employe, on_delete=models.CASCADE,
         related_name='certificats_salaire',
@@ -1273,77 +1295,312 @@ class CertificatSalaire(BaseModel):
         help_text='Année fiscale du certificat'
     )
 
-    # Périodes
+    # ==================== SECTION C-E: PÉRIODE ET EMPLOYÉ ====================
     date_debut = models.DateField(
         verbose_name='Date de début',
-        help_text='Début de la période d\'emploi pour cette année'
+        help_text='Début de la période d\'emploi pour cette année (Section C)'
     )
     date_fin = models.DateField(
         verbose_name='Date de fin',
-        help_text='Fin de la période d\'emploi pour cette année'
+        help_text='Fin de la période d\'emploi pour cette année (Section C)'
     )
 
-    # Salaires bruts
+    # ==================== SECTION F-G: OCCUPATION ET TRANSPORT ====================
+    type_occupation = models.CharField(
+        max_length=20, choices=TYPE_OCCUPATION_CHOICES, default='PLEIN_TEMPS',
+        verbose_name='Type d\'occupation',
+        help_text='Section F: Type de rapport de travail'
+    )
+    taux_occupation = models.DecimalField(
+        max_digits=5, decimal_places=2, default=100,
+        verbose_name='Taux d\'occupation (%)',
+        help_text='Section F: Taux d\'occupation en pourcentage'
+    )
+    transport_public_disponible = models.BooleanField(
+        default=True,
+        verbose_name='Transport public disponible',
+        help_text='Section G: Des transports publics sont disponibles pour le trajet domicile-travail'
+    )
+    transport_gratuit_fourni = models.BooleanField(
+        default=False,
+        verbose_name='Transport gratuit fourni',
+        help_text='Section G: L\'employeur fournit un transport gratuit'
+    )
+
+    # ==================== CHIFFRE 1: SALAIRE ====================
+    chiffre_1_salaire = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        verbose_name='1. Salaire / Rente',
+        help_text='Salaire, rente (y.c. allocations pour perte de gain)'
+    )
+
+    # ==================== CHIFFRE 2: PRESTATIONS EN NATURE ====================
+    # 2.1 Repas
+    chiffre_2_1_repas = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='2.1 Repas',
+        help_text='Valeur des repas gratuits (CHF 180/mois midi, CHF 180/mois soir)'
+    )
+    repas_midi_gratuit = models.BooleanField(
+        default=False,
+        verbose_name='Repas de midi gratuit',
+        help_text='Case 2.1: L\'employé bénéficie de repas de midi gratuits'
+    )
+    repas_soir_gratuit = models.BooleanField(
+        default=False,
+        verbose_name='Repas du soir gratuit',
+        help_text='Case 2.1: L\'employé bénéficie de repas du soir gratuits'
+    )
+
+    # 2.2 Voiture de service
+    chiffre_2_2_voiture = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='2.2 Véhicule de service',
+        help_text='Valeur de l\'utilisation privée du véhicule (0.9% par mois du prix d\'achat)'
+    )
+    voiture_disponible = models.BooleanField(
+        default=False,
+        verbose_name='Voiture de service disponible',
+        help_text='Case 2.2: Un véhicule de service est mis à disposition pour usage privé'
+    )
+    voiture_prix_achat = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        verbose_name='Prix d\'achat du véhicule',
+        help_text='Prix d\'achat du véhicule (hors TVA) pour calcul de la part privée'
+    )
+
+    # 2.3 Autres prestations
+    chiffre_2_3_autres = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='2.3 Autres prestations en nature',
+        help_text='Autres prestations en nature (logement, etc.)'
+    )
+    autres_prestations_nature_detail = models.TextField(
+        blank=True,
+        verbose_name='Détail autres prestations',
+        help_text='Description des autres prestations en nature'
+    )
+
+    # ==================== CHIFFRE 3: PRESTATIONS IRRÉGULIÈRES ====================
+    chiffre_3_irregulier = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        verbose_name='3. Prestations irrégulières',
+        help_text='Bonus, gratifications, 13ème salaire, indemnités de vacances non prises'
+    )
+
+    # ==================== CHIFFRE 4: PRESTATIONS EN CAPITAL ====================
+    chiffre_4_capital = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        verbose_name='4. Prestations en capital',
+        help_text='Indemnités de départ, prestations provenant d\'institutions de prévoyance'
+    )
+
+    # ==================== CHIFFRE 5: PARTICIPATIONS ====================
+    chiffre_5_participations = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        verbose_name='5. Droits de participation',
+        help_text='Actions de collaborateurs, options, etc.'
+    )
+    participations_detail = models.TextField(
+        blank=True,
+        verbose_name='Détail participations',
+        help_text='Description des participations (type, nombre, valeur)'
+    )
+
+    # ==================== CHIFFRE 6: CONSEIL D'ADMINISTRATION ====================
+    chiffre_6_ca = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        verbose_name='6. Conseil d\'administration',
+        help_text='Indemnités de membre d\'organe de direction'
+    )
+
+    # ==================== CHIFFRE 7: AUTRES PRESTATIONS ====================
+    chiffre_7_autres = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        verbose_name='7. Autres prestations',
+        help_text='Toutes autres prestations non mentionnées ailleurs'
+    )
+    autres_prestations_detail = models.TextField(
+        blank=True,
+        verbose_name='Détail autres prestations',
+        help_text='Description des autres prestations'
+    )
+
+    # ==================== CHIFFRE 8: TOTAL BRUT (CALCULÉ) ====================
+    chiffre_8_total_brut = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        verbose_name='8. Salaire brut total',
+        help_text='Total des chiffres 1 à 7 (calculé automatiquement)'
+    )
+
+    # ==================== CHIFFRE 9: COTISATIONS AVS/AI/APG/AC/AANP ====================
+    chiffre_9_cotisations = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='9. Cotisations AVS/AI/APG/AC/AANP',
+        help_text='Cotisations employé aux assurances sociales obligatoires'
+    )
+
+    # ==================== CHIFFRE 10: PRÉVOYANCE PROFESSIONNELLE ====================
+    chiffre_10_1_lpp_ordinaire = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='10.1 LPP cotisations ordinaires',
+        help_text='Cotisations ordinaires à la prévoyance professionnelle'
+    )
+    chiffre_10_2_lpp_rachat = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='10.2 LPP rachats',
+        help_text='Rachats d\'années de cotisation LPP'
+    )
+
+    # ==================== CHIFFRE 11: SALAIRE NET (CALCULÉ) ====================
+    chiffre_11_net = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        verbose_name='11. Salaire net',
+        help_text='Chiffre 8 moins chiffres 9 et 10 (calculé automatiquement)'
+    )
+
+    # ==================== CHIFFRE 12: FRAIS DE TRANSPORT ====================
+    chiffre_12_transport = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='12. Frais effectifs de transport',
+        help_text='Frais de déplacement domicile-lieu de travail remboursés'
+    )
+
+    # ==================== CHIFFRE 13: FRAIS DE REPAS ET NUITÉES ====================
+    chiffre_13_1_1_repas_effectif = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='13.1.1 Frais de repas effectifs',
+        help_text='Frais de repas effectifs pour travail en dehors'
+    )
+    chiffre_13_1_2_repas_forfait = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='13.1.2 Frais de repas forfaitaires',
+        help_text='Indemnité forfaitaire pour repas de midi'
+    )
+    chiffre_13_2_nuitees = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='13.2 Nuitées',
+        help_text='Frais d\'hébergement pour déplacements professionnels'
+    )
+    chiffre_13_3_repas_externes = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='13.3 Repas à l\'extérieur',
+        help_text='Frais de repas lors de déplacements externes'
+    )
+
+    # ==================== CHIFFRE 14: AUTRES FRAIS ====================
+    chiffre_14_autres_frais = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='14. Autres frais',
+        help_text='Autres frais professionnels remboursés'
+    )
+    autres_frais_detail = models.TextField(
+        blank=True,
+        verbose_name='Détail autres frais',
+        help_text='Description des autres frais professionnels'
+    )
+
+    # ==================== CHIFFRE 15: JOURS DE TRAVAIL AVEC DÉPLACEMENT ====================
+    chiffre_15_jours_transport = models.IntegerField(
+        default=0,
+        verbose_name='15. Jours avec déplacement',
+        help_text='Nombre de jours de travail avec déplacement domicile-travail'
+    )
+
+    # ==================== SECTION I: REMARQUES ====================
+    remarques = models.TextField(
+        blank=True,
+        verbose_name='Remarques',
+        help_text='Section I: Remarques diverses (expatriés, détachés, etc.)'
+    )
+
+    # ==================== SIGNATURE ====================
+    lieu_signature = models.CharField(
+        max_length=100, blank=True,
+        verbose_name='Lieu de signature',
+        help_text='Lieu où le certificat est signé'
+    )
+    date_signature = models.DateField(
+        null=True, blank=True,
+        verbose_name='Date de signature',
+        help_text='Date de signature du certificat'
+    )
+    nom_signataire = models.CharField(
+        max_length=200, blank=True,
+        verbose_name='Nom du signataire',
+        help_text='Nom de la personne autorisée à signer'
+    )
+    telephone_signataire = models.CharField(
+        max_length=50, blank=True,
+        verbose_name='Téléphone du signataire',
+        help_text='Numéro de téléphone pour questions'
+    )
+    est_signe = models.BooleanField(
+        default=False,
+        verbose_name='Signé',
+        help_text='Indique si le certificat a été signé'
+    )
+
+    # ==================== STATUT ET MÉTADONNÉES ====================
+    statut = models.CharField(
+        max_length=20, choices=STATUT_CHOICES, default='BROUILLON',
+        verbose_name='Statut',
+        help_text='État actuel du certificat'
+    )
+
+    # ==================== CHAMPS LEGACY (maintenu pour compatibilité) ====================
     salaire_brut_annuel = models.DecimalField(
-        max_digits=12, decimal_places=2,
-        verbose_name='Salaire brut annuel',
-        help_text='Total des salaires bruts en CHF'
+        max_digits=12, decimal_places=2, default=0,
+        verbose_name='Salaire brut annuel (legacy)',
+        help_text='[Obsolète] Utiliser chiffre_1_salaire'
     )
     treizieme_salaire_annuel = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='13ème salaire annuel',
-        help_text='13ème salaire versé en CHF'
+        verbose_name='13ème salaire annuel (legacy)',
+        help_text='[Obsolète] Inclus dans chiffre_3_irregulier'
     )
     primes_annuelles = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='Primes annuelles',
-        help_text='Total des primes et gratifications en CHF'
+        verbose_name='Primes annuelles (legacy)',
+        help_text='[Obsolète] Inclus dans chiffre_3_irregulier'
     )
-
-    # Cotisations annuelles
     avs_annuel = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='AVS annuel',
-        help_text='Total cotisations AVS/AI/APG employé en CHF'
+        verbose_name='AVS annuel (legacy)',
+        help_text='[Obsolète] Utiliser chiffre_9_cotisations'
     )
     ac_annuel = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='AC annuel',
-        help_text='Total assurance chômage employé en CHF'
+        verbose_name='AC annuel (legacy)',
+        help_text='[Obsolète] Inclus dans chiffre_9_cotisations'
     )
     lpp_annuel = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='LPP annuel',
-        help_text='Total cotisations 2ème pilier employé en CHF'
+        verbose_name='LPP annuel (legacy)',
+        help_text='[Obsolète] Utiliser chiffre_10_1_lpp_ordinaire'
     )
-
-    # Allocations
     allocations_familiales_annuel = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='Allocations familiales annuelles',
-        help_text='Total allocations familiales reçues en CHF'
+        verbose_name='Allocations familiales annuelles (legacy)',
+        help_text='[Obsolète] Les allocations ne figurent pas sur le formulaire 11'
     )
-
-    # Frais
     frais_deplacement = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='Frais de déplacement',
-        help_text='Indemnités de déplacement en CHF'
+        verbose_name='Frais de déplacement (legacy)',
+        help_text='[Obsolète] Utiliser chiffre_12_transport'
     )
     frais_repas = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='Frais de repas',
-        help_text='Indemnités de repas en CHF'
+        verbose_name='Frais de repas (legacy)',
+        help_text='[Obsolète] Utiliser chiffre_13_*'
     )
-
-    # Impôt source
     impot_source_annuel = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
         verbose_name='Impôt à la source annuel',
-        help_text='Total impôt à la source retenu en CHF'
+        help_text='Total impôt à la source retenu (info uniquement, pas sur formulaire 11)'
     )
 
-    # Fichier
+    # ==================== FICHIER PDF ====================
     fichier_pdf = models.FileField(
         upload_to='salaires/certificats/', null=True, blank=True,
         verbose_name='Fichier PDF',
@@ -1364,15 +1621,230 @@ class CertificatSalaire(BaseModel):
     class Meta:
         db_table = 'certificats_salaire'
         verbose_name = 'Certificat de salaire'
+        verbose_name_plural = 'Certificats de salaire'
         unique_together = [['employe', 'annee']]
         ordering = ['-annee']
-    
+
     def __str__(self):
         return f"Certificat {self.annee} - {self.employe}"
 
+    def save(self, *args, **kwargs):
+        """Recalcule les totaux avant sauvegarde"""
+        self.calculer_totaux()
+        super().save(*args, **kwargs)
+
+    def calculer_totaux(self):
+        """Calcule les chiffres 8 (brut total) et 11 (net)"""
+        # Chiffre 8: Total brut = somme des chiffres 1 à 7
+        self.chiffre_8_total_brut = (
+            (self.chiffre_1_salaire or Decimal('0')) +
+            (self.chiffre_2_1_repas or Decimal('0')) +
+            (self.chiffre_2_2_voiture or Decimal('0')) +
+            (self.chiffre_2_3_autres or Decimal('0')) +
+            (self.chiffre_3_irregulier or Decimal('0')) +
+            (self.chiffre_4_capital or Decimal('0')) +
+            (self.chiffre_5_participations or Decimal('0')) +
+            (self.chiffre_6_ca or Decimal('0')) +
+            (self.chiffre_7_autres or Decimal('0'))
+        )
+
+        # Chiffre 11: Net = Brut - Cotisations - LPP
+        self.chiffre_11_net = (
+            self.chiffre_8_total_brut -
+            (self.chiffre_9_cotisations or Decimal('0')) -
+            (self.chiffre_10_1_lpp_ordinaire or Decimal('0')) -
+            (self.chiffre_10_2_lpp_rachat or Decimal('0'))
+        )
+
+    def calculer_depuis_fiches(self, save=True):
+        """
+        Calcule automatiquement le certificat depuis les fiches de salaire validées.
+
+        Agrège les données des FicheSalaire de l'année pour remplir les champs
+        du formulaire 11 officiel suisse.
+
+        Args:
+            save: Si True, sauvegarde le certificat après calcul
+
+        Returns:
+            self: L'instance mise à jour
+        """
+        from django.db.models import Sum, Min, Max
+        from datetime import date
+
+        # Récupérer les fiches validées de l'année
+        fiches = FicheSalaire.objects.filter(
+            employe=self.employe,
+            annee=self.annee,
+            statut__in=['VALIDE', 'PAYE', 'COMPTABILISE']
+        )
+
+        if not fiches.exists():
+            raise ValueError(f"Aucune fiche de salaire validée pour {self.employe} en {self.annee}")
+
+        # Agréger les données
+        agregats = fiches.aggregate(
+            # Salaires
+            total_salaire_base=Sum('salaire_base'),
+            total_heures_supp=Sum('heures_supp_montant'),
+            total_primes=Sum('primes'),
+            total_indemnites=Sum('indemnites'),
+            total_treizieme=Sum('treizieme_mois'),
+            # Cotisations
+            total_avs=Sum('avs_employe'),
+            total_ac=Sum('ac_employe'),
+            total_ac_supp=Sum('ac_supp_employe'),
+            total_laa=Sum('laa_employe'),
+            total_laac=Sum('laac_employe'),
+            total_ijm=Sum('ijm_employe'),
+            total_lpp=Sum('lpp_employe'),
+            # Impôt source
+            total_is=Sum('impot_source'),
+            # Allocations (info)
+            total_alloc_fam=Sum('allocations_familiales'),
+            # Période
+            premiere_periode=Min('periode'),
+            derniere_periode=Max('periode'),
+        )
+
+        # === Déterminer la période d'emploi ===
+        # Utiliser les dates de l'employé si disponibles, sinon les périodes des fiches
+        employe = self.employe
+
+        if employe.date_entree and employe.date_entree.year <= self.annee:
+            debut_annee = date(self.annee, 1, 1)
+            self.date_debut = max(employe.date_entree, debut_annee)
+        else:
+            self.date_debut = agregats['premiere_periode']
+
+        if employe.date_sortie and employe.date_sortie.year == self.annee:
+            self.date_fin = employe.date_sortie
+        else:
+            # Dernier jour du dernier mois avec fiche
+            derniere = agregats['derniere_periode']
+            import calendar
+            dernier_jour = calendar.monthrange(derniere.year, derniere.month)[1]
+            self.date_fin = date(derniere.year, derniere.month, dernier_jour)
+
+        # === Chiffre 1: Salaire régulier ===
+        self.chiffre_1_salaire = (
+            (agregats['total_salaire_base'] or Decimal('0')) +
+            (agregats['total_heures_supp'] or Decimal('0'))
+        )
+
+        # === Chiffre 3: Prestations irrégulières ===
+        # 13ème salaire, primes, gratifications
+        self.chiffre_3_irregulier = (
+            (agregats['total_treizieme'] or Decimal('0')) +
+            (agregats['total_primes'] or Decimal('0'))
+        )
+
+        # === Chiffre 9: Cotisations AVS/AI/APG/AC/AANP ===
+        self.chiffre_9_cotisations = (
+            (agregats['total_avs'] or Decimal('0')) +
+            (agregats['total_ac'] or Decimal('0')) +
+            (agregats['total_ac_supp'] or Decimal('0')) +
+            (agregats['total_laa'] or Decimal('0')) +
+            (agregats['total_laac'] or Decimal('0')) +
+            (agregats['total_ijm'] or Decimal('0'))
+        )
+
+        # === Chiffre 10: Prévoyance professionnelle ===
+        self.chiffre_10_1_lpp_ordinaire = agregats['total_lpp'] or Decimal('0')
+
+        # === Impôt à la source (info, pas sur formulaire 11) ===
+        self.impot_source_annuel = agregats['total_is'] or Decimal('0')
+
+        # === Allocations familiales (info, pas sur formulaire 11) ===
+        self.allocations_familiales_annuel = agregats['total_alloc_fam'] or Decimal('0')
+
+        # === Taux d'occupation ===
+        self.taux_occupation = employe.taux_occupation or Decimal('100')
+
+        # === Chiffres 15: Jours de travail ===
+        # Estimation basée sur les fiches
+        jours_travailles = fiches.aggregate(total=Sum('jours_travailles'))['total']
+        self.chiffre_15_jours_transport = int(jours_travailles or 0)
+
+        # === Mise à jour du statut ===
+        self.statut = 'CALCULE'
+
+        # === Compatibilité legacy ===
+        self.salaire_brut_annuel = self.chiffre_1_salaire
+        self.treizieme_salaire_annuel = agregats['total_treizieme'] or Decimal('0')
+        self.primes_annuelles = agregats['total_primes'] or Decimal('0')
+        self.avs_annuel = agregats['total_avs'] or Decimal('0')
+        self.ac_annuel = (
+            (agregats['total_ac'] or Decimal('0')) +
+            (agregats['total_ac_supp'] or Decimal('0'))
+        )
+        self.lpp_annuel = self.chiffre_10_1_lpp_ordinaire
+
+        # Calculer les totaux
+        self.calculer_totaux()
+
+        if save:
+            self.save()
+
+        return self
+
+    def valider(self, user=None):
+        """Marque le certificat comme vérifié"""
+        if self.statut not in ['CALCULE', 'BROUILLON']:
+            raise ValueError(f"Impossible de valider un certificat en statut {self.statut}")
+        self.statut = 'VERIFIE'
+        self.save()
+        return self
+
+    def signer(self, lieu, nom_signataire, telephone=None, user=None):
+        """Signe le certificat"""
+        from datetime import date as date_class
+
+        if self.statut not in ['VERIFIE', 'CALCULE']:
+            raise ValueError(f"Impossible de signer un certificat en statut {self.statut}")
+
+        self.lieu_signature = lieu
+        self.date_signature = date_class.today()
+        self.nom_signataire = nom_signataire
+        self.telephone_signataire = telephone or ''
+        self.est_signe = True
+        self.statut = 'SIGNE'
+        self.save()
+        return self
+
+    @staticmethod
+    def _format_montant_suisse(montant):
+        """Formate un montant au format suisse: 1'234.56"""
+        if montant is None:
+            return ""
+        val = Decimal(str(montant))
+        if val == 0:
+            return ""
+        # Format avec apostrophe comme séparateur de milliers
+        formatted = f"{val:,.2f}".replace(',', "'")
+        return formatted
+
     def generer_pdf(self):
         """
-        Génère le PDF du certificat de salaire annuel (format suisse officiel).
+        Génère le PDF du certificat de salaire (ancienne méthode, conservée pour compatibilité).
+        Appelle generer_pdf_formulaire11().
+        """
+        return self.generer_pdf_formulaire11()
+
+    def generer_pdf_formulaire11(self):
+        """
+        Génère le PDF du certificat de salaire au format Formulaire 11 officiel suisse.
+
+        Le formulaire 11 est structuré avec:
+        - Sections A-B: Informations employeur
+        - Sections C-H: Informations employé, période, occupation, transport
+        - Chiffres 1-7: Revenus (salaire, prestations en nature, irréguliers, capital, participations)
+        - Chiffre 8: Total brut
+        - Chiffres 9-10: Déductions (cotisations sociales, LPP)
+        - Chiffre 11: Salaire net
+        - Chiffres 12-15: Frais professionnels et jours de transport
+        - Section I: Remarques
+        - Signature
 
         Returns:
             FileField: Le fichier PDF généré et sauvegardé
@@ -1383,278 +1855,363 @@ class CertificatSalaire(BaseModel):
         from reportlab.lib import colors
         from reportlab.pdfgen import canvas as pdf_canvas
         from django.core.files.base import ContentFile
+        from datetime import date as date_class
 
         buffer = io.BytesIO()
         width, height = A4
 
         # Marges
-        margin_left = 1.5 * cm
-        margin_right = 1.5 * cm
-        margin_top = 1.5 * cm
+        margin_left = 1.2 * cm
+        margin_right = 1.2 * cm
+        margin_top = 1.0 * cm
+
+        # Colonnes pour les montants
+        col_numero = margin_left
+        col_libelle = margin_left + 1.0 * cm
+        col_montant = width - margin_right - 3.0 * cm
+        col_montant_end = width - margin_right
 
         # Créer le canvas
         p = pdf_canvas.Canvas(buffer, pagesize=A4)
 
+        def format_montant(val):
+            return self._format_montant_suisse(val)
+
+        def draw_checkbox(x, y, checked=False, size=3*mm):
+            """Dessine une case à cocher"""
+            p.setStrokeColor(colors.black)
+            p.setLineWidth(0.5)
+            p.rect(x, y - size, size, size, fill=0)
+            if checked:
+                p.setFont("Helvetica-Bold", 8)
+                p.drawString(x + 0.5*mm, y - size + 0.5*mm, "X")
+
+        def draw_amount_line(y, numero, libelle, montant, indent=0):
+            """Dessine une ligne avec numéro, libellé et montant"""
+            p.setFont("Helvetica", 8)
+            if numero:
+                p.drawString(col_numero + indent, y, numero)
+            p.drawString(col_libelle + indent, y, libelle)
+            if montant is not None and montant != 0:
+                p.drawRightString(col_montant_end, y, format_montant(montant))
+            return y - 0.35 * cm
+
         # ==================== EN-TÊTE ====================
         y = height - margin_top
 
-        # Logo / Entreprise (à gauche)
+        # Titre
+        p.setFont("Helvetica-Bold", 14)
+        p.drawCentredString(width / 2, y, "CERTIFICAT DE SALAIRE")
+        p.setFont("Helvetica", 8)
+        p.drawCentredString(width / 2, y - 0.4*cm, "Attestation de rentes, pensions et prestations en capital")
+
+        # Année (encadré à droite)
         p.setFont("Helvetica-Bold", 12)
+        p.drawRightString(width - margin_right, y, str(self.annee))
+
+        y -= 1.2 * cm
+
+        # ==================== SECTION A-B: EMPLOYEUR ====================
         client = self.employe.mandat.client
+        adresse_client = client.adresse_siege
+
+        p.setFont("Helvetica-Bold", 8)
+        p.drawString(margin_left, y, "A. Employeur / Caisse de compensation AVS:")
+
+        p.setFont("Helvetica", 8)
+        y -= 0.35 * cm
         p.drawString(margin_left, y, client.raison_sociale)
 
-        adresse_client = client.adresse_siege
-        p.setFont("Helvetica", 9)
-        y -= 0.4 * cm
         if adresse_client:
-            p.drawString(margin_left, y, f"{adresse_client.rue} {adresse_client.numero}")
-            y -= 0.35 * cm
+            y -= 0.3 * cm
+            p.drawString(margin_left, y, f"{adresse_client.rue} {adresse_client.numero or ''}")
+            y -= 0.3 * cm
             p.drawString(margin_left, y, f"{adresse_client.code_postal} {adresse_client.localite}")
-            y -= 0.35 * cm
 
-        # IDE de l'employeur
-        if client.ide_number:
-            p.drawString(margin_left, y, f"IDE: {client.ide_number}")
-            y -= 0.35 * cm
-
-        # Titre CERTIFICAT DE SALAIRE (centré)
-        y_title = height - margin_top - 0.5 * cm
-        p.setFont("Helvetica-Bold", 16)
-        p.drawCentredString(width / 2, y_title, "CERTIFICAT DE SALAIRE")
-
-        # Sous-titre année
-        p.setFont("Helvetica-Bold", 12)
-        p.drawCentredString(width / 2, y_title - 0.6 * cm, f"Année {self.annee}")
-
-        # Ligne séparatrice
-        y = height - 4 * cm
-        p.setStrokeColor(colors.grey)
-        p.line(margin_left, y, width - margin_right, y)
-
-        # ==================== INFORMATIONS EMPLOYÉ ====================
-        y -= 0.8 * cm
-        p.setFont("Helvetica-Bold", 10)
-        p.drawString(margin_left, y, "EMPLOYÉ")
-
-        p.setFont("Helvetica", 9)
+        # Section B: IDE et N° AVS employeur
+        p.setFont("Helvetica-Bold", 8)
         y -= 0.5 * cm
-        col1 = margin_left
-        col2 = 6 * cm
-        col3 = 11 * cm
-        col4 = 15 * cm
+        p.drawString(margin_left, y, "B.")
 
-        # Ligne 1 - Nom
-        p.drawString(col1, y, "Nom, Prénom:")
-        p.setFont("Helvetica-Bold", 9)
-        p.drawString(col2, y, f"{self.employe.nom} {self.employe.prenom}")
-        p.setFont("Helvetica", 9)
+        p.setFont("Helvetica", 8)
+        ide = client.ide_number or ''
+        p.drawString(margin_left + 0.5*cm, y, f"N° IDE: {ide}")
 
-        # Date de naissance
-        p.drawString(col3, y, "Date de naissance:")
-        date_naissance = self.employe.date_naissance.strftime('%d.%m.%Y') if self.employe.date_naissance else '-'
-        p.drawString(col4, y, date_naissance)
+        # N° AVS employeur (si disponible via le mandat)
+        avs_employeur = getattr(client, 'numero_ahv_employeur', '') or ''
+        y -= 0.3 * cm
+        p.drawString(margin_left + 0.5*cm, y, f"N° AVS employeur: {avs_employeur}")
 
-        y -= 0.4 * cm
-        # Adresse employé
-        adresse_emp = self.employe.adresse
-        if adresse_emp:
-            p.drawString(col1, y, "Adresse:")
-            p.drawString(col2, y, f"{adresse_emp.rue} {adresse_emp.numero}")
-            y -= 0.35 * cm
-            p.drawString(col2, y, f"{adresse_emp.code_postal} {adresse_emp.localite}")
+        # ==================== SECTION C-E: EMPLOYÉ ====================
+        y -= 0.6 * cm
+        employe = self.employe
 
-        y -= 0.4 * cm
-        # N° AVS
-        p.drawString(col1, y, "N° AVS:")
-        p.setFont("Helvetica-Bold", 9)
-        p.drawString(col2, y, self.employe.avs_number or '-')
-        p.setFont("Helvetica", 9)
+        p.setFont("Helvetica-Bold", 8)
+        p.drawString(margin_left, y, "C. N° AVS de l'employé:")
+        p.setFont("Helvetica", 8)
+        p.drawString(margin_left + 4*cm, y, employe.avs_number or '-')
 
-        # Nationalité
-        p.drawString(col3, y, "Nationalité:")
-        nationalite = str(self.employe.nationalite.name) if self.employe.nationalite else 'Suisse'
-        p.drawString(col4, y, nationalite)
-
-        y -= 0.4 * cm
         # Période d'emploi
-        p.drawString(col1, y, "Période d'emploi:")
-        p.drawString(col2, y, f"Du {self.date_debut.strftime('%d.%m.%Y')} au {self.date_fin.strftime('%d.%m.%Y')}")
+        p.setFont("Helvetica-Bold", 8)
+        p.drawString(width/2, y, "du")
+        p.setFont("Helvetica", 8)
+        p.drawString(width/2 + 0.6*cm, y, self.date_debut.strftime('%d.%m.%Y') if self.date_debut else '')
+        p.setFont("Helvetica-Bold", 8)
+        p.drawString(width/2 + 3*cm, y, "au")
+        p.setFont("Helvetica", 8)
+        p.drawString(width/2 + 3.6*cm, y, self.date_fin.strftime('%d.%m.%Y') if self.date_fin else '')
+
+        y -= 0.4 * cm
+        p.setFont("Helvetica-Bold", 8)
+        p.drawString(margin_left, y, "D. Nom, prénom:")
+        p.setFont("Helvetica", 8)
+        p.drawString(margin_left + 3*cm, y, f"{employe.nom} {employe.prenom}")
+
+        y -= 0.35 * cm
+        p.setFont("Helvetica-Bold", 8)
+        p.drawString(margin_left, y, "E. Adresse:")
+        p.setFont("Helvetica", 8)
+        adresse_emp = employe.adresse
+        if adresse_emp:
+            p.drawString(margin_left + 2*cm, y, f"{adresse_emp.rue} {adresse_emp.numero or ''}, {adresse_emp.code_postal} {adresse_emp.localite}")
+
+        # ==================== SECTION F-G: OCCUPATION ET TRANSPORT ====================
+        y -= 0.5 * cm
+
+        # F. Type d'occupation et taux
+        p.setFont("Helvetica-Bold", 8)
+        p.drawString(margin_left, y, "F. Activité:")
+
+        # Cases à cocher pour le type
+        x_check = margin_left + 2*cm
+        draw_checkbox(x_check, y, self.type_occupation == 'PLEIN_TEMPS')
+        p.setFont("Helvetica", 7)
+        p.drawString(x_check + 4*mm, y - 2*mm, "Plein temps")
+
+        x_check += 3*cm
+        draw_checkbox(x_check, y, self.type_occupation == 'TEMPS_PARTIEL')
+        p.drawString(x_check + 4*mm, y - 2*mm, "Temps partiel")
+
+        x_check += 3*cm
+        draw_checkbox(x_check, y, self.type_occupation == 'HORAIRE')
+        p.drawString(x_check + 4*mm, y - 2*mm, "À l'heure")
 
         # Taux d'occupation
-        p.drawString(col3, y, "Taux d'occupation:")
-        p.drawString(col4, y, f"{self.employe.taux_occupation}%")
+        p.setFont("Helvetica", 8)
+        p.drawString(width - 4*cm, y, f"Taux: {self.taux_occupation}%")
 
-        # Ligne séparatrice
-        y -= 0.8 * cm
-        p.setStrokeColor(colors.grey)
-        p.line(margin_left, y, width - margin_right, y)
+        # G. Transport
+        y -= 0.4 * cm
+        p.setFont("Helvetica-Bold", 8)
+        p.drawString(margin_left, y, "G. Transport:")
 
-        # ==================== REVENUS ====================
-        y -= 0.8 * cm
-        p.setFont("Helvetica-Bold", 10)
-        p.drawString(margin_left, y, "REVENUS")
-        p.drawRightString(width - margin_right, y, "CHF")
+        x_check = margin_left + 2.2*cm
+        draw_checkbox(x_check, y, self.transport_public_disponible)
+        p.setFont("Helvetica", 7)
+        p.drawString(x_check + 4*mm, y - 2*mm, "Transport public disponible")
 
-        p.setFont("Helvetica", 9)
-        y -= 0.5 * cm
+        x_check += 4.5*cm
+        draw_checkbox(x_check, y, self.transport_gratuit_fourni)
+        p.drawString(x_check + 4*mm, y - 2*mm, "Transport gratuit fourni")
 
-        # Fonction helper pour formater les montants
-        def format_montant(val):
-            if val is None:
-                return "0.00"
-            return f"{val:,.2f}".replace(',', "'")
-
-        # Détails revenus
-        revenus = [
-            ("1. Salaire brut (y.c. salaire horaire)", self.salaire_brut_annuel),
-            ("2. 13ème salaire", self.treizieme_salaire_annuel),
-            ("3. Primes et gratifications", self.primes_annuelles),
-            ("4. Allocations familiales", self.allocations_familiales_annuel),
-        ]
-
-        for num, (libelle, montant) in enumerate(revenus):
-            if montant and montant > 0:
-                p.drawString(margin_left + 0.3*cm, y, libelle)
-                p.drawRightString(width - margin_right, y, format_montant(montant))
-                y -= 0.4 * cm
-
-        # Total revenus bruts
-        total_revenus = (
-            (self.salaire_brut_annuel or 0) +
-            (self.treizieme_salaire_annuel or 0) +
-            (self.primes_annuelles or 0) +
-            (self.allocations_familiales_annuel or 0)
-        )
-
-        y -= 0.2 * cm
-        p.setFont("Helvetica-Bold", 10)
-        p.drawString(margin_left, y, "TOTAL REVENUS BRUTS")
-        p.drawRightString(width - margin_right, y, format_montant(total_revenus))
-
-        # Ligne séparatrice
-        y -= 0.6 * cm
-        p.setStrokeColor(colors.grey)
-        p.line(margin_left, y, width - margin_right, y)
-
-        # ==================== DÉDUCTIONS ====================
-        y -= 0.6 * cm
-        p.setFont("Helvetica-Bold", 10)
-        p.setFillColor(colors.red)
-        p.drawString(margin_left, y, "COTISATIONS SOCIALES (part employé)")
-        p.setFillColor(colors.black)
-
-        p.setFont("Helvetica", 9)
-        y -= 0.5 * cm
-
-        cotisations = [
-            ("5. AVS/AI/APG", self.avs_annuel),
-            ("6. Assurance chômage (AC)", self.ac_annuel),
-            ("7. LPP (2ème pilier)", self.lpp_annuel),
-        ]
-
-        for libelle, montant in cotisations:
-            if montant and montant > 0:
-                p.drawString(margin_left + 0.3*cm, y, libelle)
-                p.setFillColor(colors.red)
-                p.drawRightString(width - margin_right, y, f"-{format_montant(montant)}")
-                p.setFillColor(colors.black)
-                y -= 0.4 * cm
-
-        # Total cotisations
-        total_cotisations = (self.avs_annuel or 0) + (self.ac_annuel or 0) + (self.lpp_annuel or 0)
-
-        y -= 0.2 * cm
-        p.setFont("Helvetica-Bold", 9)
-        p.drawString(margin_left + 0.3*cm, y, "Total cotisations sociales")
-        p.setFillColor(colors.red)
-        p.drawRightString(width - margin_right, y, f"-{format_montant(total_cotisations)}")
-        p.setFillColor(colors.black)
-
-        # ==================== IMPÔT À LA SOURCE ====================
-        if self.impot_source_annuel and self.impot_source_annuel > 0:
-            y -= 0.6 * cm
-            p.setFont("Helvetica-Bold", 10)
-            p.setFillColor(colors.red)
-            p.drawString(margin_left, y, "IMPÔT À LA SOURCE")
-            p.setFillColor(colors.black)
-
-            p.setFont("Helvetica", 9)
-            y -= 0.5 * cm
-            p.drawString(margin_left + 0.3*cm, y, "8. Retenue impôt à la source")
-            p.setFillColor(colors.red)
-            p.drawRightString(width - margin_right, y, f"-{format_montant(self.impot_source_annuel)}")
-            p.setFillColor(colors.black)
-
-        # ==================== FRAIS PROFESSIONNELS ====================
-        if (self.frais_deplacement and self.frais_deplacement > 0) or (self.frais_repas and self.frais_repas > 0):
-            y -= 0.6 * cm
-            p.setFont("Helvetica-Bold", 10)
-            p.drawString(margin_left, y, "FRAIS PROFESSIONNELS")
-
-            p.setFont("Helvetica", 9)
-            y -= 0.5 * cm
-
-            if self.frais_deplacement and self.frais_deplacement > 0:
-                p.drawString(margin_left + 0.3*cm, y, "9. Frais de déplacement")
-                p.drawRightString(width - margin_right, y, format_montant(self.frais_deplacement))
-                y -= 0.4 * cm
-
-            if self.frais_repas and self.frais_repas > 0:
-                p.drawString(margin_left + 0.3*cm, y, "10. Frais de repas")
-                p.drawRightString(width - margin_right, y, format_montant(self.frais_repas))
-                y -= 0.4 * cm
-
-        # ==================== SALAIRE NET ====================
+        # ==================== LIGNE DE SÉPARATION ====================
         y -= 0.6 * cm
         p.setStrokeColor(colors.black)
-        p.setLineWidth(2)
-        p.line(margin_left, y + 0.3*cm, width - margin_right, y + 0.3*cm)
+        p.setLineWidth(0.5)
+        p.line(margin_left, y, width - margin_right, y)
 
-        salaire_net = total_revenus - total_cotisations - (self.impot_source_annuel or 0)
-
-        p.setFont("Helvetica-Bold", 12)
-        p.drawString(margin_left, y, "SALAIRE NET ANNUEL")
-        p.setFillColor(colors.darkgreen)
-        p.drawRightString(width - margin_right, y, f"CHF {format_montant(salaire_net)}")
-        p.setFillColor(colors.black)
-
-        p.setLineWidth(2)
-        p.line(margin_left, y - 0.3*cm, width - margin_right, y - 0.3*cm)
-
-        # ==================== REMARQUES ====================
-        y -= 1.5 * cm
+        # ==================== CHIFFRES 1-7: REVENUS ====================
+        y -= 0.5 * cm
         p.setFont("Helvetica-Bold", 9)
-        p.drawString(margin_left, y, "Remarques:")
+        p.drawString(margin_left, y, "REVENUS")
+        p.drawRightString(col_montant_end, y, "CHF")
+
+        y -= 0.4 * cm
+
+        # Chiffre 1: Salaire
+        y = draw_amount_line(y, "1.", "Salaire (y.c. allocations, commissions, primes à l'ancienneté)", self.chiffre_1_salaire)
+
+        # Chiffre 2: Prestations en nature
+        y = draw_amount_line(y, "2.", "Prestations en nature", None)
+
+        # 2.1 Repas
+        total_2_1 = self.chiffre_2_1_repas or Decimal('0')
+        if self.repas_midi_gratuit or self.repas_soir_gratuit or total_2_1 > 0:
+            y = draw_amount_line(y, "2.1", "Repas / Logement", total_2_1, indent=0.3*cm)
+
+        # 2.2 Voiture
+        if self.voiture_disponible or (self.chiffre_2_2_voiture and self.chiffre_2_2_voiture > 0):
+            y = draw_amount_line(y, "2.2", "Part privée véhicule de service", self.chiffre_2_2_voiture, indent=0.3*cm)
+
+        # 2.3 Autres
+        if self.chiffre_2_3_autres and self.chiffre_2_3_autres > 0:
+            y = draw_amount_line(y, "2.3", "Autres prestations en nature", self.chiffre_2_3_autres, indent=0.3*cm)
+
+        # Chiffre 3: Prestations irrégulières
+        y = draw_amount_line(y, "3.", "Prestations irrégulières (13ème, bonus, gratifications)", self.chiffre_3_irregulier)
+
+        # Chiffre 4: Prestations en capital
+        if self.chiffre_4_capital and self.chiffre_4_capital > 0:
+            y = draw_amount_line(y, "4.", "Prestations en capital", self.chiffre_4_capital)
+
+        # Chiffre 5: Participations
+        if self.chiffre_5_participations and self.chiffre_5_participations > 0:
+            y = draw_amount_line(y, "5.", "Droits de participation (actions, options)", self.chiffre_5_participations)
+
+        # Chiffre 6: Conseil d'administration
+        if self.chiffre_6_ca and self.chiffre_6_ca > 0:
+            y = draw_amount_line(y, "6.", "Indemnités conseil d'administration", self.chiffre_6_ca)
+
+        # Chiffre 7: Autres
+        if self.chiffre_7_autres and self.chiffre_7_autres > 0:
+            y = draw_amount_line(y, "7.", "Autres prestations", self.chiffre_7_autres)
+
+        # ==================== CHIFFRE 8: TOTAL BRUT ====================
+        y -= 0.2 * cm
+        p.setStrokeColor(colors.black)
+        p.setLineWidth(0.3)
+        p.line(col_montant - 1*cm, y + 0.15*cm, col_montant_end, y + 0.15*cm)
+
+        p.setFont("Helvetica-Bold", 9)
+        p.drawString(col_numero, y, "8.")
+        p.drawString(col_libelle, y, "Salaire brut total (somme des chiffres 1 à 7)")
+        p.drawRightString(col_montant_end, y, format_montant(self.chiffre_8_total_brut))
+
+        # ==================== CHIFFRES 9-10: DÉDUCTIONS ====================
+        y -= 0.6 * cm
+        p.setFont("Helvetica-Bold", 9)
+        p.drawString(margin_left, y, "DÉDUCTIONS")
+
+        y -= 0.4 * cm
         p.setFont("Helvetica", 8)
+
+        # Chiffre 9: Cotisations
+        y = draw_amount_line(y, "9.", "Cotisations AVS/AI/APG/AC/AANP", self.chiffre_9_cotisations)
+
+        # Chiffre 10: LPP
+        y = draw_amount_line(y, "10.", "Prévoyance professionnelle", None)
+        y = draw_amount_line(y, "10.1", "Cotisations ordinaires", self.chiffre_10_1_lpp_ordinaire, indent=0.3*cm)
+
+        if self.chiffre_10_2_lpp_rachat and self.chiffre_10_2_lpp_rachat > 0:
+            y = draw_amount_line(y, "10.2", "Rachats d'années", self.chiffre_10_2_lpp_rachat, indent=0.3*cm)
+
+        # ==================== CHIFFRE 11: SALAIRE NET ====================
+        y -= 0.2 * cm
+        p.setStrokeColor(colors.black)
+        p.setLineWidth(0.3)
+        p.line(col_montant - 1*cm, y + 0.15*cm, col_montant_end, y + 0.15*cm)
+
+        p.setFont("Helvetica-Bold", 9)
+        p.drawString(col_numero, y, "11.")
+        p.drawString(col_libelle, y, "Salaire net (chiffre 8 moins chiffres 9 et 10)")
+        p.drawRightString(col_montant_end, y, format_montant(self.chiffre_11_net))
+
+        p.setLineWidth(0.5)
+        p.line(col_montant - 1*cm, y - 0.15*cm, col_montant_end, y - 0.15*cm)
+
+        # ==================== CHIFFRES 12-15: FRAIS PROFESSIONNELS ====================
+        y -= 0.7 * cm
+        p.setFont("Helvetica-Bold", 9)
+        p.drawString(margin_left, y, "FRAIS EFFECTIFS")
+
         y -= 0.4 * cm
-        p.drawString(margin_left, y, "Ce certificat est établi conformément aux directives de l'Administration fédérale des contributions.")
-        y -= 0.35 * cm
-        p.drawString(margin_left, y, "Les montants indiqués correspondent aux données effectives de l'année fiscale concernée.")
+        p.setFont("Helvetica", 8)
 
-        # ==================== SIGNATURES ====================
-        y -= 1.5 * cm
-        p.setFont("Helvetica", 9)
+        # Chiffre 12: Transport
+        if self.chiffre_12_transport and self.chiffre_12_transport > 0:
+            y = draw_amount_line(y, "12.", "Frais de déplacement (trajet domicile-travail)", self.chiffre_12_transport)
 
-        # Date et lieu
-        from datetime import date
-        p.drawString(margin_left, y, f"{adresse_client.localite if adresse_client else ''}, le {date.today().strftime('%d.%m.%Y')}")
+        # Chiffre 13: Repas et nuitées
+        has_13 = any([
+            self.chiffre_13_1_1_repas_effectif,
+            self.chiffre_13_1_2_repas_forfait,
+            self.chiffre_13_2_nuitees,
+            self.chiffre_13_3_repas_externes
+        ])
 
-        y -= 1.5 * cm
-        # Signature employeur
-        p.drawString(margin_left, y, "_" * 35)
+        if has_13:
+            y = draw_amount_line(y, "13.", "Frais de repas et nuitées", None)
+
+            if self.chiffre_13_1_1_repas_effectif and self.chiffre_13_1_1_repas_effectif > 0:
+                y = draw_amount_line(y, "13.1.1", "Repas effectifs", self.chiffre_13_1_1_repas_effectif, indent=0.3*cm)
+
+            if self.chiffre_13_1_2_repas_forfait and self.chiffre_13_1_2_repas_forfait > 0:
+                y = draw_amount_line(y, "13.1.2", "Repas forfaitaires", self.chiffre_13_1_2_repas_forfait, indent=0.3*cm)
+
+            if self.chiffre_13_2_nuitees and self.chiffre_13_2_nuitees > 0:
+                y = draw_amount_line(y, "13.2", "Nuitées", self.chiffre_13_2_nuitees, indent=0.3*cm)
+
+            if self.chiffre_13_3_repas_externes and self.chiffre_13_3_repas_externes > 0:
+                y = draw_amount_line(y, "13.3", "Repas externes", self.chiffre_13_3_repas_externes, indent=0.3*cm)
+
+        # Chiffre 14: Autres frais
+        if self.chiffre_14_autres_frais and self.chiffre_14_autres_frais > 0:
+            y = draw_amount_line(y, "14.", "Autres frais professionnels", self.chiffre_14_autres_frais)
+
+        # Chiffre 15: Jours de transport
+        y -= 0.3 * cm
+        p.setFont("Helvetica", 8)
+        p.drawString(col_numero, y, "15.")
+        p.drawString(col_libelle, y, "Nombre de jours avec déplacement domicile-travail:")
+        if self.chiffre_15_jours_transport and self.chiffre_15_jours_transport > 0:
+            p.drawRightString(col_montant_end, y, str(self.chiffre_15_jours_transport))
+
+        # ==================== SECTION I: REMARQUES ====================
+        y -= 0.7 * cm
+        p.setStrokeColor(colors.grey)
+        p.setLineWidth(0.3)
+        p.line(margin_left, y, width - margin_right, y)
+
         y -= 0.4 * cm
-        p.drawString(margin_left, y, "Signature de l'employeur")
+        p.setFont("Helvetica-Bold", 8)
+        p.drawString(margin_left, y, "I. Remarques:")
 
-        # Signature employé (à droite)
-        p.drawString(width - margin_right - 6*cm, y + 0.4*cm, "_" * 35)
-        p.drawString(width - margin_right - 6*cm, y, "Signature de l'employé")
+        if self.remarques:
+            p.setFont("Helvetica", 7)
+            y -= 0.3 * cm
+            # Découper les remarques en lignes
+            for ligne in self.remarques.split('\n')[:3]:  # Max 3 lignes
+                p.drawString(margin_left + 0.5*cm, y, ligne[:90])  # Max 90 caractères
+                y -= 0.25 * cm
+
+        # ==================== SIGNATURE ====================
+        y = min(y, 4.5 * cm)  # S'assurer qu'on a assez de place
+
+        y -= 0.3 * cm
+        p.setStrokeColor(colors.black)
+        p.setLineWidth(0.3)
+        p.line(margin_left, y, width - margin_right, y)
+
+        y -= 0.5 * cm
+        p.setFont("Helvetica", 8)
+
+        # Lieu et date
+        lieu = self.lieu_signature or (adresse_client.localite if adresse_client else '')
+        date_sig = self.date_signature or date_class.today()
+        p.drawString(margin_left, y, f"{lieu}, le {date_sig.strftime('%d.%m.%Y')}")
+
+        # Téléphone
+        if self.telephone_signataire:
+            p.drawString(width/2, y, f"Tél.: {self.telephone_signataire}")
+
+        y -= 0.8 * cm
+
+        # Ligne de signature
+        p.setStrokeColor(colors.black)
+        p.line(margin_left, y, margin_left + 6*cm, y)
+
+        y -= 0.3 * cm
+        p.setFont("Helvetica", 7)
+        p.drawString(margin_left, y, "Signature de l'employeur / Timbre")
+
+        if self.nom_signataire:
+            p.drawString(margin_left, y - 0.3*cm, self.nom_signataire)
 
         # ==================== PIED DE PAGE ====================
-        p.setFont("Helvetica", 7)
+        p.setFont("Helvetica", 6)
         p.setFillColor(colors.grey)
-        p.drawCentredString(width / 2, 2 * cm, f"Document généré le {self.date_generation.strftime('%d.%m.%Y') if self.date_generation else date.today().strftime('%d.%m.%Y')}")
-        p.drawCentredString(width / 2, 1.6 * cm, f"par {client.raison_sociale}")
-        p.drawCentredString(width / 2, 1.2 * cm, "Ce document est confidentiel et destiné uniquement aux autorités fiscales et à l'employé concerné.")
+        p.drawCentredString(width / 2, 1.2 * cm, "Formulaire 11 - Certificat de salaire")
+        p.drawCentredString(width / 2, 0.9 * cm, f"Généré le {date_class.today().strftime('%d.%m.%Y')} - {client.raison_sociale}")
 
         # Finaliser le PDF
         p.showPage()
@@ -1662,7 +2219,7 @@ class CertificatSalaire(BaseModel):
 
         # Sauvegarder le fichier
         buffer.seek(0)
-        filename = f"certificat_salaire_{self.employe.matricule}_{self.annee}.pdf"
+        filename = f"certificat_salaire_f11_{self.employe.matricule}_{self.annee}.pdf"
 
         self.fichier_pdf.save(filename, ContentFile(buffer.read()), save=True)
 

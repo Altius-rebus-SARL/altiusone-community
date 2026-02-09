@@ -489,7 +489,7 @@ def generer_fiches_masse(request):
 
 
 class CertificatSalaireListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
-    """Liste des certificats de salaire"""
+    """Liste des certificats de salaire - Formulaire 11"""
 
     model = CertificatSalaire
     business_permission = 'salaires.view_fiches_salaire'
@@ -498,90 +498,101 @@ class CertificatSalaireListView(LoginRequiredMixin, BusinessPermissionMixin, Lis
     paginate_by = 50
 
     def get_queryset(self):
-        return CertificatSalaire.objects.select_related(
-            "employe__mandat", "genere_par"
+        queryset = CertificatSalaire.objects.select_related(
+            "employe__mandat__client", "genere_par"
         ).order_by("-annee", "employe__nom")
+
+        # Filtres
+        annee = self.request.GET.get('annee')
+        if annee:
+            queryset = queryset.filter(annee=annee)
+
+        statut = self.request.GET.get('statut')
+        if statut:
+            queryset = queryset.filter(statut=statut)
+
+        q = self.request.GET.get('q')
+        if q:
+            queryset = queryset.filter(
+                Q(employe__nom__icontains=q) |
+                Q(employe__prenom__icontains=q) |
+                Q(employe__matricule__icontains=q)
+            )
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Années disponibles pour le filtre
+        context['annees_disponibles'] = CertificatSalaire.objects.values_list(
+            'annee', flat=True
+        ).distinct().order_by('-annee')
+        return context
 
 
 class CertificatSalaireDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
-    """Détail d'un certificat de salaire"""
+    """Détail d'un certificat de salaire - Formulaire 11"""
 
     model = CertificatSalaire
     business_permission = 'salaires.view_fiches_salaire'
     template_name = "salaires/certificat_detail.html"
     context_object_name = "certificat"
 
+    def get_queryset(self):
+        return CertificatSalaire.objects.select_related(
+            "employe__mandat__client__adresse_siege",
+            "employe__adresse",
+            "genere_par"
+        )
+
+
+class CertificatSalaireUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateView):
+    """Modification d'un certificat de salaire"""
+
+    model = CertificatSalaire
+    form_class = CertificatSalaireForm
+    business_permission = 'salaires.edit_fiches_salaire'
+    template_name = "salaires/certificat_form.html"
+
+    def get_success_url(self):
+        messages.success(self.request, _("Certificat mis à jour avec succès"))
+        return reverse_lazy("salaires:certificat-detail", kwargs={"pk": self.object.pk})
+
 
 @login_required
 def generer_certificat(request, employe_pk):
-    """Génère le certificat de salaire annuel pour un employé"""
+    """Génère le certificat de salaire annuel pour un employé (Formulaire 11)"""
     employe = get_object_or_404(Employe, pk=employe_pk)
 
     if request.method == "POST":
         annee = int(request.POST.get("annee"))
+        auto_calculer = request.POST.get("auto_calculer") == "on"
 
-        # Récupérer les fiches validées
-        fiches = FicheSalaire.objects.filter(
-            employe=employe,
-            periode__year=annee,
-            statut__in=["VALIDE", "PAYE", "COMPTABILISE"],
-        )
+        # Vérifier si un certificat existe déjà
+        existing = CertificatSalaire.objects.filter(employe=employe, annee=annee).first()
+        if existing:
+            messages.warning(request, _("Un certificat existe déjà pour cette année"))
+            return redirect("salaires:certificat-detail", pk=existing.pk)
 
-        # Calculer les totaux
-        totaux = fiches.aggregate(
-            salaire_brut_annuel=Sum("salaire_brut_total"),
-            treizieme_salaire_annuel=Sum("treizieme_mois"),
-            primes_annuelles=Sum("primes"),
-            avs_annuel=Sum("avs_employe"),
-            ac_annuel=Sum("ac_employe"),
-            lpp_annuel=Sum("lpp_employe"),
-            allocations_familiales_annuel=Sum("allocations_familiales"),
-            impot_source_annuel=Sum("impot_source"),
-        )
-
-        # Créer ou récupérer le certificat
-        certificat, created = CertificatSalaire.objects.get_or_create(
+        # Créer le certificat
+        certificat = CertificatSalaire.objects.create(
             employe=employe,
             annee=annee,
-            defaults={
-                "date_debut": datetime(annee, 1, 1).date(),
-                "date_fin": datetime(annee, 12, 31).date(),
-                "genere_par": request.user,
-                "salaire_brut_annuel": totaux["salaire_brut_annuel"] or Decimal("0.00"),
-                "treizieme_salaire_annuel": totaux["treizieme_salaire_annuel"]
-                or Decimal("0.00"),
-                "primes_annuelles": totaux["primes_annuelles"] or Decimal("0.00"),
-                "avs_annuel": totaux["avs_annuel"] or Decimal("0.00"),
-                "ac_annuel": totaux["ac_annuel"] or Decimal("0.00"),
-                "lpp_annuel": totaux["lpp_annuel"] or Decimal("0.00"),
-                "allocations_familiales_annuel": totaux["allocations_familiales_annuel"]
-                or Decimal("0.00"),
-                "impot_source_annuel": totaux["impot_source_annuel"] or Decimal("0.00"),
-            },
+            date_debut=datetime(annee, 1, 1).date(),
+            date_fin=datetime(annee, 12, 31).date(),
+            genere_par=request.user,
+            taux_occupation=employe.taux_occupation or Decimal("100"),
         )
 
-        if created:
-            messages.success(request, _("Certificat de salaire généré avec succès"))
+        # Calcul automatique si demandé
+        if auto_calculer:
+            try:
+                certificat.calculer_depuis_fiches(save=True)
+                messages.success(request, _("Certificat de salaire généré et calculé avec succès"))
+            except ValueError as e:
+                messages.warning(request, _(f"Certificat créé mais calcul impossible: {e}"))
         else:
-            # Mettre à jour le certificat existant
-            certificat.salaire_brut_annuel = totaux["salaire_brut_annuel"] or Decimal(
-                "0.00"
-            )
-            certificat.treizieme_salaire_annuel = totaux[
-                "treizieme_salaire_annuel"
-            ] or Decimal("0.00")
-            certificat.primes_annuelles = totaux["primes_annuelles"] or Decimal("0.00")
-            certificat.avs_annuel = totaux["avs_annuel"] or Decimal("0.00")
-            certificat.ac_annuel = totaux["ac_annuel"] or Decimal("0.00")
-            certificat.lpp_annuel = totaux["lpp_annuel"] or Decimal("0.00")
-            certificat.allocations_familiales_annuel = totaux[
-                "allocations_familiales_annuel"
-            ] or Decimal("0.00")
-            certificat.impot_source_annuel = totaux["impot_source_annuel"] or Decimal(
-                "0.00"
-            )
-            certificat.save()
-            messages.info(request, _("Le certificat a été mis à jour"))
+            messages.success(request, _("Certificat de salaire créé (en brouillon)"))
 
         return redirect("salaires:certificat-detail", pk=certificat.pk)
 
@@ -589,6 +600,169 @@ def generer_certificat(request, employe_pk):
         request,
         "salaires/generer_certificat.html",
         {"employe": employe, "current_year": datetime.now().year},
+    )
+
+
+@login_required
+def certificat_recalculer(request, pk):
+    """Recalcule un certificat depuis les fiches de salaire"""
+    certificat = get_object_or_404(CertificatSalaire, pk=pk)
+
+    if certificat.statut in ['SIGNE', 'ENVOYE']:
+        messages.error(request, _("Impossible de recalculer un certificat signé ou envoyé"))
+        return redirect("salaires:certificat-detail", pk=pk)
+
+    try:
+        certificat.calculer_depuis_fiches(save=True)
+        messages.success(request, _("Certificat recalculé avec succès"))
+    except ValueError as e:
+        messages.error(request, _(f"Erreur lors du recalcul: {e}"))
+
+    return redirect("salaires:certificat-detail", pk=pk)
+
+
+@login_required
+def certificat_valider(request, pk):
+    """Valide un certificat (marque comme vérifié)"""
+    certificat = get_object_or_404(CertificatSalaire, pk=pk)
+
+    try:
+        certificat.valider(user=request.user)
+        messages.success(request, _("Certificat validé avec succès"))
+    except ValueError as e:
+        messages.error(request, str(e))
+
+    return redirect("salaires:certificat-detail", pk=pk)
+
+
+@login_required
+def certificat_signer(request, pk):
+    """Signe un certificat de salaire"""
+    certificat = get_object_or_404(CertificatSalaire, pk=pk)
+
+    if request.method == "POST":
+        lieu = request.POST.get("lieu")
+        nom_signataire = request.POST.get("nom_signataire")
+        telephone = request.POST.get("telephone", "")
+
+        if not lieu or not nom_signataire:
+            messages.error(request, _("Le lieu et le nom du signataire sont requis"))
+            return redirect("salaires:certificat-signer", pk=pk)
+
+        try:
+            certificat.signer(
+                lieu=lieu,
+                nom_signataire=nom_signataire,
+                telephone=telephone,
+                user=request.user
+            )
+            messages.success(request, _("Certificat signé avec succès"))
+            return redirect("salaires:certificat-detail", pk=pk)
+        except ValueError as e:
+            messages.error(request, str(e))
+
+    return render(
+        request,
+        "salaires/certificat_signer.html",
+        {
+            "certificat": certificat,
+            "today": datetime.now().date(),
+        },
+    )
+
+
+@login_required
+def certificat_generer_masse(request):
+    """Génération en masse des certificats de salaire"""
+    from core.models import Mandat
+
+    # Récupérer les employés et mandats accessibles
+    user = request.user
+    if user.is_superuser or (hasattr(user, 'is_manager') and user.is_manager()):
+        employes = Employe.objects.filter(statut='ACTIF').select_related('mandat')
+        mandats = Mandat.objects.all()
+    else:
+        accessible_mandats = user.get_accessible_mandats() if hasattr(user, 'get_accessible_mandats') else Mandat.objects.none()
+        employes = Employe.objects.filter(mandat__in=accessible_mandats, statut='ACTIF')
+        mandats = accessible_mandats
+
+    resultats = None
+
+    if request.method == "POST":
+        annee = int(request.POST.get("annee"))
+        auto_calculer = request.POST.get("auto_calculer") == "on"
+        generer_pdf = request.POST.get("generer_pdf") == "on"
+        ignorer_existants = request.POST.get("ignorer_existants") == "on"
+        selection = request.POST.get("selection", "tous")
+
+        # Filtrer les employés selon la sélection
+        if selection == "mandat":
+            mandat_id = request.POST.get("mandat")
+            if mandat_id:
+                employes = employes.filter(mandat_id=mandat_id)
+        elif selection == "employes":
+            employes_ids = request.POST.getlist("employes")
+            if employes_ids:
+                employes = employes.filter(id__in=employes_ids)
+
+        resultats = {"crees": [], "existants": [], "erreurs": []}
+
+        for employe in employes:
+            # Vérifier si existe déjà
+            existing = CertificatSalaire.objects.filter(employe=employe, annee=annee).first()
+            if existing:
+                if ignorer_existants:
+                    resultats["existants"].append({
+                        "employe_nom": str(employe),
+                        "certificat_id": existing.pk,
+                    })
+                    continue
+
+            try:
+                certificat = CertificatSalaire.objects.create(
+                    employe=employe,
+                    annee=annee,
+                    date_debut=datetime(annee, 1, 1).date(),
+                    date_fin=datetime(annee, 12, 31).date(),
+                    genere_par=request.user,
+                    taux_occupation=employe.taux_occupation or Decimal("100"),
+                )
+
+                if auto_calculer:
+                    try:
+                        certificat.calculer_depuis_fiches(save=True)
+                    except ValueError:
+                        pass  # Pas de fiches, on continue
+
+                if generer_pdf:
+                    try:
+                        certificat.generer_pdf_formulaire11()
+                    except Exception:
+                        pass  # Erreur PDF, on continue
+
+                resultats["crees"].append({
+                    "employe_nom": str(employe),
+                    "certificat_id": certificat.pk,
+                })
+
+            except Exception as e:
+                resultats["erreurs"].append({
+                    "employe_nom": str(employe),
+                    "erreur": str(e),
+                })
+
+        messages.success(request, _(f"{len(resultats['crees'])} certificats générés"))
+
+    return render(
+        request,
+        "salaires/certificat_generer_masse.html",
+        {
+            "employes": employes,
+            "employes_count": employes.count(),
+            "mandats": mandats,
+            "current_year": datetime.now().year,
+            "resultats": resultats,
+        },
     )
 
 
