@@ -11,6 +11,7 @@ from .viewset import (
     NotificationViewSet,
     TacheViewSet,
     CollaborateurFiduciaireViewSet,
+    AdresseViewSet,
     GraphViewSet,
 )
 
@@ -26,6 +27,7 @@ router.register(r"audit-logs", AuditLogViewSet, basename="auditlog")
 router.register(r"notifications", NotificationViewSet, basename="notification")
 router.register(r"taches", TacheViewSet, basename="tache")
 router.register(r"collaborateurs", CollaborateurFiduciaireViewSet, basename="collaborateur")
+router.register(r"adresses", AdresseViewSet, basename="adresse")
 router.register(r"graph", GraphViewSet, basename="graph")
 
 urlpatterns = [

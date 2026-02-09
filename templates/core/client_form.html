@@ -328,8 +328,22 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{% static 'js/adresse_autocomplete.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Autocomplete adresse sur le champ Siège
+    initAdresseAutocomplete({
+        prefix: 'client_addr',
+        triggerSelector: '{{ form.siege.id_for_label }}',
+        fieldMap: {
+            street: '{{ form.siege.id_for_label }}',
+            house_number: null,
+            zip_code: '{{ form.npa.id_for_label }}',
+            city: '{{ form.localite.id_for_label }}',
+            canton: '{{ form.canton_rc.id_for_label }}'
+        }
+    });
+
     const raisonSocialeInput = document.getElementById('{{ form.raison_sociale.id_for_label }}');
     const ideInput = document.getElementById('{{ form.ide_number.id_for_label }}');
     const chIdInput = document.getElementById('{{ form.ch_id.id_for_label }}');

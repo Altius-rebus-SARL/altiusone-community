@@ -196,6 +196,21 @@
                 </div>
             </div>
 
+            <!-- Adresse -->
+            {% if adresse_form %}
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-house-line me-2"></i>{% trans "Adresse" %}</h5>
+                </div>
+                <div class="card-body">
+                    {% if adresse_form.non_field_errors %}
+                    <div class="alert alert-danger">{{ adresse_form.non_field_errors }}</div>
+                    {% endif %}
+                    {% include "includes/adresse_fields.html" with prefix="adresse" adresse_form=adresse_form %}
+                </div>
+            </div>
+            {% endif %}
+
             <!-- Situation familiale -->
             <div class="card">
                 <div class="card-header">

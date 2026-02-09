@@ -583,6 +583,26 @@ class CollaborateurFiduciaireViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
+class AdresseViewSet(viewsets.GenericViewSet):
+    """ViewSet pour l'autocomplete d'adresses suisses via Swiss Post API."""
+    permission_classes = [IsAuthenticated]
+
+    @action(detail=False, methods=["get"], url_path="autocomplete")
+    def autocomplete(self, request):
+        """
+        GET /api/v1/core/adresses/autocomplete/?q=Bahnhofstr
+        Recherche d'adresses suisses via Swiss Post API.
+        """
+        from .services import SwissPostAddressService
+
+        q = request.query_params.get("q", "").strip()
+        if len(q) < 3:
+            return Response({"results": []})
+
+        results = SwissPostAddressService.autocomplete(q)
+        return Response({"results": [r.to_dict() for r in results]})
+
+
 class GraphViewSet(viewsets.ViewSet):
     """
     ViewSet pour l'API du graphe relationnel.

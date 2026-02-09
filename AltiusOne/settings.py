@@ -847,3 +847,15 @@ OAUTH2_PROVIDER = {
 
 # URL de login pour OAuth2 - utilise le login de l'app core (pas l'admin)
 # LOGIN_URL est déjà défini plus haut comme "core:login"
+
+# ============================================================================
+# SWISS POST ADDRESS API
+# ============================================================================
+# API autocomplete4 de la Poste Suisse pour l'auto-complétion d'adresses.
+# Nécessite un compte développeur Swiss Post (https://developer.post.ch).
+SWISS_POST_API_URL = os.environ.get(
+    'SWISS_POST_API_URL',
+    'https://webservices.post.ch:17023/IN_SYNSYN_EXT/REST/v1/autocomplete4'
+)
+SWISS_POST_API_USER = os.environ.get('SWISS_POST_API_USER', '')
+SWISS_POST_API_PASSWORD = os.environ.get('SWISS_POST_API_PASSWORD', '')

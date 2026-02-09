@@ -23,9 +23,9 @@ from .models import (
     DeclarationCotisations,
     DeclarationCotisationsLigne,
 )
-from .forms import EmployeForm, FicheSalaireForm, CertificatSalaireForm, CertificatTravailForm
+from .forms import EmployeForm, AdresseInlineForm, FicheSalaireForm, CertificatSalaireForm, CertificatTravailForm
 from .filters import EmployeFilter, FicheSalaireFilter
-from core.models import Mandat
+from core.models import Mandat, Adresse
 
 
 # ============ EMPLOYÉS ============
@@ -162,10 +162,22 @@ class EmployeCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView)
     template_name = "salaires/employe_form.html"
     business_permission = 'salaires.view_employes'
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.POST:
+            context['adresse_form'] = AdresseInlineForm(self.request.POST, prefix='adresse')
+        else:
+            context['adresse_form'] = AdresseInlineForm(prefix='adresse')
+        return context
+
     def get_success_url(self):
         return reverse_lazy("salaires:employe-detail", kwargs={"pk": self.object.pk})
 
     def form_valid(self, form):
+        adresse_form = AdresseInlineForm(self.request.POST, prefix='adresse')
+        if adresse_form.is_valid():
+            adresse = adresse_form.save()
+            form.instance.adresse = adresse
         form.instance.created_by = self.request.user
         messages.success(self.request, _("Employé créé avec succès"))
         return super().form_valid(form)
@@ -179,10 +191,31 @@ class EmployeUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateView)
     template_name = "salaires/employe_form.html"
     business_permission = 'salaires.view_employes'
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.POST:
+            context['adresse_form'] = AdresseInlineForm(
+                self.request.POST, prefix='adresse',
+                instance=self.object.adresse,
+            )
+        else:
+            context['adresse_form'] = AdresseInlineForm(
+                prefix='adresse',
+                instance=self.object.adresse,
+            )
+        return context
+
     def get_success_url(self):
         return reverse_lazy("salaires:employe-detail", kwargs={"pk": self.object.pk})
 
     def form_valid(self, form):
+        adresse_form = AdresseInlineForm(
+            self.request.POST, prefix='adresse',
+            instance=self.object.adresse,
+        )
+        if adresse_form.is_valid():
+            adresse = adresse_form.save()
+            form.instance.adresse = adresse
         messages.success(self.request, _("Employé modifié avec succès"))
         return super().form_valid(form)
 
