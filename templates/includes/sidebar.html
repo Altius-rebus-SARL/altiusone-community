@@ -290,6 +290,27 @@
               >{% trans "Fiches de salaire" %}</a
             >
           </li>
+          <li
+            data-active="{% if ns == 'salaires' and 'certificat-' in is_active and 'travail' not in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'salaires:certificat-list' %}"
+              >{% trans "Certificats de salaire" %}</a
+            >
+          </li>
+          <li
+            data-active="{% if ns == 'salaires' and 'declaration-cotisations' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'salaires:declaration-cotisations-list' %}"
+              >{% trans "Déclarations cotisations" %}</a
+            >
+          </li>
+          <li
+            data-active="{% if ns == 'salaires' and 'certificat-travail' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'salaires:certificat-travail-list' %}"
+              >{% trans "Certificats de travail" %}</a
+            >
+          </li>
         </ul>
       </li>
 
