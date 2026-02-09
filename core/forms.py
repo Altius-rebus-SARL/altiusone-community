@@ -38,8 +38,11 @@ class ClientForm(forms.ModelForm):
             "nom_commercial",
             "forme_juridique",
             "ide_number",
+            "ch_id",
+            "ofrc_id",
             "tva_number",
-            "rc_number",
+            "siege",
+            "canton_rc",
             "email",
             "telephone",
             "site_web",
@@ -58,8 +61,13 @@ class ClientForm(forms.ModelForm):
             "ide_number": forms.TextInput(
                 attrs={"class": "form-control", "placeholder": "CHE-XXX.XXX.XXX"}
             ),
+            "ch_id": forms.TextInput(
+                attrs={"class": "form-control", "placeholder": "CH-XXX-XXXXXXX-X"}
+            ),
+            "ofrc_id": forms.TextInput(attrs={"class": "form-control"}),
             "tva_number": forms.TextInput(attrs={"class": "form-control"}),
-            "rc_number": forms.TextInput(attrs={"class": "form-control"}),
+            "siege": forms.TextInput(attrs={"class": "form-control"}),
+            "canton_rc": forms.Select(attrs={"class": "form-control"}),
             "email": forms.EmailInput(attrs={"class": "form-control"}),
             "telephone": forms.TextInput(attrs={"class": "form-control"}),
             "site_web": forms.URLInput(attrs={"class": "form-control"}),

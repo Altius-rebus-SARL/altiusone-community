@@ -142,6 +142,67 @@
                             </div>
                         </div>
 
+                        <!-- CH-ID -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.ch_id.id_for_label }}" class="form-label">
+                                    {{ form.ch_id.label }}
+                                </label>
+                                {{ form.ch_id }}
+                                <small class="text-muted">Format: CH-XXX-XXXXXXX-X</small>
+                                {% if form.ch_id.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.ch_id.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- OFRC-ID -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.ofrc_id.id_for_label }}" class="form-label">
+                                    {{ form.ofrc_id.label }}
+                                </label>
+                                {{ form.ofrc_id }}
+                                {% if form.ofrc_id.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.ofrc_id.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Siège -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.siege.id_for_label }}" class="form-label">
+                                    {{ form.siege.label }}
+                                </label>
+                                {{ form.siege }}
+                                {% if form.siege.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.siege.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Canton RC -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.canton_rc.id_for_label }}" class="form-label">
+                                    {{ form.canton_rc.label }}
+                                </label>
+                                {{ form.canton_rc }}
+                                {% if form.canton_rc.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.canton_rc.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
                         <!-- Email -->
                         <div class="col-md-6">
                             <div class="mb-3">
@@ -241,6 +302,10 @@
 document.addEventListener('DOMContentLoaded', function() {
     const raisonSocialeInput = document.getElementById('{{ form.raison_sociale.id_for_label }}');
     const ideInput = document.getElementById('{{ form.ide_number.id_for_label }}');
+    const chIdInput = document.getElementById('{{ form.ch_id.id_for_label }}');
+    const ofrcIdInput = document.getElementById('{{ form.ofrc_id.id_for_label }}');
+    const siegeInput = document.getElementById('{{ form.siege.id_for_label }}');
+    const cantonRcSelect = document.getElementById('{{ form.canton_rc.id_for_label }}');
     const formeJuridiqueSelect = document.getElementById('{{ form.forme_juridique.id_for_label }}');
     const resultsContainer = document.getElementById('autocomplete-results');
 
@@ -338,6 +403,34 @@ document.addEventListener('DOMContentLoaded', function() {
             ideInput.value = company.ide_number;
         }
 
+        // Fill CH-ID (format: CH62640200449 -> CH-626-4020044-9)
+        if (chIdInput && company.ch_id) {
+            let chid = company.ch_id.replace('CH', '');
+            if (chid.length >= 10) {
+                chIdInput.value = `CH-${chid.slice(0,3)}-${chid.slice(3,10)}-${chid.slice(10)}`;
+            } else {
+                chIdInput.value = company.ch_id;
+            }
+        }
+
+        // Fill OFRC-ID
+        if (ofrcIdInput && company.ofrc_id) {
+            ofrcIdInput.value = company.ofrc_id;
+        }
+
+        // Fill Siege (legal seat)
+        if (siegeInput && company.legal_seat) {
+            siegeInput.value = company.legal_seat;
+        }
+
+        // Fill Canton RC
+        if (cantonRcSelect && company.canton) {
+            const option = cantonRcSelect.querySelector(`option[value="${company.canton}"]`);
+            if (option) {
+                cantonRcSelect.value = company.canton;
+            }
+        }
+
         // Map legal form from Zefix code to our form values
         if (formeJuridiqueSelect) {
             // eCH-0097 legal form codes mapping
@@ -390,12 +483,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
         hideResults();
 
-        // Visual feedback
-        raisonSocialeInput.classList.add('is-valid');
-        if (ideInput) ideInput.classList.add('is-valid');
+        // Visual feedback for all filled fields
+        const filledFields = [raisonSocialeInput, ideInput, chIdInput, ofrcIdInput, siegeInput].filter(f => f && f.value);
+        filledFields.forEach(field => field.classList.add('is-valid'));
         setTimeout(() => {
-            raisonSocialeInput.classList.remove('is-valid');
-            if (ideInput) ideInput.classList.remove('is-valid');
+            filledFields.forEach(field => field.classList.remove('is-valid'));
         }, 2000);
     }
 
