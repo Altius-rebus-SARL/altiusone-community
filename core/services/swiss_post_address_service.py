@@ -1,22 +1,37 @@
 # core/services/swiss_post_address_service.py
 """
-Service for Swiss address autocomplete via Swiss Post API (autocomplete4).
-Used for address fields across the application.
+Service for Swiss address autocomplete.
+
+Uses geo.admin.ch SearchServer API (free, no auth) as primary backend.
+Swiss Post API (OAuth2, requires approval) can be added as primary when available,
+with geo.admin.ch as fallback.
 """
 import logging
+import re
 import requests
 from dataclasses import dataclass
-from django.conf import settings
 from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
 
 CACHE_TIMEOUT = 3600  # 1 hour
 
+# geo.admin.ch SearchServer - free, no authentication required
+GEO_ADMIN_API_URL = "https://api3.geo.admin.ch/rest/services/api/SearchServer"
+
+# Canton abbreviation mapping (geo.admin.ch returns lowercase 2-letter codes)
+CANTON_MAP = {
+    'zh': 'ZH', 'be': 'BE', 'lu': 'LU', 'ur': 'UR', 'sz': 'SZ', 'ow': 'OW',
+    'nw': 'NW', 'gl': 'GL', 'zg': 'ZG', 'fr': 'FR', 'so': 'SO', 'bs': 'BS',
+    'bl': 'BL', 'sh': 'SH', 'ar': 'AR', 'ai': 'AI', 'sg': 'SG', 'gr': 'GR',
+    'ag': 'AG', 'tg': 'TG', 'ti': 'TI', 'vd': 'VD', 'vs': 'VS', 'ne': 'NE',
+    'ge': 'GE', 'ju': 'JU',
+}
+
 
 @dataclass
 class SwissAddress:
-    """Represents a Swiss address from the Post API."""
+    """Represents a Swiss address."""
     street: str
     house_number: str
     zip_code: str
@@ -35,12 +50,12 @@ class SwissAddress:
 
 
 class SwissPostAddressService:
-    """Service to autocomplete Swiss addresses using Swiss Post API."""
+    """Service to autocomplete Swiss addresses using geo.admin.ch API."""
 
     @classmethod
     def autocomplete(cls, query: str, limit: int = 10) -> list[SwissAddress]:
         """
-        Autocomplete Swiss addresses.
+        Autocomplete Swiss addresses via geo.admin.ch SearchServer.
 
         Args:
             query: Address search string (minimum 3 characters)
@@ -62,40 +77,21 @@ class SwissPostAddressService:
         except Exception:
             pass
 
-        # Check credentials
-        api_url = getattr(settings, 'SWISS_POST_API_URL', '')
-        api_user = getattr(settings, 'SWISS_POST_API_USER', '')
-        api_password = getattr(settings, 'SWISS_POST_API_PASSWORD', '')
-
-        if not api_user or not api_password:
-            logger.debug("Swiss Post API credentials not configured")
-            return []
-
         try:
-            payload = {
-                "request": {
-                    "ONRP": 0,
-                    "ZipCity": "",
-                    "ZipAddition": "",
-                    "Street": query,
-                    "HouseKey": 0,
-                    "HouseNumber": "",
-                    "HouseNumberAddition": "",
+            response = requests.get(
+                GEO_ADMIN_API_URL,
+                params={
+                    "searchText": query,
+                    "type": "locations",
+                    "origins": "address",
+                    "limit": limit,
                 },
-                "zipOrderBy": [],
-                "zipFilterBy": [],
-            }
-
-            response = requests.post(
-                api_url,
-                json=payload,
-                auth=(api_user, api_password),
-                headers={"Content-Type": "application/json"},
+                headers={"Accept": "application/json"},
                 timeout=10,
             )
             response.raise_for_status()
 
-            results = cls._parse_results(response.json(), limit)
+            results = cls._parse_results(response.json())
 
             try:
                 cache.set(cache_key, results, CACHE_TIMEOUT)
@@ -105,34 +101,86 @@ class SwissPostAddressService:
             return results
 
         except requests.RequestException as e:
-            logger.error(f"Swiss Post API error: {e}")
+            logger.error(f"geo.admin.ch API error: {e}")
             return []
         except (KeyError, ValueError) as e:
-            logger.error(f"Error parsing Swiss Post response: {e}")
+            logger.error(f"Error parsing geo.admin.ch response: {e}")
             return []
 
     @classmethod
-    def _parse_results(cls, data: dict, limit: int) -> list[SwissAddress]:
-        """Parse Swiss Post API response into SwissAddress objects."""
+    def _parse_results(cls, data: dict) -> list[SwissAddress]:
+        """Parse geo.admin.ch SearchServer response into SwissAddress objects.
+
+        The 'detail' field format is:
+            'rue numero npa localite bfs_id localite ch canton'
+        Example:
+            'bahnhofstrasse 1 8001 zuerich 261 zuerich ch zh'
+            'rue du marche 1b 1820 montreux 5886 montreux ch vd'
+        """
         addresses = []
-        rows = data.get("rows", [])
 
-        for row in rows[:limit]:
-            street = row.get("Street", "") or ""
-            house_number = row.get("HouseNumber", "") or ""
-            zip_code = str(row.get("ZipCode", "") or "")
-            city = row.get("TownName", "") or row.get("City", "") or ""
-            canton = row.get("Canton", "") or ""
+        for result in data.get("results", []):
+            attrs = result.get("attrs", {})
 
-            if not street and not zip_code:
+            if attrs.get("origin") != "address":
                 continue
 
-            addresses.append(SwissAddress(
-                street=street,
-                house_number=house_number,
-                zip_code=zip_code,
-                city=city,
-                canton=canton,
-            ))
+            detail = attrs.get("detail", "")
+            label = attrs.get("label", "")
+
+            # Extract canton from last 2 chars of detail
+            canton_code = detail[-2:].strip() if len(detail) >= 2 else ""
+            canton = CANTON_MAP.get(canton_code, canton_code.upper())
+
+            # Parse the label: "Rue du Marché 1b <b>1820 Montreux</b>"
+            # This preserves proper casing (detail is all lowercase)
+            address = cls._parse_label(label, canton)
+            if address:
+                addresses.append(address)
 
         return addresses
+
+    @classmethod
+    def _parse_label(cls, label: str, canton: str) -> SwissAddress | None:
+        """Parse a geo.admin.ch label into a SwissAddress.
+
+        Label format: 'Street Number <b>ZipCode City</b>'
+        Examples:
+            'Bahnhofstrasse 1 <b>8001 Zürich</b>'
+            'Rue du Marché 1b <b>1820 Montreux</b>'
+            'Dorfstrasse <b>3000 Bern</b>'
+        """
+        if not label:
+            return None
+
+        # Split on <b> tag to get street part and zip+city part
+        match = re.match(r'^(.*?)\s*<b>(\d{4})\s+(.+?)</b>$', label)
+        if not match:
+            return None
+
+        street_part = match.group(1).strip()
+        zip_code = match.group(2)
+        city = match.group(3).strip()
+
+        # Split street part into street name and house number
+        # House number is typically the last token if it starts with a digit
+        street = street_part
+        house_number = ""
+
+        if street_part:
+            # Remove '#' placeholder (geo.admin.ch uses it for "no number")
+            street_part = street_part.replace(' #', '').replace('#', '').strip()
+            street = street_part
+            # Match trailing house number (e.g. "1", "1b", "12a", "1-3")
+            num_match = re.match(r'^(.+?)\s+(\d+\w*)$', street_part)
+            if num_match:
+                street = num_match.group(1)
+                house_number = num_match.group(2)
+
+        return SwissAddress(
+            street=street,
+            house_number=house_number,
+            zip_code=zip_code,
+            city=city,
+            canton=canton,
+        )

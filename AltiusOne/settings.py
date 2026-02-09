@@ -849,13 +849,9 @@ OAUTH2_PROVIDER = {
 # LOGIN_URL est déjà défini plus haut comme "core:login"
 
 # ============================================================================
-# SWISS POST ADDRESS API
+# SWISS ADDRESS AUTOCOMPLETE
 # ============================================================================
-# API autocomplete4 de la Poste Suisse pour l'auto-complétion d'adresses.
-# Nécessite un compte développeur Swiss Post (https://developer.post.ch).
-SWISS_POST_API_URL = os.environ.get(
-    'SWISS_POST_API_URL',
-    'https://webservices.post.ch:17023/IN_SYNSYN_EXT/REST/v1/autocomplete4'
-)
-SWISS_POST_API_USER = os.environ.get('SWISS_POST_API_USER', '')
-SWISS_POST_API_PASSWORD = os.environ.get('SWISS_POST_API_PASSWORD', '')
+# Auto-complétion d'adresses suisses.
+# Utilise geo.admin.ch (gratuit, sans authentification) par défaut.
+# Swiss Post Address API (OAuth2, nécessite approbation) sera ajoutée quand disponible.
+# Voir: https://developer.post.ch/en -> "Address verification"
