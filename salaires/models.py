@@ -953,7 +953,7 @@ class FicheSalaire(BaseModel):
         Returns:
             FileField: Le fichier PDF généré et sauvegardé
         """
-        from apps.salaires.services.pdf_fiche_salaire import FicheSalairePDF
+        from salaires.services.pdf_fiche_salaire import FicheSalairePDF
         from core.pdf import save_pdf_overwrite
 
         service = FicheSalairePDF(self)
@@ -1543,7 +1543,7 @@ class CertificatSalaire(BaseModel):
         Returns:
             FileField: Le fichier PDF généré et sauvegardé
         """
-        from apps.salaires.services.pdf_certificat_salaire import CertificatSalairePDF
+        from salaires.services.pdf_certificat_salaire import CertificatSalairePDF
         from core.pdf import save_pdf_overwrite
 
         service = CertificatSalairePDF(self)
@@ -2041,7 +2041,7 @@ class DeclarationCotisations(BaseModel):
 
     def generer_pdf(self):
         """Génère le PDF de la déclaration"""
-        from apps.salaires.services.pdf_declaration import DeclarationCotisationsPDF
+        from salaires.services.pdf_declaration import DeclarationCotisationsPDF
         from core.pdf import save_pdf_overwrite
 
         service = DeclarationCotisationsPDF(self)
@@ -2333,7 +2333,7 @@ class CertificatTravail(BaseModel):
             FileField: Le fichier PDF généré et sauvegardé
         """
         from datetime import date
-        from apps.salaires.services.pdf_certificat_travail import CertificatTravailPDF
+        from salaires.services.pdf_certificat_travail import CertificatTravailPDF
         from core.pdf import save_pdf_overwrite
 
         service = CertificatTravailPDF(self)
