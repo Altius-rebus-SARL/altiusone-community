@@ -64,3 +64,7 @@ notes.md
 oidc_rsa_key.pem
 docs-suite/
 docker-compose.override.yml
+
+# Nginx conf générée par Ansible (SSL) - ne pas écraser par git pull
+nginx/conf.d/altiusone.conf
+nginx/ssl/
