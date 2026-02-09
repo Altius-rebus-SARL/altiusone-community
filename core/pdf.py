@@ -3,6 +3,8 @@
 Utilitaires PDF globaux pour le projet Altiusone.
 
 - PDFViewSetMixin: Ajoute preview_pdf et download_pdf à tout ViewSet DRF
+- serve_pdf: Vue utilitaire pour servir/générer un PDF (preview ou download)
+- serve_file: Vue utilitaire pour servir un fichier uploadé quelconque
 - save_pdf_overwrite: Sauvegarde un PDF en supprimant l'ancien fichier
 """
 import logging
@@ -75,6 +77,80 @@ class PDFViewSetMixin:
         filename = field.name.split('/')[-1]
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
+
+
+def serve_pdf(request, instance, field_name, filename, redirect_url, generate=True, inline=False):
+    """
+    Utilitaire global : génère (optionnel) et sert un PDF via FileResponse streaming.
+
+    Args:
+        request: HttpRequest Django
+        instance: Instance du modèle avec generer_pdf()
+        field_name: Nom du champ FileField ('fichier_pdf', 'fichier_declaration')
+        filename: Nom du fichier pour Content-Disposition
+        redirect_url: URL de redirection en cas d'erreur (str ou tuple (url_name, pk))
+        generate: Si True, appelle instance.generer_pdf() avant de servir
+        inline: Si True, Content-Disposition: inline (preview), sinon attachment (download)
+    """
+    from django.contrib import messages
+    from django.shortcuts import redirect as do_redirect
+    from django.utils.translation import gettext_lazy as _
+
+    try:
+        if generate:
+            instance.generer_pdf()
+
+        field = getattr(instance, field_name)
+        if field:
+            response = FileResponse(field.open("rb"), content_type="application/pdf")
+            disposition = "inline" if inline else "attachment"
+            response["Content-Disposition"] = f'{disposition}; filename="{filename}"'
+            if inline:
+                response["X-Frame-Options"] = "SAMEORIGIN"
+                response["Cache-Control"] = "private, max-age=3600"
+            return response
+
+        messages.error(request, _("Aucun PDF disponible"))
+    except Exception as e:
+        messages.error(request, _("Erreur lors de la génération du PDF: %(error)s") % {'error': str(e)})
+
+    if isinstance(redirect_url, tuple):
+        return do_redirect(redirect_url[0], pk=redirect_url[1])
+    return do_redirect(redirect_url)
+
+
+def serve_file(request, instance, field_name, filename, redirect_url, content_type=None):
+    """
+    Utilitaire global : sert un fichier uploadé (sans génération).
+
+    Utile pour les FileFields qui sont des uploads manuels (fiscalité, annexes).
+
+    Args:
+        request: HttpRequest Django
+        instance: Instance du modèle
+        field_name: Nom du champ FileField
+        filename: Nom du fichier pour Content-Disposition
+        redirect_url: URL de redirection en cas d'erreur (str ou tuple)
+        content_type: Type MIME (auto-détecté si None)
+    """
+    from django.contrib import messages
+    from django.shortcuts import redirect as do_redirect
+    from django.utils.translation import gettext_lazy as _
+    import mimetypes
+
+    field = getattr(instance, field_name, None)
+    if field and field.name:
+        if content_type is None:
+            content_type, _ = mimetypes.guess_type(field.name)
+            content_type = content_type or "application/octet-stream"
+        response = FileResponse(field.open("rb"), content_type=content_type)
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+
+    messages.error(request, _("Aucun fichier disponible"))
+    if isinstance(redirect_url, tuple):
+        return do_redirect(redirect_url[0], pk=redirect_url[1])
+    return do_redirect(redirect_url)
 
 
 def save_pdf_overwrite(instance, field_name, pdf_bytes, filename):

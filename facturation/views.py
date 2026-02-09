@@ -501,6 +501,8 @@ def facture_generer_pdf(request, pk):
     Paramètres GET:
         - qr_bill: Si "1" ou "true", génère avec QR-Bill suisse
     """
+    from core.pdf import serve_pdf
+
     facture = get_object_or_404(Facture, pk=pk)
 
     # Option QR-Bill
@@ -508,21 +510,32 @@ def facture_generer_pdf(request, pk):
     avec_qr_bill = qr_bill_param in ('1', 'true', 'yes', 'oui')
 
     try:
-        fichier = facture.generer_pdf(avec_qr_bill=avec_qr_bill)
-
-        with fichier.open("rb") as f:
-            response = HttpResponse(f.read(), content_type="application/pdf")
-            response["Content-Disposition"] = f'attachment; filename="{fichier.name}"'
-
-        msg = _("PDF généré avec succès")
-        if avec_qr_bill:
-            msg = _("PDF généré avec QR-Bill suisse")
-        messages.success(request, msg)
-        return response
-
+        facture.generer_pdf(avec_qr_bill=avec_qr_bill)
     except Exception as e:
-        messages.error(request, f"Erreur lors de la génération: {str(e)}")
+        messages.error(request, _("Erreur lors de la génération: %(error)s") % {'error': str(e)})
         return redirect("facturation:facture-detail", pk=pk)
+
+    suffix = "_qr" if avec_qr_bill else ""
+    filename = f"facture_{facture.numero_facture}{suffix}.pdf"
+    return serve_pdf(
+        request, facture, 'fichier_pdf', filename,
+        ("facturation:facture-detail", pk),
+        generate=False,
+    )
+
+
+@login_required
+def facture_preview_pdf(request, pk):
+    """Aperçu inline du PDF d'une facture dans le navigateur."""
+    from core.pdf import serve_pdf
+
+    facture = get_object_or_404(Facture, pk=pk)
+    return serve_pdf(
+        request, facture, 'fichier_pdf',
+        f"facture_{facture.numero_facture}.pdf",
+        ("facturation:facture-detail", pk),
+        generate=True, inline=True,
+    )
 
 
 @login_required

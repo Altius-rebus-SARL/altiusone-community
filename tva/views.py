@@ -249,45 +249,49 @@ def declaration_valider(request, pk):
 @login_required
 def declaration_exporter_xml(request, pk):
     """Exporte la déclaration au format XML AFC"""
+    from django.http import FileResponse
+
     declaration = get_object_or_404(DeclarationTVA, pk=pk)
 
     try:
-        # Générer le XML via la méthode du modèle
         fichier = declaration.generer_xml()
 
-        # Retourner le fichier
-        with fichier.open("rb") as f:
-            response = HttpResponse(f.read(), content_type="application/xml")
-            response["Content-Disposition"] = f'attachment; filename="{fichier.name}"'
-
-        messages.success(request, _("Export XML généré avec succès"))
+        response = FileResponse(fichier.open("rb"), content_type="application/xml")
+        filename = fichier.name.split('/')[-1]
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
         return response
 
     except Exception as e:
-        messages.error(request, f"Erreur lors de la génération XML: {str(e)}")
+        messages.error(request, _("Erreur lors de la génération XML: %(error)s") % {'error': str(e)})
         return redirect("tva:declaration-detail", pk=pk)
 
 
 @login_required
 def declaration_exporter_pdf(request, pk):
-    """Génère un PDF de la déclaration"""
+    """Génère et télécharge le PDF de la déclaration TVA."""
+    from core.pdf import serve_pdf
+
     declaration = get_object_or_404(DeclarationTVA, pk=pk)
+    return serve_pdf(
+        request, declaration, 'fichier_pdf',
+        f"declaration_tva_{declaration.numero_declaration}.pdf",
+        ("tva:declaration-detail", pk),
+        generate=True,
+    )
 
-    try:
-        # Générer le PDF via la méthode du modèle
-        fichier = declaration.generer_pdf()
 
-        # Retourner le fichier
-        with fichier.open("rb") as f:
-            response = HttpResponse(f.read(), content_type="application/pdf")
-            response["Content-Disposition"] = f'attachment; filename="{fichier.name}"'
+@login_required
+def declaration_preview_pdf(request, pk):
+    """Aperçu inline du PDF de la déclaration TVA."""
+    from core.pdf import serve_pdf
 
-        messages.success(request, _("Export PDF généré avec succès"))
-        return response
-
-    except Exception as e:
-        messages.error(request, f"Erreur lors de la génération PDF: {str(e)}")
-        return redirect("tva:declaration-detail", pk=pk)
+    declaration = get_object_or_404(DeclarationTVA, pk=pk)
+    return serve_pdf(
+        request, declaration, 'fichier_pdf',
+        f"declaration_tva_{declaration.numero_declaration}.pdf",
+        ("tva:declaration-detail", pk),
+        generate=True, inline=True,
+    )
 # ============ OPÉRATIONS TVA ============
 
 

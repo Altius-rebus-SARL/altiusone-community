@@ -44,6 +44,9 @@
         </a>
         {% endif %}
         
+        <a href="{% url 'facturation:facture-preview-pdf' facture.pk %}" class="btn btn-outline-primary" target="_blank">
+            <i class="ph ph-eye me-2"></i>{% trans "Aperçu PDF" %}
+        </a>
         <!-- Dropdown pour PDF -->
         <div class="btn-group">
             <a href="{% url 'facturation:facture-generer-pdf' facture.pk %}" class="btn btn-primary">

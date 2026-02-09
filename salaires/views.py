@@ -320,41 +320,7 @@ def fiche_valider(request, pk):
     return redirect("salaires:fiche-detail", pk=pk)
 
 
-def _serve_pdf(request, instance, field_name, filename, redirect_url, generate=True, inline=False):
-    """
-    Utilitaire interne : génère (optionnel) et sert un PDF.
-
-    Args:
-        instance: Instance du modèle avec generer_pdf()
-        field_name: Nom du champ FileField ('fichier_pdf', 'fichier_declaration')
-        filename: Nom du fichier pour Content-Disposition
-        redirect_url: URL de redirection en cas d'erreur
-        generate: Si True, appelle instance.generer_pdf() avant de servir
-        inline: Si True, Content-Disposition: inline (preview), sinon attachment (download)
-    """
-    from django.http import FileResponse
-
-    try:
-        if generate:
-            instance.generer_pdf()
-
-        field = getattr(instance, field_name)
-        if field:
-            response = FileResponse(field.open("rb"), content_type="application/pdf")
-            disposition = "inline" if inline else "attachment"
-            response["Content-Disposition"] = f'{disposition}; filename="{filename}"'
-            if inline:
-                response["X-Frame-Options"] = "SAMEORIGIN"
-                response["Cache-Control"] = "private, max-age=3600"
-            return response
-
-        messages.error(request, _("Erreur lors de la génération du PDF"))
-    except Exception as e:
-        messages.error(request, _("Erreur lors de la génération du PDF: %(error)s") % {'error': str(e)})
-
-    if isinstance(redirect_url, tuple):
-        return redirect(redirect_url[0], pk=redirect_url[1])
-    return redirect(redirect_url)
+from core.pdf import serve_pdf as _serve_pdf
 
 
 @login_required

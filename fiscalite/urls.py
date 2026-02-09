@@ -31,11 +31,31 @@ urlpatterns = [
         views.declaration_deposer,
         name="declaration-deposer",
     ),
+    path(
+        "declarations/<uuid:pk>/telecharger-declaration/",
+        views.declaration_telecharger_fichier,
+        name="declaration-telecharger-fichier",
+    ),
+    path(
+        "declarations/<uuid:pk>/telecharger-taxation/",
+        views.declaration_telecharger_taxation,
+        name="declaration-telecharger-taxation",
+    ),
+    path(
+        "declarations/<uuid:pk>/preview-pdf/",
+        views.declaration_preview_fichier,
+        name="declaration-preview-pdf",
+    ),
     # Annexes
     path(
         "declarations/<uuid:declaration_pk>/annexes/nouvelle/",
         views.annexe_create,
         name="annexe-create",
+    ),
+    path(
+        "annexes/<uuid:pk>/telecharger/",
+        views.annexe_telecharger,
+        name="annexe-telecharger",
     ),
     # Corrections
     path(

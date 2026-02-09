@@ -39,6 +39,9 @@
         </a>
         {% endif %}
         {% if declaration.statut in 'VALIDE,SOUMIS,ACCEPTE' %}
+        <a href="{% url 'tva:declaration-preview-pdf' declaration.pk %}" class="btn btn-outline-primary" target="_blank">
+            <i class="ph ph-eye me-2"></i>{% trans "Aperçu PDF" %}
+        </a>
         <a href="{% url 'tva:declaration-xml' declaration.pk %}" class="btn btn-secondary">
             <i class="ph ph-file-code me-2"></i>{% trans "Export XML" %}
         </a>

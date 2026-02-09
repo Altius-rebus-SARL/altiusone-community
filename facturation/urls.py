@@ -48,6 +48,11 @@ urlpatterns = [
         "factures/<uuid:pk>/pdf/", views.facture_generer_pdf, name="facture-generer-pdf"
     ),
     path(
+        "factures/<uuid:pk>/preview-pdf/",
+        views.facture_preview_pdf,
+        name="facture-preview-pdf",
+    ),
+    path(
         "factures/<uuid:pk>/envoyer/",
         views.facture_envoyer_email,
         name="facture-envoyer-email",

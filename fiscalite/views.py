@@ -24,6 +24,7 @@ from .models import (
     ReclamationFiscale,
     OptimisationFiscale,
 )
+from core.pdf import serve_file
 from .forms import (
     DeclarationFiscaleForm,
     AnnexeFiscaleForm,
@@ -521,3 +522,54 @@ def rapport_fiscal_annuel(request, mandat_pk):
     }
 
     return render(request, "fiscalite/rapport_annuel.html", context)
+
+
+# ============ TÉLÉCHARGEMENT FICHIERS ============
+
+
+@login_required
+def declaration_telecharger_fichier(request, pk):
+    """Télécharge le fichier de déclaration fiscale."""
+    declaration = get_object_or_404(DeclarationFiscale, pk=pk)
+    filename = f"declaration_fiscale_{declaration.annee_fiscale}.pdf"
+    return serve_file(
+        request, declaration, 'fichier_declaration', filename,
+        ("fiscalite:declaration-detail", pk),
+    )
+
+
+@login_required
+def declaration_telecharger_taxation(request, pk):
+    """Télécharge le fichier de taxation."""
+    declaration = get_object_or_404(DeclarationFiscale, pk=pk)
+    filename = f"taxation_{declaration.annee_fiscale}.pdf"
+    return serve_file(
+        request, declaration, 'fichier_taxation', filename,
+        ("fiscalite:declaration-detail", pk),
+    )
+
+
+@login_required
+def declaration_preview_fichier(request, pk):
+    """Aperçu inline du fichier de déclaration fiscale."""
+    from core.pdf import serve_pdf
+
+    declaration = get_object_or_404(DeclarationFiscale, pk=pk)
+    filename = f"declaration_fiscale_{declaration.annee_fiscale}.pdf"
+    return serve_pdf(
+        request, declaration, 'fichier_declaration', filename,
+        ("fiscalite:declaration-detail", pk),
+        generate=False, inline=True,
+    )
+
+
+@login_required
+def annexe_telecharger(request, pk):
+    """Télécharge le fichier d'une annexe fiscale."""
+    annexe = get_object_or_404(AnnexeFiscale, pk=pk)
+    ext = annexe.fichier.name.rsplit('.', 1)[-1] if annexe.fichier else 'pdf'
+    filename = f"annexe_{annexe.type_annexe}_{annexe.pk}.{ext}"
+    return serve_file(
+        request, annexe, 'fichier', filename,
+        ("fiscalite:declaration-detail", annexe.declaration_id),
+    )

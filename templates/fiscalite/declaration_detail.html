@@ -326,9 +326,19 @@
                         <i class="ph ph-warning me-2"></i>{% trans "Créer réclamation" %}
                     </a>
 
-                    <button class="btn btn-light-secondary">
-                        <i class="ph ph-download me-2"></i>{% trans "Télécharger PDF" %}
-                    </button>
+                    {% if declaration.fichier_declaration %}
+                    <a href="{% url 'fiscalite:declaration-preview-pdf' declaration.pk %}" class="btn btn-outline-primary" target="_blank">
+                        <i class="ph ph-eye me-2"></i>{% trans "Aperçu PDF" %}
+                    </a>
+                    <a href="{% url 'fiscalite:declaration-telecharger-fichier' declaration.pk %}" class="btn btn-light-secondary">
+                        <i class="ph ph-download me-2"></i>{% trans "Télécharger déclaration" %}
+                    </a>
+                    {% endif %}
+                    {% if declaration.fichier_taxation %}
+                    <a href="{% url 'fiscalite:declaration-telecharger-taxation' declaration.pk %}" class="btn btn-light-info">
+                        <i class="ph ph-download me-2"></i>{% trans "Télécharger taxation" %}
+                    </a>
+                    {% endif %}
                 </div>
             </div>
         </div>

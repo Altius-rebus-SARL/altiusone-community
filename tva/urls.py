@@ -56,6 +56,11 @@ urlpatterns = [
         views.declaration_exporter_pdf,
         name="declaration-pdf",
     ),
+    path(
+        "declarations/<uuid:pk>/preview-pdf/",
+        views.declaration_preview_pdf,
+        name="declaration-preview-pdf",
+    ),
     # Opérations TVA
     path("operations/", views.OperationTVAListView.as_view(), name="operation-list"),
     path(
