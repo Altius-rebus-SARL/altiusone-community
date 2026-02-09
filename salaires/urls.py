@@ -113,4 +113,49 @@ urlpatterns = [
         views.DeclarationCotisationsListView.as_view(),
         name="declaration-cotisations-list",
     ),
+    path(
+        "declarations-cotisations/nouvelle/",
+        views.DeclarationCotisationsCreateView.as_view(),
+        name="declaration-cotisations-create",
+    ),
+    path(
+        "declarations-cotisations/generer-masse/",
+        views.declarations_generer_masse,
+        name="declaration-cotisations-generer-masse",
+    ),
+    path(
+        "declarations-cotisations/<uuid:pk>/",
+        views.DeclarationCotisationsDetailView.as_view(),
+        name="declaration-cotisations-detail",
+    ),
+    path(
+        "declarations-cotisations/<uuid:pk>/modifier/",
+        views.DeclarationCotisationsUpdateView.as_view(),
+        name="declaration-cotisations-edit",
+    ),
+    path(
+        "declarations-cotisations/<uuid:pk>/calculer/",
+        views.declaration_calculer,
+        name="declaration-cotisations-calculer",
+    ),
+    path(
+        "declarations-cotisations/<uuid:pk>/transmettre/",
+        views.declaration_transmettre,
+        name="declaration-cotisations-transmettre",
+    ),
+    path(
+        "declarations-cotisations/<uuid:pk>/payer/",
+        views.declaration_payer,
+        name="declaration-cotisations-payer",
+    ),
+    path(
+        "declarations-cotisations/<uuid:pk>/pdf/",
+        views.declaration_generer_pdf,
+        name="declaration-cotisations-pdf",
+    ),
+    path(
+        "declarations-cotisations/<uuid:pk>/telecharger-pdf/",
+        views.declaration_telecharger_pdf,
+        name="declaration-cotisations-telecharger-pdf",
+    ),
 ]

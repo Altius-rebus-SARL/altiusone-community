@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
+from core.models import Mandat
 
 from .models import (
     Employe,
@@ -24,6 +25,9 @@ from .serializers import (
     CertificatSalaireDetailSerializer,
     CertificatSalaireCreateSerializer,
     DeclarationCotisationsSerializer,
+    DeclarationCotisationsListSerializer,
+    DeclarationCotisationsDetailSerializer,
+    DeclarationCotisationsCreateSerializer,
 )
 
 
@@ -600,17 +604,36 @@ class DeclarationCotisationsViewSet(viewsets.ModelViewSet):
     """ViewSet pour les déclarations de cotisations
 
     Permissions: Déclarations des mandats accessibles selon les permissions de l'utilisateur
+
+    Actions supplémentaires:
+    - POST /declarations/{id}/calculer/ - Recalculer depuis les fiches
+    - POST /declarations/{id}/transmettre/ - Marquer comme transmise
+    - POST /declarations/{id}/payer/ - Marquer comme payée
+    - GET /declarations/{id}/pdf/ - Générer et télécharger le PDF
+    - POST /declarations/generer_masse/ - Génération en masse
     """
 
-    serializer_class = DeclarationCotisationsSerializer
     permission_classes = [IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ["mandat", "organisme"]
-    ordering = ["-date_declaration"]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter, filters.SearchFilter]
+    filterset_fields = ["mandat", "organisme", "statut", "annee", "mois"]
+    search_fields = ["mandat__client__raison_sociale", "numero_affilie"]
+    ordering_fields = ["annee", "periode_fin", "organisme", "statut", "montant_cotisations"]
+    ordering = ["-annee", "-periode_fin"]
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return DeclarationCotisationsListSerializer
+        elif self.action == 'retrieve':
+            return DeclarationCotisationsDetailSerializer
+        elif self.action == 'create':
+            return DeclarationCotisationsCreateSerializer
+        return DeclarationCotisationsSerializer
 
     def get_queryset(self):
         user = self.request.user
-        base_queryset = DeclarationCotisations.objects.select_related("mandat")
+        base_queryset = DeclarationCotisations.objects.select_related(
+            "mandat", "mandat__client"
+        ).prefetch_related("lignes__employe")
 
         # Superuser ou Manager: accès complet
         if user.is_superuser or (user.is_staff_user() and user.is_manager()):
@@ -619,3 +642,178 @@ class DeclarationCotisationsViewSet(viewsets.ModelViewSet):
         # Filtrer par mandats accessibles
         accessible_mandats = user.get_accessible_mandats()
         return base_queryset.filter(mandat__in=accessible_mandats)
+
+    @action(detail=True, methods=['post'])
+    def calculer(self, request, pk=None):
+        """Recalcule la déclaration depuis les fiches de salaire"""
+        declaration = self.get_object()
+
+        try:
+            declaration.calculer_depuis_fiches()
+            declaration.calculer_echeance()
+            return Response({
+                "message": "Déclaration recalculée avec succès",
+                "montant_cotisations": str(declaration.montant_cotisations),
+                "nombre_employes": declaration.nombre_employes,
+            })
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=True, methods=['post'])
+    def transmettre(self, request, pk=None):
+        """Marque la déclaration comme transmise"""
+        declaration = self.get_object()
+
+        try:
+            date_transmission = request.data.get('date_transmission')
+            if date_transmission:
+                from datetime import datetime
+                date_transmission = datetime.strptime(date_transmission, '%Y-%m-%d').date()
+
+            declaration.marquer_transmise(date_transmission)
+            return Response({
+                "message": "Déclaration marquée comme transmise",
+                "date_transmission": str(declaration.date_transmission),
+            })
+        except ValueError as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=True, methods=['post'])
+    def payer(self, request, pk=None):
+        """Marque la déclaration comme payée"""
+        declaration = self.get_object()
+
+        date_paiement = request.data.get('date_paiement')
+        if date_paiement:
+            from datetime import datetime
+            date_paiement = datetime.strptime(date_paiement, '%Y-%m-%d').date()
+
+        declaration.marquer_payee(date_paiement)
+        return Response({
+            "message": "Paiement enregistré",
+            "date_paiement": str(declaration.date_paiement),
+        })
+
+    @action(detail=True, methods=['get', 'post'])
+    def pdf(self, request, pk=None):
+        """Génère ou télécharge le PDF de la déclaration"""
+        declaration = self.get_object()
+
+        if request.method == 'POST' or not declaration.fichier_declaration:
+            try:
+                declaration.generer_pdf()
+            except Exception as e:
+                return Response(
+                    {"error": f"Erreur lors de la génération du PDF: {str(e)}"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        if declaration.fichier_declaration:
+            from django.http import FileResponse
+            return FileResponse(
+                declaration.fichier_declaration.open('rb'),
+                as_attachment=True,
+                filename=declaration.fichier_declaration.name.split('/')[-1]
+            )
+
+        return Response(
+            {"error": "Aucun fichier PDF disponible"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    @action(detail=False, methods=['post'])
+    def generer_masse(self, request):
+        """Génère des déclarations pour plusieurs mandats/organismes"""
+        from calendar import monthrange
+        from datetime import date
+
+        annee = int(request.data.get('annee', timezone.now().year))
+        mois = request.data.get('mois')
+        mois = int(mois) if mois else None
+        organismes = request.data.get('organismes', [])
+        mandats_ids = request.data.get('mandats', [])
+        auto_calculer = request.data.get('auto_calculer', True)
+
+        if not organismes:
+            organismes = [o[0] for o in DeclarationCotisations.ORGANISME_CHOICES]
+
+        # Filtrer les mandats accessibles
+        user = request.user
+        if mandats_ids:
+            mandats = Mandat.objects.filter(id__in=mandats_ids, actif=True)
+        else:
+            mandats = Mandat.objects.filter(actif=True)
+
+        if not user.is_superuser and not (user.is_staff_user() and user.is_manager()):
+            accessible_mandats = user.get_accessible_mandats()
+            mandats = mandats.filter(id__in=accessible_mandats)
+
+        resultats = {'crees': [], 'existants': [], 'erreurs': []}
+
+        for mandat in mandats:
+            for organisme in organismes:
+                # Vérifier si existe déjà
+                exists = DeclarationCotisations.objects.filter(
+                    mandat=mandat,
+                    organisme=organisme,
+                    annee=annee,
+                    mois=mois
+                ).exists()
+
+                if exists:
+                    resultats['existants'].append({
+                        'mandat': str(mandat),
+                        'organisme': organisme
+                    })
+                    continue
+
+                try:
+                    if mois:
+                        periode_debut = date(annee, mois, 1)
+                        last_day = monthrange(annee, mois)[1]
+                        periode_fin = date(annee, mois, last_day)
+                        periode_type = 'MENSUEL'
+                    else:
+                        periode_debut = date(annee, 1, 1)
+                        periode_fin = date(annee, 12, 31)
+                        periode_type = 'ANNUEL'
+
+                    declaration = DeclarationCotisations.objects.create(
+                        mandat=mandat,
+                        organisme=organisme,
+                        periode_type=periode_type,
+                        annee=annee,
+                        mois=mois,
+                        periode_debut=periode_debut,
+                        periode_fin=periode_fin,
+                        date_declaration=date.today(),
+                    )
+
+                    if auto_calculer:
+                        declaration.calculer_depuis_fiches()
+                        declaration.calculer_echeance()
+
+                    resultats['crees'].append({
+                        'mandat': str(mandat),
+                        'organisme': organisme,
+                        'declaration_id': str(declaration.pk),
+                        'montant': str(declaration.montant_cotisations)
+                    })
+
+                except Exception as e:
+                    resultats['erreurs'].append({
+                        'mandat': str(mandat),
+                        'organisme': organisme,
+                        'erreur': str(e)
+                    })
+
+        return Response({
+            "message": f"{len(resultats['crees'])} déclarations créées",
+            "resultats": resultats,
+        })

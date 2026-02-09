@@ -21,6 +21,7 @@ from .models import (
     CertificatSalaire,
     CertificatTravail,
     DeclarationCotisations,
+    DeclarationCotisationsLigne,
 )
 from .forms import EmployeForm, FicheSalaireForm, CertificatSalaireForm, CertificatTravailForm
 from .filters import EmployeFilter, FicheSalaireFilter
@@ -885,8 +886,332 @@ class DeclarationCotisationsListView(LoginRequiredMixin, BusinessPermissionMixin
     business_permission = 'salaires.view_cotisations'
     template_name = "salaires/declaration_cotisations_list.html"
     context_object_name = "declarations"
+    paginate_by = 25
 
     def get_queryset(self):
-        return DeclarationCotisations.objects.select_related("mandat").order_by(
-            "-periode_fin"
+        queryset = DeclarationCotisations.objects.select_related(
+            "mandat", "mandat__client"
+        ).order_by("-annee", "-periode_fin", "organisme")
+
+        # Filtres
+        organisme = self.request.GET.get('organisme')
+        if organisme:
+            queryset = queryset.filter(organisme=organisme)
+
+        annee = self.request.GET.get('annee')
+        if annee:
+            queryset = queryset.filter(annee=annee)
+
+        statut = self.request.GET.get('statut')
+        if statut:
+            queryset = queryset.filter(statut=statut)
+
+        mandat_id = self.request.GET.get('mandat')
+        if mandat_id:
+            queryset = queryset.filter(mandat_id=mandat_id)
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['organismes'] = DeclarationCotisations.ORGANISME_CHOICES
+        context['statuts'] = DeclarationCotisations.STATUT_CHOICES
+        context['mandats'] = Mandat.objects.select_related('client').filter(
+            declarations_cotisations__isnull=False
+        ).distinct()
+
+        # Années disponibles
+        annees = DeclarationCotisations.objects.values_list('annee', flat=True).distinct().order_by('-annee')
+        context['annees'] = list(annees)
+
+        # Totaux par statut
+        context['totaux'] = {
+            'brouillon': DeclarationCotisations.objects.filter(statut='BROUILLON').count(),
+            'calculee': DeclarationCotisations.objects.filter(statut='CALCULEE').count(),
+            'transmise': DeclarationCotisations.objects.filter(statut='TRANSMISE').count(),
+            'a_payer': DeclarationCotisations.objects.filter(
+                statut='TRANSMISE', date_paiement__isnull=True
+            ).aggregate(total=Sum('montant_cotisations'))['total'] or 0,
+        }
+
+        return context
+
+
+class DeclarationCotisationsDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
+    """Détail d'une déclaration de cotisations"""
+
+    model = DeclarationCotisations
+    business_permission = 'salaires.view_cotisations'
+    template_name = "salaires/declaration_cotisations_detail.html"
+    context_object_name = "declaration"
+
+    def get_queryset(self):
+        return DeclarationCotisations.objects.select_related(
+            "mandat", "mandat__client"
+        ).prefetch_related("lignes__employe")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['lignes'] = self.object.lignes.select_related('employe').order_by('employe__nom')
+        return context
+
+
+class DeclarationCotisationsCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView):
+    """Création d'une déclaration de cotisations"""
+
+    model = DeclarationCotisations
+    business_permission = 'salaires.manage_cotisations'
+    template_name = "salaires/declaration_cotisations_form.html"
+    fields = ['mandat', 'organisme', 'periode_type', 'annee', 'mois', 'trimestre',
+              'nom_caisse', 'numero_affilie', 'numero_contrat']
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['mandats'] = Mandat.objects.select_related('client').filter(actif=True)
+        context['organismes'] = DeclarationCotisations.ORGANISME_CHOICES
+        context['current_year'] = datetime.now().year
+        context['current_month'] = datetime.now().month
+        return context
+
+    def form_valid(self, form):
+        declaration = form.save(commit=False)
+
+        # Calculer les dates de période
+        from calendar import monthrange
+        from datetime import date
+
+        if declaration.periode_type == 'MENSUEL' and declaration.mois:
+            declaration.periode_debut = date(declaration.annee, declaration.mois, 1)
+            last_day = monthrange(declaration.annee, declaration.mois)[1]
+            declaration.periode_fin = date(declaration.annee, declaration.mois, last_day)
+        elif declaration.periode_type == 'TRIMESTRIEL' and declaration.trimestre:
+            mois_debut = (declaration.trimestre - 1) * 3 + 1
+            mois_fin = declaration.trimestre * 3
+            declaration.periode_debut = date(declaration.annee, mois_debut, 1)
+            last_day = monthrange(declaration.annee, mois_fin)[1]
+            declaration.periode_fin = date(declaration.annee, mois_fin, last_day)
+        else:  # Annuelle
+            declaration.periode_debut = date(declaration.annee, 1, 1)
+            declaration.periode_fin = date(declaration.annee, 12, 31)
+
+        declaration.date_declaration = date.today()
+        declaration.save()
+
+        # Calculer automatiquement si demandé
+        if self.request.POST.get('auto_calculer'):
+            declaration.calculer_depuis_fiches()
+            declaration.calculer_echeance()
+            messages.success(self.request, _("Déclaration créée et calculée avec succès"))
+        else:
+            messages.success(self.request, _("Déclaration créée avec succès"))
+
+        return redirect('salaires:declaration-cotisations-detail', pk=declaration.pk)
+
+
+class DeclarationCotisationsUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateView):
+    """Modification d'une déclaration de cotisations"""
+
+    model = DeclarationCotisations
+    business_permission = 'salaires.manage_cotisations'
+    template_name = "salaires/declaration_cotisations_form.html"
+    fields = ['nom_caisse', 'numero_affilie', 'numero_contrat', 'numero_reference',
+              'numero_bvr', 'iban_caisse', 'frais_administration', 'remarques']
+
+    def get_success_url(self):
+        return reverse_lazy('salaires:declaration-cotisations-detail', kwargs={'pk': self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, _("Déclaration mise à jour"))
+        return super().form_valid(form)
+
+
+@login_required
+@permission_required_business('salaires.manage_cotisations')
+@require_http_methods(["POST"])
+def declaration_calculer(request, pk):
+    """Recalcule une déclaration depuis les fiches de salaire"""
+    declaration = get_object_or_404(DeclarationCotisations, pk=pk)
+
+    try:
+        declaration.calculer_depuis_fiches()
+        declaration.calculer_echeance()
+        messages.success(request, _("Déclaration recalculée avec succès"))
+    except Exception as e:
+        messages.error(request, _("Erreur lors du calcul: %(error)s") % {'error': str(e)})
+
+    return redirect('salaires:declaration-cotisations-detail', pk=pk)
+
+
+@login_required
+@permission_required_business('salaires.manage_cotisations')
+@require_http_methods(["POST"])
+def declaration_transmettre(request, pk):
+    """Marque une déclaration comme transmise"""
+    declaration = get_object_or_404(DeclarationCotisations, pk=pk)
+
+    try:
+        declaration.marquer_transmise()
+        messages.success(request, _("Déclaration marquée comme transmise"))
+    except ValueError as e:
+        messages.error(request, str(e))
+
+    return redirect('salaires:declaration-cotisations-detail', pk=pk)
+
+
+@login_required
+@permission_required_business('salaires.manage_cotisations')
+@require_http_methods(["POST"])
+def declaration_payer(request, pk):
+    """Marque une déclaration comme payée"""
+    declaration = get_object_or_404(DeclarationCotisations, pk=pk)
+
+    date_paiement = request.POST.get('date_paiement')
+    if date_paiement:
+        from datetime import datetime as dt
+        date_paiement = dt.strptime(date_paiement, '%Y-%m-%d').date()
+
+    declaration.marquer_payee(date_paiement)
+    messages.success(request, _("Paiement enregistré"))
+
+    return redirect('salaires:declaration-cotisations-detail', pk=pk)
+
+
+@login_required
+@permission_required_business('salaires.manage_cotisations')
+def declaration_generer_pdf(request, pk):
+    """Génère le PDF de la déclaration"""
+    declaration = get_object_or_404(DeclarationCotisations, pk=pk)
+
+    try:
+        declaration.generer_pdf()
+        messages.success(request, _("PDF généré avec succès"))
+    except Exception as e:
+        messages.error(request, _("Erreur lors de la génération du PDF: %(error)s") % {'error': str(e)})
+
+    return redirect('salaires:declaration-cotisations-detail', pk=pk)
+
+
+@login_required
+@permission_required_business('salaires.manage_cotisations')
+def declaration_telecharger_pdf(request, pk):
+    """Télécharge le PDF de la déclaration"""
+    declaration = get_object_or_404(DeclarationCotisations, pk=pk)
+
+    if not declaration.fichier_declaration:
+        messages.error(request, _("Aucun fichier PDF disponible"))
+        return redirect('salaires:declaration-cotisations-detail', pk=pk)
+
+    response = HttpResponse(
+        declaration.fichier_declaration.read(),
+        content_type='application/pdf'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{declaration.fichier_declaration.name.split("/")[-1]}"'
+    return response
+
+
+@login_required
+@permission_required_business('salaires.manage_cotisations')
+def declarations_generer_masse(request):
+    """Génération en masse des déclarations pour une période"""
+    if request.method == 'POST':
+        from calendar import monthrange
+        from datetime import date
+
+        annee = int(request.POST.get('annee', datetime.now().year))
+        mois = request.POST.get('mois')
+        mois = int(mois) if mois else None
+        organismes = request.POST.getlist('organismes')
+        mandats_ids = request.POST.getlist('mandats')
+        auto_calculer = request.POST.get('auto_calculer') == 'on'
+
+        if not organismes:
+            organismes = [o[0] for o in DeclarationCotisations.ORGANISME_CHOICES]
+
+        if mandats_ids:
+            mandats = Mandat.objects.filter(id__in=mandats_ids, actif=True)
+        else:
+            mandats = Mandat.objects.filter(actif=True)
+
+        resultats = {'crees': [], 'existants': [], 'erreurs': []}
+
+        for mandat in mandats:
+            for organisme in organismes:
+                # Vérifier si existe déjà
+                exists = DeclarationCotisations.objects.filter(
+                    mandat=mandat,
+                    organisme=organisme,
+                    annee=annee,
+                    mois=mois
+                ).exists()
+
+                if exists:
+                    resultats['existants'].append({
+                        'mandat': str(mandat),
+                        'organisme': organisme
+                    })
+                    continue
+
+                try:
+                    # Créer la déclaration
+                    if mois:
+                        periode_debut = date(annee, mois, 1)
+                        last_day = monthrange(annee, mois)[1]
+                        periode_fin = date(annee, mois, last_day)
+                        periode_type = 'MENSUEL'
+                    else:
+                        periode_debut = date(annee, 1, 1)
+                        periode_fin = date(annee, 12, 31)
+                        periode_type = 'ANNUEL'
+
+                    declaration = DeclarationCotisations.objects.create(
+                        mandat=mandat,
+                        organisme=organisme,
+                        periode_type=periode_type,
+                        annee=annee,
+                        mois=mois,
+                        periode_debut=periode_debut,
+                        periode_fin=periode_fin,
+                        date_declaration=date.today(),
+                    )
+
+                    if auto_calculer:
+                        declaration.calculer_depuis_fiches()
+                        declaration.calculer_echeance()
+
+                    resultats['crees'].append({
+                        'mandat': str(mandat),
+                        'organisme': organisme,
+                        'declaration_id': declaration.pk
+                    })
+
+                except Exception as e:
+                    resultats['erreurs'].append({
+                        'mandat': str(mandat),
+                        'organisme': organisme,
+                        'erreur': str(e)
+                    })
+
+        messages.success(
+            request,
+            _("%(crees)s déclarations créées, %(existants)s existantes, %(erreurs)s erreurs") % {
+                'crees': len(resultats['crees']),
+                'existants': len(resultats['existants']),
+                'erreurs': len(resultats['erreurs'])
+            }
         )
+
+        return render(request, 'salaires/declaration_cotisations_generer_masse.html', {
+            'resultats': resultats,
+            'mandats': Mandat.objects.filter(actif=True).select_related('client'),
+            'organismes': DeclarationCotisations.ORGANISME_CHOICES,
+            'current_year': datetime.now().year,
+            'current_month': datetime.now().month,
+        })
+
+    # GET
+    return render(request, 'salaires/declaration_cotisations_generer_masse.html', {
+        'mandats': Mandat.objects.filter(actif=True).select_related('client'),
+        'organismes': DeclarationCotisations.ORGANISME_CHOICES,
+        'current_year': datetime.now().year,
+        'current_month': datetime.now().month,
+    })

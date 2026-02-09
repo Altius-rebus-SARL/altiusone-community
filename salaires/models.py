@@ -2227,17 +2227,43 @@ class CertificatSalaire(BaseModel):
 
 
 class DeclarationCotisations(BaseModel):
-    """Déclaration des cotisations sociales (AVS, etc.)"""
-    
+    """
+    Déclaration des cotisations sociales suisses
+
+    Regroupe les cotisations à déclarer aux différentes caisses:
+    - AVS/AI/APG/AC: Caisse de compensation
+    - LPP: Institution de prévoyance
+    - LAA/LAAC: Assureur accidents
+    - AF: Caisse d'allocations familiales
+    - IJM: Assureur maladie perte de gain
+    """
+
     ORGANISME_CHOICES = [
-        ('AVS', 'Caisse AVS'),
-        ('LPP', 'Institution LPP'),
-        ('LAA', 'Assurance LAA'),
+        ('AVS', 'Caisse AVS/AI/APG/AC'),
+        ('LPP', 'Institution de prévoyance LPP'),
+        ('LAA', 'Assurance accidents LAA/LAAC'),
         ('AF', 'Caisse allocations familiales'),
+        ('IJM', 'Assurance indemnités journalières maladie'),
     ]
-    
+
+    PERIODE_TYPE_CHOICES = [
+        ('MENSUEL', 'Mensuelle'),
+        ('TRIMESTRIEL', 'Trimestrielle'),
+        ('ANNUEL', 'Annuelle'),
+    ]
+
+    STATUT_CHOICES = [
+        ('BROUILLON', 'Brouillon'),
+        ('CALCULEE', 'Calculée'),
+        ('VERIFIEE', 'Vérifiée'),
+        ('TRANSMISE', 'Transmise'),
+        ('PAYEE', 'Payée'),
+    ]
+
+    # Identification
     mandat = models.ForeignKey(
         Mandat, on_delete=models.CASCADE,
+        related_name='declarations_cotisations',
         verbose_name='Mandat',
         help_text='Mandat employeur concerné'
     )
@@ -2247,6 +2273,30 @@ class DeclarationCotisations(BaseModel):
         help_text='Organisme destinataire de la déclaration'
     )
 
+    # Informations caisse (selon l'organisme)
+    nom_caisse = models.CharField(
+        max_length=200, blank=True,
+        verbose_name='Nom de la caisse',
+        help_text='Dénomination officielle de la caisse'
+    )
+    numero_affilie = models.CharField(
+        max_length=50, blank=True,
+        verbose_name='N° affilié',
+        help_text='Numéro d\'affiliation de l\'employeur'
+    )
+    numero_contrat = models.CharField(
+        max_length=50, blank=True,
+        verbose_name='N° contrat/police',
+        help_text='Numéro de contrat ou police'
+    )
+
+    # Période
+    periode_type = models.CharField(
+        max_length=15, choices=PERIODE_TYPE_CHOICES,
+        default='MENSUEL',
+        verbose_name='Type de période',
+        help_text='Fréquence de déclaration'
+    )
     periode_debut = models.DateField(
         verbose_name='Début de période',
         help_text='Premier jour de la période déclarée'
@@ -2255,26 +2305,154 @@ class DeclarationCotisations(BaseModel):
         verbose_name='Fin de période',
         help_text='Dernier jour de la période déclarée'
     )
+    annee = models.IntegerField(
+        verbose_name='Année',
+        help_text='Année de la déclaration'
+    )
+    mois = models.IntegerField(
+        null=True, blank=True,
+        verbose_name='Mois',
+        help_text='Mois (1-12) pour déclaration mensuelle'
+    )
+    trimestre = models.IntegerField(
+        null=True, blank=True,
+        verbose_name='Trimestre',
+        help_text='Trimestre (1-4) pour déclaration trimestrielle'
+    )
 
-    masse_salariale = models.DecimalField(
-        max_digits=15, decimal_places=2,
-        verbose_name='Masse salariale',
-        help_text='Total des salaires soumis en CHF'
+    # Effectifs
+    nombre_employes = models.IntegerField(
+        default=0,
+        verbose_name='Nombre d\'employés',
+        help_text='Nombre d\'employés déclarés'
+    )
+
+    # Masse salariale
+    masse_salariale_brute = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name='Masse salariale brute',
+        help_text='Total des salaires bruts en CHF'
+    )
+    masse_salariale_soumise = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name='Masse salariale soumise',
+        help_text='Total des salaires soumis à cotisation en CHF'
+    )
+
+    # Cotisations détaillées (selon organisme)
+    # Pour AVS
+    cotisation_avs = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        verbose_name='AVS',
+        help_text='Cotisation AVS (employeur + employé)'
+    )
+    cotisation_ai = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        verbose_name='AI',
+        help_text='Cotisation AI (employeur + employé)'
+    )
+    cotisation_apg = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        verbose_name='APG',
+        help_text='Cotisation APG (employeur + employé)'
+    )
+    cotisation_ac = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        verbose_name='AC',
+        help_text='Cotisation AC (employeur + employé)'
+    )
+    cotisation_ac_supp = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        verbose_name='AC supplémentaire',
+        help_text='AC sur salaires > 148\'200 CHF'
+    )
+    frais_administration = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        verbose_name='Frais d\'administration',
+        help_text='Frais de gestion de la caisse'
+    )
+
+    # Pour LPP
+    cotisation_lpp_employe = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        verbose_name='LPP employé',
+        help_text='Part employé LPP'
+    )
+    cotisation_lpp_employeur = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        verbose_name='LPP employeur',
+        help_text='Part employeur LPP'
+    )
+
+    # Pour LAA
+    cotisation_laa_pro = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        verbose_name='LAA professionnelle',
+        help_text='Prime accidents professionnels'
+    )
+    cotisation_laa_non_pro = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        verbose_name='LAA non professionnelle',
+        help_text='Prime accidents non professionnels'
+    )
+    cotisation_laac = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        verbose_name='LAAC complémentaire',
+        help_text='Assurance accidents complémentaire'
+    )
+
+    # Pour AF
+    cotisation_af = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        verbose_name='Allocations familiales',
+        help_text='Cotisation allocations familiales'
+    )
+
+    # Pour IJM
+    cotisation_ijm = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        verbose_name='IJM',
+        help_text='Prime indemnités journalières maladie'
+    )
+
+    # Totaux
+    total_cotisations_employe = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        verbose_name='Total part employé',
+        help_text='Total des cotisations part employé'
+    )
+    total_cotisations_employeur = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        verbose_name='Total part employeur',
+        help_text='Total des cotisations part employeur'
     )
     montant_cotisations = models.DecimalField(
-        max_digits=12, decimal_places=2,
-        verbose_name='Montant cotisations',
+        max_digits=12, decimal_places=2, default=0,
+        verbose_name='Montant total',
         help_text='Total des cotisations dues en CHF'
     )
 
+    # Dates et statut
+    statut = models.CharField(
+        max_length=15, choices=STATUT_CHOICES,
+        default='BROUILLON', db_index=True,
+        verbose_name='Statut',
+        help_text='État de la déclaration'
+    )
     date_declaration = models.DateField(
-        auto_now_add=True,
+        null=True, blank=True,
         verbose_name='Date de déclaration',
         help_text='Date de création de la déclaration'
     )
     date_echeance = models.DateField(
+        null=True, blank=True,
         verbose_name='Date d\'échéance',
         help_text='Date limite de paiement'
+    )
+    date_transmission = models.DateField(
+        null=True, blank=True,
+        verbose_name='Date de transmission',
+        help_text='Date d\'envoi à la caisse'
     )
     date_paiement = models.DateField(
         null=True, blank=True,
@@ -2282,22 +2460,468 @@ class DeclarationCotisations(BaseModel):
         help_text='Date effective du paiement'
     )
 
+    # Références
     numero_reference = models.CharField(
         max_length=50, blank=True,
         verbose_name='Numéro de référence',
         help_text='Référence attribuée par l\'organisme'
     )
+    numero_bvr = models.CharField(
+        max_length=50, blank=True,
+        verbose_name='N° BVR/QR',
+        help_text='Numéro de référence de paiement'
+    )
+    iban_caisse = models.CharField(
+        max_length=34, blank=True,
+        verbose_name='IBAN caisse',
+        help_text='IBAN pour le paiement'
+    )
 
+    # Documents
     fichier_declaration = models.FileField(
         upload_to='salaires/declarations/',
         null=True, blank=True,
         verbose_name='Fichier déclaration',
-        help_text='Document de déclaration'
+        help_text='Document de déclaration généré'
     )
-    
+
+    # Remarques
+    remarques = models.TextField(
+        blank=True,
+        verbose_name='Remarques',
+        help_text='Notes et observations'
+    )
+
     class Meta:
         db_table = 'declarations_cotisations'
         verbose_name = 'Déclaration de cotisations'
+        verbose_name_plural = 'Déclarations de cotisations'
+        ordering = ['-annee', '-periode_fin', 'organisme']
+        unique_together = ['mandat', 'organisme', 'annee', 'mois', 'trimestre']
+
+    def __str__(self):
+        periode = f"{self.mois}/{self.annee}" if self.mois else f"T{self.trimestre}/{self.annee}" if self.trimestre else str(self.annee)
+        return f"{self.get_organisme_display()} - {periode} - {self.mandat}"
+
+    def get_periode_display(self):
+        """Affichage formaté de la période"""
+        if self.periode_type == 'MENSUEL' and self.mois:
+            from calendar import month_name
+            import locale
+            try:
+                locale.setlocale(locale.LC_TIME, 'fr_FR.UTF-8')
+            except:
+                pass
+            return f"{month_name[self.mois].capitalize()} {self.annee}"
+        elif self.periode_type == 'TRIMESTRIEL' and self.trimestre:
+            return f"{self.trimestre}ᵉ trimestre {self.annee}"
+        else:
+            return str(self.annee)
+
+    def calculer_depuis_fiches(self):
+        """
+        Calcule les montants depuis les fiches de salaire validées
+        de la période concernée.
+        """
+        from django.db.models import Sum, Count
+
+        # Récupérer les fiches validées de la période
+        fiches = FicheSalaire.objects.filter(
+            employe__mandat=self.mandat,
+            periode__gte=self.periode_debut,
+            periode__lte=self.periode_fin,
+            statut__in=['VALIDE', 'PAYE', 'COMPTABILISE']
+        ).select_related('employe')
+
+        # Agréger les données
+        aggregats = fiches.aggregate(
+            total_brut=Sum('salaire_brut_total'),
+            # Part employé
+            sum_avs_emp=Sum('avs_employe'),
+            sum_ac_emp=Sum('ac_employe'),
+            sum_ac_supp_emp=Sum('ac_supp_employe'),
+            sum_lpp_emp=Sum('lpp_employe'),
+            sum_laa_emp=Sum('laa_employe'),
+            sum_laac_emp=Sum('laac_employe'),
+            sum_ijm_emp=Sum('ijm_employe'),
+            # Part employeur
+            sum_avs_empr=Sum('avs_employeur'),
+            sum_ac_empr=Sum('ac_employeur'),
+            sum_lpp_empr=Sum('lpp_employeur'),
+            sum_laa_empr=Sum('laa_employeur'),
+            sum_af_empr=Sum('af_employeur'),
+            # Effectifs
+            nb_employes=Count('employe', distinct=True),
+        )
+
+        self.nombre_employes = aggregats['nb_employes'] or 0
+        self.masse_salariale_brute = aggregats['total_brut'] or Decimal('0')
+        self.masse_salariale_soumise = aggregats['total_brut'] or Decimal('0')
+
+        # Calcul selon l'organisme
+        if self.organisme == 'AVS':
+            # AVS/AI/APG = 10.6% dont 5.3% employé et 5.3% employeur
+            # AC = 2.2% dont 1.1% employé et 1.1% employeur
+            avs_total = (aggregats['sum_avs_emp'] or Decimal('0')) + (aggregats['sum_avs_empr'] or Decimal('0'))
+            ac_total = (aggregats['sum_ac_emp'] or Decimal('0')) + (aggregats['sum_ac_empr'] or Decimal('0'))
+
+            # Répartition approximative AVS/AI/APG (8.7% / 1.4% / 0.5%)
+            self.cotisation_avs = avs_total * Decimal('0.821')  # 8.7/10.6
+            self.cotisation_ai = avs_total * Decimal('0.132')   # 1.4/10.6
+            self.cotisation_apg = avs_total * Decimal('0.047')  # 0.5/10.6
+            self.cotisation_ac = ac_total
+            self.cotisation_ac_supp = (aggregats['sum_ac_supp_emp'] or Decimal('0')) * 2
+
+            self.total_cotisations_employe = (aggregats['sum_avs_emp'] or Decimal('0')) + \
+                                              (aggregats['sum_ac_emp'] or Decimal('0')) + \
+                                              (aggregats['sum_ac_supp_emp'] or Decimal('0'))
+            self.total_cotisations_employeur = (aggregats['sum_avs_empr'] or Decimal('0')) + \
+                                                (aggregats['sum_ac_empr'] or Decimal('0'))
+            self.montant_cotisations = self.total_cotisations_employe + self.total_cotisations_employeur
+
+        elif self.organisme == 'LPP':
+            self.cotisation_lpp_employe = aggregats['sum_lpp_emp'] or Decimal('0')
+            self.cotisation_lpp_employeur = aggregats['sum_lpp_empr'] or Decimal('0')
+            self.total_cotisations_employe = self.cotisation_lpp_employe
+            self.total_cotisations_employeur = self.cotisation_lpp_employeur
+            self.montant_cotisations = self.cotisation_lpp_employe + self.cotisation_lpp_employeur
+
+        elif self.organisme == 'LAA':
+            laa_emp = aggregats['sum_laa_emp'] or Decimal('0')
+            laa_empr = aggregats['sum_laa_empr'] or Decimal('0')
+            laac = aggregats['sum_laac_emp'] or Decimal('0')
+
+            self.cotisation_laa_pro = laa_empr  # Généralement à charge de l'employeur
+            self.cotisation_laa_non_pro = laa_emp  # Généralement à charge de l'employé
+            self.cotisation_laac = laac
+            self.total_cotisations_employe = laa_emp + laac
+            self.total_cotisations_employeur = laa_empr
+            self.montant_cotisations = laa_emp + laa_empr + laac
+
+        elif self.organisme == 'AF':
+            self.cotisation_af = aggregats['sum_af_empr'] or Decimal('0')
+            self.total_cotisations_employe = Decimal('0')
+            self.total_cotisations_employeur = self.cotisation_af
+            self.montant_cotisations = self.cotisation_af
+
+        elif self.organisme == 'IJM':
+            self.cotisation_ijm = aggregats['sum_ijm_emp'] or Decimal('0')
+            # IJM souvent partagé 50/50
+            self.total_cotisations_employe = self.cotisation_ijm
+            self.total_cotisations_employeur = self.cotisation_ijm
+            self.montant_cotisations = self.cotisation_ijm * 2
+
+        # Créer/mettre à jour les lignes par employé
+        self._generer_lignes(fiches)
+
+        # Mettre à jour le statut
+        if self.statut == 'BROUILLON':
+            self.statut = 'CALCULEE'
+
+        self.save()
+        return self
+
+    def _generer_lignes(self, fiches):
+        """Génère les lignes détaillées par employé"""
+        from django.db.models import Sum
+
+        # Supprimer les anciennes lignes
+        self.lignes.all().delete()
+
+        # Agréger par employé
+        employes_data = fiches.values('employe').annotate(
+            total_brut=Sum('salaire_brut_total'),
+            avs_emp=Sum('avs_employe'),
+            avs_empr=Sum('avs_employeur'),
+            ac_emp=Sum('ac_employe'),
+            ac_empr=Sum('ac_employeur'),
+            ac_supp_emp=Sum('ac_supp_employe'),
+            lpp_emp=Sum('lpp_employe'),
+            lpp_empr=Sum('lpp_employeur'),
+            laa_emp=Sum('laa_employe'),
+            laa_empr=Sum('laa_employeur'),
+            laac_emp=Sum('laac_employe'),
+            ijm_emp=Sum('ijm_employe'),
+            af_empr=Sum('af_employeur'),
+        )
+
+        for data in employes_data:
+            employe = Employe.objects.get(pk=data['employe'])
+
+            # Calculer les montants selon l'organisme
+            if self.organisme == 'AVS':
+                cotisation_employe = (data['avs_emp'] or 0) + (data['ac_emp'] or 0) + (data['ac_supp_emp'] or 0)
+                cotisation_employeur = (data['avs_empr'] or 0) + (data['ac_empr'] or 0)
+            elif self.organisme == 'LPP':
+                cotisation_employe = data['lpp_emp'] or 0
+                cotisation_employeur = data['lpp_empr'] or 0
+            elif self.organisme == 'LAA':
+                cotisation_employe = (data['laa_emp'] or 0) + (data['laac_emp'] or 0)
+                cotisation_employeur = data['laa_empr'] or 0
+            elif self.organisme == 'AF':
+                cotisation_employe = 0
+                cotisation_employeur = data['af_empr'] or 0
+            elif self.organisme == 'IJM':
+                cotisation_employe = data['ijm_emp'] or 0
+                cotisation_employeur = data['ijm_emp'] or 0  # Même montant supposé
+            else:
+                cotisation_employe = 0
+                cotisation_employeur = 0
+
+            DeclarationCotisationsLigne.objects.create(
+                declaration=self,
+                employe=employe,
+                salaire_brut=data['total_brut'] or 0,
+                salaire_soumis=data['total_brut'] or 0,
+                cotisation_employe=cotisation_employe,
+                cotisation_employeur=cotisation_employeur,
+                cotisation_totale=cotisation_employe + cotisation_employeur,
+            )
+
+    def calculer_echeance(self):
+        """Calcule la date d'échéance selon l'organisme et la période"""
+        from datetime import date
+        from dateutil.relativedelta import relativedelta
+
+        # Par défaut, échéance à M+1 le 10 du mois
+        if self.periode_type == 'MENSUEL':
+            self.date_echeance = self.periode_fin + relativedelta(months=1, day=10)
+        elif self.periode_type == 'TRIMESTRIEL':
+            self.date_echeance = self.periode_fin + relativedelta(months=1, day=15)
+        else:
+            self.date_echeance = date(self.annee + 1, 1, 31)
+
+        self.save(update_fields=['date_echeance'])
+
+    def marquer_transmise(self, date_transmission=None):
+        """Marque la déclaration comme transmise"""
+        from datetime import date
+
+        if self.statut not in ['CALCULEE', 'VERIFIEE']:
+            raise ValueError("La déclaration doit être calculée ou vérifiée avant transmission")
+
+        self.date_transmission = date_transmission or date.today()
+        self.statut = 'TRANSMISE'
+        self.save()
+
+    def marquer_payee(self, date_paiement=None):
+        """Marque la déclaration comme payée"""
+        from datetime import date
+
+        self.date_paiement = date_paiement or date.today()
+        self.statut = 'PAYEE'
+        self.save()
+
+    def generer_pdf(self):
+        """Génère le PDF de la déclaration"""
+        from django.core.files.base import ContentFile
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.units import mm
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from io import BytesIO
+
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            rightMargin=15*mm,
+            leftMargin=15*mm,
+            topMargin=15*mm,
+            bottomMargin=15*mm
+        )
+
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'Title',
+            parent=styles['Heading1'],
+            fontSize=14,
+            spaceAfter=10*mm
+        )
+
+        elements = []
+
+        # Titre
+        elements.append(Paragraph(
+            f"DÉCLARATION DE COTISATIONS - {self.get_organisme_display()}",
+            title_style
+        ))
+        elements.append(Spacer(1, 5*mm))
+
+        # Informations employeur
+        client = self.mandat.client
+        info_data = [
+            ['Employeur:', client.raison_sociale],
+            ['N° IDE:', client.numero_ide or '-'],
+            ['N° affilié:', self.numero_affilie or '-'],
+            ['Période:', f"{self.periode_debut.strftime('%d.%m.%Y')} au {self.periode_fin.strftime('%d.%m.%Y')}"],
+        ]
+
+        info_table = Table(info_data, colWidths=[40*mm, 100*mm])
+        info_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ]))
+        elements.append(info_table)
+        elements.append(Spacer(1, 10*mm))
+
+        # Récapitulatif
+        recap_data = [
+            ['RÉCAPITULATIF', ''],
+            ['Nombre d\'employés:', str(self.nombre_employes)],
+            ['Masse salariale brute:', f"{self.masse_salariale_brute:,.2f} CHF".replace(',', "'")],
+            ['Masse salariale soumise:', f"{self.masse_salariale_soumise:,.2f} CHF".replace(',', "'")],
+        ]
+
+        # Ajouter détails selon organisme
+        if self.organisme == 'AVS':
+            recap_data.extend([
+                ['', ''],
+                ['Cotisation AVS:', f"{self.cotisation_avs:,.2f} CHF".replace(',', "'")],
+                ['Cotisation AI:', f"{self.cotisation_ai:,.2f} CHF".replace(',', "'")],
+                ['Cotisation APG:', f"{self.cotisation_apg:,.2f} CHF".replace(',', "'")],
+                ['Cotisation AC:', f"{self.cotisation_ac:,.2f} CHF".replace(',', "'")],
+            ])
+            if self.cotisation_ac_supp > 0:
+                recap_data.append(['Cotisation AC suppl.:', f"{self.cotisation_ac_supp:,.2f} CHF".replace(',', "'")])
+            if self.frais_administration > 0:
+                recap_data.append(['Frais administration:', f"{self.frais_administration:,.2f} CHF".replace(',', "'")])
+        elif self.organisme == 'LPP':
+            recap_data.extend([
+                ['', ''],
+                ['Cotisation employé:', f"{self.cotisation_lpp_employe:,.2f} CHF".replace(',', "'")],
+                ['Cotisation employeur:', f"{self.cotisation_lpp_employeur:,.2f} CHF".replace(',', "'")],
+            ])
+        elif self.organisme == 'LAA':
+            recap_data.extend([
+                ['', ''],
+                ['LAA professionnelle:', f"{self.cotisation_laa_pro:,.2f} CHF".replace(',', "'")],
+                ['LAA non professionnelle:', f"{self.cotisation_laa_non_pro:,.2f} CHF".replace(',', "'")],
+            ])
+            if self.cotisation_laac > 0:
+                recap_data.append(['LAAC complémentaire:', f"{self.cotisation_laac:,.2f} CHF".replace(',', "'")])
+        elif self.organisme == 'AF':
+            recap_data.append(['Cotisation AF:', f"{self.cotisation_af:,.2f} CHF".replace(',', "'")])
+        elif self.organisme == 'IJM':
+            recap_data.append(['Cotisation IJM:', f"{self.cotisation_ijm:,.2f} CHF".replace(',', "'")])
+
+        recap_data.extend([
+            ['', ''],
+            ['Part employé:', f"{self.total_cotisations_employe:,.2f} CHF".replace(',', "'")],
+            ['Part employeur:', f"{self.total_cotisations_employeur:,.2f} CHF".replace(',', "'")],
+            ['TOTAL À PAYER:', f"{self.montant_cotisations:,.2f} CHF".replace(',', "'")],
+        ])
+
+        recap_table = Table(recap_data, colWidths=[60*mm, 60*mm])
+        recap_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('PADDING', (0, 0), (-1, -1), 5),
+            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+        ]))
+        elements.append(recap_table)
+        elements.append(Spacer(1, 10*mm))
+
+        # Détail par employé
+        elements.append(Paragraph('DÉTAIL PAR EMPLOYÉ', styles['Heading2']))
+        elements.append(Spacer(1, 3*mm))
+
+        lignes = self.lignes.select_related('employe').order_by('employe__nom')
+        if lignes.exists():
+            emp_data = [['N° AVS', 'Nom Prénom', 'Salaire', 'Part emp.', 'Part empr.', 'Total']]
+            for ligne in lignes:
+                emp_data.append([
+                    ligne.employe.avs_number,
+                    f"{ligne.employe.nom} {ligne.employe.prenom}",
+                    f"{ligne.salaire_brut:,.0f}".replace(',', "'"),
+                    f"{ligne.cotisation_employe:,.2f}".replace(',', "'"),
+                    f"{ligne.cotisation_employeur:,.2f}".replace(',', "'"),
+                    f"{ligne.cotisation_totale:,.2f}".replace(',', "'"),
+                ])
+
+            emp_table = Table(emp_data, colWidths=[35*mm, 50*mm, 25*mm, 25*mm, 25*mm, 25*mm])
+            emp_table.setStyle(TableStyle([
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ('PADDING', (0, 0), (-1, -1), 3),
+                ('ALIGN', (2, 0), (-1, -1), 'RIGHT'),
+            ]))
+            elements.append(emp_table)
+
+        # Construire le PDF
+        doc.build(elements)
+
+        # Sauvegarder
+        pdf_content = buffer.getvalue()
+        buffer.close()
+
+        filename = f"declaration_{self.organisme}_{self.annee}_{self.mois or self.trimestre or 'annuel'}_{self.mandat.numero}.pdf"
+        self.fichier_declaration.save(filename, ContentFile(pdf_content), save=True)
+
+        return self.fichier_declaration
+
+
+class DeclarationCotisationsLigne(BaseModel):
+    """Ligne détaillée de déclaration par employé"""
+
+    declaration = models.ForeignKey(
+        DeclarationCotisations,
+        on_delete=models.CASCADE,
+        related_name='lignes',
+        verbose_name='Déclaration'
+    )
+    employe = models.ForeignKey(
+        Employe,
+        on_delete=models.CASCADE,
+        related_name='lignes_declarations',
+        verbose_name='Employé'
+    )
+
+    # Salaires
+    salaire_brut = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        verbose_name='Salaire brut',
+        help_text='Total salaire brut sur la période'
+    )
+    salaire_soumis = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        verbose_name='Salaire soumis',
+        help_text='Salaire soumis à cotisation'
+    )
+
+    # Cotisations
+    cotisation_employe = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Cotisation employé',
+        help_text='Part employé'
+    )
+    cotisation_employeur = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Cotisation employeur',
+        help_text='Part employeur'
+    )
+    cotisation_totale = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Cotisation totale',
+        help_text='Total (employé + employeur)'
+    )
+
+    class Meta:
+        db_table = 'declarations_cotisations_lignes'
+        verbose_name = 'Ligne de déclaration'
+        verbose_name_plural = 'Lignes de déclaration'
+        unique_together = ['declaration', 'employe']
+
+    def __str__(self):
+        return f"{self.declaration} - {self.employe}"
 
 
 class CertificatTravail(BaseModel):

@@ -6,6 +6,7 @@ from .models import (
     FicheSalaire,
     CertificatSalaire,
     DeclarationCotisations,
+    DeclarationCotisationsLigne,
 )
 from core.serializers import MandatListSerializer, UserSerializer, AdresseSerializer
 
@@ -316,12 +317,142 @@ class CertificatSalaireSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class DeclarationCotisationsSerializer(serializers.ModelSerializer):
-    """Serializer pour les déclarations de cotisations"""
+class DeclarationCotisationsLigneSerializer(serializers.ModelSerializer):
+    """Serializer pour les lignes de déclaration par employé"""
 
-    organisme_display = serializers.CharField(
-        source="get_organisme_display", read_only=True
-    )
+    employe_nom = serializers.CharField(source='employe.nom', read_only=True)
+    employe_prenom = serializers.CharField(source='employe.prenom', read_only=True)
+    employe_avs = serializers.CharField(source='employe.avs_number', read_only=True)
+
+    class Meta:
+        model = DeclarationCotisationsLigne
+        fields = [
+            'id', 'employe', 'employe_nom', 'employe_prenom', 'employe_avs',
+            'salaire_brut', 'salaire_soumis',
+            'cotisation_employe', 'cotisation_employeur', 'cotisation_totale'
+        ]
+
+
+class DeclarationCotisationsListSerializer(serializers.ModelSerializer):
+    """Serializer léger pour la liste des déclarations"""
+
+    organisme_display = serializers.CharField(source="get_organisme_display", read_only=True)
+    statut_display = serializers.CharField(source="get_statut_display", read_only=True)
+    periode_display = serializers.CharField(source="get_periode_display", read_only=True)
+    mandat_numero = serializers.CharField(source="mandat.numero", read_only=True)
+    client_nom = serializers.CharField(source="mandat.client.raison_sociale", read_only=True)
+
+    class Meta:
+        model = DeclarationCotisations
+        fields = [
+            'id', 'mandat', 'mandat_numero', 'client_nom',
+            'organisme', 'organisme_display',
+            'periode_type', 'annee', 'mois', 'trimestre', 'periode_display',
+            'periode_debut', 'periode_fin',
+            'nombre_employes', 'masse_salariale_brute', 'montant_cotisations',
+            'statut', 'statut_display',
+            'date_echeance', 'date_paiement',
+        ]
+
+
+class DeclarationCotisationsDetailSerializer(serializers.ModelSerializer):
+    """Serializer complet pour le détail des déclarations"""
+
+    organisme_display = serializers.CharField(source="get_organisme_display", read_only=True)
+    statut_display = serializers.CharField(source="get_statut_display", read_only=True)
+    periode_display = serializers.CharField(source="get_periode_display", read_only=True)
+    mandat_numero = serializers.CharField(source="mandat.numero", read_only=True)
+    client_nom = serializers.CharField(source="mandat.client.raison_sociale", read_only=True)
+    lignes = DeclarationCotisationsLigneSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = DeclarationCotisations
+        fields = [
+            'id', 'mandat', 'mandat_numero', 'client_nom',
+            'organisme', 'organisme_display',
+            'nom_caisse', 'numero_affilie', 'numero_contrat',
+            'periode_type', 'annee', 'mois', 'trimestre', 'periode_display',
+            'periode_debut', 'periode_fin',
+            'nombre_employes', 'masse_salariale_brute', 'masse_salariale_soumise',
+            # Cotisations AVS
+            'cotisation_avs', 'cotisation_ai', 'cotisation_apg',
+            'cotisation_ac', 'cotisation_ac_supp', 'frais_administration',
+            # Cotisations LPP
+            'cotisation_lpp_employe', 'cotisation_lpp_employeur',
+            # Cotisations LAA
+            'cotisation_laa_pro', 'cotisation_laa_non_pro', 'cotisation_laac',
+            # Cotisations AF/IJM
+            'cotisation_af', 'cotisation_ijm',
+            # Totaux
+            'total_cotisations_employe', 'total_cotisations_employeur', 'montant_cotisations',
+            # Statut et dates
+            'statut', 'statut_display',
+            'date_declaration', 'date_echeance', 'date_transmission', 'date_paiement',
+            # Paiement
+            'numero_reference', 'numero_bvr', 'iban_caisse',
+            # Documents
+            'fichier_declaration', 'remarques',
+            # Lignes
+            'lignes',
+            # Timestamps
+            'created_at', 'updated_at',
+        ]
+
+
+class DeclarationCotisationsCreateSerializer(serializers.ModelSerializer):
+    """Serializer pour la création de déclarations"""
+
+    auto_calculer = serializers.BooleanField(write_only=True, default=True)
+
+    class Meta:
+        model = DeclarationCotisations
+        fields = [
+            'mandat', 'organisme', 'periode_type', 'annee', 'mois', 'trimestre',
+            'nom_caisse', 'numero_affilie', 'numero_contrat',
+            'auto_calculer'
+        ]
+
+    def create(self, validated_data):
+        from calendar import monthrange
+        from datetime import date
+
+        auto_calculer = validated_data.pop('auto_calculer', True)
+        annee = validated_data.get('annee')
+        mois = validated_data.get('mois')
+        trimestre = validated_data.get('trimestre')
+        periode_type = validated_data.get('periode_type', 'MENSUEL')
+
+        # Calculer les dates de période
+        if periode_type == 'MENSUEL' and mois:
+            validated_data['periode_debut'] = date(annee, mois, 1)
+            last_day = monthrange(annee, mois)[1]
+            validated_data['periode_fin'] = date(annee, mois, last_day)
+        elif periode_type == 'TRIMESTRIEL' and trimestre:
+            mois_debut = (trimestre - 1) * 3 + 1
+            mois_fin = trimestre * 3
+            validated_data['periode_debut'] = date(annee, mois_debut, 1)
+            last_day = monthrange(annee, mois_fin)[1]
+            validated_data['periode_fin'] = date(annee, mois_fin, last_day)
+        else:
+            validated_data['periode_debut'] = date(annee, 1, 1)
+            validated_data['periode_fin'] = date(annee, 12, 31)
+
+        validated_data['date_declaration'] = date.today()
+
+        declaration = super().create(validated_data)
+
+        if auto_calculer:
+            declaration.calculer_depuis_fiches()
+            declaration.calculer_echeance()
+
+        return declaration
+
+
+class DeclarationCotisationsSerializer(serializers.ModelSerializer):
+    """Serializer par défaut pour les déclarations de cotisations"""
+
+    organisme_display = serializers.CharField(source="get_organisme_display", read_only=True)
+    statut_display = serializers.CharField(source="get_statut_display", read_only=True)
     mandat_numero = serializers.CharField(source="mandat.numero", read_only=True)
 
     class Meta:
