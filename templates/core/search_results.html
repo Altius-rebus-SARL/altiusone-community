@@ -26,9 +26,9 @@
                 <!-- Nouvelle recherche -->
                 <form method="get" action="{% url 'core:global-search' %}" class="mb-4">
                     <div class="input-group">
-                        <input type="text" 
-                               name="q" 
-                               class="form-control" 
+                        <input type="text"
+                               name="q"
+                               class="form-control"
                                placeholder="{% trans 'Rechercher...' %}"
                                value="{{ query }}"
                                autofocus>
@@ -54,105 +54,36 @@
                     </div>
                 {% else %}
 
-                    <!-- Clients -->
-                    {% if results.clients %}
-                    <div class="card mt-4">
+                    {% for type_key, group in results_groups.items %}
+                    <div class="card mt-3">
                         <div class="card-body">
-                            <h5 class="text-primary mb-3">
-                                <i class="ti ti-users me-2"></i>
-                                {% trans "Clients" %} ({{ results.clients|length }})
+                            <h5 class="text-{{ group.color }} mb-3">
+                                <i class="{{ group.icon }} me-2"></i>
+                                {{ group.label }} ({{ group.items|length }})
                             </h5>
                             <ul class="box-list">
-                                {% for client in results.clients %}
-                                <li class="d-flex align-items-center justify-content-between">
-                                    <div>
+                                {% for result in group.items %}
+                                <li class="d-flex align-items-center gap-3">
+                                    <span class="bg-light-{{ group.color }} rounded-circle d-flex align-items-center justify-content-center" style="width:36px;height:36px;min-width:36px;">
+                                        <i class="{{ result.icon }} text-{{ group.color }}"></i>
+                                    </span>
+                                    <div class="flex-grow-1 min-width-0">
                                         <h6 class="mb-0 f-w-500">
-                                            <a href="{% url 'core:client-detail' client.pk %}">
-                                                {{ client.raison_sociale }}
-                                            </a>
+                                            <a href="{{ result.url }}">{{ result.title }}</a>
                                         </h6>
-                                        <p class="text-muted mb-0">{{ client.ide_number }} - {{ client.email }}</p>
+                                        <p class="text-muted mb-0 f-s-13">{{ result.subtitle }}</p>
                                     </div>
-                                    <span class="badge bg-light-primary">{{ client.get_forme_juridique_display }}</span>
+                                    {% if result.score %}
+                                    <span class="badge bg-light-{{ group.color }} text-{{ group.color }}">
+                                        {{ result.score|floatformat:0 }}%
+                                    </span>
+                                    {% endif %}
                                 </li>
                                 {% endfor %}
                             </ul>
                         </div>
                     </div>
-                    {% endif %}
-
-                    <!-- Mandats -->
-                    {% if results.mandats %}
-                    <div class="card mt-4">
-                        <div class="card-body">
-                            <h5 class="text-primary mb-3">
-                                <i class="ti ti-briefcase me-2"></i>
-                                {% trans "Mandats" %} ({{ results.mandats|length }})
-                            </h5>
-                            <ul class="box-list">
-                                {% for mandat in results.mandats %}
-                                <li class="d-flex align-items-center justify-content-between">
-                                    <div>
-                                        <h6 class="mb-0 f-w-500">
-                                            <a href="{% url 'core:mandat-detail' mandat.pk %}">
-                                                {{ mandat.numero }}
-                                            </a>
-                                        </h6>
-                                        <p class="text-muted mb-0">{{ mandat.client.raison_sociale }}</p>
-                                    </div>
-                                    <span class="badge bg-light-success">{{ mandat.type_mandat_ref.libelle|default:mandat.get_type_mandat_display }}</span>
-                                </li>
-                                {% endfor %}
-                            </ul>
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    <!-- Factures -->
-                    {% if results.factures %}
-                    <div class="card mt-4">
-                        <div class="card-body">
-                            <h5 class="text-primary mb-3">
-                                <i class="ti ti-file-invoice me-2"></i>
-                                {% trans "Factures" %} ({{ results.factures|length }})
-                            </h5>
-                            <ul class="box-list">
-                                {% for facture in results.factures %}
-                                <li class="d-flex align-items-center justify-content-between">
-                                    <div>
-                                        <h6 class="mb-0 f-w-500">{{ facture.numero }}</h6>
-                                        <p class="text-muted mb-0">{{ facture.client.raison_sociale }}</p>
-                                    </div>
-                                    <span class="badge bg-light-warning">{{ facture.montant_ttc }} CHF</span>
-                                </li>
-                                {% endfor %}
-                            </ul>
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    <!-- Documents -->
-                    {% if results.documents %}
-                    <div class="card mt-4">
-                        <div class="card-body">
-                            <h5 class="text-primary mb-3">
-                                <i class="ti ti-file me-2"></i>
-                                {% trans "Documents" %} ({{ results.documents|length }})
-                            </h5>
-                            <ul class="box-list">
-                                {% for document in results.documents %}
-                                <li class="d-flex align-items-center justify-content-between">
-                                    <div>
-                                        <h6 class="mb-0 f-w-500">{{ document.nom }}</h6>
-                                        <p class="text-muted mb-0">{{ document.mandat.client.raison_sociale }}</p>
-                                    </div>
-                                    <span class="badge bg-light-info">{{ document.created_at|date:"d.m.Y" }}</span>
-                                </li>
-                                {% endfor %}
-                            </ul>
-                        </div>
-                    </div>
-                    {% endif %}
+                    {% endfor %}
 
                 {% endif %}
 

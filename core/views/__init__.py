@@ -43,6 +43,7 @@ from .main_views import (
     notification_mark_read,
     # Recherche
     GlobalSearchView,
+    omnibar_search,
     # Profil
     ProfileView,
     ProfileUpdateView,
@@ -158,6 +159,7 @@ __all__ = [
     'notification_mark_read',
     # Recherche
     'GlobalSearchView',
+    'omnibar_search',
     # Profil
     'ProfileView',
     'ProfileUpdateView',

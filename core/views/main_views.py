@@ -608,17 +608,31 @@ def get_stats_dashboard(request):
 
 class GlobalSearchView(LoginRequiredMixin, TemplateView):
     """
-    Recherche globale dans tous les modules
+    Recherche globale dans tous les modules.
+    Utilise UniversalSearchService (17 types d'entités).
     """
 
     template_name = "core/search_results.html"
 
+    ENTITY_LABELS = {
+        'document': 'Documents', 'client': 'Clients', 'mandat': 'Mandats',
+        'employe': 'Employés', 'contact': 'Contacts', 'facture': 'Factures',
+        'ecriture': 'Écritures', 'piece_comptable': 'Pièces comptables',
+        'declaration_tva': 'Déclarations TVA', 'declaration_fiscale': 'Déclarations fiscales',
+        'tache': 'Tâches', 'compte': 'Comptes', 'dossier': 'Dossiers',
+        'type_plan_comptable': 'Types de plans', 'classe_comptable': 'Classes comptables',
+        'plan_comptable': 'Plans comptables', 'journal': 'Journaux',
+    }
+
     def get_context_data(self, **kwargs):
+        from documents.universal_search import universal_search, SearchContext
+
         context = super().get_context_data(**kwargs)
         query = self.request.GET.get("q", "").strip()
 
         context["query"] = query
-        context["results"] = {}
+        context["results_groups"] = {}
+        context["total_results"] = 0
 
         if not query or len(query) < 2:
             context["error"] = _(
@@ -626,43 +640,66 @@ class GlobalSearchView(LoginRequiredMixin, TemplateView):
             )
             return context
 
-        # Recherche dans les clients
-        clients = Client.objects.filter(
-            Q(nom__icontains=query)
-            | Q(code_client__icontains=query)
-            | Q(email__icontains=query)
-            | Q(telephone__icontains=query)
-        ).select_related()[:10]
-        context["results"]["clients"] = clients
+        search_ctx = SearchContext(user=self.request.user)
+        results = universal_search.search(query=query, context=search_ctx, limit=50)
 
-        # Recherche dans les mandats
-        mandats = Mandat.objects.filter(
-            Q(numero__icontains=query)
-            | Q(client__nom__icontains=query)
-            | Q(description__icontains=query)
-        ).select_related("client")[:10]
-        context["results"]["mandats"] = mandats
+        groups = {}
+        for result in results:
+            et = result.entity_type.value
+            if et not in groups:
+                config = universal_search.ENTITY_CONFIG.get(result.entity_type, {})
+                groups[et] = {
+                    "label": self.ENTITY_LABELS.get(et, et),
+                    "icon": config.get("icon", "ph-file"),
+                    "color": config.get("color", "secondary"),
+                    "items": [],
+                }
+            groups[et]["items"].append(result)
 
-        # Recherche dans les factures
-        if self.request.user.has_perm("facturation.view_facture"):
-            factures = Facture.objects.filter(
-                Q(numero__icontains=query) | Q(client__nom__icontains=query)
-            ).select_related("client")[:10]
-            context["results"]["factures"] = factures
-
-        # Recherche dans les documents
-        if self.request.user.has_perm("documents.view_document"):
-            documents = Document.objects.filter(
-                Q(nom__icontains=query) | Q(description__icontains=query)
-            ).select_related("mandat")[:10]
-            context["results"]["documents"] = documents
-
-        # Compter le total de résultats
-        context["total_results"] = sum(
-            len(results) for results in context["results"].values()
-        )
+        context["results_groups"] = groups
+        context["total_results"] = len(results)
 
         return context
+
+
+@login_required
+@require_http_methods(["GET"])
+def omnibar_search(request):
+    """AJAX endpoint pour l'omnibar autocomplete."""
+    from documents.universal_search import universal_search, SearchContext
+
+    query = request.GET.get("q", "").strip()
+    if not query or len(query) < 2:
+        return JsonResponse({"groups": {}, "total": 0, "query": query})
+
+    context = SearchContext(user=request.user)
+    results = universal_search.search(query=query, context=context, limit=20)
+
+    ENTITY_LABELS = {
+        'document': 'Documents', 'client': 'Clients', 'mandat': 'Mandats',
+        'employe': 'Employés', 'contact': 'Contacts', 'facture': 'Factures',
+        'ecriture': 'Écritures', 'piece_comptable': 'Pièces comptables',
+        'declaration_tva': 'Déclarations TVA', 'declaration_fiscale': 'Déclarations fiscales',
+        'tache': 'Tâches', 'compte': 'Comptes', 'dossier': 'Dossiers',
+        'type_plan_comptable': 'Types de plans', 'classe_comptable': 'Classes comptables',
+        'plan_comptable': 'Plans comptables', 'journal': 'Journaux',
+    }
+
+    groups = {}
+    for result in results:
+        et = result.entity_type.value
+        if et not in groups:
+            config = universal_search.ENTITY_CONFIG.get(result.entity_type, {})
+            groups[et] = {
+                "label": ENTITY_LABELS.get(et, et),
+                "icon": config.get("icon", "ph-file"),
+                "color": config.get("color", "secondary"),
+                "results": [],
+            }
+        if len(groups[et]["results"]) < 3:
+            groups[et]["results"].append(result.to_dict())
+
+    return JsonResponse({"groups": groups, "total": len(results), "query": query})
 
 
 # ============================================================================

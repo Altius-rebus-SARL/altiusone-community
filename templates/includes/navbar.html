@@ -12,12 +12,25 @@
                 </span>
 
                 <div class="header-searchbar w-100">
-                    <form action="{% url 'core:global-search' %}" class="mx-sm-3 app-form app-icon-form">
+                    <form action="{% url 'core:global-search' %}" class="mx-sm-3 app-form app-icon-form"
+                          id="omnibar-form" autocomplete="off">
                         <div class="position-relative">
-                            <input aria-label="Search" class="form-control" placeholder="{% trans 'Rechercher...' %}" type="search" name="q">
-                            <i class="ti ti-search text-dark"></i>
+                            <input aria-label="Search" class="form-control" placeholder="{% trans 'Rechercher...' %}"
+                                   type="search" name="q" id="omnibar-input"
+                                   data-search-url="{% url 'core:omnibar-search' %}"
+                                   data-full-url="{% url 'core:global-search' %}">
+                            <i class="ti ti-search text-dark" id="omnibar-icon"></i>
+                            <div class="spinner-border spinner-border-sm text-primary d-none"
+                                 id="omnibar-spinner" style="position:absolute; right:12px; top:12px;"></div>
                         </div>
                     </form>
+                    <div class="omnibar-dropdown d-none" id="omnibar-dropdown">
+                        <div id="omnibar-results"></div>
+                        <a href="#" class="omnibar-footer d-none" id="omnibar-footer">
+                            <i class="ti ti-search me-1"></i>
+                            <span>{% trans "Voir tous les résultats" %}</span>
+                        </a>
+                    </div>
                 </div>
             </div>
 

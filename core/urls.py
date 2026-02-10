@@ -159,6 +159,7 @@ urlpatterns = [
     ),
     path("api/stats-dashboard/", views.get_stats_dashboard, name="stats-dashboard"),
     path("api/dashboard-stats/", views.get_dashboard_stats, name="dashboard-stats"),
+    path("api/omnibar-search/", views.omnibar_search, name="omnibar-search"),
     # ============================================================================
     # ADMINISTRATION - UTILISATEURS
     # ============================================================================
