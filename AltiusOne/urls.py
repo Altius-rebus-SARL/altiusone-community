@@ -85,6 +85,9 @@ urlpatterns = [
     # API v1 - Chat URLs (raccourci pour /api/v1/chat/)
     path("api/v1/", include(docs_chat_urls)),
 
+    # API v1 - Chat & Messagerie (team messaging + AI)
+    path("api/v1/messaging/", include("chat.api_urls")),
+
     # API v1 - Éditeur collaboratif
     path("api/v1/editeur/", include(editeur_api_urls)),
 
