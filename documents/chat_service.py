@@ -405,7 +405,86 @@ Reponds en indiquant que tu n'as pas trouve de donnees pertinentes.
         if conversation.mandat:
             contexte = f"Contexte: Mandat {conversation.mandat.numero} - {conversation.mandat.client.raison_sociale if conversation.mandat.client else 'N/A'}\n\n" + contexte
 
+        # Ajouter le contexte intelligence (insights, relations, digest)
+        intelligence_context = self._build_intelligence_context(conversation)
+        if intelligence_context:
+            contexte += "\n\n" + intelligence_context
+
         return base_prompt.format(contexte=contexte)
+
+    def _build_intelligence_context(self, conversation) -> str:
+        """
+        Construit le contexte intelligence (insights, relations, digest).
+        """
+        sections = []
+        mandat = conversation.mandat
+        if not mandat:
+            return ""
+
+        try:
+            from documents.models_intelligence import MandatInsight, MandatDigest, DocumentRelation
+            from django.db.models import Q
+            from django.utils import timezone
+
+            # Insights non traites
+            insights = MandatInsight.objects.filter(
+                mandat=mandat, traite=False
+            ).filter(
+                Q(date_expiration__isnull=True) | Q(date_expiration__gt=timezone.now())
+            ).order_by('-severite', '-created_at')[:10]
+
+            if insights:
+                sections.append("## Alertes et Insights actifs")
+                for i in insights:
+                    sections.append(
+                        f"- [{i.get_severite_display()}] {i.titre}: "
+                        f"{i.description[:200]}"
+                    )
+
+            # Relations des documents en contexte
+            from documents.models import Message
+            doc_ids = list(
+                Message.objects.filter(
+                    conversation=conversation
+                ).values_list(
+                    'documents_contexte', flat=True
+                ).distinct()
+            )
+            doc_ids = [d for d in doc_ids if d is not None]
+
+            if doc_ids:
+                relations = DocumentRelation.objects.filter(
+                    Q(document_source_id__in=doc_ids) | Q(document_cible_id__in=doc_ids)
+                ).select_related(
+                    'document_source', 'document_cible'
+                )[:10]
+
+                if relations:
+                    sections.append("## Relations entre documents")
+                    for r in relations:
+                        sections.append(
+                            f"- {r.document_source.nom_fichier} <-> "
+                            f"{r.document_cible.nom_fichier}: "
+                            f"{r.get_type_relation_display()} "
+                            f"(score: {r.score_similarite})"
+                        )
+
+            # Dernier digest
+            digest = MandatDigest.objects.filter(
+                mandat=mandat
+            ).order_by('-periode_fin').first()
+
+            if digest:
+                sections.append(
+                    f"## Dernier résumé ({digest.get_type_digest_display()} "
+                    f"{digest.periode_debut} - {digest.periode_fin})"
+                )
+                sections.append(digest.resume[:500])
+
+        except Exception as e:
+            logger.warning(f"Erreur construction contexte intelligence: {e}")
+
+        return "\n".join(sections)
 
     def _format_result_for_context(self, result: SearchResult) -> str:
         """Formate un resultat pour inclusion dans le contexte."""

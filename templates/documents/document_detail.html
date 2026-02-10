@@ -346,6 +346,44 @@
         </div>
         {% endif %}
 
+        <!-- Documents liés (Intelligence AI) -->
+        {% if relations %}
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-link me-2"></i>{% trans "Documents liés" %}</h5>
+            </div>
+            <div class="card-body">
+                {% for rel in relations %}
+                {% if rel.document_cible.pk == document.pk %}
+                {% with other=rel.document_source %}
+                <div class="d-flex align-items-center mb-2">
+                    <span class="badge text-light-{% if rel.type_relation == 'DOUBLON' %}warning{% elif rel.type_relation == 'CONTRADICTION' %}danger{% else %}info{% endif %} me-2 f-s-11">
+                        {{ rel.get_type_relation_display }}
+                    </span>
+                    <a href="{% url 'documents:document-detail' other.pk %}" class="f-w-500 f-s-13">
+                        {{ other.nom_fichier|truncatechars:25 }}
+                    </a>
+                    <span class="ms-auto text-muted f-s-12">{{ rel.score_similarite|floatformat:0 }}%</span>
+                </div>
+                {% endwith %}
+                {% else %}
+                {% with other=rel.document_cible %}
+                <div class="d-flex align-items-center mb-2">
+                    <span class="badge text-light-{% if rel.type_relation == 'DOUBLON' %}warning{% elif rel.type_relation == 'CONTRADICTION' %}danger{% else %}info{% endif %} me-2 f-s-11">
+                        {{ rel.get_type_relation_display }}
+                    </span>
+                    <a href="{% url 'documents:document-detail' other.pk %}" class="f-w-500 f-s-13">
+                        {{ other.nom_fichier|truncatechars:25 }}
+                    </a>
+                    <span class="ms-auto text-muted f-s-12">{{ rel.score_similarite|floatformat:0 }}%</span>
+                </div>
+                {% endwith %}
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
         <!-- AI Features -->
         {% if document.ocr_text %}
         <div class="card">

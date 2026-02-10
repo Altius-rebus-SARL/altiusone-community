@@ -94,6 +94,12 @@ urlpatterns = [
     path(
         "types/<uuid:pk>/get-data/", views.type_document_get_data, name="type-get-data"
     ),
+    # Intelligence AI
+    path("mandats/<uuid:mandat_pk>/analyser/", views.mandat_analyser, name="mandat-analyser"),
+    path("mandats/<uuid:mandat_pk>/insights/", views.mandat_insights, name="mandat-insights"),
+    path("mandats/<uuid:mandat_pk>/digests/", views.mandat_digests, name="mandat-digests"),
+    path("insights/<uuid:pk>/traiter/", views.insight_traiter, name="insight-traiter"),
+
     # API AJAX pour filtrage dynamique
     path(
         "api/mandat/<uuid:mandat_pk>/dossiers/",

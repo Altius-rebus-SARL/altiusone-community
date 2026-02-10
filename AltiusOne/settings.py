@@ -326,6 +326,21 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'core.tasks.update_snb_exchange_rates',
         'schedule': crontab(hour=7, minute=30),
     },
+    # Intelligence AI - Analyse quotidienne des mandats actifs a 02h00
+    'analyser-mandats-actifs': {
+        'task': 'documents.tasks_intelligence.analyser_mandats_actifs',
+        'schedule': crontab(hour=2, minute=0),
+    },
+    # Intelligence AI - Digests hebdomadaires (lundi 06h00)
+    'digests-hebdomadaires': {
+        'task': 'documents.tasks_intelligence.generer_digests_hebdomadaires',
+        'schedule': crontab(hour=6, minute=0, day_of_week=1),
+    },
+    # Intelligence AI - Digests mensuels (1er du mois 06h00)
+    'digests-mensuels': {
+        'task': 'documents.tasks_intelligence.generer_digests_mensuels',
+        'schedule': crontab(hour=6, minute=0, day_of_month=1),
+    },
 }
 
 

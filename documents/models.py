@@ -1326,3 +1326,7 @@ class Message(BaseModel):
             self.conversation.nombre_messages = self.conversation.messages.count()
             self.conversation.tokens_utilises += self.tokens_prompt + self.tokens_completion
             self.conversation.save(update_fields=['nombre_messages', 'tokens_utilises', 'updated_at'])
+
+
+# Import intelligence models so Django discovers them for migrations
+from documents.models_intelligence import DocumentRelation, MandatInsight, MandatDigest  # noqa: F401, E402

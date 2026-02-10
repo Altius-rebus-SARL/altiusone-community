@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Résumés IA" %} - {{ mandat.numero }}{% endblock %}
+
+{% block content %}
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Résumés IA" %} - {{ mandat.numero }}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:mandat-detail' mandat.pk %}">
+                    <span><i class="ph-duotone ph-briefcase f-s-16"></i> {{ mandat.numero }}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">
+                    <span><i class="ph-duotone ph-robot f-s-16"></i> {% trans "Résumés" %}</span>
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        {% for digest in digests %}
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="ti ti-robot text-primary me-2"></i>
+                    {{ digest.get_type_digest_display }}
+                    <span class="badge bg-light-info ms-2">{{ digest.periode_debut|date:"d.m.Y" }} - {{ digest.periode_fin|date:"d.m.Y" }}</span>
+                </h5>
+                <button class="btn btn-sm btn-light" data-bs-toggle="collapse" data-bs-target="#digest-{{ digest.pk }}">
+                    <i class="ti ti-chevron-down"></i>
+                </button>
+            </div>
+            <div id="digest-{{ digest.pk }}" class="collapse {% if forloop.first %}show{% endif %}">
+                <div class="card-body">
+                    <p>{{ digest.resume }}</p>
+
+                    {% if digest.points_cles %}
+                    <h6 class="f-w-600 mt-3 mb-2">{% trans "Points clés" %}</h6>
+                    <ul class="list-unstyled">
+                        {% for point in digest.points_cles %}
+                        <li class="mb-1"><i class="ti ti-point-filled text-primary me-1"></i>{{ point }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+
+                    {% if digest.statistiques %}
+                    <h6 class="f-w-600 mt-3 mb-2">{% trans "Statistiques" %}</h6>
+                    <div class="row">
+                        {% if digest.statistiques.documents_ajoutes %}
+                        <div class="col-md-3">
+                            <div class="text-center p-2 bg-light rounded">
+                                <h5 class="mb-0 text-primary">{{ digest.statistiques.documents_ajoutes }}</h5>
+                                <small class="text-muted">{% trans "Documents" %}</small>
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% if digest.statistiques.nb_insights %}
+                        <div class="col-md-3">
+                            <div class="text-center p-2 bg-light rounded">
+                                <h5 class="mb-0 text-warning">{{ digest.statistiques.nb_insights }}</h5>
+                                <small class="text-muted">{% trans "Insights" %}</small>
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% if digest.statistiques.taille_totale_mb %}
+                        <div class="col-md-3">
+                            <div class="text-center p-2 bg-light rounded">
+                                <h5 class="mb-0 text-info">{{ digest.statistiques.taille_totale_mb }} MB</h5>
+                                <small class="text-muted">{% trans "Taille" %}</small>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer text-muted f-s-12">
+                    {% trans "Généré le" %} {{ digest.created_at|date:"d.m.Y à H:i" }}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="ti ti-robot text-muted" style="font-size: 48px;"></i>
+                <p class="text-muted mt-3">{% trans "Aucun résumé disponible pour ce mandat." %}</p>
+                <p class="text-muted f-s-13">{% trans "Les résumés sont générés automatiquement chaque semaine et chaque mois." %}</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

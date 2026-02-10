@@ -589,6 +589,17 @@ class DocumentDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView
         else:
             context['has_context'] = False
 
+        # Relations de ce document (Intelligence AI)
+        try:
+            from documents.models_intelligence import DocumentRelation
+            context['relations'] = DocumentRelation.objects.filter(
+                Q(document_source=document) | Q(document_cible=document)
+            ).select_related(
+                'document_source', 'document_cible'
+            ).order_by('-score_similarite')[:5]
+        except Exception:
+            context['relations'] = []
+
         return context
 
     def format_metadata(self, metadata):
@@ -1541,4 +1552,54 @@ def document_similar(request, pk):
         'document': document,
         'similar_documents': similar_documents,
         'error_message': error_message,
+    })
+
+
+# ============ INTELLIGENCE AI ============
+
+
+@login_required
+@require_http_methods(["POST"])
+def mandat_analyser(request, mandat_pk):
+    """Déclenche l'analyse AI complète d'un mandat."""
+    from documents.tasks_intelligence import analyser_mandat_complet
+
+    mandat = get_object_or_404(Mandat, pk=mandat_pk)
+    analyser_mandat_complet.delay(str(mandat.id))
+    return JsonResponse({'success': True, 'message': 'Analyse lancée'})
+
+
+@login_required
+@require_http_methods(["POST"])
+def insight_traiter(request, pk):
+    """Marquer un insight comme traité."""
+    from documents.models_intelligence import MandatInsight
+
+    insight = get_object_or_404(MandatInsight, pk=pk)
+    insight.traite = True
+    insight.save(update_fields=['traite'])
+    return JsonResponse({'success': True})
+
+
+@login_required
+def mandat_insights(request, mandat_pk):
+    """Liste complète des insights d'un mandat."""
+    from documents.models_intelligence import MandatInsight
+
+    mandat = get_object_or_404(Mandat, pk=mandat_pk)
+    insights = MandatInsight.objects.filter(mandat=mandat).order_by('-created_at')
+    return render(request, 'documents/mandat_insights.html', {
+        'mandat': mandat, 'insights': insights
+    })
+
+
+@login_required
+def mandat_digests(request, mandat_pk):
+    """Liste des digests d'un mandat."""
+    from documents.models_intelligence import MandatDigest
+
+    mandat = get_object_or_404(Mandat, pk=mandat_pk)
+    digests = MandatDigest.objects.filter(mandat=mandat).order_by('-periode_fin')
+    return render(request, 'documents/mandat_digests.html', {
+        'mandat': mandat, 'digests': digests
     })

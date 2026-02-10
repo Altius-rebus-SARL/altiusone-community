@@ -130,6 +130,14 @@ def traiter_document_ocr(self, document_id: str):
 
         logger.info(f"Document {document_id} traite avec succes")
 
+        # Declencher la decouverte de relations si embedding genere
+        if result['embedding']:
+            try:
+                from documents.tasks_intelligence import decouvrir_relations_document
+                decouvrir_relations_document.delay(str(document_id))
+            except Exception as e:
+                logger.warning(f"Impossible de lancer decouverte relations: {e}")
+
         return {
             'status': 'success',
             'document_id': str(document_id),

@@ -403,6 +403,36 @@ class MandatDetailView(LoginRequiredMixin, DetailView):
             or 0,
         }
 
+        # Intelligence AI
+        try:
+            from documents.models_intelligence import MandatInsight, MandatDigest, DocumentRelation
+
+            # Insights non traités (max 5 récents)
+            context['insights'] = MandatInsight.objects.filter(
+                mandat=mandat, traite=False
+            ).order_by('-severite', '-created_at')[:5]
+            context['insights_count'] = MandatInsight.objects.filter(
+                mandat=mandat, traite=False
+            ).count()
+
+            # Dernier digest
+            context['dernier_digest'] = MandatDigest.objects.filter(
+                mandat=mandat
+            ).order_by('-periode_fin').first()
+
+            # Relations (doublons, contradictions)
+            context['relations_alertes'] = DocumentRelation.objects.filter(
+                document_source__mandat=mandat,
+                type_relation__in=['DOUBLON', 'CONTRADICTION']
+            ).select_related(
+                'document_source', 'document_cible'
+            )[:5]
+        except Exception:
+            context['insights'] = []
+            context['insights_count'] = 0
+            context['dernier_digest'] = None
+            context['relations_alertes'] = []
+
         return context
 
 
