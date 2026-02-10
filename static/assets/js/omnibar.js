@@ -283,6 +283,22 @@
       setActive(idx);
     });
 
+    // Click on items - explicit handler for reliable navigation
+    $dropdown.on("click", ".omnibar-item", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var href = $(this).attr("href");
+      if (href) window.location.href = href;
+    });
+
+    // Click on footer
+    $dropdown.on("click", ".omnibar-footer", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var href = $(this).attr("href");
+      if (href) window.location.href = href;
+    });
+
     // Form submit prevention when dropdown item selected
     $form.on("submit", function (e) {
       var $items = getVisibleItems();

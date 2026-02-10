@@ -34787,22 +34787,28 @@ body.dark nav .app-logo .logo img {
    OMNIBAR - Recherche globale en temps réel
    ============================================================================ */
 
+header.header-main,
+header.header-main .container-fluid,
+header.header-main .container-fluid .row,
+header.header-main .container-fluid .header-left {
+  overflow: visible !important;
+}
+
 .header-searchbar {
   position: relative;
 }
 
 .omnibar-dropdown {
   position: absolute;
-  top: 100%;
+  top: calc(100% + 4px);
   left: 0;
   right: 0;
-  margin-top: 4px;
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
   max-height: 480px;
   overflow-y: auto;
-  z-index: 1050;
+  z-index: 9999;
   border: 1px solid rgba(0, 0, 0, 0.08);
 }
 

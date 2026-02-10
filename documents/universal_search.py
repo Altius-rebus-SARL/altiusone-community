@@ -496,13 +496,22 @@ class UniversalSearchService:
             Q(avs_number__icontains=query)
         )
 
+        # Multi-word: also search concatenated full name ("Laetitia Barman")
+        q_fullname = Q(full_name__icontains=query)
+        # Also try reversed order ("Barman Laetitia")
+        q_fullname_rev = Q(full_name_rev__icontains=query)
+
         if context.mandat_ids:
             q_filter &= Q(mandat_id__in=context.mandat_ids)
 
-        employes = Employe.objects.filter(q_filter).select_related('mandat')[:limit]
+        employes = Employe.objects.annotate(
+            full_name=Concat('prenom', Value(' '), 'nom', output_field=CharField()),
+            full_name_rev=Concat('nom', Value(' '), 'prenom', output_field=CharField()),
+        ).filter(q_filter | q_fullname | q_fullname_rev).select_related('mandat').distinct()[:limit]
 
         for emp in employes:
             score = self._calculate_text_score(query, [
+                f"{emp.prenom} {emp.nom}",
                 emp.nom,
                 emp.prenom,
                 emp.matricule or '',
@@ -546,10 +555,18 @@ class UniversalSearchService:
             Q(telephone__icontains=query)
         )
 
-        contacts = Contact.objects.filter(q_filter).select_related('client')[:limit]
+        # Multi-word: also search concatenated full name
+        q_fullname = Q(full_name__icontains=query)
+        q_fullname_rev = Q(full_name_rev__icontains=query)
+
+        contacts = Contact.objects.annotate(
+            full_name=Concat('prenom', Value(' '), 'nom', output_field=CharField()),
+            full_name_rev=Concat('nom', Value(' '), 'prenom', output_field=CharField()),
+        ).filter(q_filter | q_fullname | q_fullname_rev).select_related('client').distinct()[:limit]
 
         for contact in contacts:
             score = self._calculate_text_score(query, [
+                f"{contact.prenom or ''} {contact.nom}".strip(),
                 contact.nom,
                 contact.prenom or '',
                 contact.email or '',
