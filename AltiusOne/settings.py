@@ -17,7 +17,11 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-only-key-change-i
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,django').split(',')
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+# Always allow Docker internal hostname for inter-container communication (OIDC, etc.)
+for _internal_host in ('django', 'localhost', '127.0.0.1'):
+    if _internal_host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(_internal_host)
 
 # CSRF trusted origins (required for Django 4+)
 # Format: https://domain.com (must include protocol)
