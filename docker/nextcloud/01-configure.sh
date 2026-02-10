@@ -153,6 +153,7 @@ fi
 # OnlyOffice Document Server Configuration
 # =============================================================================
 
+run_occ app:enable onlyoffice 2>/dev/null || true
 if run_occ app:list --enabled 2>/dev/null | grep -q "onlyoffice"; then
     echo "Configuring OnlyOffice Document Server..."
 

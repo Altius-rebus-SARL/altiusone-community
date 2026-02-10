@@ -39,8 +39,8 @@ RUN { \
     } > /usr/local/etc/php/conf.d/nextcloud-custom.ini
 
 # Copy configuration scripts
-COPY docker/nextcloud/install-apps.sh /docker-entrypoint-hooks.d/post-installation/
-COPY docker/nextcloud/configure.sh /docker-entrypoint-hooks.d/post-installation/
+COPY docker/nextcloud/00-install-apps.sh /docker-entrypoint-hooks.d/post-installation/
+COPY docker/nextcloud/01-configure.sh /docker-entrypoint-hooks.d/post-installation/
 
 # Ensure scripts are executable
 RUN chmod +x /docker-entrypoint-hooks.d/post-installation/*.sh

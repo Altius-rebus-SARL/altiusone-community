@@ -27,6 +27,9 @@ echo "----------------------------------------"
 echo "[1/12] Installing OnlyOffice (Office suite)..."
 run_occ app:install onlyoffice || echo "onlyoffice already installed"
 run_occ app:enable onlyoffice || true
+if ! run_occ app:list --enabled 2>/dev/null | grep -q "onlyoffice"; then
+    echo "ERROR: onlyoffice failed to enable"
+fi
 
 echo "[2/12] Installing Talk (chat & video)..."
 run_occ app:install spreed || echo "spreed already installed"
@@ -67,10 +70,16 @@ run_occ app:enable tasks || true
 echo "[9/12] Installing User OIDC (SSO)..."
 run_occ app:install user_oidc || echo "user_oidc already installed"
 run_occ app:enable user_oidc || true
+if ! run_occ app:list --enabled 2>/dev/null | grep -q "user_oidc"; then
+    echo "ERROR: user_oidc failed to enable"
+fi
 
 echo "[10/12] Installing External Storage..."
 run_occ app:install files_external || echo "files_external already installed"
 run_occ app:enable files_external || true
+if ! run_occ app:list --enabled 2>/dev/null | grep -q "files_external"; then
+    echo "ERROR: files_external failed to enable"
+fi
 
 echo "[11/12] Installing Group Folders..."
 run_occ app:install groupfolders || echo "groupfolders already installed"
