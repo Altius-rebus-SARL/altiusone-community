@@ -34798,7 +34798,7 @@ header.header-main .container-fluid .header-left {
   position: relative;
 }
 
-/* Backdrop overlay - dims the page behind the dropdown */
+/* Backdrop overlay - dims page content below the header (z-index 1001) */
 .omnibar-backdrop {
   position: fixed;
   top: 0;
@@ -34806,7 +34806,7 @@ header.header-main .container-fluid .header-left {
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.25);
-  z-index: 9998;
+  z-index: 1000;
 }
 
 .omnibar-dropdown {
