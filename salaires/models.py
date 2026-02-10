@@ -37,13 +37,13 @@ class Employe(BaseModel):
     mandat = models.ForeignKey(
         Mandat, on_delete=models.CASCADE,
         related_name='employes',
-        verbose_name='Mandat',
-        help_text='Mandat employeur'
+        verbose_name=_('Mandat'),
+        help_text=_('Mandat employeur')
     )
     matricule = models.CharField(
         max_length=50, db_index=True,
-        verbose_name='Matricule',
-        help_text='Numéro d\'identification interne'
+        verbose_name=_('Matricule'),
+        help_text=_('Numéro d\'identification interne')
     )
 
     # Lien vers le compte utilisateur (si accès application)
@@ -60,51 +60,51 @@ class Employe(BaseModel):
     # Identité
     nom = models.CharField(
         max_length=100, db_index=True,
-        verbose_name='Nom',
-        help_text='Nom de famille'
+        verbose_name=_('Nom'),
+        help_text=_('Nom de famille')
     )
     prenom = models.CharField(
         max_length=100,
-        verbose_name='Prénom',
-        help_text='Prénom(s)'
+        verbose_name=_('Prénom'),
+        help_text=_('Prénom(s)')
     )
     nom_naissance = models.CharField(
         max_length=100, blank=True,
-        verbose_name='Nom de naissance',
-        help_text='Nom de famille à la naissance (si différent)'
+        verbose_name=_('Nom de naissance'),
+        help_text=_('Nom de famille à la naissance (si différent)')
     )
     date_naissance = models.DateField(
-        verbose_name='Date de naissance',
-        help_text='Date de naissance de l\'employé'
+        verbose_name=_('Date de naissance'),
+        help_text=_('Date de naissance de l\'employé')
     )
     lieu_naissance = models.CharField(
         max_length=100, blank=True,
-        verbose_name='Lieu de naissance',
-        help_text='Ville et pays de naissance'
+        verbose_name=_('Lieu de naissance'),
+        help_text=_('Ville et pays de naissance')
     )
     nationalite = CountryField(
         default='CH',
-        verbose_name='Nationalité',
-        help_text='Nationalité de l\'employé'
+        verbose_name=_('Nationalité'),
+        help_text=_('Nationalité de l\'employé')
     )
     sexe = models.CharField(
         max_length=1, choices=SEXE_CHOICES,
-        verbose_name='Sexe',
-        help_text='Sexe de l\'employé'
+        verbose_name=_('Sexe'),
+        help_text=_('Sexe de l\'employé')
     )
     
     # Numéros officiels
     avs_number = models.CharField(
-        'Numéro AVS',
+        _('Numéro AVS'),
         max_length=16,
         unique=True,
         validators=[RegexValidator(
             r'^\d{3}\.\d{4}\.\d{4}\.\d{2}$',
             'Format AVS invalide (756.1234.5678.90)'
         )],
-        help_text='Format: 756.1234.5678.90'
+        help_text=_('Format: 756.1234.5678.90')
     )
-    numero_permis = models.CharField('Numéro permis', max_length=20, blank=True)
+    numero_permis = models.CharField(_('Numéro permis'), max_length=20, blank=True)
     type_permis = models.CharField(max_length=2, blank=True,
                                     choices=[
                                         ('B', 'Permis B - Autorisation de séjour'),
@@ -115,29 +115,29 @@ class Employe(BaseModel):
                                         ('N', 'Permis N - Requérant d\'asile'),
                                         ('S', 'Permis S - Protection provisoire'),
                                     ])
-    date_validite_permis = models.DateField('Validité du permis', null=True, blank=True)
+    date_validite_permis = models.DateField(_('Validité du permis'), null=True, blank=True)
     
     # Coordonnées
     adresse = models.ForeignKey(
         Adresse, on_delete=models.PROTECT,
         related_name='employes',
-        verbose_name='Adresse',
-        help_text='Adresse de domicile'
+        verbose_name=_('Adresse'),
+        help_text=_('Adresse de domicile')
     )
     email = models.EmailField(
         blank=True,
-        verbose_name='Email',
-        help_text='Adresse email personnelle'
+        verbose_name=_('Email'),
+        help_text=_('Adresse email personnelle')
     )
     telephone = models.CharField(
         max_length=20, blank=True,
-        verbose_name='Téléphone',
-        help_text='Numéro de téléphone fixe'
+        verbose_name=_('Téléphone'),
+        help_text=_('Numéro de téléphone fixe')
     )
     mobile = models.CharField(
         max_length=20, blank=True,
-        verbose_name='Mobile',
-        help_text='Numéro de téléphone portable'
+        verbose_name=_('Mobile'),
+        help_text=_('Numéro de téléphone portable')
     )
 
     # Situation familiale
@@ -150,151 +150,151 @@ class Employe(BaseModel):
             ('SEPARE', 'Séparé(e)'),
             ('PARTENARIAT', 'Partenariat enregistré'),
         ],
-        verbose_name='État civil',
-        help_text='Situation matrimoniale'
+        verbose_name=_('État civil'),
+        help_text=_('Situation matrimoniale')
     )
     nombre_enfants = models.IntegerField(
         default=0,
-        verbose_name='Nombre d\'enfants',
-        help_text='Nombre d\'enfants à charge'
+        verbose_name=_('Nombre d\'enfants'),
+        help_text=_('Nombre d\'enfants à charge')
     )
     conjoint_travaille = models.BooleanField(
-        'Conjoint actif',
+        _('Conjoint actif'),
         default=False,
-        help_text='Le conjoint exerce-t-il une activité lucrative?'
+        help_text=_('Le conjoint exerce-t-il une activité lucrative?')
     )
     revenus_conjoint = models.DecimalField(
-        'Revenus annuels du conjoint',
+        _('Revenus annuels du conjoint'),
         max_digits=12,
         decimal_places=2,
         null=True,
         blank=True,
-        help_text='Pour détermination du barème IS'
+        help_text=_('Pour détermination du barème IS')
     )
     
     # Emploi
     type_contrat = models.CharField(
         max_length=20, choices=TYPE_CONTRAT_CHOICES,
-        verbose_name='Type de contrat',
-        help_text='Nature du contrat de travail'
+        verbose_name=_('Type de contrat'),
+        help_text=_('Nature du contrat de travail')
     )
     date_entree = models.DateField(
         db_index=True,
-        verbose_name='Date d\'entrée',
-        help_text='Date de début du contrat'
+        verbose_name=_('Date d\'entrée'),
+        help_text=_('Date de début du contrat')
     )
     date_sortie = models.DateField(
         null=True, blank=True, db_index=True,
-        verbose_name='Date de sortie',
-        help_text='Date de fin du contrat'
+        verbose_name=_('Date de sortie'),
+        help_text=_('Date de fin du contrat')
     )
     date_fin_periode_essai = models.DateField(
         null=True, blank=True,
-        verbose_name='Fin période d\'essai',
-        help_text='Date de fin de la période d\'essai'
+        verbose_name=_('Fin période d\'essai'),
+        help_text=_('Date de fin de la période d\'essai')
     )
 
     fonction = models.CharField(
         max_length=100,
-        verbose_name='Fonction',
-        help_text='Intitulé du poste'
+        verbose_name=_('Fonction'),
+        help_text=_('Intitulé du poste')
     )
     departement = models.CharField(
         max_length=100, blank=True,
-        verbose_name='Département',
-        help_text='Service ou département'
+        verbose_name=_('Département'),
+        help_text=_('Service ou département')
     )
 
     taux_occupation = models.DecimalField(
         max_digits=5,
         decimal_places=2,
         default=100,
-        verbose_name='Taux d\'occupation',
-        help_text='Taux en % (100 = temps plein)'
+        verbose_name=_('Taux d\'occupation'),
+        help_text=_('Taux en % (100 = temps plein)')
     )
 
     # Salaire
     salaire_brut_mensuel = models.DecimalField(
         max_digits=10, decimal_places=2,
-        verbose_name='Salaire brut mensuel',
-        help_text='Salaire brut mensuel en CHF'
+        verbose_name=_('Salaire brut mensuel'),
+        help_text=_('Salaire brut mensuel en CHF')
     )
     salaire_horaire = models.DecimalField(
         max_digits=10, decimal_places=2,
         null=True, blank=True,
-        verbose_name='Salaire horaire',
-        help_text='Salaire horaire en CHF (si applicable)'
+        verbose_name=_('Salaire horaire'),
+        help_text=_('Salaire horaire en CHF (si applicable)')
     )
 
     nombre_heures_semaine = models.DecimalField(
         max_digits=5, decimal_places=2,
         default=42,
-        verbose_name='Heures par semaine',
-        help_text='Nombre d\'heures de travail hebdomadaires'
+        verbose_name=_('Heures par semaine'),
+        help_text=_('Nombre d\'heures de travail hebdomadaires')
     )
     jours_vacances_annuel = models.IntegerField(
         default=20,
-        verbose_name='Jours de vacances',
-        help_text='Nombre de jours de vacances annuels'
+        verbose_name=_('Jours de vacances'),
+        help_text=_('Nombre de jours de vacances annuels')
     )
 
     # 13ème salaire
     treizieme_salaire = models.BooleanField(
         default=True,
-        verbose_name='13ème salaire',
-        help_text='L\'employé bénéficie-t-il d\'un 13ème salaire ?'
+        verbose_name=_('13ème salaire'),
+        help_text=_('L\'employé bénéficie-t-il d\'un 13ème salaire ?')
     )
     montant_13eme = models.DecimalField(
         max_digits=10, decimal_places=2,
         null=True, blank=True,
-        verbose_name='Montant 13ème',
-        help_text='Montant du 13ème salaire (si différent du salaire mensuel)'
+        verbose_name=_('Montant 13ème'),
+        help_text=_('Montant du 13ème salaire (si différent du salaire mensuel)')
     )
 
     # Paiement
     iban = models.CharField(
         max_length=34, blank=True,
-        verbose_name='IBAN',
-        help_text='Numéro IBAN pour le versement du salaire'
+        verbose_name=_('IBAN'),
+        help_text=_('Numéro IBAN pour le versement du salaire')
     )
     banque = models.CharField(
         max_length=100, blank=True,
-        verbose_name='Banque',
-        help_text='Nom de l\'établissement bancaire'
+        verbose_name=_('Banque'),
+        help_text=_('Nom de l\'établissement bancaire')
     )
 
     # Statut
     statut = models.CharField(
         max_length=20, choices=STATUT_CHOICES,
         default='ACTIF', db_index=True,
-        verbose_name='Statut',
-        help_text='Statut actuel de l\'employé'
+        verbose_name=_('Statut'),
+        help_text=_('Statut actuel de l\'employé')
     )
     
     # Impôt à la source
-    soumis_is = models.BooleanField('Soumis impôt à la source', default=False)
-    barreme_is = models.CharField('Barème IS', max_length=10, blank=True,
-                                   help_text='Ex: A, B, C, etc.')
-    taux_is = models.DecimalField('Taux IS', max_digits=5, decimal_places=2,
+    soumis_is = models.BooleanField(_('Soumis impôt à la source'), default=False)
+    barreme_is = models.CharField(_('Barème IS'), max_length=10, blank=True,
+                                   help_text=_('Ex: A, B, C, etc.'))
+    taux_is = models.DecimalField(_('Taux IS'), max_digits=5, decimal_places=2,
                                    null=True, blank=True)
     
     # Configuration paie
     config_cotisations = models.JSONField(
         default=dict, blank=True,
-        verbose_name='Configuration cotisations',
-        help_text='Paramétrage des cotisations sociales au format JSON'
+        verbose_name=_('Configuration cotisations'),
+        help_text=_('Paramétrage des cotisations sociales au format JSON')
     )
 
     # Notes
     remarques = models.TextField(
         blank=True,
-        verbose_name='Remarques',
-        help_text='Notes et observations'
+        verbose_name=_('Remarques'),
+        help_text=_('Notes et observations')
     )
-    
+
     class Meta:
         db_table = 'employes'
-        verbose_name = 'Employé'
+        verbose_name = _('Employé')
         unique_together = [['mandat', 'matricule']]
         ordering = ['nom', 'prenom']
         indexes = [
@@ -352,55 +352,55 @@ class EnfantEmploye(BaseModel):
 
     # Droit aux allocations
     type_allocation = models.CharField(
-        'Type d\'allocation',
+        _('Type d\'allocation'),
         max_length=20,
         choices=TYPE_ALLOCATION_CHOICES,
         default='ENFANT'
     )
     en_formation = models.BooleanField(
-        'En formation',
+        _('En formation'),
         default=False,
-        help_text='Suit une formation (apprentissage, études) - pour allocation formation jusqu\'à 25 ans'
+        help_text=_('Suit une formation (apprentissage, études) - pour allocation formation jusqu\'à 25 ans')
     )
     date_fin_formation = models.DateField(
-        'Fin de formation prévue',
+        _('Fin de formation prévue'),
         null=True,
         blank=True
     )
 
     # Garde et prise en charge
     garde_partagee = models.BooleanField(
-        'Garde partagée',
+        _('Garde partagée'),
         default=False,
-        help_text='L\'enfant est en garde partagée avec l\'autre parent'
+        help_text=_('L\'enfant est en garde partagée avec l\'autre parent')
     )
     pourcentage_garde = models.IntegerField(
-        '% de garde',
+        _('% de garde'),
         default=100,
-        help_text='Pourcentage de garde (100 si garde complète, 50 si partagée)'
+        help_text=_('Pourcentage de garde (100 si garde complète, 50 si partagée)')
     )
     autre_parent_recoit_allocation = models.BooleanField(
-        'Autre parent reçoit allocation',
+        _('Autre parent reçoit allocation'),
         default=False,
-        help_text='L\'autre parent perçoit-il déjà des allocations pour cet enfant?'
+        help_text=_('L\'autre parent perçoit-il déjà des allocations pour cet enfant?')
     )
 
     # Montants (peuvent être personnalisés selon le canton)
     montant_allocation = models.DecimalField(
-        'Montant mensuel',
+        _('Montant mensuel'),
         max_digits=8,
         decimal_places=2,
         null=True,
         blank=True,
-        help_text='Montant mensuel de l\'allocation (si différent du standard)'
+        help_text=_('Montant mensuel de l\'allocation (si différent du standard)')
     )
 
     remarques = models.TextField(blank=True)
 
     class Meta:
         db_table = 'enfants_employes'
-        verbose_name = 'Enfant'
-        verbose_name_plural = 'Enfants'
+        verbose_name = _('Enfant')
+        verbose_name_plural = _('Enfants')
         ordering = ['date_naissance']
 
     def __str__(self):
@@ -471,72 +471,72 @@ class TauxCotisation(BaseModel):
     type_cotisation = models.CharField(
         max_length=20, choices=TYPE_COTISATION_CHOICES,
         unique=True,
-        verbose_name='Type de cotisation',
-        help_text='Nature de la cotisation sociale'
+        verbose_name=_('Type de cotisation'),
+        help_text=_('Nature de la cotisation sociale')
     )
     libelle = models.CharField(
         max_length=100,
-        verbose_name='Libellé',
-        help_text='Description de la cotisation'
+        verbose_name=_('Libellé'),
+        help_text=_('Description de la cotisation')
     )
 
     # Taux
     taux_total = models.DecimalField(
         max_digits=5, decimal_places=4,
-        verbose_name='Taux total',
-        help_text='Taux total en % (employeur + employé)'
+        verbose_name=_('Taux total'),
+        help_text=_('Taux total en % (employeur + employé)')
     )
     taux_employeur = models.DecimalField(
         max_digits=5, decimal_places=4, default=0,
-        verbose_name='Taux employeur',
-        help_text='Part employeur en %'
+        verbose_name=_('Taux employeur'),
+        help_text=_('Part employeur en %')
     )
     taux_employe = models.DecimalField(
         max_digits=5, decimal_places=4, default=0,
-        verbose_name='Taux employé',
-        help_text='Part employé en %'
+        verbose_name=_('Taux employé'),
+        help_text=_('Part employé en %')
     )
 
     repartition = models.CharField(
         max_length=20, choices=REPARTITION_CHOICES,
-        verbose_name='Répartition',
-        help_text='Mode de répartition de la cotisation'
+        verbose_name=_('Répartition'),
+        help_text=_('Mode de répartition de la cotisation')
     )
 
     # Limites
     salaire_min = models.DecimalField(
         max_digits=10, decimal_places=2,
         null=True, blank=True,
-        verbose_name='Salaire minimum',
-        help_text='Salaire minimum soumis à cotisation en CHF'
+        verbose_name=_('Salaire minimum'),
+        help_text=_('Salaire minimum soumis à cotisation en CHF')
     )
     salaire_max = models.DecimalField(
         max_digits=10, decimal_places=2,
         null=True, blank=True,
-        verbose_name='Salaire maximum',
-        help_text='Plafond de salaire soumis en CHF'
+        verbose_name=_('Salaire maximum'),
+        help_text=_('Plafond de salaire soumis en CHF')
     )
 
     # Validité
     date_debut = models.DateField(
-        verbose_name='Date de début',
-        help_text='Date d\'entrée en vigueur'
+        verbose_name=_('Date de début'),
+        help_text=_('Date d\'entrée en vigueur')
     )
     date_fin = models.DateField(
         null=True, blank=True,
-        verbose_name='Date de fin',
-        help_text='Date de fin de validité'
+        verbose_name=_('Date de fin'),
+        help_text=_('Date de fin de validité')
     )
 
     actif = models.BooleanField(
         default=True,
-        verbose_name='Actif',
-        help_text='Indique si ce taux est actuellement applicable'
+        verbose_name=_('Actif'),
+        help_text=_('Indique si ce taux est actuellement applicable')
     )
-    
+
     class Meta:
         db_table = 'taux_cotisations'
-        verbose_name = 'Taux de cotisation'
+        verbose_name = _('Taux de cotisation')
         ordering = ['type_cotisation', '-date_debut']
     
     def __str__(self):
@@ -568,258 +568,258 @@ class FicheSalaire(BaseModel):
     employe = models.ForeignKey(
         Employe, on_delete=models.CASCADE,
         related_name='fiches_salaire',
-        verbose_name='Employé',
-        help_text='Employé concerné'
+        verbose_name=_('Employé'),
+        help_text=_('Employé concerné')
     )
     numero_fiche = models.CharField(
         max_length=50, unique=True, db_index=True,
-        verbose_name='Numéro de fiche',
-        help_text='Identifiant unique de la fiche'
+        verbose_name=_('Numéro de fiche'),
+        help_text=_('Identifiant unique de la fiche')
     )
 
     # Période
     periode = models.DateField(
         db_index=True,
-        verbose_name='Période',
-        help_text='Premier jour du mois concerné'
+        verbose_name=_('Période'),
+        help_text=_('Premier jour du mois concerné')
     )
     annee = models.IntegerField(
-        verbose_name='Année',
-        help_text='Année de la fiche'
+        verbose_name=_('Année'),
+        help_text=_('Année de la fiche')
     )
     mois = models.IntegerField(
-        verbose_name='Mois',
-        help_text='Mois de la fiche (1-12)'
+        verbose_name=_('Mois'),
+        help_text=_('Mois de la fiche (1-12)')
     )
 
     # Présence
     jours_travailles = models.DecimalField(
         max_digits=5, decimal_places=2, default=0,
-        verbose_name='Jours travaillés',
-        help_text='Nombre de jours effectivement travaillés'
+        verbose_name=_('Jours travaillés'),
+        help_text=_('Nombre de jours effectivement travaillés')
     )
     heures_travaillees = models.DecimalField(
         max_digits=6, decimal_places=2, default=0,
-        verbose_name='Heures travaillées',
-        help_text='Nombre d\'heures travaillées'
+        verbose_name=_('Heures travaillées'),
+        help_text=_('Nombre d\'heures travaillées')
     )
     heures_supplementaires = models.DecimalField(
         max_digits=6, decimal_places=2, default=0,
-        verbose_name='Heures supplémentaires',
-        help_text='Heures supplémentaires effectuées'
+        verbose_name=_('Heures supplémentaires'),
+        help_text=_('Heures supplémentaires effectuées')
     )
     jours_absence = models.DecimalField(
         max_digits=5, decimal_places=2, default=0,
-        verbose_name='Jours d\'absence',
-        help_text='Jours d\'absence (hors vacances et maladie)'
+        verbose_name=_('Jours d\'absence'),
+        help_text=_('Jours d\'absence (hors vacances et maladie)')
     )
     jours_vacances = models.DecimalField(
         max_digits=5, decimal_places=2, default=0,
-        verbose_name='Jours de vacances',
-        help_text='Jours de vacances pris'
+        verbose_name=_('Jours de vacances'),
+        help_text=_('Jours de vacances pris')
     )
     jours_maladie = models.DecimalField(
         max_digits=5, decimal_places=2, default=0,
-        verbose_name='Jours de maladie',
-        help_text='Jours d\'absence pour maladie'
+        verbose_name=_('Jours de maladie'),
+        help_text=_('Jours d\'absence pour maladie')
     )
 
     # Salaire brut
     salaire_base = models.DecimalField(
         max_digits=10, decimal_places=2,
-        verbose_name='Salaire de base',
-        help_text='Salaire mensuel de base en CHF'
+        verbose_name=_('Salaire de base'),
+        help_text=_('Salaire mensuel de base en CHF')
     )
     heures_supp_montant = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='Montant heures supp.',
-        help_text='Rémunération des heures supplémentaires en CHF'
+        verbose_name=_('Montant heures supp.'),
+        help_text=_('Rémunération des heures supplémentaires en CHF')
     )
     primes = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='Primes',
-        help_text='Primes et bonus en CHF'
+        verbose_name=_('Primes'),
+        help_text=_('Primes et bonus en CHF')
     )
     indemnites = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='Indemnités',
-        help_text='Indemnités diverses en CHF'
+        verbose_name=_('Indemnités'),
+        help_text=_('Indemnités diverses en CHF')
     )
     treizieme_mois = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='13ème mois',
-        help_text='Part du 13ème salaire versée ce mois'
+        verbose_name=_('13ème mois'),
+        help_text=_('Part du 13ème salaire versée ce mois')
     )
 
     salaire_brut_total = models.DecimalField(
         max_digits=10, decimal_places=2,
-        verbose_name='Salaire brut total',
-        help_text='Total du salaire brut en CHF'
+        verbose_name=_('Salaire brut total'),
+        help_text=_('Total du salaire brut en CHF')
     )
     
     # Cotisations salariales (part employé)
     avs_employe = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='AVS/AI/APG',
-        help_text='Cotisation AVS/AI/APG employé en CHF'
+        verbose_name=_('AVS/AI/APG'),
+        help_text=_('Cotisation AVS/AI/APG employé en CHF')
     )
     ac_employe = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='AC',
-        help_text='Assurance chômage employé en CHF'
+        verbose_name=_('AC'),
+        help_text=_('Assurance chômage employé en CHF')
     )
     ac_supp_employe = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='AC supp.',
-        help_text='AC supplémentaire (salaires > 148\'200) en CHF'
+        verbose_name=_('AC supp.'),
+        help_text=_('AC supplémentaire (salaires > 148\'200) en CHF')
     )
     lpp_employe = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='LPP',
-        help_text='Cotisation 2ème pilier employé en CHF'
+        verbose_name=_('LPP'),
+        help_text=_('Cotisation 2ème pilier employé en CHF')
     )
     laa_employe = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='LAA',
-        help_text='Assurance accidents employé en CHF'
+        verbose_name=_('LAA'),
+        help_text=_('Assurance accidents employé en CHF')
     )
     laac_employe = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='LAAC',
-        help_text='Assurance accidents complémentaire en CHF'
+        verbose_name=_('LAAC'),
+        help_text=_('Assurance accidents complémentaire en CHF')
     )
     ijm_employe = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='IJM',
-        help_text='Indemnités journalières maladie employé en CHF'
+        verbose_name=_('IJM'),
+        help_text=_('Indemnités journalières maladie employé en CHF')
     )
 
     total_cotisations_employe = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='Total cotisations employé',
-        help_text='Total des cotisations salariales en CHF'
+        verbose_name=_('Total cotisations employé'),
+        help_text=_('Total des cotisations salariales en CHF')
     )
 
     # Impôt à la source
     impot_source = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='Impôt à la source',
-        help_text='Retenue d\'impôt à la source en CHF'
+        verbose_name=_('Impôt à la source'),
+        help_text=_('Retenue d\'impôt à la source en CHF')
     )
 
     # Autres déductions
     avance_salaire = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='Avance sur salaire',
-        help_text='Retenue pour avance consentie en CHF'
+        verbose_name=_('Avance sur salaire'),
+        help_text=_('Retenue pour avance consentie en CHF')
     )
     saisie_salaire = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='Saisie sur salaire',
-        help_text='Retenue pour saisie de salaire en CHF'
+        verbose_name=_('Saisie sur salaire'),
+        help_text=_('Retenue pour saisie de salaire en CHF')
     )
     autres_deductions = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='Autres déductions',
-        help_text='Autres retenues en CHF'
+        verbose_name=_('Autres déductions'),
+        help_text=_('Autres retenues en CHF')
     )
 
     total_deductions = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='Total déductions',
-        help_text='Total de toutes les déductions en CHF'
+        verbose_name=_('Total déductions'),
+        help_text=_('Total de toutes les déductions en CHF')
     )
 
     # Allocations
     allocations_familiales = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='Allocations familiales',
-        help_text='Allocations familiales en CHF'
+        verbose_name=_('Allocations familiales'),
+        help_text=_('Allocations familiales en CHF')
     )
     autres_allocations = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='Autres allocations',
-        help_text='Autres allocations en CHF'
+        verbose_name=_('Autres allocations'),
+        help_text=_('Autres allocations en CHF')
     )
 
     # Salaire net
     salaire_net = models.DecimalField(
         max_digits=10, decimal_places=2,
-        verbose_name='Salaire net',
-        help_text='Salaire net à payer en CHF'
+        verbose_name=_('Salaire net'),
+        help_text=_('Salaire net à payer en CHF')
     )
     
     # Charges patronales (pour info)
     avs_employeur = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='AVS employeur',
-        help_text='Part patronale AVS/AI/APG en CHF'
+        verbose_name=_('AVS employeur'),
+        help_text=_('Part patronale AVS/AI/APG en CHF')
     )
     ac_employeur = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='AC employeur',
-        help_text='Part patronale assurance chômage en CHF'
+        verbose_name=_('AC employeur'),
+        help_text=_('Part patronale assurance chômage en CHF')
     )
     lpp_employeur = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='LPP employeur',
-        help_text='Part patronale 2ème pilier en CHF'
+        verbose_name=_('LPP employeur'),
+        help_text=_('Part patronale 2ème pilier en CHF')
     )
     laa_employeur = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='LAA employeur',
-        help_text='Part patronale assurance accidents en CHF'
+        verbose_name=_('LAA employeur'),
+        help_text=_('Part patronale assurance accidents en CHF')
     )
     af_employeur = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='AF employeur',
-        help_text='Allocations familiales (charge patronale) en CHF'
+        verbose_name=_('AF employeur'),
+        help_text=_('Allocations familiales (charge patronale) en CHF')
     )
 
     total_charges_patronales = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='Total charges patronales',
-        help_text='Total des charges employeur en CHF'
+        verbose_name=_('Total charges patronales'),
+        help_text=_('Total des charges employeur en CHF')
     )
 
     # Coût total employeur
     cout_total_employeur = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='Coût total employeur',
-        help_text='Coût complet pour l\'employeur en CHF'
+        verbose_name=_('Coût total employeur'),
+        help_text=_('Coût complet pour l\'employeur en CHF')
     )
 
     # Statut
     statut = models.CharField(
         max_length=20, choices=STATUT_CHOICES,
         default='BROUILLON', db_index=True,
-        verbose_name='Statut',
-        help_text='État de la fiche de salaire'
+        verbose_name=_('Statut'),
+        help_text=_('État de la fiche de salaire')
     )
 
     date_validation = models.DateTimeField(
         null=True, blank=True,
-        verbose_name='Date de validation',
-        help_text='Date et heure de validation'
+        verbose_name=_('Date de validation'),
+        help_text=_('Date et heure de validation')
     )
     valide_par = models.ForeignKey(
         User, on_delete=models.SET_NULL,
         null=True, related_name='+',
-        verbose_name='Validé par',
-        help_text='Utilisateur ayant validé la fiche'
+        verbose_name=_('Validé par'),
+        help_text=_('Utilisateur ayant validé la fiche')
     )
 
     date_paiement = models.DateField(
         null=True, blank=True,
-        verbose_name='Date de paiement',
-        help_text='Date effective du paiement'
+        verbose_name=_('Date de paiement'),
+        help_text=_('Date effective du paiement')
     )
 
     # Fichier PDF
     fichier_pdf = models.FileField(
         upload_to='salaires/fiches/', null=True, blank=True,
-        verbose_name='Fichier PDF',
-        help_text='Fiche de salaire au format PDF'
+        verbose_name=_('Fichier PDF'),
+        help_text=_('Fiche de salaire au format PDF')
     )
 
     # Lien comptabilité
@@ -828,20 +828,20 @@ class FicheSalaire(BaseModel):
         on_delete=models.SET_NULL,
         null=True, blank=True,
         related_name='fiches_salaire',
-        verbose_name='Pièce comptable',
-        help_text='Pièce comptable associée'
+        verbose_name=_('Pièce comptable'),
+        help_text=_('Pièce comptable associée')
     )
 
     # Notes
     remarques = models.TextField(
         blank=True,
-        verbose_name='Remarques',
-        help_text='Notes et observations'
+        verbose_name=_('Remarques'),
+        help_text=_('Notes et observations')
     )
-    
+
     class Meta:
         db_table = 'fiches_salaire'
-        verbose_name = 'Fiche de salaire'
+        verbose_name = _('Fiche de salaire')
         unique_together = [['employe', 'periode']]
         ordering = ['-periode', 'employe__nom']
         indexes = [
@@ -991,342 +991,342 @@ class CertificatSalaire(BaseModel):
     employe = models.ForeignKey(
         Employe, on_delete=models.CASCADE,
         related_name='certificats_salaire',
-        verbose_name='Employé',
-        help_text='Employé concerné'
+        verbose_name=_('Employé'),
+        help_text=_('Employé concerné')
     )
     annee = models.IntegerField(
         db_index=True,
-        verbose_name='Année',
-        help_text='Année fiscale du certificat'
+        verbose_name=_('Année'),
+        help_text=_('Année fiscale du certificat')
     )
 
     # ==================== SECTION C-E: PÉRIODE ET EMPLOYÉ ====================
     date_debut = models.DateField(
-        verbose_name='Date de début',
-        help_text='Début de la période d\'emploi pour cette année (Section C)'
+        verbose_name=_('Date de début'),
+        help_text=_('Début de la période d\'emploi pour cette année (Section C)')
     )
     date_fin = models.DateField(
-        verbose_name='Date de fin',
-        help_text='Fin de la période d\'emploi pour cette année (Section C)'
+        verbose_name=_('Date de fin'),
+        help_text=_('Fin de la période d\'emploi pour cette année (Section C)')
     )
 
     # ==================== SECTION F-G: OCCUPATION ET TRANSPORT ====================
     type_occupation = models.CharField(
         max_length=20, choices=TYPE_OCCUPATION_CHOICES, default='PLEIN_TEMPS',
-        verbose_name='Type d\'occupation',
-        help_text='Section F: Type de rapport de travail'
+        verbose_name=_('Type d\'occupation'),
+        help_text=_('Section F: Type de rapport de travail')
     )
     taux_occupation = models.DecimalField(
         max_digits=5, decimal_places=2, default=100,
-        verbose_name='Taux d\'occupation (%)',
-        help_text='Section F: Taux d\'occupation en pourcentage'
+        verbose_name=_('Taux d\'occupation (%)'),
+        help_text=_('Section F: Taux d\'occupation en pourcentage')
     )
     transport_public_disponible = models.BooleanField(
         default=True,
-        verbose_name='Transport public disponible',
-        help_text='Section G: Des transports publics sont disponibles pour le trajet domicile-travail'
+        verbose_name=_('Transport public disponible'),
+        help_text=_('Section G: Des transports publics sont disponibles pour le trajet domicile-travail')
     )
     transport_gratuit_fourni = models.BooleanField(
         default=False,
-        verbose_name='Transport gratuit fourni',
-        help_text='Section G: L\'employeur fournit un transport gratuit'
+        verbose_name=_('Transport gratuit fourni'),
+        help_text=_('Section G: L\'employeur fournit un transport gratuit')
     )
 
     # ==================== CHIFFRE 1: SALAIRE ====================
     chiffre_1_salaire = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        verbose_name='1. Salaire / Rente',
-        help_text='Salaire, rente (y.c. allocations pour perte de gain)'
+        verbose_name=_('1. Salaire / Rente'),
+        help_text=_('Salaire, rente (y.c. allocations pour perte de gain)')
     )
 
     # ==================== CHIFFRE 2: PRESTATIONS EN NATURE ====================
     # 2.1 Repas
     chiffre_2_1_repas = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='2.1 Repas',
-        help_text='Valeur des repas gratuits (CHF 180/mois midi, CHF 180/mois soir)'
+        verbose_name=_('2.1 Repas'),
+        help_text=_('Valeur des repas gratuits (CHF 180/mois midi, CHF 180/mois soir)')
     )
     repas_midi_gratuit = models.BooleanField(
         default=False,
-        verbose_name='Repas de midi gratuit',
-        help_text='Case 2.1: L\'employé bénéficie de repas de midi gratuits'
+        verbose_name=_('Repas de midi gratuit'),
+        help_text=_('Case 2.1: L\'employé bénéficie de repas de midi gratuits')
     )
     repas_soir_gratuit = models.BooleanField(
         default=False,
-        verbose_name='Repas du soir gratuit',
-        help_text='Case 2.1: L\'employé bénéficie de repas du soir gratuits'
+        verbose_name=_('Repas du soir gratuit'),
+        help_text=_('Case 2.1: L\'employé bénéficie de repas du soir gratuits')
     )
 
     # 2.2 Voiture de service
     chiffre_2_2_voiture = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='2.2 Véhicule de service',
-        help_text='Valeur de l\'utilisation privée du véhicule (0.9% par mois du prix d\'achat)'
+        verbose_name=_('2.2 Véhicule de service'),
+        help_text=_('Valeur de l\'utilisation privée du véhicule (0.9% par mois du prix d\'achat)')
     )
     voiture_disponible = models.BooleanField(
         default=False,
-        verbose_name='Voiture de service disponible',
-        help_text='Case 2.2: Un véhicule de service est mis à disposition pour usage privé'
+        verbose_name=_('Voiture de service disponible'),
+        help_text=_('Case 2.2: Un véhicule de service est mis à disposition pour usage privé')
     )
     voiture_prix_achat = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        verbose_name='Prix d\'achat du véhicule',
-        help_text='Prix d\'achat du véhicule (hors TVA) pour calcul de la part privée'
+        verbose_name=_('Prix d\'achat du véhicule'),
+        help_text=_('Prix d\'achat du véhicule (hors TVA) pour calcul de la part privée')
     )
 
     # 2.3 Autres prestations
     chiffre_2_3_autres = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='2.3 Autres prestations en nature',
-        help_text='Autres prestations en nature (logement, etc.)'
+        verbose_name=_('2.3 Autres prestations en nature'),
+        help_text=_('Autres prestations en nature (logement, etc.)')
     )
     autres_prestations_nature_detail = models.TextField(
         blank=True,
-        verbose_name='Détail autres prestations',
-        help_text='Description des autres prestations en nature'
+        verbose_name=_('Détail autres prestations'),
+        help_text=_('Description des autres prestations en nature')
     )
 
     # ==================== CHIFFRE 3: PRESTATIONS IRRÉGULIÈRES ====================
     chiffre_3_irregulier = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        verbose_name='3. Prestations irrégulières',
-        help_text='Bonus, gratifications, 13ème salaire, indemnités de vacances non prises'
+        verbose_name=_('3. Prestations irrégulières'),
+        help_text=_('Bonus, gratifications, 13ème salaire, indemnités de vacances non prises')
     )
 
     # ==================== CHIFFRE 4: PRESTATIONS EN CAPITAL ====================
     chiffre_4_capital = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        verbose_name='4. Prestations en capital',
-        help_text='Indemnités de départ, prestations provenant d\'institutions de prévoyance'
+        verbose_name=_('4. Prestations en capital'),
+        help_text=_('Indemnités de départ, prestations provenant d\'institutions de prévoyance')
     )
 
     # ==================== CHIFFRE 5: PARTICIPATIONS ====================
     chiffre_5_participations = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        verbose_name='5. Droits de participation',
-        help_text='Actions de collaborateurs, options, etc.'
+        verbose_name=_('5. Droits de participation'),
+        help_text=_('Actions de collaborateurs, options, etc.')
     )
     participations_detail = models.TextField(
         blank=True,
-        verbose_name='Détail participations',
-        help_text='Description des participations (type, nombre, valeur)'
+        verbose_name=_('Détail participations'),
+        help_text=_('Description des participations (type, nombre, valeur)')
     )
 
     # ==================== CHIFFRE 6: CONSEIL D'ADMINISTRATION ====================
     chiffre_6_ca = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        verbose_name='6. Conseil d\'administration',
-        help_text='Indemnités de membre d\'organe de direction'
+        verbose_name=_('6. Conseil d\'administration'),
+        help_text=_('Indemnités de membre d\'organe de direction')
     )
 
     # ==================== CHIFFRE 7: AUTRES PRESTATIONS ====================
     chiffre_7_autres = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        verbose_name='7. Autres prestations',
-        help_text='Toutes autres prestations non mentionnées ailleurs'
+        verbose_name=_('7. Autres prestations'),
+        help_text=_('Toutes autres prestations non mentionnées ailleurs')
     )
     autres_prestations_detail = models.TextField(
         blank=True,
-        verbose_name='Détail autres prestations',
-        help_text='Description des autres prestations'
+        verbose_name=_('Détail autres prestations'),
+        help_text=_('Description des autres prestations')
     )
 
     # ==================== CHIFFRE 8: TOTAL BRUT (CALCULÉ) ====================
     chiffre_8_total_brut = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        verbose_name='8. Salaire brut total',
-        help_text='Total des chiffres 1 à 7 (calculé automatiquement)'
+        verbose_name=_('8. Salaire brut total'),
+        help_text=_('Total des chiffres 1 à 7 (calculé automatiquement)')
     )
 
     # ==================== CHIFFRE 9: COTISATIONS AVS/AI/APG/AC/AANP ====================
     chiffre_9_cotisations = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='9. Cotisations AVS/AI/APG/AC/AANP',
-        help_text='Cotisations employé aux assurances sociales obligatoires'
+        verbose_name=_('9. Cotisations AVS/AI/APG/AC/AANP'),
+        help_text=_('Cotisations employé aux assurances sociales obligatoires')
     )
 
     # ==================== CHIFFRE 10: PRÉVOYANCE PROFESSIONNELLE ====================
     chiffre_10_1_lpp_ordinaire = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='10.1 LPP cotisations ordinaires',
-        help_text='Cotisations ordinaires à la prévoyance professionnelle'
+        verbose_name=_('10.1 LPP cotisations ordinaires'),
+        help_text=_('Cotisations ordinaires à la prévoyance professionnelle')
     )
     chiffre_10_2_lpp_rachat = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='10.2 LPP rachats',
-        help_text='Rachats d\'années de cotisation LPP'
+        verbose_name=_('10.2 LPP rachats'),
+        help_text=_('Rachats d\'années de cotisation LPP')
     )
 
     # ==================== CHIFFRE 11: SALAIRE NET (CALCULÉ) ====================
     chiffre_11_net = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        verbose_name='11. Salaire net',
-        help_text='Chiffre 8 moins chiffres 9 et 10 (calculé automatiquement)'
+        verbose_name=_('11. Salaire net'),
+        help_text=_('Chiffre 8 moins chiffres 9 et 10 (calculé automatiquement)')
     )
 
     # ==================== CHIFFRE 12: FRAIS DE TRANSPORT ====================
     chiffre_12_transport = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='12. Frais effectifs de transport',
-        help_text='Frais de déplacement domicile-lieu de travail remboursés'
+        verbose_name=_('12. Frais effectifs de transport'),
+        help_text=_('Frais de déplacement domicile-lieu de travail remboursés')
     )
 
     # ==================== CHIFFRE 13: FRAIS DE REPAS ET NUITÉES ====================
     chiffre_13_1_1_repas_effectif = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='13.1.1 Frais de repas effectifs',
-        help_text='Frais de repas effectifs pour travail en dehors'
+        verbose_name=_('13.1.1 Frais de repas effectifs'),
+        help_text=_('Frais de repas effectifs pour travail en dehors')
     )
     chiffre_13_1_2_repas_forfait = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='13.1.2 Frais de repas forfaitaires',
-        help_text='Indemnité forfaitaire pour repas de midi'
+        verbose_name=_('13.1.2 Frais de repas forfaitaires'),
+        help_text=_('Indemnité forfaitaire pour repas de midi')
     )
     chiffre_13_2_nuitees = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='13.2 Nuitées',
-        help_text='Frais d\'hébergement pour déplacements professionnels'
+        verbose_name=_('13.2 Nuitées'),
+        help_text=_('Frais d\'hébergement pour déplacements professionnels')
     )
     chiffre_13_3_repas_externes = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='13.3 Repas à l\'extérieur',
-        help_text='Frais de repas lors de déplacements externes'
+        verbose_name=_('13.3 Repas à l\'extérieur'),
+        help_text=_('Frais de repas lors de déplacements externes')
     )
 
     # ==================== CHIFFRE 14: AUTRES FRAIS ====================
     chiffre_14_autres_frais = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='14. Autres frais',
-        help_text='Autres frais professionnels remboursés'
+        verbose_name=_('14. Autres frais'),
+        help_text=_('Autres frais professionnels remboursés')
     )
     autres_frais_detail = models.TextField(
         blank=True,
-        verbose_name='Détail autres frais',
-        help_text='Description des autres frais professionnels'
+        verbose_name=_('Détail autres frais'),
+        help_text=_('Description des autres frais professionnels')
     )
 
     # ==================== CHIFFRE 15: JOURS DE TRAVAIL AVEC DÉPLACEMENT ====================
     chiffre_15_jours_transport = models.IntegerField(
         default=0,
-        verbose_name='15. Jours avec déplacement',
-        help_text='Nombre de jours de travail avec déplacement domicile-travail'
+        verbose_name=_('15. Jours avec déplacement'),
+        help_text=_('Nombre de jours de travail avec déplacement domicile-travail')
     )
 
     # ==================== SECTION I: REMARQUES ====================
     remarques = models.TextField(
         blank=True,
-        verbose_name='Remarques',
-        help_text='Section I: Remarques diverses (expatriés, détachés, etc.)'
+        verbose_name=_('Remarques'),
+        help_text=_('Section I: Remarques diverses (expatriés, détachés, etc.)')
     )
 
     # ==================== SIGNATURE ====================
     lieu_signature = models.CharField(
         max_length=100, blank=True,
-        verbose_name='Lieu de signature',
-        help_text='Lieu où le certificat est signé'
+        verbose_name=_('Lieu de signature'),
+        help_text=_('Lieu où le certificat est signé')
     )
     date_signature = models.DateField(
         null=True, blank=True,
-        verbose_name='Date de signature',
-        help_text='Date de signature du certificat'
+        verbose_name=_('Date de signature'),
+        help_text=_('Date de signature du certificat')
     )
     nom_signataire = models.CharField(
         max_length=200, blank=True,
-        verbose_name='Nom du signataire',
-        help_text='Nom de la personne autorisée à signer'
+        verbose_name=_('Nom du signataire'),
+        help_text=_('Nom de la personne autorisée à signer')
     )
     telephone_signataire = models.CharField(
         max_length=50, blank=True,
-        verbose_name='Téléphone du signataire',
-        help_text='Numéro de téléphone pour questions'
+        verbose_name=_('Téléphone du signataire'),
+        help_text=_('Numéro de téléphone pour questions')
     )
     est_signe = models.BooleanField(
         default=False,
-        verbose_name='Signé',
-        help_text='Indique si le certificat a été signé'
+        verbose_name=_('Signé'),
+        help_text=_('Indique si le certificat a été signé')
     )
 
     # ==================== STATUT ET MÉTADONNÉES ====================
     statut = models.CharField(
         max_length=20, choices=STATUT_CHOICES, default='BROUILLON',
-        verbose_name='Statut',
-        help_text='État actuel du certificat'
+        verbose_name=_('Statut'),
+        help_text=_('État actuel du certificat')
     )
 
     # ==================== CHAMPS LEGACY (maintenu pour compatibilité) ====================
     salaire_brut_annuel = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        verbose_name='Salaire brut annuel (legacy)',
-        help_text='[Obsolète] Utiliser chiffre_1_salaire'
+        verbose_name=_('Salaire brut annuel (legacy)'),
+        help_text=_('[Obsolète] Utiliser chiffre_1_salaire')
     )
     treizieme_salaire_annuel = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='13ème salaire annuel (legacy)',
-        help_text='[Obsolète] Inclus dans chiffre_3_irregulier'
+        verbose_name=_('13ème salaire annuel (legacy)'),
+        help_text=_('[Obsolète] Inclus dans chiffre_3_irregulier')
     )
     primes_annuelles = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='Primes annuelles (legacy)',
-        help_text='[Obsolète] Inclus dans chiffre_3_irregulier'
+        verbose_name=_('Primes annuelles (legacy)'),
+        help_text=_('[Obsolète] Inclus dans chiffre_3_irregulier')
     )
     avs_annuel = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='AVS annuel (legacy)',
-        help_text='[Obsolète] Utiliser chiffre_9_cotisations'
+        verbose_name=_('AVS annuel (legacy)'),
+        help_text=_('[Obsolète] Utiliser chiffre_9_cotisations')
     )
     ac_annuel = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='AC annuel (legacy)',
-        help_text='[Obsolète] Inclus dans chiffre_9_cotisations'
+        verbose_name=_('AC annuel (legacy)'),
+        help_text=_('[Obsolète] Inclus dans chiffre_9_cotisations')
     )
     lpp_annuel = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='LPP annuel (legacy)',
-        help_text='[Obsolète] Utiliser chiffre_10_1_lpp_ordinaire'
+        verbose_name=_('LPP annuel (legacy)'),
+        help_text=_('[Obsolète] Utiliser chiffre_10_1_lpp_ordinaire')
     )
     allocations_familiales_annuel = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='Allocations familiales annuelles (legacy)',
-        help_text='[Obsolète] Les allocations ne figurent pas sur le formulaire 11'
+        verbose_name=_('Allocations familiales annuelles (legacy)'),
+        help_text=_('[Obsolète] Les allocations ne figurent pas sur le formulaire 11')
     )
     frais_deplacement = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='Frais de déplacement (legacy)',
-        help_text='[Obsolète] Utiliser chiffre_12_transport'
+        verbose_name=_('Frais de déplacement (legacy)'),
+        help_text=_('[Obsolète] Utiliser chiffre_12_transport')
     )
     frais_repas = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='Frais de repas (legacy)',
-        help_text='[Obsolète] Utiliser chiffre_13_*'
+        verbose_name=_('Frais de repas (legacy)'),
+        help_text=_('[Obsolète] Utiliser chiffre_13_*')
     )
     impot_source_annuel = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='Impôt à la source annuel',
-        help_text='Total impôt à la source retenu (info uniquement, pas sur formulaire 11)'
+        verbose_name=_('Impôt à la source annuel'),
+        help_text=_('Total impôt à la source retenu (info uniquement, pas sur formulaire 11)')
     )
 
     # ==================== FICHIER PDF ====================
     fichier_pdf = models.FileField(
         upload_to='salaires/certificats/', null=True, blank=True,
-        verbose_name='Fichier PDF',
-        help_text='Certificat de salaire au format PDF'
+        verbose_name=_('Fichier PDF'),
+        help_text=_('Certificat de salaire au format PDF')
     )
 
     date_generation = models.DateTimeField(
         auto_now_add=True,
-        verbose_name='Date de génération',
-        help_text='Date de création du certificat'
+        verbose_name=_('Date de génération'),
+        help_text=_('Date de création du certificat')
     )
     genere_par = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True,
-        verbose_name='Généré par',
-        help_text='Utilisateur ayant généré le certificat'
+        verbose_name=_('Généré par'),
+        help_text=_('Utilisateur ayant généré le certificat')
     )
-    
+
     class Meta:
         db_table = 'certificats_salaire'
-        verbose_name = 'Certificat de salaire'
-        verbose_name_plural = 'Certificats de salaire'
+        verbose_name = _('Certificat de salaire')
+        verbose_name_plural = _('Certificats de salaire')
         unique_together = [['employe', 'annee']]
         ordering = ['-annee']
 
@@ -1591,238 +1591,238 @@ class DeclarationCotisations(BaseModel):
     mandat = models.ForeignKey(
         Mandat, on_delete=models.CASCADE,
         related_name='declarations_cotisations',
-        verbose_name='Mandat',
-        help_text='Mandat employeur concerné'
+        verbose_name=_('Mandat'),
+        help_text=_('Mandat employeur concerné')
     )
     organisme = models.CharField(
         max_length=10, choices=ORGANISME_CHOICES,
-        verbose_name='Organisme',
-        help_text='Organisme destinataire de la déclaration'
+        verbose_name=_('Organisme'),
+        help_text=_('Organisme destinataire de la déclaration')
     )
 
     # Informations caisse (selon l'organisme)
     nom_caisse = models.CharField(
         max_length=200, blank=True,
-        verbose_name='Nom de la caisse',
-        help_text='Dénomination officielle de la caisse'
+        verbose_name=_('Nom de la caisse'),
+        help_text=_('Dénomination officielle de la caisse')
     )
     numero_affilie = models.CharField(
         max_length=50, blank=True,
-        verbose_name='N° affilié',
-        help_text='Numéro d\'affiliation de l\'employeur'
+        verbose_name=_('N° affilié'),
+        help_text=_('Numéro d\'affiliation de l\'employeur')
     )
     numero_contrat = models.CharField(
         max_length=50, blank=True,
-        verbose_name='N° contrat/police',
-        help_text='Numéro de contrat ou police'
+        verbose_name=_('N° contrat/police'),
+        help_text=_('Numéro de contrat ou police')
     )
 
     # Période
     periode_type = models.CharField(
         max_length=15, choices=PERIODE_TYPE_CHOICES,
         default='MENSUEL',
-        verbose_name='Type de période',
-        help_text='Fréquence de déclaration'
+        verbose_name=_('Type de période'),
+        help_text=_('Fréquence de déclaration')
     )
     periode_debut = models.DateField(
-        verbose_name='Début de période',
-        help_text='Premier jour de la période déclarée'
+        verbose_name=_('Début de période'),
+        help_text=_('Premier jour de la période déclarée')
     )
     periode_fin = models.DateField(
-        verbose_name='Fin de période',
-        help_text='Dernier jour de la période déclarée'
+        verbose_name=_('Fin de période'),
+        help_text=_('Dernier jour de la période déclarée')
     )
     annee = models.IntegerField(
-        verbose_name='Année',
-        help_text='Année de la déclaration'
+        verbose_name=_('Année'),
+        help_text=_('Année de la déclaration')
     )
     mois = models.IntegerField(
         null=True, blank=True,
-        verbose_name='Mois',
-        help_text='Mois (1-12) pour déclaration mensuelle'
+        verbose_name=_('Mois'),
+        help_text=_('Mois (1-12) pour déclaration mensuelle')
     )
     trimestre = models.IntegerField(
         null=True, blank=True,
-        verbose_name='Trimestre',
-        help_text='Trimestre (1-4) pour déclaration trimestrielle'
+        verbose_name=_('Trimestre'),
+        help_text=_('Trimestre (1-4) pour déclaration trimestrielle')
     )
 
     # Effectifs
     nombre_employes = models.IntegerField(
         default=0,
-        verbose_name='Nombre d\'employés',
-        help_text='Nombre d\'employés déclarés'
+        verbose_name=_('Nombre d\'employés'),
+        help_text=_('Nombre d\'employés déclarés')
     )
 
     # Masse salariale
     masse_salariale_brute = models.DecimalField(
         max_digits=15, decimal_places=2, default=0,
-        verbose_name='Masse salariale brute',
-        help_text='Total des salaires bruts en CHF'
+        verbose_name=_('Masse salariale brute'),
+        help_text=_('Total des salaires bruts en CHF')
     )
     masse_salariale_soumise = models.DecimalField(
         max_digits=15, decimal_places=2, default=0,
-        verbose_name='Masse salariale soumise',
-        help_text='Total des salaires soumis à cotisation en CHF'
+        verbose_name=_('Masse salariale soumise'),
+        help_text=_('Total des salaires soumis à cotisation en CHF')
     )
 
     # Cotisations détaillées (selon organisme)
     # Pour AVS
     cotisation_avs = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        verbose_name='AVS',
-        help_text='Cotisation AVS (employeur + employé)'
+        verbose_name=_('AVS'),
+        help_text=_('Cotisation AVS (employeur + employé)')
     )
     cotisation_ai = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        verbose_name='AI',
-        help_text='Cotisation AI (employeur + employé)'
+        verbose_name=_('AI'),
+        help_text=_('Cotisation AI (employeur + employé)')
     )
     cotisation_apg = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        verbose_name='APG',
-        help_text='Cotisation APG (employeur + employé)'
+        verbose_name=_('APG'),
+        help_text=_('Cotisation APG (employeur + employé)')
     )
     cotisation_ac = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        verbose_name='AC',
-        help_text='Cotisation AC (employeur + employé)'
+        verbose_name=_('AC'),
+        help_text=_('Cotisation AC (employeur + employé)')
     )
     cotisation_ac_supp = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        verbose_name='AC supplémentaire',
-        help_text='AC sur salaires > 148\'200 CHF'
+        verbose_name=_('AC supplémentaire'),
+        help_text=_('AC sur salaires > 148\'200 CHF')
     )
     frais_administration = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        verbose_name='Frais d\'administration',
-        help_text='Frais de gestion de la caisse'
+        verbose_name=_('Frais d\'administration'),
+        help_text=_('Frais de gestion de la caisse')
     )
 
     # Pour LPP
     cotisation_lpp_employe = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        verbose_name='LPP employé',
-        help_text='Part employé LPP'
+        verbose_name=_('LPP employé'),
+        help_text=_('Part employé LPP')
     )
     cotisation_lpp_employeur = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        verbose_name='LPP employeur',
-        help_text='Part employeur LPP'
+        verbose_name=_('LPP employeur'),
+        help_text=_('Part employeur LPP')
     )
 
     # Pour LAA
     cotisation_laa_pro = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        verbose_name='LAA professionnelle',
-        help_text='Prime accidents professionnels'
+        verbose_name=_('LAA professionnelle'),
+        help_text=_('Prime accidents professionnels')
     )
     cotisation_laa_non_pro = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        verbose_name='LAA non professionnelle',
-        help_text='Prime accidents non professionnels'
+        verbose_name=_('LAA non professionnelle'),
+        help_text=_('Prime accidents non professionnels')
     )
     cotisation_laac = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        verbose_name='LAAC complémentaire',
-        help_text='Assurance accidents complémentaire'
+        verbose_name=_('LAAC complémentaire'),
+        help_text=_('Assurance accidents complémentaire')
     )
 
     # Pour AF
     cotisation_af = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        verbose_name='Allocations familiales',
-        help_text='Cotisation allocations familiales'
+        verbose_name=_('Allocations familiales'),
+        help_text=_('Cotisation allocations familiales')
     )
 
     # Pour IJM
     cotisation_ijm = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        verbose_name='IJM',
-        help_text='Prime indemnités journalières maladie'
+        verbose_name=_('IJM'),
+        help_text=_('Prime indemnités journalières maladie')
     )
 
     # Totaux
     total_cotisations_employe = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        verbose_name='Total part employé',
-        help_text='Total des cotisations part employé'
+        verbose_name=_('Total part employé'),
+        help_text=_('Total des cotisations part employé')
     )
     total_cotisations_employeur = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        verbose_name='Total part employeur',
-        help_text='Total des cotisations part employeur'
+        verbose_name=_('Total part employeur'),
+        help_text=_('Total des cotisations part employeur')
     )
     montant_cotisations = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        verbose_name='Montant total',
-        help_text='Total des cotisations dues en CHF'
+        verbose_name=_('Montant total'),
+        help_text=_('Total des cotisations dues en CHF')
     )
 
     # Dates et statut
     statut = models.CharField(
         max_length=15, choices=STATUT_CHOICES,
         default='BROUILLON', db_index=True,
-        verbose_name='Statut',
-        help_text='État de la déclaration'
+        verbose_name=_('Statut'),
+        help_text=_('État de la déclaration')
     )
     date_declaration = models.DateField(
         null=True, blank=True,
-        verbose_name='Date de déclaration',
-        help_text='Date de création de la déclaration'
+        verbose_name=_('Date de déclaration'),
+        help_text=_('Date de création de la déclaration')
     )
     date_echeance = models.DateField(
         null=True, blank=True,
-        verbose_name='Date d\'échéance',
-        help_text='Date limite de paiement'
+        verbose_name=_('Date d\'échéance'),
+        help_text=_('Date limite de paiement')
     )
     date_transmission = models.DateField(
         null=True, blank=True,
-        verbose_name='Date de transmission',
-        help_text='Date d\'envoi à la caisse'
+        verbose_name=_('Date de transmission'),
+        help_text=_('Date d\'envoi à la caisse')
     )
     date_paiement = models.DateField(
         null=True, blank=True,
-        verbose_name='Date de paiement',
-        help_text='Date effective du paiement'
+        verbose_name=_('Date de paiement'),
+        help_text=_('Date effective du paiement')
     )
 
     # Références
     numero_reference = models.CharField(
         max_length=50, blank=True,
-        verbose_name='Numéro de référence',
-        help_text='Référence attribuée par l\'organisme'
+        verbose_name=_('Numéro de référence'),
+        help_text=_('Référence attribuée par l\'organisme')
     )
     numero_bvr = models.CharField(
         max_length=50, blank=True,
-        verbose_name='N° BVR/QR',
-        help_text='Numéro de référence de paiement'
+        verbose_name=_('N° BVR/QR'),
+        help_text=_('Numéro de référence de paiement')
     )
     iban_caisse = models.CharField(
         max_length=34, blank=True,
-        verbose_name='IBAN caisse',
-        help_text='IBAN pour le paiement'
+        verbose_name=_('IBAN caisse'),
+        help_text=_('IBAN pour le paiement')
     )
 
     # Documents
     fichier_declaration = models.FileField(
         upload_to='salaires/declarations/',
         null=True, blank=True,
-        verbose_name='Fichier déclaration',
-        help_text='Document de déclaration généré'
+        verbose_name=_('Fichier déclaration'),
+        help_text=_('Document de déclaration généré')
     )
 
     # Remarques
     remarques = models.TextField(
         blank=True,
-        verbose_name='Remarques',
-        help_text='Notes et observations'
+        verbose_name=_('Remarques'),
+        help_text=_('Notes et observations')
     )
 
     class Meta:
         db_table = 'declarations_cotisations'
-        verbose_name = 'Déclaration de cotisations'
-        verbose_name_plural = 'Déclarations de cotisations'
+        verbose_name = _('Déclaration de cotisations')
+        verbose_name_plural = _('Déclarations de cotisations')
         ordering = ['-annee', '-periode_fin', 'organisme']
         unique_together = ['mandat', 'organisme', 'annee', 'mois', 'trimestre']
 
@@ -2058,48 +2058,48 @@ class DeclarationCotisationsLigne(BaseModel):
         DeclarationCotisations,
         on_delete=models.CASCADE,
         related_name='lignes',
-        verbose_name='Déclaration'
+        verbose_name=_('Déclaration')
     )
     employe = models.ForeignKey(
         Employe,
         on_delete=models.CASCADE,
         related_name='lignes_declarations',
-        verbose_name='Employé'
+        verbose_name=_('Employé')
     )
 
     # Salaires
     salaire_brut = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        verbose_name='Salaire brut',
-        help_text='Total salaire brut sur la période'
+        verbose_name=_('Salaire brut'),
+        help_text=_('Total salaire brut sur la période')
     )
     salaire_soumis = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        verbose_name='Salaire soumis',
-        help_text='Salaire soumis à cotisation'
+        verbose_name=_('Salaire soumis'),
+        help_text=_('Salaire soumis à cotisation')
     )
 
     # Cotisations
     cotisation_employe = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='Cotisation employé',
-        help_text='Part employé'
+        verbose_name=_('Cotisation employé'),
+        help_text=_('Part employé')
     )
     cotisation_employeur = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='Cotisation employeur',
-        help_text='Part employeur'
+        verbose_name=_('Cotisation employeur'),
+        help_text=_('Part employeur')
     )
     cotisation_totale = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        verbose_name='Cotisation totale',
-        help_text='Total (employé + employeur)'
+        verbose_name=_('Cotisation totale'),
+        help_text=_('Total (employé + employeur)')
     )
 
     class Meta:
         db_table = 'declarations_cotisations_lignes'
-        verbose_name = 'Ligne de déclaration'
-        verbose_name_plural = 'Lignes de déclaration'
+        verbose_name = _('Ligne de déclaration')
+        verbose_name_plural = _('Lignes de déclaration')
         unique_together = ['declaration', 'employe']
 
     def __str__(self):
@@ -2140,19 +2140,19 @@ class CertificatTravail(BaseModel):
 
     # Type et période
     type_certificat = models.CharField(
-        'Type de certificat',
+        _('Type de certificat'),
         max_length=20,
         choices=TYPE_CERTIFICAT_CHOICES,
         default='COMPLET'
     )
-    date_debut_emploi = models.DateField('Date de début d\'emploi')
-    date_fin_emploi = models.DateField('Date de fin d\'emploi', null=True, blank=True)
+    date_debut_emploi = models.DateField(_('Date de début d\'emploi'))
+    date_fin_emploi = models.DateField(_('Date de fin d\'emploi'), null=True, blank=True)
 
     # Informations professionnelles
-    fonction_principale = models.CharField('Fonction principale', max_length=150)
-    departement = models.CharField('Département', max_length=100, blank=True)
+    fonction_principale = models.CharField(_('Fonction principale'), max_length=150)
+    departement = models.CharField(_('Département'), max_length=100, blank=True)
     taux_occupation = models.DecimalField(
-        'Taux d\'occupation (%)',
+        _('Taux d\'occupation (%)'),
         max_digits=5,
         decimal_places=2,
         default=100
@@ -2160,9 +2160,9 @@ class CertificatTravail(BaseModel):
 
     # Description du poste et des tâches (pour certificat complet)
     description_taches = models.TextField(
-        'Description des tâches',
+        _('Description des tâches'),
         blank=True,
-        help_text='Description détaillée des principales responsabilités et tâches'
+        help_text=_('Description détaillée des principales responsabilités et tâches')
     )
 
     # Évaluations (pour certificat complet - échelle standard suisse)
@@ -2176,46 +2176,46 @@ class CertificatTravail(BaseModel):
     ]
 
     evaluation_qualite_travail = models.IntegerField(
-        'Qualité du travail',
+        _('Qualité du travail'),
         choices=NOTE_CHOICES,
         null=True, blank=True
     )
     evaluation_quantite_travail = models.IntegerField(
-        'Quantité de travail',
+        _('Quantité de travail'),
         choices=NOTE_CHOICES,
         null=True, blank=True
     )
     evaluation_competences = models.IntegerField(
-        'Compétences professionnelles',
+        _('Compétences professionnelles'),
         choices=NOTE_CHOICES,
         null=True, blank=True
     )
     evaluation_comportement = models.IntegerField(
-        'Comportement',
+        _('Comportement'),
         choices=NOTE_CHOICES,
         null=True, blank=True
     )
     evaluation_relations = models.IntegerField(
-        'Relations avec collègues/clients',
+        _('Relations avec collègues/clients'),
         choices=NOTE_CHOICES,
         null=True, blank=True
     )
     evaluation_autonomie = models.IntegerField(
-        'Autonomie et initiative',
+        _('Autonomie et initiative'),
         choices=NOTE_CHOICES,
         null=True, blank=True
     )
 
     # Texte de l'évaluation (généré ou personnalisé)
     texte_evaluation = models.TextField(
-        'Texte d\'évaluation',
+        _('Texte d\'évaluation'),
         blank=True,
-        help_text='Évaluation rédigée des performances et du comportement'
+        help_text=_('Évaluation rédigée des performances et du comportement')
     )
 
     # Motif de départ
     motif_depart = models.CharField(
-        'Motif de départ',
+        _('Motif de départ'),
         max_length=20,
         choices=MOTIF_DEPART_CHOICES,
         blank=True
@@ -2223,26 +2223,26 @@ class CertificatTravail(BaseModel):
 
     # Formule de fin (vœux pour l'avenir)
     formule_fin = models.TextField(
-        'Formule de fin',
+        _('Formule de fin'),
         blank=True,
-        help_text='Remerciements et vœux pour l\'avenir'
+        help_text=_('Remerciements et vœux pour l\'avenir')
     )
 
     # Informations complémentaires
     formations_suivies = models.TextField(
-        'Formations suivies',
+        _('Formations suivies'),
         blank=True,
-        help_text='Formations internes ou externes suivies durant l\'emploi'
+        help_text=_('Formations internes ou externes suivies durant l\'emploi')
     )
     projets_speciaux = models.TextField(
-        'Projets spéciaux',
+        _('Projets spéciaux'),
         blank=True,
-        help_text='Projets particuliers ou missions spéciales'
+        help_text=_('Projets particuliers ou missions spéciales')
     )
 
     # Métadonnées
-    date_demande = models.DateField('Date de demande', null=True, blank=True)
-    date_emission = models.DateField('Date d\'émission', auto_now_add=True)
+    date_demande = models.DateField(_('Date de demande'), null=True, blank=True)
+    date_emission = models.DateField(_('Date d\'émission'), auto_now_add=True)
     emis_par = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -2258,8 +2258,8 @@ class CertificatTravail(BaseModel):
 
     class Meta:
         db_table = 'certificats_travail'
-        verbose_name = 'Certificat de travail'
-        verbose_name_plural = 'Certificats de travail'
+        verbose_name = _('Certificat de travail')
+        verbose_name_plural = _('Certificats de travail')
         ordering = ['-date_emission']
 
     def __str__(self):

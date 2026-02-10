@@ -1,5 +1,6 @@
 # apps/fiscalite/models.py
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 from core.models import BaseModel, Mandat, Client, User, ExerciceComptable, SwissCantons
 from decimal import Decimal
 
@@ -8,53 +9,53 @@ class DeclarationFiscale(BaseModel):
     """Déclaration fiscale (impôts)"""
 
     TYPE_DECLARATION_CHOICES = [
-        ('PERSONNE_PHYSIQUE', 'Personne physique'),
-        ('PERSONNE_MORALE', 'Personne morale'),
+        ('PERSONNE_PHYSIQUE', _('Personne physique')),
+        ('PERSONNE_MORALE', _('Personne morale')),
     ]
 
     TYPE_IMPOT_CHOICES = [
-        ('IFD', 'Impôt fédéral direct (IFD)'),
-        ('ICC', 'Impôt cantonal et communal (ICC)'),
-        ('FORTUNE', 'Impôt sur la fortune'),
-        ('BENEFICE', 'Impôt sur le bénéfice'),
-        ('CAPITAL', 'Impôt sur le capital'),
+        ('IFD', _('Impôt fédéral direct (IFD)')),
+        ('ICC', _('Impôt cantonal et communal (ICC)')),
+        ('FORTUNE', _('Impôt sur la fortune')),
+        ('BENEFICE', _('Impôt sur le bénéfice')),
+        ('CAPITAL', _('Impôt sur le capital')),
     ]
 
     STATUT_CHOICES = [
-        ('BROUILLON', 'Brouillon'),
-        ('EN_PREPARATION', 'En préparation'),
-        ('A_VALIDER', 'À valider'),
-        ('VALIDE', 'Validé'),
-        ('DEPOSE', 'Déposé'),
-        ('ACCEPTE', 'Accepté'),
-        ('TAXATION_RECUE', 'Taxation reçue'),
-        ('CONTESTE', 'Contesté'),
-        ('CLOTURE', 'Clôturé'),
+        ('BROUILLON', _('Brouillon')),
+        ('EN_PREPARATION', _('En préparation')),
+        ('A_VALIDER', _('À valider')),
+        ('VALIDE', _('Validé')),
+        ('DEPOSE', _('Déposé')),
+        ('ACCEPTE', _('Accepté')),
+        ('TAXATION_RECUE', _('Taxation reçue')),
+        ('CONTESTE', _('Contesté')),
+        ('CLOTURE', _('Clôturé')),
     ]
 
     # Identification
     mandat = models.ForeignKey(
         Mandat, on_delete=models.CASCADE,
         related_name='declarations_fiscales',
-        verbose_name='Mandat',
-        help_text='Mandat concerné par cette déclaration fiscale'
+        verbose_name=_('Mandat'),
+        help_text=_('Mandat concerné par cette déclaration fiscale')
     )
     numero_declaration = models.CharField(
         max_length=50, unique=True, db_index=True,
-        verbose_name='Numéro de déclaration',
-        help_text='Identifiant unique de la déclaration (ex: FISC-IFD-2024-001)'
+        verbose_name=_('Numéro de déclaration'),
+        help_text=_('Identifiant unique de la déclaration (ex: FISC-IFD-2024-001)')
     )
 
     # Type
     type_declaration = models.CharField(
         max_length=30, choices=TYPE_DECLARATION_CHOICES,
-        verbose_name='Type de déclaration',
-        help_text='Personne physique ou morale'
+        verbose_name=_('Type de déclaration'),
+        help_text=_('Personne physique ou morale')
     )
     type_impot = models.CharField(
         max_length=20, choices=TYPE_IMPOT_CHOICES,
-        verbose_name='Type d\'impôt',
-        help_text='Nature de l\'impôt concerné'
+        verbose_name=_('Type d\'impôt'),
+        help_text=_('Nature de l\'impôt concerné')
     )
 
     # Période
@@ -62,157 +63,157 @@ class DeclarationFiscale(BaseModel):
         ExerciceComptable, on_delete=models.PROTECT,
         related_name='declarations_fiscales',
         null=True, blank=True,
-        verbose_name='Exercice comptable',
-        help_text='Exercice comptable lié à cette déclaration'
+        verbose_name=_('Exercice comptable'),
+        help_text=_('Exercice comptable lié à cette déclaration')
     )
     annee_fiscale = models.IntegerField(
         db_index=True,
-        verbose_name='Année fiscale',
-        help_text='Année d\'imposition'
+        verbose_name=_('Année fiscale'),
+        help_text=_('Année d\'imposition')
     )
     periode_debut = models.DateField(
-        verbose_name='Début de période',
-        help_text='Date de début de la période fiscale'
+        verbose_name=_('Début de période'),
+        help_text=_('Date de début de la période fiscale')
     )
     periode_fin = models.DateField(
-        verbose_name='Fin de période',
-        help_text='Date de fin de la période fiscale'
+        verbose_name=_('Fin de période'),
+        help_text=_('Date de fin de la période fiscale')
     )
 
     # Autorité fiscale
     canton = models.CharField(
         max_length=2, choices=SwissCantons.choices,
-        verbose_name='Canton',
-        help_text='Canton de taxation'
+        verbose_name=_('Canton'),
+        help_text=_('Canton de taxation')
     )
     commune = models.CharField(
         max_length=100, blank=True,
-        verbose_name='Commune',
-        help_text='Commune de taxation'
+        verbose_name=_('Commune'),
+        help_text=_('Commune de taxation')
     )
     numero_contribuable = models.CharField(
         max_length=50, blank=True,
-        verbose_name='Numéro de contribuable',
-        help_text='Numéro attribué par l\'autorité fiscale'
+        verbose_name=_('Numéro de contribuable'),
+        help_text=_('Numéro attribué par l\'autorité fiscale')
     )
 
     # Montants clés (dénormalisé pour perf)
     benefice_avant_impots = models.DecimalField(
         max_digits=15, decimal_places=2, default=0,
-        verbose_name='Bénéfice avant impôts',
-        help_text='Bénéfice comptable avant impôts en CHF'
+        verbose_name=_('Bénéfice avant impôts'),
+        help_text=_('Bénéfice comptable avant impôts en CHF')
     )
     benefice_imposable = models.DecimalField(
         max_digits=15, decimal_places=2, default=0,
-        verbose_name='Bénéfice imposable',
-        help_text='Bénéfice après corrections fiscales en CHF'
+        verbose_name=_('Bénéfice imposable'),
+        help_text=_('Bénéfice après corrections fiscales en CHF')
     )
 
     capital_propre = models.DecimalField(
         max_digits=15, decimal_places=2, default=0,
-        verbose_name='Capital propre',
-        help_text='Capital propre comptable en CHF'
+        verbose_name=_('Capital propre'),
+        help_text=_('Capital propre comptable en CHF')
     )
     capital_imposable = models.DecimalField(
         max_digits=15, decimal_places=2, default=0,
-        verbose_name='Capital imposable',
-        help_text='Capital après corrections fiscales en CHF'
+        verbose_name=_('Capital imposable'),
+        help_text=_('Capital après corrections fiscales en CHF')
     )
 
     impot_federal = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        verbose_name='Impôt fédéral',
-        help_text='Montant de l\'impôt fédéral direct en CHF'
+        verbose_name=_('Impôt fédéral'),
+        help_text=_('Montant de l\'impôt fédéral direct en CHF')
     )
     impot_cantonal = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        verbose_name='Impôt cantonal',
-        help_text='Montant de l\'impôt cantonal en CHF'
+        verbose_name=_('Impôt cantonal'),
+        help_text=_('Montant de l\'impôt cantonal en CHF')
     )
     impot_communal = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        verbose_name='Impôt communal',
-        help_text='Montant de l\'impôt communal en CHF'
+        verbose_name=_('Impôt communal'),
+        help_text=_('Montant de l\'impôt communal en CHF')
     )
     impot_total = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        verbose_name='Impôt total',
-        help_text='Somme des impôts fédéral, cantonal et communal en CHF'
+        verbose_name=_('Impôt total'),
+        help_text=_('Somme des impôts fédéral, cantonal et communal en CHF')
     )
 
     # Statut
     statut = models.CharField(
         max_length=30, choices=STATUT_CHOICES,
         default='BROUILLON', db_index=True,
-        verbose_name='Statut',
-        help_text='État d\'avancement de la déclaration'
+        verbose_name=_('Statut'),
+        help_text=_('État d\'avancement de la déclaration')
     )
 
     # Dates importantes
     date_creation = models.DateField(
         auto_now_add=True,
-        verbose_name='Date de création',
-        help_text='Date de création de la déclaration'
+        verbose_name=_('Date de création'),
+        help_text=_('Date de création de la déclaration')
     )
     date_validation = models.DateTimeField(
         null=True, blank=True,
-        verbose_name='Date de validation',
-        help_text='Date et heure de validation interne'
+        verbose_name=_('Date de validation'),
+        help_text=_('Date et heure de validation interne')
     )
     valide_par = models.ForeignKey(
         User, on_delete=models.SET_NULL,
         null=True, blank=True,
         related_name='declarations_validees',
-        verbose_name='Validé par',
-        help_text='Utilisateur ayant validé la déclaration'
+        verbose_name=_('Validé par'),
+        help_text=_('Utilisateur ayant validé la déclaration')
     )
 
     date_depot = models.DateField(
         null=True, blank=True,
-        verbose_name='Date de dépôt',
-        help_text='Date de dépôt auprès de l\'autorité fiscale'
+        verbose_name=_('Date de dépôt'),
+        help_text=_('Date de dépôt auprès de l\'autorité fiscale')
     )
     date_limite_depot = models.DateField(
         null=True, blank=True,
-        verbose_name='Date limite de dépôt',
-        help_text='Échéance pour le dépôt de la déclaration'
+        verbose_name=_('Date limite de dépôt'),
+        help_text=_('Échéance pour le dépôt de la déclaration')
     )
 
     date_taxation = models.DateField(
         null=True, blank=True,
-        verbose_name='Date de taxation',
-        help_text='Date de réception de la taxation'
+        verbose_name=_('Date de taxation'),
+        help_text=_('Date de réception de la taxation')
     )
     numero_taxation = models.CharField(
         max_length=50, blank=True,
-        verbose_name='Numéro de taxation',
-        help_text='Référence de la décision de taxation'
+        verbose_name=_('Numéro de taxation'),
+        help_text=_('Référence de la décision de taxation')
     )
 
     # Fichiers
     fichier_declaration = models.FileField(
         upload_to='fiscalite/declarations/',
         null=True, blank=True,
-        verbose_name='Fichier déclaration',
-        help_text='Document PDF de la déclaration déposée'
+        verbose_name=_('Fichier déclaration'),
+        help_text=_('Document PDF de la déclaration déposée')
     )
     fichier_taxation = models.FileField(
         upload_to='fiscalite/taxations/',
         null=True, blank=True,
-        verbose_name='Fichier taxation',
-        help_text='Document PDF de la décision de taxation'
+        verbose_name=_('Fichier taxation'),
+        help_text=_('Document PDF de la décision de taxation')
     )
 
     # Notes
     remarques = models.TextField(
         blank=True,
-        verbose_name='Remarques',
-        help_text='Notes et observations sur cette déclaration'
+        verbose_name=_('Remarques'),
+        help_text=_('Notes et observations sur cette déclaration')
     )
 
     class Meta:
         db_table = 'declarations_fiscales'
-        verbose_name = 'Déclaration fiscale'
+        verbose_name = _('Déclaration fiscale')
         ordering = ['-annee_fiscale', '-date_creation']
         indexes = [
             models.Index(fields=['mandat', 'annee_fiscale']),
@@ -245,59 +246,59 @@ class AnnexeFiscale(BaseModel):
     """Annexes et formulaires fiscaux"""
 
     TYPE_ANNEXE_CHOICES = [
-        ('BILAN', 'Bilan fiscal'),
-        ('COMPTE_RESULTATS', 'Compte de résultats'),
-        ('TABLEAU_AMORTISSEMENTS', 'Tableau des amortissements'),
-        ('PARTICIPATIONS', 'Participations'),
-        ('IMMOBILIER', 'Immobilier'),
-        ('PROVISIONS', 'Provisions et réserves'),
-        ('CHARGES_PERSONNEL', 'Charges de personnel'),
-        ('AUTRE', 'Autre annexe'),
+        ('BILAN', _('Bilan fiscal')),
+        ('COMPTE_RESULTATS', _('Compte de résultats')),
+        ('TABLEAU_AMORTISSEMENTS', _('Tableau des amortissements')),
+        ('PARTICIPATIONS', _('Participations')),
+        ('IMMOBILIER', _('Immobilier')),
+        ('PROVISIONS', _('Provisions et réserves')),
+        ('CHARGES_PERSONNEL', _('Charges de personnel')),
+        ('AUTRE', _('Autre annexe')),
     ]
 
     declaration = models.ForeignKey(
         DeclarationFiscale, on_delete=models.CASCADE,
         related_name='annexes',
-        verbose_name='Déclaration',
-        help_text='Déclaration fiscale à laquelle cette annexe est rattachée'
+        verbose_name=_('Déclaration'),
+        help_text=_('Déclaration fiscale à laquelle cette annexe est rattachée')
     )
 
     type_annexe = models.CharField(
         max_length=50, choices=TYPE_ANNEXE_CHOICES,
-        verbose_name='Type d\'annexe',
-        help_text='Catégorie de l\'annexe fiscale'
+        verbose_name=_('Type d\'annexe'),
+        help_text=_('Catégorie de l\'annexe fiscale')
     )
     titre = models.CharField(
         max_length=255,
-        verbose_name='Titre',
-        help_text='Intitulé de l\'annexe'
+        verbose_name=_('Titre'),
+        help_text=_('Intitulé de l\'annexe')
     )
 
     # Contenu structuré
     donnees = models.JSONField(
         default=dict, blank=True,
-        verbose_name='Données',
-        help_text='Données structurées de l\'annexe au format JSON'
+        verbose_name=_('Données'),
+        help_text=_('Données structurées de l\'annexe au format JSON')
     )
 
     # Ordre d'affichage
     ordre = models.IntegerField(
         default=0,
-        verbose_name='Ordre',
-        help_text='Position d\'affichage dans la liste des annexes'
+        verbose_name=_('Ordre'),
+        help_text=_('Position d\'affichage dans la liste des annexes')
     )
 
     # Fichier associé
     fichier = models.FileField(
         upload_to='fiscalite/annexes/',
         null=True, blank=True,
-        verbose_name='Fichier',
-        help_text='Document PDF ou autre pièce jointe'
+        verbose_name=_('Fichier'),
+        help_text=_('Document PDF ou autre pièce jointe')
     )
 
     class Meta:
         db_table = 'annexes_fiscales'
-        verbose_name = 'Annexe fiscale'
+        verbose_name = _('Annexe fiscale')
         ordering = ['declaration', 'ordre']
 
     def __str__(self):
@@ -308,73 +309,73 @@ class CorrectionFiscale(BaseModel):
     """Corrections fiscales (différences compta/fiscal)"""
 
     TYPE_CORRECTION_CHOICES = [
-        ('AMORTISSEMENT', 'Amortissement supplémentaire'),
-        ('PROVISION', 'Provision non admise'),
-        ('CHARGE_NON_DEDUCTIBLE', 'Charge non déductible'),
-        ('PRODUIT_NON_IMPOSABLE', 'Produit non imposable'),
-        ('PERTE_REPORT', 'Report de pertes'),
-        ('DEPRECIATION', 'Dépréciation'),
-        ('PARTICIPATION', 'Réduction pour participations'),
-        ('AUTRE', 'Autre correction'),
+        ('AMORTISSEMENT', _('Amortissement supplémentaire')),
+        ('PROVISION', _('Provision non admise')),
+        ('CHARGE_NON_DEDUCTIBLE', _('Charge non déductible')),
+        ('PRODUIT_NON_IMPOSABLE', _('Produit non imposable')),
+        ('PERTE_REPORT', _('Report de pertes')),
+        ('DEPRECIATION', _('Dépréciation')),
+        ('PARTICIPATION', _('Réduction pour participations')),
+        ('AUTRE', _('Autre correction')),
     ]
 
     declaration = models.ForeignKey(
         DeclarationFiscale, on_delete=models.CASCADE,
         related_name='corrections',
-        verbose_name='Déclaration',
-        help_text='Déclaration fiscale concernée'
+        verbose_name=_('Déclaration'),
+        help_text=_('Déclaration fiscale concernée')
     )
 
     type_correction = models.CharField(
         max_length=50, choices=TYPE_CORRECTION_CHOICES,
-        verbose_name='Type de correction',
-        help_text='Nature de la différence entre comptabilité et fiscalité'
+        verbose_name=_('Type de correction'),
+        help_text=_('Nature de la différence entre comptabilité et fiscalité')
     )
     description = models.TextField(
-        verbose_name='Description',
-        help_text='Explication détaillée de la correction'
+        verbose_name=_('Description'),
+        help_text=_('Explication détaillée de la correction')
     )
 
     # Montants
     montant_comptable = models.DecimalField(
         max_digits=15, decimal_places=2, default=0,
-        verbose_name='Montant comptable',
-        help_text='Valeur inscrite en comptabilité en CHF'
+        verbose_name=_('Montant comptable'),
+        help_text=_('Valeur inscrite en comptabilité en CHF')
     )
     montant_correction = models.DecimalField(
         max_digits=15, decimal_places=2,
-        verbose_name='Montant de correction',
-        help_text='Positif = augmentation du bénéfice, Négatif = diminution'
+        verbose_name=_('Montant de correction'),
+        help_text=_('Positif = augmentation du bénéfice, Négatif = diminution')
     )
     montant_fiscal = models.DecimalField(
         max_digits=15, decimal_places=2, default=0,
-        verbose_name='Montant fiscal',
-        help_text='Valeur retenue fiscalement en CHF (calculé automatiquement)'
+        verbose_name=_('Montant fiscal'),
+        help_text=_('Valeur retenue fiscalement en CHF (calculé automatiquement)')
     )
 
     # Référence comptable
     compte = models.ForeignKey(
         'comptabilite.Compte', on_delete=models.SET_NULL,
         null=True, blank=True,
-        verbose_name='Compte comptable',
-        help_text='Compte du plan comptable concerné'
+        verbose_name=_('Compte comptable'),
+        help_text=_('Compte du plan comptable concerné')
     )
 
     # Justification
     justification = models.TextField(
         blank=True,
-        verbose_name='Justification',
-        help_text='Argumentation et preuves supportant cette correction'
+        verbose_name=_('Justification'),
+        help_text=_('Argumentation et preuves supportant cette correction')
     )
     reference_legale = models.CharField(
         max_length=255, blank=True,
-        verbose_name='Référence légale',
-        help_text='Article de loi, circulaire AFC ou jurisprudence'
+        verbose_name=_('Référence légale'),
+        help_text=_('Article de loi, circulaire AFC ou jurisprudence')
     )
 
     class Meta:
         db_table = 'corrections_fiscales'
-        verbose_name = 'Correction fiscale'
+        verbose_name = _('Correction fiscale')
         ordering = ['declaration', 'type_correction']
 
     def __str__(self):
@@ -391,45 +392,45 @@ class ReportPerte(BaseModel):
     mandat = models.ForeignKey(
         Mandat, on_delete=models.CASCADE,
         related_name='reports_pertes',
-        verbose_name='Mandat',
-        help_text='Mandat concerné par ce report de perte'
+        verbose_name=_('Mandat'),
+        help_text=_('Mandat concerné par ce report de perte')
     )
 
     annee_origine = models.IntegerField(
         db_index=True,
-        verbose_name='Année d\'origine',
-        help_text='Année durant laquelle la perte a été constatée'
+        verbose_name=_('Année d\'origine'),
+        help_text=_('Année durant laquelle la perte a été constatée')
     )
     montant_perte = models.DecimalField(
         max_digits=15, decimal_places=2,
-        verbose_name='Montant de la perte',
-        help_text='Montant initial de la perte fiscale en CHF'
+        verbose_name=_('Montant de la perte'),
+        help_text=_('Montant initial de la perte fiscale en CHF')
     )
 
     montant_utilise = models.DecimalField(
         max_digits=15, decimal_places=2, default=0,
-        verbose_name='Montant utilisé',
-        help_text='Cumul des pertes déjà imputées en CHF'
+        verbose_name=_('Montant utilisé'),
+        help_text=_('Cumul des pertes déjà imputées en CHF')
     )
     montant_restant = models.DecimalField(
         max_digits=15, decimal_places=2,
-        verbose_name='Montant restant',
-        help_text='Solde de perte encore reportable en CHF'
+        verbose_name=_('Montant restant'),
+        help_text=_('Solde de perte encore reportable en CHF')
     )
 
     annee_expiration = models.IntegerField(
-        verbose_name='Année d\'expiration',
-        help_text='Dernière année d\'utilisation possible (7 ans après l\'origine)'
+        verbose_name=_('Année d\'expiration'),
+        help_text=_('Dernière année d\'utilisation possible (7 ans après l\'origine)')
     )
     expire = models.BooleanField(
         default=False, db_index=True,
-        verbose_name='Expiré',
-        help_text='Indique si le délai de report est dépassé'
+        verbose_name=_('Expiré'),
+        help_text=_('Indique si le délai de report est dépassé')
     )
 
     class Meta:
         db_table = 'reports_pertes'
-        verbose_name = 'Report de perte'
+        verbose_name = _('Report de perte')
         ordering = ['annee_origine']
         indexes = [
             models.Index(fields=['mandat', 'expire']),
@@ -455,25 +456,25 @@ class UtilisationPerte(BaseModel):
     report_perte = models.ForeignKey(
         ReportPerte, on_delete=models.CASCADE,
         related_name='utilisations',
-        verbose_name='Report de perte',
-        help_text='Perte reportée utilisée'
+        verbose_name=_('Report de perte'),
+        help_text=_('Perte reportée utilisée')
     )
     declaration_fiscale = models.ForeignKey(
         DeclarationFiscale, on_delete=models.CASCADE,
         related_name='pertes_utilisees',
-        verbose_name='Déclaration fiscale',
-        help_text='Déclaration dans laquelle la perte est imputée'
+        verbose_name=_('Déclaration fiscale'),
+        help_text=_('Déclaration dans laquelle la perte est imputée')
     )
 
     montant_utilise = models.DecimalField(
         max_digits=15, decimal_places=2,
-        verbose_name='Montant utilisé',
-        help_text='Montant de perte imputé sur cette déclaration en CHF'
+        verbose_name=_('Montant utilisé'),
+        help_text=_('Montant de perte imputé sur cette déclaration en CHF')
     )
 
     class Meta:
         db_table = 'utilisations_perte'
-        verbose_name = 'Utilisation de perte'
+        verbose_name = _('Utilisation de perte')
 
     def __str__(self):
         return f"Utilisation {self.montant_utilise} CHF - Perte {self.report_perte.annee_origine}"
@@ -483,70 +484,70 @@ class TauxImposition(BaseModel):
     """Taux d'imposition par canton/commune"""
 
     TYPE_IMPOT_CHOICES = [
-        ('IFD_BENEFICE', 'IFD Bénéfice'),
-        ('ICC_BENEFICE', 'ICC Bénéfice'),
-        ('ICC_CAPITAL', 'ICC Capital'),
+        ('IFD_BENEFICE', _('IFD Bénéfice')),
+        ('ICC_BENEFICE', _('ICC Bénéfice')),
+        ('ICC_CAPITAL', _('ICC Capital')),
     ]
 
     canton = models.CharField(
         max_length=2, choices=SwissCantons.choices,
-        verbose_name='Canton',
-        help_text='Canton suisse concerné'
+        verbose_name=_('Canton'),
+        help_text=_('Canton suisse concerné')
     )
     commune = models.CharField(
         max_length=100, blank=True,
-        verbose_name='Commune',
-        help_text='Commune (si taux spécifique)'
+        verbose_name=_('Commune'),
+        help_text=_('Commune (si taux spécifique)')
     )
 
     type_impot = models.CharField(
         max_length=20, choices=TYPE_IMPOT_CHOICES,
-        verbose_name='Type d\'impôt',
-        help_text='Nature de l\'impôt (IFD, ICC bénéfice ou capital)'
+        verbose_name=_('Type d\'impôt'),
+        help_text=_('Nature de l\'impôt (IFD, ICC bénéfice ou capital)')
     )
     annee = models.IntegerField(
         db_index=True,
-        verbose_name='Année',
-        help_text='Année fiscale d\'application du taux'
+        verbose_name=_('Année'),
+        help_text=_('Année fiscale d\'application du taux')
     )
 
     # Taux ou barème
     taux_fixe = models.DecimalField(
         max_digits=5, decimal_places=2,
         null=True, blank=True,
-        verbose_name='Taux fixe',
-        help_text='Taux d\'imposition en pourcentage (%)'
+        verbose_name=_('Taux fixe'),
+        help_text=_('Taux d\'imposition en pourcentage (%)')
     )
 
     bareme = models.JSONField(
         default=dict, blank=True,
-        verbose_name='Barème',
-        help_text='Barème progressif au format JSON avec tranches et taux'
+        verbose_name=_('Barème'),
+        help_text=_('Barème progressif au format JSON avec tranches et taux')
     )
 
     # Multiplicateurs cantonaux/communaux
     multiplicateur_cantonal = models.DecimalField(
         max_digits=6, decimal_places=2,
         null=True, blank=True,
-        verbose_name='Multiplicateur cantonal',
-        help_text='Coefficient multiplicateur cantonal'
+        verbose_name=_('Multiplicateur cantonal'),
+        help_text=_('Coefficient multiplicateur cantonal')
     )
     multiplicateur_communal = models.DecimalField(
         max_digits=6, decimal_places=2,
         null=True, blank=True,
-        verbose_name='Multiplicateur communal',
-        help_text='Coefficient multiplicateur communal'
+        verbose_name=_('Multiplicateur communal'),
+        help_text=_('Coefficient multiplicateur communal')
     )
 
     actif = models.BooleanField(
         default=True,
-        verbose_name='Actif',
-        help_text='Indique si ce taux est actuellement en vigueur'
+        verbose_name=_('Actif'),
+        help_text=_('Indique si ce taux est actuellement en vigueur')
     )
 
     class Meta:
         db_table = 'taux_imposition'
-        verbose_name = 'Taux d\'imposition'
+        verbose_name = _('Taux d\'imposition')
         unique_together = [['canton', 'commune', 'type_impot', 'annee']]
         ordering = ['canton', 'annee']
 
@@ -585,83 +586,83 @@ class ReclamationFiscale(BaseModel):
     """Réclamation/Contestation fiscale"""
 
     STATUT_CHOICES = [
-        ('BROUILLON', 'Brouillon'),
-        ('DEPOSEE', 'Déposée'),
-        ('EN_TRAITEMENT', 'En traitement'),
-        ('ACCEPTEE', 'Acceptée'),
-        ('PARTIELLEMENT_ACCEPTEE', 'Partiellement acceptée'),
-        ('REFUSEE', 'Refusée'),
-        ('RETIREE', 'Retirée'),
+        ('BROUILLON', _('Brouillon')),
+        ('DEPOSEE', _('Déposée')),
+        ('EN_TRAITEMENT', _('En traitement')),
+        ('ACCEPTEE', _('Acceptée')),
+        ('PARTIELLEMENT_ACCEPTEE', _('Partiellement acceptée')),
+        ('REFUSEE', _('Refusée')),
+        ('RETIREE', _('Retirée')),
     ]
 
     declaration = models.ForeignKey(
         DeclarationFiscale, on_delete=models.CASCADE,
         related_name='reclamations',
-        verbose_name='Déclaration',
-        help_text='Déclaration fiscale contestée'
+        verbose_name=_('Déclaration'),
+        help_text=_('Déclaration fiscale contestée')
     )
 
     date_reclamation = models.DateField(
-        verbose_name='Date de réclamation',
-        help_text='Date de dépôt de la réclamation'
+        verbose_name=_('Date de réclamation'),
+        help_text=_('Date de dépôt de la réclamation')
     )
     motif = models.TextField(
-        verbose_name='Motif',
-        help_text='Argumentation détaillée de la contestation'
+        verbose_name=_('Motif'),
+        help_text=_('Argumentation détaillée de la contestation')
     )
 
     montant_conteste = models.DecimalField(
         max_digits=12, decimal_places=2,
-        verbose_name='Montant contesté',
-        help_text='Montant d\'impôt remis en cause en CHF'
+        verbose_name=_('Montant contesté'),
+        help_text=_('Montant d\'impôt remis en cause en CHF')
     )
     montant_demande = models.DecimalField(
         max_digits=12, decimal_places=2,
-        verbose_name='Montant demandé',
-        help_text='Montant d\'impôt souhaité après correction en CHF'
+        verbose_name=_('Montant demandé'),
+        help_text=_('Montant d\'impôt souhaité après correction en CHF')
     )
 
     statut = models.CharField(
         max_length=30, choices=STATUT_CHOICES,
         default='BROUILLON',
-        verbose_name='Statut',
-        help_text='État d\'avancement de la réclamation'
+        verbose_name=_('Statut'),
+        help_text=_('État d\'avancement de la réclamation')
     )
 
     date_reponse = models.DateField(
         null=True, blank=True,
-        verbose_name='Date de réponse',
-        help_text='Date de réception de la décision'
+        verbose_name=_('Date de réponse'),
+        help_text=_('Date de réception de la décision')
     )
     montant_accorde = models.DecimalField(
         max_digits=12, decimal_places=2,
         null=True, blank=True,
-        verbose_name='Montant accordé',
-        help_text='Réduction d\'impôt finalement obtenue en CHF'
+        verbose_name=_('Montant accordé'),
+        help_text=_('Réduction d\'impôt finalement obtenue en CHF')
     )
 
     decision = models.TextField(
         blank=True,
-        verbose_name='Décision',
-        help_text='Contenu et motivation de la décision rendue'
+        verbose_name=_('Décision'),
+        help_text=_('Contenu et motivation de la décision rendue')
     )
 
     fichier_reclamation = models.FileField(
         upload_to='fiscalite/reclamations/',
         null=True, blank=True,
-        verbose_name='Fichier réclamation',
-        help_text='Document PDF de la réclamation déposée'
+        verbose_name=_('Fichier réclamation'),
+        help_text=_('Document PDF de la réclamation déposée')
     )
     fichier_decision = models.FileField(
         upload_to='fiscalite/decisions/',
         null=True, blank=True,
-        verbose_name='Fichier décision',
-        help_text='Document PDF de la décision reçue'
+        verbose_name=_('Fichier décision'),
+        help_text=_('Document PDF de la décision reçue')
     )
 
     class Meta:
         db_table = 'reclamations_fiscales'
-        verbose_name = 'Réclamation fiscale'
+        verbose_name = _('Réclamation fiscale')
         ordering = ['-date_reclamation']
 
     def __str__(self):
@@ -672,107 +673,107 @@ class OptimisationFiscale(BaseModel):
     """Opportunités d'optimisation fiscale identifiées"""
 
     CATEGORIE_CHOICES = [
-        ('AMORTISSEMENT', 'Amortissement accéléré'),
-        ('PROVISION', 'Constitution provisions'),
-        ('INVESTISSEMENT', 'Investissements déductibles'),
-        ('STRUCTURE', 'Optimisation structure'),
-        ('TIMING', 'Timing charges/produits'),
-        ('AUTRE', 'Autre optimisation'),
+        ('AMORTISSEMENT', _('Amortissement accéléré')),
+        ('PROVISION', _('Constitution provisions')),
+        ('INVESTISSEMENT', _('Investissements déductibles')),
+        ('STRUCTURE', _('Optimisation structure')),
+        ('TIMING', _('Timing charges/produits')),
+        ('AUTRE', _('Autre optimisation')),
     ]
 
     STATUT_CHOICES = [
-        ('IDENTIFIEE', 'Identifiée'),
-        ('EN_ANALYSE', 'En analyse'),
-        ('VALIDEE', 'Validée'),
-        ('EN_COURS', 'Mise en œuvre en cours'),
-        ('REALISEE', 'Réalisée'),
-        ('ABANDONNEE', 'Abandonnée'),
+        ('IDENTIFIEE', _('Identifiée')),
+        ('EN_ANALYSE', _('En analyse')),
+        ('VALIDEE', _('Validée')),
+        ('EN_COURS', _('Mise en œuvre en cours')),
+        ('REALISEE', _('Réalisée')),
+        ('ABANDONNEE', _('Abandonnée')),
     ]
 
     mandat = models.ForeignKey(
         Mandat, on_delete=models.CASCADE,
         related_name='optimisations_fiscales',
-        verbose_name='Mandat',
-        help_text='Mandat concerné par cette opportunité d\'optimisation'
+        verbose_name=_('Mandat'),
+        help_text=_('Mandat concerné par cette opportunité d\'optimisation')
     )
 
     categorie = models.CharField(
         max_length=30, choices=CATEGORIE_CHOICES,
-        verbose_name='Catégorie',
-        help_text='Type d\'optimisation fiscale'
+        verbose_name=_('Catégorie'),
+        help_text=_('Type d\'optimisation fiscale')
     )
     titre = models.CharField(
         max_length=255,
-        verbose_name='Titre',
-        help_text='Intitulé court de l\'opportunité'
+        verbose_name=_('Titre'),
+        help_text=_('Intitulé court de l\'opportunité')
     )
     description = models.TextField(
-        verbose_name='Description',
-        help_text='Explication détaillée de l\'optimisation proposée'
+        verbose_name=_('Description'),
+        help_text=_('Explication détaillée de l\'optimisation proposée')
     )
 
     # Impact estimé
     economie_estimee = models.DecimalField(
         max_digits=12, decimal_places=2,
-        verbose_name='Économie estimée',
-        help_text='Économie d\'impôt estimée en CHF'
+        verbose_name=_('Économie estimée'),
+        help_text=_('Économie d\'impôt estimée en CHF')
     )
     annee_application = models.IntegerField(
-        verbose_name='Année d\'application',
-        help_text='Exercice fiscal concerné par l\'optimisation'
+        verbose_name=_('Année d\'application'),
+        help_text=_('Exercice fiscal concerné par l\'optimisation')
     )
 
     # Risque et conformité
     niveau_risque = models.CharField(
         max_length=20, choices=[
-            ('FAIBLE', 'Faible'),
-            ('MOYEN', 'Moyen'),
-            ('ELEVE', 'Élevé'),
+            ('FAIBLE', _('Faible')),
+            ('MOYEN', _('Moyen')),
+            ('ELEVE', _('Élevé')),
         ], default='FAIBLE',
-        verbose_name='Niveau de risque',
-        help_text='Évaluation du risque fiscal associé'
+        verbose_name=_('Niveau de risque'),
+        help_text=_('Évaluation du risque fiscal associé')
     )
 
     reference_legale = models.CharField(
         max_length=255, blank=True,
-        verbose_name='Référence légale',
-        help_text='Base légale supportant l\'optimisation'
+        verbose_name=_('Référence légale'),
+        help_text=_('Base légale supportant l\'optimisation')
     )
 
     statut = models.CharField(
         max_length=20, choices=STATUT_CHOICES,
         default='IDENTIFIEE',
-        verbose_name='Statut',
-        help_text='État d\'avancement de l\'optimisation'
+        verbose_name=_('Statut'),
+        help_text=_('État d\'avancement de l\'optimisation')
     )
 
     date_identification = models.DateField(
         auto_now_add=True,
-        verbose_name='Date d\'identification',
-        help_text='Date à laquelle l\'opportunité a été identifiée'
+        verbose_name=_('Date d\'identification'),
+        help_text=_('Date à laquelle l\'opportunité a été identifiée')
     )
     date_realisation = models.DateField(
         null=True, blank=True,
-        verbose_name='Date de réalisation',
-        help_text='Date effective de mise en œuvre'
+        verbose_name=_('Date de réalisation'),
+        help_text=_('Date effective de mise en œuvre')
     )
 
     economie_reelle = models.DecimalField(
         max_digits=12, decimal_places=2,
         null=True, blank=True,
-        verbose_name='Économie réelle',
-        help_text='Économie d\'impôt effectivement réalisée en CHF'
+        verbose_name=_('Économie réelle'),
+        help_text=_('Économie d\'impôt effectivement réalisée en CHF')
     )
 
     notes = models.TextField(
         blank=True,
-        verbose_name='Notes',
-        help_text='Remarques et observations complémentaires'
+        verbose_name=_('Notes'),
+        help_text=_('Remarques et observations complémentaires')
     )
 
     class Meta:
         db_table = 'optimisations_fiscales'
-        verbose_name = 'Optimisation fiscale'
+        verbose_name = _('Optimisation fiscale')
         ordering = ['-economie_estimee']
 
     def __str__(self):
