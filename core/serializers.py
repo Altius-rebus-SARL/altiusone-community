@@ -50,6 +50,7 @@ class UserSerializer(serializers.ModelSerializer):
     """Serializer pour les utilisateurs"""
 
     role_display = serializers.CharField(source="get_role_display", read_only=True)
+    role_code = serializers.SerializerMethodField()
     type_utilisateur_display = serializers.CharField(
         source="get_type_utilisateur_display", read_only=True
     )
@@ -69,6 +70,7 @@ class UserSerializer(serializers.ModelSerializer):
             "full_name",
             "role",
             "role_display",
+            "role_code",
             "type_utilisateur",
             "type_utilisateur_display",
             "type_collaborateur",
@@ -86,6 +88,9 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_full_name(self, obj):
         return f"{obj.first_name} {obj.last_name}".strip() or obj.username
+
+    def get_role_code(self, obj):
+        return obj.role.code if obj.role else None
 
 
 class UserCreateSerializer(serializers.ModelSerializer):

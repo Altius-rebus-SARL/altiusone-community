@@ -43,6 +43,11 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             'last_login': user.last_login.isoformat() if user.last_login else None,
         }
 
+        # Add role and type info
+        data['user']['role'] = str(user.role_id) if user.role_id else None
+        data['user']['role_code'] = user.role.code if user.role else None
+        data['user']['type_utilisateur'] = user.type_utilisateur if hasattr(user, 'type_utilisateur') else None
+
         # Add company info if available (AltiusOne custom User model)
         if hasattr(user, 'company_name'):
             data['user']['company_name'] = user.company_name
