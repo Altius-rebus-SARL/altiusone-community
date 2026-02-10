@@ -34959,3 +34959,20 @@ header.header-main .container-fluid .header-left {
     border-radius: 0 0 8px 8px;
   }
 }
+
+/* Search results page - clickable rows */
+.search-result-row {
+  display: flex;
+  color: inherit;
+  transition: background-color 0.15s;
+  border-radius: 6px;
+}
+
+.search-result-row:hover {
+  background-color: rgba(0, 0, 0, 0.03);
+  color: inherit;
+}
+
+.dark .search-result-row:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}

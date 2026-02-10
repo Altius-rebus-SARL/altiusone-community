@@ -111,7 +111,7 @@ class UniversalSearchService:
         EntityType.DOCUMENT: {
             'icon': 'ph-file-text',
             'color': 'primary',
-            'url_pattern': '/fr/documents/documents/{id}/',
+            'url_pattern': '/fr/documents/{id}/',
             'search_fields': ['nom_fichier', 'ocr_text', 'description', 'tags'],
         },
         EntityType.CLIENT: {

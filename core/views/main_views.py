@@ -610,9 +610,11 @@ class GlobalSearchView(LoginRequiredMixin, TemplateView):
     """
     Recherche globale dans tous les modules.
     Utilise UniversalSearchService (17 types d'entités).
+    Résultats triés par score, paginés.
     """
 
     template_name = "core/search_results.html"
+    RESULTS_PER_PAGE = 20
 
     ENTITY_LABELS = {
         'document': 'Documents', 'client': 'Clients', 'mandat': 'Mandats',
@@ -626,12 +628,13 @@ class GlobalSearchView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         from documents.universal_search import universal_search, SearchContext
+        from django.core.paginator import Paginator
 
         context = super().get_context_data(**kwargs)
         query = self.request.GET.get("q", "").strip()
 
         context["query"] = query
-        context["results_groups"] = {}
+        context["all_results"] = []
         context["total_results"] = 0
 
         if not query or len(query) < 2:
@@ -641,23 +644,27 @@ class GlobalSearchView(LoginRequiredMixin, TemplateView):
             return context
 
         search_ctx = SearchContext(user=self.request.user)
-        results = universal_search.search(query=query, context=search_ctx, limit=50)
+        results = universal_search.search(query=query, context=search_ctx, limit=200)
 
-        groups = {}
+        # Enrichir chaque résultat avec label/color du groupe
+        enriched = []
         for result in results:
-            et = result.entity_type.value
-            if et not in groups:
-                config = universal_search.ENTITY_CONFIG.get(result.entity_type, {})
-                groups[et] = {
-                    "label": self.ENTITY_LABELS.get(et, et),
-                    "icon": config.get("icon", "ph-file"),
-                    "color": config.get("color", "secondary"),
-                    "items": [],
-                }
-            groups[et]["items"].append(result)
+            config = universal_search.ENTITY_CONFIG.get(result.entity_type, {})
+            enriched.append({
+                "result": result,
+                "group_label": self.ENTITY_LABELS.get(result.entity_type.value, result.entity_type.value),
+                "group_color": config.get("color", "secondary"),
+                "score_pct": int(result.score * 100),
+            })
 
-        context["results_groups"] = groups
+        # Paginer
+        paginator = Paginator(enriched, self.RESULTS_PER_PAGE)
+        page_number = self.request.GET.get("page", 1)
+        page_obj = paginator.get_page(page_number)
+
+        context["page_obj"] = page_obj
         context["total_results"] = len(results)
+        context["paginator"] = paginator
 
         return context
 
