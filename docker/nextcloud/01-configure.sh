@@ -72,7 +72,7 @@ run_occ config:system:set overwriteprotocol --value='https'
 echo "Configuring file handling..."
 
 # Set default quota (10GB)
-run_occ config:app:set files default_quota --value='10 GB'
+run_occ config:app:set files default_quota --value='10GB'
 
 # Enable big file chunking
 run_occ config:system:set max_chunk_size --value='0'
