@@ -88,9 +88,7 @@ if [ -n "${MINIO_ENDPOINT}" ] && [ -n "${MINIO_ACCESS_KEY}" ] && [ -n "${MINIO_S
     run_occ app:enable files_external || true
 
     # Check if external storage already exists
-    EXISTING_STORAGE=$(run_occ files_external:list --all 2>/dev/null | grep -c "Documents AltiusOne" || echo "0")
-
-    if [ "$EXISTING_STORAGE" = "0" ]; then
+    if ! run_occ files_external:list --all 2>/dev/null | grep -q "Documents AltiusOne"; then
         # Add MinIO as S3 external storage
         echo "Creating MinIO external storage mount..."
         su -s /bin/sh www-data -c "php /var/www/html/occ files_external:create \
