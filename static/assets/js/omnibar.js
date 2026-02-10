@@ -2,6 +2,7 @@
  * Omnibar - Recherche globale en temps réel (style Spotlight/Notion)
  *
  * Debounce 300ms, AJAX GET, rendu groupé, navigation clavier, XSS-safe.
+ * Backdrop overlay pour masquer le contenu derrière.
  */
 (function ($) {
   "use strict";
@@ -40,12 +41,32 @@
   // --- State -------------------------------------------------------------
 
   var $input, $dropdown, $results, $footer, $spinner, $icon, $form;
+  var $backdrop = null;
   var searchUrl, fullUrl;
   var debounceTimer = null;
   var currentXhr = null;
   var activeIndex = -1;
   var lastQuery = "";
   var lastData = null;
+
+  // --- Backdrop ----------------------------------------------------------
+
+  function showBackdrop() {
+    if (!$backdrop) {
+      $backdrop = $('<div class="omnibar-backdrop"></div>').appendTo("body");
+      $backdrop.on("click", function () {
+        closeDropdown();
+        $input.blur();
+      });
+    }
+    $backdrop.show();
+  }
+
+  function hideBackdrop() {
+    if ($backdrop) {
+      $backdrop.hide();
+    }
+  }
 
   // --- Rendering ---------------------------------------------------------
 
@@ -66,7 +87,7 @@
           "\u00a0»</span></div>"
       );
       $footer.addClass("d-none");
-      $dropdown.removeClass("d-none");
+      openDropdown();
       return;
     }
 
@@ -131,7 +152,7 @@
       $footer.addClass("d-none");
     }
 
-    $dropdown.removeClass("d-none");
+    openDropdown();
   }
 
   // --- AJAX --------------------------------------------------------------
@@ -154,7 +175,7 @@
       },
       error: function (xhr) {
         if (xhr.statusText !== "abort") {
-          $dropdown.addClass("d-none");
+          closeDropdown();
         }
       },
       complete: function () {
@@ -177,7 +198,6 @@
     activeIndex = index;
     if (index >= 0 && index < $items.length) {
       $items.eq(index).addClass("active");
-      // Scroll into view
       var el = $items[index];
       if (el) {
         el.scrollIntoView({ block: "nearest" });
@@ -213,8 +233,14 @@
 
   // --- Open / Close ------------------------------------------------------
 
+  function openDropdown() {
+    $dropdown.removeClass("d-none");
+    showBackdrop();
+  }
+
   function closeDropdown() {
     $dropdown.addClass("d-none");
+    hideBackdrop();
     activeIndex = -1;
   }
 
@@ -261,10 +287,12 @@
     // Keyboard nav
     $input.on("keydown", handleKeydown);
 
-    // Click outside closes dropdown
+    // Click outside closes dropdown (via backdrop)
     $(document).on("mousedown", function (e) {
       if (
-        !$(e.target).closest("#omnibar-dropdown, #omnibar-input").length
+        !$(e.target).closest(
+          "#omnibar-dropdown, #omnibar-input, .omnibar-backdrop"
+        ).length
       ) {
         closeDropdown();
       }
@@ -273,7 +301,7 @@
     // Focus re-opens if data exists
     $input.on("focus", function () {
       if (lastData && $.trim($input.val()).length >= 2) {
-        $dropdown.removeClass("d-none");
+        openDropdown();
       }
     });
 
