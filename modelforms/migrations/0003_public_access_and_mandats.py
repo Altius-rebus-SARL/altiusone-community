@@ -5,6 +5,14 @@ from django.conf import settings
 from django.db import migrations, models
 
 
+def populate_unique_tokens(apps, schema_editor):
+    """Assign a unique UUID to each existing FormConfiguration."""
+    FormConfiguration = apps.get_model('modelforms', 'FormConfiguration')
+    for config in FormConfiguration.objects.all():
+        config.public_token = uuid.uuid4()
+        config.save(update_fields=['public_token'])
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -14,8 +22,22 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Public access fields on FormConfiguration
+        # Step 1: Add public_token WITHOUT unique constraint
         migrations.AddField(
+            model_name='formconfiguration',
+            name='public_token',
+            field=models.UUIDField(
+                default=uuid.uuid4,
+                verbose_name='Token public',
+                help_text='Token unique pour l\'accès public au formulaire',
+            ),
+        ),
+
+        # Step 2: Populate each existing row with a unique UUID
+        migrations.RunPython(populate_unique_tokens, migrations.RunPython.noop),
+
+        # Step 3: Now add the unique constraint
+        migrations.AlterField(
             model_name='formconfiguration',
             name='public_token',
             field=models.UUIDField(
@@ -25,6 +47,7 @@ class Migration(migrations.Migration):
                 help_text='Token unique pour l\'accès public au formulaire',
             ),
         ),
+
         migrations.AddField(
             model_name='formconfiguration',
             name='access_level',
