@@ -378,7 +378,8 @@ CSRF_COOKIE_HTTPONLY = True
 
 # Décommenter ces lignes quand vous aurez configuré les clés OAuth
 AUTHENTICATION_BACKENDS = [
-    "django.contrib.auth.backends.ModelBackend",  # Django par défaut
+    "core.backends.EmailOrUsernameBackend",  # Email ou username
+    "django.contrib.auth.backends.ModelBackend",  # Django par défaut (fallback)
     # "social_core.backends.google.GoogleOAuth2",  # Google (à activer)
     # "social_core.backends.microsoft.MicrosoftOAuth2",  # Microsoft (à activer)
 ]

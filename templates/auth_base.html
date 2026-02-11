@@ -69,6 +69,13 @@
       type="text/css"
     />
 
+    <!-- Flag icons -->
+    <link
+      href="{% static 'assets/vendor/flag-icons-master/flag-icon.css' %}"
+      rel="stylesheet"
+      type="text/css"
+    />
+
     {% block extra_css %}{% endblock %}
   </head>
 
@@ -110,6 +117,62 @@
                   <!-- Contenu spécifique de chaque page -->
                   <div class="form_container">
                     {% block content %}{% endblock %}
+                  </div>
+
+                  <!-- Sélecteur de langue -->
+                  <div class="mt-4 text-center">
+                    <div class="d-inline-flex gap-2">
+                      {% for lang_code, lang_name, lang_flag in language_options %}
+                      <form action="{% url 'set_language' %}" method="post" class="d-inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="language" value="{{ lang_code }}">
+                        <input type="hidden" name="next" value="{{ request.path }}">
+                        <button type="submit"
+                                class="btn btn-sm {% if LANGUAGE_CODE == lang_code %}btn-primary{% else %}btn-outline-secondary{% endif %} px-2 py-1"
+                                title="{{ lang_name }}">
+                          <i class="flag-icon flag-icon-{{ lang_flag }} flag-icon-squared rounded-circle"></i>
+                          <span class="ms-1 f-s-12">{{ lang_name }}</span>
+                        </button>
+                      </form>
+                      {% empty %}
+                      <form action="{% url 'set_language' %}" method="post" class="d-inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="language" value="fr">
+                        <input type="hidden" name="next" value="{{ request.path }}">
+                        <button type="submit" class="btn btn-sm {% if LANGUAGE_CODE == 'fr' %}btn-primary{% else %}btn-outline-secondary{% endif %} px-2 py-1">
+                          <i class="flag-icon flag-icon-fra flag-icon-squared rounded-circle"></i>
+                          <span class="ms-1 f-s-12">FR</span>
+                        </button>
+                      </form>
+                      <form action="{% url 'set_language' %}" method="post" class="d-inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="language" value="de">
+                        <input type="hidden" name="next" value="{{ request.path }}">
+                        <button type="submit" class="btn btn-sm {% if LANGUAGE_CODE == 'de' %}btn-primary{% else %}btn-outline-secondary{% endif %} px-2 py-1">
+                          <i class="flag-icon flag-icon-deu flag-icon-squared rounded-circle"></i>
+                          <span class="ms-1 f-s-12">DE</span>
+                        </button>
+                      </form>
+                      <form action="{% url 'set_language' %}" method="post" class="d-inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="language" value="it">
+                        <input type="hidden" name="next" value="{{ request.path }}">
+                        <button type="submit" class="btn btn-sm {% if LANGUAGE_CODE == 'it' %}btn-primary{% else %}btn-outline-secondary{% endif %} px-2 py-1">
+                          <i class="flag-icon flag-icon-ita flag-icon-squared rounded-circle"></i>
+                          <span class="ms-1 f-s-12">IT</span>
+                        </button>
+                      </form>
+                      <form action="{% url 'set_language' %}" method="post" class="d-inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="language" value="en">
+                        <input type="hidden" name="next" value="{{ request.path }}">
+                        <button type="submit" class="btn btn-sm {% if LANGUAGE_CODE == 'en' %}btn-primary{% else %}btn-outline-secondary{% endif %} px-2 py-1">
+                          <i class="flag-icon flag-icon-gbr flag-icon-squared rounded-circle"></i>
+                          <span class="ms-1 f-s-12">EN</span>
+                        </button>
+                      </form>
+                      {% endfor %}
+                    </div>
                   </div>
                 </div>
               </div>
