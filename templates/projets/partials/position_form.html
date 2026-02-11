@@ -67,8 +67,6 @@
     </div>
 </div>
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script>
 (function() {
     // Sous-traité toggle
@@ -82,10 +80,17 @@
     }
 
     // Leaflet coord picker
+    if (typeof L === 'undefined') return;
     const coordInput = document.getElementById('id_coordonnees');
     const coordDisplay = document.getElementById('coordDisplay');
     const pickerEl = document.getElementById('coordPicker');
     if (!pickerEl) return;
+
+    // Destroy previous instance if re-swapped by HTMX
+    if (pickerEl._leaflet_id) {
+        pickerEl._leaflet_id = null;
+        pickerEl.innerHTML = '';
+    }
 
     const initial = coordInput && coordInput.value ? coordInput.value.split(',').map(Number) : [46.8, 8.2];
     const initialZoom = coordInput && coordInput.value ? 15 : 8;
