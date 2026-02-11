@@ -1,7 +1,7 @@
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
-from core.models import User
+from core.models import Contact, User
 
 from .models import Operation, OperationNote, Position
 
@@ -57,6 +57,7 @@ class OperationForm(forms.ModelForm):
             "date_fin",
             "duree_estimee_heures",
             "assigne_a",
+            "contacts_assignes",
             "statut",
             "priorite",
             "adresse",
@@ -70,7 +71,8 @@ class OperationForm(forms.ModelForm):
             "date_debut": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
             "date_fin": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
             "duree_estimee_heures": forms.NumberInput(attrs={"class": "form-control", "step": "0.5"}),
-            "assigne_a": forms.Select(attrs={"class": "form-control select2"}),
+            "assigne_a": forms.SelectMultiple(attrs={"class": "form-control select2"}),
+            "contacts_assignes": forms.SelectMultiple(attrs={"class": "form-control select2"}),
             "statut": forms.Select(attrs={"class": "form-control"}),
             "priorite": forms.Select(attrs={"class": "form-control"}),
             "adresse": forms.TextInput(attrs={"class": "form-control", "placeholder": _("Adresse")}),
@@ -80,6 +82,7 @@ class OperationForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["assigne_a"].queryset = User.objects.filter(is_active=True).order_by("first_name", "last_name")
+        self.fields["contacts_assignes"].queryset = Contact.objects.filter(is_active=True).order_by("nom", "prenom")
 
 
 class OperationNoteForm(forms.ModelForm):

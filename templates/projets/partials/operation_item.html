@@ -30,9 +30,12 @@
     <div class="flex-grow-1">
         <span class="f-w-500 f-s-13">{{ operation.numero }}</span>
         <span class="ms-1 f-s-13">{{ operation.titre }}</span>
-        {% if operation.assigne_a %}
-        <small class="text-muted ms-2"><i class="ti ti-user f-s-12"></i> {{ operation.assigne_a.get_full_name|default:operation.assigne_a.username }}</small>
-        {% endif %}
+        {% for user in operation.assigne_a.all %}
+        <small class="text-muted ms-2"><i class="ti ti-user f-s-12"></i> {{ user.get_full_name|default:user.username }}</small>
+        {% endfor %}
+        {% for contact in operation.contacts_assignes.all %}
+        <small class="text-muted ms-2"><i class="ti ti-address-book f-s-12"></i> {{ contact }}</small>
+        {% endfor %}
     </div>
 
     <!-- Dates -->

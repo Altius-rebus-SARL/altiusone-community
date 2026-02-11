@@ -170,13 +170,17 @@ class Operation(BaseModel):
     )
 
     # Assignation
-    assigne_a = models.ForeignKey(
+    assigne_a = models.ManyToManyField(
         User,
-        on_delete=models.PROTECT,
-        related_name="operations_assignees",
-        null=True,
         blank=True,
+        related_name="operations_assignees",
         verbose_name=_("Assigné à"),
+    )
+    contacts_assignes = models.ManyToManyField(
+        "core.Contact",
+        blank=True,
+        related_name="operations_assignees",
+        verbose_name=_("Contacts assignés"),
     )
 
     # Statut

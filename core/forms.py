@@ -101,6 +101,7 @@ class MandatForm(forms.ModelForm):
         fields = [
             "client",
             "type_mandat_ref",
+            "statut",
             "date_debut",
             "date_fin",
             "periodicite_ref",
@@ -108,12 +109,14 @@ class MandatForm(forms.ModelForm):
             "montant_forfait",
             "taux_horaire",
             "responsable",
+            "equipe",
             "description",
             "conditions_particulieres",
         ]
         widgets = {
             "client": forms.Select(attrs={"class": "form-control select2"}),
             "type_mandat_ref": forms.Select(attrs={"class": "form-control"}),
+            "statut": forms.Select(attrs={"class": "form-control"}),
             "date_debut": forms.DateInput(
                 attrs={"class": "form-control", "type": "date"}
             ),
@@ -125,6 +128,7 @@ class MandatForm(forms.ModelForm):
             "montant_forfait": forms.NumberInput(attrs={"class": "form-control"}),
             "taux_horaire": forms.NumberInput(attrs={"class": "form-control"}),
             "responsable": forms.Select(attrs={"class": "form-control select2"}),
+            "equipe": forms.SelectMultiple(attrs={"class": "form-control select2"}),
             "description": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
             "conditions_particulieres": forms.Textarea(
                 attrs={"class": "form-control", "rows": 3}
@@ -140,6 +144,9 @@ class MandatForm(forms.ModelForm):
         self.fields['periodicite_ref'].label = _('Périodicité')
         self.fields['type_facturation_ref'].queryset = TypeFacturation.objects.filter(is_active=True)
         self.fields['type_facturation_ref'].label = _('Type de facturation')
+        self.fields['equipe'].queryset = User.objects.filter(
+            is_active=True, is_staff=True
+        ).order_by('first_name', 'last_name')
 
 
 class ContactForm(forms.ModelForm):
@@ -740,7 +747,7 @@ class AccesMandatForm(forms.ModelForm):
             'utilisateur': forms.Select(attrs={'class': 'form-control select2'}),
             'mandat': forms.Select(attrs={'class': 'form-control select2'}),
             'est_responsable': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-            'permissions': forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+            'permissions': forms.SelectMultiple(attrs={'class': 'form-control select2'}),
             'limite_invitations': forms.NumberInput(attrs={'class': 'form-control', 'min': 0, 'max': 50}),
             'date_debut_acces': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'date_fin_acces': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
@@ -751,10 +758,12 @@ class AccesMandatForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Limiter aux utilisateurs CLIENT
+        # Tous les utilisateurs actifs (pas seulement CLIENT)
         self.fields['utilisateur'].queryset = User.objects.filter(
-            type_utilisateur=User.TypeUtilisateur.CLIENT,
             is_active=True
+        ).order_by('first_name', 'last_name')
+        self.fields['utilisateur'].label_from_instance = lambda u: (
+            f"{u.get_full_name() or u.username} ({u.get_type_utilisateur_display()})"
         )
 
         # Limiter les permissions aux apps pertinentes

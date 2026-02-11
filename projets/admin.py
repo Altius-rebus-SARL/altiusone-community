@@ -29,7 +29,8 @@ class PositionAdmin(GISModelAdmin):
 
 @admin.register(Operation)
 class OperationAdmin(GISModelAdmin):
-    list_display = ("numero", "titre", "position", "statut", "priorite", "assigne_a", "date_debut", "date_fin")
+    list_display = ("numero", "titre", "position", "statut", "priorite", "date_debut", "date_fin")
+    filter_horizontal = ("assigne_a", "contacts_assignes")
     list_filter = ("statut", "priorite")
     search_fields = ("numero", "titre", "position__numero")
     inlines = [OperationNoteInline]

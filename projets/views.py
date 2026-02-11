@@ -25,7 +25,8 @@ def position_list_partial(request, mandat_pk):
     """Liste des positions d'un mandat (partial HTMX)."""
     mandat = get_object_or_404(Mandat, pk=mandat_pk)
     positions = (
-        mandat.positions.select_related("responsable", "devise")
+        mandat.positions.filter(is_active=True)
+        .select_related("responsable", "devise")
         .prefetch_related("operations")
         .order_by("ordre")
     )
@@ -50,7 +51,8 @@ def position_create(request, mandat_pk):
         position.save()
         # Return the updated list
         positions = (
-            mandat.positions.select_related("responsable", "devise")
+            mandat.positions.filter(is_active=True)
+            .select_related("responsable", "devise")
             .prefetch_related("operations")
             .order_by("ordre")
         )
@@ -71,7 +73,7 @@ def position_detail(request, pk):
     """Détail d'une position (accordéon avec opérations)."""
     position = get_object_or_404(
         Position.objects.select_related("responsable", "devise", "mandat")
-        .prefetch_related("operations__assigne_a"),
+        .prefetch_related("operations__assigne_a", "operations__contacts_assignes"),
         pk=pk,
     )
     operation_form = OperationForm()
@@ -94,7 +96,8 @@ def position_update(request, pk):
             # Return the updated list
             mandat = position.mandat
             positions = (
-                mandat.positions.select_related("responsable", "devise")
+                mandat.positions.filter(is_active=True)
+                .select_related("responsable", "devise")
                 .prefetch_related("operations")
                 .order_by("ordre")
             )
@@ -157,7 +160,7 @@ def operation_create(request, position_pk):
         operation.save()
         # Recalculate budget
         position.recalculer_budget_reel()
-        operations = position.operations.select_related("assigne_a").order_by("ordre")
+        operations = position.operations.filter(is_active=True).prefetch_related("assigne_a", "contacts_assignes").order_by("ordre")
         return render(request, "projets/partials/operation_list.html", {
             "position": position,
             "operations": operations,
@@ -183,7 +186,7 @@ def operation_update(request, pk):
         if form.is_valid():
             form.save()
             position.recalculer_budget_reel()
-            operations = position.operations.select_related("assigne_a").order_by("ordre")
+            operations = position.operations.filter(is_active=True).prefetch_related("assigne_a", "contacts_assignes").order_by("ordre")
             return render(request, "projets/partials/operation_list.html", {
                 "position": position,
                 "operations": operations,
@@ -215,7 +218,7 @@ def operation_delete(request, pk):
     operation.is_active = False
     operation.save(update_fields=["is_active"])
     position.recalculer_budget_reel()
-    operations = position.operations.filter(is_active=True).select_related("assigne_a").order_by("ordre")
+    operations = position.operations.filter(is_active=True).prefetch_related("assigne_a", "contacts_assignes").order_by("ordre")
     return render(request, "projets/partials/operation_list.html", {
         "position": position,
         "operations": operations,
@@ -290,7 +293,7 @@ def gantt_data(request, mandat_pk):
     mandat = get_object_or_404(Mandat, pk=mandat_pk)
     positions = (
         mandat.positions.filter(is_active=True)
-        .prefetch_related("operations")
+        .prefetch_related("operations", "operations__assigne_a")
         .order_by("ordre")
     )
 
@@ -324,7 +327,7 @@ def gantt_data(request, mandat_pk):
                         "type": "operation",
                         "id": str(op.pk),
                         "statut": op.statut,
-                        "assigne": str(op.assigne_a) if op.assigne_a else "",
+                        "assigne": ", ".join(str(u) for u in op.assigne_a.all()) if op.assigne_a.exists() else "",
                         "overdue": is_overdue,
                     },
                 })

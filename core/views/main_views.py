@@ -541,7 +541,25 @@ class TacheCreateView(LoginRequiredMixin, CreateView):
     template_name = "core/tache_form.html"
     success_url = reverse_lazy("core:tache-list")
 
+    def get_initial(self):
+        initial = super().get_initial()
+        mandat_pk = self.request.GET.get("mandat")
+        if mandat_pk:
+            initial["mandat"] = mandat_pk
+        return initial
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        mandat_pk = self.request.GET.get("mandat")
+        if mandat_pk:
+            form.fields["mandat"].disabled = True
+        return form
+
     def form_valid(self, form):
+        # Si le champ mandat est disabled, Django l'ignore — on force la valeur
+        mandat_pk = self.request.GET.get("mandat")
+        if mandat_pk:
+            form.instance.mandat_id = mandat_pk
         form.instance.cree_par = self.request.user
         messages.success(self.request, _("Tâche créée avec succès"))
         return super().form_valid(form)

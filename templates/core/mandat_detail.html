@@ -404,11 +404,11 @@
                                     {% for document in documents %}
                                     <li class="d-flex align-items-center justify-content-between">
                                         <div class="flex-grow-1">
-                                            <h6 class="mb-0 f-w-500">{{ document.nom }}</h6>
+                                            <h6 class="mb-0 f-w-500">{{ document.nom_fichier }}</h6>
                                             <p class="text-muted mb-0">{{ document.created_at|date:"d.m.Y H:i" }}</p>
                                         </div>
-                                        <a href="#" class="btn btn-sm btn-light-primary">
-                                            <i class="ti ti-download"></i>
+                                        <a href="{% url 'documents:document-detail' document.pk %}" class="btn btn-sm btn-light-primary">
+                                            <i class="ti ti-eye"></i>
                                         </a>
                                     </li>
                                     {% empty %}
