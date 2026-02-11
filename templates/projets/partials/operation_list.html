@@ -37,9 +37,7 @@
 <!-- Liste triable -->
 <div class="list-group sortable-operations" data-position-pk="{{ position.pk }}">
     {% for operation in operations %}
-    {% if operation.is_active %}
     {% include "projets/partials/operation_item.html" %}
-    {% endif %}
     {% empty %}
     <div class="text-center py-3 text-muted f-s-13">
         {% trans "Aucune opération" %}

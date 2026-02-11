@@ -54,4 +54,75 @@
         <label class="form-label f-s-12">{% trans "Adresse" %}</label>
         {{ form.adresse }}
     </div>
+
+    <!-- Picker GPS -->
+    <div class="col-12">
+        {{ form.coordonnees }}
+        <label class="form-label f-s-12 text-muted"><i class="ti ti-map-pin me-1"></i>{% trans "Coordonnées GPS" %}</label>
+        <div id="coordPickerOp" style="height:200px; border-radius:6px; border:1px solid #dee2e6"></div>
+        <small id="coordDisplayOp" class="text-muted f-s-12 mt-1 d-block"></small>
+    </div>
 </div>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+(function() {
+    const coordInput = document.getElementById('id_coordonnees_op');
+    const coordDisplay = document.getElementById('coordDisplayOp');
+    const pickerEl = document.getElementById('coordPickerOp');
+    if (!pickerEl) return;
+
+    const initial = coordInput && coordInput.value ? coordInput.value.split(',').map(Number) : [46.8, 8.2];
+    const initialZoom = coordInput && coordInput.value ? 15 : 8;
+    const map = L.map(pickerEl).setView(initial, initialZoom);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap', maxZoom: 19,
+    }).addTo(map);
+
+    let marker = null;
+    if (coordInput && coordInput.value) {
+        marker = L.marker(initial).addTo(map);
+        coordDisplay.textContent = 'Lat: ' + initial[0].toFixed(6) + ', Lng: ' + initial[1].toFixed(6);
+    }
+
+    function setCoord(lat, lng) {
+        if (marker) marker.remove();
+        marker = L.marker([lat, lng]).addTo(map);
+        coordInput.value = lat.toFixed(6) + ',' + lng.toFixed(6);
+        coordDisplay.textContent = 'Lat: ' + lat.toFixed(6) + ', Lng: ' + lng.toFixed(6);
+    }
+
+    map.on('click', function(e) {
+        setCoord(e.latlng.lat, e.latlng.lng);
+    });
+
+    // Geocode when address changes
+    const adresseInput = pickerEl.closest('form') ?
+        pickerEl.closest('form').querySelector('[name="adresse"]') :
+        document.querySelector('[name="adresse"]');
+    let geocodeTimer = null;
+    if (adresseInput) {
+        adresseInput.addEventListener('change', function() {
+            const q = this.value.trim();
+            if (!q) return;
+            clearTimeout(geocodeTimer);
+            geocodeTimer = setTimeout(() => {
+                fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(q))
+                .then(r => r.json())
+                .then(results => {
+                    if (results.length > 0) {
+                        const lat = parseFloat(results[0].lat);
+                        const lng = parseFloat(results[0].lon);
+                        setCoord(lat, lng);
+                        map.setView([lat, lng], 15);
+                    }
+                });
+            }, 300);
+        });
+    }
+
+    setTimeout(() => map.invalidateSize(), 200);
+})();
+</script>

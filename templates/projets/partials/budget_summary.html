@@ -1,5 +1,35 @@
 {% load i18n %}
 
+<!-- Enveloppe mandat -->
+{% if montant_forfait > 0 %}
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card border-primary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="text-primary mb-0">
+                        <i class="ti ti-wallet me-1"></i>{% trans "Enveloppe mandat" %}
+                    </h5>
+                    <h4 class="mb-0 text-primary">{{ montant_forfait|floatformat:0 }} CHF</h4>
+                </div>
+                <div class="d-flex justify-content-between mb-1">
+                    <small class="text-muted">{% trans "Alloué aux positions" %}: {{ total_prevu|floatformat:0 }} CHF</small>
+                    <small class="text-muted">{{ forfait_alloue_pourcent }}%</small>
+                </div>
+                <div class="progress" style="height:10px">
+                    <div class="progress-bar bg-{% if forfait_alloue_pourcent > 100 %}danger{% elif forfait_alloue_pourcent > 90 %}warning{% else %}primary{% endif %}"
+                         style="width:{% if forfait_alloue_pourcent > 100 %}100{% else %}{{ forfait_alloue_pourcent }}{% endif %}%">
+                    </div>
+                </div>
+                {% if forfait_alloue_pourcent > 100 %}
+                <small class="text-danger mt-1 d-block">{% trans "Le budget alloué dépasse l'enveloppe mandat" %}</small>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- Budget global + Répartition -->
 <div class="row">
     <div class="col-lg-6">

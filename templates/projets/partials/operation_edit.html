@@ -1,0 +1,24 @@
+{% load i18n %}
+
+<div class="card border bg-light mb-3">
+    <div class="card-body p-3">
+        <h6 class="mb-3"><i class="ti ti-edit me-1"></i>{% trans "Modifier l'opération" %}</h6>
+        <form hx-post="{% url 'projets:operation-update' operation.pk %}"
+              hx-target="#detail-{{ position.pk }}"
+              hx-swap="innerHTML">
+            {% csrf_token %}
+            {% include "projets/partials/operation_form.html" with form=form %}
+            <div class="text-end mt-2">
+                <button type="button" class="btn btn-sm btn-secondary me-1"
+                        hx-get="{% url 'projets:position-detail' position.pk %}"
+                        hx-target="#detail-{{ position.pk }}"
+                        hx-swap="innerHTML">
+                    {% trans "Annuler" %}
+                </button>
+                <button type="submit" class="btn btn-sm btn-primary">
+                    <i class="ti ti-check me-1"></i>{% trans "Enregistrer" %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

@@ -1,4 +1,5 @@
 from django import forms
+from django.contrib.gis.geos import Point
 from django.utils.translation import gettext_lazy as _
 
 from core.models import Contact, User
@@ -6,7 +7,31 @@ from core.models import Contact, User
 from .models import Operation, OperationNote, Position
 
 
-class PositionForm(forms.ModelForm):
+class CoordonneesMixin:
+    """Mixin to handle coordonnees PointField as a hidden lat,lng text field."""
+
+    def _init_coordonnees(self):
+        """Populate the coordonnees field with lat,lng string from the instance."""
+        if self.instance and self.instance.pk and self.instance.coordonnees:
+            pt = self.instance.coordonnees
+            self.initial["coordonnees"] = f"{pt.y},{pt.x}"
+
+    def clean_coordonnees(self):
+        value = self.cleaned_data.get("coordonnees", "").strip()
+        if not value:
+            return None
+        try:
+            parts = value.split(",")
+            lat = float(parts[0])
+            lng = float(parts[1])
+            return Point(lng, lat, srid=4326)
+        except (ValueError, IndexError):
+            raise forms.ValidationError(_("Format de coordonnées invalide (lat,lng attendu)."))
+
+
+class PositionForm(CoordonneesMixin, forms.ModelForm):
+    coordonnees = forms.CharField(required=False, widget=forms.HiddenInput(attrs={"id": "id_coordonnees"}))
+
     class Meta:
         model = Position
         fields = [
@@ -19,6 +44,7 @@ class PositionForm(forms.ModelForm):
             "responsable",
             "statut",
             "adresse",
+            "coordonnees",
             "prestataire_nom",
             "prestataire_contact",
             "est_sous_traite",
@@ -41,9 +67,12 @@ class PositionForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["responsable"].queryset = User.objects.filter(is_active=True).order_by("first_name", "last_name")
+        self._init_coordonnees()
 
 
-class OperationForm(forms.ModelForm):
+class OperationForm(CoordonneesMixin, forms.ModelForm):
+    coordonnees = forms.CharField(required=False, widget=forms.HiddenInput(attrs={"id": "id_coordonnees_op"}))
+
     class Meta:
         model = Operation
         fields = [
@@ -59,6 +88,7 @@ class OperationForm(forms.ModelForm):
             "statut",
             "priorite",
             "adresse",
+            "coordonnees",
         ]
         widgets = {
             "titre": forms.TextInput(attrs={"class": "form-control", "placeholder": _("Titre de l'opération")}),
@@ -79,6 +109,7 @@ class OperationForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["assigne_a"].queryset = User.objects.filter(is_active=True).order_by("first_name", "last_name")
         self.fields["contacts_assignes"].queryset = Contact.objects.filter(is_active=True).order_by("nom", "prenom")
+        self._init_coordonnees()
 
 
 class OperationNoteForm(forms.ModelForm):

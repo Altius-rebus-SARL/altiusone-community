@@ -119,7 +119,7 @@ def position_update(request, pk):
         })
     else:
         form = PositionForm(instance=position)
-        return render(request, "projets/partials/position_form.html", {
+        return render(request, "projets/partials/position_edit.html", {
             "mandat": position.mandat,
             "form": form,
             "position": position,
@@ -211,7 +211,7 @@ def operation_update(request, pk):
         })
     else:
         form = OperationForm(instance=operation)
-        return render(request, "projets/partials/operation_form.html", {
+        return render(request, "projets/partials/operation_edit.html", {
             "position": position,
             "form": form,
             "operation": operation,
@@ -417,6 +417,14 @@ def budget_summary(request, mandat_pk):
         else Decimal("0")
     )
 
+    # Enveloppe mandat
+    montant_forfait = mandat.montant_forfait or Decimal("0")
+    forfait_alloue_pourcent = (
+        (total_prevu / montant_forfait * 100).quantize(Decimal("0.1"))
+        if montant_forfait > 0
+        else Decimal("0")
+    )
+
     return render(request, "projets/partials/budget_summary.html", {
         "mandat": mandat,
         "positions_data": positions_data,
@@ -426,6 +434,8 @@ def budget_summary(request, mandat_pk):
         "total_pourcent": total_pourcent,
         "total_interne_prevu": total_interne_prevu,
         "total_sous_traite_prevu": total_sous_traite_prevu,
+        "montant_forfait": montant_forfait,
+        "forfait_alloue_pourcent": forfait_alloue_pourcent,
         # JSON for charts
         "chart_labels_json": json.dumps([pd["position"].titre for pd in positions_data]),
         "chart_prevu_json": json.dumps([float(pd["prevu"]) for pd in positions_data]),
