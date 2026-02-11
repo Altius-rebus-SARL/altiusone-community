@@ -617,7 +617,7 @@ class InvitationClientForm(forms.Form):
             content_type__app_label__in=['documents', 'comptabilite', 'facturation']
         ),
         required=False,
-        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        widget=forms.SelectMultiple(attrs={'class': 'form-control select2'}),
         label=_('Permissions sur le mandat')
     )
     message = forms.CharField(
