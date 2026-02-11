@@ -540,15 +540,21 @@ def builder_add_field(request, pk):
     if configuration.field_mappings.filter(field_name=field_name, source_model=source_model).exists():
         return HttpResponse('Ce champ est déjà ajouté', status=400)
 
-    # Détecter le widget_type via introspector
+    # Détecter les métadonnées via introspector
     widget_type = 'text'
     label = field_name
+    help_text = ''
+    required = None
+    max_length = None
     try:
         introspector = ModelIntrospector(source_model)
         for field_info in introspector.get_fields(include_system=True):
             if field_info['name'] == field_name:
                 widget_type = field_info.get('widget_type', 'text')
                 label = field_info.get('label', field_name)
+                help_text = field_info.get('help_text', '')
+                required = field_info.get('required', None)
+                max_length = field_info.get('max_length')
                 break
     except ValueError:
         pass
@@ -556,15 +562,22 @@ def builder_add_field(request, pk):
     # Ordre: après le dernier champ
     max_order = configuration.field_mappings.count()
 
-    ModelFieldMapping.objects.create(
-        form_config=configuration,
-        source_model=source_model,
-        field_name=field_name,
-        widget_type=widget_type,
-        label=label,
-        order=max_order,
-        section=section_id,
-    )
+    mapping_kwargs = {
+        'form_config': configuration,
+        'source_model': source_model,
+        'field_name': field_name,
+        'widget_type': widget_type,
+        'label': label,
+        'help_text': help_text,
+        'order': max_order,
+        'section': section_id,
+    }
+    if required is not None:
+        mapping_kwargs['required'] = required
+    if max_length:
+        mapping_kwargs['max_length'] = max_length
+
+    ModelFieldMapping.objects.create(**mapping_kwargs)
 
     response = _builder_sections_response(request, configuration)
     response['HX-Trigger'] = 'previewUpdated, catalogueUpdated'
