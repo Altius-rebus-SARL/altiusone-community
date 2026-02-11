@@ -5,9 +5,18 @@ Model-Driven Form Builder Models.
 Ce module définit les modèles pour la génération de formulaires dynamiques
 basés sur les modèles Django existants (Client, Employe, Document, etc.).
 """
+import uuid
+
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from core.models import BaseModel
+
+
+ACCESS_LEVELS = [
+    ('public', _('Public – accessible sans authentification')),
+    ('code', _('Code d\'accès – nécessite un code')),
+    ('authenticated', _('Authentifié – nécessite un compte')),
+]
 
 
 class FormConfiguration(BaseModel):
@@ -177,6 +186,44 @@ class FormConfiguration(BaseModel):
         default='ph-file-text',
         verbose_name=_('Icône'),
         help_text=_('Classe CSS de l\'icône (Phosphor Icons)')
+    )
+
+    # Accès public
+    public_token = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        verbose_name=_('Token public'),
+        help_text=_('Token unique pour l\'accès public au formulaire')
+    )
+    access_level = models.CharField(
+        max_length=20,
+        choices=ACCESS_LEVELS,
+        default='authenticated',
+        verbose_name=_('Niveau d\'accès'),
+        help_text=_('Détermine qui peut accéder à ce formulaire')
+    )
+    access_code = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name=_('Code d\'accès'),
+        help_text=_('Code requis si le niveau d\'accès est "Code d\'accès"')
+    )
+
+    # Association Mandat (M2M car réutilisable sur plusieurs mandats)
+    mandats = models.ManyToManyField(
+        'core.Mandat',
+        blank=True,
+        related_name='form_configurations',
+        verbose_name=_('Mandats associés'),
+        help_text=_('Mandats pour lesquels ce formulaire est disponible')
+    )
+
+    # Message de succès personnalisé
+    success_message = models.TextField(
+        blank=True,
+        default=_('Merci ! Votre formulaire a été soumis avec succès.'),
+        verbose_name=_('Message de succès'),
+        help_text=_('Message affiché après soumission réussie')
     )
 
     class Meta:
@@ -416,9 +463,11 @@ class FormSubmission(BaseModel):
     submitted_by = models.ForeignKey(
         'core.User',
         on_delete=models.PROTECT,
+        null=True,
+        blank=True,
         related_name='form_submissions',
         verbose_name=_('Soumis par'),
-        help_text=_('Utilisateur ayant soumis le formulaire')
+        help_text=_('Utilisateur ayant soumis le formulaire (null pour soumissions anonymes)')
     )
     submitted_at = models.DateTimeField(
         auto_now_add=True,
@@ -505,7 +554,8 @@ class FormSubmission(BaseModel):
         ]
 
     def __str__(self):
-        return f"{self.form_config.code} - {self.submitted_by} ({self.submitted_at.strftime('%d/%m/%Y %H:%M')})"
+        submitter = self.submitted_by or _('Anonyme')
+        return f"{self.form_config.code} - {submitter} ({self.submitted_at.strftime('%d/%m/%Y %H:%M')})"
 
 
 class FormTemplate(models.Model):

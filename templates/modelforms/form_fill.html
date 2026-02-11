@@ -133,6 +133,24 @@
                 </div>
             </div>
 
+            <!-- Mandat Selector -->
+            {% if accessible_mandats %}
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5>{% trans "Mandat" %}</h5>
+                </div>
+                <div class="card-body">
+                    <select name="mandat" class="form-control select2" data-placeholder="{% trans 'Sélectionner un mandat...' %}">
+                        <option value="">-- {% trans "Aucun mandat" %} --</option>
+                        {% for mandat in accessible_mandats %}
+                        <option value="{{ mandat.pk }}">{{ mandat.numero }} – {{ mandat.client }}</option>
+                        {% endfor %}
+                    </select>
+                    <small class="text-muted mt-1 d-block">{% trans "Associer cette soumission à un mandat" %}</small>
+                </div>
+            </div>
+            {% endif %}
+
             <!-- Actions Card -->
             <div class="card">
                 <div class="card-header">

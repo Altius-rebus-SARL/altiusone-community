@@ -6,7 +6,7 @@ Supporte les formulaires multi-modèles avec champs provenant de différentes ap
 """
 from django import forms
 from django.utils.translation import gettext_lazy as _
-from .models import FormConfiguration, ModelFieldMapping, FormSubmission, FormTemplate
+from .models import FormConfiguration, ModelFieldMapping, FormSubmission, FormTemplate, ACCESS_LEVELS
 from .services.introspector import ModelIntrospector
 
 
@@ -36,6 +36,10 @@ class FormConfigurationForm(forms.ModelForm):
             'icon',
             'status',
             'require_validation',
+            'access_level',
+            'access_code',
+            'success_message',
+            'mandats',
         ]
         widgets = {
             'code': forms.TextInput(attrs={
@@ -68,6 +72,23 @@ class FormConfigurationForm(forms.ModelForm):
             }),
             'require_validation': forms.CheckboxInput(attrs={
                 'class': 'form-check-input',
+            }),
+            'access_level': forms.Select(attrs={
+                'class': 'form-select select-basic',
+                'id': 'id_access_level',
+            }),
+            'access_code': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': _('Code d\'accès...'),
+            }),
+            'success_message': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': _('Merci ! Votre formulaire a été soumis avec succès.'),
+            }),
+            'mandats': forms.SelectMultiple(attrs={
+                'class': 'form-control select2',
+                'data-placeholder': _('Sélectionner des mandats...'),
             }),
         }
 
@@ -320,3 +341,17 @@ class AddFieldForm(forms.Form):
         for model_info in ModelIntrospector.get_allowed_models():
             model_choices.append((model_info['path'], f"{model_info['verbose_name']} ({model_info['path']})"))
         self.fields['source_model'].choices = model_choices
+
+
+class AccessCodeForm(forms.Form):
+    """Formulaire pour saisir le code d'accès d'un formulaire protégé."""
+
+    access_code = forms.CharField(
+        label=_('Code d\'accès'),
+        max_length=50,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control form-control-lg text-center',
+            'placeholder': _('Entrez le code d\'accès'),
+            'autofocus': True,
+        }),
+    )

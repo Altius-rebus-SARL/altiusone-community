@@ -1,0 +1,43 @@
+<!-- modelforms/form_access_code.html -->
+{% extends 'modelforms/base_form_public.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Code d'accès" %}{% endblock %}
+
+{% block form_header %}
+<h1>{{ form_config.name }}</h1>
+<p>{% trans "Ce formulaire nécessite un code d'accès pour y accéder." %}</p>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body">
+        <form method="post" action="{% url 'modelforms:public-form-code' form_config.public_token %}">
+            {% csrf_token %}
+
+            {% if error %}
+            <div class="alert alert-danger">
+                <i class="ti ti-alert-circle me-2"></i>{{ error }}
+            </div>
+            {% endif %}
+
+            <div class="mb-4">
+                <label class="form-label" for="id_access_code">{% trans "Code d'accès" %}</label>
+                <input type="text"
+                       class="form-control form-control-lg text-center"
+                       id="id_access_code"
+                       name="access_code"
+                       placeholder="{% trans 'Entrez le code d\'accès' %}"
+                       autofocus
+                       required>
+            </div>
+
+            <div class="d-grid">
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <i class="ti ti-lock-open me-2"></i>{% trans "Accéder au formulaire" %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

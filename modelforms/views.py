@@ -7,7 +7,7 @@ Interface HTMX pour créer, modifier et gérer les configurations de formulaires
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, View
 from django.views.decorators.http import require_http_methods, require_POST
 from django.http import JsonResponse, HttpResponse
 from django.urls import reverse_lazy, reverse
@@ -108,6 +108,23 @@ class FormConfigurationDetailView(LoginRequiredMixin, BusinessPermissionMixin, D
 
         # Stats
         context['submission_count'] = config.submissions.count()
+
+        # Public access info
+        public_url = self.request.build_absolute_uri(
+            reverse('modelforms:public-form', kwargs={'token': config.public_token})
+        )
+        context['public_url'] = public_url
+
+        # QR code (inline base64)
+        if config.status == FormConfiguration.Status.ACTIVE:
+            from .services.qr_service import get_qr_code_base64
+            try:
+                context['qr_code_data_uri'] = get_qr_code_base64(public_url)
+            except Exception:
+                context['qr_code_data_uri'] = None
+
+        # Mandats associés
+        context['mandats'] = config.mandats.all()
 
         return context
 
@@ -665,6 +682,16 @@ class FormFillView(LoginRequiredMixin, DetailView):
         if config.is_multi_model:
             context['source_models'] = config.source_models
 
+        # Mandats accessibles pour le sélecteur
+        user = self.request.user
+        if hasattr(user, 'get_accessible_mandats'):
+            accessible_mandats = user.get_accessible_mandats()
+            # Filtrer sur les mandats associés au formulaire si définis
+            config_mandats = config.mandats.all()
+            if config_mandats.exists():
+                accessible_mandats = accessible_mandats.filter(pk__in=config_mandats)
+            context['accessible_mandats'] = accessible_mandats
+
         return context
 
     def _resolve_default_values(self, default_values):
@@ -813,3 +840,210 @@ def get_field_options(request, model_path):
         return HttpResponse(options_html)
     except ValueError as e:
         return HttpResponse(f'<option value="">Erreur: {e}</option>')
+
+
+# =============================================================================
+# FORMULAIRES PUBLICS (pas de login requis)
+# =============================================================================
+
+def _get_public_config(token):
+    """Récupère une configuration publique active par son token."""
+    return get_object_or_404(
+        FormConfiguration,
+        public_token=token,
+        status=FormConfiguration.Status.ACTIVE,
+    )
+
+
+def _build_form_context(config):
+    """Construit le contexte commun pour le rendu d'un formulaire (sections, champs, défauts)."""
+    field_mappings = config.field_mappings.all().order_by('order')
+    sections = config.form_schema.get('sections', [])
+    context = {
+        'form_config': config,
+        'field_mappings': field_mappings,
+    }
+
+    if sections:
+        fields_by_section = {s['id']: [] for s in sections}
+        fields_by_section['other'] = []
+        for mapping in field_mappings:
+            section_id = mapping.section or 'other'
+            if section_id in fields_by_section:
+                fields_by_section[section_id].append(mapping)
+            else:
+                fields_by_section['other'].append(mapping)
+        context['sections'] = sections
+        context['fields_by_section'] = fields_by_section
+    else:
+        context['sections'] = []
+        context['fields_by_section'] = {'all': list(field_mappings)}
+
+    # Résoudre les valeurs par défaut (sans variables utilisateur pour le public)
+    resolved = {}
+    for key, value in config.default_values.items():
+        if isinstance(value, str):
+            value = value.replace('{{today}}', timezone.now().strftime('%Y-%m-%d'))
+            value = value.replace('{{now}}', timezone.now().strftime('%Y-%m-%dT%H:%M'))
+        resolved[key] = value
+    context['default_values'] = resolved
+
+    return context
+
+
+class PublicFormFillView(View):
+    """Formulaire accessible via token public."""
+
+    def get(self, request, token):
+        config = _get_public_config(token)
+
+        # Vérifier le niveau d'accès
+        if config.access_level == 'authenticated':
+            if not request.user.is_authenticated:
+                from django.contrib.auth.views import redirect_to_login
+                return redirect_to_login(request.get_full_path())
+
+        if config.access_level == 'code':
+            session_key = f'form_access_{config.pk}'
+            if not request.session.get(session_key):
+                return redirect('modelforms:public-form-code', token=token)
+
+        context = _build_form_context(config)
+        return render(request, 'modelforms/form_fill_public.html', context)
+
+
+class PublicFormSubmitView(View):
+    """Soumission d'un formulaire public."""
+
+    def post(self, request, token):
+        import json as json_module
+
+        config = _get_public_config(token)
+
+        # Vérifier le niveau d'accès
+        if config.access_level == 'authenticated':
+            if not request.user.is_authenticated:
+                from django.contrib.auth.views import redirect_to_login
+                return redirect_to_login(request.get_full_path())
+
+        if config.access_level == 'code':
+            session_key = f'form_access_{config.pk}'
+            if not request.session.get(session_key):
+                return redirect('modelforms:public-form-code', token=token)
+
+        # Extraire les données
+        if request.content_type == 'application/json':
+            try:
+                submitted_data = json_module.loads(request.body)
+            except json_module.JSONDecodeError:
+                messages.error(request, _('Données JSON invalides.'))
+                return redirect('modelforms:public-form', token=token)
+        else:
+            submitted_data = {}
+            for key in request.POST:
+                if key != 'csrfmiddlewaretoken':
+                    values = request.POST.getlist(key)
+                    submitted_data[key] = values[0] if len(values) == 1 else values
+
+        # Mandat
+        mandat_id = submitted_data.pop('mandat', None)
+        mandat = None
+        if mandat_id:
+            from core.models import Mandat
+            try:
+                mandat = Mandat.objects.get(pk=mandat_id)
+            except Mandat.DoesNotExist:
+                pass
+
+        # Utilisateur (null si anonyme)
+        user = request.user if request.user.is_authenticated else None
+
+        # Créer la soumission
+        submission = FormSubmission.objects.create(
+            form_config=config,
+            submitted_data=submitted_data,
+            submitted_by=user,
+            mandat=mandat,
+            status=FormSubmission.Status.PENDING if config.require_validation else FormSubmission.Status.PROCESSING,
+        )
+
+        # Si validation requise, rediriger vers succès
+        if config.require_validation:
+            return redirect('modelforms:public-form-success', token=token)
+
+        # Sinon, traiter immédiatement
+        handler = SubmissionHandler(
+            form_config=config,
+            submitted_data=submitted_data,
+            user=user,
+            mandat=mandat,
+        )
+
+        success, records, errors = handler.process()
+
+        if success:
+            submission.status = FormSubmission.Status.COMPLETED
+            submission.created_records = records
+            submission.save()
+        else:
+            submission.status = FormSubmission.Status.FAILED
+            submission.error_message = '; '.join(errors)
+            submission.error_details = {'errors': errors}
+            submission.save()
+
+        return redirect('modelforms:public-form-success', token=token)
+
+
+class PublicFormSuccessView(View):
+    """Page de succès après soumission d'un formulaire public."""
+
+    def get(self, request, token):
+        config = _get_public_config(token)
+        return render(request, 'modelforms/form_fill_success.html', {
+            'form_config': config,
+            'success_message': config.success_message,
+        })
+
+
+class AccessCodeView(View):
+    """Vérifie le code d'accès pour les formulaires protégés."""
+
+    def get(self, request, token):
+        config = _get_public_config(token)
+        if config.access_level != 'code':
+            return redirect('modelforms:public-form', token=token)
+        return render(request, 'modelforms/form_access_code.html', {
+            'form_config': config,
+        })
+
+    def post(self, request, token):
+        config = _get_public_config(token)
+        if config.access_level != 'code':
+            return redirect('modelforms:public-form', token=token)
+
+        code = request.POST.get('access_code', '').strip()
+        if code == config.access_code:
+            request.session[f'form_access_{config.pk}'] = True
+            return redirect('modelforms:public-form', token=token)
+
+        return render(request, 'modelforms/form_access_code.html', {
+            'form_config': config,
+            'error': _('Code d\'accès incorrect. Veuillez réessayer.'),
+        })
+
+
+class FormQRCodeView(LoginRequiredMixin, View):
+    """Génère le QR code PNG d'un formulaire (téléchargement)."""
+
+    def get(self, request, pk):
+        config = get_object_or_404(FormConfiguration, pk=pk)
+        public_url = request.build_absolute_uri(
+            reverse('modelforms:public-form', kwargs={'token': config.public_token})
+        )
+
+        from .services.qr_service import generate_qr_code
+        png_bytes = generate_qr_code(public_url)
+
+        response = HttpResponse(png_bytes, content_type='image/png')
+        response['Content-Disposition'] = f'attachment; filename="qrcode-{config.code}.png"'
+        return response

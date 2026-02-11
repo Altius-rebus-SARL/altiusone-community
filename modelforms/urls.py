@@ -143,6 +143,39 @@ urlpatterns = [
     ),
 
     # ==========================================================================
+    # FORMULAIRES PUBLICS (pas de login requis)
+    # ==========================================================================
+    path(
+        'f/<uuid:token>/',
+        views.PublicFormFillView.as_view(),
+        name='public-form'
+    ),
+    path(
+        'f/<uuid:token>/soumettre/',
+        views.PublicFormSubmitView.as_view(),
+        name='public-form-submit'
+    ),
+    path(
+        'f/<uuid:token>/code/',
+        views.AccessCodeView.as_view(),
+        name='public-form-code'
+    ),
+    path(
+        'f/<uuid:token>/succes/',
+        views.PublicFormSuccessView.as_view(),
+        name='public-form-success'
+    ),
+
+    # ==========================================================================
+    # QR CODE (login requis)
+    # ==========================================================================
+    path(
+        'configurations/<uuid:pk>/qrcode/',
+        views.FormQRCodeView.as_view(),
+        name='configuration-qrcode'
+    ),
+
+    # ==========================================================================
     # API HTMX
     # ==========================================================================
     path(

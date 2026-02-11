@@ -128,6 +128,48 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Access & Sharing Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Accès & Partage" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label" for="id_access_level">{% trans "Niveau d'accès" %}</label>
+                        {{ form.access_level }}
+                        {% if form.access_level.errors %}
+                        <div class="invalid-feedback d-block">{{ form.access_level.errors.0 }}</div>
+                        {% endif %}
+                        <small class="text-muted">{% trans "Détermine qui peut accéder au formulaire via le lien public" %}</small>
+                    </div>
+
+                    <div class="mb-3" id="access-code-group" style="display: none;">
+                        <label class="form-label" for="id_access_code">{% trans "Code d'accès" %}</label>
+                        {{ form.access_code }}
+                        {% if form.access_code.errors %}
+                        <div class="invalid-feedback d-block">{{ form.access_code.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="id_success_message">{% trans "Message de succès" %}</label>
+                        {{ form.success_message }}
+                        {% if form.success_message.errors %}
+                        <div class="invalid-feedback d-block">{{ form.success_message.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="id_mandats">{% trans "Mandats associés" %}</label>
+                        {{ form.mandats }}
+                        {% if form.mandats.errors %}
+                        <div class="invalid-feedback d-block">{{ form.mandats.errors.0 }}</div>
+                        {% endif %}
+                        <small class="text-muted">{% trans "Mandats pour lesquels ce formulaire est disponible" %}</small>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Sidebar -->
@@ -227,6 +269,26 @@ document.addEventListener('DOMContentLoaded', function() {
             evt.preventDefault();
         }
     });
+
+    // Toggle access_code visibility based on access_level
+    const accessLevel = document.getElementById('id_access_level');
+    const accessCodeGroup = document.getElementById('access-code-group');
+    if (accessLevel && accessCodeGroup) {
+        function toggleAccessCode() {
+            accessCodeGroup.style.display = accessLevel.value === 'code' ? '' : 'none';
+        }
+        accessLevel.addEventListener('change', toggleAccessCode);
+        toggleAccessCode();
+    }
+
+    // Initialize Select2 on mandats if available
+    if (typeof $ !== 'undefined' && $.fn.select2) {
+        $('#id_mandats').select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            placeholder: '{% trans "Sélectionner des mandats..." %}'
+        });
+    }
 });
 </script>
 {% endblock %}

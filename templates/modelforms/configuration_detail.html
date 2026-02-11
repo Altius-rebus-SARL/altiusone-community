@@ -187,7 +187,7 @@
                                         {{ submission.submitted_at|date:"d/m/Y H:i" }}
                                     </a>
                                 </td>
-                                <td>{{ submission.submitted_by.get_full_name|default:submission.submitted_by.username }}</td>
+                                <td>{% if submission.submitted_by %}{{ submission.submitted_by.get_full_name|default:submission.submitted_by.username }}{% else %}<span class="text-muted">{% trans "Anonyme" %}</span>{% endif %}</td>
                                 <td>
                                     {% if submission.status == 'COMPLETED' %}
                                         <span class="badge bg-success-subtle text-success">{{ submission.get_status_display }}</span>
@@ -242,6 +242,51 @@
                 </div>
             </div>
         </div>
+
+        <!-- Public Access Card -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>{% trans "Accès public" %}</h5>
+                <span>
+                    {% if configuration.access_level == 'public' %}
+                        <span class="badge bg-success-subtle text-success">{% trans "Public" %}</span>
+                    {% elif configuration.access_level == 'code' %}
+                        <span class="badge bg-warning-subtle text-warning">{% trans "Code d'accès" %}</span>
+                    {% else %}
+                        <span class="badge bg-info-subtle text-info">{% trans "Authentifié" %}</span>
+                    {% endif %}
+                </span>
+            </div>
+            <div class="card-body">
+                {% if configuration.status == 'ACTIVE' %}
+                    {% include 'modelforms/partials/qr_code.html' with qr_code_data_uri=qr_code_data_uri public_url=public_url configuration=configuration %}
+                {% else %}
+                    <div class="text-center text-muted py-3">
+                        <i class="ph-duotone ph-warning f-s-24"></i>
+                        <p class="small mt-2 mb-0">{% trans "Le QR code sera disponible lorsque le formulaire sera actif." %}</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Mandats associés -->
+        {% if mandats %}
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Mandats associés" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-2">
+                    {% for mandat in mandats %}
+                    <span class="badge bg-light-primary text-primary">
+                        <i class="ph-duotone ph-briefcase me-1"></i>
+                        {{ mandat.numero }} – {{ mandat.client }}
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
 
         <!-- Stats Card -->
         <div class="card">
