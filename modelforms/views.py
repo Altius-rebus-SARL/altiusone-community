@@ -1040,15 +1040,14 @@ class AvailableFormsListView(LoginRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        # Grouper par catégorie
+        # Grouper par catégorie (category est un CharField libre)
         forms_by_category = {}
         for form in context['forms']:
-            category_display = form.get_category_display()
-            if category_display not in forms_by_category:
-                forms_by_category[category_display] = []
-            forms_by_category[category_display].append(form)
+            cat = form.category or _('Autre')
+            if cat not in forms_by_category:
+                forms_by_category[cat] = []
+            forms_by_category[cat].append(form)
         context['forms_by_category'] = forms_by_category
-        context['categories'] = FormConfiguration.Category.choices
         return context
 
 
