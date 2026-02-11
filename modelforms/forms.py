@@ -346,6 +346,14 @@ class AddFieldForm(forms.Form):
 class BuilderFieldMappingForm(forms.ModelForm):
     """Formulaire inline simplifié pour le constructeur visuel."""
 
+    required = forms.TypedChoiceField(
+        coerce=lambda x: {'True': True, 'False': False}.get(x),
+        choices=[('', _('Par défaut')), ('True', _('Oui')), ('False', _('Non'))],
+        required=False,
+        empty_value=None,
+        widget=forms.Select(attrs={'class': 'form-select form-select-sm'}),
+    )
+
     class Meta:
         model = ModelFieldMapping
         fields = [
@@ -370,10 +378,6 @@ class BuilderFieldMappingForm(forms.ModelForm):
                 'class': 'form-control form-control-sm',
                 'placeholder': _('Placeholder'),
             }),
-            'required': forms.Select(
-                choices=[(None, _('Par défaut')), (True, _('Oui')), (False, _('Non'))],
-                attrs={'class': 'form-select form-select-sm'},
-            ),
             'section': forms.HiddenInput(),
             'conditions': forms.Textarea(attrs={
                 'class': 'form-control form-control-sm font-monospace',
@@ -396,6 +400,24 @@ class BuilderFieldMappingForm(forms.ModelForm):
                 'class': 'form-control form-control-sm font-monospace',
             }),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Pre-select current value for the required TypedChoiceField
+        if self.instance and self.instance.pk:
+            if self.instance.required is True:
+                self.initial['required'] = 'True'
+            elif self.instance.required is False:
+                self.initial['required'] = 'False'
+            else:
+                self.initial['required'] = ''
+
+    def clean_conditions(self):
+        """Accept empty conditions field as empty dict."""
+        value = self.cleaned_data.get('conditions')
+        if not value:
+            return {}
+        return value
 
 
 class AccessCodeForm(forms.Form):

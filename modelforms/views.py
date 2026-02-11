@@ -546,6 +546,8 @@ def builder_add_field(request, pk):
     help_text = ''
     required = None
     max_length = None
+    choices = None
+    related_model = None
     try:
         introspector = ModelIntrospector(source_model)
         for field_info in introspector.get_fields(include_system=True):
@@ -555,12 +557,22 @@ def builder_add_field(request, pk):
                 help_text = field_info.get('help_text', '')
                 required = field_info.get('required', None)
                 max_length = field_info.get('max_length')
+                choices = field_info.get('choices')
+                related_model = field_info.get('related_model')
                 break
     except ValueError:
         pass
 
     # Ordre: après le dernier champ
     max_order = configuration.field_mappings.count()
+
+    # Construire les options du widget
+    options = {}
+    if choices:
+        options['choices'] = choices
+    if related_model:
+        options['endpoint'] = f'/api/v1/{related_model.replace(".", "/").lower()}/'
+        options['display_field'] = 'nom'
 
     mapping_kwargs = {
         'form_config': configuration,
@@ -576,6 +588,8 @@ def builder_add_field(request, pk):
         mapping_kwargs['required'] = required
     if max_length:
         mapping_kwargs['max_length'] = max_length
+    if options:
+        mapping_kwargs['options'] = options
 
     ModelFieldMapping.objects.create(**mapping_kwargs)
 
