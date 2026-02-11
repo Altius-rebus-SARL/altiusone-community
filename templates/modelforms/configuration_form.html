@@ -76,9 +76,22 @@
                         <div class="col-md-6 mb-3">
                             <label class="form-label" for="id_category">{% trans "Catégorie" %} <span class="text-danger">*</span></label>
                             {{ form.category }}
+                            <datalist id="category-datalist">
+                                <option value="CLIENT">{% trans "Client/Prospect" %}</option>
+                                <option value="EMPLOYE">{% trans "Employé" %}</option>
+                                <option value="FACTURATION">{% trans "Facturation" %}</option>
+                                <option value="DOCUMENT">{% trans "Document" %}</option>
+                                <option value="WORKFLOW">{% trans "Workflow" %}</option>
+                                <option value="COMPTABILITE">{% trans "Comptabilité" %}</option>
+                                <option value="TVA">{% trans "TVA" %}</option>
+                                <option value="SALAIRES">{% trans "Salaires" %}</option>
+                                <option value="RH">{% trans "Ressources humaines" %}</option>
+                                <option value="AUTRE">{% trans "Autre" %}</option>
+                            </datalist>
                             {% if form.category.errors %}
                             <div class="invalid-feedback d-block">{{ form.category.errors.0 }}</div>
                             {% endif %}
+                            <small class="text-muted">{% trans "Sélectionnez ou saisissez une catégorie personnalisée" %}</small>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label class="form-label" for="id_icon">{% trans "Icône" %}</label>
@@ -95,11 +108,11 @@
             <!-- Target Model Card -->
             <div class="card">
                 <div class="card-header">
-                    <h5>{% trans "Modèle cible" %}</h5>
+                    <h5>{% trans "Modèles cibles" %}</h5>
                 </div>
                 <div class="card-body">
                     <div class="mb-3">
-                        <label class="form-label" for="id_target_model">{% trans "Modèle Django" %} <span class="text-danger">*</span></label>
+                        <label class="form-label" for="id_target_model">{% trans "Modèle principal" %}</label>
                         <select name="target_model" id="id_target_model"
                                 class="form-select select-basic"
                                 hx-get="{% url 'modelforms:introspect-model' model_path='__MODEL__' %}"
@@ -114,7 +127,26 @@
                         {% if form.target_model.errors %}
                         <div class="invalid-feedback d-block">{{ form.target_model.errors.0 }}</div>
                         {% endif %}
-                        <small class="text-muted">{% trans "Le modèle Django sur lequel ce formulaire créera des enregistrements" %}</small>
+                        <small class="text-muted">{% trans "Le modèle Django principal sur lequel ce formulaire créera des enregistrements" %}</small>
+                    </div>
+
+                    <!-- Multi-model toggle -->
+                    <div class="form-check mb-3">
+                        {{ form.is_multi_model }}
+                        <label class="form-check-label" for="id_is_multi_model">
+                            {% trans "Formulaire multi-modèles" %}
+                        </label>
+                        <small class="d-block text-muted">{% trans "Collecter des données de plusieurs modèles Django" %}</small>
+                    </div>
+
+                    <!-- Source models (shown when multi-model is checked) -->
+                    <div id="multiModelOptions" class="{% if not form.instance.is_multi_model %}collapse{% endif %} mb-3">
+                        <label class="form-label" for="id_source_models">{% trans "Modèles supplémentaires" %}</label>
+                        {{ form.source_models }}
+                        {% if form.source_models.errors %}
+                        <div class="invalid-feedback d-block">{{ form.source_models.errors.0 }}</div>
+                        {% endif %}
+                        <small class="text-muted">{% trans "Modèles additionnels dont les champs seront disponibles dans le constructeur" %}</small>
                     </div>
 
                     <!-- Model Schema Preview -->
@@ -281,12 +313,31 @@ document.addEventListener('DOMContentLoaded', function() {
         toggleAccessCode();
     }
 
-    // Initialize Select2 on mandats if available
+    // Toggle multi-model section
+    const multiModelCheckbox = document.getElementById('id_is_multi_model');
+    const multiModelOptions = document.getElementById('multiModelOptions');
+    if (multiModelCheckbox && multiModelOptions) {
+        function toggleMultiModel() {
+            if (multiModelCheckbox.checked) {
+                multiModelOptions.classList.remove('collapse');
+            } else {
+                multiModelOptions.classList.add('collapse');
+            }
+        }
+        multiModelCheckbox.addEventListener('change', toggleMultiModel);
+    }
+
+    // Initialize Select2 on mandats and source_models if available
     if (typeof $ !== 'undefined' && $.fn.select2) {
         $('#id_mandats').select2({
             theme: 'bootstrap-5',
             width: '100%',
             placeholder: '{% trans "Sélectionner des mandats..." %}'
+        });
+        $('#id_source_models').select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            placeholder: '{% trans "Sélectionner les modèles..." %}'
         });
     }
 });

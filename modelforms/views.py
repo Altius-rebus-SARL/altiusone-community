@@ -324,14 +324,35 @@ def form_builder(request, pk):
     """Page principale du constructeur 3 panneaux."""
     configuration = get_object_or_404(FormConfiguration, pk=pk)
 
-    # Introspection du modèle
-    try:
-        introspector = ModelIntrospector(configuration.target_model)
-        model_fields = introspector.get_fields()
-        suggested_groups = introspector.get_suggested_groups()
-    except ValueError:
-        model_fields = []
-        suggested_groups = []
+    # Collect all models to introspect (target + source_models)
+    models_to_introspect = []
+    if configuration.target_model:
+        models_to_introspect.append(configuration.target_model)
+    for sm in (configuration.source_models or []):
+        if sm and sm not in models_to_introspect:
+            models_to_introspect.append(sm)
+
+    # Introspect all models
+    model_fields = []
+    suggested_groups = []
+    catalogue_models = []  # [{model_path, fields, groups}]
+    for model_path in models_to_introspect:
+        try:
+            introspector = ModelIntrospector(model_path)
+            fields = introspector.get_fields()
+            groups = introspector.get_suggested_groups()
+            # Tag each field with its source model
+            for f in fields:
+                f['source_model'] = model_path
+            model_fields.extend(fields)
+            suggested_groups.extend(groups)
+            catalogue_models.append({
+                'path': model_path,
+                'fields': fields,
+                'groups': groups,
+            })
+        except ValueError:
+            pass
 
     field_mappings = list(configuration.field_mappings.all().order_by('order'))
     configured_field_names = {m.field_name for m in field_mappings}
@@ -374,6 +395,7 @@ def form_builder(request, pk):
         'configured_field_names': configured_field_names,
         'sections': sections,
         'fields_by_section': fields_by_section,
+        'catalogue_models': catalogue_models,
     })
 
 

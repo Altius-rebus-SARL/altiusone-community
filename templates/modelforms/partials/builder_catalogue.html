@@ -31,7 +31,7 @@
                 <button type="button"
                         class="btn btn-sm btn-outline-primary btn-add-field py-0 px-1"
                         hx-post="{% url 'modelforms:builder-add-field' configuration.pk %}"
-                        hx-vals='{"field_name": "{{ field.name }}", "source_model": "{{ configuration.target_model }}", "section_id": ""}'
+                        hx-vals='{"field_name": "{{ field.name }}", "source_model": "{{ field.source_model|default:configuration.target_model }}", "section_id": ""}'
                         hx-target="#builder-sections-panel"
                         hx-swap="innerHTML"
                         title="{% trans 'Ajouter' %}"
@@ -72,7 +72,7 @@
                 <button type="button"
                         class="btn btn-sm btn-outline-primary btn-add-field py-0 px-1"
                         hx-post="{% url 'modelforms:builder-add-field' configuration.pk %}"
-                        hx-vals='{"field_name": "{{ field.name }}", "source_model": "{{ configuration.target_model }}", "section_id": ""}'
+                        hx-vals='{"field_name": "{{ field.name }}", "source_model": "{{ field.source_model|default:configuration.target_model }}", "section_id": ""}'
                         hx-target="#builder-sections-panel"
                         hx-swap="innerHTML"
                         title="{% trans 'Ajouter' %}"

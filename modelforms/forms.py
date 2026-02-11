@@ -14,14 +14,38 @@ class FormConfigurationForm(forms.ModelForm):
     """Formulaire pour créer/modifier une configuration de formulaire."""
 
     target_model = forms.ChoiceField(
-        label=_('Modèle cible'),
+        label=_('Modèle cible principal'),
         choices=[],
         required=False,
         widget=forms.Select(attrs={
             'class': 'form-control select2',
             'data-placeholder': _('Rechercher un modèle...'),
         }),
-        help_text=_('Sélectionnez le modèle Django principal (optionnel pour multi-modèles)')
+        help_text=_('Sélectionnez le modèle Django principal')
+    )
+
+    # Override category to allow custom values (not just TextChoices)
+    category = forms.CharField(
+        label=_('Catégorie'),
+        max_length=20,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'list': 'category-datalist',
+            'placeholder': _('Sélectionner ou saisir une catégorie...'),
+        }),
+        help_text=_('Catégorie du formulaire pour le regroupement'),
+    )
+
+    # Multi-model: source_models as a multi-select
+    source_models = forms.MultipleChoiceField(
+        label=_('Modèles sources'),
+        choices=[],
+        required=False,
+        widget=forms.SelectMultiple(attrs={
+            'class': 'form-control select2',
+            'data-placeholder': _('Sélectionner les modèles...'),
+        }),
+        help_text=_('Modèles supplémentaires utilisés par ce formulaire'),
     )
 
     class Meta:
@@ -33,6 +57,7 @@ class FormConfigurationForm(forms.ModelForm):
             'category',
             'is_multi_model',
             'target_model',
+            'source_models',
             'icon',
             'status',
             'require_validation',
@@ -55,13 +80,8 @@ class FormConfigurationForm(forms.ModelForm):
                 'rows': 3,
                 'placeholder': _('Description du formulaire...'),
             }),
-            'category': forms.Select(attrs={
-                'class': 'form-select select-basic',
-            }),
             'is_multi_model': forms.CheckboxInput(attrs={
                 'class': 'form-check-input',
-                'data-bs-toggle': 'collapse',
-                'data-bs-target': '#multiModelOptions',
             }),
             'icon': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -96,9 +116,24 @@ class FormConfigurationForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         # Construire les choix de modèles depuis l'introspection
         model_choices = [('', _('-- Sélectionner un modèle --'))]
+        source_choices = []
         for model_info in ModelIntrospector.get_allowed_models():
-            model_choices.append((model_info['path'], f"{model_info['verbose_name']} ({model_info['path']})"))
+            label = f"{model_info['verbose_name']} ({model_info['path']})"
+            model_choices.append((model_info['path'], label))
+            source_choices.append((model_info['path'], label))
         self.fields['target_model'].choices = model_choices
+        self.fields['source_models'].choices = source_choices
+
+        # Pre-select source_models from the JSONField
+        if self.instance and self.instance.pk and self.instance.source_models:
+            self.initial['source_models'] = self.instance.source_models
+
+    def clean_source_models(self):
+        """Convert MultipleChoiceField list to JSON-compatible list."""
+        value = self.cleaned_data.get('source_models')
+        if not value:
+            return []
+        return list(value)
 
     def clean(self):
         cleaned_data = super().clean()

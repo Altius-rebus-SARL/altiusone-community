@@ -62,12 +62,11 @@ class FormConfiguration(BaseModel):
         help_text=_('Description détaillée du formulaire et de son usage')
     )
     category = models.CharField(
-        max_length=20,
-        choices=Category.choices,
-        default=Category.AUTRE,
+        max_length=50,
+        default='AUTRE',
         db_index=True,
         verbose_name=_('Catégorie'),
-        help_text=_('Catégorie du formulaire pour le regroupement')
+        help_text=_('Catégorie du formulaire pour le regroupement (personnalisable)')
     )
 
     # Modèle principal (optionnel pour les formulaires multi-modèles)

@@ -39,7 +39,12 @@
         <div class="card" style="position: sticky; top: 80px;">
             <div class="card-header">
                 <h5><i class="ph-duotone ph-list-dashes me-2"></i>{% trans "Catalogue" %}</h5>
-                <small class="text-muted"><code>{{ configuration.target_model }}</code></small>
+                <small class="text-muted">
+                    <code>{{ configuration.target_model }}</code>
+                    {% for sm in configuration.source_models %}
+                    <br><code>{{ sm }}</code>
+                    {% endfor %}
+                </small>
             </div>
             <div class="card-body p-0" id="builder-catalogue"
                  style="max-height: calc(100vh - 200px); overflow-y: auto;">
