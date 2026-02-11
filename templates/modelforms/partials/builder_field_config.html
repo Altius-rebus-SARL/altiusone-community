@@ -1,0 +1,124 @@
+<!-- modelforms/partials/builder_field_config.html -->
+{% load i18n %}
+
+<div class="builder-field-item border rounded p-3 mb-1 bg-light-info"
+     data-mapping-id="{{ mapping.pk }}"
+     data-field-name="{{ mapping.field_name }}">
+    <form hx-post="{% url 'modelforms:builder-field-config' configuration.pk mapping.pk %}"
+          hx-target="closest .builder-field-item"
+          hx-swap="outerHTML">
+        {% csrf_token %}
+
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="mb-0">
+                <i class="ti ti-settings me-1"></i>
+                <code>{{ mapping.field_name }}</code>
+            </h6>
+            <span class="badge bg-light text-dark">{{ mapping.get_widget_type_display }}</span>
+        </div>
+
+        <!-- Tabs -->
+        <ul class="nav nav-tabs nav-tabs-sm mb-3" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active py-1 px-2 f-s-12" data-bs-toggle="tab"
+                        data-bs-target="#tab-display-{{ mapping.pk }}" type="button">
+                    {% trans "Affichage" %}
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link py-1 px-2 f-s-12" data-bs-toggle="tab"
+                        data-bs-target="#tab-validation-{{ mapping.pk }}" type="button">
+                    {% trans "Validation" %}
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link py-1 px-2 f-s-12" data-bs-toggle="tab"
+                        data-bs-target="#tab-advanced-{{ mapping.pk }}" type="button">
+                    {% trans "Avanc&eacute;" %}
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+            <!-- Tab: Affichage -->
+            <div class="tab-pane fade show active" id="tab-display-{{ mapping.pk }}">
+                <div class="row g-2">
+                    <div class="col-6">
+                        <label class="form-label f-s-12">{% trans "Widget" %}</label>
+                        {{ form.widget_type }}
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label f-s-12">{% trans "Requis" %}</label>
+                        {{ form.required }}
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label f-s-12">{% trans "Label" %}</label>
+                        {{ form.label }}
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label f-s-12">{% trans "Placeholder" %}</label>
+                        {{ form.placeholder }}
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label f-s-12">{% trans "Texte d'aide" %}</label>
+                        {{ form.help_text }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Validation -->
+            <div class="tab-pane fade" id="tab-validation-{{ mapping.pk }}">
+                <div class="row g-2">
+                    <div class="col-6">
+                        <label class="form-label f-s-12">{% trans "Min. valeur" %}</label>
+                        {{ form.min_value }}
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label f-s-12">{% trans "Max. valeur" %}</label>
+                        {{ form.max_value }}
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label f-s-12">{% trans "Min. longueur" %}</label>
+                        {{ form.min_length }}
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label f-s-12">{% trans "Max. longueur" %}</label>
+                        {{ form.max_length }}
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label f-s-12">{% trans "Pattern regex" %}</label>
+                        {{ form.regex_pattern }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Avance -->
+            <div class="tab-pane fade" id="tab-advanced-{{ mapping.pk }}">
+                <div class="row g-2">
+                    <div class="col-12">
+                        <label class="form-label f-s-12">{% trans "Conditions de visibilit&eacute;" %}</label>
+                        {{ form.conditions }}
+                        <small class="text-muted f-s-11">{% trans 'JSON: {"visible_if": {"field": "...", "operator": "equals", "value": "..."}}' %}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{ form.section }}
+
+        <!-- Actions -->
+        <div class="d-flex justify-content-end gap-2 mt-3">
+            <button type="button"
+                    class="btn btn-sm btn-outline-secondary"
+                    hx-get="{% url 'modelforms:builder-sections' configuration.pk %}"
+                    hx-target="#builder-sections-panel"
+                    hx-swap="innerHTML">
+                {% trans "Annuler" %}
+            </button>
+            <button type="submit" class="btn btn-sm btn-primary">
+                <i class="ti ti-check me-1"></i>{% trans "Sauver" %}
+            </button>
+        </div>
+    </form>
+</div>

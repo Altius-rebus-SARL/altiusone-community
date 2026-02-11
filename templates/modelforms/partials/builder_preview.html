@@ -1,0 +1,44 @@
+<!-- modelforms/partials/builder_preview.html -->
+{% load i18n %}
+{% load modelforms_tags %}
+
+{% if field_mappings %}
+<fieldset disabled>
+    {% if sections %}
+        {% for section in sections %}
+        <div class="mb-4">
+            <h6 class="border-bottom pb-2 mb-3">
+                {% if section.icon %}<i class="{{ section.icon }} me-2"></i>{% endif %}
+                {{ section.title }}
+            </h6>
+            {% with section_fields=fields_by_section|get_item:section.id %}
+            {% for mapping in section_fields %}
+                {% include 'modelforms/partials/form_field.html' with mapping=mapping default_values=default_values %}
+            {% endfor %}
+            {% endwith %}
+        </div>
+        {% endfor %}
+
+        <!-- Unsectioned fields -->
+        {% with other_fields=fields_by_section|get_item:"other" %}
+        {% if other_fields %}
+        <div class="mb-4">
+            <h6 class="border-bottom pb-2 mb-3 text-muted">{% trans "Autres" %}</h6>
+            {% for mapping in other_fields %}
+                {% include 'modelforms/partials/form_field.html' with mapping=mapping default_values=default_values %}
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+    {% else %}
+        {% for mapping in field_mappings %}
+            {% include 'modelforms/partials/form_field.html' with mapping=mapping default_values=default_values %}
+        {% endfor %}
+    {% endif %}
+</fieldset>
+{% else %}
+<div class="text-center py-4 text-muted">
+    <i class="ph-duotone ph-eye-slash f-s-40"></i>
+    <p class="mt-2 mb-0">{% trans "Ajoutez des champs pour voir l'aperçu" %}</p>
+</div>
+{% endif %}

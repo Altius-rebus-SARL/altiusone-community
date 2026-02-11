@@ -343,6 +343,61 @@ class AddFieldForm(forms.Form):
         self.fields['source_model'].choices = model_choices
 
 
+class BuilderFieldMappingForm(forms.ModelForm):
+    """Formulaire inline simplifié pour le constructeur visuel."""
+
+    class Meta:
+        model = ModelFieldMapping
+        fields = [
+            'widget_type', 'label', 'help_text', 'placeholder',
+            'required', 'section', 'conditions',
+            'min_value', 'max_value', 'min_length', 'max_length',
+            'regex_pattern',
+        ]
+        widgets = {
+            'widget_type': forms.Select(attrs={
+                'class': 'form-select form-select-sm',
+            }),
+            'label': forms.TextInput(attrs={
+                'class': 'form-control form-control-sm',
+                'placeholder': _('Label affiché'),
+            }),
+            'help_text': forms.TextInput(attrs={
+                'class': 'form-control form-control-sm',
+                'placeholder': _('Texte d\'aide'),
+            }),
+            'placeholder': forms.TextInput(attrs={
+                'class': 'form-control form-control-sm',
+                'placeholder': _('Placeholder'),
+            }),
+            'required': forms.Select(
+                choices=[(None, _('Par défaut')), (True, _('Oui')), (False, _('Non'))],
+                attrs={'class': 'form-select form-select-sm'},
+            ),
+            'section': forms.HiddenInput(),
+            'conditions': forms.Textarea(attrs={
+                'class': 'form-control form-control-sm font-monospace',
+                'rows': 3,
+                'placeholder': '{"visible_if": {"field": "...", "operator": "equals", "value": "..."}}',
+            }),
+            'min_value': forms.TextInput(attrs={
+                'class': 'form-control form-control-sm',
+            }),
+            'max_value': forms.TextInput(attrs={
+                'class': 'form-control form-control-sm',
+            }),
+            'min_length': forms.NumberInput(attrs={
+                'class': 'form-control form-control-sm',
+            }),
+            'max_length': forms.NumberInput(attrs={
+                'class': 'form-control form-control-sm',
+            }),
+            'regex_pattern': forms.TextInput(attrs={
+                'class': 'form-control form-control-sm font-monospace',
+            }),
+        }
+
+
 class AccessCodeForm(forms.Form):
     """Formulaire pour saisir le code d'accès d'un formulaire protégé."""
 

@@ -54,7 +54,7 @@ urlpatterns = [
         name='configuration-advanced'
     ),
 
-    # Gestion des champs (HTMX)
+    # Gestion des champs (ancien, redirige vers builder)
     path(
         'configurations/<uuid:pk>/champs/',
         views.configuration_fields,
@@ -74,6 +74,63 @@ urlpatterns = [
         'configurations/<uuid:pk>/champs/reorder/',
         views.reorder_fields,
         name='reorder-fields'
+    ),
+
+    # Constructeur visuel (Builder)
+    path(
+        'configurations/<uuid:pk>/builder/',
+        views.form_builder,
+        name='form-builder'
+    ),
+    path(
+        'configurations/<uuid:pk>/builder/sections/',
+        views.builder_sections_panel,
+        name='builder-sections'
+    ),
+    path(
+        'configurations/<uuid:pk>/builder/sections/ajouter/',
+        views.builder_add_section,
+        name='builder-add-section'
+    ),
+    path(
+        'configurations/<uuid:pk>/builder/sections/<str:section_id>/modifier/',
+        views.builder_edit_section,
+        name='builder-edit-section'
+    ),
+    path(
+        'configurations/<uuid:pk>/builder/sections/<str:section_id>/supprimer/',
+        views.builder_delete_section,
+        name='builder-delete-section'
+    ),
+    path(
+        'configurations/<uuid:pk>/builder/sections/reorder/',
+        views.builder_reorder_sections,
+        name='builder-reorder-sections'
+    ),
+    path(
+        'configurations/<uuid:pk>/builder/champs/ajouter/',
+        views.builder_add_field,
+        name='builder-add-field'
+    ),
+    path(
+        'configurations/<uuid:pk>/builder/champs/<int:mapping_pk>/config/',
+        views.builder_field_config,
+        name='builder-field-config'
+    ),
+    path(
+        'configurations/<uuid:pk>/builder/champs/<int:mapping_pk>/supprimer/',
+        views.builder_delete_field,
+        name='builder-delete-field'
+    ),
+    path(
+        'configurations/<uuid:pk>/builder/champs/reorder/',
+        views.builder_reorder_fields,
+        name='builder-reorder-fields'
+    ),
+    path(
+        'configurations/<uuid:pk>/builder/preview/',
+        views.builder_preview,
+        name='builder-preview'
     ),
 
     # ==========================================================================

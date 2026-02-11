@@ -214,7 +214,7 @@
                         <a href="{% url 'modelforms:configuration-advanced' form.instance.pk %}" class="btn btn-outline-secondary">
                             <i class="ti ti-settings me-2"></i>{% trans "Configuration avancée" %}
                         </a>
-                        <a href="{% url 'modelforms:configuration-fields' form.instance.pk %}" class="btn btn-outline-info">
+                        <a href="{% url 'modelforms:form-builder' form.instance.pk %}" class="btn btn-outline-info">
                             <i class="ti ti-list me-2"></i>{% trans "Gérer les champs" %}
                         </a>
                         {% endif %}

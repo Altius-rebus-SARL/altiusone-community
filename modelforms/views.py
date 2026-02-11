@@ -24,6 +24,7 @@ from .forms import (
     ModelFieldMappingForm,
     ModelFieldMappingFormSet,
     FormTemplateSelectForm,
+    BuilderFieldMappingForm,
 )
 from .services.introspector import ModelIntrospector
 from .services.submission_handler import SubmissionHandler
@@ -311,6 +312,359 @@ def delete_field_mapping(request, pk, mapping_pk):
         })
 
     return redirect('modelforms:configuration-fields', pk=pk)
+
+
+# =============================================================================
+# CONSTRUCTEUR VISUEL (BUILDER)
+# =============================================================================
+
+@login_required
+@permission_required_business('modelforms.change_configuration')
+def form_builder(request, pk):
+    """Page principale du constructeur 3 panneaux."""
+    configuration = get_object_or_404(FormConfiguration, pk=pk)
+
+    # Introspection du modèle
+    try:
+        introspector = ModelIntrospector(configuration.target_model)
+        model_fields = introspector.get_fields()
+        suggested_groups = introspector.get_suggested_groups()
+    except ValueError:
+        model_fields = []
+        suggested_groups = []
+
+    field_mappings = list(configuration.field_mappings.all().order_by('order'))
+    configured_field_names = {m.field_name for m in field_mappings}
+
+    # Sections depuis form_schema
+    sections = (configuration.form_schema or {}).get('sections', [])
+
+    # Grouper les champs du modèle par groupe suggéré
+    grouped_fields = {}
+    ungrouped_fields = []
+    grouped_field_names = set()
+    for group in suggested_groups:
+        group_fields = [f for f in model_fields if f['name'] in group['fields']]
+        if group_fields:
+            grouped_fields[group['id']] = {
+                'title': group['title'],
+                'fields': group_fields,
+            }
+            grouped_field_names.update(f['name'] for f in group_fields)
+
+    ungrouped_fields = [f for f in model_fields if f['name'] not in grouped_field_names]
+
+    # Organiser les champs par section pour le panel central
+    fields_by_section = {s['id']: [] for s in sections}
+    fields_by_section['_unsectioned'] = []
+    for mapping in field_mappings:
+        section_id = mapping.section or '_unsectioned'
+        if section_id in fields_by_section:
+            fields_by_section[section_id].append(mapping)
+        else:
+            fields_by_section['_unsectioned'].append(mapping)
+
+    return render(request, 'modelforms/form_builder.html', {
+        'configuration': configuration,
+        'model_fields': model_fields,
+        'suggested_groups': suggested_groups,
+        'grouped_fields': grouped_fields,
+        'ungrouped_fields': ungrouped_fields,
+        'field_mappings': field_mappings,
+        'configured_field_names': configured_field_names,
+        'sections': sections,
+        'fields_by_section': fields_by_section,
+    })
+
+
+@login_required
+@permission_required_business('modelforms.change_configuration')
+def builder_sections_panel(request, pk):
+    """Retourne le panel central (sections + champs). HTMX partial."""
+    configuration = get_object_or_404(FormConfiguration, pk=pk)
+    field_mappings = list(configuration.field_mappings.all().order_by('order'))
+    sections = (configuration.form_schema or {}).get('sections', [])
+
+    # Organiser les champs par section
+    fields_by_section = {s['id']: [] for s in sections}
+    fields_by_section['_unsectioned'] = []
+    for mapping in field_mappings:
+        section_id = mapping.section or '_unsectioned'
+        if section_id in fields_by_section:
+            fields_by_section[section_id].append(mapping)
+        else:
+            fields_by_section['_unsectioned'].append(mapping)
+
+    return render(request, 'modelforms/partials/builder_sections.html', {
+        'configuration': configuration,
+        'sections': sections,
+        'fields_by_section': fields_by_section,
+        'field_mappings': field_mappings,
+    })
+
+
+@login_required
+@require_POST
+@permission_required_business('modelforms.change_configuration')
+def builder_add_section(request, pk):
+    """Ajoute une section dans form_schema.sections."""
+    import re
+    configuration = get_object_or_404(FormConfiguration, pk=pk)
+    title = request.POST.get('title', '').strip()
+    icon = request.POST.get('icon', '').strip()
+
+    if not title:
+        return HttpResponse('Titre requis', status=400)
+
+    # Générer un id: slugify
+    section_id = re.sub(r'[^a-z0-9]+', '_', title.lower().strip('_'))
+    if not section_id:
+        import uuid
+        section_id = uuid.uuid4().hex[:8]
+
+    # Vérifier unicité
+    schema = configuration.form_schema or {}
+    sections = schema.get('sections', [])
+    existing_ids = {s['id'] for s in sections}
+    base_id = section_id
+    counter = 1
+    while section_id in existing_ids:
+        section_id = f"{base_id}_{counter}"
+        counter += 1
+
+    new_section = {'id': section_id, 'title': title}
+    if icon:
+        new_section['icon'] = icon
+    sections.append(new_section)
+    schema['sections'] = sections
+    configuration.form_schema = schema
+    configuration.save(update_fields=['form_schema'])
+
+    response = _builder_sections_response(request, configuration)
+    response['HX-Trigger'] = 'previewUpdated'
+    return response
+
+
+@login_required
+@require_POST
+@permission_required_business('modelforms.change_configuration')
+def builder_edit_section(request, pk, section_id):
+    """Modifie title/icon d'une section."""
+    configuration = get_object_or_404(FormConfiguration, pk=pk)
+    title = request.POST.get('title', '').strip()
+    icon = request.POST.get('icon', '').strip()
+
+    schema = configuration.form_schema or {}
+    sections = schema.get('sections', [])
+    for section in sections:
+        if section['id'] == section_id:
+            if title:
+                section['title'] = title
+            if icon:
+                section['icon'] = icon
+            elif 'icon' in section:
+                del section['icon']
+            break
+
+    schema['sections'] = sections
+    configuration.form_schema = schema
+    configuration.save(update_fields=['form_schema'])
+
+    response = _builder_sections_response(request, configuration)
+    response['HX-Trigger'] = 'previewUpdated'
+    return response
+
+
+@login_required
+@require_http_methods(['DELETE', 'POST'])
+@permission_required_business('modelforms.change_configuration')
+def builder_delete_section(request, pk, section_id):
+    """Supprime une section. Déplace ses champs vers '_unsectioned'."""
+    configuration = get_object_or_404(FormConfiguration, pk=pk)
+
+    schema = configuration.form_schema or {}
+    sections = schema.get('sections', [])
+    schema['sections'] = [s for s in sections if s['id'] != section_id]
+    configuration.form_schema = schema
+    configuration.save(update_fields=['form_schema'])
+
+    # Déplacer les champs de cette section
+    configuration.field_mappings.filter(section=section_id).update(section='')
+
+    response = _builder_sections_response(request, configuration)
+    response['HX-Trigger'] = 'previewUpdated, catalogueUpdated'
+    return response
+
+
+@login_required
+@require_POST
+@permission_required_business('modelforms.change_configuration')
+def builder_reorder_sections(request, pk):
+    """Sauvegarde l'ordre des sections (Sortable.js)."""
+    import json
+    configuration = get_object_or_404(FormConfiguration, pk=pk)
+
+    try:
+        data = json.loads(request.body)
+        order_list = data.get('order', [])
+    except (json.JSONDecodeError, AttributeError):
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    schema = configuration.form_schema or {}
+    sections = schema.get('sections', [])
+    section_map = {s['id']: s for s in sections}
+    reordered = [section_map[sid] for sid in order_list if sid in section_map]
+    # Append any sections not in the order list
+    remaining = [s for s in sections if s['id'] not in set(order_list)]
+    schema['sections'] = reordered + remaining
+    configuration.form_schema = schema
+    configuration.save(update_fields=['form_schema'])
+
+    return JsonResponse({'status': 'ok'})
+
+
+@login_required
+@require_POST
+@permission_required_business('modelforms.change_configuration')
+def builder_add_field(request, pk):
+    """Ajoute un champ au formulaire (dans une section donnée)."""
+    configuration = get_object_or_404(FormConfiguration, pk=pk)
+    field_name = request.POST.get('field_name', '').strip()
+    source_model = request.POST.get('source_model', '').strip() or configuration.target_model
+    section_id = request.POST.get('section_id', '').strip()
+
+    if not field_name:
+        return HttpResponse('field_name requis', status=400)
+
+    # Vérifier si le champ existe déjà
+    if configuration.field_mappings.filter(field_name=field_name, source_model=source_model).exists():
+        return HttpResponse('Ce champ est déjà ajouté', status=400)
+
+    # Détecter le widget_type via introspector
+    widget_type = 'text'
+    label = field_name
+    try:
+        introspector = ModelIntrospector(source_model)
+        for field_info in introspector.get_fields(include_system=True):
+            if field_info['name'] == field_name:
+                widget_type = field_info.get('widget_type', 'text')
+                label = field_info.get('label', field_name)
+                break
+    except ValueError:
+        pass
+
+    # Ordre: après le dernier champ
+    max_order = configuration.field_mappings.count()
+
+    ModelFieldMapping.objects.create(
+        form_config=configuration,
+        source_model=source_model,
+        field_name=field_name,
+        widget_type=widget_type,
+        label=label,
+        order=max_order,
+        section=section_id,
+    )
+
+    response = _builder_sections_response(request, configuration)
+    response['HX-Trigger'] = 'previewUpdated, catalogueUpdated'
+    return response
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+@permission_required_business('modelforms.change_configuration')
+def builder_field_config(request, pk, mapping_pk):
+    """GET: formulaire inline de config du champ. POST: sauvegarde."""
+    configuration = get_object_or_404(FormConfiguration, pk=pk)
+    mapping = get_object_or_404(ModelFieldMapping, pk=mapping_pk, form_config=configuration)
+
+    if request.method == 'POST':
+        form = BuilderFieldMappingForm(request.POST, instance=mapping)
+        if form.is_valid():
+            form.save()
+            # Retourner la ligne compacte du champ
+            response = render(request, 'modelforms/partials/builder_field_item.html', {
+                'mapping': mapping,
+                'configuration': configuration,
+            })
+            response['HX-Trigger'] = 'previewUpdated'
+            return response
+    else:
+        form = BuilderFieldMappingForm(instance=mapping)
+
+    return render(request, 'modelforms/partials/builder_field_config.html', {
+        'form': form,
+        'mapping': mapping,
+        'configuration': configuration,
+    })
+
+
+@login_required
+@require_http_methods(['DELETE', 'POST'])
+@permission_required_business('modelforms.change_configuration')
+def builder_delete_field(request, pk, mapping_pk):
+    """Supprime un champ. Retourne le panel central."""
+    configuration = get_object_or_404(FormConfiguration, pk=pk)
+    mapping = get_object_or_404(ModelFieldMapping, pk=mapping_pk, form_config=configuration)
+    mapping.delete()
+
+    response = _builder_sections_response(request, configuration)
+    response['HX-Trigger'] = 'previewUpdated, catalogueUpdated'
+    return response
+
+
+@login_required
+@require_POST
+@permission_required_business('modelforms.change_configuration')
+def builder_reorder_fields(request, pk):
+    """Sauvegarde l'ordre des champs dans une section (Sortable.js)."""
+    import json
+    configuration = get_object_or_404(FormConfiguration, pk=pk)
+
+    try:
+        data = json.loads(request.body)
+        items = data if isinstance(data, list) else data.get('items', [])
+    except (json.JSONDecodeError, AttributeError):
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    for item in items:
+        ModelFieldMapping.objects.filter(
+            pk=item['id'],
+            form_config=configuration,
+        ).update(order=item['order'], section=item.get('section', ''))
+
+    return JsonResponse({'status': 'ok'}, headers={'HX-Trigger': 'previewUpdated'})
+
+
+@login_required
+@permission_required_business('modelforms.change_configuration')
+def builder_preview(request, pk):
+    """Retourne le rendu HTML du formulaire tel qu'il sera vu par l'utilisateur."""
+    configuration = get_object_or_404(FormConfiguration, pk=pk)
+    context = _build_form_context(configuration)
+    return render(request, 'modelforms/partials/builder_preview.html', context)
+
+
+def _builder_sections_response(request, configuration):
+    """Helper: retourne le panel central mis à jour."""
+    field_mappings = list(configuration.field_mappings.all().order_by('order'))
+    sections = (configuration.form_schema or {}).get('sections', [])
+    fields_by_section = {s['id']: [] for s in sections}
+    fields_by_section['_unsectioned'] = []
+    for mapping in field_mappings:
+        section_id = mapping.section or '_unsectioned'
+        if section_id in fields_by_section:
+            fields_by_section[section_id].append(mapping)
+        else:
+            fields_by_section['_unsectioned'].append(mapping)
+
+    return render(request, 'modelforms/partials/builder_sections.html', {
+        'configuration': configuration,
+        'sections': sections,
+        'fields_by_section': fields_by_section,
+        'field_mappings': field_mappings,
+    })
 
 
 # =============================================================================

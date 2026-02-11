@@ -22,6 +22,16 @@ def get_item(dictionary, key):
 
 
 @register.filter
+def field_in_config(field_name, field_mappings):
+    """
+    Vérifie si un champ est déjà dans la configuration.
+
+    Usage: {{ field.name|field_in_config:field_mappings }}
+    """
+    return any(m.field_name == field_name for m in field_mappings)
+
+
+@register.filter
 def default_if_none_or_empty(value, default):
     """
     Retourne la valeur par défaut si la valeur est None ou vide.

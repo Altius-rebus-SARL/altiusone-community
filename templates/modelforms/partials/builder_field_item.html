@@ -1,0 +1,76 @@
+<!-- modelforms/partials/builder_field_item.html -->
+{% load i18n %}
+
+<div class="builder-field-item d-flex align-items-center py-1 px-2 border-bottom"
+     data-mapping-id="{{ mapping.pk }}"
+     data-field-name="{{ mapping.field_name }}">
+    <!-- Drag handle -->
+    <span class="field-drag-handle text-muted cursor-grab me-2" title="{% trans 'Glisser' %}">
+        <i class="ti ti-grip-vertical"></i>
+    </span>
+
+    <!-- Widget type icon -->
+    <span class="me-2" title="{{ mapping.get_widget_type_display }}">
+        {% if mapping.widget_type == 'text' %}
+            <i class="ti ti-cursor-text text-muted"></i>
+        {% elif mapping.widget_type == 'textarea' %}
+            <i class="ti ti-align-left text-muted"></i>
+        {% elif mapping.widget_type == 'email' %}
+            <i class="ti ti-mail text-muted"></i>
+        {% elif mapping.widget_type == 'phone' %}
+            <i class="ti ti-phone text-muted"></i>
+        {% elif mapping.widget_type == 'number' or mapping.widget_type == 'decimal' %}
+            <i class="ti ti-numbers text-muted"></i>
+        {% elif mapping.widget_type == 'currency' %}
+            <i class="ti ti-currency-franc text-muted"></i>
+        {% elif mapping.widget_type == 'date' or mapping.widget_type == 'datetime' %}
+            <i class="ti ti-calendar text-muted"></i>
+        {% elif mapping.widget_type == 'time' %}
+            <i class="ti ti-clock text-muted"></i>
+        {% elif mapping.widget_type == 'select' or mapping.widget_type == 'autocomplete' %}
+            <i class="ti ti-list text-muted"></i>
+        {% elif mapping.widget_type == 'checkbox' %}
+            <i class="ti ti-checkbox text-muted"></i>
+        {% elif mapping.widget_type == 'radio' %}
+            <i class="ti ti-circle-dot text-muted"></i>
+        {% elif mapping.widget_type == 'file' or mapping.widget_type == 'image' %}
+            <i class="ti ti-upload text-muted"></i>
+        {% else %}
+            <i class="ti ti-forms text-muted"></i>
+        {% endif %}
+    </span>
+
+    <!-- Field name & label -->
+    <div class="flex-grow-1 text-truncate">
+        <code class="f-s-12">{{ mapping.field_name }}</code>
+        {% if mapping.label and mapping.label != mapping.field_name %}
+        <small class="text-muted ms-1">{{ mapping.label }}</small>
+        {% endif %}
+    </div>
+
+    <!-- Required badge -->
+    {% if mapping.required %}
+    <span class="badge bg-danger-subtle text-danger f-s-10 me-2">{% trans "requis" %}</span>
+    {% endif %}
+
+    <!-- Actions -->
+    <div class="d-flex gap-1 ms-2">
+        <button type="button"
+                class="btn btn-sm btn-outline-secondary py-0 px-1"
+                hx-get="{% url 'modelforms:builder-field-config' configuration.pk mapping.pk %}"
+                hx-target="closest .builder-field-item"
+                hx-swap="outerHTML"
+                title="{% trans 'Configurer' %}">
+            <i class="ti ti-settings f-s-12"></i>
+        </button>
+        <button type="button"
+                class="btn btn-sm btn-outline-danger py-0 px-1"
+                hx-post="{% url 'modelforms:builder-delete-field' configuration.pk mapping.pk %}"
+                hx-target="#builder-sections-panel"
+                hx-swap="innerHTML"
+                hx-confirm="{% trans 'Supprimer ce champ ?' %}"
+                title="{% trans 'Supprimer' %}">
+            <i class="ti ti-trash f-s-12"></i>
+        </button>
+    </div>
+</div>
