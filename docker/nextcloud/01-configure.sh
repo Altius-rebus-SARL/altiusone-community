@@ -134,9 +134,10 @@ if [ -n "${OIDC_PROVIDER_URL}" ] && [ -n "${OIDC_CLIENT_ID}" ] && [ -n "${OIDC_C
         --clientid='${OIDC_CLIENT_ID}' \
         --clientsecret='${OIDC_CLIENT_SECRET}' \
         --discoveryuri='${OIDC_PROVIDER_URL}/o/.well-known/openid-configuration' \
-        --mapping-uid='sub' \
+        --mapping-uid='preferred_username' \
         --mapping-email='email' \
-        --mapping-display-name='name'" \
+        --mapping-display-name='name' \
+        --scope='openid email profile'" \
         || echo "OIDC provider configuration completed with warnings"
 
     # Allow multiple user backends (OIDC + local)

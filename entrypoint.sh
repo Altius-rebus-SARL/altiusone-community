@@ -129,6 +129,9 @@ python manage.py load_swiss_chart_of_accounts || echo "Warning: Chart of account
 echo "Load modelforms default templates"
 python manage.py create_default_templates || echo "Warning: Default templates loading failed, continuing..."
 
+echo "Setup OIDC clients (Nextcloud, MinIO)"
+python manage.py setup_oidc_clients || echo "Warning: OIDC clients setup failed, continuing..."
+
 echo "Setup commands done"
 
 

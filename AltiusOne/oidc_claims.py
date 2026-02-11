@@ -31,6 +31,8 @@ class AltiusOneOAuth2Validator(OAuth2Validator):
         "family_name": "profile",
         "preferred_username": "profile",
         "locale": "profile",
+        # MinIO policy mapping (inclus dès que openid est demandé)
+        "policy": "openid",
     }
 
     def get_additional_claims(self, request):
@@ -62,5 +64,10 @@ class AltiusOneOAuth2Validator(OAuth2Validator):
         claims["family_name"] = lambda r: r.user.last_name or ""
         claims["preferred_username"] = lambda r: r.user.username
         claims["locale"] = lambda r: getattr(r.user, "langue", "fr") or "fr"
+
+        # MinIO policy claim: superusers/staff get consoleAdmin, others get readwrite
+        claims["policy"] = lambda r: (
+            "consoleAdmin" if r.user.is_staff or r.user.is_superuser else "readwrite"
+        )
 
         return claims
