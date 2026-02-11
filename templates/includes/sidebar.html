@@ -96,10 +96,10 @@
       <!-- CORE Module -->
       {% with is_core_menu=ns|add:":"|add:is_active %}
       <li
-        data-active="{% if 'core:client' in is_core_menu or 'core:mandat' in is_core_menu or 'core:exercice' in is_core_menu or 'core:tache' in is_core_menu %}true{% endif %}"
+        data-active="{% if 'core:client' in is_core_menu or 'core:mandat' in is_core_menu or 'core:exercice' in is_core_menu or 'core:tache' in is_core_menu or ns == 'modelforms' and 'available' in is_active or ns == 'modelforms' and 'form-fill' in is_active %}true{% endif %}"
       >
         <a
-          data-expanded="{% if ns == 'core' and is_active in 'client-list,client-detail,client-create,client-update,mandat-list,mandat-detail,mandat-create,mandat-update,exercice-list,exercice-detail,exercice-create,exercice-update,tache-list,tache-detail,tache-create,tache-update' %}true{% else %}false{% endif %}"
+          data-expanded="{% if ns == 'core' and is_active in 'client-list,client-detail,client-create,client-update,mandat-list,mandat-detail,mandat-create,mandat-update,exercice-list,exercice-detail,exercice-create,exercice-update,tache-list,tache-detail,tache-create,tache-update' or ns == 'modelforms' and 'available' in is_active or ns == 'modelforms' and 'form-fill' in is_active %}true{% else %}false{% endif %}"
           data-bs-toggle="collapse"
           href="#coreMenu"
         >
@@ -108,7 +108,7 @@
         </a>
         <ul
           class="collapse"
-          data-show="{% if ns == 'core' and 'client' in is_active or 'mandat' in is_active or 'exercice' in is_active or 'tache' in is_active %}true{% endif %}"
+          data-show="{% if ns == 'core' and 'client' in is_active or 'mandat' in is_active or 'exercice' in is_active or 'tache' in is_active or ns == 'modelforms' and 'available' in is_active or ns == 'modelforms' and 'form-fill' in is_active %}true{% endif %}"
           id="coreMenu"
         >
           <li
@@ -132,6 +132,13 @@
             data-active="{% if ns == 'core' and 'tache' in is_active %}true{% endif %}"
           >
             <a href="{% url 'core:tache-list' %}">{% trans "Tâches" %}</a>
+          </li>
+          <li
+            data-active="{% if ns == 'modelforms' and 'available' in is_active or ns == 'modelforms' and 'form-fill' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'modelforms:available-forms' %}">
+              {% trans "Formulaires" %}
+            </a>
           </li>
         </ul>
       </li>
@@ -600,17 +607,6 @@
         </ul>
       </li>
       {% endif %}
-
-      <!-- MODELFORMS - Formulaires disponibles (tous les utilisateurs authentifiés) -->
-      <li
-        class="no-sub"
-        data-active="{% if ns == 'modelforms' and 'available' in is_active or ns == 'modelforms' and 'form-fill' in is_active %}true{% endif %}"
-      >
-        <a href="{% url 'modelforms:available-forms' %}">
-          <i class="ti ti-forms f-s-30"></i>
-          {% trans "Formulaires" %}
-        </a>
-      </li>
 
       {% endwith %}
     </ul>
