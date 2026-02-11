@@ -3,6 +3,7 @@ from datetime import date
 from decimal import Decimal
 
 from django.contrib.auth.decorators import login_required
+from django.db import models
 from django.db.models import Sum
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
@@ -48,6 +49,11 @@ def position_create(request, mandat_pk):
         position = form.save(commit=False)
         position.mandat = mandat
         position.created_by = request.user
+        # Auto-calcul de l'ordre
+        last_ordre = mandat.positions.filter(is_active=True).aggregate(
+            max_ordre=models.Max("ordre")
+        )["max_ordre"]
+        position.ordre = (last_ordre or 0) + 1
         position.save()
         # Return the updated list
         positions = (
@@ -157,7 +163,13 @@ def operation_create(request, position_pk):
         operation = form.save(commit=False)
         operation.position = position
         operation.created_by = request.user
+        # Auto-calcul de l'ordre
+        last_ordre = position.operations.filter(is_active=True).aggregate(
+            max_ordre=models.Max("ordre")
+        )["max_ordre"]
+        operation.ordre = (last_ordre or 0) + 1
         operation.save()
+        form.save_m2m()
         # Recalculate budget
         position.recalculer_budget_reel()
         operations = position.operations.filter(is_active=True).prefetch_related("assigne_a", "contacts_assignes").order_by("ordre")

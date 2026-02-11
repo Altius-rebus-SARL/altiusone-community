@@ -1,5 +1,9 @@
 {% load i18n %}
 
+{% if form.non_field_errors %}
+<div class="alert alert-danger f-s-13">{{ form.non_field_errors }}</div>
+{% endif %}
+
 <div class="row g-3">
     <div class="col-md-8">
         <label class="form-label">{% trans "Titre" %} <span class="text-danger">*</span></label>

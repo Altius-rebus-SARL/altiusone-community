@@ -1,5 +1,9 @@
 {% load i18n %}
 
+{% if form.non_field_errors %}
+<div class="alert alert-danger f-s-13">{{ form.non_field_errors }}</div>
+{% endif %}
+
 <div class="row g-2">
     <div class="col-md-6">
         <label class="form-label f-s-12">{% trans "Titre" %} <span class="text-danger">*</span></label>
@@ -37,6 +41,10 @@
     <div class="col-md-4">
         <label class="form-label f-s-12">{% trans "Assigné à" %}</label>
         {{ form.assigne_a }}
+    </div>
+    <div class="col-md-4">
+        <label class="form-label f-s-12">{% trans "Contacts assignés" %}</label>
+        {{ form.contacts_assignes }}
     </div>
     <div class="col-md-4">
         <label class="form-label f-s-12">{% trans "Durée estimée (h)" %}</label>

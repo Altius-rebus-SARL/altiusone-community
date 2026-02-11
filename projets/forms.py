@@ -22,7 +22,6 @@ class PositionForm(forms.ModelForm):
             "prestataire_nom",
             "prestataire_contact",
             "est_sous_traite",
-            "ordre",
         ]
         widgets = {
             "titre": forms.TextInput(attrs={"class": "form-control", "placeholder": _("Titre de la position")}),
@@ -37,7 +36,6 @@ class PositionForm(forms.ModelForm):
             "prestataire_nom": forms.TextInput(attrs={"class": "form-control"}),
             "prestataire_contact": forms.TextInput(attrs={"class": "form-control"}),
             "est_sous_traite": forms.CheckboxInput(attrs={"class": "form-check-input"}),
-            "ordre": forms.NumberInput(attrs={"class": "form-control"}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -61,7 +59,6 @@ class OperationForm(forms.ModelForm):
             "statut",
             "priorite",
             "adresse",
-            "ordre",
         ]
         widgets = {
             "titre": forms.TextInput(attrs={"class": "form-control", "placeholder": _("Titre de l'opération")}),
@@ -76,7 +73,6 @@ class OperationForm(forms.ModelForm):
             "statut": forms.Select(attrs={"class": "form-control"}),
             "priorite": forms.Select(attrs={"class": "form-control"}),
             "adresse": forms.TextInput(attrs={"class": "form-control", "placeholder": _("Adresse")}),
-            "ordre": forms.NumberInput(attrs={"class": "form-control"}),
         }
 
     def __init__(self, *args, **kwargs):
