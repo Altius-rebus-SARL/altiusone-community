@@ -408,6 +408,7 @@ def builder_sections_panel(request, pk):
 @permission_required_business('modelforms.change_configuration')
 def builder_add_section(request, pk):
     """Ajoute une section dans form_schema.sections."""
+    import unicodedata
     import re
     configuration = get_object_or_404(FormConfiguration, pk=pk)
     title = request.POST.get('title', '').strip()
@@ -416,8 +417,10 @@ def builder_add_section(request, pk):
     if not title:
         return HttpResponse('Titre requis', status=400)
 
-    # Générer un id: slugify
-    section_id = re.sub(r'[^a-z0-9]+', '_', title.lower().strip('_'))
+    # Générer un id: slugify (normalise les accents puis nettoie)
+    nfkd = unicodedata.normalize('NFKD', title.lower())
+    ascii_text = nfkd.encode('ascii', 'ignore').decode('ascii')
+    section_id = re.sub(r'[^a-z0-9]+', '_', ascii_text).strip('_')
     if not section_id:
         import uuid
         section_id = uuid.uuid4().hex[:8]
@@ -606,11 +609,24 @@ def builder_field_config(request, pk, mapping_pk):
     configuration = get_object_or_404(FormConfiguration, pk=pk)
     mapping = get_object_or_404(ModelFieldMapping, pk=mapping_pk, form_config=configuration)
 
+    # Determine compatible widgets from model introspection
+    compatible_widgets = None
+    try:
+        introspector = ModelIntrospector(mapping.source_model)
+        for field_info in introspector.get_fields(include_system=True):
+            if field_info['name'] == mapping.field_name:
+                detected_widget = field_info.get('widget_type', 'text')
+                compatible_widgets = ModelFieldMapping.WIDGET_COMPATIBILITY.get(
+                    detected_widget, [detected_widget, 'hidden']
+                )
+                break
+    except (ValueError, LookupError):
+        pass
+
     if request.method == 'POST':
-        form = BuilderFieldMappingForm(request.POST, instance=mapping)
+        form = BuilderFieldMappingForm(request.POST, instance=mapping, compatible_widgets=compatible_widgets)
         if form.is_valid():
             form.save()
-            # Retourner la ligne compacte du champ
             response = render(request, 'modelforms/partials/builder_field_item.html', {
                 'mapping': mapping,
                 'configuration': configuration,
@@ -618,7 +634,7 @@ def builder_field_config(request, pk, mapping_pk):
             response['HX-Trigger'] = 'previewUpdated'
             return response
     else:
-        form = BuilderFieldMappingForm(instance=mapping)
+        form = BuilderFieldMappingForm(instance=mapping, compatible_widgets=compatible_widgets)
 
     return render(request, 'modelforms/partials/builder_field_config.html', {
         'form': form,

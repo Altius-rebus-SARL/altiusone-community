@@ -401,7 +401,7 @@ class BuilderFieldMappingForm(forms.ModelForm):
             }),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, compatible_widgets=None, **kwargs):
         super().__init__(*args, **kwargs)
         # Pre-select current value for the required TypedChoiceField
         if self.instance and self.instance.pk:
@@ -411,6 +411,14 @@ class BuilderFieldMappingForm(forms.ModelForm):
                 self.initial['required'] = 'False'
             else:
                 self.initial['required'] = ''
+
+        # Filter widget_type choices to only compatible widgets
+        if compatible_widgets:
+            self.fields['widget_type'].choices = [
+                (value, label)
+                for value, label in self.fields['widget_type'].choices
+                if value in compatible_widgets
+            ]
 
     def clean_conditions(self):
         """Accept empty conditions field as empty dict."""

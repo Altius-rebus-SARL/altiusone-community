@@ -282,6 +282,34 @@ class ModelFieldMapping(models.Model):
         CANTON = 'canton', _('Canton')
         HIDDEN = 'hidden', _('Caché')
 
+    # Widgets compatibles par type de widget détecté depuis le modèle.
+    # La clé est le widget_type auto-détecté, la valeur est la liste des
+    # widgets alternatifs que l'utilisateur peut choisir.
+    WIDGET_COMPATIBILITY = {
+        'text': ['text', 'textarea', 'hidden'],
+        'textarea': ['textarea', 'text', 'hidden'],
+        'email': ['email', 'text', 'hidden'],
+        'phone': ['phone', 'text', 'hidden'],
+        'number': ['number', 'decimal', 'currency', 'text', 'hidden'],
+        'decimal': ['decimal', 'number', 'currency', 'text', 'hidden'],
+        'currency': ['currency', 'decimal', 'number', 'text', 'hidden'],
+        'date': ['date', 'text', 'hidden'],
+        'datetime': ['datetime', 'date', 'text', 'hidden'],
+        'time': ['time', 'text', 'hidden'],
+        'select': ['select', 'radio', 'autocomplete', 'hidden'],
+        'radio': ['radio', 'select', 'hidden'],
+        'checkbox': ['checkbox', 'select', 'radio', 'hidden'],
+        'autocomplete': ['autocomplete', 'select', 'hidden'],
+        'file': ['file', 'hidden'],
+        'image': ['image', 'file', 'hidden'],
+        'iban': ['iban', 'text', 'hidden'],
+        'avs': ['avs', 'text', 'hidden'],
+        'ide': ['ide', 'text', 'hidden'],
+        'country': ['country', 'select', 'autocomplete', 'hidden'],
+        'canton': ['canton', 'select', 'autocomplete', 'hidden'],
+        'hidden': ['hidden', 'text'],
+    }
+
     id = models.AutoField(primary_key=True)
 
     # Relation avec la configuration
