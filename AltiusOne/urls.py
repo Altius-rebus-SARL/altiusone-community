@@ -142,3 +142,9 @@ if settings.DEBUG:
 admin.site.site_header = "AltiusOne Administration"
 admin.site.site_title = "AltiusOne Admin"
 admin.site.index_title = "Gestion d'Application"
+
+# Error handlers
+handler400 = "core.views.error_400"
+handler403 = "core.views.error_403"
+handler404 = "core.views.error_404"
+handler500 = "core.views.error_500"

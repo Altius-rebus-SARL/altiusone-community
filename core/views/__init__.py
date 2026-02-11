@@ -18,6 +18,11 @@ from .export_views import (
 )
 
 from .main_views import (
+    # Error handlers
+    error_400,
+    error_403,
+    error_404,
+    error_500,
     # Dashboard
     DashboardView,
     # Clients
@@ -121,6 +126,11 @@ from .admin_views import (
 )
 
 __all__ = [
+    # Error handlers
+    'error_400',
+    'error_403',
+    'error_404',
+    'error_500',
     # Export views
     'facture_export_pdf',
     'facture_generate_qrbill',
