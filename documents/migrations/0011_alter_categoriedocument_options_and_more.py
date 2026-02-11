@@ -65,15 +65,8 @@ class Migration(migrations.Migration):
             new_name='document_re_score_s_6e5788_idx',
             old_name='document_re_score_s_a3f1e2_idx',
         ),
-        migrations.RemoveField(
-            model_name='document',
-            name='path_storage',
-        ),
-        migrations.AddField(
-            model_name='document',
-            name='fichier',
-            field=models.FileField(blank=True, help_text='Fichier stocké dans S3/MinIO', null=True, storage=core.storage.S3DocumentStorage, upload_to=documents.models.document_upload_path, verbose_name='Fichier'),
-        ),
+        # RemoveField path_storage + AddField fichier already applied in DB
+        # (via migration 0009 stub that was applied directly)
         migrations.AlterField(
             model_name='categoriedocument',
             name='couleur',
