@@ -293,8 +293,9 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minio}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minio123}
       MINIO_BUCKET: ${AWS_STORAGE_BUCKET_NAME:-altiusone-media}
-      # OIDC SSO with AltiusOne
-      OIDC_PROVIDER_URL: http://django:8000
+      # OIDC SSO with AltiusOne (URL externe, pas http://django:8000
+      # car Nextcloud bloque les adresses locales - protection SSRF)
+      OIDC_PROVIDER_URL: https://${DOMAIN:-localhost}
       OIDC_CLIENT_ID: ${NEXTCLOUD_OIDC_CLIENT_ID:-nextcloud}
       OIDC_CLIENT_SECRET: ${NEXTCLOUD_OIDC_CLIENT_SECRET:-nextcloud-secret-change-me}
       # Nextcloud Admin
