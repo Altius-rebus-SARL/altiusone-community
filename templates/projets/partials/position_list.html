@@ -1,0 +1,98 @@
+{% load i18n %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="text-primary mb-0">
+        <i class="ti ti-layout-list me-2"></i>{% trans "Positions" %}
+        <span class="badge bg-light-secondary ms-2">{{ positions|length }}</span>
+    </h5>
+    <button class="btn btn-sm btn-primary" type="button"
+            data-bs-toggle="collapse" data-bs-target="#newPositionForm">
+        <i class="ti ti-plus me-1"></i>{% trans "Nouvelle position" %}
+    </button>
+</div>
+
+<!-- Formulaire de création (caché par défaut) -->
+<div class="collapse mb-3" id="newPositionForm">
+    <div class="card border">
+        <div class="card-body">
+            <h6 class="mb-3">{% trans "Nouvelle position" %}</h6>
+            <form hx-post="{% url 'projets:position-create' mandat.pk %}"
+                  hx-target="#positions"
+                  hx-swap="innerHTML">
+                {% csrf_token %}
+                {% include "projets/partials/position_form.html" with form=form %}
+                <div class="text-end mt-3">
+                    <button type="button" class="btn btn-sm btn-secondary me-2"
+                            data-bs-toggle="collapse" data-bs-target="#newPositionForm">
+                        {% trans "Annuler" %}
+                    </button>
+                    <button type="submit" class="btn btn-sm btn-primary">
+                        <i class="ti ti-check me-1"></i>{% trans "Créer" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Liste des positions -->
+<div class="accordion" id="positionsAccordion">
+    {% for position in positions %}
+    {% if position.is_active %}
+    <div class="card mb-2">
+        <div class="card-header p-3" id="heading-{{ position.pk }}">
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center flex-grow-1"
+                     style="cursor:pointer"
+                     data-bs-toggle="collapse"
+                     data-bs-target="#collapse-{{ position.pk }}"
+                     hx-get="{% url 'projets:position-detail' position.pk %}"
+                     hx-trigger="click once"
+                     hx-target="#detail-{{ position.pk }}">
+                    <span class="badge bg-light-{% if position.statut == 'EN_COURS' %}primary{% elif position.statut == 'TERMINE' %}success{% elif position.statut == 'ANNULE' %}danger{% else %}secondary{% endif %} me-2">
+                        {{ position.get_statut_display }}
+                    </span>
+                    <div>
+                        <span class="f-w-600">{{ position.numero }}</span>
+                        <span class="ms-2">{{ position.titre }}</span>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                    {% if position.responsable %}
+                    <small class="text-muted">
+                        <i class="ti ti-user me-1"></i>{{ position.responsable.get_full_name|default:position.responsable.username }}
+                    </small>
+                    {% endif %}
+                    <small class="text-muted">
+                        <i class="ti ti-currency-franc me-1"></i>{{ position.budget_reel|floatformat:0 }} / {{ position.budget_prevu|floatformat:0 }}
+                    </small>
+                    <!-- Barre de progression -->
+                    <div style="width:80px">
+                        <div class="progress" style="height:6px">
+                            <div class="progress-bar bg-{% if position.budget_consomme_pourcent > 90 %}danger{% elif position.budget_consomme_pourcent > 70 %}warning{% else %}primary{% endif %}"
+                                 style="width:{{ position.budget_consomme_pourcent }}%"></div>
+                        </div>
+                    </div>
+                    <small class="text-muted">
+                        {{ position.nb_operations_terminees }}/{{ position.nb_operations }}
+                    </small>
+                </div>
+            </div>
+        </div>
+        <div id="collapse-{{ position.pk }}" class="collapse" data-bs-parent="#positionsAccordion">
+            <div class="card-body border-top" id="detail-{{ position.pk }}">
+                <div class="text-center py-3 text-muted">
+                    <div class="spinner-border spinner-border-sm me-2"></div>
+                    {% trans "Chargement..." %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% empty %}
+    <div class="text-center py-5 text-muted">
+        <i class="ti ti-layout-list f-s-40 mb-2 d-block"></i>
+        {% trans "Aucune position. Créez votre première position pour structurer ce mandat." %}
+    </div>
+    {% endfor %}
+</div>

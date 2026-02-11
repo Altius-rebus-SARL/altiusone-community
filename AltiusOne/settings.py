@@ -80,6 +80,7 @@ LOCAL_APPS = [
     "editeur",
     "chat",
     "modelforms",
+    "projets",
 ]
 
 

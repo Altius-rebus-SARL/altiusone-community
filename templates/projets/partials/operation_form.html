@@ -1,0 +1,49 @@
+{% load i18n %}
+
+<div class="row g-2">
+    <div class="col-md-6">
+        <label class="form-label f-s-12">{% trans "Titre" %} <span class="text-danger">*</span></label>
+        {{ form.titre }}
+        {% if form.titre.errors %}<div class="text-danger f-s-12">{{ form.titre.errors.0 }}</div>{% endif %}
+    </div>
+    <div class="col-md-3">
+        <label class="form-label f-s-12">{% trans "Statut" %}</label>
+        {{ form.statut }}
+    </div>
+    <div class="col-md-3">
+        <label class="form-label f-s-12">{% trans "Priorité" %}</label>
+        {{ form.priorite }}
+    </div>
+    <div class="col-12">
+        <label class="form-label f-s-12">{% trans "Description" %}</label>
+        {{ form.description }}
+    </div>
+    <div class="col-md-3">
+        <label class="form-label f-s-12">{% trans "Budget prévu" %}</label>
+        {{ form.budget_prevu }}
+    </div>
+    <div class="col-md-3">
+        <label class="form-label f-s-12">{% trans "Coût réel" %}</label>
+        {{ form.cout_reel }}
+    </div>
+    <div class="col-md-3">
+        <label class="form-label f-s-12">{% trans "Date début" %}</label>
+        {{ form.date_debut }}
+    </div>
+    <div class="col-md-3">
+        <label class="form-label f-s-12">{% trans "Date fin" %}</label>
+        {{ form.date_fin }}
+    </div>
+    <div class="col-md-4">
+        <label class="form-label f-s-12">{% trans "Assigné à" %}</label>
+        {{ form.assigne_a }}
+    </div>
+    <div class="col-md-4">
+        <label class="form-label f-s-12">{% trans "Durée estimée (h)" %}</label>
+        {{ form.duree_estimee_heures }}
+    </div>
+    <div class="col-md-4">
+        <label class="form-label f-s-12">{% trans "Adresse" %}</label>
+        {{ form.adresse }}
+    </div>
+</div>

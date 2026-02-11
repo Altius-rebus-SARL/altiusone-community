@@ -1,0 +1,69 @@
+{% load i18n %}
+
+<div class="row g-3">
+    <div class="col-md-8">
+        <label class="form-label">{% trans "Titre" %} <span class="text-danger">*</span></label>
+        {{ form.titre }}
+        {% if form.titre.errors %}<div class="text-danger f-s-12">{{ form.titre.errors.0 }}</div>{% endif %}
+    </div>
+    <div class="col-md-4">
+        <label class="form-label">{% trans "Statut" %}</label>
+        {{ form.statut }}
+    </div>
+    <div class="col-12">
+        <label class="form-label">{% trans "Description" %}</label>
+        {{ form.description }}
+    </div>
+    <div class="col-md-4">
+        <label class="form-label">{% trans "Budget prévu" %}</label>
+        <div class="input-group">
+            {{ form.budget_prevu }}
+            <span class="input-group-text">CHF</span>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label">{% trans "Date début" %}</label>
+        {{ form.date_debut }}
+    </div>
+    <div class="col-md-4">
+        <label class="form-label">{% trans "Date fin" %}</label>
+        {{ form.date_fin }}
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">{% trans "Responsable" %}</label>
+        {{ form.responsable }}
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">{% trans "Adresse" %}</label>
+        {{ form.adresse }}
+    </div>
+
+    <!-- Sous-traitance -->
+    <div class="col-12">
+        <div class="form-check">
+            {{ form.est_sous_traite }}
+            <label class="form-check-label">{% trans "Sous-traité" %}</label>
+        </div>
+    </div>
+    <div class="col-md-6 sous-traite-fields" style="{% if not form.instance.est_sous_traite %}display:none{% endif %}">
+        <label class="form-label">{% trans "Nom prestataire" %}</label>
+        {{ form.prestataire_nom }}
+    </div>
+    <div class="col-md-6 sous-traite-fields" style="{% if not form.instance.est_sous_traite %}display:none{% endif %}">
+        <label class="form-label">{% trans "Contact prestataire" %}</label>
+        {{ form.prestataire_contact }}
+    </div>
+</div>
+
+<script>
+(function() {
+    const checkbox = document.querySelector('[name="est_sous_traite"]');
+    if (checkbox) {
+        checkbox.addEventListener('change', function() {
+            document.querySelectorAll('.sous-traite-fields').forEach(el => {
+                el.style.display = this.checked ? '' : 'none';
+            });
+        });
+    }
+})();
+</script>

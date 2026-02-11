@@ -128,6 +128,7 @@ urlpatterns += i18n_patterns(
     path("mailing/", include("mailing.urls", namespace="mailing")),
     path("editeur/", include("editeur.urls", namespace="editeur")),
     path("modelforms/", include("modelforms.urls", namespace="modelforms")),
+    path("projets/", include("projets.urls", namespace="projets")),
     # Import/Export générique pour tous les modèles
     path("import-export/", include("core.import_export.urls", namespace="import_export")),
     prefix_default_language=True,

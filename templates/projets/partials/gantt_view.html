@@ -1,0 +1,134 @@
+{% load i18n %}
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="text-primary mb-0">
+            <i class="ti ti-chart-gantt me-2"></i>{% trans "Timeline" %}
+        </h5>
+        <div class="btn-group btn-group-sm" id="ganttZoomGroup">
+            <button class="btn btn-light-primary active" data-zoom="week">{% trans "Semaine" %}</button>
+            <button class="btn btn-light-primary" data-zoom="month">{% trans "Mois" %}</button>
+            <button class="btn btn-light-primary" data-zoom="quarter">{% trans "Trimestre" %}</button>
+        </div>
+    </div>
+    <div class="card-body">
+        <div id="ganttChart" style="min-height:400px"></div>
+        <div id="ganttEmpty" class="text-center py-5 text-muted" style="display:none">
+            <i class="ti ti-chart-gantt f-s-40 mb-2 d-block"></i>
+            {% trans "Aucune donnée de planning. Ajoutez des positions et opérations avec des dates pour voir la timeline." %}
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const dataUrl = '{% url "projets:gantt-data" mandat.pk %}';
+
+    fetch(dataUrl, {
+        headers: {'X-Requested-With': 'XMLHttpRequest'}
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (!data.series || data.series.length === 0) {
+            document.getElementById('ganttEmpty').style.display = '';
+            return;
+        }
+
+        const options = {
+            series: data.series,
+            chart: {
+                type: 'rangeBar',
+                height: Math.max(400, data.series.reduce((a, s) => a + s.data.length, 0) * 40),
+                toolbar: { show: true },
+                fontFamily: 'inherit',
+                events: {
+                    dataPointSelection: function(event, chartContext, config) {
+                        const dp = data.series[config.seriesIndex].data[config.dataPointIndex];
+                        if (dp.meta && dp.meta.type === 'operation') {
+                            // Could open detail panel
+                        }
+                    }
+                }
+            },
+            plotOptions: {
+                bar: {
+                    horizontal: true,
+                    barHeight: '60%',
+                    rangeBarGroupRows: true,
+                }
+            },
+            xaxis: {
+                type: 'datetime',
+                labels: {
+                    format: 'dd MMM',
+                    style: { fontSize: '11px' }
+                }
+            },
+            yaxis: {
+                labels: {
+                    style: { fontSize: '12px' },
+                    maxWidth: 200
+                }
+            },
+            tooltip: {
+                custom: function({series, seriesIndex, dataPointIndex, w}) {
+                    const dp = w.config.series[seriesIndex].data[dataPointIndex];
+                    const meta = dp.meta || {};
+                    const start = new Date(dp.y[0]).toLocaleDateString('fr-CH');
+                    const end = new Date(dp.y[1]).toLocaleDateString('fr-CH');
+                    let html = '<div class="p-2">';
+                    html += '<strong>' + dp.x + '</strong><br>';
+                    html += '<small>' + start + ' - ' + end + '</small>';
+                    if (meta.assigne) html += '<br><small>Assigné: ' + meta.assigne + '</small>';
+                    if (meta.statut) html += '<br><span class="badge bg-light-secondary">' + meta.statut + '</span>';
+                    html += '</div>';
+                    return html;
+                }
+            },
+            annotations: {
+                xaxis: [{
+                    x: new Date(data.today).getTime(),
+                    borderColor: '#c0392b',
+                    strokeDashArray: 0,
+                    label: {
+                        text: "{% trans 'Aujourd\\'hui' %}",
+                        borderColor: '#c0392b',
+                        style: { color: '#fff', background: '#c0392b', fontSize: '11px' }
+                    }
+                }]
+            },
+            legend: { show: true, position: 'top' },
+            grid: { padding: { left: 10, right: 10 } },
+        };
+
+        const chart = new ApexCharts(document.getElementById('ganttChart'), options);
+        chart.render();
+
+        // Zoom buttons
+        document.querySelectorAll('#ganttZoomGroup button').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('#ganttZoomGroup button').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+
+                const today = new Date();
+                let min, max;
+                switch(this.dataset.zoom) {
+                    case 'week':
+                        min = new Date(today); min.setDate(min.getDate() - 7);
+                        max = new Date(today); max.setDate(max.getDate() + 21);
+                        break;
+                    case 'month':
+                        min = new Date(today); min.setMonth(min.getMonth() - 1);
+                        max = new Date(today); max.setMonth(max.getMonth() + 2);
+                        break;
+                    case 'quarter':
+                        min = new Date(today); min.setMonth(min.getMonth() - 3);
+                        max = new Date(today); max.setMonth(max.getMonth() + 6);
+                        break;
+                }
+                chart.zoomX(min.getTime(), max.getTime());
+            });
+        });
+    });
+})();
+</script>

@@ -1,0 +1,46 @@
+{% load i18n %}
+
+<div class="row mb-3">
+    <div class="col-md-8">
+        {% if position.description %}
+        <p class="text-muted mb-2">{{ position.description }}</p>
+        {% endif %}
+        <div class="d-flex gap-3 flex-wrap">
+            {% if position.date_debut %}
+            <small class="text-muted"><i class="ti ti-calendar me-1"></i>{{ position.date_debut|date:"d.m.Y" }} - {{ position.date_fin|date:"d.m.Y"|default:"..." }}</small>
+            {% endif %}
+            {% if position.est_sous_traite %}
+            <small class="text-warning"><i class="ti ti-building me-1"></i>{{ position.prestataire_nom|default:"Sous-traité" }}</small>
+            {% endif %}
+            {% if position.adresse %}
+            <small class="text-muted"><i class="ti ti-map-pin me-1"></i>{{ position.adresse|truncatechars:40 }}</small>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-md-4 text-end">
+        <button class="btn btn-sm btn-light-primary me-1"
+                hx-get="{% url 'projets:position-update' position.pk %}"
+                hx-target="#detail-{{ position.pk }}"
+                hx-swap="innerHTML">
+            <i class="ti ti-edit"></i>
+        </button>
+        <button class="btn btn-sm btn-light-danger"
+                hx-post="{% url 'projets:position-delete' position.pk %}"
+                hx-target="#positions"
+                hx-swap="innerHTML"
+                hx-confirm="{% trans 'Supprimer cette position et ses opérations ?' %}">
+            <i class="ti ti-trash"></i>
+        </button>
+    </div>
+</div>
+
+<!-- Progression -->
+<div class="d-flex align-items-center mb-3 gap-2">
+    <div class="progress flex-grow-1" style="height:8px">
+        <div class="progress-bar bg-success" style="width:{{ position.progression_pourcent }}%"></div>
+    </div>
+    <small class="text-muted f-w-500">{{ position.progression_pourcent }}%</small>
+</div>
+
+<!-- Opérations -->
+{% include "projets/partials/operation_list.html" with operations=operations operation_form=operation_form %}
