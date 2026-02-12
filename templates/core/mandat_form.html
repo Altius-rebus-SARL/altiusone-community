@@ -10,96 +10,138 @@
 {% block content %}
 <div class="row">
     <div class="col-12">
-        <div class="card">
-            <div class="card-body">
-                <h4 class="text-primary mb-4">
-                    {% if form.instance.pk %}
-                        {% trans "Modifier mandat" %}
-                    {% else %}
-                        {% trans "Nouveau mandat" %}
-                    {% endif %}
-                </h4>
+        <h4 class="text-primary mb-4">
+            {% if form.instance.pk %}
+                <i class="ti ti-edit me-2"></i>{% trans "Modifier mandat" %}
+                <span class="text-muted fs-6 ms-2">{{ form.instance.numero }}</span>
+            {% else %}
+                <i class="ti ti-plus me-2"></i>{% trans "Nouveau mandat" %}
+            {% endif %}
+        </h4>
 
-                <form method="post" class="app-form">
-                    {% csrf_token %}
+        <form method="post" class="app-form">
+            {% csrf_token %}
 
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger">
+                {{ form.non_field_errors }}
+            </div>
+            {% endif %}
+
+            {# ── Section 1 : Informations générales ── #}
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h6 class="text-primary mb-3">
+                        <i class="ti ti-info-circle me-2"></i>{% trans "Informations générales" %}
+                    </h6>
                     <div class="row">
-                        <!-- Client -->
-                        <div class="col-md-6">
+                        {% if form.instance.pk %}
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Numéro" %}</label>
+                                <input type="text" class="form-control" value="{{ form.instance.numero }}" disabled readonly>
+                            </div>
+                        </div>
+                        {% endif %}
+                        <div class="col-md-4">
                             <div class="mb-3">
                                 <label for="{{ form.client.id_for_label }}" class="form-label">
                                     {{ form.client.label }} <span class="text-danger">*</span>
                                 </label>
                                 {{ form.client }}
                                 {% if form.client.errors %}
-                                <div class="text-danger f-s-12 mt-1">
-                                    {{ form.client.errors }}
-                                </div>
+                                <div class="text-danger f-s-12 mt-1">{{ form.client.errors }}</div>
                                 {% endif %}
                             </div>
                         </div>
-
-                        <!-- Type de mandat -->
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <div class="mb-3">
-                                <label for="{{ form.type_mandat.id_for_label }}" class="form-label">
-                                    {{ form.type_mandat.label }} <span class="text-danger">*</span>
+                                <label for="{{ form.type_mandat_ref.id_for_label }}" class="form-label">
+                                    {{ form.type_mandat_ref.label }} <span class="text-danger">*</span>
                                 </label>
-                                {{ form.type_mandat }}
-                                {% if form.type_mandat.errors %}
-                                <div class="text-danger f-s-12 mt-1">
-                                    {{ form.type_mandat.errors }}
-                                </div>
+                                {{ form.type_mandat_ref }}
+                                {% if form.type_mandat_ref.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.type_mandat_ref.errors }}</div>
                                 {% endif %}
                             </div>
                         </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ form.statut.id_for_label }}" class="form-label">
+                                    {{ form.statut.label }}
+                                </label>
+                                {{ form.statut }}
+                                {% if form.statut.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.statut.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-                        <!-- Date début -->
-                        <div class="col-md-6">
+            {# ── Section 2 : Dates & Périodicité ── #}
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h6 class="text-primary mb-3">
+                        <i class="ti ti-calendar me-2"></i>{% trans "Dates et périodicité" %}
+                    </h6>
+                    <div class="row">
+                        <div class="col-md-4">
                             <div class="mb-3">
                                 <label for="{{ form.date_debut.id_for_label }}" class="form-label">
                                     {{ form.date_debut.label }} <span class="text-danger">*</span>
                                 </label>
                                 {{ form.date_debut }}
                                 {% if form.date_debut.errors %}
-                                <div class="text-danger f-s-12 mt-1">
-                                    {{ form.date_debut.errors }}
-                                </div>
+                                <div class="text-danger f-s-12 mt-1">{{ form.date_debut.errors }}</div>
                                 {% endif %}
                             </div>
                         </div>
-
-                        <!-- Périodicité -->
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="{{ form.periodicite.id_for_label }}" class="form-label">
-                                    {{ form.periodicite.label }} <span class="text-danger">*</span>
-                                </label>
-                                {{ form.periodicite }}
-                                {% if form.periodicite.errors %}
-                                <div class="text-danger f-s-12 mt-1">
-                                    {{ form.periodicite.errors }}
-                                </div>
-                                {% endif %}
-                            </div>
-                        </div>
-
-                        <!-- Type facturation -->
                         <div class="col-md-4">
                             <div class="mb-3">
-                                <label for="{{ form.type_facturation.id_for_label }}" class="form-label">
-                                    {{ form.type_facturation.label }}
+                                <label for="{{ form.date_fin.id_for_label }}" class="form-label">
+                                    {{ form.date_fin.label }}
                                 </label>
-                                {{ form.type_facturation }}
-                                {% if form.type_facturation.errors %}
-                                <div class="text-danger f-s-12 mt-1">
-                                    {{ form.type_facturation.errors }}
-                                </div>
+                                {{ form.date_fin }}
+                                {% if form.date_fin.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.date_fin.errors }}</div>
                                 {% endif %}
                             </div>
                         </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ form.periodicite_ref.id_for_label }}" class="form-label">
+                                    {{ form.periodicite_ref.label }}
+                                </label>
+                                {{ form.periodicite_ref }}
+                                {% if form.periodicite_ref.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.periodicite_ref.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-                        <!-- Budget prévu -->
+            {# ── Section 3 : Facturation ── #}
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h6 class="text-primary mb-3">
+                        <i class="ti ti-receipt me-2"></i>{% trans "Facturation" %}
+                    </h6>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ form.type_facturation_ref.id_for_label }}" class="form-label">
+                                    {{ form.type_facturation_ref.label }}
+                                </label>
+                                {{ form.type_facturation_ref }}
+                                {% if form.type_facturation_ref.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.type_facturation_ref.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
                         <div class="col-md-4">
                             <div class="mb-3">
                                 <label for="{{ form.budget_prevu.id_for_label }}" class="form-label">
@@ -107,14 +149,10 @@
                                 </label>
                                 {{ form.budget_prevu }}
                                 {% if form.budget_prevu.errors %}
-                                <div class="text-danger f-s-12 mt-1">
-                                    {{ form.budget_prevu.errors }}
-                                </div>
+                                <div class="text-danger f-s-12 mt-1">{{ form.budget_prevu.errors }}</div>
                                 {% endif %}
                             </div>
                         </div>
-
-                        <!-- Taux horaire -->
                         <div class="col-md-4">
                             <div class="mb-3">
                                 <label for="{{ form.taux_horaire.id_for_label }}" class="form-label">
@@ -122,14 +160,29 @@
                                 </label>
                                 {{ form.taux_horaire }}
                                 {% if form.taux_horaire.errors %}
-                                <div class="text-danger f-s-12 mt-1">
-                                    {{ form.taux_horaire.errors }}
-                                </div>
+                                <div class="text-danger f-s-12 mt-1">{{ form.taux_horaire.errors }}</div>
                                 {% endif %}
                             </div>
                         </div>
+                        {% if form.instance.pk %}
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Budget réel" %}</label>
+                                <input type="text" class="form-control" value="{{ form.instance.budget_reel|default:'0.00' }} CHF" disabled readonly>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
 
-                        <!-- Responsable -->
+            {# ── Section 4 : Équipe ── #}
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h6 class="text-primary mb-3">
+                        <i class="ti ti-users me-2"></i>{% trans "Équipe" %}
+                    </h6>
+                    <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="{{ form.responsable.id_for_label }}" class="form-label">
@@ -137,29 +190,116 @@
                                 </label>
                                 {{ form.responsable }}
                                 {% if form.responsable.errors %}
-                                <div class="text-danger f-s-12 mt-1">
-                                    {{ form.responsable.errors }}
-                                </div>
+                                <div class="text-danger f-s-12 mt-1">{{ form.responsable.errors }}</div>
                                 {% endif %}
                             </div>
                         </div>
-
-                        <!-- Statut -->
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="{{ form.statut.id_for_label }}" class="form-label">
-                                    {{ form.statut.label }}
+                                <label for="{{ form.equipe.id_for_label }}" class="form-label">
+                                    {{ form.equipe.label }}
                                 </label>
-                                {{ form.statut }}
-                                {% if form.statut.errors %}
-                                <div class="text-danger f-s-12 mt-1">
-                                    {{ form.statut.errors }}
-                                </div>
+                                {{ form.equipe }}
+                                {% if form.equipe.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.equipe.errors }}</div>
                                 {% endif %}
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
 
-                        <!-- Description -->
+            {# ── Section 5 : Configuration comptable ── #}
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h6 class="text-primary mb-3">
+                        <i class="ti ti-calculator me-2"></i>{% trans "Configuration comptable" %}
+                    </h6>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ form.plan_comptable.id_for_label }}" class="form-label">
+                                    {{ form.plan_comptable.label }}
+                                </label>
+                                {{ form.plan_comptable }}
+                                {% if form.plan_comptable.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.plan_comptable.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ form.methode_tva.id_for_label }}" class="form-label">
+                                    {{ form.methode_tva.label }}
+                                </label>
+                                {{ form.methode_tva }}
+                                {% if form.methode_tva.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.methode_tva.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ form.periodicite_tva.id_for_label }}" class="form-label">
+                                    {{ form.periodicite_tva.label }}
+                                </label>
+                                {{ form.periodicite_tva }}
+                                {% if form.periodicite_tva.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.periodicite_tva.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ form.cloture_mois.id_for_label }}" class="form-label">
+                                    {{ form.cloture_mois.label }}
+                                </label>
+                                {{ form.cloture_mois }}
+                                {% if form.cloture_mois.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.cloture_mois.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ form.devise.id_for_label }}" class="form-label">
+                                    {{ form.devise.label }}
+                                </label>
+                                {{ form.devise }}
+                                {% if form.devise.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.devise.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{{ form.modules_actifs.label }}</label>
+                                <div class="mt-1">
+                                    {% for checkbox in form.modules_actifs %}
+                                    <div class="form-check">
+                                        {{ checkbox.tag }}
+                                        <label class="form-check-label" for="{{ checkbox.id_for_label }}">
+                                            {{ checkbox.choice_label }}
+                                        </label>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% if form.modules_actifs.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.modules_actifs.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# ── Section 6 : Description ── #}
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h6 class="text-primary mb-3">
+                        <i class="ti ti-notes me-2"></i>{% trans "Description" %}
+                    </h6>
+                    <div class="row">
                         <div class="col-12">
                             <div class="mb-3">
                                 <label for="{{ form.description.id_for_label }}" class="form-label">
@@ -167,28 +307,36 @@
                                 </label>
                                 {{ form.description }}
                                 {% if form.description.errors %}
-                                <div class="text-danger f-s-12 mt-1">
-                                    {{ form.description.errors }}
-                                </div>
+                                <div class="text-danger f-s-12 mt-1">{{ form.description.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label for="{{ form.conditions_particulieres.id_for_label }}" class="form-label">
+                                    {{ form.conditions_particulieres.label }}
+                                </label>
+                                {{ form.conditions_particulieres }}
+                                {% if form.conditions_particulieres.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.conditions_particulieres.errors }}</div>
                                 {% endif %}
                             </div>
                         </div>
                     </div>
-
-                    <!-- Actions -->
-                    <div class="d-flex justify-content-end gap-2 mt-4">
-                        <a href="{% if form.instance.pk %}{% url 'core:mandat-detail' form.instance.pk %}{% else %}{% url 'core:mandat-list' %}{% endif %}" 
-                           class="btn btn-secondary">
-                            <i class="ti ti-x me-2"></i>{% trans "Annuler" %}
-                        </a>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="ti ti-check me-2"></i>{% trans "Enregistrer" %}
-                        </button>
-                    </div>
-                </form>
-
+                </div>
             </div>
-        </div>
+
+            {# ── Actions ── #}
+            <div class="d-flex justify-content-end gap-2 mt-4">
+                <a href="{% if form.instance.pk %}{% url 'core:mandat-detail' form.instance.pk %}{% else %}{% url 'core:mandat-list' %}{% endif %}"
+                   class="btn btn-secondary">
+                    <i class="ti ti-x me-2"></i>{% trans "Annuler" %}
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="ti ti-check me-2"></i>{% trans "Enregistrer" %}
+                </button>
+            </div>
+        </form>
     </div>
 </div>
 {% endblock %}

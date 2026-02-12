@@ -96,6 +96,89 @@ class ClientForm(forms.ModelForm):
 class MandatForm(forms.ModelForm):
     """Formulaire pour un mandat"""
 
+    PLAN_COMPTABLE_CHOICES = [
+        ('', '---------'),
+        ('PME', _('PME')),
+        ('GRAND', _('Grand plan comptable')),
+    ]
+
+    METHODE_TVA_CHOICES = [
+        ('', '---------'),
+        ('EFFECTIVE', _('Effective')),
+        ('FORFAIT', _('Forfait')),
+        ('TDFN', _('Taux de la dette fiscale nette')),
+    ]
+
+    PERIODICITE_TVA_CHOICES = [
+        ('', '---------'),
+        ('MENSUEL', _('Mensuel')),
+        ('TRIMESTRIEL', _('Trimestriel')),
+        ('SEMESTRIEL', _('Semestriel')),
+        ('ANNUEL', _('Annuel')),
+    ]
+
+    CLOTURE_MOIS_CHOICES = [('', '---------')] + [
+        (i, _(m)) for i, m in [
+            (1, 'Janvier'), (2, 'Février'), (3, 'Mars'), (4, 'Avril'),
+            (5, 'Mai'), (6, 'Juin'), (7, 'Juillet'), (8, 'Août'),
+            (9, 'Septembre'), (10, 'Octobre'), (11, 'Novembre'), (12, 'Décembre'),
+        ]
+    ]
+
+    DEVISE_CHOICES = [
+        ('CHF', 'CHF'),
+        ('EUR', 'EUR'),
+        ('USD', 'USD'),
+    ]
+
+    MODULES_CHOICES = [
+        ('compta', _('Comptabilité')),
+        ('tva', _('TVA')),
+        ('salaires', _('Salaires')),
+        ('revision', _('Révision')),
+    ]
+
+    # Champs de configuration comptable (extraits du JSONField)
+    plan_comptable = forms.ChoiceField(
+        choices=PLAN_COMPTABLE_CHOICES,
+        required=False,
+        widget=forms.Select(attrs={"class": "form-control"}),
+        label=_('Plan comptable'),
+    )
+    methode_tva = forms.ChoiceField(
+        choices=METHODE_TVA_CHOICES,
+        required=False,
+        widget=forms.Select(attrs={"class": "form-control"}),
+        label=_('Méthode TVA'),
+    )
+    periodicite_tva = forms.ChoiceField(
+        choices=PERIODICITE_TVA_CHOICES,
+        required=False,
+        widget=forms.Select(attrs={"class": "form-control"}),
+        label=_('Périodicité TVA'),
+    )
+    cloture_mois = forms.TypedChoiceField(
+        choices=CLOTURE_MOIS_CHOICES,
+        coerce=int,
+        empty_value='',
+        required=False,
+        widget=forms.Select(attrs={"class": "form-control"}),
+        label=_('Mois de clôture'),
+    )
+    devise = forms.ChoiceField(
+        choices=DEVISE_CHOICES,
+        initial='CHF',
+        required=False,
+        widget=forms.Select(attrs={"class": "form-control"}),
+        label=_('Devise'),
+    )
+    modules_actifs = forms.MultipleChoiceField(
+        choices=MODULES_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"}),
+        label=_('Modules actifs'),
+    )
+
     class Meta:
         model = Mandat
         fields = [
@@ -147,6 +230,47 @@ class MandatForm(forms.ModelForm):
         self.fields['equipe'].queryset = User.objects.filter(
             is_active=True, is_staff=True
         ).order_by('first_name', 'last_name')
+
+        # Pré-remplir les champs de configuration depuis le JSONField
+        if self.instance and self.instance.pk:
+            config = self.instance.configuration or {}
+            self.fields['plan_comptable'].initial = config.get('plan_comptable', '')
+            self.fields['methode_tva'].initial = config.get('methode_tva', '')
+            self.fields['periodicite_tva'].initial = config.get('periodicite_tva', '')
+            self.fields['cloture_mois'].initial = config.get('cloture_mois', '')
+            self.fields['devise'].initial = config.get('devise', 'CHF')
+            self.fields['modules_actifs'].initial = config.get('modules_actifs', [])
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+
+        # Sérialiser les champs de configuration dans le JSONField
+        config = instance.configuration or {}
+        for key in ('plan_comptable', 'methode_tva', 'periodicite_tva', 'devise'):
+            val = self.cleaned_data.get(key)
+            if val:
+                config[key] = val
+            else:
+                config.pop(key, None)
+
+        cloture = self.cleaned_data.get('cloture_mois')
+        if cloture != '' and cloture is not None:
+            config['cloture_mois'] = int(cloture)
+        else:
+            config.pop('cloture_mois', None)
+
+        modules = self.cleaned_data.get('modules_actifs')
+        if modules:
+            config['modules_actifs'] = modules
+        else:
+            config.pop('modules_actifs', None)
+
+        instance.configuration = config
+
+        if commit:
+            instance.save()
+            self.save_m2m()
+        return instance
 
 
 class ContactForm(forms.ModelForm):
