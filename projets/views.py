@@ -456,14 +456,17 @@ def map_data(request, mandat_pk):
     operations = Operation.objects.filter(
         position__mandat=mandat,
         is_active=True,
-        coordonnees__isnull=False,
     ).select_related("position")
     for op in operations:
+        # Use own coordinates, or fall back to parent position's coordinates
+        coords = op.coordonnees or op.position.coordonnees
+        if not coords:
+            continue
         features.append({
             "type": "Feature",
             "geometry": {
                 "type": "Point",
-                "coordinates": [op.coordonnees.x, op.coordonnees.y],
+                "coordinates": [coords.x, coords.y],
             },
             "properties": {
                 "type": "operation",

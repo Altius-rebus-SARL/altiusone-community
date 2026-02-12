@@ -4,7 +4,7 @@
 <div class="alert alert-danger f-s-13">{{ form.non_field_errors }}</div>
 {% endif %}
 
-<div class="row g-2">
+<div class="row g-2 operation-form-fields">
     <div class="col-md-6">
         <label class="form-label f-s-12">{% trans "Titre" %} <span class="text-danger">*</span></label>
         {{ form.titre }}
@@ -25,6 +25,7 @@
     <div class="col-md-3">
         <label class="form-label f-s-12">{% trans "Budget prévu" %}</label>
         {{ form.budget_prevu }}
+        {% if form.budget_prevu.errors %}<div class="text-danger f-s-12">{{ form.budget_prevu.errors.0 }}</div>{% endif %}
     </div>
     <div class="col-md-3">
         <label class="form-label f-s-12">{% trans "Coût réel" %}</label>
@@ -59,17 +60,23 @@
     <div class="col-12">
         {{ form.coordonnees }}
         <label class="form-label f-s-12 text-muted"><i class="ti ti-map-pin me-1"></i>{% trans "Coordonnées GPS" %}</label>
-        <div id="coordPickerOp" style="height:200px; border-radius:6px; border:1px solid #dee2e6"></div>
-        <small id="coordDisplayOp" class="text-muted f-s-12 mt-1 d-block"></small>
+        <div class="op-coord-picker" style="height:200px; border-radius:6px; border:1px solid #dee2e6"></div>
+        <small class="op-coord-display text-muted f-s-12 mt-1 d-block"></small>
     </div>
 </div>
 
 <script>
 (function() {
+    // Find elements relative to the most recently added form (avoids duplicate ID conflicts)
+    var allWrappers = document.querySelectorAll('.operation-form-fields');
+    var wrapper = allWrappers[allWrappers.length - 1];
+    if (!wrapper) return;
+
+    // Leaflet coord picker
     if (typeof L === 'undefined') return;
-    const coordInput = document.getElementById('id_coordonnees_op');
-    const coordDisplay = document.getElementById('coordDisplayOp');
-    const pickerEl = document.getElementById('coordPickerOp');
+    var coordInput = wrapper.querySelector('input[name="coordonnees"]');
+    var coordDisplay = wrapper.querySelector('.op-coord-display');
+    var pickerEl = wrapper.querySelector('.op-coord-picker');
     if (!pickerEl) return;
 
     // Destroy previous instance if re-swapped by HTMX
@@ -78,15 +85,15 @@
         pickerEl.innerHTML = '';
     }
 
-    const initial = coordInput && coordInput.value ? coordInput.value.split(',').map(Number) : [46.8, 8.2];
-    const initialZoom = coordInput && coordInput.value ? 15 : 8;
-    const map = L.map(pickerEl).setView(initial, initialZoom);
+    var initial = coordInput && coordInput.value ? coordInput.value.split(',').map(Number) : [46.8, 8.2];
+    var initialZoom = coordInput && coordInput.value ? 15 : 8;
+    var map = L.map(pickerEl).setView(initial, initialZoom);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap', maxZoom: 19,
     }).addTo(map);
 
-    let marker = null;
+    var marker = null;
     if (coordInput && coordInput.value) {
         marker = L.marker(initial).addTo(map);
         coordDisplay.textContent = 'Lat: ' + initial[0].toFixed(6) + ', Lng: ' + initial[1].toFixed(6);
@@ -103,23 +110,21 @@
         setCoord(e.latlng.lat, e.latlng.lng);
     });
 
-    // Geocode when address changes
-    const adresseInput = pickerEl.closest('form') ?
-        pickerEl.closest('form').querySelector('[name="adresse"]') :
-        document.querySelector('[name="adresse"]');
-    let geocodeTimer = null;
+    // Geocode when address changes (scoped to this form)
+    var adresseInput = wrapper.querySelector('[name="adresse"]');
+    var geocodeTimer = null;
     if (adresseInput) {
         adresseInput.addEventListener('change', function() {
-            const q = this.value.trim();
+            var q = this.value.trim();
             if (!q) return;
             clearTimeout(geocodeTimer);
-            geocodeTimer = setTimeout(() => {
+            geocodeTimer = setTimeout(function() {
                 fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(q))
-                .then(r => r.json())
-                .then(results => {
+                .then(function(r) { return r.json(); })
+                .then(function(results) {
                     if (results.length > 0) {
-                        const lat = parseFloat(results[0].lat);
-                        const lng = parseFloat(results[0].lon);
+                        var lat = parseFloat(results[0].lat);
+                        var lng = parseFloat(results[0].lon);
                         setCoord(lat, lng);
                         map.setView([lat, lng], 15);
                     }
@@ -128,26 +133,20 @@
         });
     }
 
-    // Fix Leaflet sizing: immediate + delayed
+    // Fix Leaflet sizing
     map.invalidateSize();
     setTimeout(function() { map.invalidateSize(); }, 300);
 
-    // If inside a Bootstrap collapse, re-invalidate when it opens
-    const collapse = pickerEl.closest('.collapse');
+    // Re-invalidate when Bootstrap collapse/tab becomes visible
+    var collapse = pickerEl.closest('.collapse');
     if (collapse) {
-        collapse.addEventListener('shown.bs.collapse', function() {
-            map.invalidateSize();
-        });
+        collapse.addEventListener('shown.bs.collapse', function() { map.invalidateSize(); });
     }
-
-    // If inside a Bootstrap tab, re-invalidate when the tab is shown
-    const tabPane = pickerEl.closest('.tab-pane');
+    var tabPane = pickerEl.closest('.tab-pane');
     if (tabPane) {
         document.addEventListener('shown.bs.tab', function(e) {
-            if (e.target.getAttribute('data-bs-target') === '#' + tabPane.id ||
-                e.target.getAttribute('href') === '#' + tabPane.id) {
-                map.invalidateSize();
-            }
+            var target = e.target.getAttribute('data-bs-target') || e.target.getAttribute('href');
+            if (target === '#' + tabPane.id) map.invalidateSize();
         });
     }
 })();

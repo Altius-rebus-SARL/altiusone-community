@@ -4,7 +4,7 @@
 <div class="alert alert-danger f-s-13">{{ form.non_field_errors }}</div>
 {% endif %}
 
-<div class="row g-3">
+<div class="row g-3 position-form-fields">
     <div class="col-md-8">
         <label class="form-label">{% trans "Titre" %} <span class="text-danger">*</span></label>
         {{ form.titre }}
@@ -24,6 +24,7 @@
             {{ form.budget_prevu }}
             <span class="input-group-text">CHF</span>
         </div>
+        {% if form.budget_prevu.errors %}<div class="text-danger f-s-12">{{ form.budget_prevu.errors.0 }}</div>{% endif %}
     </div>
     <div class="col-md-4">
         <label class="form-label">{% trans "Date début" %}</label>
@@ -46,8 +47,8 @@
     <div class="col-12">
         {{ form.coordonnees }}
         <label class="form-label f-s-12 text-muted"><i class="ti ti-map-pin me-1"></i>{% trans "Coordonnées GPS" %}</label>
-        <div id="coordPicker" style="height:250px; border-radius:6px; border:1px solid #dee2e6"></div>
-        <small id="coordDisplay" class="text-muted f-s-12 mt-1 d-block"></small>
+        <div class="pos-coord-picker" style="height:250px; border-radius:6px; border:1px solid #dee2e6"></div>
+        <small class="pos-coord-display text-muted f-s-12 mt-1 d-block"></small>
     </div>
 
     <!-- Sous-traitance -->
@@ -69,21 +70,26 @@
 
 <script>
 (function() {
-    // Sous-traité toggle
-    const checkbox = document.querySelector('[name="est_sous_traite"]');
+    // Find elements relative to the most recently added form (avoids duplicate ID conflicts)
+    var allWrappers = document.querySelectorAll('.position-form-fields');
+    var wrapper = allWrappers[allWrappers.length - 1];
+    if (!wrapper) return;
+
+    // Sous-traité toggle (scoped to this form)
+    var checkbox = wrapper.querySelector('[name="est_sous_traite"]');
     if (checkbox) {
         checkbox.addEventListener('change', function() {
-            document.querySelectorAll('.sous-traite-fields').forEach(el => {
-                el.style.display = this.checked ? '' : 'none';
+            wrapper.querySelectorAll('.sous-traite-fields').forEach(function(el) {
+                el.style.display = checkbox.checked ? '' : 'none';
             });
         });
     }
 
     // Leaflet coord picker
     if (typeof L === 'undefined') return;
-    const coordInput = document.getElementById('id_coordonnees');
-    const coordDisplay = document.getElementById('coordDisplay');
-    const pickerEl = document.getElementById('coordPicker');
+    var coordInput = wrapper.querySelector('input[name="coordonnees"]');
+    var coordDisplay = wrapper.querySelector('.pos-coord-display');
+    var pickerEl = wrapper.querySelector('.pos-coord-picker');
     if (!pickerEl) return;
 
     // Destroy previous instance if re-swapped by HTMX
@@ -92,15 +98,15 @@
         pickerEl.innerHTML = '';
     }
 
-    const initial = coordInput && coordInput.value ? coordInput.value.split(',').map(Number) : [46.8, 8.2];
-    const initialZoom = coordInput && coordInput.value ? 15 : 8;
-    const map = L.map(pickerEl).setView(initial, initialZoom);
+    var initial = coordInput && coordInput.value ? coordInput.value.split(',').map(Number) : [46.8, 8.2];
+    var initialZoom = coordInput && coordInput.value ? 15 : 8;
+    var map = L.map(pickerEl).setView(initial, initialZoom);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap', maxZoom: 19,
     }).addTo(map);
 
-    let marker = null;
+    var marker = null;
     if (coordInput && coordInput.value) {
         marker = L.marker(initial).addTo(map);
         coordDisplay.textContent = 'Lat: ' + initial[0].toFixed(6) + ', Lng: ' + initial[1].toFixed(6);
@@ -117,21 +123,21 @@
         setCoord(e.latlng.lat, e.latlng.lng);
     });
 
-    // Geocode when address changes
-    const adresseInput = document.querySelector('[name="adresse"]');
-    let geocodeTimer = null;
+    // Geocode when address changes (scoped to this form)
+    var adresseInput = wrapper.querySelector('[name="adresse"]');
+    var geocodeTimer = null;
     if (adresseInput) {
         adresseInput.addEventListener('change', function() {
-            const q = this.value.trim();
+            var q = this.value.trim();
             if (!q) return;
             clearTimeout(geocodeTimer);
-            geocodeTimer = setTimeout(() => {
+            geocodeTimer = setTimeout(function() {
                 fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(q))
-                .then(r => r.json())
-                .then(results => {
+                .then(function(r) { return r.json(); })
+                .then(function(results) {
                     if (results.length > 0) {
-                        const lat = parseFloat(results[0].lat);
-                        const lng = parseFloat(results[0].lon);
+                        var lat = parseFloat(results[0].lat);
+                        var lng = parseFloat(results[0].lon);
                         setCoord(lat, lng);
                         map.setView([lat, lng], 15);
                     }
@@ -140,26 +146,20 @@
         });
     }
 
-    // Fix Leaflet sizing: immediate + delayed
+    // Fix Leaflet sizing
     map.invalidateSize();
     setTimeout(function() { map.invalidateSize(); }, 300);
 
-    // If inside a Bootstrap collapse, re-invalidate when it opens
-    const collapse = pickerEl.closest('.collapse');
+    // Re-invalidate when Bootstrap collapse/tab becomes visible
+    var collapse = pickerEl.closest('.collapse');
     if (collapse) {
-        collapse.addEventListener('shown.bs.collapse', function() {
-            map.invalidateSize();
-        });
+        collapse.addEventListener('shown.bs.collapse', function() { map.invalidateSize(); });
     }
-
-    // If inside a Bootstrap tab, re-invalidate when the tab is shown
-    const tabPane = pickerEl.closest('.tab-pane');
+    var tabPane = pickerEl.closest('.tab-pane');
     if (tabPane) {
         document.addEventListener('shown.bs.tab', function(e) {
-            if (e.target.getAttribute('data-bs-target') === '#' + tabPane.id ||
-                e.target.getAttribute('href') === '#' + tabPane.id) {
-                map.invalidateSize();
-            }
+            var target = e.target.getAttribute('data-bs-target') || e.target.getAttribute('href');
+            if (target === '#' + tabPane.id) map.invalidateSize();
         });
     }
 })();

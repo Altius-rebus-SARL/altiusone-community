@@ -33,7 +33,7 @@ class CoordonneesMixin:
 
 
 class PositionForm(CoordonneesMixin, forms.ModelForm):
-    coordonnees = forms.CharField(required=False, widget=forms.HiddenInput(attrs={"id": "id_coordonnees"}))
+    coordonnees = forms.CharField(required=False, widget=forms.HiddenInput())
 
     class Meta:
         model = Position
@@ -76,7 +76,14 @@ class PositionForm(CoordonneesMixin, forms.ModelForm):
     def clean_budget_prevu(self):
         budget = self.cleaned_data.get("budget_prevu") or Decimal("0")
         mandat = self.mandat
-        if not mandat or not mandat.budget_prevu or mandat.budget_prevu <= 0:
+        if not mandat:
+            return budget
+        # If mandat has no budget, positions cannot have one
+        if not mandat.budget_prevu or mandat.budget_prevu <= 0:
+            if budget > 0:
+                raise forms.ValidationError(
+                    _("Le mandat n'a pas de budget défini. Veuillez d'abord définir le budget du mandat.")
+                )
             return budget
         # Sum of other active positions' budgets (exclude self if editing)
         other_positions = mandat.positions.filter(is_active=True)
@@ -95,7 +102,7 @@ class PositionForm(CoordonneesMixin, forms.ModelForm):
 
 
 class OperationForm(CoordonneesMixin, forms.ModelForm):
-    coordonnees = forms.CharField(required=False, widget=forms.HiddenInput(attrs={"id": "id_coordonnees_op"}))
+    coordonnees = forms.CharField(required=False, widget=forms.HiddenInput())
 
     class Meta:
         model = Operation
@@ -139,7 +146,14 @@ class OperationForm(CoordonneesMixin, forms.ModelForm):
     def clean_budget_prevu(self):
         budget = self.cleaned_data.get("budget_prevu") or Decimal("0")
         position = self.position
-        if not position or not position.budget_prevu or position.budget_prevu <= 0:
+        if not position:
+            return budget
+        # If position has no budget, operations cannot have one
+        if not position.budget_prevu or position.budget_prevu <= 0:
+            if budget > 0:
+                raise forms.ValidationError(
+                    _("La position n'a pas de budget défini. Veuillez d'abord définir le budget de la position.")
+                )
             return budget
         # Sum of other active operations' budgets (exclude self if editing)
         other_operations = position.operations.filter(is_active=True)
