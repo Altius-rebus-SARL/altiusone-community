@@ -6,18 +6,53 @@
             <i class="ti ti-map-pin me-2"></i>{% trans "Carte" %}
         </h5>
         <div>
-            <span class="badge bg-light-primary me-1"><i class="ti ti-circle-filled f-s-8 me-1"></i>{% trans "Position" %}</span>
-            <span class="badge bg-light-secondary"><i class="ti ti-circle f-s-8 me-1"></i>{% trans "Opération" %}</span>
+            <span class="badge bg-light-primary me-1"><i class="ti ti-map-pin-filled f-s-10 me-1"></i>{% trans "Position" %}</span>
+            <span class="badge bg-light-secondary"><i class="ti ti-map-pin f-s-10 me-1"></i>{% trans "Opération" %}</span>
         </div>
     </div>
     <div class="card-body p-0">
-        <div id="projectMap" style="height:500px; border-radius:0 0 .5rem .5rem;"></div>
+        <div id="projectMap" class="w-100" style="height:500px; border-radius:0 0 .5rem .5rem;"></div>
         <div id="mapEmpty" class="text-center py-5 text-muted" style="display:none">
             <i class="ti ti-map-pin-off f-s-40 mb-2 d-block"></i>
             {% trans "Aucune position géolocalisée. Ajoutez des adresses aux positions et opérations pour les voir sur la carte." %}
         </div>
     </div>
 </div>
+
+<style>
+.map-pin-marker {
+    position: relative;
+    text-align: center;
+}
+.map-pin-marker .pin-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    border: 2px solid #fff;
+    box-shadow: 0 2px 6px rgba(0,0,0,.3);
+}
+.map-pin-marker .pin-icon i {
+    transform: rotate(45deg);
+    color: #fff;
+    line-height: 1;
+}
+.map-pin-marker.position .pin-icon {
+    width: 36px;
+    height: 36px;
+}
+.map-pin-marker.position .pin-icon i {
+    font-size: 16px;
+}
+.map-pin-marker.operation .pin-icon {
+    width: 28px;
+    height: 28px;
+}
+.map-pin-marker.operation .pin-icon i {
+    font-size: 12px;
+}
+</style>
 
 <script>
 (function() {
@@ -29,7 +64,6 @@
 
     const dataUrl = '{% url "projets:map-data" mandat.pk %}';
 
-    // Couleurs par statut
     const statutColors = {
         'PLANIFIE': '#95a5a6',
         'EN_COURS': '#2980b9',
@@ -41,6 +75,19 @@
         'ANNULEE': '#c0392b',
     };
 
+    function createPinIcon(color, isPosition) {
+        const size = isPosition ? 36 : 28;
+        const iconClass = isPosition ? 'ti ti-map-pin-filled' : 'ti ti-point';
+        const cssClass = isPosition ? 'position' : 'operation';
+        return L.divIcon({
+            className: 'map-pin-marker ' + cssClass,
+            html: '<div class="pin-icon" style="background:' + color + '"><i class="' + iconClass + '"></i></div>',
+            iconSize: [size, size],
+            iconAnchor: [size / 2, size],
+            popupAnchor: [0, -size],
+        });
+    }
+
     fetch(dataUrl, { headers: {'X-Requested-With': 'XMLHttpRequest'} })
     .then(r => r.json())
     .then(geojson => {
@@ -50,7 +97,6 @@
             return;
         }
 
-        // Destroy previous instance if HTMX re-swapped
         const mapEl = document.getElementById('projectMap');
         if (mapEl._leaflet_id) {
             mapEl._leaflet_id = null;
@@ -72,29 +118,22 @@
             const props = feature.properties;
             const color = statutColors[props.statut] || '#95a5a6';
             const isPosition = props.type === 'position';
-            const radius = isPosition ? 10 : 6;
 
-            const marker = L.circleMarker([coords[1], coords[0]], {
-                radius: radius,
-                fillColor: color,
-                color: isPosition ? '#2c3e50' : color,
-                weight: isPosition ? 2 : 1,
-                opacity: 1,
-                fillOpacity: isPosition ? 0.9 : 0.7,
-            });
+            const icon = createPinIcon(color, isPosition);
+            const marker = L.marker([coords[1], coords[0]], { icon: icon });
 
-            let popup = '<div style="min-width:150px">';
-            popup += '<strong>' + props.titre + '</strong>';
-            popup += '<br><small class="text-muted">' + props.numero + '</small>';
-            popup += '<br><span class="badge" style="background:' + color + ';color:#fff">' + props.statut + '</span>';
+            let popup = '<div style="min-width:180px">';
+            popup += '<div class="f-w-600 f-s-14">' + props.titre + '</div>';
+            popup += '<div class="text-muted f-s-12 mb-1">' + props.numero + '</div>';
+            popup += '<span class="badge f-s-11" style="background:' + color + ';color:#fff">' + props.statut + '</span>';
             if (props.budget_prevu) {
-                popup += '<br><small>Budget: ' + Number(props.budget_prevu).toLocaleString('fr-CH') + ' CHF</small>';
+                popup += '<div class="f-s-12 mt-1"><i class="ti ti-currency-franc f-s-12"></i> ' + Number(props.budget_prevu).toLocaleString('fr-CH') + ' CHF</div>';
             }
             if (props.progression !== undefined) {
-                popup += '<br><small>Progression: ' + props.progression + '%</small>';
+                popup += '<div class="f-s-12"><i class="ti ti-chart-bar f-s-12"></i> ' + props.progression + '%</div>';
             }
             if (props.position_titre) {
-                popup += '<br><small>Position: ' + props.position_titre + '</small>';
+                popup += '<div class="f-s-12 text-muted"><i class="ti ti-layout-list f-s-12"></i> ' + props.position_titre + '</div>';
             }
             popup += '</div>';
             marker.bindPopup(popup);
@@ -109,12 +148,10 @@
             map.fitBounds(bounds, { padding: [30, 30] });
         }
 
-        // Force Leaflet to recalculate dimensions (HTMX-loaded tab may still be transitioning)
         map.invalidateSize();
         setTimeout(function() { map.invalidateSize(); }, 300);
 
-        // Listen for Bootstrap tab shown event as backup
-        const tabTrigger = document.getElementById('carte-tab');
+        var tabTrigger = document.getElementById('carte-tab');
         if (tabTrigger) {
             tabTrigger.addEventListener('shown.bs.tab', function() {
                 map.invalidateSize();

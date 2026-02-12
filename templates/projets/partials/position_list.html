@@ -11,8 +11,8 @@
     </button>
 </div>
 
-<!-- Formulaire de création (caché par défaut) -->
-<div class="collapse mb-3" id="newPositionForm">
+<!-- Formulaire de création (caché par défaut, ouvert si erreurs) -->
+<div class="collapse{% if form.errors %} show{% endif %} mb-3" id="newPositionForm">
     <div class="card border">
         <div class="card-body">
             <h6 class="mb-3">{% trans "Nouvelle position" %}</h6>

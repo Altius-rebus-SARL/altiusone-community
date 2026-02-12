@@ -15,6 +15,36 @@ from .forms import OperationForm, OperationNoteForm, PositionForm
 from .models import Operation, Position
 
 
+def _get_positions_qs(mandat):
+    """Queryset des positions actives d'un mandat."""
+    return (
+        mandat.positions.filter(is_active=True)
+        .select_related("responsable", "devise")
+        .prefetch_related("operations")
+        .order_by("ordre")
+    )
+
+
+def _render_position_list(request, mandat, form=None):
+    """Render le partial position_list.html avec les positions et un formulaire."""
+    return render(request, "projets/partials/position_list.html", {
+        "mandat": mandat,
+        "positions": _get_positions_qs(mandat),
+        "form": form or PositionForm(mandat=mandat),
+    })
+
+
+def _render_position_card(request, position):
+    """Render le partial position_card.html avec les opérations."""
+    return render(request, "projets/partials/position_card.html", {
+        "position": position,
+        "operations": position.operations.filter(is_active=True).prefetch_related(
+            "assigne_a", "contacts_assignes"
+        ).order_by("ordre"),
+        "operation_form": OperationForm(position=position),
+    })
+
+
 # =============================================================================
 # POSITIONS CRUD
 # =============================================================================
@@ -25,18 +55,7 @@ from .models import Operation, Position
 def position_list_partial(request, mandat_pk):
     """Liste des positions d'un mandat (partial HTMX)."""
     mandat = get_object_or_404(Mandat, pk=mandat_pk)
-    positions = (
-        mandat.positions.filter(is_active=True)
-        .select_related("responsable", "devise")
-        .prefetch_related("operations")
-        .order_by("ordre")
-    )
-    form = PositionForm(mandat=mandat)
-    return render(request, "projets/partials/position_list.html", {
-        "mandat": mandat,
-        "positions": positions,
-        "form": form,
-    })
+    return _render_position_list(request, mandat)
 
 
 @login_required
@@ -49,28 +68,14 @@ def position_create(request, mandat_pk):
         position = form.save(commit=False)
         position.mandat = mandat
         position.created_by = request.user
-        # Auto-calcul de l'ordre
         last_ordre = mandat.positions.filter(is_active=True).aggregate(
             max_ordre=models.Max("ordre")
         )["max_ordre"]
         position.ordre = (last_ordre or 0) + 1
         position.save()
-        # Return the updated list
-        positions = (
-            mandat.positions.filter(is_active=True)
-            .select_related("responsable", "devise")
-            .prefetch_related("operations")
-            .order_by("ordre")
-        )
-        return render(request, "projets/partials/position_list.html", {
-            "mandat": mandat,
-            "positions": positions,
-            "form": PositionForm(mandat=mandat),
-        })
-    return render(request, "projets/partials/position_form.html", {
-        "mandat": mandat,
-        "form": form,
-    })
+        return _render_position_list(request, mandat)
+    # Erreur de validation → re-render la liste avec le formulaire en erreur (collapse ouvert)
+    return _render_position_list(request, mandat, form=form)
 
 
 @login_required
@@ -82,12 +87,7 @@ def position_detail(request, pk):
         .prefetch_related("operations__assigne_a", "operations__contacts_assignes"),
         pk=pk,
     )
-    operation_form = OperationForm(position=position)
-    return render(request, "projets/partials/position_card.html", {
-        "position": position,
-        "operations": position.operations.all().order_by("ordre"),
-        "operation_form": operation_form,
-    })
+    return _render_position_card(request, position)
 
 
 @login_required
@@ -100,23 +100,16 @@ def position_update(request, pk):
         form = PositionForm(request.POST, instance=position, mandat=mandat)
         if form.is_valid():
             form.save()
-            # Return the updated list
-            positions = (
-                mandat.positions.filter(is_active=True)
-                .select_related("responsable", "devise")
-                .prefetch_related("operations")
-                .order_by("ordre")
-            )
-            return render(request, "projets/partials/position_list.html", {
-                "mandat": mandat,
-                "positions": positions,
-                "form": PositionForm(mandat=mandat),
-            })
-        return render(request, "projets/partials/position_form.html", {
+            return _render_position_list(request, mandat)
+        # Erreur de validation → re-render le formulaire d'édition avec les erreurs
+        response = render(request, "projets/partials/position_edit.html", {
             "mandat": mandat,
             "form": form,
             "position": position,
         })
+        response["HX-Retarget"] = f"#detail-{position.pk}"
+        response["HX-Reswap"] = "innerHTML"
+        return response
     else:
         form = PositionForm(instance=position, mandat=mandat)
         return render(request, "projets/partials/position_edit.html", {
@@ -135,18 +128,7 @@ def position_delete(request, pk):
     position.is_active = False
     position.save(update_fields=["is_active"])
     mandat.recalculer_budget_reel()
-    # Return updated list
-    positions = (
-        mandat.positions.filter(is_active=True)
-        .select_related("responsable", "devise")
-        .prefetch_related("operations")
-        .order_by("ordre")
-    )
-    return render(request, "projets/partials/position_list.html", {
-        "mandat": mandat,
-        "positions": positions,
-        "form": PositionForm(mandat=mandat),
-    })
+    return _render_position_list(request, mandat)
 
 
 # =============================================================================
@@ -164,25 +146,27 @@ def operation_create(request, position_pk):
         operation = form.save(commit=False)
         operation.position = position
         operation.created_by = request.user
-        # Auto-calcul de l'ordre
         last_ordre = position.operations.filter(is_active=True).aggregate(
             max_ordre=models.Max("ordre")
         )["max_ordre"]
         operation.ordre = (last_ordre or 0) + 1
         operation.save()
         form.save_m2m()
-        # Recalculate budget
         position.recalculer_budget_reel()
-        operations = position.operations.filter(is_active=True).prefetch_related("assigne_a", "contacts_assignes").order_by("ordre")
-        return render(request, "projets/partials/operation_list.html", {
-            "position": position,
-            "operations": operations,
-            "operation_form": OperationForm(position=position),
-        })
-    return render(request, "projets/partials/operation_form.html", {
+        # Re-render la position card complète (header + opérations)
+        position.refresh_from_db()
+        return _render_position_card(request, position)
+    # Erreur de validation → re-render la card avec le formulaire en erreur
+    position.refresh_from_db()
+    response = render(request, "projets/partials/position_card.html", {
         "position": position,
-        "form": form,
+        "operations": position.operations.filter(is_active=True).prefetch_related(
+            "assigne_a", "contacts_assignes"
+        ).order_by("ordre"),
+        "operation_form": form,
+        "show_op_form": True,
     })
+    return response
 
 
 @login_required
@@ -199,13 +183,10 @@ def operation_update(request, pk):
         if form.is_valid():
             form.save()
             position.recalculer_budget_reel()
-            operations = position.operations.filter(is_active=True).prefetch_related("assigne_a", "contacts_assignes").order_by("ordre")
-            return render(request, "projets/partials/operation_list.html", {
-                "position": position,
-                "operations": operations,
-                "operation_form": OperationForm(position=position),
-            })
-        return render(request, "projets/partials/operation_form.html", {
+            position.refresh_from_db()
+            return _render_position_card(request, position)
+        # Erreur de validation → re-render le formulaire d'édition en place
+        return render(request, "projets/partials/operation_edit.html", {
             "position": position,
             "form": form,
             "operation": operation,
@@ -231,12 +212,8 @@ def operation_delete(request, pk):
     operation.is_active = False
     operation.save(update_fields=["is_active"])
     position.recalculer_budget_reel()
-    operations = position.operations.filter(is_active=True).prefetch_related("assigne_a", "contacts_assignes").order_by("ordre")
-    return render(request, "projets/partials/operation_list.html", {
-        "position": position,
-        "operations": operations,
-        "operation_form": OperationForm(position=position),
-    })
+    position.refresh_from_db()
+    return _render_position_card(request, position)
 
 
 @login_required
