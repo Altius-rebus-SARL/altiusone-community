@@ -21,6 +21,12 @@
 
 <script>
 (function() {
+    if (typeof L === 'undefined') {
+        document.getElementById('projectMap').innerHTML =
+            '<div class="text-center py-5 text-muted">Leaflet non chargé</div>';
+        return;
+    }
+
     const dataUrl = '{% url "projets:map-data" mandat.pk %}';
 
     // Couleurs par statut
@@ -51,7 +57,6 @@
             mapEl.innerHTML = '';
         }
 
-        // Centrer sur la Suisse par défaut
         const map = L.map('projectMap').setView([46.8, 8.2], 8);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -78,7 +83,6 @@
                 fillOpacity: isPosition ? 0.9 : 0.7,
             });
 
-            // Popup
             let popup = '<div style="min-width:150px">';
             popup += '<strong>' + props.titre + '</strong>';
             popup += '<br><small class="text-muted">' + props.numero + '</small>';
@@ -104,6 +108,23 @@
         if (bounds.length > 0) {
             map.fitBounds(bounds, { padding: [30, 30] });
         }
+
+        // Force Leaflet to recalculate dimensions (HTMX-loaded tab may still be transitioning)
+        map.invalidateSize();
+        setTimeout(function() { map.invalidateSize(); }, 300);
+
+        // Listen for Bootstrap tab shown event as backup
+        const tabTrigger = document.getElementById('carte-tab');
+        if (tabTrigger) {
+            tabTrigger.addEventListener('shown.bs.tab', function() {
+                map.invalidateSize();
+            });
+        }
+    })
+    .catch(function(err) {
+        console.error('Map data fetch error:', err);
+        document.getElementById('projectMap').innerHTML =
+            '<div class="text-center py-5 text-muted"><i class="ti ti-alert-triangle f-s-24 d-block mb-2"></i>Erreur de chargement</div>';
     });
 })();
 </script>

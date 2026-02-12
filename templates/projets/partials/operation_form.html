@@ -128,6 +128,27 @@
         });
     }
 
-    setTimeout(() => map.invalidateSize(), 200);
+    // Fix Leaflet sizing: immediate + delayed
+    map.invalidateSize();
+    setTimeout(function() { map.invalidateSize(); }, 300);
+
+    // If inside a Bootstrap collapse, re-invalidate when it opens
+    const collapse = pickerEl.closest('.collapse');
+    if (collapse) {
+        collapse.addEventListener('shown.bs.collapse', function() {
+            map.invalidateSize();
+        });
+    }
+
+    // If inside a Bootstrap tab, re-invalidate when the tab is shown
+    const tabPane = pickerEl.closest('.tab-pane');
+    if (tabPane) {
+        document.addEventListener('shown.bs.tab', function(e) {
+            if (e.target.getAttribute('data-bs-target') === '#' + tabPane.id ||
+                e.target.getAttribute('href') === '#' + tabPane.id) {
+                map.invalidateSize();
+            }
+        });
+    }
 })();
 </script>

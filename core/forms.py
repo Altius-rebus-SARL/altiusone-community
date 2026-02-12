@@ -228,7 +228,7 @@ class MandatForm(forms.ModelForm):
         self.fields['type_facturation_ref'].queryset = TypeFacturation.objects.filter(is_active=True)
         self.fields['type_facturation_ref'].label = _('Type de facturation')
         self.fields['equipe'].queryset = User.objects.filter(
-            is_active=True, is_staff=True
+            is_active=True, type_utilisateur=User.TypeUtilisateur.STAFF
         ).order_by('first_name', 'last_name')
 
         # Pré-remplir les champs de configuration depuis le JSONField
