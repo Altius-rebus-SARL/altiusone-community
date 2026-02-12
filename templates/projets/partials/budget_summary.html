@@ -1,7 +1,7 @@
 {% load i18n %}
 
 <!-- Enveloppe mandat -->
-{% if montant_forfait > 0 %}
+{% if mandat.budget_prevu and mandat.budget_prevu > 0 %}
 <div class="row mb-3">
     <div class="col-12">
         <div class="card border-primary">
@@ -10,7 +10,7 @@
                     <h5 class="text-primary mb-0">
                         <i class="ti ti-wallet me-1"></i>{% trans "Enveloppe mandat" %}
                     </h5>
-                    <h4 class="mb-0 text-primary">{{ montant_forfait|floatformat:0 }} CHF</h4>
+                    <h4 class="mb-0 text-primary">{{ mandat.budget_prevu|floatformat:0 }} CHF</h4>
                 </div>
                 <div class="d-flex justify-content-between mb-1">
                     <small class="text-muted">{% trans "Alloué aux positions" %}: {{ total_prevu|floatformat:0 }} CHF</small>
@@ -24,6 +24,15 @@
                 {% if forfait_alloue_pourcent > 100 %}
                 <small class="text-danger mt-1 d-block">{% trans "Le budget alloué dépasse l'enveloppe mandat" %}</small>
                 {% endif %}
+                <div class="d-flex justify-content-between mt-2">
+                    <small class="text-muted">{% trans "Réel" %}: {{ mandat.budget_reel|floatformat:0 }} CHF</small>
+                    <small class="text-muted">{{ mandat.budget_consomme_pourcent }}%</small>
+                </div>
+                <div class="progress mt-1" style="height:6px">
+                    <div class="progress-bar bg-{% if mandat.budget_consomme_pourcent > 90 %}danger{% elif mandat.budget_consomme_pourcent > 70 %}warning{% else %}success{% endif %}"
+                         style="width:{% if mandat.budget_consomme_pourcent > 100 %}100{% else %}{{ mandat.budget_consomme_pourcent }}{% endif %}%">
+                    </div>
+                </div>
             </div>
         </div>
     </div>

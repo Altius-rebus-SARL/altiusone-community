@@ -31,7 +31,7 @@ def position_list_partial(request, mandat_pk):
         .prefetch_related("operations")
         .order_by("ordre")
     )
-    form = PositionForm()
+    form = PositionForm(mandat=mandat)
     return render(request, "projets/partials/position_list.html", {
         "mandat": mandat,
         "positions": positions,
@@ -44,7 +44,7 @@ def position_list_partial(request, mandat_pk):
 def position_create(request, mandat_pk):
     """Crée une nouvelle position dans un mandat."""
     mandat = get_object_or_404(Mandat, pk=mandat_pk)
-    form = PositionForm(request.POST)
+    form = PositionForm(request.POST, mandat=mandat)
     if form.is_valid():
         position = form.save(commit=False)
         position.mandat = mandat
@@ -65,7 +65,7 @@ def position_create(request, mandat_pk):
         return render(request, "projets/partials/position_list.html", {
             "mandat": mandat,
             "positions": positions,
-            "form": PositionForm(),
+            "form": PositionForm(mandat=mandat),
         })
     return render(request, "projets/partials/position_form.html", {
         "mandat": mandat,
@@ -82,7 +82,7 @@ def position_detail(request, pk):
         .prefetch_related("operations__assigne_a", "operations__contacts_assignes"),
         pk=pk,
     )
-    operation_form = OperationForm()
+    operation_form = OperationForm(position=position)
     return render(request, "projets/partials/position_card.html", {
         "position": position,
         "operations": position.operations.all().order_by("ordre"),
@@ -95,12 +95,12 @@ def position_detail(request, pk):
 def position_update(request, pk):
     """Modifie une position existante."""
     position = get_object_or_404(Position.objects.select_related("mandat"), pk=pk)
+    mandat = position.mandat
     if request.method == "POST":
-        form = PositionForm(request.POST, instance=position)
+        form = PositionForm(request.POST, instance=position, mandat=mandat)
         if form.is_valid():
             form.save()
             # Return the updated list
-            mandat = position.mandat
             positions = (
                 mandat.positions.filter(is_active=True)
                 .select_related("responsable", "devise")
@@ -110,17 +110,17 @@ def position_update(request, pk):
             return render(request, "projets/partials/position_list.html", {
                 "mandat": mandat,
                 "positions": positions,
-                "form": PositionForm(),
+                "form": PositionForm(mandat=mandat),
             })
         return render(request, "projets/partials/position_form.html", {
-            "mandat": position.mandat,
+            "mandat": mandat,
             "form": form,
             "position": position,
         })
     else:
-        form = PositionForm(instance=position)
+        form = PositionForm(instance=position, mandat=mandat)
         return render(request, "projets/partials/position_edit.html", {
-            "mandat": position.mandat,
+            "mandat": mandat,
             "form": form,
             "position": position,
         })
@@ -134,6 +134,7 @@ def position_delete(request, pk):
     mandat = position.mandat
     position.is_active = False
     position.save(update_fields=["is_active"])
+    mandat.recalculer_budget_reel()
     # Return updated list
     positions = (
         mandat.positions.filter(is_active=True)
@@ -144,7 +145,7 @@ def position_delete(request, pk):
     return render(request, "projets/partials/position_list.html", {
         "mandat": mandat,
         "positions": positions,
-        "form": PositionForm(),
+        "form": PositionForm(mandat=mandat),
     })
 
 
@@ -158,7 +159,7 @@ def position_delete(request, pk):
 def operation_create(request, position_pk):
     """Crée une opération dans une position."""
     position = get_object_or_404(Position.objects.select_related("mandat"), pk=position_pk)
-    form = OperationForm(request.POST)
+    form = OperationForm(request.POST, position=position)
     if form.is_valid():
         operation = form.save(commit=False)
         operation.position = position
@@ -176,7 +177,7 @@ def operation_create(request, position_pk):
         return render(request, "projets/partials/operation_list.html", {
             "position": position,
             "operations": operations,
-            "operation_form": OperationForm(),
+            "operation_form": OperationForm(position=position),
         })
     return render(request, "projets/partials/operation_form.html", {
         "position": position,
@@ -194,7 +195,7 @@ def operation_update(request, pk):
     )
     position = operation.position
     if request.method == "POST":
-        form = OperationForm(request.POST, instance=operation)
+        form = OperationForm(request.POST, instance=operation, position=position)
         if form.is_valid():
             form.save()
             position.recalculer_budget_reel()
@@ -202,7 +203,7 @@ def operation_update(request, pk):
             return render(request, "projets/partials/operation_list.html", {
                 "position": position,
                 "operations": operations,
-                "operation_form": OperationForm(),
+                "operation_form": OperationForm(position=position),
             })
         return render(request, "projets/partials/operation_form.html", {
             "position": position,
@@ -210,7 +211,7 @@ def operation_update(request, pk):
             "operation": operation,
         })
     else:
-        form = OperationForm(instance=operation)
+        form = OperationForm(instance=operation, position=position)
         return render(request, "projets/partials/operation_edit.html", {
             "position": position,
             "form": form,
@@ -234,7 +235,7 @@ def operation_delete(request, pk):
     return render(request, "projets/partials/operation_list.html", {
         "position": position,
         "operations": operations,
-        "operation_form": OperationForm(),
+        "operation_form": OperationForm(position=position),
     })
 
 
@@ -418,10 +419,10 @@ def budget_summary(request, mandat_pk):
     )
 
     # Enveloppe mandat
-    montant_forfait = mandat.montant_forfait or Decimal("0")
+    budget_mandat = mandat.budget_prevu or Decimal("0")
     forfait_alloue_pourcent = (
-        (total_prevu / montant_forfait * 100).quantize(Decimal("0.1"))
-        if montant_forfait > 0
+        (total_prevu / budget_mandat * 100).quantize(Decimal("0.1"))
+        if budget_mandat > 0
         else Decimal("0")
     )
 
@@ -434,7 +435,6 @@ def budget_summary(request, mandat_pk):
         "total_pourcent": total_pourcent,
         "total_interne_prevu": total_interne_prevu,
         "total_sous_traite_prevu": total_sous_traite_prevu,
-        "montant_forfait": montant_forfait,
         "forfait_alloue_pourcent": forfait_alloue_pourcent,
         # JSON for charts
         "chart_labels_json": json.dumps([pd["position"].titre for pd in positions_data]),

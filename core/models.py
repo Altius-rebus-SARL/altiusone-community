@@ -1650,8 +1650,10 @@ class Mandat(BaseModel):
         verbose_name=_('Type de facturation (ancien)'),
         blank=True
     )
-    montant_forfait = models.DecimalField(max_digits=10, decimal_places=2,
-                                          null=True, blank=True, verbose_name=_('Montant forfait'))
+    budget_prevu = models.DecimalField(max_digits=15, decimal_places=2,
+                                       null=True, blank=True, verbose_name=_('Budget prévu'))
+    budget_reel = models.DecimalField(max_digits=15, decimal_places=2,
+                                      default=0, verbose_name=_('Budget réel'))
     taux_horaire = models.DecimalField(max_digits=10, decimal_places=2,
                                        null=True, blank=True, verbose_name=_('Taux horaire'))
 
@@ -1706,6 +1708,22 @@ class Mandat(BaseModel):
                 self.numero = f'MAN-{year}-001'
 
         super().save(*args, **kwargs)
+
+    @property
+    def budget_consomme_pourcent(self):
+        from decimal import Decimal
+        if self.budget_prevu and self.budget_prevu > 0:
+            return (self.budget_reel / self.budget_prevu * 100).quantize(Decimal("0.1"))
+        return Decimal("0")
+
+    def recalculer_budget_reel(self):
+        """Recalcule le budget réel à partir des budgets réels des positions."""
+        from decimal import Decimal
+        total = self.positions.filter(is_active=True).aggregate(
+            total=models.Sum("budget_reel")
+        )["total"] or Decimal("0")
+        self.budget_reel = total
+        self.save(update_fields=["budget_reel"])
 
 
 class ExerciceComptable(BaseModel):

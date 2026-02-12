@@ -125,10 +125,10 @@
                                         <span class="text-muted">{% trans "Type facturation" %}</span>
                                         <span class="f-w-500">{{ mandat.type_facturation_ref.libelle|default:mandat.get_type_facturation_display }}</span>
                                     </li>
-                                    {% if mandat.montant_forfait %}
+                                    {% if mandat.budget_prevu %}
                                     <li class="list-group-item d-flex justify-content-between">
-                                        <span class="text-muted">{% trans "Montant forfait" %}</span>
-                                        <span class="f-w-500">{{ mandat.montant_forfait }} CHF</span>
+                                        <span class="text-muted">{% trans "Budget prévu" %}</span>
+                                        <span class="f-w-500">{{ mandat.budget_prevu }} CHF</span>
                                     </li>
                                     {% endif %}
                                     {% if mandat.taux_horaire %}

@@ -131,10 +131,13 @@ class Position(BaseModel):
         )
 
     def recalculer_budget_reel(self):
-        """Recalcule le budget réel à partir des coûts des opérations."""
-        total = self.operations.aggregate(total=models.Sum("cout_reel"))["total"] or Decimal("0")
+        """Recalcule le budget réel à partir des coûts des opérations, puis propage au mandat."""
+        total = self.operations.filter(is_active=True).aggregate(
+            total=models.Sum("cout_reel")
+        )["total"] or Decimal("0")
         self.budget_reel = total
         self.save(update_fields=["budget_reel"])
+        self.mandat.recalculer_budget_reel()
 
 
 class Operation(BaseModel):

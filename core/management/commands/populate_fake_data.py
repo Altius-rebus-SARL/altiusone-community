@@ -694,7 +694,7 @@ class Command(BaseCommand):
                     type_facturation=type_data["type_facturation"],
                     # Autres champs
                     date_debut=self.fake.date_between(start_date="-3y", end_date="-6m"),
-                    montant_forfait=type_data["forfait"],
+                    budget_prevu=type_data["forfait"],
                     taux_horaire=type_data["taux"],
                     responsable=random.choice(managers),
                     statut="ACTIF",

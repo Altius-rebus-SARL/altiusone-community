@@ -1,5 +1,8 @@
+from decimal import Decimal
+
 from django import forms
 from django.contrib.gis.geos import Point
+from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 from core.models import Contact, User
@@ -65,9 +68,30 @@ class PositionForm(CoordonneesMixin, forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        self.mandat = kwargs.pop("mandat", None)
         super().__init__(*args, **kwargs)
         self.fields["responsable"].queryset = User.objects.filter(is_active=True).order_by("first_name", "last_name")
         self._init_coordonnees()
+
+    def clean_budget_prevu(self):
+        budget = self.cleaned_data.get("budget_prevu") or Decimal("0")
+        mandat = self.mandat
+        if not mandat or not mandat.budget_prevu or mandat.budget_prevu <= 0:
+            return budget
+        # Sum of other active positions' budgets (exclude self if editing)
+        other_positions = mandat.positions.filter(is_active=True)
+        if self.instance and self.instance.pk:
+            other_positions = other_positions.exclude(pk=self.instance.pk)
+        total_autres = other_positions.aggregate(
+            total=models.Sum("budget_prevu")
+        )["total"] or Decimal("0")
+        total = total_autres + budget
+        if total > mandat.budget_prevu:
+            raise forms.ValidationError(
+                _("Le budget total des positions (%(total)s CHF) dépasse le budget du mandat (%(mandat_budget)s CHF)."),
+                params={"total": total, "mandat_budget": mandat.budget_prevu},
+            )
+        return budget
 
 
 class OperationForm(CoordonneesMixin, forms.ModelForm):
@@ -106,10 +130,31 @@ class OperationForm(CoordonneesMixin, forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        self.position = kwargs.pop("position", None)
         super().__init__(*args, **kwargs)
         self.fields["assigne_a"].queryset = User.objects.filter(is_active=True).order_by("first_name", "last_name")
         self.fields["contacts_assignes"].queryset = Contact.objects.filter(is_active=True).order_by("nom", "prenom")
         self._init_coordonnees()
+
+    def clean_budget_prevu(self):
+        budget = self.cleaned_data.get("budget_prevu") or Decimal("0")
+        position = self.position
+        if not position or not position.budget_prevu or position.budget_prevu <= 0:
+            return budget
+        # Sum of other active operations' budgets (exclude self if editing)
+        other_operations = position.operations.filter(is_active=True)
+        if self.instance and self.instance.pk:
+            other_operations = other_operations.exclude(pk=self.instance.pk)
+        total_autres = other_operations.aggregate(
+            total=models.Sum("budget_prevu")
+        )["total"] or Decimal("0")
+        total = total_autres + budget
+        if total > position.budget_prevu:
+            raise forms.ValidationError(
+                _("Le budget total des opérations (%(total)s CHF) dépasse le budget de la position (%(position_budget)s CHF)."),
+                params={"total": total, "position_budget": position.budget_prevu},
+            )
+        return budget
 
 
 class OperationNoteForm(forms.ModelForm):

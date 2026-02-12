@@ -218,7 +218,7 @@ class MandatResource(BaseImportExportResource):
     - responsable_email (requis): email du responsable
     - statut: BROUILLON, EN_ATTENTE, ACTIF, SUSPENDU, TERMINE, RESILIE
     - type_facturation: FORFAIT, HORAIRE, MIXTE
-    - montant_forfait, taux_horaire
+    - budget_prevu, taux_horaire
     """
 
     # FK vers Client par IDE
@@ -248,7 +248,7 @@ class MandatResource(BaseImportExportResource):
             'date_fin',
             'periodicite',
             'type_facturation',
-            'montant_forfait',
+            'budget_prevu',
             'taux_horaire',
             'responsable',
             'statut',
