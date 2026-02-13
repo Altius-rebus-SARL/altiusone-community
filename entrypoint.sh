@@ -127,7 +127,7 @@ echo "Load setup swiss chart of accounts (if empty)"
 python manage.py load_swiss_chart_of_accounts || echo "Warning: Chart of accounts loading failed, continuing..."
 
 echo "Load OHADA chart of accounts (if empty)"
-python manage.py load_swiss_chart_of_accounts --type OHADA || echo "Warning: OHADA chart of accounts loading failed, continuing..."
+python manage.py load_ohada_chart_of_accounts || echo "Warning: OHADA chart of accounts loading failed, continuing..."
 
 echo "Load modelforms default templates"
 python manage.py create_default_templates || echo "Warning: Default templates loading failed, continuing..."
