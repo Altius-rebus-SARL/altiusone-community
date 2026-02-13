@@ -1,4 +1,6 @@
 # apps/facturation/signals.py
+from decimal import Decimal
+
 from django.db.models.signals import post_save, m2m_changed
 from django.dispatch import receiver
 from .models import Facture, LigneFacture, Paiement, TimeTracking, ZoneGeographique
@@ -219,6 +221,22 @@ def alerter_facture_en_retard(sender, instance, **kwargs):
                     lien_texte='Voir la facture',
                     mandat=instance.mandat
                 )
+
+
+@receiver(post_save, sender=TimeTracking)
+def decompter_budget_operation(sender, instance, **kwargs):
+    """Recalcule le coût réel de l'opération depuis tous les temps passés"""
+    if instance.operation_id and instance.montant_ht:
+        from django.db.models import Sum
+        from projets.models import Operation
+
+        total = TimeTracking.objects.filter(
+            operation=instance.operation, is_active=True
+        ).aggregate(total=Sum('montant_ht'))['total'] or Decimal('0')
+        Operation.objects.filter(pk=instance.operation_id).update(cout_reel=total)
+        # Refresh and cascade: position → mandat
+        instance.operation.refresh_from_db()
+        instance.operation.position.recalculer_budget_reel()
 
 
 @receiver(post_save, sender=TimeTracking)

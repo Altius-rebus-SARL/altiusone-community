@@ -81,6 +81,8 @@ class TimeTrackingForm(CoordonneesMixin, forms.ModelForm):
             "mandat",
             "utilisateur",
             "prestation",
+            "position",
+            "operation",
             "date_travail",
             "duree_minutes",
             "description",
@@ -93,6 +95,8 @@ class TimeTrackingForm(CoordonneesMixin, forms.ModelForm):
             "mandat": forms.Select(attrs={"class": "form-control select2"}),
             "utilisateur": forms.Select(attrs={"class": "form-control select2"}),
             "prestation": forms.Select(attrs={"class": "form-control select2"}),
+            "position": forms.Select(attrs={"class": "form-control select2"}),
+            "operation": forms.Select(attrs={"class": "form-control select2"}),
             "date_travail": forms.DateInput(
                 attrs={"class": "form-control", "type": "date"}
             ),
@@ -103,7 +107,7 @@ class TimeTrackingForm(CoordonneesMixin, forms.ModelForm):
             ),
             "facturable": forms.CheckboxInput(attrs={"class": "form-check-input"}),
             "taux_horaire": forms.NumberInput(
-                attrs={"class": "form-control", "step": "0.01"}
+                attrs={"class": "form-control", "step": "0.01", "readonly": "readonly"}
             ),
             "zone_geographique": forms.Select(attrs={"class": "form-control select2"}),
         }
@@ -114,6 +118,35 @@ class TimeTrackingForm(CoordonneesMixin, forms.ModelForm):
 
         # Initialiser les coordonnées depuis l'instance existante
         self._init_coordonnees()
+
+        # Position et opération : querysets vides par défaut (remplis par JS)
+        from projets.models import Position, Operation
+        if self.instance and self.instance.pk:
+            # En édition : remplir le queryset depuis l'instance
+            if self.instance.position_id:
+                self.fields["position"].queryset = Position.objects.filter(
+                    mandat=self.instance.mandat, is_active=True
+                )
+            else:
+                self.fields["position"].queryset = Position.objects.none()
+            if self.instance.operation_id:
+                self.fields["operation"].queryset = Operation.objects.filter(
+                    position=self.instance.position, is_active=True
+                )
+            else:
+                self.fields["operation"].queryset = Operation.objects.none()
+        else:
+            self.fields["position"].queryset = Position.objects.none()
+            self.fields["operation"].queryset = Operation.objects.none()
+
+        # En POST, accepter les valeurs envoyées par le JS
+        if self.data:
+            position_id = self.data.get("position")
+            operation_id = self.data.get("operation")
+            if position_id:
+                self.fields["position"].queryset = Position.objects.filter(is_active=True)
+            if operation_id:
+                self.fields["operation"].queryset = Operation.objects.filter(is_active=True)
 
         # Si on a des heures début/fin, calculer la durée
         if self.instance and self.instance.heure_debut and self.instance.heure_fin:
@@ -158,6 +191,17 @@ class TimeTrackingForm(CoordonneesMixin, forms.ModelForm):
             raise forms.ValidationError(
                 _("Veuillez fournir soit la durée, soit les heures de début et fin")
             )
+
+        # Validation cohérence position/opération
+        position = cleaned_data.get("position")
+        operation = cleaned_data.get("operation")
+        mandat = cleaned_data.get("mandat")
+
+        if position and mandat and position.mandat_id != mandat.id:
+            self.add_error("position", _("Cette position n'appartient pas au mandat sélectionné"))
+
+        if operation and position and operation.position_id != position.id:
+            self.add_error("operation", _("Cette opération n'appartient pas à la position sélectionnée"))
 
         # Résolution cascade du taux horaire : TarifMandat → Prestation → Mandat
         if not cleaned_data.get("taux_horaire"):

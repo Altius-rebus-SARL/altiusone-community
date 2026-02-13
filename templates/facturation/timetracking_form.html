@@ -6,10 +6,6 @@
 
 {% block title %}{% trans "Saisir du temps" %}{% endblock %}
 
-{% block extra_css %}
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-{% endblock %}
-
 {% block content %}
 <!-- Breadcrumb -->
 <div class="row m-1">
@@ -90,6 +86,43 @@
                             {% if form.date_travail.errors %}
                             <div class="text-danger f-s-12">{{ form.date_travail.errors.0 }}</div>
                             {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Projet (Position / Opération) -->
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <h6 class="text-muted f-w-600">
+                                <i class="ph ph-folder-simple me-1"></i>{% trans "Projet" %}
+                                <small class="text-muted f-w-400">({% trans "optionnel" %})</small>
+                            </h6>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Position" %}</label>
+                            {{ form.position|add_class:"form-control select2" }}
+                            {% if form.position.errors %}
+                            <div class="text-danger f-s-12">{{ form.position.errors.0 }}</div>
+                            {% endif %}
+                            <small class="text-muted">{% trans "Sélectionnez d'abord un mandat" %}</small>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Opération" %}</label>
+                            {{ form.operation|add_class:"form-control select2" }}
+                            {% if form.operation.errors %}
+                            <div class="text-danger f-s-12">{{ form.operation.errors.0 }}</div>
+                            {% endif %}
+                            <small class="text-muted">{% trans "Sélectionnez d'abord une position" %}</small>
+                        </div>
+
+                        <!-- Budget info badge (hidden, filled by JS) -->
+                        <div class="col-md-12 mb-3 d-none" id="budget-info-container">
+                            <div class="alert alert-info py-2 mb-0 f-s-13">
+                                <i class="ph ph-chart-pie me-1"></i>
+                                <strong>{% trans "Budget mandat" %} :</strong>
+                                <span id="budget-info-text"></span>
+                            </div>
                         </div>
                     </div>
 
@@ -178,12 +211,15 @@
                         </div>
 
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">{% trans "Taux horaire" %} ({{ DEVISE_CODE }}/h) *</label>
+                            <label class="form-label">
+                                {% trans "Taux horaire" %} (CHF/h) *
+                                <span class="badge bg-secondary f-s-11 ms-1 d-none" id="taux-badge"></span>
+                            </label>
                             {{ form.taux_horaire|add_class:"form-control" }}
                             {% if form.taux_horaire.errors %}
                             <div class="text-danger f-s-12">{{ form.taux_horaire.errors.0 }}</div>
                             {% endif %}
-                            <small class="text-muted" id="taux-source">{% trans "Rempli automatiquement depuis la prestation" %}</small>
+                            <small class="text-muted" id="taux-source">{% trans "Rempli automatiquement selon le mandat et la prestation" %}</small>
                         </div>
                     </div>
 
@@ -245,7 +281,7 @@
                         <strong>{% trans "Facturable" %}:</strong> {% trans "Décochez si c'est du temps interne non facturable au client" %}
                     </li>
                     <li class="mb-2">
-                        <strong>{% trans "Taux horaire" %}:</strong> {% trans "Le taux de la prestation s'applique automatiquement mais peut être modifié" %}
+                        <strong>{% trans "Taux horaire" %}:</strong> {% trans "Le taux est déterminé automatiquement : Tarif mandat > Prestation > Mandat" %}
                     </li>
                     <li>
                         <strong>{% trans "Localisation" %}:</strong> {% trans "Cliquez sur la carte ou utilisez le GPS pour enregistrer votre position" %}
@@ -259,20 +295,86 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 // Quick duration buttons
 function setDuree(minutes) {
     document.getElementById('id_duree_minutes').value = minutes;
 }
 
-// Auto-fill taux horaire via API
+// ============ Cascade Mandat → Position → Opération + Taux horaire ============
 (function() {
     var mandatSel = document.getElementById('id_mandat');
     var prestaSel = document.getElementById('id_prestation');
+    var positionSel = document.getElementById('id_position');
+    var operationSel = document.getElementById('id_operation');
     var tauxInput = document.getElementById('id_taux_horaire');
     var tauxSource = document.getElementById('taux-source');
+    var tauxBadge = document.getElementById('taux-badge');
+    var budgetContainer = document.getElementById('budget-info-container');
+    var budgetText = document.getElementById('budget-info-text');
 
+    // Helper: populate a <select> with options from JSON array [{id, text, ...}]
+    function populateSelect(selectEl, data, placeholder) {
+        // Destroy Select2 before manipulating DOM
+        if ($(selectEl).hasClass('select2-hidden-accessible')) {
+            $(selectEl).select2('destroy');
+        }
+        selectEl.innerHTML = '';
+        var opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = placeholder || '---------';
+        selectEl.appendChild(opt);
+        data.forEach(function(item) {
+            var o = document.createElement('option');
+            o.value = item.id;
+            o.textContent = item.text;
+            selectEl.appendChild(o);
+        });
+        // Re-init Select2
+        $(selectEl).select2({theme: 'bootstrap-5', allowClear: true, placeholder: placeholder || '---------'});
+    }
+
+    // --- Cascade: Mandat change → load positions + fetch taux ---
+    function onMandatChange() {
+        var mandatId = mandatSel ? mandatSel.value : '';
+
+        // Reset position & operation
+        if (positionSel) populateSelect(positionSel, [], '{% trans "Sélectionnez un mandat d\'abord" %}');
+        if (operationSel) populateSelect(operationSel, [], '{% trans "Sélectionnez une position d\'abord" %}');
+
+        if (!mandatId) {
+            budgetContainer.classList.add('d-none');
+            return;
+        }
+
+        // Fetch positions for this mandat
+        fetch('{% url "facturation:get-positions" %}?mandat=' + mandatId)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (positionSel) populateSelect(positionSel, data, '{% trans "Choisir une position..." %}');
+            });
+
+        // Fetch taux
+        fetchTaux();
+    }
+
+    // --- Cascade: Position change → load operations ---
+    function onPositionChange() {
+        var positionId = positionSel ? positionSel.value : '';
+
+        // Reset operation
+        if (operationSel) populateSelect(operationSel, [], '{% trans "Sélectionnez une position d\'abord" %}');
+
+        if (!positionId) return;
+
+        fetch('{% url "facturation:get-operations" %}?position=' + positionId)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (operationSel) populateSelect(operationSel, data, '{% trans "Choisir une opération..." %}');
+            });
+    }
+
+    // --- Fetch taux horaire + budget info ---
     function fetchTaux() {
         var mandat = mandatSel ? mandatSel.value : '';
         var presta = prestaSel ? prestaSel.value : '';
@@ -281,6 +383,7 @@ function setDuree(minutes) {
         fetch('{% url "facturation:get-taux-horaire" %}?mandat=' + mandat + '&prestation=' + presta)
             .then(function(r) { return r.json(); })
             .then(function(data) {
+                // Taux horaire
                 if (data.taux_horaire !== null) {
                     tauxInput.value = data.taux_horaire;
                     var labels = {
@@ -288,16 +391,42 @@ function setDuree(minutes) {
                         'prestation': '{% trans "Taux prestation" %}',
                         'mandat': '{% trans "Taux mandat" %}'
                     };
+                    var badgeColors = {
+                        'tarif_mandat': 'bg-success',
+                        'prestation': 'bg-primary',
+                        'mandat': 'bg-secondary'
+                    };
                     tauxSource.textContent = labels[data.source] || '';
+                    tauxBadge.textContent = labels[data.source] || '';
+                    tauxBadge.className = 'badge f-s-11 ms-1 ' + (badgeColors[data.source] || 'bg-secondary');
+                    tauxBadge.classList.remove('d-none');
+                } else {
+                    tauxBadge.classList.add('d-none');
+                }
+
+                // Budget info
+                if (data.budget_info && data.budget_info.budget_prevu > 0) {
+                    var b = data.budget_info;
+                    var pct = b.pourcent;
+                    var colorClass = pct > 90 ? 'text-danger' : (pct > 70 ? 'text-warning' : 'text-success');
+                    budgetText.innerHTML =
+                        '{% trans "Prévu" %}: <strong>' + b.budget_prevu.toLocaleString('fr-CH') + ' CHF</strong> | ' +
+                        '{% trans "Réel" %}: <strong>' + b.budget_reel.toLocaleString('fr-CH') + ' CHF</strong> | ' +
+                        '{% trans "Consommé" %}: <strong class="' + colorClass + '">' + pct + '%</strong>';
+                    budgetContainer.classList.remove('d-none');
+                } else {
+                    budgetContainer.classList.add('d-none');
                 }
             });
     }
 
-    if (mandatSel) mandatSel.addEventListener('change', fetchTaux);
-    if (prestaSel) prestaSel.addEventListener('change', fetchTaux);
+    // Bind events — use jQuery for Select2 compatibility
+    if (mandatSel) $(mandatSel).on('change', onMandatChange);
+    if (prestaSel) $(prestaSel).on('change', fetchTaux);
+    if (positionSel) $(positionSel).on('change', onPositionChange);
 })();
 
-// Leaflet map picker
+// ============ Leaflet map picker ============
 (function() {
     var coordInput = document.getElementById('id_coordonnees');
     var coordDisplay = document.getElementById('coord-display');

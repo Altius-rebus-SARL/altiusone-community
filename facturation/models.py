@@ -315,7 +315,16 @@ class TimeTracking(BaseModel):
         help_text=_("Date à laquelle ce temps a été facturé")
     )
 
-    # Opération (lien avec le module projets)
+    # Lien avec le module projets
+    position = models.ForeignKey(
+        "projets.Position",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="temps_passes",
+        verbose_name=_("Position"),
+        help_text=_("Position/lot lié dans le module projets"),
+    )
     operation = models.ForeignKey(
         "projets.Operation",
         on_delete=models.SET_NULL,

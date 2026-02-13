@@ -890,7 +890,73 @@ def get_taux_horaire(request):
         except Mandat.DoesNotExist:
             pass
 
-    return JsonResponse({"taux_horaire": taux, "source": source})
+    # Budget info du mandat
+    budget_info = None
+    if mandat_id:
+        try:
+            mandat_obj = Mandat.objects.get(pk=mandat_id)
+            budget_info = {
+                "budget_prevu": float(mandat_obj.budget_prevu) if mandat_obj.budget_prevu else 0,
+                "budget_reel": float(mandat_obj.budget_reel) if mandat_obj.budget_reel else 0,
+            }
+            if budget_info["budget_prevu"] > 0:
+                budget_info["pourcent"] = round(
+                    budget_info["budget_reel"] / budget_info["budget_prevu"] * 100, 1
+                )
+            else:
+                budget_info["pourcent"] = 0
+        except Mandat.DoesNotExist:
+            pass
+
+    return JsonResponse({"taux_horaire": taux, "source": source, "budget_info": budget_info})
+
+
+@login_required
+def get_positions(request):
+    """API JSON : positions d'un mandat pour cascade Select2"""
+    mandat_id = request.GET.get("mandat")
+    if not mandat_id:
+        return JsonResponse([], safe=False)
+
+    from projets.models import Position
+    positions = Position.objects.filter(
+        mandat_id=mandat_id, is_active=True
+    ).order_by("ordre", "numero")
+
+    data = [
+        {
+            "id": str(p.id),
+            "text": f"{p.numero} - {p.titre}",
+            "budget_prevu": float(p.budget_prevu),
+            "budget_reel": float(p.budget_reel),
+        }
+        for p in positions
+    ]
+    return JsonResponse(data, safe=False)
+
+
+@login_required
+def get_operations(request):
+    """API JSON : opérations d'une position pour cascade Select2"""
+    position_id = request.GET.get("position")
+    if not position_id:
+        return JsonResponse([], safe=False)
+
+    from projets.models import Operation
+    operations = Operation.objects.filter(
+        position_id=position_id, is_active=True
+    ).order_by("ordre", "numero")
+
+    data = [
+        {
+            "id": str(o.id),
+            "text": f"{o.numero} - {o.titre}",
+            "cout_reel": float(o.cout_reel),
+            "statut": o.statut,
+        }
+        for o in operations
+    ]
+    return JsonResponse(data, safe=False)
 
 
 # ============ TARIFS MANDAT ============

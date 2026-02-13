@@ -91,6 +91,8 @@ urlpatterns = [
     ),
     # API
     path("api/taux-horaire/", views.get_taux_horaire, name="get-taux-horaire"),
+    path("api/positions/", views.get_positions, name="get-positions"),
+    path("api/operations/", views.get_operations, name="get-operations"),
     # Zones géographiques
     path("zones/", views.ZoneGeographiqueListView.as_view(), name="zone-list"),
     path("zones/nouvelle/", views.ZoneGeographiqueCreateView.as_view(), name="zone-create"),
