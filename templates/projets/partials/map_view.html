@@ -127,7 +127,7 @@
             popup += '<div class="text-muted f-s-12 mb-1">' + props.numero + '</div>';
             popup += '<span class="badge f-s-11" style="background:' + color + ';color:#fff">' + props.statut + '</span>';
             if (props.budget_prevu) {
-                popup += '<div class="f-s-12 mt-1"><i class="ti ti-currency-franc f-s-12"></i> ' + Number(props.budget_prevu).toLocaleString('fr-CH') + ' CHF</div>';
+                popup += '<div class="f-s-12 mt-1"><i class="ti ti-currency-franc f-s-12"></i> ' + Number(props.budget_prevu).toLocaleString('fr-CH') + ' {{ DEVISE_CODE }}</div>';
             }
             if (props.progression !== undefined) {
                 popup += '<div class="f-s-12"><i class="ti ti-chart-bar f-s-12"></i> ' + props.progression + '%</div>';

@@ -135,6 +135,32 @@
                         </div>
                     </li>
 
+                    <!-- Currency Selector -->
+                    {% if DEVISES_ACTIVES|length > 1 %}
+                    <li class="header-currency">
+                        <div class="flex-shrink-0 dropdown">
+                            <a aria-expanded="false" class="d-block head-icon ps-0" data-bs-toggle="dropdown" href="#">
+                                <span class="badge bg-light-primary text-primary fw-bold f-s-14">{{ DEVISE_CODE }}</span>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end header-card border-0 p-2" style="min-width: 180px;">
+                                {% for d in DEVISES_ACTIVES %}
+                                <li class="dropdown-item p-2">
+                                    <form action="{% url 'core:set-devise' %}" method="post">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="devise_code" value="{{ d.code }}">
+                                        <input type="hidden" name="next" value="{{ request.path }}">
+                                        <button type="submit" class="btn btn-link p-0 d-flex align-items-center w-100 text-start text-decoration-none {% if d.code == DEVISE_CODE %}fw-bold text-primary{% else %}text-dark{% endif %}">
+                                            <span class="fw-bold me-2">{{ d.code }}</span>
+                                            <span>{{ d.nom }}</span>
+                                        </button>
+                                    </form>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </li>
+                    {% endif %}
+
                     <!-- Dark Mode Toggle - Exactement comme le template -->
                     <li class="header-dark">
                         <div class="sun-logo head-icon bg-light-dark rounded-circle f-s-22 p-2">

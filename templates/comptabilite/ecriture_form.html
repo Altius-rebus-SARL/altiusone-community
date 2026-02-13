@@ -166,7 +166,7 @@
                                 </label>
                                 <div class="input-group">
                                     {{ form.montant_debit }}
-                                    <span class="input-group-text">CHF</span>
+                                    <span class="input-group-text">{{ DEVISE_CODE }}</span>
                                 </div>
                                 {% if form.montant_debit.errors %}
                                 <div class="text-danger f-s-12 mt-1">
@@ -183,7 +183,7 @@
                                 </label>
                                 <div class="input-group">
                                     {{ form.montant_credit }}
-                                    <span class="input-group-text">CHF</span>
+                                    <span class="input-group-text">{{ DEVISE_CODE }}</span>
                                 </div>
                                 {% if form.montant_credit.errors %}
                                 <div class="text-danger f-s-12 mt-1">
@@ -216,7 +216,7 @@
                                 </label>
                                 <div class="input-group">
                                     {{ form.montant_tva }}
-                                    <span class="input-group-text">CHF</span>
+                                    <span class="input-group-text">{{ DEVISE_CODE }}</span>
                                 </div>
                                 {% if form.montant_tva.errors %}
                                 <div class="text-danger f-s-12 mt-1">

@@ -3,6 +3,7 @@
 {% load i18n %}
 {% load humanize %}
 {% load fiscalite_tags %}
+{% load devise_tags %}
 
 {% block title %}{{ optimisation.titre }}{% endblock %}
 
@@ -92,7 +93,7 @@
                         <div class="card bg-light-success">
                             <div class="card-body">
                                 <p class="text-muted f-s-12 mb-1">{% trans "Économie estimée" %}</p>
-                                <h4 class="text-success mb-0">{{ optimisation.economie_estimee|floatformat:2 }} CHF</h4>
+                                <h4 class="text-success mb-0">{{ optimisation.economie_estimee|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h4>
                             </div>
                         </div>
                     </div>
@@ -102,7 +103,7 @@
                         <div class="card bg-light-primary">
                             <div class="card-body">
                                 <p class="text-muted f-s-12 mb-1">{% trans "Économie réalisée" %}</p>
-                                <h4 class="text-primary mb-0">{{ optimisation.economie_reelle|floatformat:2 }} CHF</h4>
+                                <h4 class="text-primary mb-0">{{ optimisation.economie_reelle|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h4>
                             </div>
                         </div>
                     </div>
@@ -116,7 +117,7 @@
                         <div class="d-flex justify-content-between align-items-center p-3 bg-light rounded">
                             <span class="f-w-600">{% trans "Écart estimé / réalisé" %}</span>
                             <span class="f-w-600 {% if optimisation.economie_reelle >= optimisation.economie_estimee %}text-success{% else %}text-danger{% endif %}">
-                                {{ optimisation.economie_reelle|sub:optimisation.economie_estimee|floatformat:2 }} CHF
+                                {{ optimisation.economie_reelle|sub:optimisation.economie_estimee|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}
                             </span>
                         </div>
                     </div>
@@ -272,7 +273,7 @@
                     </div>
 
                     <div class="mb-3" id="economieReelleDiv" style="display: none;">
-                        <label class="form-label">{% trans "Économie réalisée (CHF)" %}</label>
+                        <label class="form-label">{% trans "Économie réalisée" %} ({{ DEVISE_CODE }})</label>
                         <input type="number" name="economie_reelle" class="form-control" step="0.01">
                     </div>
                 </div>

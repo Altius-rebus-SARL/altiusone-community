@@ -2,6 +2,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% load i18n %}
+{% load devise_tags %}
 
 {% block title %}{% trans "Lettrage" %} - {{ compte.numero }}{% endblock %}
 
@@ -80,14 +81,14 @@
                                     <td>{{ ecriture.libelle|truncatewords:10 }}</td>
                                     <td class="text-end">
                                         {% if ecriture.montant_debit > 0 %}
-                                        <span class="text-success">{{ ecriture.montant_debit|floatformat:2 }}</span>
+                                        <span class="text-success">{{ ecriture.montant_debit|devise:DEVISE_TAUX|floatformat:2 }}</span>
                                         {% else %}
                                         <span class="text-muted">—</span>
                                         {% endif %}
                                     </td>
                                     <td class="text-end">
                                         {% if ecriture.montant_credit > 0 %}
-                                        <span class="text-danger">{{ ecriture.montant_credit|floatformat:2 }}</span>
+                                        <span class="text-danger">{{ ecriture.montant_credit|devise:DEVISE_TAUX|floatformat:2 }}</span>
                                         {% else %}
                                         <span class="text-muted">—</span>
                                         {% endif %}

@@ -67,7 +67,7 @@
     {% elif mapping.widget_type == 'decimal' or mapping.widget_type == 'currency' %}
     <div class="input-group">
         {% if mapping.widget_type == 'currency' %}
-        <span class="input-group-text">CHF</span>
+        <span class="input-group-text">{{ DEVISE_CODE }}</span>
         {% endif %}
         <input type="number"
                class="form-control"

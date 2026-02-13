@@ -100,7 +100,7 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="form-label">{% trans "Économie estimée (CHF)" %} <span class="text-danger">*</span></label>
+                                <label class="form-label">{% trans "Économie estimée" %} ({{ DEVISE_CODE }}) <span class="text-danger">*</span></label>
                                 {{ form.economie_estimee|add_class:"form-control" }}
                                 {% if form.economie_estimee.errors %}
                                 <div class="text-danger f-s-12 mt-1">{{ form.economie_estimee.errors.0 }}</div>

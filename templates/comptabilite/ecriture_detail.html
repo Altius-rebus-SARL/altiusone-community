@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% load i18n %}
+{% load devise_tags %}
 
 {% block title %}{% trans "Écriture" %} {{ ecriture.numero_piece }}{% endblock %}
 
@@ -97,7 +98,7 @@
                         <label class="text-muted f-s-12">{% trans "Montant débit" %}</label>
                         <h6 class="mb-0">
                             {% if ecriture.montant_debit > 0 %}
-                            <span class="text-success f-w-600">{{ ecriture.montant_debit|floatformat:2 }} CHF</span>
+                            <span class="text-success f-w-600">{{ ecriture.montant_debit|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</span>
                             {% else %}
                             <span class="text-muted">—</span>
                             {% endif %}
@@ -107,7 +108,7 @@
                         <label class="text-muted f-s-12">{% trans "Montant crédit" %}</label>
                         <h6 class="mb-0">
                             {% if ecriture.montant_credit > 0 %}
-                            <span class="text-danger f-w-600">{{ ecriture.montant_credit|floatformat:2 }} CHF</span>
+                            <span class="text-danger f-w-600">{{ ecriture.montant_credit|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</span>
                             {% else %}
                             <span class="text-muted">—</span>
                             {% endif %}
@@ -228,14 +229,14 @@
                                 <td>{{ ecr.libelle|truncatewords:10 }}</td>
                                 <td class="text-end">
                                     {% if ecr.montant_debit > 0 %}
-                                    <span class="text-success">{{ ecr.montant_debit|floatformat:2 }}</span>
+                                    <span class="text-success">{{ ecr.montant_debit|devise:DEVISE_TAUX|floatformat:2 }}</span>
                                     {% else %}
                                     <span class="text-muted">—</span>
                                     {% endif %}
                                 </td>
                                 <td class="text-end">
                                     {% if ecr.montant_credit > 0 %}
-                                    <span class="text-danger">{{ ecr.montant_credit|floatformat:2 }}</span>
+                                    <span class="text-danger">{{ ecr.montant_credit|devise:DEVISE_TAUX|floatformat:2 }}</span>
                                     {% else %}
                                     <span class="text-muted">—</span>
                                     {% endif %}

@@ -1,4 +1,5 @@
 {% load i18n %}
+{% load devise_tags %}
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h5 class="text-primary mb-0">
@@ -63,7 +64,7 @@
                     </small>
                     {% endif %}
                     <small class="text-muted">
-                        <i class="ti ti-currency-franc me-1"></i>{{ position.budget_reel|floatformat:0 }} / {{ position.budget_prevu|floatformat:0 }}
+                        <i class="ti ti-currency-franc me-1"></i>{{ position.budget_reel|devise:DEVISE_TAUX|floatformat:0 }} / {{ position.budget_prevu|devise:DEVISE_TAUX|floatformat:0 }}
                     </small>
                     <!-- Barre de progression -->
                     <div style="width:80px">

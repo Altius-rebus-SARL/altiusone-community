@@ -2,6 +2,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% load i18n %}
+{% load devise_tags %}
 
 {% block title %}{% trans "Exercices comptables" %}{% endblock %}
 
@@ -173,7 +174,7 @@
                                     <td>
                                         {% if exercice.resultat_exercice %}
                                             <span class="{% if exercice.resultat_exercice >= 0 %}text-success{% else %}text-danger{% endif %} f-w-500">
-                                                {{ exercice.resultat_exercice|floatformat:2 }} CHF
+                                                {{ exercice.resultat_exercice|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}
                                             </span>
                                         {% else %}
                                             <span class="text-muted">-</span>

@@ -22,7 +22,7 @@
         <label class="form-label">{% trans "Budget prévu" %}</label>
         <div class="input-group">
             {{ form.budget_prevu }}
-            <span class="input-group-text">CHF</span>
+            <span class="input-group-text">{{ DEVISE_CODE }}</span>
         </div>
         {% if form.budget_prevu.errors %}<div class="text-danger f-s-12">{{ form.budget_prevu.errors.0 }}</div>{% endif %}
     </div>

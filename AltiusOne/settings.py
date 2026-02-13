@@ -592,6 +592,11 @@ TEMPLATES[0]['OPTIONS']['context_processors'].append(
     'core.permissions.permissions_context'
 )
 
+# Devise de base disponible dans tous les templates via {{ DEVISE_CODE }}
+TEMPLATES[0]['OPTIONS']['context_processors'].append(
+    'core.context_processors.devise_context'
+)
+
 
 # ============================================================================
 # S3/MINIO STORAGE CONFIGURATION

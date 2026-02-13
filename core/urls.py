@@ -141,9 +141,10 @@ urlpatterns = [
         "support/submit/", views.submit_support_request, name="submit-support-request"
     ),
     # ============================================================================
-    # LANGUE
+    # LANGUE & DEVISE
     # ============================================================================
     path("set-language/", views.set_language, name="set-language"),
+    path("set-devise/", views.set_devise, name="set-devise"),
     # ============================================================================
     # API AJAX
     # ============================================================================

@@ -5,7 +5,7 @@ from django.contrib.gis.geos import Point
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from core.models import Contact, User
+from core.models import Contact, Devise, User
 
 from .models import Operation, OperationNote, Position
 
@@ -94,9 +94,10 @@ class PositionForm(CoordonneesMixin, forms.ModelForm):
         )["total"] or Decimal("0")
         total = total_autres + budget
         if total > mandat.budget_prevu:
+            devise_code = Devise.get_devise_base().code
             raise forms.ValidationError(
-                _("Le budget total des positions (%(total)s CHF) dépasse le budget du mandat (%(mandat_budget)s CHF)."),
-                params={"total": total, "mandat_budget": mandat.budget_prevu},
+                _("Le budget total des positions (%(total)s %(devise)s) dépasse le budget du mandat (%(mandat_budget)s %(devise)s)."),
+                params={"total": total, "mandat_budget": mandat.budget_prevu, "devise": devise_code},
             )
         return budget
 
@@ -164,9 +165,10 @@ class OperationForm(CoordonneesMixin, forms.ModelForm):
         )["total"] or Decimal("0")
         total = total_autres + budget
         if total > position.budget_prevu:
+            devise_code = Devise.get_devise_base().code
             raise forms.ValidationError(
-                _("Le budget total des opérations (%(total)s CHF) dépasse le budget de la position (%(position_budget)s CHF)."),
-                params={"total": total, "position_budget": position.budget_prevu},
+                _("Le budget total des opérations (%(total)s %(devise)s) dépasse le budget de la position (%(position_budget)s %(devise)s)."),
+                params={"total": total, "position_budget": position.budget_prevu, "devise": devise_code},
             )
         return budget
 

@@ -2,6 +2,7 @@
 {% load static %}
 {% load i18n %}
 {% load humanize %}
+{% load devise_tags %}
 
 {% block title %}{% trans "Reports de pertes" %}{% endblock %}
 
@@ -82,7 +83,7 @@
                     </div>
                     <div>
                         <p class="text-muted mb-1 f-s-12">{% trans "Montant disponible" %}</p>
-                        <h5 class="text-info mb-0">{{ stats.montant_disponible|floatformat:0 }}</h5>
+                        <h5 class="text-info mb-0">{{ stats.montant_disponible|devise:DEVISE_TAUX|floatformat:0 }}</h5>
                     </div>
                 </div>
             </div>
@@ -128,13 +129,13 @@
                                     <span class="f-w-600">{{ report.annee_origine }}</span>
                                 </td>
                                 <td>
-                                    <span class="f-w-600 text-danger">{{ report.montant_perte|floatformat:2 }} CHF</span>
+                                    <span class="f-w-600 text-danger">{{ report.montant_perte|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</span>
                                 </td>
                                 <td>
-                                    <span class="text-warning">{{ report.montant_utilise|floatformat:2 }} CHF</span>
+                                    <span class="text-warning">{{ report.montant_utilise|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</span>
                                 </td>
                                 <td>
-                                    <span class="f-w-600 text-success">{{ report.montant_restant|floatformat:2 }} CHF</span>
+                                    <span class="f-w-600 text-success">{{ report.montant_restant|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</span>
                                 </td>
                                 <td>
                                     <span class="{% if report.expire %}text-danger{% else %}text-success{% endif %}">

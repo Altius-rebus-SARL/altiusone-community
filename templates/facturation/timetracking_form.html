@@ -170,7 +170,7 @@
                         </div>
 
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">{% trans "Taux horaire (CHF/h)" %} *</label>
+                            <label class="form-label">{% trans "Taux horaire" %} ({{ DEVISE_CODE }}/h) *</label>
                             {{ form.taux_horaire|add_class:"form-control" }}
                             {% if form.taux_horaire.errors %}
                             <div class="text-danger f-s-12">{{ form.taux_horaire.errors.0 }}</div>

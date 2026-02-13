@@ -2,6 +2,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% load i18n %}
+{% load devise_tags %}
 
 {% block title %}{% trans "Suivi du temps" %}{% endblock %}
 
@@ -60,7 +61,7 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <h3 class="text-success mb-0">{{ stats.montant_non_facture|floatformat:0 }}</h3>
+                        <h3 class="text-success mb-0">{{ stats.montant_non_facture|devise:DEVISE_TAUX|floatformat:0 }}</h3>
                         <p class="text-muted mb-0">{% trans "À facturer" %}</p>
                     </div>
                     <div class="h-50 w-50 d-flex-center rounded-circle bg-light-success">
@@ -166,8 +167,8 @@
                                     <br>
                                     <span class="f-w-600">{{ temps.duree_heures|floatformat:2 }}h</span>
                                 </td>
-                                <td class="text-end">{{ temps.taux_horaire|floatformat:2 }}</td>
-                                <td class="text-end f-w-600">{{ temps.montant_ht|floatformat:2 }}</td>
+                                <td class="text-end">{{ temps.taux_horaire|devise:DEVISE_TAUX|floatformat:2 }}</td>
+                                <td class="text-end f-w-600">{{ temps.montant_ht|devise:DEVISE_TAUX|floatformat:2 }}</td>
                                 <td>
                                     {% if temps.facture %}
                                     <a href="{% url 'facturation:facture-detail' temps.facture.pk %}">
@@ -267,7 +268,7 @@
                                     </div>
                                 </td>
                                 <td class="text-end f-w-600">{{ item.total_minutes|floatformat:0 }} min ({{ item.total_minutes|divisibleby:60 }}h)</td>
-                                <td class="text-end f-w-600 text-success">{{ item.total_montant|floatformat:2 }} CHF</td>
+                                <td class="text-end f-w-600 text-success">{{ item.total_montant|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</td>
                             </tr>
                             {% endfor %}
                         </tbody>

@@ -2,6 +2,7 @@
 {% load static %}
 {% load i18n %}
 {% load humanize %}
+{% load devise_tags %}
 
 {% block title %}{{ declaration.numero_declaration }}{% endblock %}
 
@@ -103,7 +104,7 @@
                         <div class="card bg-light-primary">
                             <div class="card-body">
                                 <p class="text-muted f-s-12 mb-1">{% trans "Bénéfice avant impôts" %}</p>
-                                <h5 class="text-primary mb-0">{{ declaration.benefice_avant_impots|floatformat:2 }} CHF</h5>
+                                <h5 class="text-primary mb-0">{{ declaration.benefice_avant_impots|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h5>
                             </div>
                         </div>
                     </div>
@@ -112,7 +113,7 @@
                         <div class="card bg-light-success">
                             <div class="card-body">
                                 <p class="text-muted f-s-12 mb-1">{% trans "Bénéfice imposable" %}</p>
-                                <h5 class="text-success mb-0">{{ declaration.benefice_imposable|floatformat:2 }} CHF</h5>
+                                <h5 class="text-success mb-0">{{ declaration.benefice_imposable|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h5>
                             </div>
                         </div>
                     </div>
@@ -121,7 +122,7 @@
                         <div class="card bg-light-info">
                             <div class="card-body">
                                 <p class="text-muted f-s-12 mb-1">{% trans "Capital propre" %}</p>
-                                <h5 class="text-info mb-0">{{ declaration.capital_propre|floatformat:2 }} CHF</h5>
+                                <h5 class="text-info mb-0">{{ declaration.capital_propre|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h5>
                             </div>
                         </div>
                     </div>
@@ -130,7 +131,7 @@
                         <div class="card bg-light-warning">
                             <div class="card-body">
                                 <p class="text-muted f-s-12 mb-1">{% trans "Capital imposable" %}</p>
-                                <h5 class="text-warning mb-0">{{ declaration.capital_imposable|floatformat:2 }} CHF</h5>
+                                <h5 class="text-warning mb-0">{{ declaration.capital_imposable|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h5>
                             </div>
                         </div>
                     </div>
@@ -143,21 +144,21 @@
                     <div class="col-md-4">
                         <div class="text-center p-3 bg-light-danger rounded">
                             <p class="text-muted f-s-12 mb-1">{% trans "Impôt fédéral" %}</p>
-                            <h6 class="text-danger mb-0">{{ declaration.impot_federal|floatformat:2 }} CHF</h6>
+                            <h6 class="text-danger mb-0">{{ declaration.impot_federal|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h6>
                         </div>
                     </div>
 
                     <div class="col-md-4">
                         <div class="text-center p-3 bg-light-warning rounded">
                             <p class="text-muted f-s-12 mb-1">{% trans "Impôt cantonal" %}</p>
-                            <h6 class="text-warning mb-0">{{ declaration.impot_cantonal|floatformat:2 }} CHF</h6>
+                            <h6 class="text-warning mb-0">{{ declaration.impot_cantonal|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h6>
                         </div>
                     </div>
 
                     <div class="col-md-4">
                         <div class="text-center p-3 bg-light-info rounded">
                             <p class="text-muted f-s-12 mb-1">{% trans "Impôt communal" %}</p>
-                            <h6 class="text-info mb-0">{{ declaration.impot_communal|floatformat:2 }} CHF</h6>
+                            <h6 class="text-info mb-0">{{ declaration.impot_communal|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h6>
                         </div>
                     </div>
                 </div>
@@ -166,7 +167,7 @@
 
                 <div class="text-center p-4 bg-light-primary rounded">
                     <p class="text-muted f-s-14 mb-1">{% trans "IMPÔT TOTAL" %}</p>
-                    <h4 class="text-primary mb-0">{{ declaration.impot_total|floatformat:2 }} CHF</h4>
+                    <h4 class="text-primary mb-0">{{ declaration.impot_total|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h4>
                 </div>
             </div>
         </div>
@@ -201,15 +202,15 @@
                                     <span class="badge text-light-secondary">{{ correction.get_type_correction_display }}</span>
                                 </td>
                                 <td>{{ correction.description|truncatewords:10 }}</td>
-                                <td>{{ correction.montant_comptable|floatformat:2 }} CHF</td>
+                                <td>{{ correction.montant_comptable|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</td>
                                 <td>
                                     {% if correction.montant_correction > 0 %}
-                                    <span class="text-danger">+{{ correction.montant_correction|floatformat:2 }} CHF</span>
+                                    <span class="text-danger">+{{ correction.montant_correction|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</span>
                                     {% else %}
-                                    <span class="text-success">{{ correction.montant_correction|floatformat:2 }} CHF</span>
+                                    <span class="text-success">{{ correction.montant_correction|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</span>
                                     {% endif %}
                                 </td>
-                                <td class="f-w-600">{{ correction.montant_fiscal|floatformat:2 }} CHF</td>
+                                <td class="f-w-600">{{ correction.montant_fiscal|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -284,7 +285,7 @@
                             <tr>
                                 <td>{{ reclamation.date_reclamation|date:"d/m/Y" }}</td>
                                 <td>{{ reclamation.motif|truncatewords:10 }}</td>
-                                <td class="f-w-600 text-danger">{{ reclamation.montant_conteste|floatformat:2 }} CHF</td>
+                                <td class="f-w-600 text-danger">{{ reclamation.montant_conteste|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</td>
                                 <td>
                                     <span class="badge text-light-warning">{{ reclamation.get_statut_display }}</span>
                                 </td>

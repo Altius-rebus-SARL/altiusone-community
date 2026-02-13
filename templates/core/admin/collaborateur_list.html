@@ -99,7 +99,7 @@
                                     </td>
                                     <td>
                                         {% if collab.taux_horaire %}
-                                        CHF {{ collab.taux_horaire }}
+                                        {{ DEVISE_CODE }} {{ collab.taux_horaire }}
                                         {% else %}
                                         -
                                         {% endif %}

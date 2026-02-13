@@ -235,7 +235,7 @@
                                     {% elif compte.solde < 0 %}
                                     <span class="text-danger f-w-600">{{ compte.get_solde_display }}</span>
                                     {% else %}
-                                    <span class="text-muted">0.00 CHF</span>
+                                    <span class="text-muted">0.00 {{ DEVISE_CODE }}</span>
                                     {% endif %}
                                 </td>
                                 <td class="text-center">

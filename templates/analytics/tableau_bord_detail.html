@@ -224,25 +224,25 @@ const chartColor = themeColors['{{ tableau.configuration.color|default:"primary"
 // Données de démonstration (à remplacer par API)
 const demoData = {
     // KPIs
-    ca_total: { value: 125450, trend: 12.5, unit: 'CHF' },
-    marge_brute: { value: 45200, trend: 8.3, unit: 'CHF' },
-    resultat_net: { value: 32100, trend: -2.1, unit: 'CHF' },
-    tresorerie: { value: 89500, trend: 5.7, unit: 'CHF' },
+    ca_total: { value: 125450, trend: 12.5, unit: '{{ DEVISE_CODE }}' },
+    marge_brute: { value: 45200, trend: 8.3, unit: '{{ DEVISE_CODE }}' },
+    resultat_net: { value: 32100, trend: -2.1, unit: '{{ DEVISE_CODE }}' },
+    tresorerie: { value: 89500, trend: 5.7, unit: '{{ DEVISE_CODE }}' },
     factures_emises: { value: 47, trend: 15, unit: '' },
-    montant_facture: { value: 156800, trend: 18.2, unit: 'CHF' },
-    encaissements: { value: 142300, trend: 9.4, unit: 'CHF' },
-    creances_ouvertes: { value: 34500, trend: -12.3, unit: 'CHF' },
-    tva_collectee: { value: 12450, trend: 4.2, unit: 'CHF' },
-    tva_deductible: { value: 8200, trend: 2.1, unit: 'CHF' },
-    tva_a_payer: { value: 4250, trend: 8.5, unit: 'CHF' },
+    montant_facture: { value: 156800, trend: 18.2, unit: '{{ DEVISE_CODE }}' },
+    encaissements: { value: 142300, trend: 9.4, unit: '{{ DEVISE_CODE }}' },
+    creances_ouvertes: { value: 34500, trend: -12.3, unit: '{{ DEVISE_CODE }}' },
+    tva_collectee: { value: 12450, trend: 4.2, unit: '{{ DEVISE_CODE }}' },
+    tva_deductible: { value: 8200, trend: 2.1, unit: '{{ DEVISE_CODE }}' },
+    tva_a_payer: { value: 4250, trend: 8.5, unit: '{{ DEVISE_CODE }}' },
     prochaine_echeance: { value: '15.02', trend: 0, unit: 'jours' },
-    masse_salariale: { value: 85600, trend: 3.2, unit: 'CHF' },
-    charges_sociales: { value: 12840, trend: 3.2, unit: 'CHF' },
+    masse_salariale: { value: 85600, trend: 3.2, unit: '{{ DEVISE_CODE }}' },
+    charges_sociales: { value: 12840, trend: 3.2, unit: '{{ DEVISE_CODE }}' },
     effectif: { value: 8, trend: 0, unit: '' },
-    cout_moyen: { value: 10700, trend: 1.5, unit: 'CHF' },
+    cout_moyen: { value: 10700, trend: 1.5, unit: '{{ DEVISE_CODE }}' },
     nombre_clients: { value: 42, trend: 5, unit: '' },
     nouveaux_clients: { value: 3, trend: 50, unit: '' },
-    ca_moyen_client: { value: 2987, trend: 7.2, unit: 'CHF' },
+    ca_moyen_client: { value: 2987, trend: 7.2, unit: '{{ DEVISE_CODE }}' },
     taux_retention: { value: 94, trend: 2, unit: '%' },
     marge_moyenne: { value: 35.2, trend: 1.8, unit: '%' },
     taux_rentabilite: { value: 28.5, trend: -0.5, unit: '%' },
@@ -252,8 +252,8 @@ const demoData = {
     heures_facturees: { value: 342, trend: 8, unit: 'h' },
     taux_utilisation: { value: 78, trend: 3, unit: '%' },
     heures_non_facturees: { value: 96, trend: -12, unit: 'h' },
-    total_actif: { value: 245000, trend: 4.5, unit: 'CHF' },
-    total_passif: { value: 245000, trend: 4.5, unit: 'CHF' },
+    total_actif: { value: 245000, trend: 4.5, unit: '{{ DEVISE_CODE }}' },
+    total_passif: { value: 245000, trend: 4.5, unit: '{{ DEVISE_CODE }}' },
     ecritures_mois: { value: 156, trend: 12, unit: '' },
     comptes_desequilibres: { value: 0, trend: 0, unit: '' },
 
@@ -325,8 +325,9 @@ const demoData = {
 
 // Formater les valeurs
 function formatValue(value, unit) {
-    if (unit === 'CHF') {
-        return "CHF " + value.toLocaleString('fr-CH');
+    const _dv = window.ALTIUSONE_DEVISE || { code: '{{ DEVISE_CODE }}', taux: 1 };
+    if (unit === '{{ DEVISE_BASE_CODE }}' || unit === _dv.code) {
+        return _dv.code + " " + (value * _dv.taux).toLocaleString('fr-CH');
     } else if (unit === '%') {
         return value + '%';
     } else if (unit === 'h') {
@@ -366,6 +367,7 @@ function updateKPIs() {
 function createCharts() {
     const chartContainers = document.querySelectorAll('[id^="chart-"]');
 
+    const _d = window.ALTIUSONE_DEVISE || { code: '{{ DEVISE_CODE }}', taux: 1 };
     chartContainers.forEach(container => {
         const chartType = container.dataset.chartType;
         const metric = container.dataset.metric;
@@ -390,11 +392,11 @@ function createCharts() {
                     markers: { size: 4 },
                     yaxis: {
                         labels: {
-                            formatter: (val) => "CHF " + val.toLocaleString('fr-CH')
+                            formatter: (val) => _d.code + " " + (val * _d.taux).toLocaleString('fr-CH')
                         }
                     },
                     tooltip: {
-                        y: { formatter: (val) => "CHF " + val.toLocaleString('fr-CH') }
+                        y: { formatter: (val) => _d.code + " " + (val * _d.taux).toLocaleString('fr-CH') }
                     }
                 };
                 break;
@@ -410,7 +412,7 @@ function createCharts() {
                     dataLabels: { enabled: false },
                     yaxis: {
                         labels: {
-                            formatter: (val) => "CHF " + val.toLocaleString('fr-CH')
+                            formatter: (val) => _d.code + " " + (val * _d.taux).toLocaleString('fr-CH')
                         }
                     }
                 };
@@ -426,7 +428,7 @@ function createCharts() {
                     dataLabels: { enabled: false },
                     yaxis: {
                         labels: {
-                            formatter: (val) => typeof val === 'number' && val > 1000 ? "CHF " + val.toLocaleString('fr-CH') : val
+                            formatter: (val) => typeof val === 'number' && val > 1000 ? _d.code + " " + (val * _d.taux).toLocaleString('fr-CH') : val
                         }
                     }
                 };
@@ -442,7 +444,7 @@ function createCharts() {
                     dataLabels: { enabled: false },
                     xaxis: {
                         labels: {
-                            formatter: (val) => typeof val === 'number' && val > 1000 ? "CHF " + val.toLocaleString('fr-CH') : val
+                            formatter: (val) => typeof val === 'number' && val > 1000 ? _d.code + " " + (val * _d.taux).toLocaleString('fr-CH') : val
                         }
                     }
                 };
@@ -499,7 +501,7 @@ function createCharts() {
                     },
                     dataLabels: {
                         enabled: true,
-                        formatter: (text, op) => text + '\n' + "CHF " + op.value.toLocaleString('fr-CH')
+                        formatter: (text, op) => text + '\n' + _d.code + " " + (op.value * _d.taux).toLocaleString('fr-CH')
                     }
                 };
                 break;

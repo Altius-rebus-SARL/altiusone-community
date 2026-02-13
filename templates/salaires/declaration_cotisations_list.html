@@ -3,6 +3,7 @@
 {% load static %}
 {% load i18n %}
 {% load humanize %}
+{% load devise_tags %}
 
 {% block title %}{% trans "Déclarations de cotisations" %}{% endblock %}
 
@@ -79,8 +80,8 @@
                         <i class="ph ph-currency-chf fs-1 text-danger"></i>
                     </div>
                     <div class="flex-grow-1 ms-3">
-                        <h3 class="mb-0">{{ totaux.a_payer|floatformat:0|intcomma }}</h3>
-                        <span class="text-muted">{% trans "CHF à payer" %}</span>
+                        <h3 class="mb-0">{{ totaux.a_payer|devise:DEVISE_TAUX|floatformat:0|intcomma }}</h3>
+                        <span class="text-muted">{{ DEVISE_CODE }} {% trans "à payer" %}</span>
                     </div>
                 </div>
             </div>
@@ -206,8 +207,8 @@
                                     {{ decl.get_periode_display }}
                                     <br><small class="text-muted">{{ decl.periode_debut|date:"d.m" }} - {{ decl.periode_fin|date:"d.m.Y" }}</small>
                                 </td>
-                                <td class="text-end">{{ decl.masse_salariale_brute|floatformat:0|intcomma }} CHF</td>
-                                <td class="text-end"><strong>{{ decl.montant_cotisations|floatformat:2|intcomma }} CHF</strong></td>
+                                <td class="text-end">{{ decl.masse_salariale_brute|devise:DEVISE_TAUX|floatformat:0|intcomma }} {{ DEVISE_CODE }}</td>
+                                <td class="text-end"><strong>{{ decl.montant_cotisations|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</strong></td>
                                 <td>
                                     {% if decl.date_echeance %}
                                         {% if decl.date_echeance < today and not decl.date_paiement %}

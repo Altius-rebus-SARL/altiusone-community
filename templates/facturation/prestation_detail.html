@@ -2,6 +2,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% load i18n %}
+{% load devise_tags %}
 
 {% block title %}{% trans "Prestation" %} {{ prestation.code }}{% endblock %}
 
@@ -81,7 +82,7 @@
                         <label class="text-muted f-s-12">{% trans "Prix unitaire HT" %}</label>
                         <h6>
                             {% if prestation.prix_unitaire_ht %}
-                            {{ prestation.prix_unitaire_ht|floatformat:2 }} CHF
+                            {{ prestation.prix_unitaire_ht|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}
                             {% else %}
                             <span class="text-muted">—</span>
                             {% endif %}
@@ -91,7 +92,7 @@
                         <label class="text-muted f-s-12">{% trans "Taux horaire" %}</label>
                         <h6>
                             {% if prestation.taux_horaire %}
-                            {{ prestation.taux_horaire|floatformat:2 }} CHF/h
+                            {{ prestation.taux_horaire|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}/h
                             {% else %}
                             <span class="text-muted">—</span>
                             {% endif %}

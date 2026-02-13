@@ -24,7 +24,8 @@
 const AltiusCharts = {
     // Configuration globale
     defaultLocale: '{{ LANGUAGE_CODE|default:"fr" }}',
-    currency: 'CHF',
+    currency: window.ALTIUSONE_DEVISE ? window.ALTIUSONE_DEVISE.code : '{{ DEVISE_CODE }}',
+    taux: window.ALTIUSONE_DEVISE ? window.ALTIUSONE_DEVISE.taux : 1,
 
     // Palette de couleurs professionnelle
     colors: {
@@ -40,14 +41,15 @@ const AltiusCharts = {
         gradient: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'],
     },
 
-    // Formateur monétaire
+    // Formateur monétaire (applique la conversion de devise)
     formatCurrency(value, decimals = 0) {
+        const converted = value * this.taux;
         return new Intl.NumberFormat('fr-CH', {
             style: 'currency',
             currency: this.currency,
             minimumFractionDigits: decimals,
             maximumFractionDigits: decimals
-        }).format(value);
+        }).format(converted);
     },
 
     // Formateur pourcentage

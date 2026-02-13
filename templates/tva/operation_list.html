@@ -2,6 +2,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% load i18n %}
+{% load devise_tags %}
 
 {% block title %}{% trans "Opérations TVA" %}{% endblock %}
 
@@ -60,7 +61,7 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <h3 class="text-danger mb-0">{{ stats.tva_due|floatformat:2 }}</h3>
+                        <h3 class="text-danger mb-0">{{ stats.tva_due|devise:DEVISE_TAUX|floatformat:2 }}</h3>
                         <p class="text-muted mb-0">{% trans "TVA due" %}</p>
                     </div>
                     <div class="h-50 w-50 d-flex-center rounded-circle bg-light-danger">
@@ -75,7 +76,7 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <h3 class="text-success mb-0">{{ stats.tva_prealable|floatformat:2 }}</h3>
+                        <h3 class="text-success mb-0">{{ stats.tva_prealable|devise:DEVISE_TAUX|floatformat:2 }}</h3>
                         <p class="text-muted mb-0">{% trans "TVA préalable" %}</p>
                     </div>
                     <div class="h-50 w-50 d-flex-center rounded-circle bg-light-success">
@@ -157,9 +158,9 @@
                                 <td>{{ operation.libelle|truncatewords:8 }}</td>
                                 <td>{{ operation.tiers|default:"—" }}</td>
                                 <td><span class="badge bg-light-dark">{{ operation.code_tva.code }}</span></td>
-                                <td class="text-end">{{ operation.montant_ht|floatformat:2 }}</td>
-                                <td class="text-end f-w-600">{{ operation.montant_tva|floatformat:2 }}</td>
-                                <td class="text-end f-w-600">{{ operation.montant_ttc|floatformat:2 }}</td>
+                                <td class="text-end">{{ operation.montant_ht|devise:DEVISE_TAUX|floatformat:2 }}</td>
+                                <td class="text-end f-w-600">{{ operation.montant_tva|devise:DEVISE_TAUX|floatformat:2 }}</td>
+                                <td class="text-end f-w-600">{{ operation.montant_ttc|devise:DEVISE_TAUX|floatformat:2 }}</td>
                                 <td>
                                     {% if operation.integre_declaration %}
                                         {% if operation.declaration_tva %}

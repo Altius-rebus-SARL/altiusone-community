@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% load i18n %}
+{% load devise_tags %}
 
 {% block title %}{% trans "Pièce" %} {{ piece.numero_piece }}{% endblock %}
 
@@ -85,13 +86,13 @@
                     <div class="col-md-4">
                         <label class="text-muted f-s-12">{% trans "Total débit" %}</label>
                         <h6 class="mb-0">
-                            <span class="text-success f-w-600">{{ piece.total_debit|floatformat:2 }} CHF</span>
+                            <span class="text-success f-w-600">{{ piece.total_debit|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</span>
                         </h6>
                     </div>
                     <div class="col-md-4">
                         <label class="text-muted f-s-12">{% trans "Total crédit" %}</label>
                         <h6 class="mb-0">
-                            <span class="text-danger f-w-600">{{ piece.total_credit|floatformat:2 }} CHF</span>
+                            <span class="text-danger f-w-600">{{ piece.total_credit|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</span>
                         </h6>
                     </div>
                     <div class="col-md-4">
@@ -177,14 +178,14 @@
                                 <td>{{ ecriture.libelle|truncatewords:10 }}</td>
                                 <td class="text-end">
                                     {% if ecriture.montant_debit > 0 %}
-                                    <span class="text-success f-w-600">{{ ecriture.montant_debit|floatformat:2 }}</span>
+                                    <span class="text-success f-w-600">{{ ecriture.montant_debit|devise:DEVISE_TAUX|floatformat:2 }}</span>
                                     {% else %}
                                     <span class="text-muted">—</span>
                                     {% endif %}
                                 </td>
                                 <td class="text-end">
                                     {% if ecriture.montant_credit > 0 %}
-                                    <span class="text-danger f-w-600">{{ ecriture.montant_credit|floatformat:2 }}</span>
+                                    <span class="text-danger f-w-600">{{ ecriture.montant_credit|devise:DEVISE_TAUX|floatformat:2 }}</span>
                                     {% else %}
                                     <span class="text-muted">—</span>
                                     {% endif %}
@@ -218,10 +219,10 @@
                             <tr class="table-active">
                                 <th colspan="4" class="text-end">{% trans "TOTAL" %}</th>
                                 <th class="text-end">
-                                    <span class="text-success f-w-600">{{ piece.total_debit|floatformat:2 }}</span>
+                                    <span class="text-success f-w-600">{{ piece.total_debit|devise:DEVISE_TAUX|floatformat:2 }}</span>
                                 </th>
                                 <th class="text-end">
-                                    <span class="text-danger f-w-600">{{ piece.total_credit|floatformat:2 }}</span>
+                                    <span class="text-danger f-w-600">{{ piece.total_credit|devise:DEVISE_TAUX|floatformat:2 }}</span>
                                 </th>
                                 <th colspan="2"></th>
                             </tr>

@@ -3,6 +3,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% load i18n %}
+{% load devise_tags %}
 
 {% block title %}{% trans "Exercice" %} {{ exercice.annee }}{% endblock %}
 
@@ -113,7 +114,7 @@
                                     <li class="list-group-item d-flex justify-content-between">
                                         <span class="text-muted">{% trans "Résultat" %}</span>
                                         <span class="f-w-500 {% if exercice.resultat_exercice >= 0 %}text-success{% else %}text-danger{% endif %}">
-                                            {{ exercice.resultat_exercice|floatformat:2 }} CHF
+                                            {{ exercice.resultat_exercice|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}
                                         </span>
                                     </li>
                                     {% endif %}
@@ -176,8 +177,8 @@
                                     {% for declaration in declarations_tva %}
                                     <tr>
                                         <td>T{{ declaration.trimestre }} {{ declaration.annee }}</td>
-                                        <td>{{ declaration.chiffre_affaires_imposable|floatformat:2 }} CHF</td>
-                                        <td class="f-w-500">{{ declaration.tva_nette_due|floatformat:2 }} CHF</td>
+                                        <td>{{ declaration.chiffre_affaires_imposable|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</td>
+                                        <td class="f-w-500">{{ declaration.tva_nette_due|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</td>
                                         <td>
                                             <span class="badge bg-light-{{ declaration.statut|lower }}">
                                                 {{ declaration.get_statut_display }}

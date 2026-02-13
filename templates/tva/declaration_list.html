@@ -2,6 +2,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% load i18n %}
+{% load devise_tags %}
 
 {% block title %}{% trans "Déclarations TVA" %}{% endblock %}
 
@@ -75,7 +76,7 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <h3 class="text-info mb-0">{{ stats.tva_due_annee|floatformat:2 }}</h3>
+                        <h3 class="text-info mb-0">{{ stats.tva_due_annee|devise:DEVISE_TAUX|floatformat:2 }}</h3>
                         <p class="text-muted mb-0">{% trans "TVA année" %}</p>
                     </div>
                     <div class="h-50 w-50 d-flex-center rounded-circle bg-light-info">
@@ -155,13 +156,13 @@
                                     {% endif %}
                                 </td>
                                 <td><span class="badge bg-light-secondary">{{ declaration.methode }}</span></td>
-                                <td class="text-end text-danger f-w-600">{{ declaration.tva_due_total|floatformat:2 }}</td>
-                                <td class="text-end text-success f-w-600">{{ declaration.tva_prealable_total|floatformat:2 }}</td>
+                                <td class="text-end text-danger f-w-600">{{ declaration.tva_due_total|devise:DEVISE_TAUX|floatformat:2 }}</td>
+                                <td class="text-end text-success f-w-600">{{ declaration.tva_prealable_total|devise:DEVISE_TAUX|floatformat:2 }}</td>
                                 <td class="text-end">
                                     {% if declaration.solde_tva > 0 %}
-                                    <span class="text-danger f-w-600">{{ declaration.solde_tva|floatformat:2 }}</span>
+                                    <span class="text-danger f-w-600">{{ declaration.solde_tva|devise:DEVISE_TAUX|floatformat:2 }}</span>
                                     {% elif declaration.solde_tva < 0 %}
-                                    <span class="text-success f-w-600">{{ declaration.solde_tva|floatformat:2 }}</span>
+                                    <span class="text-success f-w-600">{{ declaration.solde_tva|devise:DEVISE_TAUX|floatformat:2 }}</span>
                                     {% else %}
                                     <span class="text-muted">0.00</span>
                                     {% endif %}

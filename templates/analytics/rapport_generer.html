@@ -840,12 +840,13 @@ function renderTablePreview(tableData) {
 
 function formatCurrency(value) {
     if (value === null || value === undefined) return '-';
+    const d = window.ALTIUSONE_DEVISE || { code: '{{ DEVISE_CODE }}', taux: 1 };
     return new Intl.NumberFormat('fr-CH', {
         style: 'currency',
-        currency: 'CHF',
+        currency: d.code,
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
-    }).format(value);
+    }).format(value * d.taux);
 }
 
 // Mettre à jour le style visuel des cartes de type de rapport

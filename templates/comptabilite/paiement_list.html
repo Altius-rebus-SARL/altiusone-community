@@ -127,7 +127,7 @@ btnLoad.addEventListener('click', function() {
                     '<td class="text-muted">' + p.date_piece + '</td>' +
                     '<td>' + (p.tiers_nom || '-') + '</td>' +
                     '<td class="text-muted">' + p.libelle + '</td>' +
-                    '<td class="text-end f-w-600">' + p.montant_ttc + ' CHF</td>';
+                    '<td class="text-end f-w-600">' + p.montant_ttc + ' {{ DEVISE_CODE }}</td>';
                 tbody.appendChild(row);
             });
             document.getElementById('factures-zone').style.display = 'block';

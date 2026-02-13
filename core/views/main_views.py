@@ -68,8 +68,9 @@ from core.forms import (
     ContactForm,
     TacheForm,
     AdresseForm,
-    SignUpForm, 
+    SignUpForm,
     ExerciceComptableForm,
+    ProfileForm,
 )
 from core.filters import ClientFilter, MandatFilter, TacheFilter
 
@@ -872,7 +873,7 @@ class ProfileUpdateView(LoginRequiredMixin, UpdateView):
     """
 
     template_name = "core/profile_edit.html"
-    fields = ["first_name", "last_name", "email"]
+    form_class = ProfileForm
     success_url = reverse_lazy("core:profile")
 
     def get_object(self, queryset=None):
@@ -1205,6 +1206,30 @@ def set_language(request):
     # Rediriger vers la page précédente
     next_url = request.META.get("HTTP_REFERER", "/")
 
+    return redirect(next_url)
+
+
+# ============================================================================
+# CHANGEMENT DE DEVISE
+# ============================================================================
+
+
+@login_required
+@require_http_methods(["POST"])
+def set_devise(request):
+    """Changer la devise d'affichage."""
+    from core.models import Devise
+
+    devise_code = request.POST.get("devise_code", "")
+
+    # Valider que la devise existe et est active
+    if devise_code and Devise.objects.filter(code=devise_code, actif=True).exists():
+        prefs = request.user.preferences or {}
+        prefs["devise_code"] = devise_code
+        request.user.preferences = prefs
+        request.user.save(update_fields=["preferences"])
+
+    next_url = request.POST.get("next") or request.META.get("HTTP_REFERER", "/")
     return redirect(next_url)
 
 

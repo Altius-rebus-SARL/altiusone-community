@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% load i18n %}
+{% load devise_tags %}
 
 {% block title %}{{ compte.numero }} - {{ compte.libelle }}{% endblock %}
 
@@ -108,7 +109,7 @@
                             {% elif compte.solde < 0 %}
                             <span class="text-danger f-w-600">{{ compte.get_solde_display }}</span>
                             {% else %}
-                            <span class="text-muted">0.00 CHF</span>
+                            <span class="text-muted">0.00 {{ DEVISE_CODE }}</span>
                             {% endif %}
                         </h6>
                     </div>
@@ -167,7 +168,7 @@
                 <div class="mb-3">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <h3 class="text-success mb-0">{{ stats_exercice.total_debit|floatformat:2 }}</h3>
+                            <h3 class="text-success mb-0">{{ stats_exercice.total_debit|devise:DEVISE_TAUX|floatformat:2 }}</h3>
                             <p class="text-muted f-s-12 mb-0">{% trans "Total débit" %}</p>
                         </div>
                         <div class="h-40 w-40 d-flex-center rounded-circle bg-light-success">
@@ -179,7 +180,7 @@
                 <div>
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <h3 class="text-danger mb-0">{{ stats_exercice.total_credit|floatformat:2 }}</h3>
+                            <h3 class="text-danger mb-0">{{ stats_exercice.total_credit|devise:DEVISE_TAUX|floatformat:2 }}</h3>
                             <p class="text-muted f-s-12 mb-0">{% trans "Total crédit" %}</p>
                         </div>
                         <div class="h-40 w-40 d-flex-center rounded-circle bg-light-danger">
@@ -224,14 +225,14 @@
                                 <td>{{ ecriture.libelle|truncatewords:10 }}</td>
                                 <td class="text-end">
                                     {% if ecriture.montant_debit > 0 %}
-                                    <span class="text-success">{{ ecriture.montant_debit|floatformat:2 }}</span>
+                                    <span class="text-success">{{ ecriture.montant_debit|devise:DEVISE_TAUX|floatformat:2 }}</span>
                                     {% else %}
                                     <span class="text-muted">—</span>
                                     {% endif %}
                                 </td>
                                 <td class="text-end">
                                     {% if ecriture.montant_credit > 0 %}
-                                    <span class="text-danger">{{ ecriture.montant_credit|floatformat:2 }}</span>
+                                    <span class="text-danger">{{ ecriture.montant_credit|devise:DEVISE_TAUX|floatformat:2 }}</span>
                                     {% else %}
                                     <span class="text-muted">—</span>
                                     {% endif %}

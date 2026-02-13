@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% load i18n %}
+{% load devise_tags %}
 
 {% block title %}{% trans "Balance générale" %}{% endblock %}
 
@@ -109,14 +110,14 @@
                                 <td>{{ item.compte.libelle }}</td>
                                 <td class="text-end">
                                     {% if item.solde_debit > 0 %}
-                                    <span class="text-success">{{ item.solde_debit|floatformat:2 }}</span>
+                                    <span class="text-success">{{ item.solde_debit|devise:DEVISE_TAUX|floatformat:2 }}</span>
                                     {% else %}
                                     <span class="text-muted">—</span>
                                     {% endif %}
                                 </td>
                                 <td class="text-end">
                                     {% if item.solde_credit > 0 %}
-                                    <span class="text-danger">{{ item.solde_credit|floatformat:2 }}</span>
+                                    <span class="text-danger">{{ item.solde_credit|devise:DEVISE_TAUX|floatformat:2 }}</span>
                                     {% else %}
                                     <span class="text-muted">—</span>
                                     {% endif %}
@@ -124,9 +125,9 @@
                                 <td class="text-end">
                                     {% with solde=item.solde_debit|add:"-"|add:item.solde_credit %}
                                     {% if solde > 0 %}
-                                    <span class="text-success f-w-600">{{ solde|floatformat:2 }}</span>
+                                    <span class="text-success f-w-600">{{ solde|devise:DEVISE_TAUX|floatformat:2 }}</span>
                                     {% elif solde < 0 %}
-                                    <span class="text-danger f-w-600">{{ solde|floatformat:2 }}</span>
+                                    <span class="text-danger f-w-600">{{ solde|devise:DEVISE_TAUX|floatformat:2 }}</span>
                                     {% else %}
                                     <span class="text-muted">0.00</span>
                                     {% endif %}
@@ -146,17 +147,17 @@
                             <tr class="table-active">
                                 <th colspan="2">{% trans "TOTAUX" %}</th>
                                 <th class="text-end">
-                                    <span class="text-success f-w-600">{{ total_debit|floatformat:2 }} CHF</span>
+                                    <span class="text-success f-w-600">{{ total_debit|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</span>
                                 </th>
                                 <th class="text-end">
-                                    <span class="text-danger f-w-600">{{ total_credit|floatformat:2 }} CHF</span>
+                                    <span class="text-danger f-w-600">{{ total_credit|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</span>
                                 </th>
                                 <th class="text-end">
                                     {% with diff=total_debit|add:"-"|add:total_credit %}
                                     {% if diff == 0 %}
-                                    <span class="text-success f-w-600">0.00 CHF</span>
+                                    <span class="text-success f-w-600">0.00 {{ DEVISE_CODE }}</span>
                                     {% else %}
-                                    <span class="text-danger f-w-600">{{ diff|floatformat:2 }} CHF</span>
+                                    <span class="text-danger f-w-600">{{ diff|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</span>
                                     {% endif %}
                                     {% endwith %}
                                 </th>

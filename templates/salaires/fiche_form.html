@@ -144,7 +144,7 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="form-label">{% trans "Salaire de base (CHF)" %} <span class="text-danger">*</span></label>
+                                <label class="form-label">{% trans "Salaire de base" %} ({{ DEVISE_CODE }}) <span class="text-danger">*</span></label>
                                 {{ form.salaire_base|add_class:"form-control" }}
                                 {% if form.salaire_base.errors %}
                                 <div class="text-danger f-s-12 mt-1">{{ form.salaire_base.errors.0 }}</div>
@@ -154,28 +154,28 @@
 
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="form-label">{% trans "Montant heures sup. (CHF)" %}</label>
+                                <label class="form-label">{% trans "Montant heures sup." %} ({{ DEVISE_CODE }})</label>
                                 {{ form.heures_supp_montant|add_class:"form-control" }}
                             </div>
                         </div>
 
                         <div class="col-md-4">
                             <div class="mb-3">
-                                <label class="form-label">{% trans "Primes (CHF)" %}</label>
+                                <label class="form-label">{% trans "Primes" %} ({{ DEVISE_CODE }})</label>
                                 {{ form.primes|add_class:"form-control" }}
                             </div>
                         </div>
 
                         <div class="col-md-4">
                             <div class="mb-3">
-                                <label class="form-label">{% trans "Indemnités (CHF)" %}</label>
+                                <label class="form-label">{% trans "Indemnités" %} ({{ DEVISE_CODE }})</label>
                                 {{ form.indemnites|add_class:"form-control" }}
                             </div>
                         </div>
 
                         <div class="col-md-4">
                             <div class="mb-3">
-                                <label class="form-label">{% trans "13ème salaire (CHF)" %}</label>
+                                <label class="form-label">{% trans "13ème salaire" %} ({{ DEVISE_CODE }})</label>
                                 {{ form.treizieme_mois|add_class:"form-control" }}
                             </div>
                         </div>
@@ -192,14 +192,14 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="form-label">{% trans "Allocations familiales (CHF)" %}</label>
+                                <label class="form-label">{% trans "Allocations familiales" %} ({{ DEVISE_CODE }})</label>
                                 {{ form.allocations_familiales|add_class:"form-control" }}
                             </div>
                         </div>
 
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="form-label">{% trans "Autres allocations (CHF)" %}</label>
+                                <label class="form-label">{% trans "Autres allocations" %} ({{ DEVISE_CODE }})</label>
                                 {{ form.autres_allocations|add_class:"form-control" }}
                             </div>
                         </div>
@@ -216,21 +216,21 @@
                     <div class="row">
                         <div class="col-md-4">
                             <div class="mb-3">
-                                <label class="form-label">{% trans "Avance sur salaire (CHF)" %}</label>
+                                <label class="form-label">{% trans "Avance sur salaire" %} ({{ DEVISE_CODE }})</label>
                                 {{ form.avance_salaire|add_class:"form-control" }}
                             </div>
                         </div>
 
                         <div class="col-md-4">
                             <div class="mb-3">
-                                <label class="form-label">{% trans "Saisie salaire (CHF)" %}</label>
+                                <label class="form-label">{% trans "Saisie salaire" %} ({{ DEVISE_CODE }})</label>
                                 {{ form.saisie_salaire|add_class:"form-control" }}
                             </div>
                         </div>
 
                         <div class="col-md-4">
                             <div class="mb-3">
-                                <label class="form-label">{% trans "Autres déductions (CHF)" %}</label>
+                                <label class="form-label">{% trans "Autres déductions" %} ({{ DEVISE_CODE }})</label>
                                 {{ form.autres_deductions|add_class:"form-control" }}
                             </div>
                         </div>

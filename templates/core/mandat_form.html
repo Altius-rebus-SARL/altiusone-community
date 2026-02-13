@@ -168,7 +168,7 @@
                         <div class="col-md-4">
                             <div class="mb-3">
                                 <label class="form-label">{% trans "Budget réel" %}</label>
-                                <input type="text" class="form-control" value="{{ form.instance.budget_reel|default:'0.00' }} CHF" disabled readonly>
+                                <input type="text" class="form-control" value="{{ form.instance.budget_reel|default:'0.00' }} {{ DEVISE_CODE }}" disabled readonly>
                             </div>
                         </div>
                         {% endif %}

@@ -3,6 +3,7 @@
 {% load static %}
 {% load i18n %}
 {% load humanize %}
+{% load devise_tags %}
 
 {% block title %}{{ employe.prenom }} {{ employe.nom }}{% endblock %}
 
@@ -148,19 +149,19 @@
             <div class="card-body">
                 <div class="mb-3">
                     <p class="text-muted mb-1 f-s-12">{% trans "Salaire brut total" %}</p>
-                    <h5 class="text-primary mb-0">{{ stats_annee.salaire_brut_total|floatformat:2|intcomma }} CHF</h5>
+                    <h5 class="text-primary mb-0">{{ stats_annee.salaire_brut_total|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</h5>
                 </div>
                 <div class="mb-3">
                     <p class="text-muted mb-1 f-s-12">{% trans "Salaire net total" %}</p>
-                    <h5 class="text-success mb-0">{{ stats_annee.salaire_net_total|floatformat:2|intcomma }} CHF</h5>
+                    <h5 class="text-success mb-0">{{ stats_annee.salaire_net_total|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</h5>
                 </div>
                 <div class="mb-3">
                     <p class="text-muted mb-1 f-s-12">{% trans "Cotisations employé" %}</p>
-                    <p class="f-w-600 mb-0">{{ stats_annee.cotisations_employe|floatformat:2|intcomma }} CHF</p>
+                    <p class="f-w-600 mb-0">{{ stats_annee.cotisations_employe|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</p>
                 </div>
                 <div>
                     <p class="text-muted mb-1 f-s-12">{% trans "Charges patronales" %}</p>
-                    <p class="f-w-600 mb-0">{{ stats_annee.charges_patronales|floatformat:2|intcomma }} CHF</p>
+                    <p class="f-w-600 mb-0">{{ stats_annee.charges_patronales|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</p>
                 </div>
             </div>
         </div>
@@ -218,13 +219,13 @@
                 <div class="row">
                     <div class="col-md-3">
                         <p class="text-muted mb-1 f-s-12">{% trans "Salaire brut mensuel" %}</p>
-                        <h5 class="text-primary mb-0">{{ employe.salaire_brut_mensuel|floatformat:2|intcomma }} CHF</h5>
+                        <h5 class="text-primary mb-0">{{ employe.salaire_brut_mensuel|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</h5>
                     </div>
                     <div class="col-md-3">
                         <p class="text-muted mb-1 f-s-12">{% trans "13ème salaire" %}</p>
                         <p>
                             {% if employe.treizieme_salaire %}
-                            <i class="ph ph-check-circle text-success"></i> {{ employe.montant_13eme|floatformat:2|intcomma }} CHF
+                            <i class="ph ph-check-circle text-success"></i> {{ employe.montant_13eme|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}
                             {% else %}
                             <i class="ph ph-x-circle text-danger"></i> {% trans "Non" %}
                             {% endif %}
@@ -236,7 +237,7 @@
                     </div>
                     <div class="col-md-3">
                         <p class="text-muted mb-1 f-s-12">{% trans "Salaire annuel brut" %}</p>
-                        <h5 class="text-info mb-0">{{ employe.salaire_annuel_brut|floatformat:2|intcomma }} CHF</h5>
+                        <h5 class="text-info mb-0">{{ employe.salaire_annuel_brut|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</h5>
                     </div>
                 </div>
             </div>
@@ -274,9 +275,9 @@
                             {% for fiche in fiches_recentes %}
                             <tr>
                                 <td>{{ fiche.periode|date:"F Y" }}</td>
-                                <td class="text-end">{{ fiche.salaire_brut_total|floatformat:2|intcomma }} CHF</td>
-                                <td class="text-end text-danger">-{{ fiche.total_cotisations_employe|floatformat:2|intcomma }} CHF</td>
-                                <td class="text-end"><strong class="text-success">{{ fiche.salaire_net|floatformat:2|intcomma }} CHF</strong></td>
+                                <td class="text-end">{{ fiche.salaire_brut_total|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</td>
+                                <td class="text-end text-danger">-{{ fiche.total_cotisations_employe|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</td>
+                                <td class="text-end"><strong class="text-success">{{ fiche.salaire_net|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</strong></td>
                                 <td>
                                     {% if fiche.statut == 'BROUILLON' %}
                                     <span class="badge text-light-secondary">{% trans "Brouillon" %}</span>
@@ -339,7 +340,7 @@
                             <tr>
                                 <td><strong>{{ cert.annee }}</strong></td>
                                 <td>{{ cert.date_debut|date:"d.m.Y" }} - {{ cert.date_fin|date:"d.m.Y" }}</td>
-                                <td class="text-end">{{ cert.salaire_brut_annuel|floatformat:2|intcomma }} CHF</td>
+                                <td class="text-end">{{ cert.salaire_brut_annuel|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</td>
                                 <td>{{ cert.date_generation|date:"d.m.Y H:i" }}</td>
                                 <td class="text-end">
                                     <a href="{% url 'salaires:certificat-detail' cert.pk %}" class="btn btn-sm btn-primary">

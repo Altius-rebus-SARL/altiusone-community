@@ -329,7 +329,7 @@
                     <div class="row">
                         <div class="col-md-4">
                             <div class="mb-3">
-                                <label class="form-label">{% trans "Salaire brut mensuel (CHF)" %} <span class="text-danger">*</span></label>
+                                <label class="form-label">{% trans "Salaire brut mensuel" %} ({{ DEVISE_CODE }}) <span class="text-danger">*</span></label>
                                 {{ form.salaire_brut_mensuel|add_class:"form-control" }}
                                 {% if form.salaire_brut_mensuel.errors %}
                                 <div class="text-danger f-s-12 mt-1">{{ form.salaire_brut_mensuel.errors.0 }}</div>
@@ -339,7 +339,7 @@
 
                         <div class="col-md-4">
                             <div class="mb-3">
-                                <label class="form-label">{% trans "Salaire horaire (CHF)" %}</label>
+                                <label class="form-label">{% trans "Salaire horaire" %} ({{ DEVISE_CODE }})</label>
                                 {{ form.salaire_horaire|add_class:"form-control" }}
                             </div>
                         </div>
@@ -356,7 +356,7 @@
 
                         <div class="col-md-4">
                             <div class="mb-3">
-                                <label class="form-label">{% trans "Montant 13ème (CHF)" %}</label>
+                                <label class="form-label">{% trans "Montant 13ème" %} ({{ DEVISE_CODE }})</label>
                                 {{ form.montant_13eme|add_class:"form-control" }}
                             </div>
                         </div>

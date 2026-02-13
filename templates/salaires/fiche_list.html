@@ -1,5 +1,5 @@
 <!-- salaires/fiche_list.html -->
-{% extends 'base.html' %} {% load static %} {% load i18n %} {% load humanize %}
+{% extends 'base.html' %} {% load static %} {% load i18n %} {% load humanize %} {% load devise_tags %}
 {% block title %}{% trans "Fiches de salaire" %}{% endblock %} 
 
 {% block content%}
@@ -81,9 +81,9 @@
               {% trans "Masse salariale mois" %}
             </p>
             <h4 class="mb-0 text-success">
-              {{ stats.masse_salariale_mois|floatformat:0|intcomma }}
+              {{ stats.masse_salariale_mois|devise:DEVISE_TAUX|floatformat:0|intcomma }}
             </h4>
-            <span class="f-s-12 text-muted">CHF</span>
+            <span class="f-s-12 text-muted">{{ DEVISE_CODE }}</span>
           </div>
           <div class="avatar bg-light-success rounded">
             <i
@@ -212,14 +212,14 @@
                 </td>
                 <td>{{ fiche.periode|date:"F Y" }}</td>
                 <td class="text-end">
-                  {{ fiche.salaire_brut_total|floatformat:2 }} CHF
+                  {{ fiche.salaire_brut_total|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}
                 </td>
                 <td class="text-end text-danger">
-                  -{{ fiche.total_cotisations_employe|floatformat:2 }} CHF
+                  -{{ fiche.total_cotisations_employe|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}
                 </td>
                 <td class="text-end">
                   <strong class="text-success"
-                    >{{ fiche.salaire_net|floatformat:2 }} CHF</strong
+                    >{{ fiche.salaire_net|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</strong
                   >
                 </td>
                 <td>

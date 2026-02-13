@@ -3,6 +3,7 @@
 {% load static %}
 {% load i18n %}
 {% load humanize %}
+{% load devise_tags %}
 
 {% block title %}{% trans "Certificat de salaire" %} {{ certificat.annee }}{% endblock %}
 
@@ -215,14 +216,14 @@
                     <!-- REVENUS (Chiffres 1-7) -->
                     <div class="section-header mb-2">
                         <i class="ph ph-currency-circle-dollar me-2"></i>{% trans "REVENUS" %}
-                        <span class="float-end">CHF</span>
+                        <span class="float-end">{{ DEVISE_CODE }}</span>
                     </div>
 
                     <!-- Chiffre 1 -->
                     <div class="chiffre-row">
                         <span class="chiffre-numero">1.</span>
                         <span class="chiffre-libelle">{% trans "Salaire (y.c. allocations, commissions, primes à l'ancienneté)" %}</span>
-                        <span class="chiffre-montant">{{ certificat.chiffre_1_salaire|floatformat:2|intcomma }}</span>
+                        <span class="chiffre-montant">{{ certificat.chiffre_1_salaire|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
                     </div>
 
                     <!-- Chiffre 2: Prestations en nature -->
@@ -240,7 +241,7 @@
                             {% if certificat.repas_midi_gratuit %}<span class="badge bg-light-info">{% trans "Midi" %}</span>{% endif %}
                             {% if certificat.repas_soir_gratuit %}<span class="badge bg-light-info">{% trans "Soir" %}</span>{% endif %}
                         </span>
-                        <span class="chiffre-montant">{{ certificat.chiffre_2_1_repas|floatformat:2|intcomma }}</span>
+                        <span class="chiffre-montant">{{ certificat.chiffre_2_1_repas|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
                     </div>
                     {% endif %}
 
@@ -251,7 +252,7 @@
                             {% trans "Part privée véhicule de service" %}
                             {% if certificat.voiture_disponible %}<span class="badge bg-light-warning">{% trans "Véhicule fourni" %}</span>{% endif %}
                         </span>
-                        <span class="chiffre-montant">{{ certificat.chiffre_2_2_voiture|floatformat:2|intcomma }}</span>
+                        <span class="chiffre-montant">{{ certificat.chiffre_2_2_voiture|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
                     </div>
                     {% endif %}
 
@@ -259,7 +260,7 @@
                     <div class="chiffre-row sub-item">
                         <span class="chiffre-numero">2.3</span>
                         <span class="chiffre-libelle">{% trans "Autres prestations en nature" %}</span>
-                        <span class="chiffre-montant">{{ certificat.chiffre_2_3_autres|floatformat:2|intcomma }}</span>
+                        <span class="chiffre-montant">{{ certificat.chiffre_2_3_autres|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
                     </div>
                     {% endif %}
 
@@ -268,7 +269,7 @@
                     <div class="chiffre-row">
                         <span class="chiffre-numero">3.</span>
                         <span class="chiffre-libelle">{% trans "Prestations irrégulières (13ème, bonus, gratifications)" %}</span>
-                        <span class="chiffre-montant">{{ certificat.chiffre_3_irregulier|floatformat:2|intcomma }}</span>
+                        <span class="chiffre-montant">{{ certificat.chiffre_3_irregulier|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
                     </div>
                     {% endif %}
 
@@ -277,7 +278,7 @@
                     <div class="chiffre-row">
                         <span class="chiffre-numero">4.</span>
                         <span class="chiffre-libelle">{% trans "Prestations en capital" %}</span>
-                        <span class="chiffre-montant">{{ certificat.chiffre_4_capital|floatformat:2|intcomma }}</span>
+                        <span class="chiffre-montant">{{ certificat.chiffre_4_capital|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
                     </div>
                     {% endif %}
 
@@ -286,7 +287,7 @@
                     <div class="chiffre-row">
                         <span class="chiffre-numero">5.</span>
                         <span class="chiffre-libelle">{% trans "Droits de participation (actions, options)" %}</span>
-                        <span class="chiffre-montant">{{ certificat.chiffre_5_participations|floatformat:2|intcomma }}</span>
+                        <span class="chiffre-montant">{{ certificat.chiffre_5_participations|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
                     </div>
                     {% endif %}
 
@@ -295,7 +296,7 @@
                     <div class="chiffre-row">
                         <span class="chiffre-numero">6.</span>
                         <span class="chiffre-libelle">{% trans "Indemnités conseil d'administration" %}</span>
-                        <span class="chiffre-montant">{{ certificat.chiffre_6_ca|floatformat:2|intcomma }}</span>
+                        <span class="chiffre-montant">{{ certificat.chiffre_6_ca|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
                     </div>
                     {% endif %}
 
@@ -304,7 +305,7 @@
                     <div class="chiffre-row">
                         <span class="chiffre-numero">7.</span>
                         <span class="chiffre-libelle">{% trans "Autres prestations" %}</span>
-                        <span class="chiffre-montant">{{ certificat.chiffre_7_autres|floatformat:2|intcomma }}</span>
+                        <span class="chiffre-montant">{{ certificat.chiffre_7_autres|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
                     </div>
                     {% endif %}
 
@@ -312,7 +313,7 @@
                     <div class="chiffre-row total-row mt-2">
                         <span class="chiffre-numero">8.</span>
                         <span class="chiffre-libelle">{% trans "SALAIRE BRUT TOTAL" %}</span>
-                        <span class="chiffre-montant text-primary">{{ certificat.chiffre_8_total_brut|floatformat:2|intcomma }}</span>
+                        <span class="chiffre-montant text-primary">{{ certificat.chiffre_8_total_brut|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
                     </div>
 
                     <hr>
@@ -326,7 +327,7 @@
                     <div class="chiffre-row">
                         <span class="chiffre-numero">9.</span>
                         <span class="chiffre-libelle">{% trans "Cotisations AVS/AI/APG/AC/AANP" %}</span>
-                        <span class="chiffre-montant text-danger">-{{ certificat.chiffre_9_cotisations|floatformat:2|intcomma }}</span>
+                        <span class="chiffre-montant text-danger">-{{ certificat.chiffre_9_cotisations|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
                     </div>
 
                     <!-- Chiffre 10 -->
@@ -339,14 +340,14 @@
                     <div class="chiffre-row sub-item">
                         <span class="chiffre-numero">10.1</span>
                         <span class="chiffre-libelle">{% trans "Cotisations ordinaires" %}</span>
-                        <span class="chiffre-montant text-danger">-{{ certificat.chiffre_10_1_lpp_ordinaire|floatformat:2|intcomma }}</span>
+                        <span class="chiffre-montant text-danger">-{{ certificat.chiffre_10_1_lpp_ordinaire|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
                     </div>
 
                     {% if certificat.chiffre_10_2_lpp_rachat > 0 %}
                     <div class="chiffre-row sub-item">
                         <span class="chiffre-numero">10.2</span>
                         <span class="chiffre-libelle">{% trans "Rachats d'années" %}</span>
-                        <span class="chiffre-montant text-danger">-{{ certificat.chiffre_10_2_lpp_rachat|floatformat:2|intcomma }}</span>
+                        <span class="chiffre-montant text-danger">-{{ certificat.chiffre_10_2_lpp_rachat|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
                     </div>
                     {% endif %}
 
@@ -354,7 +355,7 @@
                     <div class="chiffre-row total-row mt-2">
                         <span class="chiffre-numero">11.</span>
                         <span class="chiffre-libelle">{% trans "SALAIRE NET" %}</span>
-                        <span class="chiffre-montant text-success fw-bold">{{ certificat.chiffre_11_net|floatformat:2|intcomma }}</span>
+                        <span class="chiffre-montant text-success fw-bold">{{ certificat.chiffre_11_net|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
                     </div>
 
                     <hr>
@@ -369,7 +370,7 @@
                     <div class="chiffre-row">
                         <span class="chiffre-numero">12.</span>
                         <span class="chiffre-libelle">{% trans "Frais de déplacement (trajet domicile-travail)" %}</span>
-                        <span class="chiffre-montant">{{ certificat.chiffre_12_transport|floatformat:2|intcomma }}</span>
+                        <span class="chiffre-montant">{{ certificat.chiffre_12_transport|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
                     </div>
                     {% endif %}
 
@@ -384,7 +385,7 @@
                     <div class="chiffre-row sub-item">
                         <span class="chiffre-numero">13.1.1</span>
                         <span class="chiffre-libelle">{% trans "Repas effectifs" %}</span>
-                        <span class="chiffre-montant">{{ certificat.chiffre_13_1_1_repas_effectif|floatformat:2|intcomma }}</span>
+                        <span class="chiffre-montant">{{ certificat.chiffre_13_1_1_repas_effectif|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
                     </div>
                     {% endif %}
 
@@ -392,7 +393,7 @@
                     <div class="chiffre-row sub-item">
                         <span class="chiffre-numero">13.1.2</span>
                         <span class="chiffre-libelle">{% trans "Repas forfaitaires" %}</span>
-                        <span class="chiffre-montant">{{ certificat.chiffre_13_1_2_repas_forfait|floatformat:2|intcomma }}</span>
+                        <span class="chiffre-montant">{{ certificat.chiffre_13_1_2_repas_forfait|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
                     </div>
                     {% endif %}
 
@@ -400,7 +401,7 @@
                     <div class="chiffre-row sub-item">
                         <span class="chiffre-numero">13.2</span>
                         <span class="chiffre-libelle">{% trans "Nuitées" %}</span>
-                        <span class="chiffre-montant">{{ certificat.chiffre_13_2_nuitees|floatformat:2|intcomma }}</span>
+                        <span class="chiffre-montant">{{ certificat.chiffre_13_2_nuitees|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
                     </div>
                     {% endif %}
 
@@ -408,7 +409,7 @@
                     <div class="chiffre-row sub-item">
                         <span class="chiffre-numero">13.3</span>
                         <span class="chiffre-libelle">{% trans "Repas externes" %}</span>
-                        <span class="chiffre-montant">{{ certificat.chiffre_13_3_repas_externes|floatformat:2|intcomma }}</span>
+                        <span class="chiffre-montant">{{ certificat.chiffre_13_3_repas_externes|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
                     </div>
                     {% endif %}
                     {% endif %}
@@ -417,7 +418,7 @@
                     <div class="chiffre-row">
                         <span class="chiffre-numero">14.</span>
                         <span class="chiffre-libelle">{% trans "Autres frais professionnels" %}</span>
-                        <span class="chiffre-montant">{{ certificat.chiffre_14_autres_frais|floatformat:2|intcomma }}</span>
+                        <span class="chiffre-montant">{{ certificat.chiffre_14_autres_frais|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
                     </div>
                     {% endif %}
 
@@ -446,7 +447,7 @@
                     <hr>
                     <div class="alert alert-info mb-0">
                         <i class="ph ph-info me-2"></i>
-                        {% trans "Impôt à la source retenu" %}: <strong>{{ certificat.impot_source_annuel|floatformat:2|intcomma }} CHF</strong>
+                        {% trans "Impôt à la source retenu" %}: <strong>{{ certificat.impot_source_annuel|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</strong>
                         <small class="text-muted">({% trans "Information uniquement, non déclaré sur le formulaire 11" %})</small>
                     </div>
                     {% endif %}

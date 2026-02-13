@@ -2,6 +2,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% load i18n %}
+{% load devise_tags %}
 
 {% block title %}{{ mandat.numero }} - {{ mandat.client.raison_sociale }}{% endblock %}
 
@@ -128,13 +129,13 @@
                                     {% if mandat.budget_prevu %}
                                     <li class="list-group-item d-flex justify-content-between">
                                         <span class="text-muted">{% trans "Budget prévu" %}</span>
-                                        <span class="f-w-500">{{ mandat.budget_prevu }} CHF</span>
+                                        <span class="f-w-500">{{ mandat.budget_prevu }} {{ DEVISE_CODE }}</span>
                                     </li>
                                     {% endif %}
                                     {% if mandat.taux_horaire %}
                                     <li class="list-group-item d-flex justify-content-between">
                                         <span class="text-muted">{% trans "Taux horaire" %}</span>
-                                        <span class="f-w-500">{{ mandat.taux_horaire }} CHF/h</span>
+                                        <span class="f-w-500">{{ mandat.taux_horaire }} {{ DEVISE_CODE }}/h</span>
                                     </li>
                                     {% endif %}
                                 </ul>
@@ -276,13 +277,13 @@
                                 <div class="row">
                                     <div class="col-md-6">
                                         <div class="alert alert-success text-center">
-                                            <h4 class="mb-0">{{ stats_facturation.ca_annee|floatformat:2 }} CHF</h4>
+                                            <h4 class="mb-0">{{ stats_facturation.ca_annee|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h4>
                                             <small>{% trans "CA année courante" %}</small>
                                         </div>
                                     </div>
                                     <div class="col-md-6">
                                         <div class="alert alert-warning text-center">
-                                            <h4 class="mb-0">{{ stats_facturation.impaye|floatformat:2 }} CHF</h4>
+                                            <h4 class="mb-0">{{ stats_facturation.impaye|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h4>
                                             <small>{% trans "Impayé" %}</small>
                                         </div>
                                     </div>

@@ -64,7 +64,7 @@
 
                             <!-- Taux horaire -->
                             <div class="col-md-6 mb-3">
-                                <label for="id_taux_horaire" class="form-label">{% trans "Taux horaire specifique (CHF)" %}</label>
+                                <label for="id_taux_horaire" class="form-label">{% trans "Taux horaire specifique" %} ({{ DEVISE_CODE }})</label>
                                 {{ form.taux_horaire }}
                                 {% if form.taux_horaire.errors %}<div class="text-danger f-s-12">{{ form.taux_horaire.errors|join:", " }}</div>{% endif %}
                                 <small class="text-muted">{% trans "Laisser vide pour utiliser le taux global" %}</small>

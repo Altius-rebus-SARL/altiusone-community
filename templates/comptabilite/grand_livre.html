@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% load i18n %}
+{% load devise_tags %}
 
 {% block title %}{% trans "Grand livre" %} - {{ compte.numero }}{% endblock %}
 
@@ -131,23 +132,23 @@
                                 <td>{{ item.ecriture.libelle|truncatewords:12 }}</td>
                                 <td class="text-end">
                                     {% if item.ecriture.montant_debit > 0 %}
-                                    <span class="text-success">{{ item.ecriture.montant_debit|floatformat:2 }}</span>
+                                    <span class="text-success">{{ item.ecriture.montant_debit|devise:DEVISE_TAUX|floatformat:2 }}</span>
                                     {% else %}
                                     <span class="text-muted">—</span>
                                     {% endif %}
                                 </td>
                                 <td class="text-end">
                                     {% if item.ecriture.montant_credit > 0 %}
-                                    <span class="text-danger">{{ item.ecriture.montant_credit|floatformat:2 }}</span>
+                                    <span class="text-danger">{{ item.ecriture.montant_credit|devise:DEVISE_TAUX|floatformat:2 }}</span>
                                     {% else %}
                                     <span class="text-muted">—</span>
                                     {% endif %}
                                 </td>
                                 <td class="text-end">
                                     {% if item.solde > 0 %}
-                                    <span class="text-success f-w-600">{{ item.solde|floatformat:2 }}</span>
+                                    <span class="text-success f-w-600">{{ item.solde|devise:DEVISE_TAUX|floatformat:2 }}</span>
                                     {% elif item.solde < 0 %}
-                                    <span class="text-danger f-w-600">{{ item.solde|floatformat:2 }}</span>
+                                    <span class="text-danger f-w-600">{{ item.solde|devise:DEVISE_TAUX|floatformat:2 }}</span>
                                     {% else %}
                                     <span class="text-muted">0.00</span>
                                     {% endif %}

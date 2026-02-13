@@ -204,7 +204,7 @@ $(document).ready(function() {
         var comptable = parseFloat($('#id_montant_comptable').val()) || 0;
         var correction = parseFloat($('#id_montant_correction').val()) || 0;
         var fiscal = comptable + correction;
-        $('#montantFiscal').val(fiscal.toFixed(2) + ' CHF');
+        $('#montantFiscal').val(fiscal.toFixed(2) + ' {{ DEVISE_CODE }}');
     }
 
     $('#id_montant_comptable, #id_montant_correction').on('input', calculerMontantFiscal);

@@ -41,6 +41,13 @@
         ) !important;
       }
     </style>
+    <script>
+      window.ALTIUSONE_DEVISE = {
+        code: "{{ DEVISE_CODE }}",
+        taux: {{ DEVISE_TAUX|default:"1" }},
+        base: "{{ DEVISE_BASE_CODE|default:"CHF" }}"
+      };
+    </script>
     <meta content="IE=edge" http-equiv="X-UA-Compatible" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <meta

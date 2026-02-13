@@ -2,6 +2,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% load i18n %}
+{% load devise_tags %}
 
 {% block title %}{% trans "Prestations" %}{% endblock %}
 
@@ -137,14 +138,14 @@
                                 <td>{{ prestation.unite }}</td>
                                 <td class="text-end">
                                     {% if prestation.prix_unitaire_ht %}
-                                    {{ prestation.prix_unitaire_ht|floatformat:2 }} CHF
+                                    {{ prestation.prix_unitaire_ht|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}
                                     {% else %}
                                     <span class="text-muted">—</span>
                                     {% endif %}
                                 </td>
                                 <td class="text-end">
                                     {% if prestation.taux_horaire %}
-                                    {{ prestation.taux_horaire|floatformat:2 }} CHF/h
+                                    {{ prestation.taux_horaire|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}/h
                                     {% else %}
                                     <span class="text-muted">—</span>
                                     {% endif %}

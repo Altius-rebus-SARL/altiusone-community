@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% load i18n %}
+{% load devise_tags %}
 
 {% block title %}{% trans "Pièces comptables" %}{% endblock %}
 
@@ -175,10 +176,10 @@
                                     </td>
                                     <td>{{ piece.libelle|truncatewords:10 }}</td>
                                     <td class="text-end">
-                                        <span class="text-success">{{ piece.total_debit|floatformat:2 }}</span>
+                                        <span class="text-success">{{ piece.total_debit|devise:DEVISE_TAUX|floatformat:2 }}</span>
                                     </td>
                                     <td class="text-end">
-                                        <span class="text-danger">{{ piece.total_credit|floatformat:2 }}</span>
+                                        <span class="text-danger">{{ piece.total_credit|devise:DEVISE_TAUX|floatformat:2 }}</span>
                                     </td>
                                     <td class="text-center">
                                         {% if piece.equilibree %}

@@ -1,4 +1,5 @@
 {% load i18n %}
+{% load devise_tags %}
 
 <!-- Enveloppe mandat -->
 {% if mandat.budget_prevu and mandat.budget_prevu > 0 %}
@@ -10,10 +11,10 @@
                     <h5 class="text-primary mb-0">
                         <i class="ti ti-wallet me-1"></i>{% trans "Enveloppe mandat" %}
                     </h5>
-                    <h4 class="mb-0 text-primary">{{ mandat.budget_prevu|floatformat:0 }} CHF</h4>
+                    <h4 class="mb-0 text-primary">{{ mandat.budget_prevu|devise:DEVISE_TAUX|floatformat:0 }} {{ DEVISE_CODE }}</h4>
                 </div>
                 <div class="d-flex justify-content-between mb-1">
-                    <small class="text-muted">{% trans "Alloué aux positions" %}: {{ total_prevu|floatformat:0 }} CHF</small>
+                    <small class="text-muted">{% trans "Alloué aux positions" %}: {{ total_prevu|devise:DEVISE_TAUX|floatformat:0 }} {{ DEVISE_CODE }}</small>
                     <small class="text-muted">{{ forfait_alloue_pourcent }}%</small>
                 </div>
                 <div class="progress" style="height:10px">
@@ -25,7 +26,7 @@
                 <small class="text-danger mt-1 d-block">{% trans "Le budget alloué dépasse l'enveloppe mandat" %}</small>
                 {% endif %}
                 <div class="d-flex justify-content-between mt-2">
-                    <small class="text-muted">{% trans "Réel" %}: {{ mandat.budget_reel|floatformat:0 }} CHF</small>
+                    <small class="text-muted">{% trans "Réel" %}: {{ mandat.budget_reel|devise:DEVISE_TAUX|floatformat:0 }} {{ DEVISE_CODE }}</small>
                     <small class="text-muted">{{ mandat.budget_consomme_pourcent }}%</small>
                 </div>
                 <div class="progress mt-1" style="height:6px">
@@ -47,16 +48,16 @@
                 <h5 class="text-primary mb-3">{% trans "Budget global" %}</h5>
                 <div class="row text-center mb-3">
                     <div class="col-4">
-                        <h4 class="mb-0 text-primary">{{ total_prevu|floatformat:0 }}</h4>
-                        <small class="text-muted">{% trans "Prévu" %} (CHF)</small>
+                        <h4 class="mb-0 text-primary">{{ total_prevu|devise:DEVISE_TAUX|floatformat:0 }}</h4>
+                        <small class="text-muted">{% trans "Prévu" %} ({{ DEVISE_CODE }})</small>
                     </div>
                     <div class="col-4">
-                        <h4 class="mb-0 text-{% if total_pourcent > 90 %}danger{% elif total_pourcent > 70 %}warning{% else %}success{% endif %}">{{ total_reel|floatformat:0 }}</h4>
-                        <small class="text-muted">{% trans "Réel" %} (CHF)</small>
+                        <h4 class="mb-0 text-{% if total_pourcent > 90 %}danger{% elif total_pourcent > 70 %}warning{% else %}success{% endif %}">{{ total_reel|devise:DEVISE_TAUX|floatformat:0 }}</h4>
+                        <small class="text-muted">{% trans "Réel" %} ({{ DEVISE_CODE }})</small>
                     </div>
                     <div class="col-4">
-                        <h4 class="mb-0 text-{% if total_ecart < 0 %}danger{% else %}success{% endif %}">{{ total_ecart|floatformat:0 }}</h4>
-                        <small class="text-muted">{% trans "Écart" %} (CHF)</small>
+                        <h4 class="mb-0 text-{% if total_ecart < 0 %}danger{% else %}success{% endif %}">{{ total_ecart|devise:DEVISE_TAUX|floatformat:0 }}</h4>
+                        <small class="text-muted">{% trans "Écart" %} ({{ DEVISE_CODE }})</small>
                     </div>
                 </div>
                 <div class="progress mb-2" style="height:12px">
@@ -110,9 +111,9 @@
                                     <span class="f-w-500">{{ pd.position.numero }}</span>
                                     {{ pd.position.titre|truncatechars:25 }}
                                 </td>
-                                <td class="text-end">{{ pd.prevu|floatformat:0 }}</td>
-                                <td class="text-end">{{ pd.reel|floatformat:0 }}</td>
-                                <td class="text-end text-{% if pd.ecart < 0 %}danger{% else %}success{% endif %}">{{ pd.ecart|floatformat:0 }}</td>
+                                <td class="text-end">{{ pd.prevu|devise:DEVISE_TAUX|floatformat:0 }}</td>
+                                <td class="text-end">{{ pd.reel|devise:DEVISE_TAUX|floatformat:0 }}</td>
+                                <td class="text-end text-{% if pd.ecart < 0 %}danger{% else %}success{% endif %}">{{ pd.ecart|devise:DEVISE_TAUX|floatformat:0 }}</td>
                                 <td>
                                     <div class="d-flex align-items-center gap-1">
                                         <div class="progress flex-grow-1" style="height:6px">
@@ -138,6 +139,7 @@
 
 <script>
 (function() {
+    const _d = window.ALTIUSONE_DEVISE || { code: '{{ DEVISE_CODE }}', taux: 1 };
     const labels = {{ chart_labels_json|safe }};
     const prevu = {{ chart_prevu_json|safe }};
     const reel = {{ chart_reel_json|safe }};
@@ -158,7 +160,7 @@
             legend: { position: 'top' },
             dataLabels: { enabled: false },
             tooltip: {
-                y: { formatter: val => val.toLocaleString('fr-CH') + ' CHF' }
+                y: { formatter: val => (val * _d.taux).toLocaleString('fr-CH') + ' ' + _d.code }
             }
         }).render();
     }
@@ -175,7 +177,7 @@
                 formatter: function(val) { return val.toFixed(0) + '%'; }
             },
             tooltip: {
-                y: { formatter: val => val.toLocaleString('fr-CH') + ' CHF' }
+                y: { formatter: val => (val * _d.taux).toLocaleString('fr-CH') + ' ' + _d.code }
             }
         }).render();
     }

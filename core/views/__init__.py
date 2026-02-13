@@ -80,6 +80,7 @@ from .main_views import (
     exercice_cloturer,
     # Devises
     DeviseListView,
+    set_devise,
 )
 
 from .graph_views import (
@@ -201,6 +202,7 @@ __all__ = [
     'exercice_cloturer',
     # Devises
     'DeviseListView',
+    'set_devise',
     # Administration
     'AdminDashboardView',
     'UserListView',

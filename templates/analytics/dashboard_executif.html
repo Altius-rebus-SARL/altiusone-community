@@ -2,6 +2,7 @@
 {% load static %}
 {% load i18n %}
 {% load humanize %}
+{% load devise_tags %}
 
 {% block title %}{% trans "Dashboard Exécutif" %}{% endblock %}
 
@@ -173,7 +174,7 @@
             <div class="flex-grow-1">
                 <span class="f-w-500">{{ alerte.message }}</span>
                 {% if alerte.montant %}
-                <span class="ms-2 badge bg-{{ alerte.type }}">CHF {{ alerte.montant|floatformat:0|intcomma }}</span>
+                <span class="ms-2 badge bg-{{ alerte.type }}">{{ DEVISE_CODE }} {{ alerte.montant|devise:DEVISE_TAUX|floatformat:0|intcomma }}</span>
                 {% endif %}
             </div>
             {% if alerte.action_url %}
@@ -197,7 +198,7 @@
                     <div>
                         <p class="kpi-label mb-1">{% trans "CA Mensuel" %}</p>
                         <h3 class="kpi-value text-primary mb-0">
-                            CHF {{ kpis.ca_mensuel.valeur|floatformat:0|intcomma }}
+                            {{ DEVISE_CODE }} {{ kpis.ca_mensuel.valeur|devise:DEVISE_TAUX|floatformat:0|intcomma }}
                         </h3>
                     </div>
                     <span class="badge bg-light-primary p-2 rounded-circle">
@@ -248,7 +249,7 @@
                     <div>
                         <p class="kpi-label mb-1">{% trans "Encours Clients" %}</p>
                         <h3 class="kpi-value text-warning mb-0">
-                            CHF {{ kpis.encours_clients.valeur|floatformat:0|intcomma }}
+                            {{ DEVISE_CODE }} {{ kpis.encours_clients.valeur|devise:DEVISE_TAUX|floatformat:0|intcomma }}
                         </h3>
                     </div>
                     <span class="badge bg-light-warning p-2 rounded-circle">
@@ -309,7 +310,7 @@
                     </span>
                     <div>
                         <p class="kpi-label mb-0">{% trans "CA Annuel" %} {{ annee_selectionnee }}</p>
-                        <h5 class="mb-0 f-w-700">CHF {{ kpis.ca_annuel.valeur|floatformat:0|intcomma }}</h5>
+                        <h5 class="mb-0 f-w-700">{{ DEVISE_CODE }} {{ kpis.ca_annuel.valeur|devise:DEVISE_TAUX|floatformat:0|intcomma }}</h5>
                         <small class="{% if kpis.ca_annuel.evolution >= 0 %}text-success{% else %}text-danger{% endif %}">
                             {% if kpis.ca_annuel.evolution >= 0 %}+{% endif %}{{ kpis.ca_annuel.evolution|floatformat:1 }}% vs N-1
                         </small>
@@ -367,7 +368,7 @@
                     </span>
                     <div>
                         <p class="kpi-label mb-0">{% trans "Impayés en Retard" %}</p>
-                        <h5 class="mb-0 f-w-700">CHF {{ kpis.factures_impayees.montant|floatformat:0|intcomma }}</h5>
+                        <h5 class="mb-0 f-w-700">{{ DEVISE_CODE }} {{ kpis.factures_impayees.montant|devise:DEVISE_TAUX|floatformat:0|intcomma }}</h5>
                         <small class="text-muted">{{ kpis.factures_impayees.valeur }} {% trans "facture(s)" %}</small>
                     </div>
                 </div>

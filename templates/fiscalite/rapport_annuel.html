@@ -2,6 +2,7 @@
 {% load static %}
 {% load i18n %}
 {% load humanize %}
+{% load devise_tags %}
 
 {% block title %}{% trans "Rapport fiscal annuel" %}{% endblock %}
 
@@ -78,7 +79,7 @@
                                 </div>
                                 <div class="col-md-4 text-end">
                                     <p class="text-muted f-s-12 mb-1">{% trans "Impôt total" %}</p>
-                                    <h5 class="text-primary mb-0">{{ declaration.impot_total|floatformat:2 }} CHF</h5>
+                                    <h5 class="text-primary mb-0">{{ declaration.impot_total|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h5>
                                 </div>
                             </div>
 
@@ -87,19 +88,19 @@
                             <div class="row">
                                 <div class="col-md-3">
                                     <p class="text-muted f-s-12 mb-1">{% trans "Bénéfice imposable" %}</p>
-                                    <p class="f-w-600 mb-0">{{ declaration.benefice_imposable|floatformat:2 }} CHF</p>
+                                    <p class="f-w-600 mb-0">{{ declaration.benefice_imposable|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</p>
                                 </div>
                                 <div class="col-md-3">
                                     <p class="text-muted f-s-12 mb-1">{% trans "Impôt fédéral" %}</p>
-                                    <p class="text-danger f-w-600 mb-0">{{ declaration.impot_federal|floatformat:2 }} CHF</p>
+                                    <p class="text-danger f-w-600 mb-0">{{ declaration.impot_federal|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</p>
                                 </div>
                                 <div class="col-md-3">
                                     <p class="text-muted f-s-12 mb-1">{% trans "Impôt cantonal" %}</p>
-                                    <p class="text-warning f-w-600 mb-0">{{ declaration.impot_cantonal|floatformat:2 }} CHF</p>
+                                    <p class="text-warning f-w-600 mb-0">{{ declaration.impot_cantonal|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</p>
                                 </div>
                                 <div class="col-md-3">
                                     <p class="text-muted f-s-12 mb-1">{% trans "Impôt communal" %}</p>
-                                    <p class="text-info f-w-600 mb-0">{{ declaration.impot_communal|floatformat:2 }} CHF</p>
+                                    <p class="text-info f-w-600 mb-0">{{ declaration.impot_communal|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</p>
                                 </div>
                             </div>
                         </div>
@@ -146,7 +147,7 @@
                                     <span class="badge text-light-secondary">{{ optimisation.get_categorie_display }}</span>
                                 </td>
                                 <td>
-                                    <span class="f-w-600 text-success">{{ optimisation.economie_estimee|floatformat:2 }} CHF</span>
+                                    <span class="f-w-600 text-success">{{ optimisation.economie_estimee|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</span>
                                 </td>
                                 <td>
                                     <span class="badge text-light-{% if optimisation.statut == 'REALISEE' %}success{% elif optimisation.statut == 'EN_COURS' %}warning{% else %}info{% endif %}">
@@ -193,9 +194,9 @@
                             {% for report in reports_pertes %}
                             <tr>
                                 <td><span class="f-w-600">{{ report.annee_origine }}</span></td>
-                                <td><span class="text-danger">{{ report.montant_perte|floatformat:2 }} CHF</span></td>
-                                <td><span class="text-warning">{{ report.montant_utilise|floatformat:2 }} CHF</span></td>
-                                <td><span class="f-w-600 text-success">{{ report.montant_restant|floatformat:2 }} CHF</span></td>
+                                <td><span class="text-danger">{{ report.montant_perte|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</span></td>
+                                <td><span class="text-warning">{{ report.montant_utilise|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</span></td>
+                                <td><span class="f-w-600 text-success">{{ report.montant_restant|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</span></td>
                                 <td><span class="text-muted">{{ report.annee_expiration }}</span></td>
                             </tr>
                             {% endfor %}
@@ -203,7 +204,7 @@
                                 <td colspan="3" class="text-end f-w-600">{% trans "Total disponible" %}:</td>
                                 <td colspan="2">
                                     <span class="f-w-600 text-success f-s-16">
-                                        {{ reports_pertes|sum_attr:"montant_restant"|floatformat:2 }} CHF
+                                        {{ reports_pertes|sum_attr:"montant_restant"|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}
                                     </span>
                                 </td>
                             </tr>

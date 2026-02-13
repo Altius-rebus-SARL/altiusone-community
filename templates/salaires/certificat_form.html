@@ -3,6 +3,7 @@
 {% load static %}
 {% load i18n %}
 {% load widget_tweaks %}
+{% load devise_tags %}
 
 {% block title %}
 {% if form.instance.pk %}{% trans "Modifier certificat" %}{% else %}{% trans "Nouveau certificat" %}{% endif %}
@@ -418,13 +419,13 @@
                     <div class="mb-3">
                         <label class="form-label text-muted small">8. {% trans "Salaire brut total" %}</label>
                         <div class="readonly-value text-primary fs-5">
-                            {{ form.instance.chiffre_8_total_brut|floatformat:2 }} CHF
+                            {{ form.instance.chiffre_8_total_brut|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}
                         </div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label text-muted small">11. {% trans "Salaire net" %}</label>
                         <div class="readonly-value text-success fs-5">
-                            {{ form.instance.chiffre_11_net|floatformat:2 }} CHF
+                            {{ form.instance.chiffre_11_net|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}
                         </div>
                     </div>
 

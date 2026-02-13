@@ -3,6 +3,7 @@
 {% load static %}
 {% load i18n %}
 {% load facturation_tags %}
+{% load devise_tags %}
 
 {% block title %}{% trans "Facture" %} {{ facture.numero_facture }}{% endblock %}
 
@@ -241,9 +242,9 @@
                                                 {% endif %}
                                             </td>
                                             <td>{{ ligne.quantite|floatformat:2 }} {{ ligne.unite }}</td>
-                                            <td>{{ ligne.prix_unitaire_ht|floatformat:2 }}</td>
+                                            <td>{{ ligne.prix_unitaire_ht|devise:DEVISE_TAUX|floatformat:2 }}</td>
                                             <td>{{ ligne.taux_tva|floatformat:1 }}%</td>
-                                            <td class="text-end">{{ ligne.montant_ht|floatformat:2 }} CHF</td>
+                                            <td class="text-end">{{ ligne.montant_ht|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</td>
                                         </tr>
                                         {% endfor %}
                                         
@@ -254,30 +255,30 @@
                                                     <tbody>
                                                     <tr>
                                                         <td>{% trans "Sous-total HT" %}</td>
-                                                        <td class="text-end">{{ facture.montant_ht|floatformat:2 }} CHF</td>
+                                                        <td class="text-end">{{ facture.montant_ht|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</td>
                                                     </tr>
                                                     {% if facture.remise_montant > 0 %}
                                                     <tr>
                                                         <td>{% trans "Remise" %} ({{ facture.remise_pourcent }}%)</td>
-                                                        <td class="text-end">-{{ facture.remise_montant|floatformat:2 }} CHF</td>
+                                                        <td class="text-end">-{{ facture.remise_montant|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</td>
                                                     </tr>
                                                     {% endif %}
                                                     <tr>
                                                         <td>{% trans "TVA" %}</td>
-                                                        <td class="text-end">{{ facture.montant_tva|floatformat:2 }} CHF</td>
+                                                        <td class="text-end">{{ facture.montant_tva|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</td>
                                                     </tr>
                                                     <tr>
                                                         <th class="border-0 pb-0">{% trans "Total TTC" %}</th>
-                                                        <th class="border-0 text-end pb-0">{{ facture.montant_ttc|floatformat:2 }} CHF</th>
+                                                        <th class="border-0 text-end pb-0">{{ facture.montant_ttc|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</th>
                                                     </tr>
                                                     {% if facture.montant_paye > 0 %}
                                                     <tr>
                                                         <td>{% trans "Déjà payé" %}</td>
-                                                        <td class="text-end text-success">{{ facture.montant_paye|floatformat:2 }} CHF</td>
+                                                        <td class="text-end text-success">{{ facture.montant_paye|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</td>
                                                     </tr>
                                                     <tr>
                                                         <th class="border-0 pb-0">{% trans "Restant dû" %}</th>
-                                                        <th class="border-0 text-end pb-0 text-danger">{{ facture.montant_restant|floatformat:2 }} CHF</th>
+                                                        <th class="border-0 text-end pb-0 text-danger">{{ facture.montant_restant|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</th>
                                                     </tr>
                                                     {% endif %}
                                                     </tbody>
@@ -337,7 +338,7 @@
                                 <td>{{ paiement.date_paiement|date:"d.m.Y" }}</td>
                                 <td>{{ paiement.get_mode_paiement_display }}</td>
                                 <td>{{ paiement.reference|default:"—" }}</td>
-                                <td class="text-end">{{ paiement.montant|floatformat:2 }} CHF</td>
+                                <td class="text-end">{{ paiement.montant|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</td>
                                 <td>
                                     {% if paiement.valide %}
                                     <span class="badge bg-success">{% trans "Validé" %}</span>

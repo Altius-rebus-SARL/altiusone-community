@@ -3,6 +3,7 @@
 {% load static %}
 {% load i18n %}
 {% load humanize %}
+{% load devise_tags %}
 
 {% block title %}{% trans "Certificats de salaire" %}{% endblock %}
 
@@ -115,10 +116,10 @@
                                     <br><small class="text-muted">{{ cert.taux_occupation }}%</small>
                                 </td>
                                 <td class="text-end">
-                                    <strong>{{ cert.chiffre_8_total_brut|floatformat:0|intcomma }}</strong>
+                                    <strong>{{ cert.chiffre_8_total_brut|devise:DEVISE_TAUX|floatformat:0|intcomma }}</strong>
                                 </td>
                                 <td class="text-end">
-                                    {{ cert.chiffre_11_net|floatformat:0|intcomma }}
+                                    {{ cert.chiffre_11_net|devise:DEVISE_TAUX|floatformat:0|intcomma }}
                                 </td>
                                 <td class="text-center">
                                     {% if cert.statut == 'BROUILLON' %}

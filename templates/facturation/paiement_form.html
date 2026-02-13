@@ -3,6 +3,7 @@
 {% load static %}
 {% load i18n %}
 {% load widget_tweaks %}
+{% load devise_tags %}
 
 {% block title %}{% trans "Enregistrer un paiement" %}{% endblock %}
 
@@ -50,15 +51,15 @@
                         <h6 class="text-muted mb-2">{% trans "Montants" %}</h6>
                         <div class="mb-2">
                             <span class="text-muted">{% trans "Total" %}:</span>
-                            <span class="f-w-600 f-s-18">{{ facture.montant_ttc|floatformat:2 }} CHF</span>
+                            <span class="f-w-600 f-s-18">{{ facture.montant_ttc|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</span>
                         </div>
                         <div class="mb-2">
                             <span class="text-muted">{% trans "Déjà payé" %}:</span>
-                            <span class="f-w-600 text-success">{{ facture.montant_paye|floatformat:2 }} CHF</span>
+                            <span class="f-w-600 text-success">{{ facture.montant_paye|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</span>
                         </div>
                         <div>
                             <span class="text-muted">{% trans "Restant dû" %}:</span>
-                            <span class="f-w-600 f-s-20 text-danger">{{ facture.montant_restant|floatformat:2 }} CHF</span>
+                            <span class="f-w-600 f-s-20 text-danger">{{ facture.montant_restant|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</span>
                         </div>
                     </div>
                 </div>
@@ -86,12 +87,12 @@
 
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">{% trans "Montant (CHF)" %} *</label>
+                            <label class="form-label">{% trans "Montant" %} ({{ DEVISE_CODE }}) *</label>
                             {{ form.montant|add_class:"form-control" }}
                             {% if form.montant.errors %}
                             <div class="text-danger f-s-12">{{ form.montant.errors.0 }}</div>
                             {% endif %}
-                            <small class="text-muted">{% trans "Maximum" %}: {{ facture.montant_restant|floatformat:2 }} CHF</small>
+                            <small class="text-muted">{% trans "Maximum" %}: {{ facture.montant_restant|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</small>
                         </div>
 
                         <div class="col-md-6 mb-3">
@@ -142,15 +143,15 @@
                             <label class="form-label">{% trans "Montants rapides" %}</label>
                             <div class="btn-group" role="group">
                                 <button type="button" class="btn btn-outline-primary btn-sm" 
-                                        onclick="document.querySelector('input[name=montant]').value = '{{ facture.montant_restant|floatformat:2 }}'">
+                                        onclick="document.querySelector('input[name=montant]').value = '{{ facture.montant_restant|devise:DEVISE_TAUX|floatformat:2 }}'">
                                     {% trans "Solde complet" %}
                                 </button>
                                 <button type="button" class="btn btn-outline-primary btn-sm" 
-                                        onclick="document.querySelector('input[name=montant]').value = '{{ facture.montant_restant|divisibleby:2|floatformat:2 }}'">
+                                        onclick="document.querySelector('input[name=montant]').value = '{{ facture.montant_restant|divisibleby:2|devise:DEVISE_TAUX|floatformat:2 }}'">
                                     {% trans "50%" %}
                                 </button>
                                 <button type="button" class="btn btn-outline-primary btn-sm" 
-                                        onclick="document.querySelector('input[name=montant]').value = '{{ facture.montant_restant|divisibleby:3|floatformat:2 }}'">
+                                        onclick="document.querySelector('input[name=montant]').value = '{{ facture.montant_restant|divisibleby:3|devise:DEVISE_TAUX|floatformat:2 }}'">
                                     {% trans "33%" %}
                                 </button>
                             </div>
