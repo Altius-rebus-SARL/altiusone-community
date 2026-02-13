@@ -138,11 +138,8 @@ python manage.py setup_oidc_clients || echo "Warning: OIDC clients setup failed,
 echo "Load graph ontology types"
 python manage.py init_ontologie || echo "Warning: Graph ontology loading failed, continuing..."
 
-# Populate graph on first run only (idempotent but slow on large datasets)
-if [ "$FIRST_RUN" = "true" ]; then
-    echo "First run: populating graph from existing data..."
-    python manage.py populate_graph || echo "Warning: Graph population failed, continuing..."
-fi
+echo "Sync graph entities from existing data"
+python manage.py populate_graph || echo "Warning: Graph population failed, continuing..."
 
 echo "Setup commands done"
 
