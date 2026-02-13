@@ -212,9 +212,9 @@ urlpatterns = [
     # ============================================================================
     # GRAPHE RELATIONNEL
     # ============================================================================
-    path("graph/", views.GraphView.as_view(), name="graph"),
-    path("graph/<str:type>/<uuid:pk>/", views.GraphView.as_view(), name="graph-centered"),
-    path("api/graph/", views.GraphAPIView.as_view(), name="graph-api"),
-    path("api/graph/<str:type>/<uuid:pk>/", views.GraphAPIView.as_view(), name="graph-api-centered"),
-    path("api/graph/stats/", views.GraphStatsAPIView.as_view(), name="graph-stats-api"),
+    path("graphe/", views.GraphView.as_view(), name="graph"),
+    path("graphe/<str:type>/<uuid:pk>/", views.GraphView.as_view(), name="graph-centered"),
+    path("api/graphe/", views.GraphAPIView.as_view(), name="graph-api"),
+    path("api/graphe/<str:type>/<uuid:pk>/", views.GraphAPIView.as_view(), name="graph-api-centered"),
+    path("api/graphe/stats/", views.GraphStatsAPIView.as_view(), name="graph-stats-api"),
 ]
