@@ -2,11 +2,16 @@
 from django import forms
 from django.utils.translation import gettext_lazy as _
 from decimal import Decimal
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from django.forms import inlineformset_factory
 
-from .models import Prestation, TimeTracking, Facture, LigneFacture, Paiement, Relance
+from .models import (
+    Prestation, TimeTracking, Facture, LigneFacture, Paiement, Relance,
+    ZoneGeographique, TarifMandat,
+)
+from django.db.models import Q
 from core.models import Mandat, Client, User
+from projets.forms import CoordonneesMixin
 
 
 class PrestationForm(forms.ModelForm):
@@ -48,7 +53,7 @@ class PrestationForm(forms.ModelForm):
         }
 
 
-class TimeTrackingForm(forms.ModelForm):
+class TimeTrackingForm(CoordonneesMixin, forms.ModelForm):
     """Formulaire pour le suivi du temps"""
 
     # Champs calculés
@@ -64,6 +69,12 @@ class TimeTrackingForm(forms.ModelForm):
         widget=forms.TimeInput(attrs={"class": "form-control", "type": "time"}),
     )
 
+    # Géolocalisation (hidden, rempli par JS)
+    coordonnees = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(attrs={"id": "id_coordonnees"}),
+    )
+
     class Meta:
         model = TimeTracking
         fields = [
@@ -76,6 +87,7 @@ class TimeTrackingForm(forms.ModelForm):
             "notes_internes",
             "facturable",
             "taux_horaire",
+            "zone_geographique",
         ]
         widgets = {
             "mandat": forms.Select(attrs={"class": "form-control select2"}),
@@ -93,15 +105,30 @@ class TimeTrackingForm(forms.ModelForm):
             "taux_horaire": forms.NumberInput(
                 attrs={"class": "form-control", "step": "0.01"}
             ),
+            "zone_geographique": forms.Select(attrs={"class": "form-control select2"}),
         }
 
     def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
+
+        # Initialiser les coordonnées depuis l'instance existante
+        self._init_coordonnees()
 
         # Si on a des heures début/fin, calculer la durée
         if self.instance and self.instance.heure_debut and self.instance.heure_fin:
             self.fields["heure_debut_time"].initial = self.instance.heure_debut
             self.fields["heure_fin_time"].initial = self.instance.heure_fin
+
+        # Restrictions pour les non-managers
+        if self.user and not self.user.is_manager():
+            self.fields["utilisateur"].widget = forms.HiddenInput()
+            self.fields["utilisateur"].initial = self.user
+            # Filtrer les mandats accessibles
+            self.fields["mandat"].queryset = Mandat.objects.filter(
+                Q(responsable=self.user) | Q(equipe=self.user),
+                statut='ACTIF',
+            ).distinct()
 
     def clean(self):
         cleaned_data = super().clean()
@@ -112,9 +139,6 @@ class TimeTrackingForm(forms.ModelForm):
         duree_minutes = cleaned_data.get("duree_minutes")
 
         if heure_debut and heure_fin:
-            # Calculer la durée
-            from datetime import datetime, timedelta
-
             debut = datetime.combine(datetime.today(), heure_debut)
             fin = datetime.combine(datetime.today(), heure_fin)
 
@@ -135,12 +159,30 @@ class TimeTrackingForm(forms.ModelForm):
                 _("Veuillez fournir soit la durée, soit les heures de début et fin")
             )
 
-        # Vérifier que le taux horaire est défini
+        # Résolution cascade du taux horaire : TarifMandat → Prestation → Mandat
         if not cleaned_data.get("taux_horaire"):
-            # Prendre le taux de la prestation
+            mandat = cleaned_data.get("mandat")
             prestation = cleaned_data.get("prestation")
-            if prestation and prestation.taux_horaire:
-                cleaned_data["taux_horaire"] = prestation.taux_horaire
+            taux = None
+
+            # 1. TarifMandat spécifique
+            if mandat and prestation:
+                tarif = TarifMandat.objects.filter(
+                    mandat=mandat, prestation=prestation, is_active=True,
+                ).first()
+                if tarif and tarif.est_valide(cleaned_data.get("date_travail") or date.today()):
+                    taux = tarif.taux_horaire
+
+            # 2. Taux de la prestation
+            if not taux and prestation and prestation.taux_horaire:
+                taux = prestation.taux_horaire
+
+            # 3. Taux du mandat
+            if not taux and mandat and mandat.taux_horaire:
+                taux = mandat.taux_horaire
+
+            if taux:
+                cleaned_data["taux_horaire"] = taux
             else:
                 raise forms.ValidationError(_("Un taux horaire doit être défini"))
 
@@ -153,6 +195,10 @@ class TimeTrackingForm(forms.ModelForm):
         if hasattr(self, "cleaned_data"):
             instance.heure_debut = self.cleaned_data.get("heure_debut")
             instance.heure_fin = self.cleaned_data.get("heure_fin")
+
+        # Forcer l'utilisateur pour les non-managers
+        if self.user and not self.user.is_manager():
+            instance.utilisateur = self.user
 
         if commit:
             instance.save()
@@ -345,3 +391,49 @@ class FacturationGroupeeForm(forms.Form):
         label=_("Inclure le détail dans la description"),
         widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
     )
+
+
+class TarifMandatForm(forms.ModelForm):
+    """Formulaire pour un tarif mandat/prestation"""
+
+    class Meta:
+        model = TarifMandat
+        fields = [
+            "mandat",
+            "prestation",
+            "taux_horaire",
+            "prix_forfaitaire",
+            "devise",
+            "date_debut",
+            "date_fin",
+        ]
+        widgets = {
+            "mandat": forms.Select(attrs={"class": "form-control select2"}),
+            "prestation": forms.Select(attrs={"class": "form-control select2"}),
+            "taux_horaire": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01"}
+            ),
+            "prix_forfaitaire": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01"}
+            ),
+            "devise": forms.TextInput(attrs={"class": "form-control"}),
+            "date_debut": forms.DateInput(
+                attrs={"class": "form-control", "type": "date"}
+            ),
+            "date_fin": forms.DateInput(
+                attrs={"class": "form-control", "type": "date"}
+            ),
+        }
+
+
+class ZoneGeographiqueForm(forms.ModelForm):
+    """Formulaire pour une zone géographique"""
+
+    class Meta:
+        model = ZoneGeographique
+        fields = ["nom", "description", "couleur"]
+        widgets = {
+            "nom": forms.TextInput(attrs={"class": "form-control"}),
+            "description": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+            "couleur": forms.TextInput(attrs={"class": "form-control", "type": "color"}),
+        }

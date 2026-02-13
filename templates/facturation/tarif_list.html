@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Tarifs mandat" %}{% endblock %}
+
+{% block content %}
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Tarifs mandat" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Tarifs" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>{% trans "Tarifs par mandat/prestation" %}</h5>
+                <a href="{% url 'facturation:tarif-create' %}" class="btn btn-primary btn-sm">
+                    <i class="ph ph-plus me-1"></i>{% trans "Nouveau tarif" %}
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Mandat" %}</th>
+                                <th>{% trans "Client" %}</th>
+                                <th>{% trans "Prestation" %}</th>
+                                <th class="text-end">{% trans "Taux horaire" %}</th>
+                                <th class="text-end">{% trans "Forfait" %}</th>
+                                <th>{% trans "Validité" %}</th>
+                                <th>{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for tarif in tarifs %}
+                            <tr>
+                                <td>{{ tarif.mandat.numero }}</td>
+                                <td>{{ tarif.mandat.client.raison_sociale }}</td>
+                                <td>{{ tarif.prestation.libelle }}</td>
+                                <td class="text-end f-w-600">{{ tarif.taux_horaire }} {{ tarif.devise }}/h</td>
+                                <td class="text-end">
+                                    {% if tarif.prix_forfaitaire %}
+                                    {{ tarif.prix_forfaitaire }} {{ tarif.devise }}
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if tarif.date_debut or tarif.date_fin %}
+                                    {{ tarif.date_debut|date:"d.m.Y"|default:"-" }} &rarr; {{ tarif.date_fin|date:"d.m.Y"|default:"-" }}
+                                    {% else %}
+                                    <span class="text-muted">{% trans "Illimité" %}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{% url 'facturation:tarif-update' tarif.pk %}" class="btn btn-outline-primary btn-sm">
+                                        <i class="ph ph-pencil"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center py-5">
+                                    <i class="ph ph-currency-chf f-s-50 text-muted"></i>
+                                    <p class="text-muted mt-2">{% trans "Aucun tarif configuré" %}</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1264,6 +1264,12 @@ class Client(BaseModel):
                                     verbose_name=_('Responsable'))
     notes = models.TextField(blank=True, verbose_name=_('Notes'))
 
+    # Hiérarchie clients (fiduciaire → client → sous-client)
+    parent_client = models.ForeignKey(
+        'self', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='sous_clients_set', verbose_name=_('Client parent')
+    )
+
     class Meta:
         db_table = 'clients'
         verbose_name = _('Client')
@@ -1280,6 +1286,14 @@ class Client(BaseModel):
     @property
     def mandats_actifs(self):
         return self.mandats.filter(statut='ACTIF')
+
+    @property
+    def sous_clients(self):
+        return self.sous_clients_set.filter(is_active=True)
+
+    @property
+    def is_sous_client(self):
+        return self.parent_client_id is not None
 
 
 class Contact(BaseModel):

@@ -1,6 +1,9 @@
 # facturation/admin.py
 from django.contrib import admin
-from .models import Prestation, TimeTracking, Facture, LigneFacture, Paiement, Relance
+from .models import (
+    Prestation, TimeTracking, Facture, LigneFacture, Paiement, Relance,
+    ZoneGeographique, TarifMandat,
+)
 
 
 @admin.register(Prestation)
@@ -52,3 +55,16 @@ class PaiementAdmin(admin.ModelAdmin):
 
 admin.site.register(LigneFacture)
 admin.site.register(Relance)
+
+
+@admin.register(ZoneGeographique)
+class ZoneGeographiqueAdmin(admin.ModelAdmin):
+    list_display = ["nom", "couleur", "created_at"]
+    search_fields = ["nom"]
+
+
+@admin.register(TarifMandat)
+class TarifMandatAdmin(admin.ModelAdmin):
+    list_display = ["mandat", "prestation", "taux_horaire", "devise", "date_debut", "date_fin"]
+    list_filter = ["devise", "prestation"]
+    search_fields = ["mandat__numero", "prestation__libelle"]

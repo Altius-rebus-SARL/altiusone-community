@@ -1,5 +1,6 @@
 # apps/facturation/models.py
 from django.db import models
+from django.contrib.gis.db import models as gis_models
 from django.utils.translation import gettext_lazy as _
 from core.models import BaseModel, Mandat, Client, User
 from decimal import Decimal
@@ -113,6 +114,112 @@ class Prestation(BaseModel):
         return f"{self.code} - {self.libelle}"
 
 
+class ZoneGeographique(BaseModel):
+    """Zone géographique pour le suivi du temps"""
+
+    nom = models.CharField(
+        max_length=255,
+        verbose_name=_("Nom"),
+        help_text=_("Nom de la zone géographique")
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name=_("Description"),
+        help_text=_("Description de la zone")
+    )
+    geometrie = gis_models.PolygonField(
+        srid=4326,
+        verbose_name=_("Géométrie"),
+        help_text=_("Polygone délimitant la zone")
+    )
+    couleur = models.CharField(
+        max_length=7,
+        default='#3388ff',
+        verbose_name=_("Couleur"),
+        help_text=_("Couleur d'affichage (hex)")
+    )
+
+    class Meta:
+        db_table = 'zones_geographiques'
+        verbose_name = _('Zone géographique')
+        verbose_name_plural = _('Zones géographiques')
+        ordering = ['nom']
+
+    def __str__(self):
+        return self.nom
+
+
+class TarifMandat(BaseModel):
+    """Tarification spécifique par mandat et prestation"""
+
+    mandat = models.ForeignKey(
+        Mandat,
+        on_delete=models.CASCADE,
+        related_name='tarifs',
+        verbose_name=_("Mandat"),
+        help_text=_("Mandat concerné")
+    )
+    prestation = models.ForeignKey(
+        'Prestation',
+        on_delete=models.CASCADE,
+        related_name='tarifs_mandat',
+        verbose_name=_("Prestation"),
+        help_text=_("Prestation concernée")
+    )
+    taux_horaire = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        verbose_name=_("Taux horaire"),
+        help_text=_("Taux horaire spécifique pour ce mandat/prestation")
+    )
+    prix_forfaitaire = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Prix forfaitaire"),
+        help_text=_("Prix forfaitaire optionnel")
+    )
+    devise = models.CharField(
+        max_length=3,
+        default='CHF',
+        verbose_name=_("Devise"),
+        help_text=_("Devise du tarif")
+    )
+    date_debut = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("Date de début"),
+        help_text=_("Début de validité du tarif")
+    )
+    date_fin = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("Date de fin"),
+        help_text=_("Fin de validité du tarif")
+    )
+
+    class Meta:
+        db_table = 'tarifs_mandat'
+        verbose_name = _('Tarif mandat')
+        verbose_name_plural = _('Tarifs mandat')
+        unique_together = [('mandat', 'prestation')]
+        ordering = ['mandat', 'prestation']
+
+    def __str__(self):
+        return f"{self.mandat} - {self.prestation} : {self.taux_horaire} {self.devise}/h"
+
+    def est_valide(self, date_ref=None):
+        """Vérifie si le tarif est valide à une date donnée"""
+        if date_ref is None:
+            date_ref = date.today()
+        if self.date_debut and date_ref < self.date_debut:
+            return False
+        if self.date_fin and date_ref > self.date_fin:
+            return False
+        return True
+
+
 class TimeTracking(BaseModel):
     """Suivi du temps de travail sur les prestations"""
 
@@ -217,6 +324,25 @@ class TimeTracking(BaseModel):
         related_name="temps_passes",
         verbose_name=_("Opération"),
         help_text=_("Opération liée dans le module projets"),
+    )
+
+    # Géolocalisation
+    coordonnees = gis_models.PointField(
+        srid=4326,
+        null=True,
+        blank=True,
+        geography=True,
+        verbose_name=_("Coordonnées"),
+        help_text=_("Position GPS lors de la saisie"),
+    )
+    zone_geographique = models.ForeignKey(
+        ZoneGeographique,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='temps_travail',
+        verbose_name=_("Zone géographique"),
+        help_text=_("Zone géographique associée"),
     )
 
     # Validation

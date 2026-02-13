@@ -14,7 +14,10 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 import json
 from django.forms import inlineformset_factory
-from .models import Prestation, TimeTracking, Facture, LigneFacture, Paiement, Relance
+from .models import (
+    Prestation, TimeTracking, Facture, LigneFacture, Paiement, Relance,
+    ZoneGeographique, TarifMandat,
+)
 from .forms import (
     PrestationForm,
     TimeTrackingForm,
@@ -23,6 +26,8 @@ from .forms import (
     PaiementForm,
     LigneFactureFormSet,
     RelanceForm,
+    TarifMandatForm,
+    ZoneGeographiqueForm,
 )
 from .filters import FactureFilter, TimeTrackingFilter, PaiementFilter
 from core.models import Mandat, Client
@@ -139,11 +144,14 @@ class TimeTrackingListView(LoginRequiredMixin, BusinessPermissionMixin, ListView
         context = super().get_context_data(**kwargs)
         context["filter"] = self.filterset
 
-        # Statistiques
         user = self.request.user
+        is_manager = user.is_manager()
+        context["is_manager"] = is_manager
+
+        # Statistiques
         queryset = self.get_queryset()
 
-        context["stats"] = {
+        stats = {
             "total_heures": queryset.aggregate(total=Sum("duree_minutes"))["total"]
             or 0,
             "total_heures_display": (
@@ -153,14 +161,18 @@ class TimeTrackingListView(LoginRequiredMixin, BusinessPermissionMixin, ListView
             "non_facture": queryset.filter(
                 facturable=True, facture__isnull=True
             ).count(),
-            "montant_non_facture": queryset.filter(
-                facturable=True, facture__isnull=True
-            ).aggregate(Sum("montant_ht"))["montant_ht__sum"]
-            or 0,
         }
 
+        # Stats financières uniquement pour manager
+        if is_manager:
+            stats["montant_non_facture"] = queryset.filter(
+                facturable=True, facture__isnull=True
+            ).aggregate(Sum("montant_ht"))["montant_ht__sum"] or 0
+
+        context["stats"] = stats
+
         # Temps par utilisateur (si admin/manager)
-        if user.is_manager():
+        if is_manager:
             context["temps_par_utilisateur"] = (
                 queryset.values(
                     "utilisateur__username",
@@ -185,6 +197,11 @@ class TimeTrackingCreateView(LoginRequiredMixin, BusinessPermissionMixin, Create
     template_name = "facturation/timetracking_form.html"
     success_url = reverse_lazy("facturation:timetracking-list")
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        return kwargs
+
     def get_initial(self):
         initial = super().get_initial()
         initial["utilisateur"] = self.request.user
@@ -192,8 +209,22 @@ class TimeTrackingCreateView(LoginRequiredMixin, BusinessPermissionMixin, Create
         initial["facturable"] = True
         return initial
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["is_manager"] = self.request.user.is_manager()
+        # Zones pour le JS (Leaflet)
+        zones = ZoneGeographique.objects.filter(is_active=True).values(
+            "id", "nom", "couleur"
+        )
+        context["zones_json"] = json.dumps(list(zones), default=str)
+        return context
+
     def form_valid(self, form):
         form.instance.created_by = self.request.user
+
+        # Forcer utilisateur pour non-managers
+        if not self.request.user.is_manager():
+            form.instance.utilisateur = self.request.user
 
         # Calcul automatique du montant si taux horaire défini
         if form.instance.taux_horaire and form.instance.duree_minutes:
@@ -816,3 +847,177 @@ def relance_create(request, facture_pk):
     except Exception as e:
         messages.error(request, str(e))
         return redirect("facturation:facture-detail", pk=facture.pk)
+
+
+# ============ TAUX HORAIRE API ============
+
+
+@login_required
+def get_taux_horaire(request):
+    """Endpoint HTMX/JSON : retourne le taux horaire selon la cascade TarifMandat → Prestation → Mandat"""
+    mandat_id = request.GET.get("mandat")
+    prestation_id = request.GET.get("prestation")
+
+    taux = None
+    source = None
+
+    if mandat_id and prestation_id:
+        # 1. TarifMandat spécifique
+        tarif = TarifMandat.objects.filter(
+            mandat_id=mandat_id, prestation_id=prestation_id, is_active=True,
+        ).first()
+        if tarif and tarif.est_valide():
+            taux = float(tarif.taux_horaire)
+            source = "tarif_mandat"
+
+    if taux is None and prestation_id:
+        # 2. Taux de la prestation
+        try:
+            prestation = Prestation.objects.get(pk=prestation_id)
+            if prestation.taux_horaire:
+                taux = float(prestation.taux_horaire)
+                source = "prestation"
+        except Prestation.DoesNotExist:
+            pass
+
+    if taux is None and mandat_id:
+        # 3. Taux du mandat
+        try:
+            mandat = Mandat.objects.get(pk=mandat_id)
+            if mandat.taux_horaire:
+                taux = float(mandat.taux_horaire)
+                source = "mandat"
+        except Mandat.DoesNotExist:
+            pass
+
+    return JsonResponse({"taux_horaire": taux, "source": source})
+
+
+# ============ TARIFS MANDAT ============
+
+
+class TarifMandatListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+    """Liste des tarifs mandat"""
+
+    model = TarifMandat
+    business_permission = 'facturation.view_prestations'
+    template_name = "facturation/tarif_list.html"
+    context_object_name = "tarifs"
+    paginate_by = 50
+
+    def get_queryset(self):
+        return TarifMandat.objects.select_related(
+            "mandat__client", "prestation"
+        ).filter(is_active=True).order_by("mandat", "prestation")
+
+
+class TarifMandatCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView):
+    """Création d'un tarif mandat"""
+
+    model = TarifMandat
+    form_class = TarifMandatForm
+    template_name = "facturation/tarif_form.html"
+    business_permission = 'facturation.view_prestations'
+    success_url = reverse_lazy("facturation:tarif-list")
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        messages.success(self.request, _("Tarif créé avec succès"))
+        return super().form_valid(form)
+
+
+class TarifMandatUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateView):
+    """Modification d'un tarif mandat"""
+
+    model = TarifMandat
+    form_class = TarifMandatForm
+    template_name = "facturation/tarif_form.html"
+    business_permission = 'facturation.view_prestations'
+    success_url = reverse_lazy("facturation:tarif-list")
+
+    def form_valid(self, form):
+        messages.success(self.request, _("Tarif modifié avec succès"))
+        return super().form_valid(form)
+
+
+# ============ ZONES GEOGRAPHIQUES ============
+
+
+class ZoneGeographiqueListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+    """Liste des zones géographiques"""
+
+    model = ZoneGeographique
+    business_permission = 'facturation.view_prestations'
+    template_name = "facturation/zone_list.html"
+    context_object_name = "zones"
+    paginate_by = 50
+
+    def get_queryset(self):
+        return ZoneGeographique.objects.filter(is_active=True).order_by("nom")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # GeoJSON pour la carte
+        zones = ZoneGeographique.objects.filter(is_active=True)
+        features = []
+        for zone in zones:
+            features.append({
+                "type": "Feature",
+                "properties": {
+                    "id": str(zone.id),
+                    "nom": zone.nom,
+                    "couleur": zone.couleur,
+                },
+                "geometry": json.loads(zone.geometrie.geojson),
+            })
+        context["zones_geojson"] = json.dumps({
+            "type": "FeatureCollection",
+            "features": features,
+        })
+        return context
+
+
+class ZoneGeographiqueCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView):
+    """Création d'une zone géographique"""
+
+    model = ZoneGeographique
+    form_class = ZoneGeographiqueForm
+    template_name = "facturation/zone_form.html"
+    business_permission = 'facturation.view_prestations'
+    success_url = reverse_lazy("facturation:zone-list")
+
+    def form_valid(self, form):
+        # La géométrie est passée en GeoJSON via un champ hidden dans le template
+        geojson = self.request.POST.get("geometrie_geojson")
+        if geojson:
+            from django.contrib.gis.geos import GEOSGeometry
+            form.instance.geometrie = GEOSGeometry(geojson, srid=4326)
+
+        form.instance.created_by = self.request.user
+        messages.success(self.request, _("Zone créée avec succès"))
+        return super().form_valid(form)
+
+
+class ZoneGeographiqueUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateView):
+    """Modification d'une zone géographique"""
+
+    model = ZoneGeographique
+    form_class = ZoneGeographiqueForm
+    template_name = "facturation/zone_form.html"
+    business_permission = 'facturation.view_prestations'
+    success_url = reverse_lazy("facturation:zone-list")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.object.geometrie:
+            context["geometrie_geojson"] = self.object.geometrie.geojson
+        return context
+
+    def form_valid(self, form):
+        geojson = self.request.POST.get("geometrie_geojson")
+        if geojson:
+            from django.contrib.gis.geos import GEOSGeometry
+            form.instance.geometrie = GEOSGeometry(geojson, srid=4326)
+
+        messages.success(self.request, _("Zone modifiée avec succès"))
+        return super().form_valid(form)

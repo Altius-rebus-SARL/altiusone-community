@@ -6,6 +6,10 @@
 
 {% block title %}{% trans "Saisir du temps" %}{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+{% endblock %}
+
 {% block content %}
 <!-- Breadcrumb -->
 <div class="row m-1">
@@ -39,7 +43,7 @@
             <div class="card-body">
                 <form method="post" class="app-form">
                     {% csrf_token %}
-                    
+
                     {% if form.non_field_errors %}
                     <div class="alert alert-danger">
                         {{ form.non_field_errors }}
@@ -68,6 +72,7 @@
                             {% endif %}
                         </div>
 
+                        {% if is_manager %}
                         <div class="col-md-6 mb-3">
                             <label class="form-label">{% trans "Utilisateur" %} *</label>
                             {{ form.utilisateur|add_class:"form-control select2" }}
@@ -75,6 +80,9 @@
                             <div class="text-danger f-s-12">{{ form.utilisateur.errors.0 }}</div>
                             {% endif %}
                         </div>
+                        {% else %}
+                        {{ form.utilisateur }}
+                        {% endif %}
 
                         <div class="col-md-6 mb-3">
                             <label class="form-label">{% trans "Date" %} *</label>
@@ -175,7 +183,35 @@
                             {% if form.taux_horaire.errors %}
                             <div class="text-danger f-s-12">{{ form.taux_horaire.errors.0 }}</div>
                             {% endif %}
-                            <small class="text-muted">{% trans "Rempli automatiquement depuis la prestation" %}</small>
+                            <small class="text-muted" id="taux-source">{% trans "Rempli automatiquement depuis la prestation" %}</small>
+                        </div>
+                    </div>
+
+                    <!-- Localisation (optionnel) -->
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <h6 class="text-muted f-w-600">
+                                <i class="ph ph-map-pin me-1"></i>{% trans "Localisation" %}
+                                <small class="text-muted f-w-400">({% trans "optionnel" %})</small>
+                            </h6>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Zone géographique" %}</label>
+                            {{ form.zone_geographique|add_class:"form-control select2" }}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Position GPS" %}</label>
+                            <button type="button" class="btn btn-outline-secondary btn-sm d-block" id="btn-gps">
+                                <i class="ph ph-crosshair me-1"></i>{% trans "Ma position GPS" %}
+                            </button>
+                        </div>
+
+                        <div class="col-12 mb-3">
+                            {{ form.coordonnees }}
+                            <div id="map-picker" style="height:250px; border-radius:6px; border:1px solid #dee2e6"></div>
+                            <small class="text-muted f-s-12 mt-1 d-block" id="coord-display"></small>
                         </div>
                     </div>
 
@@ -208,8 +244,11 @@
                     <li class="mb-2">
                         <strong>{% trans "Facturable" %}:</strong> {% trans "Décochez si c'est du temps interne non facturable au client" %}
                     </li>
-                    <li>
+                    <li class="mb-2">
                         <strong>{% trans "Taux horaire" %}:</strong> {% trans "Le taux de la prestation s'applique automatiquement mais peut être modifié" %}
+                    </li>
+                    <li>
+                        <strong>{% trans "Localisation" %}:</strong> {% trans "Cliquez sur la carte ou utilisez le GPS pour enregistrer votre position" %}
                     </li>
                 </ul>
             </div>
@@ -220,10 +259,101 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 // Quick duration buttons
 function setDuree(minutes) {
-    $('#id_duree_minutes').val(minutes);
+    document.getElementById('id_duree_minutes').value = minutes;
 }
+
+// Auto-fill taux horaire via API
+(function() {
+    var mandatSel = document.getElementById('id_mandat');
+    var prestaSel = document.getElementById('id_prestation');
+    var tauxInput = document.getElementById('id_taux_horaire');
+    var tauxSource = document.getElementById('taux-source');
+
+    function fetchTaux() {
+        var mandat = mandatSel ? mandatSel.value : '';
+        var presta = prestaSel ? prestaSel.value : '';
+        if (!mandat && !presta) return;
+
+        fetch('{% url "facturation:get-taux-horaire" %}?mandat=' + mandat + '&prestation=' + presta)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.taux_horaire !== null) {
+                    tauxInput.value = data.taux_horaire;
+                    var labels = {
+                        'tarif_mandat': '{% trans "Tarif mandat/prestation" %}',
+                        'prestation': '{% trans "Taux prestation" %}',
+                        'mandat': '{% trans "Taux mandat" %}'
+                    };
+                    tauxSource.textContent = labels[data.source] || '';
+                }
+            });
+    }
+
+    if (mandatSel) mandatSel.addEventListener('change', fetchTaux);
+    if (prestaSel) prestaSel.addEventListener('change', fetchTaux);
+})();
+
+// Leaflet map picker
+(function() {
+    var coordInput = document.getElementById('id_coordonnees');
+    var coordDisplay = document.getElementById('coord-display');
+    var pickerEl = document.getElementById('map-picker');
+    if (!pickerEl) return;
+
+    var initial = coordInput && coordInput.value ? coordInput.value.split(',').map(Number) : [46.8, 8.2];
+    var initialZoom = coordInput && coordInput.value ? 15 : 8;
+    var map = L.map(pickerEl).setView(initial, initialZoom);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap', maxZoom: 19,
+    }).addTo(map);
+
+    var marker = null;
+    if (coordInput && coordInput.value) {
+        marker = L.marker(initial).addTo(map);
+        coordDisplay.textContent = 'Lat: ' + initial[0].toFixed(6) + ', Lng: ' + initial[1].toFixed(6);
+    }
+
+    function setCoord(lat, lng) {
+        if (marker) marker.remove();
+        marker = L.marker([lat, lng]).addTo(map);
+        coordInput.value = lat.toFixed(6) + ',' + lng.toFixed(6);
+        coordDisplay.textContent = 'Lat: ' + lat.toFixed(6) + ', Lng: ' + lng.toFixed(6);
+    }
+
+    map.on('click', function(e) {
+        setCoord(e.latlng.lat, e.latlng.lng);
+    });
+
+    // GPS button
+    var btnGps = document.getElementById('btn-gps');
+    if (btnGps && navigator.geolocation) {
+        btnGps.addEventListener('click', function() {
+            btnGps.disabled = true;
+            btnGps.innerHTML = '<i class="ph ph-spinner ph-spin me-1"></i>{% trans "Localisation..." %}';
+            navigator.geolocation.getCurrentPosition(
+                function(pos) {
+                    setCoord(pos.coords.latitude, pos.coords.longitude);
+                    map.setView([pos.coords.latitude, pos.coords.longitude], 15);
+                    btnGps.disabled = false;
+                    btnGps.innerHTML = '<i class="ph ph-crosshair me-1"></i>{% trans "Ma position GPS" %}';
+                },
+                function() {
+                    btnGps.disabled = false;
+                    btnGps.innerHTML = '<i class="ph ph-crosshair me-1"></i>{% trans "Ma position GPS" %}';
+                    alert('{% trans "Impossible d\'obtenir votre position" %}');
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        });
+    }
+
+    // Fix Leaflet sizing
+    setTimeout(function() { map.invalidateSize(); }, 300);
+})();
 </script>
 {% endblock %}

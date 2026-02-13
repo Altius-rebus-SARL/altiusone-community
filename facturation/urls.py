@@ -89,4 +89,14 @@ urlpatterns = [
         views.ligne_facture_delete_row,
         name="ligne-delete-row",
     ),
+    # API
+    path("api/taux-horaire/", views.get_taux_horaire, name="get-taux-horaire"),
+    # Zones géographiques
+    path("zones/", views.ZoneGeographiqueListView.as_view(), name="zone-list"),
+    path("zones/nouvelle/", views.ZoneGeographiqueCreateView.as_view(), name="zone-create"),
+    path("zones/<uuid:pk>/modifier/", views.ZoneGeographiqueUpdateView.as_view(), name="zone-update"),
+    # Tarifs mandat
+    path("tarifs/", views.TarifMandatListView.as_view(), name="tarif-list"),
+    path("tarifs/nouveau/", views.TarifMandatCreateView.as_view(), name="tarif-create"),
+    path("tarifs/<uuid:pk>/modifier/", views.TarifMandatUpdateView.as_view(), name="tarif-update"),
 ]

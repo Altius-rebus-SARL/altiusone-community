@@ -56,6 +56,7 @@
             </div>
         </div>
     </div>
+    {% if is_manager %}
     <div class="col-md-3">
         <div class="card">
             <div class="card-body">
@@ -71,6 +72,7 @@
             </div>
         </div>
     </div>
+    {% endif %}
     <div class="col-md-3">
         <div class="card">
             <div class="card-body">
@@ -102,10 +104,10 @@
                         <i class="ph ph-plus me-2"></i>{% trans "Saisir du temps" %}
                     </a>
                     <form method="get" class="d-flex gap-2">
-                        <input type="date" name="date_debut" class="form-control" 
+                        <input type="date" name="date_debut" class="form-control"
                                value="{{ request.GET.date_debut }}"
                                placeholder="{% trans 'Date début' %}">
-                        <input type="date" name="date_fin" class="form-control" 
+                        <input type="date" name="date_fin" class="form-control"
                                value="{{ request.GET.date_fin }}"
                                placeholder="{% trans 'Date fin' %}">
                         <select name="facturable" class="form-select select-basic" onchange="this.form.submit()">
@@ -132,8 +134,10 @@
                                 <th>{% trans "Prestation" %}</th>
                                 <th>{% trans "Description" %}</th>
                                 <th>{% trans "Durée" %}</th>
+                                {% if is_manager %}
                                 <th class="text-end">{% trans "Taux" %}</th>
                                 <th class="text-end">{% trans "Montant" %}</th>
+                                {% endif %}
                                 <th>{% trans "Statut" %}</th>
                             </tr>
                         </thead>
@@ -167,8 +171,10 @@
                                     <br>
                                     <span class="f-w-600">{{ temps.duree_heures|floatformat:2 }}h</span>
                                 </td>
+                                {% if is_manager %}
                                 <td class="text-end">{{ temps.taux_horaire|devise:DEVISE_TAUX|floatformat:2 }}</td>
                                 <td class="text-end f-w-600">{{ temps.montant_ht|devise:DEVISE_TAUX|floatformat:2 }}</td>
+                                {% endif %}
                                 <td>
                                     {% if temps.facture %}
                                     <a href="{% url 'facturation:facture-detail' temps.facture.pk %}">
@@ -183,7 +189,7 @@
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="9" class="text-center py-5">
+                                <td colspan="{% if is_manager %}9{% else %}7{% endif %}" class="text-center py-5">
                                     <i class="ph ph-clock f-s-50 text-muted"></i>
                                     <p class="text-muted mt-2">{% trans "Aucun temps enregistré" %}</p>
                                 </td>

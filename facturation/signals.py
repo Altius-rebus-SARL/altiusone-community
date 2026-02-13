@@ -1,7 +1,7 @@
 # apps/facturation/signals.py
 from django.db.models.signals import post_save, m2m_changed
 from django.dispatch import receiver
-from .models import Facture, LigneFacture, Paiement
+from .models import Facture, LigneFacture, Paiement, TimeTracking, ZoneGeographique
 
 
 @receiver(post_save, sender=LigneFacture)
@@ -219,3 +219,17 @@ def alerter_facture_en_retard(sender, instance, **kwargs):
                     lien_texte='Voir la facture',
                     mandat=instance.mandat
                 )
+
+
+@receiver(post_save, sender=TimeTracking)
+def auto_detecter_zone(sender, instance, **kwargs):
+    """Auto-détecte la zone géographique si coordonnées définies et zone vide"""
+    if instance.coordonnees and not instance.zone_geographique_id:
+        zone = ZoneGeographique.objects.filter(
+            is_active=True,
+            geometrie__contains=instance.coordonnees,
+        ).first()
+        if zone:
+            TimeTracking.objects.filter(pk=instance.pk).update(
+                zone_geographique=zone
+            )

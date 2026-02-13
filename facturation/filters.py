@@ -2,7 +2,7 @@
 import django_filters
 from django import forms
 from django.utils.translation import gettext_lazy as _
-from .models import Facture, TimeTracking, Paiement, Prestation
+from .models import Facture, TimeTracking, Paiement, Prestation, ZoneGeographique
 from core.models import Mandat, Client, User
 
 
@@ -97,6 +97,11 @@ class TimeTrackingFilter(django_filters.FilterSet):
         label=_("Validé"), widget=forms.CheckboxInput()
     )
 
+    zone_geographique = django_filters.ModelChoiceFilter(
+        queryset=ZoneGeographique.objects.filter(is_active=True),
+        label=_("Zone géographique"),
+    )
+
     class Meta:
         model = TimeTracking
         fields = [
@@ -106,6 +111,7 @@ class TimeTrackingFilter(django_filters.FilterSet):
             "date_travail",
             "facturable",
             "valide",
+            "zone_geographique",
         ]
 
     def filter_facture(self, queryset, name, value):
