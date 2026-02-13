@@ -303,13 +303,13 @@ class MandatListSerializer(serializers.ModelSerializer):
 
     # Nouveaux champs (prioritaires)
     type_mandat_libelle = serializers.CharField(
-        source="type_mandat_ref.libelle", read_only=True
+        source="type_mandat_ref.libelle", read_only=True, allow_null=True, default=None
     )
     periodicite_libelle = serializers.CharField(
-        source="periodicite_ref.libelle", read_only=True
+        source="periodicite_ref.libelle", read_only=True, allow_null=True, default=None
     )
     type_facturation_libelle = serializers.CharField(
-        source="type_facturation_ref.libelle", read_only=True
+        source="type_facturation_ref.libelle", read_only=True, allow_null=True, default=None
     )
     # Anciens champs (fallback)
     type_mandat_display = serializers.CharField(
@@ -387,7 +387,7 @@ class ExerciceComptableSerializer(serializers.ModelSerializer):
     statut_display = serializers.CharField(source="get_statut_display", read_only=True)
     mandat_numero = serializers.CharField(source="mandat.numero", read_only=True)
     cloture_par_name = serializers.CharField(
-        source="cloture_par.get_full_name", read_only=True
+        source="cloture_par.get_full_name", read_only=True, allow_null=True, default=None
     )
 
     class Meta:
@@ -450,7 +450,7 @@ class NotificationSerializer(serializers.ModelSerializer):
     destinataire_name = serializers.CharField(
         source="destinataire.get_full_name", read_only=True
     )
-    mandat_numero = serializers.CharField(source="mandat.numero", read_only=True)
+    mandat_numero = serializers.CharField(source="mandat.numero", read_only=True, allow_null=True, default=None)
 
     class Meta:
         model = Notification
@@ -487,7 +487,7 @@ class TacheSerializer(serializers.ModelSerializer):
     cree_par_name = serializers.CharField(
         source="cree_par.get_full_name", read_only=True
     )
-    mandat_numero = serializers.CharField(source="mandat.numero", read_only=True)
+    mandat_numero = serializers.CharField(source="mandat.numero", read_only=True, allow_null=True, default=None)
 
     class Meta:
         model = Tache
