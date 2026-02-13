@@ -22,6 +22,13 @@ body.dark nav .app-logo .logo img {
 body.dark .app-logo .logo .logo-full-light { display: none; }
 body.dark .app-logo .logo .logo-full-dark  { display: inline; }
 
+/* Mini logos: constrain to 48x48 */
+.app-logo .logo .logo-mini-light,
+.app-logo .logo .logo-mini-dark {
+  width: 48px;
+  height: 48px;
+}
+
 /* Semi-nav (collapsed, not hovered): show mini logos */
 nav.semi-nav:not(:hover) .app-logo .logo .logo-full-light,
 nav.semi-nav:not(:hover) .app-logo .logo .logo-full-dark  { display: none !important; }
