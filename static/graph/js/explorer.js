@@ -72,7 +72,19 @@
             .attr('y', d => d.y + 25);
     }
 
+    function hideEmptyState() {
+        const el = document.getElementById('graphEmptyState');
+        if (el) el.style.display = 'none';
+    }
+
+    function showEmptyState() {
+        const el = document.getElementById('graphEmptyState');
+        if (el) el.style.display = '';
+    }
+
     function render() {
+        if (nodes.length > 0) hideEmptyState();
+        else showEmptyState();
         // Links
         const link = linkGroup.selectAll('line')
             .data(links, d => d.id);
@@ -302,11 +314,16 @@
         }
     });
 
-    // Check URL params for initial load
+    // Check URL params for initial load, or load first available entity
     const urlParams = new URLSearchParams(window.location.search);
     const initialEntite = urlParams.get('entite');
     if (initialEntite) {
         loadGraph(initialEntite);
+    } else {
+        const initData = CONFIG.entitesInitiales || [];
+        if (initData.length > 0) {
+            loadGraph(initData[0].id);
+        }
     }
 
     // Expose for external use
