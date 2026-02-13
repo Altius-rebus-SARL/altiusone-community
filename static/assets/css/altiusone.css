@@ -1,6 +1,37 @@
 /* AltiusOne Custom Styles */
 
 /* ========================================
+   SIDEBAR LOGO - Light/Dark + Full/Mini
+   1.png = light full, 2.png = dark full,
+   3.png = light mini, 4.png = dark mini
+   ======================================== */
+
+/* Hide all variants by default */
+.app-logo .logo .logo-full-dark,
+.app-logo .logo .logo-mini-light,
+.app-logo .logo .logo-mini-dark {
+  display: none;
+}
+
+/* Override framework brightness filter — we use dedicated dark logos */
+body.dark nav .app-logo .logo img {
+  filter: none;
+}
+
+/* Dark mode expanded: show 2.png */
+body.dark .app-logo .logo .logo-full-light { display: none; }
+body.dark .app-logo .logo .logo-full-dark  { display: inline; }
+
+/* Semi-nav (collapsed, not hovered): show mini logos */
+nav.semi-nav:not(:hover) .app-logo .logo .logo-full-light,
+nav.semi-nav:not(:hover) .app-logo .logo .logo-full-dark  { display: none !important; }
+nav.semi-nav:not(:hover) .app-logo .logo .logo-mini-light  { display: inline; }
+
+/* Semi-nav + dark mode: show 4.png instead of 3.png */
+body.dark nav.semi-nav:not(:hover) .app-logo .logo .logo-mini-light { display: none !important; }
+body.dark nav.semi-nav:not(:hover) .app-logo .logo .logo-mini-dark  { display: inline !important; }
+
+/* ========================================
    DARK MODE - LOADER & BASE STYLES
    Appliqué via html.dark pour éviter le flash
    ======================================== */

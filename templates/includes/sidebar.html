@@ -4,7 +4,10 @@
 <nav>
   <div class="app-logo">
     <a class="logo d-inline-block" href="{% url 'core:dashboard' %}">
-      <img alt="AltiusOne" src="{% static 'assets/images/logo/1.png' %}" />
+      <img alt="AltiusOne" class="logo-full-light" src="{% static 'assets/images/logo/1.png' %}" />
+      <img alt="AltiusOne" class="logo-full-dark"  src="{% static 'assets/images/logo/2.png' %}" />
+      <img alt="AltiusOne" class="logo-mini-light" src="{% static 'assets/images/logo/3.png' %}" />
+      <img alt="AltiusOne" class="logo-mini-dark"  src="{% static 'assets/images/logo/4.png' %}" />
     </a>
 
     <span class="bg-light-primary toggle-semi-nav d-flex-center">
@@ -12,16 +15,13 @@
     </span>
 
     <div class="d-flex align-items-center nav-profile p-3">
-      <span
-        class="h-45 w-45 d-flex-center b-r-10 position-relative bg-primary m-auto"
-      >
-        <span class="text-white f-w-600"
-          >{{ user.first_name|slice:":1"|upper|default:"A" }}{{
-          user.last_name|slice:":1"|upper|default:"F" }}</span
-        >
-        <span
-          class="position-absolute top-0 end-0 p-1 bg-success border border-light rounded-circle"
-        ></span>
+      <span class="h-45 w-45 d-flex-center b-r-10 position-relative {% if not user.avatar %}bg-primary{% endif %} m-auto">
+        {% if user.avatar %}
+        <img alt="avatar" class="img-fluid b-r-10" src="{{ user.avatar.url }}">
+        {% else %}
+        <span class="text-white f-w-600">{{ user.first_name|slice:":1"|upper|default:"A" }}{{ user.last_name|slice:":1"|upper|default:"F" }}</span>
+        {% endif %}
+        <span class="position-absolute top-0 end-0 p-1 bg-success border border-light rounded-circle"></span>
       </span>
       <div class="flex-grow-1 ps-2">
         <h6 class="text-primary mb-0">
