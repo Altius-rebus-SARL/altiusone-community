@@ -452,6 +452,53 @@ class SignUpForm(UserCreationForm):
 
 
 # =============================================================================
+# FORMULAIRE PROFIL UTILISATEUR
+# =============================================================================
+
+
+class ProfileForm(forms.ModelForm):
+    """Formulaire de modification du profil par l'utilisateur lui-même."""
+
+    supprimer_avatar = forms.BooleanField(required=False, label=_("Supprimer la photo"))
+
+    class Meta:
+        model = User
+        fields = [
+            'avatar',
+            'first_name',
+            'last_name',
+            'email',
+            'phone',
+            'mobile',
+        ]
+        widgets = {
+            'avatar': forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
+            'first_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'phone': forms.TextInput(attrs={'class': 'form-control'}),
+            'mobile': forms.TextInput(attrs={'class': 'form-control'}),
+        }
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        qs = User.objects.filter(email=email)
+        if self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise forms.ValidationError(_("Un utilisateur avec cet email existe déjà."))
+        return email
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        if self.cleaned_data.get('supprimer_avatar'):
+            user.avatar = None
+        if commit:
+            user.save()
+        return user
+
+
+# =============================================================================
 # FORMULAIRES GESTION UTILISATEURS
 # =============================================================================
 

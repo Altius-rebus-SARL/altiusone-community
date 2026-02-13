@@ -15,14 +15,44 @@
                 <form method="post" class="app-form" enctype="multipart/form-data">
                     {% csrf_token %}
 
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger f-s-13">{{ form.non_field_errors }}</div>
+                    {% endif %}
+
                     <div class="row">
                         <!-- Photo de profil -->
                         <div class="col-12 mb-4">
                             <div class="text-center">
-                                <div class="h-100 w-100 d-flex-center b-r-12 overflow-hidden bg-light-primary mx-auto" style="max-width: 150px; max-height: 150px;">
-                                    <h1 class="text-primary mb-0">{{ user.first_name.0|default:user.username.0|upper }}{{ user.last_name.0|default:''|upper }}</h1>
+                                <div class="mx-auto position-relative" style="width:120px; height:120px;">
+                                    {% if user.avatar %}
+                                    <img src="{{ user.avatar.url }}" alt="{{ user.get_full_name }}"
+                                         class="rounded-circle w-100 h-100 object-fit-cover border"
+                                         id="avatarPreview">
+                                    {% else %}
+                                    <div class="w-100 h-100 d-flex align-items-center justify-content-center rounded-circle bg-primary text-white"
+                                         id="avatarPreview">
+                                        <h1 class="mb-0">{{ user.first_name.0|default:user.username.0|upper }}{{ user.last_name.0|default:''|upper }}</h1>
+                                    </div>
+                                    {% endif %}
+                                    <label for="id_avatar" class="position-absolute bottom-0 end-0 btn btn-sm btn-primary rounded-circle d-flex align-items-center justify-content-center" style="width:32px; height:32px; cursor:pointer;">
+                                        <i class="ti ti-camera f-s-14"></i>
+                                    </label>
                                 </div>
-                                <p class="text-muted mt-2 mb-0">{{ user.email }}</p>
+                                <div class="mt-2" style="display:none;">
+                                    {{ form.avatar }}
+                                </div>
+                                {% if user.avatar %}
+                                <div class="mt-2">
+                                    <label class="form-check-label f-s-12 text-muted">
+                                        {{ form.supprimer_avatar }}
+                                        {% trans "Supprimer la photo" %}
+                                    </label>
+                                </div>
+                                {% endif %}
+                                {% if form.avatar.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.avatar.errors.0 }}</div>
+                                {% endif %}
+                                <p class="text-muted mt-1 mb-0 f-s-12">{{ user.email }}</p>
                             </div>
                         </div>
 
@@ -32,15 +62,9 @@
                                 <label for="id_first_name" class="form-label">
                                     {% trans "Prénom" %}
                                 </label>
-                                <input type="text" 
-                                       name="first_name" 
-                                       class="form-control" 
-                                       id="id_first_name" 
-                                       value="{{ user.first_name }}">
+                                {{ form.first_name }}
                                 {% if form.first_name.errors %}
-                                <div class="text-danger f-s-12 mt-1">
-                                    {{ form.first_name.errors }}
-                                </div>
+                                <div class="text-danger f-s-12 mt-1">{{ form.first_name.errors.0 }}</div>
                                 {% endif %}
                             </div>
                         </div>
@@ -51,15 +75,9 @@
                                 <label for="id_last_name" class="form-label">
                                     {% trans "Nom" %}
                                 </label>
-                                <input type="text" 
-                                       name="last_name" 
-                                       class="form-control" 
-                                       id="id_last_name" 
-                                       value="{{ user.last_name }}">
+                                {{ form.last_name }}
                                 {% if form.last_name.errors %}
-                                <div class="text-danger f-s-12 mt-1">
-                                    {{ form.last_name.errors }}
-                                </div>
+                                <div class="text-danger f-s-12 mt-1">{{ form.last_name.errors.0 }}</div>
                                 {% endif %}
                             </div>
                         </div>
@@ -70,16 +88,9 @@
                                 <label for="id_email" class="form-label">
                                     {% trans "Email" %} <span class="text-danger">*</span>
                                 </label>
-                                <input type="email" 
-                                       name="email" 
-                                       class="form-control" 
-                                       id="id_email" 
-                                       value="{{ user.email }}" 
-                                       required>
+                                {{ form.email }}
                                 {% if form.email.errors %}
-                                <div class="text-danger f-s-12 mt-1">
-                                    {{ form.email.errors }}
-                                </div>
+                                <div class="text-danger f-s-12 mt-1">{{ form.email.errors.0 }}</div>
                                 {% endif %}
                             </div>
                         </div>
@@ -90,11 +101,7 @@
                                 <label for="id_phone" class="form-label">
                                     {% trans "Téléphone" %}
                                 </label>
-                                <input type="text" 
-                                       name="phone" 
-                                       class="form-control" 
-                                       id="id_phone" 
-                                       value="{{ user.phone|default:'' }}">
+                                {{ form.phone }}
                             </div>
                         </div>
 
@@ -104,11 +111,7 @@
                                 <label for="id_mobile" class="form-label">
                                     {% trans "Mobile" %}
                                 </label>
-                                <input type="text" 
-                                       name="mobile" 
-                                       class="form-control" 
-                                       id="id_mobile" 
-                                       value="{{ user.mobile|default:'' }}">
+                                {{ form.mobile }}
                             </div>
                         </div>
 
@@ -149,4 +152,28 @@
         </div>
     </div>
 </div>
+
+<script>
+// Preview avatar before upload
+document.getElementById('id_avatar').addEventListener('change', function(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(evt) {
+        var preview = document.getElementById('avatarPreview');
+        if (preview.tagName === 'IMG') {
+            preview.src = evt.target.result;
+        } else {
+            // Replace initials div with img
+            var img = document.createElement('img');
+            img.src = evt.target.result;
+            img.alt = 'Avatar';
+            img.className = 'rounded-circle w-100 h-100 object-fit-cover border';
+            img.id = 'avatarPreview';
+            preview.parentNode.replaceChild(img, preview);
+        }
+    };
+    reader.readAsDataURL(file);
+});
+</script>
 {% endblock %}
