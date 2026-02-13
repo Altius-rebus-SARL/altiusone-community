@@ -1,9 +1,13 @@
 # graph/tests/test_services.py
 """Tests des services du graphe relationnel."""
 from unittest.mock import patch, MagicMock
+from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase
-from graph.models import Anomalie
-from .factories import make_ontologie_type, make_entite, make_relation, make_anomalie
+from graph.models import Anomalie, Entite, Relation
+from .factories import (
+    make_ontologie_type, make_entite, make_relation, make_anomalie,
+    make_user, make_client, make_mandat,
+)
 
 
 class EmbeddingServiceTestCase(TestCase):
@@ -151,3 +155,132 @@ class ImportServiceTestCase(TestCase):
 
         self.assertEqual(result['created'], 0)
         self.assertGreater(len(result['errors']), 0)
+
+
+class SyncServiceTestCase(TestCase):
+    """Tests du service de synchronisation modèles Django → graphe."""
+
+    def setUp(self):
+        from graph.services.sync import invalidate_type_cache
+        invalidate_type_cache()
+        # Créer les types d'ontologie nécessaires
+        self.type_entreprise = make_ontologie_type(
+            categorie='entity', nom='Entreprise',
+        )
+        self.type_personne = make_ontologie_type(
+            categorie='entity', nom='Personne',
+        )
+        self.type_mandat = make_ontologie_type(
+            categorie='entity', nom='Mandat',
+        )
+        self.rel_client_de = make_ontologie_type(
+            categorie='relation', nom='Client de',
+            verbe='est client de', verbe_inverse='a pour client',
+        )
+        self.rel_responsable_de = make_ontologie_type(
+            categorie='relation', nom='Responsable de',
+            verbe='est responsable de', verbe_inverse='a pour responsable',
+        )
+
+    def tearDown(self):
+        from graph.services.sync import invalidate_type_cache
+        invalidate_type_cache()
+
+    def test_sync_instance_creates_entite(self):
+        """Crée un Client, vérifie qu'une Entite est créée."""
+        from graph.services.sync import sync_instance
+
+        client = make_client()
+        entite = sync_instance(client)
+
+        self.assertIsNotNone(entite)
+        self.assertEqual(entite.nom, client.raison_sociale)
+        self.assertEqual(entite.type, self.type_entreprise)
+        self.assertEqual(entite.source, 'systeme')
+        self.assertEqual(entite.confiance, 1.0)
+        # Vérifie le GenericFK
+        ct = ContentType.objects.get_for_model(client)
+        self.assertEqual(entite.content_type, ct)
+        self.assertEqual(entite.object_id, client.pk)
+        # Vérifie les attributs
+        self.assertIn('ide_number', entite.attributs)
+        self.assertEqual(entite.attributs['ide_number'], client.ide_number)
+
+    def test_sync_instance_updates_entite(self):
+        """Modifie le Client, vérifie que l'Entite est mise à jour."""
+        from graph.services.sync import sync_instance
+
+        client = make_client()
+        entite1 = sync_instance(client)
+        pk1 = entite1.pk
+
+        # Modifier le client
+        client.raison_sociale = 'Nouveau Nom SA'
+        client.save()
+        entite2 = sync_instance(client)
+
+        self.assertEqual(entite2.pk, pk1)  # Même entité
+        self.assertEqual(entite2.nom, 'Nouveau Nom SA')
+
+    def test_sync_instance_returns_none_for_unmapped_model(self):
+        """Un modèle non mappé retourne None."""
+        from graph.services.sync import sync_instance
+
+        # OntologieType n'est pas dans MODEL_GRAPH_CONFIG
+        entite = sync_instance(self.type_entreprise)
+        self.assertIsNone(entite)
+
+    def test_sync_relations_creates_relation(self):
+        """Crée un Mandat (FK→Client), vérifie Relation créée."""
+        from graph.services.sync import sync_instance, sync_relations
+
+        responsable = make_user()
+        client = make_client(responsable=responsable)
+        mandat = make_mandat(client=client, responsable=responsable)
+
+        # Syncer les entités d'abord
+        sync_instance(responsable)
+        sync_instance(client)
+        sync_instance(mandat)
+
+        # Syncer les relations du mandat
+        sync_relations(mandat)
+
+        # Vérifier la relation Mandat → Client (Client de)
+        ct_mandat = ContentType.objects.get_for_model(mandat)
+        ct_client = ContentType.objects.get_for_model(client)
+        mandat_entite = Entite.objects.get(content_type=ct_mandat, object_id=mandat.pk)
+        client_entite = Entite.objects.get(content_type=ct_client, object_id=client.pk)
+
+        self.assertTrue(
+            Relation.objects.filter(
+                source=mandat_entite,
+                cible=client_entite,
+                type=self.rel_client_de,
+            ).exists()
+        )
+
+        # Vérifier la relation Mandat → User (Responsable de)
+        ct_user = ContentType.objects.get_for_model(responsable)
+        user_entite = Entite.objects.get(content_type=ct_user, object_id=responsable.pk)
+
+        self.assertTrue(
+            Relation.objects.filter(
+                source=mandat_entite,
+                cible=user_entite,
+                type=self.rel_responsable_de,
+            ).exists()
+        )
+
+    def test_delete_instance_deactivates(self):
+        """Supprime, vérifie is_active=False."""
+        from graph.services.sync import sync_instance, delete_instance
+
+        client = make_client()
+        entite = sync_instance(client)
+        self.assertTrue(entite.is_active)
+
+        delete_instance(client)
+
+        entite.refresh_from_db()
+        self.assertFalse(entite.is_active)

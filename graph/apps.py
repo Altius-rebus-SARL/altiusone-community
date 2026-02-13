@@ -9,3 +9,4 @@ class GraphConfig(AppConfig):
 
     def ready(self):
         import graph.signals  # noqa: F401
+        graph.signals.register_sync_signals()
