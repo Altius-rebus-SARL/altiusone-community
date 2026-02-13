@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}AltiusOne | {% trans "Graphe relationnel" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<ul class="app-line-breadcrumbs mb-3">
+    <li>
+        <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+            <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Dashboard" %}</span>
+        </a>
+    </li>
+    <li class="active">
+        <span><i class="ph-duotone ph-graph f-s-16"></i> {% trans "Graphe relationnel" %}</span>
+    </li>
+</ul>
+
+<!-- Toolbar -->
+<div class="row mb-3">
+    <div class="col-md-4">
+        <div class="input-group">
+            <span class="input-group-text"><i class="ph ph-magnifying-glass"></i></span>
+            <input type="text" id="searchEntite" class="form-control"
+                   placeholder="{% trans 'Rechercher une entité...' %}" autocomplete="off">
+            <div id="searchResults" class="dropdown-menu w-100" style="display:none;"></div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <select id="filterType" class="form-select">
+            <option value="">{% trans "Tous les types" %}</option>
+            {% for t in types_entites %}
+            <option value="{{ t.id }}" data-couleur="{{ t.couleur }}">{{ t.nom }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-2">
+        <select id="profondeur" class="form-select">
+            <option value="1">{% trans "Profondeur" %} 1</option>
+            <option value="2" selected>{% trans "Profondeur" %} 2</option>
+            <option value="3">{% trans "Profondeur" %} 3</option>
+            <option value="4">{% trans "Profondeur" %} 4</option>
+            <option value="5">{% trans "Profondeur" %} 5</option>
+        </select>
+    </div>
+    <div class="col-md-4 text-end">
+        <a href="{% url 'graph:entite-create' %}" class="btn btn-primary me-1">
+            <i class="ph ph-plus me-1"></i> {% trans "Entité" %}
+        </a>
+        <a href="{% url 'graph:ontologie-list' %}" class="btn btn-outline-secondary me-1">
+            <i class="ph ph-gear me-1"></i> {% trans "Ontologie" %}
+        </a>
+        <a href="{% url 'graph:anomalie-list' %}" class="btn btn-outline-warning">
+            <i class="ph ph-warning me-1"></i>
+            <span class="badge bg-warning text-dark">{{ stats.anomalies }}</span>
+        </a>
+    </div>
+</div>
+
+<!-- Stats mini -->
+<div class="row mb-3">
+    <div class="col-md-4">
+        <div class="card bg-light-primary border-0">
+            <div class="card-body py-2">
+                <div class="d-flex align-items-center">
+                    <div class="avatar bg-primary rounded me-3">
+                        <i class="ph-duotone ph-circles-three-plus text-white f-s-24"></i>
+                    </div>
+                    <div>
+                        <p class="text-muted mb-0 f-s-12">{% trans "Entités" %}</p>
+                        <h6 class="text-primary mb-0">{{ stats.entites }}</h6>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-light-success border-0">
+            <div class="card-body py-2">
+                <div class="d-flex align-items-center">
+                    <div class="avatar bg-success rounded me-3">
+                        <i class="ph-duotone ph-arrows-left-right text-white f-s-24"></i>
+                    </div>
+                    <div>
+                        <p class="text-muted mb-0 f-s-12">{% trans "Relations" %}</p>
+                        <h6 class="text-success mb-0">{{ stats.relations }}</h6>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-light-warning border-0">
+            <div class="card-body py-2">
+                <div class="d-flex align-items-center">
+                    <div class="avatar bg-warning rounded me-3">
+                        <i class="ph-duotone ph-warning text-white f-s-24"></i>
+                    </div>
+                    <div>
+                        <p class="text-muted mb-0 f-s-12">{% trans "Anomalies" %}</p>
+                        <h6 class="text-warning mb-0">{{ stats.anomalies }}</h6>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Graph container -->
+<div class="card">
+    <div class="card-body p-0 position-relative">
+        <div id="graphContainer" style="height: 600px; width: 100%;"></div>
+        <!-- Detail panel (slide-in) -->
+        <div id="detailPanel" class="position-absolute top-0 end-0 bg-white shadow-lg"
+             style="width: 350px; height: 100%; overflow-y: auto; display: none; z-index: 10;">
+            <div class="p-3">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0" id="detailTitle">-</h6>
+                    <button class="btn btn-sm btn-light" id="closeDetail">
+                        <i class="ph ph-x"></i>
+                    </button>
+                </div>
+                <div id="detailContent"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Timeline brush -->
+<div class="card mt-3">
+    <div class="card-body py-2">
+        <div id="timelineContainer" style="height: 60px; width: 100%;"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'graph/css/graph.css' %}">
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+    window.GRAPH_CONFIG = {
+        apiBase: '/api/v1/',
+        csrfToken: '{{ csrf_token }}',
+        entitesInitiales: {{ entites_json|safe }},
+    };
+</script>
+<script src="{% static 'graph/js/explorer.js' %}"></script>
+<script src="{% static 'graph/js/timeline.js' %}"></script>
+<script src="{% static 'graph/js/recherche.js' %}"></script>
+{% endblock %}

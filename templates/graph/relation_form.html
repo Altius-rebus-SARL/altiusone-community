@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}AltiusOne | {% trans "Nouvelle relation" %}{% endblock %}
+
+{% block content %}
+<ul class="app-line-breadcrumbs mb-3">
+    <li>
+        <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+            <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Dashboard" %}</span>
+        </a>
+    </li>
+    <li>
+        <a class="f-s-14 f-w-500" href="{% url 'graph:explorer' %}">
+            <span><i class="ph-duotone ph-graph f-s-16"></i> {% trans "Graphe" %}</span>
+        </a>
+    </li>
+    <li class="active">{% trans "Nouvelle relation" %}</li>
+</ul>
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="ph-duotone ph-arrows-left-right me-2"></i>{% trans "Créer une relation" %}
+        </h5>
+    </div>
+    <div class="card-body">
+        <form method="post" class="app-form">
+            {% csrf_token %}
+
+            {% if form.errors %}
+            <div class="alert alert-danger mb-3">
+                <i class="ph ph-x-circle me-2"></i>
+                {% for field, errors in form.errors.items %}
+                    {% for error in errors %}
+                    <div>{{ error }}</div>
+                    {% endfor %}
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">{% trans "Type de relation" %} <span class="text-danger">*</span></label>
+                    {{ form.type }}
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">{% trans "Entité source" %} <span class="text-danger">*</span></label>
+                    {{ form.source }}
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">{% trans "Entité cible" %} <span class="text-danger">*</span></label>
+                    {{ form.cible }}
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-3 mb-3">
+                    <label class="form-label">{% trans "Poids" %}</label>
+                    {{ form.poids }}
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="form-label">{% trans "Confiance" %}</label>
+                    {{ form.confiance }}
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="form-label">{% trans "Date début" %}</label>
+                    {{ form.date_debut }}
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="form-label">{% trans "Date fin" %}</label>
+                    {{ form.date_fin }}
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">{% trans "Document preuve" %}</label>
+                    {{ form.document_preuve }}
+                </div>
+                <div class="col-md-6 mb-3 d-flex align-items-end">
+                    <div class="form-check">
+                        {{ form.en_cours }}
+                        <label class="form-check-label">{% trans "Relation en cours" %}</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between">
+                <a href="javascript:history.back()" class="btn btn-secondary">
+                    <i class="ph ph-arrow-left me-1"></i> {% trans "Retour" %}
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="ph ph-check me-1"></i> {% trans "Créer" %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -33,6 +33,7 @@ from analytics.api_urls import router as analytics_router
 from mailing.api_urls import router as mailing_router
 from editeur.api_urls import urlpatterns as editeur_api_urls
 from modelforms.api_urls import router as modelforms_router
+from graph.api_urls import router as graph_router, graph_extra_urls as graph_extra_urls
 
 # Créer un router principal
 api_v1_router = DefaultRouter()
@@ -48,6 +49,7 @@ api_v1_router.registry.extend(fisc_router.registry)
 api_v1_router.registry.extend(analytics_router.registry)
 api_v1_router.registry.extend(mailing_router.registry)
 api_v1_router.registry.extend(modelforms_router.registry)
+api_v1_router.registry.extend(graph_router.registry)
 
 
 class HealthCheckView(View):
@@ -88,8 +90,14 @@ urlpatterns = [
     # API v1 - Chat & Messagerie (team messaging + AI)
     path("api/v1/messaging/", include("chat.api_urls")),
 
+    # API v1 - Graphe relationnel (URLs additionnelles)
+    path("api/v1/graph-analytics/", include(graph_extra_urls)),
+
     # API v1 - Éditeur collaboratif
     path("api/v1/editeur/", include(editeur_api_urls)),
+
+    # MCP Server (Model Context Protocol)
+    path("mcp/", include("mcp.urls", namespace="mcp")),
 
     # DRF browsable API auth
     path("api/v1/auth/", include("rest_framework.urls")),
@@ -129,6 +137,7 @@ urlpatterns += i18n_patterns(
     path("editeur/", include("editeur.urls", namespace="editeur")),
     path("modelforms/", include("modelforms.urls", namespace="modelforms")),
     path("projets/", include("projets.urls", namespace="projets")),
+    path("graph/", include("graph.urls", namespace="graph")),
     # Import/Export générique pour tous les modèles
     path("import-export/", include("core.import_export.urls", namespace="import_export")),
     prefix_default_language=True,

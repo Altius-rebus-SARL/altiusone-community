@@ -237,6 +237,18 @@ PERMISSIONS_METIER = {
         # Introspection
         'introspect_models': _('Utiliser l\'introspection des modèles'),
     },
+
+    # ============ MODULE GRAPHE RELATIONNEL ============
+    'graph': {
+        'view_graph': _('Consulter le graphe relationnel'),
+        'add_entite': _('Créer des entités'),
+        'change_entite': _('Modifier des entités'),
+        'delete_entite': _('Supprimer des entités'),
+        'add_relation': _('Créer des relations'),
+        'manage_ontologie': _('Gérer l\'ontologie'),
+        'manage_anomalies': _('Traiter les anomalies'),
+        'import_data': _('Importer des données'),
+    },
 }
 
 
@@ -378,6 +390,16 @@ ROLE_PERMISSIONS = {
         'modelforms.add_template',
         'modelforms.change_template',
         'modelforms.introspect_models',
+
+        # Graphe relationnel
+        'graph.view_graph',
+        'graph.add_entite',
+        'graph.change_entite',
+        'graph.delete_entite',
+        'graph.add_relation',
+        'graph.manage_ontologie',
+        'graph.manage_anomalies',
+        'graph.import_data',
     ],
 
     'COMPTABLE': [
@@ -455,6 +477,9 @@ ROLE_PERMISSIONS = {
         'modelforms.view_submissions',
         'modelforms.add_submission',
         'modelforms.view_templates',
+
+        # Graphe relationnel (lecture)
+        'graph.view_graph',
     ],
 
     'ASSISTANT': [
