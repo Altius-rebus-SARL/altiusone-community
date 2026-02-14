@@ -1,0 +1,234 @@
+<!-- core/entreprise_form.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}
+    {% if form.instance.pk %}{% trans "Modifier l'entreprise" %}{% else %}{% trans "Nouvelle entreprise" %}{% endif %}
+{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">
+            {% if form.instance.pk %}{% trans "Modifier l'entreprise" %}{% else %}{% trans "Nouvelle entreprise" %}{% endif %}
+        </h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:entreprise-list' %}">{% trans "Entreprises" %}</a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">
+                    {% if form.instance.pk %}{{ form.instance.raison_sociale }}{% else %}{% trans "Nouvelle" %}{% endif %}
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<div class="row">
+    <div class="col-xl-8">
+        <form method="post" enctype="multipart/form-data" class="app-form">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger">
+                {{ form.non_field_errors }}
+            </div>
+            {% endif %}
+
+            <!-- Identification -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Identification" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label for="{{ form.raison_sociale.id_for_label }}" class="form-label">
+                                {% trans "Raison sociale" %} <span class="text-danger">*</span>
+                            </label>
+                            {{ form.raison_sociale }}
+                            {% if form.raison_sociale.errors %}<div class="text-danger f-s-12">{{ form.raison_sociale.errors|join:", " }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.forme_juridique.id_for_label }}" class="form-label">
+                                {% trans "Forme juridique" %} <span class="text-danger">*</span>
+                            </label>
+                            {{ form.forme_juridique }}
+                            {% if form.forme_juridique.errors %}<div class="text-danger f-s-12">{{ form.forme_juridique.errors|join:", " }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.nom_commercial.id_for_label }}" class="form-label">{% trans "Nom commercial" %}</label>
+                            {{ form.nom_commercial }}
+                            {% if form.nom_commercial.errors %}<div class="text-danger f-s-12">{{ form.nom_commercial.errors|join:", " }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.ide_number.id_for_label }}" class="form-label">
+                                {% trans "IDE" %} <span class="text-danger">*</span>
+                            </label>
+                            {{ form.ide_number }}
+                            {% if form.ide_number.errors %}<div class="text-danger f-s-12">{{ form.ide_number.errors|join:", " }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.ch_id.id_for_label }}" class="form-label">{% trans "CH-ID" %}</label>
+                            {{ form.ch_id }}
+                            {% if form.ch_id.errors %}<div class="text-danger f-s-12">{{ form.ch_id.errors|join:", " }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.ofrc_id.id_for_label }}" class="form-label">{% trans "OFRC-ID" %}</label>
+                            {{ form.ofrc_id }}
+                            {% if form.ofrc_id.errors %}<div class="text-danger f-s-12">{{ form.ofrc_id.errors|join:", " }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.tva_number.id_for_label }}" class="form-label">{% trans "TVA" %}</label>
+                            {{ form.tva_number }}
+                            {% if form.tva_number.errors %}<div class="text-danger f-s-12">{{ form.tva_number.errors|join:", " }}</div>{% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Coordonnees -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Coordonnees" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.siege.id_for_label }}" class="form-label">
+                                {% trans "Siege" %} <span class="text-danger">*</span>
+                            </label>
+                            {{ form.siege }}
+                            {% if form.siege.errors %}<div class="text-danger f-s-12">{{ form.siege.errors|join:", " }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.canton_rc.id_for_label }}" class="form-label">{% trans "Canton RC" %}</label>
+                            {{ form.canton_rc }}
+                            {% if form.canton_rc.errors %}<div class="text-danger f-s-12">{{ form.canton_rc.errors|join:", " }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.email.id_for_label }}" class="form-label">{% trans "Email" %}</label>
+                            {{ form.email }}
+                            {% if form.email.errors %}<div class="text-danger f-s-12">{{ form.email.errors|join:", " }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.telephone.id_for_label }}" class="form-label">{% trans "Telephone" %}</label>
+                            {{ form.telephone }}
+                            {% if form.telephone.errors %}<div class="text-danger f-s-12">{{ form.telephone.errors|join:", " }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.site_web.id_for_label }}" class="form-label">{% trans "Site web" %}</label>
+                            {{ form.site_web }}
+                            {% if form.site_web.errors %}<div class="text-danger f-s-12">{{ form.site_web.errors|join:", " }}</div>{% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Informations legales -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Informations legales" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-12 mb-3">
+                            <label for="{{ form.but.id_for_label }}" class="form-label">{% trans "But" %}</label>
+                            {{ form.but }}
+                            {% if form.but.errors %}<div class="text-danger f-s-12">{{ form.but.errors|join:", " }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.date_creation.id_for_label }}" class="form-label">{% trans "Date de creation" %}</label>
+                            {{ form.date_creation }}
+                            {% if form.date_creation.errors %}<div class="text-danger f-s-12">{{ form.date_creation.errors|join:", " }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.date_inscription_rc.id_for_label }}" class="form-label">{% trans "Date inscription RC" %}</label>
+                            {{ form.date_inscription_rc }}
+                            {% if form.date_inscription_rc.errors %}<div class="text-danger f-s-12">{{ form.date_inscription_rc.errors|join:", " }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.statut.id_for_label }}" class="form-label">{% trans "Statut" %}</label>
+                            {{ form.statut }}
+                            {% if form.statut.errors %}<div class="text-danger f-s-12">{{ form.statut.errors|join:", " }}</div>{% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Logo et options -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Logo et options" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label for="{{ form.logo.id_for_label }}" class="form-label">{% trans "Logo" %}</label>
+                            {% if form.instance.pk and form.instance.logo %}
+                            <div class="mb-2">
+                                <img src="{{ form.instance.logo.url }}" alt="Logo actuel" style="max-height: 60px;" class="border rounded p-1">
+                            </div>
+                            {% endif %}
+                            {{ form.logo }}
+                            {% if form.logo.errors %}<div class="text-danger f-s-12">{{ form.logo.errors|join:", " }}</div>{% endif %}
+                            <small class="text-muted">{% trans "Formats acceptes: PNG, JPG, SVG" %}</small>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">&nbsp;</label>
+                            <div class="form-check mt-2">
+                                {{ form.est_defaut }}
+                                <label class="form-check-label" for="{{ form.est_defaut.id_for_label }}">
+                                    {% trans "Entreprise par defaut" %}
+                                </label>
+                            </div>
+                            <small class="text-muted">{% trans "Une seule entreprise peut etre marquee par defaut" %}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between mb-4">
+                <a href="{% url 'core:entreprise-list' %}" class="btn btn-secondary">
+                    <i class="ti ti-arrow-left me-2"></i>{% trans "Retour" %}
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="ti ti-check me-2"></i>{% if form.instance.pk %}{% trans "Enregistrer" %}{% else %}{% trans "Creer" %}{% endif %}
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Help -->
+    <div class="col-xl-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="text-primary mb-3">{% trans "Aide" %}</h5>
+                <p class="text-muted f-s-14">
+                    <strong>{% trans "Entreprise par defaut" %}:</strong><br>
+                    {% trans "L'entreprise par defaut est utilisee automatiquement pour les nouveaux clients et comme fallback pour les documents." %}
+                </p>
+                <p class="text-muted f-s-14 mt-3">
+                    <strong>{% trans "Logo" %}:</strong><br>
+                    {% trans "Le logo est utilise sur les PDF generes (fiches de salaire, certificats, etc.). Les clients sans logo propre heritent du logo de leur entreprise." %}
+                </p>
+                <p class="text-muted f-s-14 mt-3">
+                    <strong>{% trans "IDE" %}:</strong><br>
+                    {% trans "Numero d'identification des entreprises au format CHE-XXX.XXX.XXX" %}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

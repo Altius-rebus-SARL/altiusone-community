@@ -96,10 +96,10 @@
       <!-- CORE Module -->
       {% with is_core_menu=ns|add:":"|add:is_active %}
       <li
-        data-active="{% if 'core:client' in is_core_menu or 'core:mandat' in is_core_menu or 'core:exercice' in is_core_menu or 'core:tache' in is_core_menu or ns == 'modelforms' and 'available' in is_active or ns == 'modelforms' and 'form-fill' in is_active %}true{% endif %}"
+        data-active="{% if 'core:client' in is_core_menu or 'core:mandat' in is_core_menu or 'core:exercice' in is_core_menu or 'core:tache' in is_core_menu or 'core:entreprise' in is_core_menu or ns == 'modelforms' and 'available' in is_active or ns == 'modelforms' and 'form-fill' in is_active %}true{% endif %}"
       >
         <a
-          data-expanded="{% if ns == 'core' and is_active in 'client-list,client-detail,client-create,client-update,mandat-list,mandat-detail,mandat-create,mandat-update,exercice-list,exercice-detail,exercice-create,exercice-update,tache-list,tache-detail,tache-create,tache-update' or ns == 'modelforms' and 'available' in is_active or ns == 'modelforms' and 'form-fill' in is_active %}true{% else %}false{% endif %}"
+          data-expanded="{% if ns == 'core' and is_active in 'client-list,client-detail,client-create,client-update,mandat-list,mandat-detail,mandat-create,mandat-update,exercice-list,exercice-detail,exercice-create,exercice-update,tache-list,tache-detail,tache-create,tache-update,entreprise-list,entreprise-detail,entreprise-create,entreprise-update' or ns == 'modelforms' and 'available' in is_active or ns == 'modelforms' and 'form-fill' in is_active %}true{% else %}false{% endif %}"
           data-bs-toggle="collapse"
           href="#coreMenu"
         >
@@ -108,9 +108,14 @@
         </a>
         <ul
           class="collapse"
-          data-show="{% if ns == 'core' and 'client' in is_active or 'mandat' in is_active or 'exercice' in is_active or 'tache' in is_active or ns == 'modelforms' and 'available' in is_active or ns == 'modelforms' and 'form-fill' in is_active %}true{% endif %}"
+          data-show="{% if ns == 'core' and 'client' in is_active or 'mandat' in is_active or 'exercice' in is_active or 'tache' in is_active or 'entreprise' in is_active or ns == 'modelforms' and 'available' in is_active or ns == 'modelforms' and 'form-fill' in is_active %}true{% endif %}"
           id="coreMenu"
         >
+          <li
+            data-active="{% if ns == 'core' and 'entreprise' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'core:entreprise-list' %}">{% trans "Entreprises" %}</a>
+          </li>
           <li
             data-active="{% if ns == 'core' and 'client' in is_active %}true{% endif %}"
           >
@@ -517,13 +522,6 @@
           >
             <a href="{% url 'core:admin-collaborateur-list' %}"
               >{% trans "Collaborateurs" %}</a
-            >
-          </li>
-          <li
-            data-active="{% if ns == 'core' and 'admin-entreprise' in is_active %}true{% endif %}"
-          >
-            <a href="{% url 'core:admin-entreprise-list' %}"
-              >{% trans "Entreprises" %}</a
             >
           </li>
         </ul>

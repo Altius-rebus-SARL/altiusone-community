@@ -38,6 +38,13 @@ urlpatterns = [
     # ============================================================================
     path("", views.DashboardView.as_view(), name="dashboard"),
     # ============================================================================
+    # ENTREPRISES
+    # ============================================================================
+    path("entreprises/", views.EntrepriseListView.as_view(), name="entreprise-list"),
+    path("entreprises/nouvelle/", views.EntrepriseCreateView.as_view(), name="entreprise-create"),
+    path("entreprises/<uuid:pk>/", views.EntrepriseDetailView.as_view(), name="entreprise-detail"),
+    path("entreprises/<uuid:pk>/modifier/", views.EntrepriseUpdateView.as_view(), name="entreprise-update"),
+    # ============================================================================
     # CLIENTS
     # ============================================================================
     path("clients/", views.ClientListView.as_view(), name="client-list"),
@@ -198,13 +205,6 @@ urlpatterns = [
     path("admin/acces-mandats/nouveau/", views.AccesMandatCreateView.as_view(), name="admin-acces-mandat-create"),
     path("admin/acces-mandats/<uuid:pk>/modifier/", views.AccesMandatUpdateView.as_view(), name="admin-acces-mandat-update"),
     path("admin/acces-mandats/<uuid:pk>/toggle/", views.acces_mandat_toggle, name="admin-acces-mandat-toggle"),
-    # ============================================================================
-    # ADMINISTRATION - ENTREPRISES
-    # ============================================================================
-    path("admin/entreprises/", views.EntrepriseListView.as_view(), name="admin-entreprise-list"),
-    path("admin/entreprises/nouvelle/", views.EntrepriseCreateView.as_view(), name="admin-entreprise-create"),
-    path("admin/entreprises/<uuid:pk>/", views.EntrepriseDetailView.as_view(), name="admin-entreprise-detail"),
-    path("admin/entreprises/<uuid:pk>/modifier/", views.EntrepriseUpdateView.as_view(), name="admin-entreprise-update"),
     # ============================================================================
     # ADMINISTRATION - COLLABORATEURS FIDUCIAIRE (PRESTATAIRES)
     # ============================================================================

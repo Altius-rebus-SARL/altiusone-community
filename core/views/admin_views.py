@@ -311,7 +311,7 @@ class EntrepriseListView(LoginRequiredMixin, ManagerRequiredMixin, ListView):
     """Liste des entreprises"""
 
     model = Entreprise
-    template_name = "core/admin/entreprise_list.html"
+    template_name = "core/entreprise_list.html"
     context_object_name = "entreprises"
     paginate_by = 25
 
@@ -333,7 +333,7 @@ class EntrepriseDetailView(LoginRequiredMixin, ManagerRequiredMixin, DetailView)
     """Détail d'une entreprise"""
 
     model = Entreprise
-    template_name = "core/admin/entreprise_detail.html"
+    template_name = "core/entreprise_detail.html"
     context_object_name = "entreprise"
 
     def get_context_data(self, **kwargs):
@@ -353,8 +353,8 @@ class EntrepriseCreateView(LoginRequiredMixin, AdminRequiredMixin, CreateView):
 
     model = Entreprise
     form_class = EntrepriseForm
-    template_name = "core/admin/entreprise_form.html"
-    success_url = reverse_lazy('core:admin-entreprise-list')
+    template_name = "core/entreprise_form.html"
+    success_url = reverse_lazy('core:entreprise-list')
 
     def form_valid(self, form):
         messages.success(self.request, _("Entreprise créée avec succès"))
@@ -366,10 +366,10 @@ class EntrepriseUpdateView(LoginRequiredMixin, AdminRequiredMixin, UpdateView):
 
     model = Entreprise
     form_class = EntrepriseForm
-    template_name = "core/admin/entreprise_form.html"
+    template_name = "core/entreprise_form.html"
 
     def get_success_url(self):
-        return reverse('core:admin-entreprise-detail', kwargs={'pk': self.object.pk})
+        return reverse('core:entreprise-detail', kwargs={'pk': self.object.pk})
 
     def form_valid(self, form):
         messages.success(self.request, _("Entreprise modifiée avec succès"))
