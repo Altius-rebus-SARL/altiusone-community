@@ -797,6 +797,16 @@ class CompteBancaire(models.Model):
         verbose_name=_('Mandat')
     )
 
+    # Entreprise propriétaire (pour les comptes principaux multi-entité)
+    entreprise = models.ForeignKey(
+        'Entreprise',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='comptes_bancaires',
+        verbose_name=_('Entreprise')
+    )
+
     # Pour le compte principal de la fiduciaire (l'application)
     est_compte_principal = models.BooleanField(
         default=False,
@@ -833,11 +843,11 @@ class CompteBancaire(models.Model):
         verbose_name_plural = _('Comptes bancaires')
         ordering = ['-est_compte_principal', 'libelle']
         constraints = [
-            # Un seul compte principal par défaut
+            # Un seul compte principal par entreprise
             models.UniqueConstraint(
-                fields=['est_compte_principal'],
+                fields=['entreprise', 'est_compte_principal'],
                 condition=models.Q(est_compte_principal=True),
-                name='unique_compte_principal'
+                name='unique_compte_principal_par_entreprise'
             )
         ]
 
@@ -870,12 +880,12 @@ class CompteBancaire(models.Model):
             self.bic_swift = self.bic_swift.replace(' ', '').upper()
 
         # Vérifier que le compte appartient à au moins une entité
-        # (sauf si c'est le compte principal)
+        # (sauf si c'est le compte principal ou lié à une entreprise)
         if not self.est_compte_principal:
-            if not any([self.client, self.utilisateur, self.mandat]):
+            if not any([self.client, self.utilisateur, self.mandat, self.entreprise]):
                 raise ValidationError(
                     _('Un compte bancaire doit être associé à un client, un utilisateur, '
-                      'un mandat, ou être marqué comme compte principal.')
+                      'un mandat, une entreprise, ou être marqué comme compte principal.')
                 )
 
         # Vérifier format QR-IBAN pour la Suisse
@@ -894,36 +904,46 @@ class CompteBancaire(models.Model):
         super().save(*args, **kwargs)
 
     @classmethod
-    def get_compte_principal(cls):
-        """Retourne le compte principal de la fiduciaire"""
-        return cls.objects.filter(est_compte_principal=True, actif=True).first()
+    def get_compte_principal(cls, entreprise=None):
+        """Retourne le compte principal, optionnellement filtré par entreprise."""
+        qs = cls.objects.filter(est_compte_principal=True, actif=True)
+        if entreprise:
+            return qs.filter(entreprise=entreprise).first() or qs.first()
+        return qs.first()
 
     @classmethod
-    def get_compte_qr_default(cls):
-        """Retourne le compte QR-IBAN par défaut pour les factures"""
-        # Priorité: compte principal QR > premier compte QR actif
-        compte = cls.objects.filter(
-            est_compte_principal=True,
-            est_qr_iban=True,
-            actif=True
-        ).first()
+    def get_compte_qr_default(cls, entreprise=None):
+        """Retourne le compte QR-IBAN par défaut pour les factures."""
+        qs = cls.objects.filter(est_qr_iban=True, actif=True)
+        if entreprise:
+            # Priorité: compte principal QR de l'entreprise > QR de l'entreprise > global
+            compte = qs.filter(entreprise=entreprise, est_compte_principal=True).first()
+            if not compte:
+                compte = qs.filter(entreprise=entreprise).first()
+            if not compte:
+                compte = qs.filter(est_compte_principal=True).first()
+            if not compte:
+                compte = qs.first()
+            return compte
 
+        # Sans entreprise: compte principal QR > premier QR actif
+        compte = qs.filter(est_compte_principal=True).first()
         if not compte:
-            compte = cls.objects.filter(est_qr_iban=True, actif=True).first()
-
+            compte = qs.first()
         return compte
 
 
 # =============================================================================
-# ENTREPRISE (Fiduciaire principale - singleton)
+# ENTREPRISE (Entités juridiques de la fiduciaire)
 # =============================================================================
 
 class Entreprise(models.Model):
     """
-    Entreprise principale (fiduciaire) propriétaire de l'instance AltiusOne.
+    Entité juridique de la fiduciaire.
 
-    Ce modèle est un singleton - une seule instance existe par installation.
-    Il représente la fiduciaire qui utilise AltiusOne pour gérer ses clients.
+    Permet de gérer plusieurs entités juridiques (ex: "Altius Academy SNC"
+    + "Altius Conseil SA"). L'entreprise marquée `est_defaut=True` est
+    l'entité principale utilisée par défaut.
     """
 
     FORME_JURIDIQUE_CHOICES = [
@@ -1077,6 +1097,13 @@ class Entreprise(models.Model):
         help_text=_('Logo de l\'entreprise (utilisé sur les documents)')
     )
 
+    # Entreprise par défaut
+    est_defaut = models.BooleanField(
+        default=False,
+        verbose_name=_('Entreprise par défaut'),
+        help_text=_('Entreprise utilisée par défaut (une seule autorisée)')
+    )
+
     # Associés/Propriétaires (stocké en JSON pour flexibilité)
     associes = models.JSONField(
         default=list,
@@ -1093,30 +1120,43 @@ class Entreprise(models.Model):
         db_table = 'entreprise'
         verbose_name = _('Entreprise')
         verbose_name_plural = _('Entreprises')
+        constraints = [
+            models.UniqueConstraint(
+                fields=['est_defaut'],
+                condition=models.Q(est_defaut=True),
+                name='unique_entreprise_defaut'
+            )
+        ]
 
     def __str__(self):
         return f"{self.raison_sociale} ({self.ide_number})"
 
-    def save(self, *args, **kwargs):
-        # Singleton: s'assurer qu'il n'y a qu'une seule instance
-        if not self.pk and Entreprise.objects.exists():
-            raise ValueError(_('Il ne peut y avoir qu\'une seule entreprise par installation.'))
-        super().save(*args, **kwargs)
+    @classmethod
+    def get_default(cls):
+        """Retourne l'entreprise par défaut, ou la première si aucune n'est marquée."""
+        return cls.objects.filter(est_defaut=True).first() or cls.objects.first()
 
     @classmethod
     def get_instance(cls):
-        """Retourne l'instance unique de l'entreprise, ou None si non configurée."""
-        return cls.objects.first()
+        """Alias rétrocompatible pour get_default()."""
+        return cls.get_default()
 
     @classmethod
     def get_or_create_default(cls):
-        """Retourne l'instance ou crée une instance par défaut."""
-        instance = cls.objects.first()
+        """Retourne l'entreprise par défaut ou crée une instance par défaut."""
+        instance = cls.objects.filter(est_defaut=True).first()
+        if not instance:
+            instance = cls.objects.first()
+        if instance and not instance.est_defaut:
+            instance.est_defaut = True
+            instance.save(update_fields=['est_defaut'])
+            return instance
         if not instance:
             instance = cls.objects.create(
                 raison_sociale='Altius Academy SNC',
                 forme_juridique='SNC',
                 ide_number='CHE-138.647.564',
+                est_defaut=True,
                 ch_id='CH-550-1237137-3',
                 ofrc_id='1613327',
                 siege='Echallens',
@@ -1178,6 +1218,16 @@ class Client(BaseModel):
     nom_commercial = models.CharField(max_length=255, blank=True, verbose_name=_('Nom commercial'))
     forme_juridique = models.CharField(max_length=20, choices=FORME_JURIDIQUE_CHOICES, verbose_name=_('Forme juridique'))
     description = models.TextField(blank=True, verbose_name=_('Description'))
+
+    # Entreprise (fiduciaire) rattachée
+    entreprise = models.ForeignKey(
+        Entreprise,
+        on_delete=models.PROTECT,
+        related_name='clients',
+        null=True,
+        blank=True,
+        verbose_name=_('Entreprise')
+    )
 
     # Numéros officiels
     ide_number = models.CharField(
@@ -1243,6 +1293,15 @@ class Client(BaseModel):
     telephone = models.CharField(max_length=20, verbose_name=_('Téléphone'))
     site_web = models.URLField(blank=True, verbose_name=_('Site web'))
 
+    # Logo
+    logo = models.ImageField(
+        upload_to='clients/logos/',
+        blank=True,
+        null=True,
+        verbose_name=_('Logo'),
+        help_text=_('Logo du client (utilisé sur les documents)')
+    )
+
     # Dates importantes
     date_creation = models.DateField(verbose_name=_('Date de création entreprise'))
     date_inscription_rc = models.DateField(null=True, blank=True, verbose_name=_('Date inscription RC'))
@@ -1294,6 +1353,14 @@ class Client(BaseModel):
     @property
     def is_sous_client(self):
         return self.parent_client_id is not None
+
+    def get_logo(self):
+        """Retourne le logo du client, ou celui de son entreprise, ou None."""
+        if self.logo:
+            return self.logo
+        if self.entreprise_id and self.entreprise.logo:
+            return self.entreprise.logo
+        return None
 
 
 class Contact(BaseModel):

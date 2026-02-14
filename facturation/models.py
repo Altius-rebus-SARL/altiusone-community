@@ -826,7 +826,15 @@ class Facture(BaseModel):
             ).first()
 
             if not compte_bancaire:
-                # Chercher le compte principal de la fiduciaire
+                # Chercher le compte principal de l'entreprise du client
+                entreprise = getattr(self.mandat.client, 'entreprise', None)
+                if entreprise:
+                    compte_bancaire = CompteBancaire.objects.filter(
+                        entreprise=entreprise, est_compte_principal=True, actif=True
+                    ).first()
+
+            if not compte_bancaire:
+                # Fallback: compte principal global
                 compte_bancaire = CompteBancaire.objects.filter(
                     est_compte_principal=True, actif=True
                 ).first()

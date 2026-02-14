@@ -630,11 +630,13 @@ class CertificatSalairePDF:
             bytes: Contenu du PDF
         """
         buffer = BytesIO()
+        logo_source = self.client.get_logo() if hasattr(self.client, 'get_logo') else None
         doc = create_salaire_doc(
             buffer,
             title="Formulaire 11 - Certificat de salaire",
             confidential=False,
             margins={'top': 16 * mm, 'bottom': 16 * mm, 'left': 12 * mm, 'right': 12 * mm},
+            logo_source=logo_source,
         )
 
         elements = []

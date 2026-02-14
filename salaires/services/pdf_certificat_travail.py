@@ -27,6 +27,7 @@ from .pdf_styles import (
     GreenLine,
     build_doc,
     create_salaire_doc,
+    get_logo_for_client,
     get_logo_image,
     get_salaires_styles,
     make_spacer,
@@ -63,7 +64,7 @@ class CertificatTravailPDF:
         elements = []
 
         # Logo + infos employeur cote a cote
-        logo = get_logo_image(width=2.5 * cm)
+        logo = get_logo_for_client(self.client, width=2.5 * cm)
 
         employer_lines = [f"<b>{self.client.raison_sociale}</b>"]
         if self.adresse_client:
@@ -270,11 +271,13 @@ class CertificatTravailPDF:
             bytes: Contenu du PDF
         """
         buffer = BytesIO()
+        logo_source = self.client.get_logo() if hasattr(self.client, 'get_logo') else None
         doc = create_salaire_doc(
             buffer,
             title="Certificat de travail",
             confidential=True,
             margins={'top': 20 * mm, 'bottom': 20 * mm, 'left': 25 * mm, 'right': 25 * mm},
+            logo_source=logo_source,
         )
 
         elements = []

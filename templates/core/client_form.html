@@ -88,7 +88,7 @@
                 </div>
                 {% endif %}
 
-                <form method="post" class="app-form">
+                <form method="post" enctype="multipart/form-data" class="app-form">
                     {% csrf_token %}
 
                     <div class="row">
@@ -121,6 +121,21 @@
                                 {% if form.forme_juridique.errors %}
                                 <div class="text-danger f-s-12 mt-1">
                                     {{ form.forme_juridique.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Entreprise -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.entreprise.id_for_label }}" class="form-label">
+                                    {{ form.entreprise.label }}
+                                </label>
+                                {{ form.entreprise }}
+                                {% if form.entreprise.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.entreprise.errors }}
                                 </div>
                                 {% endif %}
                             </div>
@@ -258,6 +273,26 @@
                                 {% if form.telephone.errors %}
                                 <div class="text-danger f-s-12 mt-1">
                                     {{ form.telephone.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Logo -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.logo.id_for_label }}" class="form-label">
+                                    {{ form.logo.label }}
+                                </label>
+                                {% if form.instance.logo %}
+                                <div class="mb-2">
+                                    <img src="{{ form.instance.logo.url }}" alt="Logo" style="max-height: 50px;" class="border rounded p-1">
+                                </div>
+                                {% endif %}
+                                {{ form.logo }}
+                                {% if form.logo.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.logo.errors }}
                                 </div>
                                 {% endif %}
                             </div>

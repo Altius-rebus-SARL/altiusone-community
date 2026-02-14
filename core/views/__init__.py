@@ -108,6 +108,11 @@ from .admin_views import (
     RoleDetailView,
     RoleCreateView,
     RoleUpdateView,
+    # Entreprises
+    EntrepriseListView,
+    EntrepriseDetailView,
+    EntrepriseCreateView,
+    EntrepriseUpdateView,
     # Invitations
     InvitationListView,
     InvitationDetailView,
@@ -219,6 +224,10 @@ __all__ = [
     'RoleDetailView',
     'RoleCreateView',
     'RoleUpdateView',
+    'EntrepriseListView',
+    'EntrepriseDetailView',
+    'EntrepriseCreateView',
+    'EntrepriseUpdateView',
     'InvitationListView',
     'InvitationDetailView',
     'InvitationStaffCreateView',

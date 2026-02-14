@@ -4,7 +4,7 @@ from django.contrib.auth.forms import UserCreationForm, SetPasswordForm
 from django.contrib.auth.models import Permission
 from django.utils.translation import gettext_lazy as _
 from .models import (
-    Client, Mandat, Contact, Tache, Adresse, ExerciceComptable, User,
+    Client, Entreprise, Mandat, Contact, Tache, Adresse, ExerciceComptable, User,
     TypeMandat, TypeFacturation, Periodicite, Role, AccesMandat, Invitation,
     CollaborateurFiduciaire, TypeCollaborateur
 )
@@ -28,11 +28,11 @@ class AdresseForm(forms.ModelForm):
         }
 
 
-class ClientForm(forms.ModelForm):
-    """Formulaire de création/modification d'un client"""
+class EntrepriseForm(forms.ModelForm):
+    """Formulaire de création/modification d'une entreprise"""
 
     class Meta:
-        model = Client
+        model = Entreprise
         fields = [
             "raison_sociale",
             "nom_commercial",
@@ -43,18 +43,15 @@ class ClientForm(forms.ModelForm):
             "tva_number",
             "siege",
             "canton_rc",
-            "npa",
-            "localite",
             "email",
             "telephone",
             "site_web",
+            "but",
             "date_creation",
             "date_inscription_rc",
-            "date_debut_exercice",
-            "date_fin_exercice",
             "statut",
-            "responsable",
-            "notes",
+            "logo",
+            "est_defaut",
         ]
         widgets = {
             "raison_sociale": forms.TextInput(attrs={"class": "form-control"}),
@@ -70,11 +67,73 @@ class ClientForm(forms.ModelForm):
             "tva_number": forms.TextInput(attrs={"class": "form-control"}),
             "siege": forms.TextInput(attrs={"class": "form-control"}),
             "canton_rc": forms.Select(attrs={"class": "form-control"}),
+            "email": forms.EmailInput(attrs={"class": "form-control"}),
+            "telephone": forms.TextInput(attrs={"class": "form-control"}),
+            "site_web": forms.URLInput(attrs={"class": "form-control"}),
+            "but": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+            "date_creation": forms.DateInput(
+                attrs={"class": "form-control", "type": "date"}
+            ),
+            "date_inscription_rc": forms.DateInput(
+                attrs={"class": "form-control", "type": "date"}
+            ),
+            "statut": forms.Select(attrs={"class": "form-control"}),
+            "logo": forms.ClearableFileInput(attrs={"class": "form-control", "accept": "image/*"}),
+            "est_defaut": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        }
+
+
+class ClientForm(forms.ModelForm):
+    """Formulaire de création/modification d'un client"""
+
+    class Meta:
+        model = Client
+        fields = [
+            "raison_sociale",
+            "nom_commercial",
+            "forme_juridique",
+            "entreprise",
+            "ide_number",
+            "ch_id",
+            "ofrc_id",
+            "tva_number",
+            "siege",
+            "canton_rc",
+            "npa",
+            "localite",
+            "email",
+            "telephone",
+            "site_web",
+            "logo",
+            "date_creation",
+            "date_inscription_rc",
+            "date_debut_exercice",
+            "date_fin_exercice",
+            "statut",
+            "responsable",
+            "notes",
+        ]
+        widgets = {
+            "raison_sociale": forms.TextInput(attrs={"class": "form-control"}),
+            "nom_commercial": forms.TextInput(attrs={"class": "form-control"}),
+            "forme_juridique": forms.Select(attrs={"class": "form-control"}),
+            "entreprise": forms.Select(attrs={"class": "form-control"}),
+            "ide_number": forms.TextInput(
+                attrs={"class": "form-control", "placeholder": "CHE-XXX.XXX.XXX"}
+            ),
+            "ch_id": forms.TextInput(
+                attrs={"class": "form-control", "placeholder": "CH-XXX-XXXXXXX-X"}
+            ),
+            "ofrc_id": forms.TextInput(attrs={"class": "form-control"}),
+            "tva_number": forms.TextInput(attrs={"class": "form-control"}),
+            "siege": forms.TextInput(attrs={"class": "form-control"}),
+            "canton_rc": forms.Select(attrs={"class": "form-control"}),
             "npa": forms.TextInput(attrs={"class": "form-control"}),
             "localite": forms.TextInput(attrs={"class": "form-control"}),
             "email": forms.EmailInput(attrs={"class": "form-control"}),
             "telephone": forms.TextInput(attrs={"class": "form-control"}),
             "site_web": forms.URLInput(attrs={"class": "form-control"}),
+            "logo": forms.ClearableFileInput(attrs={"class": "form-control", "accept": "image/*"}),
             "date_creation": forms.DateInput(
                 attrs={"class": "form-control", "type": "date"}
             ),
@@ -91,6 +150,13 @@ class ClientForm(forms.ModelForm):
             "responsable": forms.Select(attrs={"class": "form-control select2"}),
             "notes": forms.Textarea(attrs={"class": "form-control", "rows": 4}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['entreprise'].queryset = Entreprise.objects.filter(statut='ACTIVE')
+        default = Entreprise.get_default()
+        if default and not self.instance.pk:
+            self.fields['entreprise'].initial = default.pk
 
 
 class MandatForm(forms.ModelForm):

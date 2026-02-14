@@ -199,6 +199,13 @@ urlpatterns = [
     path("admin/acces-mandats/<uuid:pk>/modifier/", views.AccesMandatUpdateView.as_view(), name="admin-acces-mandat-update"),
     path("admin/acces-mandats/<uuid:pk>/toggle/", views.acces_mandat_toggle, name="admin-acces-mandat-toggle"),
     # ============================================================================
+    # ADMINISTRATION - ENTREPRISES
+    # ============================================================================
+    path("admin/entreprises/", views.EntrepriseListView.as_view(), name="admin-entreprise-list"),
+    path("admin/entreprises/nouvelle/", views.EntrepriseCreateView.as_view(), name="admin-entreprise-create"),
+    path("admin/entreprises/<uuid:pk>/", views.EntrepriseDetailView.as_view(), name="admin-entreprise-detail"),
+    path("admin/entreprises/<uuid:pk>/modifier/", views.EntrepriseUpdateView.as_view(), name="admin-entreprise-update"),
+    # ============================================================================
     # ADMINISTRATION - COLLABORATEURS FIDUCIAIRE (PRESTATAIRES)
     # ============================================================================
     path("admin/collaborateurs/", views.CollaborateurFiduciaireListView.as_view(), name="admin-collaborateur-list"),

@@ -51,11 +51,52 @@ LOGO_PATH = os.path.join(
 )
 
 
-def get_logo_image(width=3 * cm, height=None):
+def get_logo_image(width=3 * cm, height=None, logo_source=None):
     """
-    Charge le logo SVG et retourne un Image flowable ReportLab.
-    Retourne None si le fichier n'existe pas ou si svglib n'est pas disponible.
+    Charge un logo et retourne un flowable ReportLab.
+
+    Args:
+        width: Largeur souhaitée
+        height: Hauteur souhaitée (optionnel)
+        logo_source: ImageField Django ou None (fallback sur LOGO_PATH SVG statique)
+
+    Retourne None si aucun logo n'est disponible.
     """
+    # Si un logo_source Django ImageField est fourni
+    if logo_source:
+        try:
+            logo_path = logo_source.path
+            ext = os.path.splitext(logo_path)[1].lower()
+
+            if ext == '.svg':
+                from svglib.svglib import svg2rlg
+                drawing = svg2rlg(logo_path)
+                if drawing is None:
+                    return None
+                scale = width / drawing.width
+                drawing.width = width
+                drawing.height = drawing.height * scale
+                drawing.scale(scale, scale)
+                if height is not None:
+                    scale_h = height / drawing.height
+                    drawing.height = height
+                    drawing.scale(1, scale_h)
+                return drawing
+            else:
+                # PNG, JPG, etc. via reportlab Image
+                img = Image(logo_path, width=width, height=height or width)
+                if height is None:
+                    # Garder le ratio
+                    from reportlab.lib.utils import ImageReader
+                    ir = ImageReader(logo_path)
+                    iw, ih = ir.getSize()
+                    ratio = width / iw
+                    img = Image(logo_path, width=width, height=ih * ratio)
+                return img
+        except Exception:
+            pass  # Fallback sur le logo statique
+
+    # Fallback: logo SVG statique
     if not os.path.isfile(LOGO_PATH):
         return None
     try:
@@ -63,7 +104,6 @@ def get_logo_image(width=3 * cm, height=None):
         drawing = svg2rlg(LOGO_PATH)
         if drawing is None:
             return None
-        # Calculer le ratio pour la largeur demandee
         scale = width / drawing.width
         drawing.width = width
         drawing.height = drawing.height * scale
@@ -75,6 +115,12 @@ def get_logo_image(width=3 * cm, height=None):
         return drawing
     except Exception:
         return None
+
+
+def get_logo_for_client(client, width=3 * cm, height=None):
+    """Retourne le logo flowable pour un client (client.logo -> entreprise.logo -> SVG statique)."""
+    logo_source = client.get_logo() if client else None
+    return get_logo_image(width=width, height=height, logo_source=logo_source)
 
 
 # ==============================================================================
@@ -333,7 +379,7 @@ class GreenLine(Flowable):
 # Document factory avec header/footer
 # ==============================================================================
 
-def _build_header_footer(canvas, doc, title="", confidential=True):
+def _build_header_footer(canvas, doc, title="", confidential=True, logo_source=None):
     """Dessine header/footer brande sur chaque page."""
     canvas.saveState()
     width, height = A4
@@ -344,7 +390,7 @@ def _build_header_footer(canvas, doc, title="", confidential=True):
     canvas.line(15 * mm, height - 10 * mm, width - 15 * mm, height - 10 * mm)
 
     # Logo en haut a gauche (petit)
-    logo = get_logo_image(width=1.8 * cm)
+    logo = get_logo_image(width=1.8 * cm, logo_source=logo_source)
     if logo:
         logo.drawOn(canvas, 15 * mm, height - 9.5 * mm - 0.3 * cm)
 
@@ -375,7 +421,7 @@ def _build_header_footer(canvas, doc, title="", confidential=True):
     canvas.restoreState()
 
 
-def create_salaire_doc(buffer, title="", confidential=True, margins=None):
+def create_salaire_doc(buffer, title="", confidential=True, margins=None, logo_source=None):
     """
     Factory pour SimpleDocTemplate avec header/footer integre.
 
@@ -384,6 +430,7 @@ def create_salaire_doc(buffer, title="", confidential=True, margins=None):
         title: Titre affiche dans le header
         confidential: Afficher mention de confidentialite dans le footer
         margins: dict avec top, bottom, left, right en unites ReportLab (defaut 20mm)
+        logo_source: ImageField Django pour le logo (fallback sur SVG statique)
 
     Returns:
         SimpleDocTemplate configure
@@ -405,7 +452,7 @@ def create_salaire_doc(buffer, title="", confidential=True, margins=None):
     )
 
     def on_page(canvas, doc_inner):
-        _build_header_footer(canvas, doc_inner, title=title, confidential=confidential)
+        _build_header_footer(canvas, doc_inner, title=title, confidential=confidential, logo_source=logo_source)
 
     doc._on_page = on_page
     return doc

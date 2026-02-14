@@ -62,7 +62,7 @@ class DeclarationCotisationsPDF:
         client = self.declaration.mandat.client
         data = [
             ['Employeur:', client.raison_sociale],
-            ['N\u00b0 IDE:', client.numero_ide or '-'],
+            ['N\u00b0 IDE:', client.ide_number or '-'],
             ['N\u00b0 affilie:', self.declaration.numero_affilie or '-'],
             [
                 'Periode:',
@@ -202,10 +202,13 @@ class DeclarationCotisationsPDF:
             bytes: Contenu du PDF
         """
         buffer = BytesIO()
+        client = self.declaration.mandat.client
+        logo_source = client.get_logo() if hasattr(client, 'get_logo') else None
         doc = create_salaire_doc(
             buffer,
             title=f"Declaration {self.declaration.get_organisme_display()}",
             confidential=True,
+            logo_source=logo_source,
         )
 
         elements = []

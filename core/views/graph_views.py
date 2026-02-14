@@ -274,7 +274,7 @@ class GraphDataMixin:
         # 1. NŒUD CENTRAL: Entreprise (la fiduciaire)
         # ==============================================
         from core.models import Entreprise
-        entreprise = Entreprise.get_instance()
+        entreprise = Entreprise.get_default()
         if entreprise:
             fiduciaire_id = add_node('Fiduciaire', entreprise.pk, entreprise.raison_sociale, {
                 'description': entreprise.but[:100] if entreprise.but else '',

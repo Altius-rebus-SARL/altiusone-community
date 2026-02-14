@@ -35,6 +35,7 @@ from .pdf_styles import (
     create_salaire_doc,
     format_montant_suisse,
     get_alternating_row_colors,
+    get_logo_for_client,
     get_logo_image,
     get_salaires_styles,
     make_spacer,
@@ -70,7 +71,7 @@ class FicheSalairePDF:
         elements = []
 
         # Logo + Employeur + Titre + Periode dans une table 3 colonnes
-        logo = get_logo_image(width=2 * cm)
+        logo = get_logo_for_client(self.client, width=2 * cm)
 
         # Colonne gauche: employeur
         employer_lines = [f"<b>{self.client.raison_sociale}</b>"]
@@ -458,11 +459,13 @@ class FicheSalairePDF:
             bytes: Contenu du PDF
         """
         buffer = BytesIO()
+        logo_source = self.client.get_logo() if hasattr(self.client, 'get_logo') else None
         doc = create_salaire_doc(
             buffer,
             title="Fiche de salaire",
             confidential=True,
             margins={'top': 18 * mm, 'bottom': 18 * mm, 'left': 15 * mm, 'right': 15 * mm},
+            logo_source=logo_source,
         )
 
         elements = []

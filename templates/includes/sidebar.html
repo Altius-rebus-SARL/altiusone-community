@@ -519,6 +519,13 @@
               >{% trans "Collaborateurs" %}</a
             >
           </li>
+          <li
+            data-active="{% if ns == 'core' and 'admin-entreprise' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'core:admin-entreprise-list' %}"
+              >{% trans "Entreprises" %}</a
+            >
+          </li>
         </ul>
       </li>
 

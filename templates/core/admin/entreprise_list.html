@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Entreprises" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h3>{% trans "Gestion des entreprises" %}</h3>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}"><i class="ti ti-home"></i></a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'core:admin-dashboard' %}">{% trans "Administration" %}</a></li>
+                        <li class="breadcrumb-item active">{% trans "Entreprises" %}</li>
+                    </ol>
+                </div>
+                <div class="page-header-right">
+                    <a href="{% url 'core:admin-entreprise-create' %}" class="btn btn-primary">
+                        <i class="ti ti-plus me-2"></i>{% trans "Nouvelle entreprise" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row">
+        <div class="col-xl-3 col-sm-6">
+            <div class="card widget-1">
+                <div class="card-body">
+                    <div class="widget-content">
+                        <div class="widget-round primary">
+                            <i class="ti ti-building"></i>
+                        </div>
+                        <div>
+                            <h4>{{ stats.total }}</h4>
+                            <span>{% trans "Total" %}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-sm-6">
+            <div class="card widget-1">
+                <div class="card-body">
+                    <div class="widget-content">
+                        <div class="widget-round success">
+                            <i class="ti ti-building-community"></i>
+                        </div>
+                        <div>
+                            <h4>{{ stats.actives }}</h4>
+                            <span>{% trans "Actives" %}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Liste des entreprises" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "Raison sociale" %}</th>
+                                    <th>{% trans "IDE" %}</th>
+                                    <th>{% trans "Forme juridique" %}</th>
+                                    <th>{% trans "Siege" %}</th>
+                                    <th>{% trans "Clients" %}</th>
+                                    <th>{% trans "Statut" %}</th>
+                                    <th>{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entreprise in entreprises %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            {% if entreprise.logo %}
+                                            <img src="{{ entreprise.logo.url }}" alt="" class="me-2" style="max-height: 30px; max-width: 40px;">
+                                            {% endif %}
+                                            <div>
+                                                <a href="{% url 'core:admin-entreprise-detail' entreprise.pk %}">
+                                                    {{ entreprise.raison_sociale }}
+                                                </a>
+                                                {% if entreprise.est_defaut %}
+                                                <span class="badge bg-primary ms-1">{% trans "Defaut" %}</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td><code>{{ entreprise.ide_number }}</code></td>
+                                    <td>{{ entreprise.get_forme_juridique_display }}</td>
+                                    <td>{{ entreprise.siege }}</td>
+                                    <td>
+                                        {% if entreprise.nb_clients %}
+                                        <span class="badge bg-info">{{ entreprise.nb_clients }}</span>
+                                        {% else %}
+                                        <span class="text-muted">0</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if entreprise.statut == 'ACTIVE' %}
+                                        <span class="badge bg-success">{% trans "Active" %}</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">{{ entreprise.get_statut_display }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'core:admin-entreprise-detail' entreprise.pk %}" class="btn btn-outline-primary" title="{% trans 'Voir' %}">
+                                                <i class="ti ti-eye"></i>
+                                            </a>
+                                            <a href="{% url 'core:admin-entreprise-update' entreprise.pk %}" class="btn btn-outline-secondary" title="{% trans 'Modifier' %}">
+                                                <i class="ti ti-edit"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted py-4">
+                                        {% trans "Aucune entreprise configuree" %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if page_obj %}
+                    <nav aria-label="Page navigation" class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                                    <i class="ti ti-chevron-left"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                            </li>
+                            {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                                    <i class="ti ti-chevron-right"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

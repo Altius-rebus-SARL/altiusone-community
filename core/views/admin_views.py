@@ -23,11 +23,12 @@ from django.utils.translation import gettext_lazy as _
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 
-from core.models import User, Role, Mandat, AccesMandat, Invitation, CollaborateurFiduciaire
+from core.models import User, Role, Entreprise, Mandat, AccesMandat, Invitation, CollaborateurFiduciaire
 from core.forms import (
     UserForm,
     UserCreateForm,
     RoleForm,
+    EntrepriseForm,
     InvitationStaffForm,
     InvitationClientForm,
     AcceptInvitationForm,
@@ -299,6 +300,79 @@ class RoleUpdateView(LoginRequiredMixin, AdminRequiredMixin, UpdateView):
 
     def form_valid(self, form):
         messages.success(self.request, _("Rôle modifié avec succès"))
+        return super().form_valid(form)
+
+
+# =============================================================================
+# VUES ENTREPRISES
+# =============================================================================
+
+class EntrepriseListView(LoginRequiredMixin, ManagerRequiredMixin, ListView):
+    """Liste des entreprises"""
+
+    model = Entreprise
+    template_name = "core/admin/entreprise_list.html"
+    context_object_name = "entreprises"
+    paginate_by = 25
+
+    def get_queryset(self):
+        return Entreprise.objects.annotate(
+            nb_clients=Count('clients')
+        ).order_by('-est_defaut', 'raison_sociale')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['stats'] = {
+            'total': Entreprise.objects.count(),
+            'actives': Entreprise.objects.filter(statut='ACTIVE').count(),
+        }
+        return context
+
+
+class EntrepriseDetailView(LoginRequiredMixin, ManagerRequiredMixin, DetailView):
+    """Détail d'une entreprise"""
+
+    model = Entreprise
+    template_name = "core/admin/entreprise_detail.html"
+    context_object_name = "entreprise"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        entreprise = self.object
+        context['clients'] = entreprise.clients.filter(
+            is_active=True
+        ).order_by('raison_sociale')[:20]
+        context['comptes_bancaires'] = entreprise.comptes_bancaires.filter(
+            actif=True
+        ).order_by('-est_compte_principal', 'libelle')
+        return context
+
+
+class EntrepriseCreateView(LoginRequiredMixin, AdminRequiredMixin, CreateView):
+    """Création d'une entreprise"""
+
+    model = Entreprise
+    form_class = EntrepriseForm
+    template_name = "core/admin/entreprise_form.html"
+    success_url = reverse_lazy('core:admin-entreprise-list')
+
+    def form_valid(self, form):
+        messages.success(self.request, _("Entreprise créée avec succès"))
+        return super().form_valid(form)
+
+
+class EntrepriseUpdateView(LoginRequiredMixin, AdminRequiredMixin, UpdateView):
+    """Modification d'une entreprise"""
+
+    model = Entreprise
+    form_class = EntrepriseForm
+    template_name = "core/admin/entreprise_form.html"
+
+    def get_success_url(self):
+        return reverse('core:admin-entreprise-detail', kwargs={'pk': self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, _("Entreprise modifiée avec succès"))
         return super().form_valid(form)
 
 

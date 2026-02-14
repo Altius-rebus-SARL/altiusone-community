@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{{ entreprise.raison_sociale }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h3>{{ entreprise.raison_sociale }}</h3>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}"><i class="ti ti-home"></i></a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'core:admin-dashboard' %}">{% trans "Administration" %}</a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'core:admin-entreprise-list' %}">{% trans "Entreprises" %}</a></li>
+                        <li class="breadcrumb-item active">{{ entreprise.raison_sociale }}</li>
+                    </ol>
+                </div>
+                <div class="page-header-right">
+                    <a href="{% url 'core:admin-entreprise-update' entreprise.pk %}" class="btn btn-primary">
+                        <i class="ti ti-edit me-2"></i>{% trans "Modifier" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Informations principales -->
+        <div class="col-xl-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Informations" %}
+                        {% if entreprise.est_defaut %}
+                        <span class="badge bg-primary ms-2">{% trans "Entreprise par defaut" %}</span>
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted f-s-12">{% trans "Raison sociale" %}</label>
+                            <div class="f-w-600">{{ entreprise.raison_sociale }}</div>
+                        </div>
+                        {% if entreprise.nom_commercial %}
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted f-s-12">{% trans "Nom commercial" %}</label>
+                            <div>{{ entreprise.nom_commercial }}</div>
+                        </div>
+                        {% endif %}
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted f-s-12">{% trans "Forme juridique" %}</label>
+                            <div>{{ entreprise.get_forme_juridique_display }}</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted f-s-12">{% trans "Statut" %}</label>
+                            <div>
+                                {% if entreprise.statut == 'ACTIVE' %}
+                                <span class="badge bg-success">{% trans "Active" %}</span>
+                                {% else %}
+                                <span class="badge bg-secondary">{{ entreprise.get_statut_display }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr>
+                    <h6 class="text-primary mb-3">{% trans "Numeros officiels" %}</h6>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="text-muted f-s-12">{% trans "IDE" %}</label>
+                            <div><code>{{ entreprise.ide_number }}</code></div>
+                        </div>
+                        {% if entreprise.ch_id %}
+                        <div class="col-md-4 mb-3">
+                            <label class="text-muted f-s-12">{% trans "CH-ID" %}</label>
+                            <div><code>{{ entreprise.ch_id }}</code></div>
+                        </div>
+                        {% endif %}
+                        {% if entreprise.ofrc_id %}
+                        <div class="col-md-4 mb-3">
+                            <label class="text-muted f-s-12">{% trans "OFRC-ID" %}</label>
+                            <div>{{ entreprise.ofrc_id }}</div>
+                        </div>
+                        {% endif %}
+                        {% if entreprise.tva_number %}
+                        <div class="col-md-4 mb-3">
+                            <label class="text-muted f-s-12">{% trans "TVA" %}</label>
+                            <div>{{ entreprise.tva_number }}</div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <hr>
+                    <h6 class="text-primary mb-3">{% trans "Coordonnees" %}</h6>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="text-muted f-s-12">{% trans "Siege" %}</label>
+                            <div>{{ entreprise.siege }}{% if entreprise.canton_rc %} ({{ entreprise.canton_rc }}){% endif %}</div>
+                        </div>
+                        {% if entreprise.email %}
+                        <div class="col-md-4 mb-3">
+                            <label class="text-muted f-s-12">{% trans "Email" %}</label>
+                            <div><a href="mailto:{{ entreprise.email }}">{{ entreprise.email }}</a></div>
+                        </div>
+                        {% endif %}
+                        {% if entreprise.telephone %}
+                        <div class="col-md-4 mb-3">
+                            <label class="text-muted f-s-12">{% trans "Telephone" %}</label>
+                            <div>{{ entreprise.telephone }}</div>
+                        </div>
+                        {% endif %}
+                        {% if entreprise.site_web %}
+                        <div class="col-md-4 mb-3">
+                            <label class="text-muted f-s-12">{% trans "Site web" %}</label>
+                            <div><a href="{{ entreprise.site_web }}" target="_blank">{{ entreprise.site_web }}</a></div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    {% if entreprise.but %}
+                    <hr>
+                    <h6 class="text-primary mb-3">{% trans "But" %}</h6>
+                    <p>{{ entreprise.but }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Clients -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Clients" %} <span class="badge bg-info ms-2">{{ clients|length }}</span></h5>
+                </div>
+                <div class="card-body">
+                    {% if clients %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "Raison sociale" %}</th>
+                                    <th>{% trans "IDE" %}</th>
+                                    <th>{% trans "Statut" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for client in clients %}
+                                <tr>
+                                    <td><a href="{% url 'core:client-detail' client.pk %}">{{ client.raison_sociale }}</a></td>
+                                    <td><code>{{ client.ide_number }}</code></td>
+                                    <td>
+                                        {% if client.statut == 'ACTIF' %}
+                                        <span class="badge bg-success">{% trans "Actif" %}</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">{{ client.get_statut_display }}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center py-3">{% trans "Aucun client rattache" %}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-xl-4">
+            <!-- Logo -->
+            {% if entreprise.logo %}
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Logo" %}</h5>
+                </div>
+                <div class="card-body text-center">
+                    <img src="{{ entreprise.logo.url }}" alt="Logo" class="img-fluid" style="max-height: 120px;">
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Comptes bancaires -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Comptes bancaires" %}</h5>
+                </div>
+                <div class="card-body">
+                    {% if comptes_bancaires %}
+                    {% for compte in comptes_bancaires %}
+                    <div class="{% if not forloop.last %}mb-3 pb-3 border-bottom{% endif %}">
+                        <div class="f-w-600">{{ compte.libelle }}</div>
+                        <div class="f-s-12 text-muted">{{ compte.nom_banque }}</div>
+                        <div class="f-s-12"><code>{{ compte.iban_formate }}</code></div>
+                        {% if compte.est_compte_principal %}
+                        <span class="badge bg-primary f-s-10 mt-1">{% trans "Principal" %}</span>
+                        {% endif %}
+                        {% if compte.est_qr_iban %}
+                        <span class="badge bg-info f-s-10 mt-1">QR-IBAN</span>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <p class="text-muted text-center">{% trans "Aucun compte bancaire" %}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Dates -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Dates" %}</h5>
+                </div>
+                <div class="card-body">
+                    {% if entreprise.date_creation %}
+                    <div class="mb-2">
+                        <label class="text-muted f-s-12">{% trans "Creation" %}</label>
+                        <div>{{ entreprise.date_creation|date:"d/m/Y" }}</div>
+                    </div>
+                    {% endif %}
+                    {% if entreprise.date_inscription_rc %}
+                    <div class="mb-2">
+                        <label class="text-muted f-s-12">{% trans "Inscription RC" %}</label>
+                        <div>{{ entreprise.date_inscription_rc|date:"d/m/Y" }}</div>
+                    </div>
+                    {% endif %}
+                    <div class="mb-2">
+                        <label class="text-muted f-s-12">{% trans "Derniere modification" %}</label>
+                        <div>{{ entreprise.updated_at|date:"d/m/Y H:i" }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
