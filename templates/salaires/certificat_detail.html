@@ -120,6 +120,9 @@
                 <a href="{% url 'salaires:certificat-pdf' certificat.pk %}" class="btn btn-primary">
                     <i class="ph ph-file-pdf me-2"></i>{% trans "PDF Formulaire 11" %}
                 </a>
+                <a href="{% url 'salaires:certificat-studio' certificat.pk %}" class="btn btn-info">
+                    <i class="ph ph-paint-brush me-2"></i>{% trans "Studio PDF" %}
+                </a>
             </div>
         </div>
     </div>

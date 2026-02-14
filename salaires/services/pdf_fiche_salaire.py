@@ -50,12 +50,17 @@ MOIS_NOMS = [
 class FicheSalairePDF:
     """Generateur PDF pour une FicheSalaire mensuelle."""
 
-    def __init__(self, fiche):
+    def __init__(self, fiche, style_config=None):
         self.fiche = fiche
         self.employe = fiche.employe
         self.client = fiche.employe.mandat.client
         self.adresse = self.client.adresse_siege
-        self.styles = get_salaires_styles()
+        self.style_config = style_config
+        if style_config:
+            from salaires.services.pdf_styles import get_salaires_styles_custom
+            self.styles = get_salaires_styles_custom(style_config)
+        else:
+            self.styles = get_salaires_styles()
 
     def _fmt(self, montant):
         return format_montant_suisse(montant) or '-'

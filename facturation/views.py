@@ -1087,3 +1087,79 @@ class ZoneGeographiqueUpdateView(LoginRequiredMixin, BusinessPermissionMixin, Up
 
         messages.success(self.request, _("Zone modifiée avec succès"))
         return super().form_valid(form)
+
+
+# ==============================================================================
+# DOCUMENT STUDIO - FACTURES
+# ==============================================================================
+
+@login_required
+@permission_required_business('facturation.view_factures')
+def facture_studio(request, pk):
+    """Vue Studio PDF pour personnaliser une facture."""
+    facture = get_object_or_404(Facture, pk=pk)
+
+    from core.models import ModeleDocumentPDF
+    modele = ModeleDocumentPDF.get_effectif('FACTURE', facture.mandat)
+    config = modele.to_style_config() if modele else {}
+
+    # Convertir les HexColor en strings pour le template
+    config_json = {
+        'couleur_primaire': modele.couleur_primaire if modele else '#088178',
+        'couleur_accent': modele.couleur_accent if modele else '#2c3e50',
+        'couleur_texte': modele.couleur_texte if modele else '#333333',
+        'police': modele.police if modele else 'Helvetica',
+        'marge_haut': modele.marge_haut if modele else 20,
+        'marge_bas': modele.marge_bas if modele else 25,
+        'marge_gauche': modele.marge_gauche if modele else 20,
+        'marge_droite': modele.marge_droite if modele else 15,
+        'textes': modele.textes if modele else {},
+        'blocs_visibles': modele.blocs_visibles if modele else {},
+    }
+
+    blocs_config = [
+        ('logo', _('Logo')),
+        ('introduction', _('Introduction')),
+        ('conclusion', _('Conclusion')),
+        ('conditions', _('Conditions de paiement')),
+        ('qr_bill', _('QR-Bill suisse')),
+        ('remise', _('Remise')),
+        ('tva', _('TVA')),
+    ]
+
+    return render(request, "facturation/facture_studio.html", {
+        'facture': facture,
+        'config': config_json,
+        'config_json': json.dumps(config_json),
+        'blocs_config': blocs_config,
+        'preview_url': reverse_lazy('facturation:facture-studio-preview'),
+        'save_url': reverse_lazy('core:modele-pdf-save'),
+        'type_document': 'FACTURE',
+        'config_extra_template': 'facturation/_studio_config_extra.html',
+    })
+
+
+@login_required
+@require_http_methods(["POST"])
+@permission_required_business('facturation.view_factures')
+def facture_studio_preview(request):
+    """API de preview PDF pour le Studio facture."""
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'JSON invalide'}, status=400)
+
+    facture = get_object_or_404(Facture, pk=data.get('instance_id'))
+
+    from facturation.services.pdf_facture import FacturePDF
+    service = FacturePDF(
+        facture,
+        style_config=data,
+        avec_qr_bill=data.get('blocs_visibles', {}).get('qr_bill', False),
+    )
+    pdf_bytes = service.generer()
+
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    response['Content-Disposition'] = 'inline; filename="preview.pdf"'
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    return response

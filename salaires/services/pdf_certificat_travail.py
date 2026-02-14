@@ -38,12 +38,17 @@ PAGE_WIDTH, PAGE_HEIGHT = A4
 class CertificatTravailPDF:
     """Generateur PDF pour un CertificatTravail."""
 
-    def __init__(self, certificat):
+    def __init__(self, certificat, style_config=None):
         self.cert = certificat
         self.employe = certificat.employe
         self.client = certificat.employe.mandat.client
         self.adresse_client = self.client.adresse_siege
-        self.styles = get_salaires_styles()
+        self.style_config = style_config
+        if style_config:
+            from salaires.services.pdf_styles import get_salaires_styles_custom
+            self.styles = get_salaires_styles_custom(style_config)
+        else:
+            self.styles = get_salaires_styles()
 
     def _get_titre(self):
         """Retourne le titre selon le type de certificat."""

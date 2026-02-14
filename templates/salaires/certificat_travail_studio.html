@@ -1,0 +1,45 @@
+<!-- salaires/certificat_travail_studio.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Studio PDF" %} - {% trans "Certificat de travail" %} {{ certificat.employe }}{% endblock %}
+
+{% block content %}
+<div class="row m-1 mb-2">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h5 class="mb-0">
+                <i class="ph-duotone ph-paint-brush me-1"></i>
+                {% trans "Studio PDF" %} — {% trans "Certificat de travail" %}
+            </h5>
+            <ul class="app-line-breadcrumbs mb-0" style="font-size: 0.8rem;">
+                <li><a href="{% url 'core:dashboard' %}"><i class="ph-duotone ph-house"></i></a></li>
+                <li><a href="{% url 'salaires:certificat-travail-list' %}">{% trans "Certificats de travail" %}</a></li>
+                <li><a href="{% url 'salaires:certificat-travail-detail' certificat.pk %}">{{ certificat.employe }}</a></li>
+                <li class="active">{% trans "Studio PDF" %}</li>
+            </ul>
+        </div>
+        <a href="{% url 'salaires:certificat-travail-detail' certificat.pk %}" class="btn btn-light">
+            <i class="ph-duotone ph-arrow-left me-1"></i>{% trans "Retour" %}
+        </a>
+    </div>
+</div>
+{% include "core/document_studio/_editor.html" with config=config blocs_config=blocs_config %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/document-studio.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    DocumentStudio.init({
+        previewUrl: '{{ preview_url }}',
+        typeDocument: '{{ type_document }}',
+        instanceId: '{{ certificat.pk }}',
+        csrfToken: '{{ csrf_token }}',
+        initialConfig: {{ config_json|safe }},
+        saveUrl: '{{ save_url }}',
+    });
+});
+</script>
+{% endblock %}

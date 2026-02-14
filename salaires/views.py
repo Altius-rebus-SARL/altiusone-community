@@ -1246,3 +1246,169 @@ def declarations_generer_masse(request):
         'current_year': datetime.now().year,
         'current_month': datetime.now().month,
     })
+
+
+# ==============================================================================
+# DOCUMENT STUDIO - SALAIRES
+# ==============================================================================
+
+def _get_studio_context(type_document, mandat, instance_pk, preview_url_name, blocs_config):
+    """Helper pour construire le contexte commun du Studio."""
+    from core.models import ModeleDocumentPDF
+
+    modele = ModeleDocumentPDF.get_effectif(type_document, mandat)
+    config_json = {
+        'couleur_primaire': modele.couleur_primaire if modele else '#088178',
+        'couleur_accent': modele.couleur_accent if modele else '#2c3e50',
+        'couleur_texte': modele.couleur_texte if modele else '#333333',
+        'police': modele.police if modele else 'Helvetica',
+        'marge_haut': modele.marge_haut if modele else 20,
+        'marge_bas': modele.marge_bas if modele else 25,
+        'marge_gauche': modele.marge_gauche if modele else 20,
+        'marge_droite': modele.marge_droite if modele else 15,
+        'textes': modele.textes if modele else {},
+        'blocs_visibles': modele.blocs_visibles if modele else {},
+    }
+    return {
+        'config': config_json,
+        'config_json': json.dumps(config_json),
+        'blocs_config': blocs_config,
+        'preview_url': reverse_lazy(f'salaires:{preview_url_name}'),
+        'save_url': reverse_lazy('core:modele-pdf-save'),
+        'type_document': type_document,
+    }
+
+
+@login_required
+@permission_required_business('salaires.view_salaires')
+def fiche_studio(request, pk):
+    """Vue Studio PDF pour une fiche de salaire."""
+    fiche = get_object_or_404(FicheSalaire, pk=pk)
+    blocs = [
+        ('logo', _('Logo')),
+        ('presence', _('Grille de présence')),
+        ('cotisations_employeur', _('Cotisations employeur')),
+        ('informations_bancaires', _('Informations bancaires')),
+        ('remarques', _('Remarques')),
+    ]
+    ctx = _get_studio_context('FICHE_SALAIRE', fiche.employe.mandat, fiche.pk,
+                              'fiche-studio-preview', blocs)
+    ctx['fiche'] = fiche
+    return render(request, 'salaires/fiche_studio.html', ctx)
+
+
+@login_required
+@require_http_methods(["POST"])
+@permission_required_business('salaires.view_salaires')
+def fiche_studio_preview(request):
+    """API preview PDF pour le Studio fiche de salaire."""
+    data = json.loads(request.body)
+    fiche = get_object_or_404(FicheSalaire, pk=data.get('instance_id'))
+    from salaires.services.pdf_fiche_salaire import FicheSalairePDF
+    service = FicheSalairePDF(fiche, style_config=data)
+    pdf_bytes = service.generer()
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    response['Content-Disposition'] = 'inline; filename="preview.pdf"'
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    return response
+
+
+@login_required
+@permission_required_business('salaires.view_salaires')
+def certificat_studio(request, pk):
+    """Vue Studio PDF pour un certificat de salaire."""
+    certificat = get_object_or_404(CertificatSalaire, pk=pk)
+    blocs = [
+        ('logo', _('Logo')),
+        ('remarques', _('Remarques')),
+        ('signature', _('Signature')),
+    ]
+    ctx = _get_studio_context('CERTIFICAT_SALAIRE', certificat.employe.mandat, certificat.pk,
+                              'certificat-studio-preview', blocs)
+    ctx['certificat'] = certificat
+    return render(request, 'salaires/certificat_studio.html', ctx)
+
+
+@login_required
+@require_http_methods(["POST"])
+@permission_required_business('salaires.view_salaires')
+def certificat_studio_preview(request):
+    """API preview PDF pour le Studio certificat de salaire."""
+    data = json.loads(request.body)
+    certificat = get_object_or_404(CertificatSalaire, pk=data.get('instance_id'))
+    from salaires.services.pdf_certificat_salaire import CertificatSalairePDF
+    service = CertificatSalairePDF(certificat, style_config=data)
+    pdf_bytes = service.generer()
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    response['Content-Disposition'] = 'inline; filename="preview.pdf"'
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    return response
+
+
+@login_required
+@permission_required_business('salaires.view_salaires')
+def certificat_travail_studio(request, pk):
+    """Vue Studio PDF pour un certificat de travail."""
+    certificat = get_object_or_404(CertificatTravail, pk=pk)
+    blocs = [
+        ('logo', _('Logo')),
+        ('description_taches', _('Description des tâches')),
+        ('formations', _('Formations')),
+        ('projets_speciaux', _('Projets spéciaux')),
+        ('evaluation', _('Évaluation')),
+        ('motif_depart', _('Motif de départ')),
+        ('formule_fin', _('Formule de fin')),
+        ('signature', _('Signature')),
+    ]
+    ctx = _get_studio_context('CERTIFICAT_TRAVAIL', certificat.employe.mandat, certificat.pk,
+                              'certificat-travail-studio-preview', blocs)
+    ctx['certificat'] = certificat
+    return render(request, 'salaires/certificat_travail_studio.html', ctx)
+
+
+@login_required
+@require_http_methods(["POST"])
+@permission_required_business('salaires.view_salaires')
+def certificat_travail_studio_preview(request):
+    """API preview PDF pour le Studio certificat de travail."""
+    data = json.loads(request.body)
+    certificat = get_object_or_404(CertificatTravail, pk=data.get('instance_id'))
+    from salaires.services.pdf_certificat_travail import CertificatTravailPDF
+    service = CertificatTravailPDF(certificat, style_config=data)
+    pdf_bytes = service.generer()
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    response['Content-Disposition'] = 'inline; filename="preview.pdf"'
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    return response
+
+
+@login_required
+@permission_required_business('salaires.view_salaires')
+def declaration_studio(request, pk):
+    """Vue Studio PDF pour une declaration de cotisations."""
+    declaration = get_object_or_404(DeclarationCotisations, pk=pk)
+    blocs = [
+        ('logo', _('Logo')),
+        ('detail_employes', _('Détail par employé')),
+        ('resume', _('Résumé')),
+    ]
+    ctx = _get_studio_context('DECLARATION_COTISATIONS', declaration.mandat, declaration.pk,
+                              'declaration-studio-preview', blocs)
+    ctx['declaration'] = declaration
+    return render(request, 'salaires/declaration_studio.html', ctx)
+
+
+@login_required
+@require_http_methods(["POST"])
+@permission_required_business('salaires.view_salaires')
+def declaration_studio_preview(request):
+    """API preview PDF pour le Studio declaration cotisations."""
+    data = json.loads(request.body)
+    declaration = get_object_or_404(DeclarationCotisations, pk=data.get('instance_id'))
+    from salaires.services.pdf_declaration import DeclarationCotisationsPDF
+    service = DeclarationCotisationsPDF(declaration, style_config=data)
+    pdf_bytes = service.generer()
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    response['Content-Disposition'] = 'inline; filename="preview.pdf"'
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    return response

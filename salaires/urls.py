@@ -174,4 +174,13 @@ urlpatterns = [
         views.declaration_preview_pdf,
         name="declaration-cotisations-preview-pdf",
     ),
+    # Document Studio
+    path("fiches/<uuid:pk>/studio/", views.fiche_studio, name="fiche-studio"),
+    path("api/studio/fiche/preview/", views.fiche_studio_preview, name="fiche-studio-preview"),
+    path("certificats/<uuid:pk>/studio/", views.certificat_studio, name="certificat-studio"),
+    path("api/studio/certificat/preview/", views.certificat_studio_preview, name="certificat-studio-preview"),
+    path("certificats-travail/<uuid:pk>/studio/", views.certificat_travail_studio, name="certificat-travail-studio"),
+    path("api/studio/certificat-travail/preview/", views.certificat_travail_studio_preview, name="certificat-travail-studio-preview"),
+    path("declarations-cotisations/<uuid:pk>/studio/", views.declaration_studio, name="declaration-studio"),
+    path("api/studio/declaration/preview/", views.declaration_studio_preview, name="declaration-studio-preview"),
 ]

@@ -146,6 +146,10 @@ urlpatterns = [
     path("set-language/", views.set_language, name="set-language"),
     path("set-devise/", views.set_devise, name="set-devise"),
     # ============================================================================
+    # DOCUMENT STUDIO
+    # ============================================================================
+    path("api/modele-pdf/save/", views.modele_pdf_save, name="modele-pdf-save"),
+    # ============================================================================
     # API AJAX
     # ============================================================================
     path(

@@ -2382,3 +2382,171 @@ class Invitation(BaseModel):
         """Retourne l'URL d'acceptation de l'invitation"""
         from django.urls import reverse
         return reverse('core:invitation-accept', kwargs={'token': self.token})
+
+
+class ModeleDocumentPDF(BaseModel):
+    """
+    Template de style PDF configurable par type de document et par mandat.
+    Permet la personnalisation visuelle (couleurs, polices, marges, textes, blocs)
+    via le Document Studio.
+    """
+
+    class TypeDocument(models.TextChoices):
+        FACTURE = 'FACTURE', _('Facture')
+        AVOIR = 'AVOIR', _('Avoir')
+        ACOMPTE = 'ACOMPTE', _("Facture d'acompte")
+        FICHE_SALAIRE = 'FICHE_SALAIRE', _('Fiche de salaire')
+        CERTIFICAT_SALAIRE = 'CERTIFICAT_SALAIRE', _('Certificat de salaire')
+        CERTIFICAT_TRAVAIL = 'CERTIFICAT_TRAVAIL', _('Certificat de travail')
+        DECLARATION_COTISATIONS = 'DECLARATION_COTISATIONS', _('Déclaration de cotisations')
+
+    class PoliceChoices(models.TextChoices):
+        HELVETICA = 'Helvetica', 'Helvetica'
+        TIMES = 'Times-Roman', 'Times Roman'
+        COURIER = 'Courier', 'Courier'
+
+    nom = models.CharField(max_length=200, verbose_name=_('Nom du modèle'))
+    type_document = models.CharField(
+        max_length=30,
+        choices=TypeDocument.choices,
+        db_index=True,
+        verbose_name=_('Type de document')
+    )
+    mandat = models.ForeignKey(
+        'Mandat',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='modeles_pdf',
+        verbose_name=_('Mandat'),
+        help_text=_('Laisser vide pour un modèle système par défaut')
+    )
+
+    # Identité visuelle
+    logo = models.FileField(
+        upload_to='modeles_pdf/logos/',
+        null=True,
+        blank=True,
+        verbose_name=_('Logo personnalisé')
+    )
+    utiliser_logo_defaut = models.BooleanField(
+        default=True,
+        verbose_name=_('Utiliser le logo par défaut')
+    )
+
+    # Couleurs
+    couleur_primaire = models.CharField(
+        max_length=7, default='#088178',
+        verbose_name=_('Couleur primaire')
+    )
+    couleur_accent = models.CharField(
+        max_length=7, default='#2c3e50',
+        verbose_name=_('Couleur accent')
+    )
+    couleur_texte = models.CharField(
+        max_length=7, default='#333333',
+        verbose_name=_('Couleur du texte')
+    )
+
+    # Police
+    police = models.CharField(
+        max_length=50,
+        choices=PoliceChoices.choices,
+        default=PoliceChoices.HELVETICA,
+        verbose_name=_('Police')
+    )
+
+    # Marges (en mm)
+    marge_haut = models.PositiveIntegerField(default=20, verbose_name=_('Marge haute (mm)'))
+    marge_bas = models.PositiveIntegerField(default=25, verbose_name=_('Marge basse (mm)'))
+    marge_gauche = models.PositiveIntegerField(default=20, verbose_name=_('Marge gauche (mm)'))
+    marge_droite = models.PositiveIntegerField(default=15, verbose_name=_('Marge droite (mm)'))
+
+    # Textes personnalisables
+    textes = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name=_('Textes'),
+        help_text=_('Clés: entete, pied_page, introduction, conclusion, conditions, mentions_legales')
+    )
+
+    # Blocs visibles (toggles)
+    blocs_visibles = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name=_('Blocs visibles'),
+        help_text=_('Clés: logo, qr_bill, conditions, introduction, conclusion, etc.')
+    )
+
+    # Config avancée spécifique au type
+    config = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name=_('Configuration avancée')
+    )
+
+    est_defaut = models.BooleanField(
+        default=False,
+        verbose_name=_('Modèle par défaut'),
+        help_text=_('Un seul modèle par défaut par type et par mandat')
+    )
+
+    class Meta:
+        db_table = 'modeles_document_pdf'
+        verbose_name = _('Modèle de document PDF')
+        verbose_name_plural = _('Modèles de document PDF')
+        ordering = ['type_document', 'nom']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['type_document', 'mandat'],
+                condition=models.Q(est_defaut=True),
+                name='unique_defaut_par_type_mandat'
+            )
+        ]
+
+    def __str__(self):
+        mandat_label = self.mandat.nom if self.mandat else _('Système')
+        return f"{self.nom} ({self.get_type_document_display()}) - {mandat_label}"
+
+    @classmethod
+    def get_effectif(cls, type_document, mandat=None):
+        """
+        Retourne le modèle effectif pour un type de document et un mandat.
+        Priorité : modèle du mandat > modèle système (mandat=None).
+        """
+        if mandat:
+            modele = cls.objects.filter(
+                type_document=type_document,
+                mandat=mandat,
+                est_defaut=True,
+                is_active=True
+            ).first()
+            if modele:
+                return modele
+        return cls.objects.filter(
+            type_document=type_document,
+            mandat__isnull=True,
+            est_defaut=True,
+            is_active=True
+        ).first()
+
+    def to_style_config(self):
+        """Convertit le modèle en dictionnaire de configuration pour les services PDF."""
+        from reportlab.lib.colors import HexColor
+        from reportlab.lib.units import mm
+
+        return {
+            'couleur_primaire': HexColor(self.couleur_primaire),
+            'couleur_accent': HexColor(self.couleur_accent),
+            'couleur_texte': HexColor(self.couleur_texte),
+            'police': self.police,
+            'marge_haut': self.marge_haut * mm,
+            'marge_bas': self.marge_bas * mm,
+            'marge_gauche': self.marge_gauche * mm,
+            'marge_droite': self.marge_droite * mm,
+            'textes': self.textes or {},
+            'blocs_visibles': self.blocs_visibles or {},
+            'config': self.config or {},
+            'utiliser_logo_defaut': self.utiliser_logo_defaut,
+            'logo': self.logo if self.logo and not self.utiliser_logo_defaut else None,
+        }

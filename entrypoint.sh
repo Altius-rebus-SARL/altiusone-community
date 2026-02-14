@@ -141,6 +141,9 @@ python manage.py init_ontologie || echo "Warning: Graph ontology loading failed,
 echo "Sync graph entities from existing data"
 python manage.py populate_graph || echo "Warning: Graph population failed, continuing..."
 
+echo "Init PDF document templates"
+python manage.py init_modeles_pdf || echo "Warning: PDF templates init failed, continuing..."
+
 echo "Setup commands done"
 
 

@@ -99,12 +99,17 @@ class Checkbox(Flowable):
 class CertificatSalairePDF:
     """Generateur PDF pour le Formulaire 11 (certificat de salaire)."""
 
-    def __init__(self, certificat):
+    def __init__(self, certificat, style_config=None):
         self.cert = certificat
         self.employe = certificat.employe
         self.client = certificat.employe.mandat.client
         self.adresse_client = self.client.adresse_siege
-        self.styles = get_salaires_styles()
+        self.style_config = style_config
+        if style_config:
+            from salaires.services.pdf_styles import get_salaires_styles_custom
+            self.styles = get_salaires_styles_custom(style_config)
+        else:
+            self.styles = get_salaires_styles()
 
     def _fmt(self, val):
         """Formate un montant suisse, vide si 0 ou None."""

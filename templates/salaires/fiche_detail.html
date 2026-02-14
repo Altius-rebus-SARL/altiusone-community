@@ -63,7 +63,9 @@
                         <a href="{% url 'salaires:fiche-pdf' fiche.pk %}" class="btn btn-primary">
                             <i class="ph ph-file-pdf me-2"></i>{% trans "Télécharger PDF" %}
                         </a>
-                        
+                        <a href="{% url 'salaires:fiche-studio' fiche.pk %}" class="btn btn-info">
+                            <i class="ph ph-paint-brush me-2"></i>{% trans "Studio PDF" %}
+                        </a>
                         <button class="btn btn-secondary" onclick="window.print()">
                             <i class="ph ph-printer me-2"></i>{% trans "Imprimer" %}
                         </button>

@@ -76,6 +76,9 @@
             </ul>
         </div>
 
+        <a href="{% url 'facturation:facture-studio' facture.pk %}" class="btn btn-info">
+            <i class="ph ph-paint-brush me-2"></i>{% trans "Studio PDF" %}
+        </a>
         <button class="btn btn-secondary" onclick="window.print()">
             <i class="ph ph-printer me-2"></i>{% trans "Imprimer" %}
         </button>

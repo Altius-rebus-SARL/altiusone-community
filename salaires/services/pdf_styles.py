@@ -245,6 +245,67 @@ def get_salaires_styles():
     return styles
 
 
+def get_salaires_styles_custom(style_config):
+    """
+    Retourne les ParagraphStyle personnalises selon un style_config du Studio.
+    Surcharge les couleurs et polices des styles par defaut.
+    """
+    styles = get_salaires_styles()
+
+    if not style_config:
+        return styles
+
+    # Couleurs personnalisees
+    couleur_primaire = style_config.get('couleur_primaire')
+    couleur_accent = style_config.get('couleur_accent')
+    couleur_texte = style_config.get('couleur_texte')
+    police = style_config.get('police', 'Helvetica')
+
+    if couleur_primaire:
+        if isinstance(couleur_primaire, str):
+            couleur_primaire = HexColor(couleur_primaire)
+        styles['section_title'].textColor = couleur_primaire
+
+    if couleur_accent:
+        if isinstance(couleur_accent, str):
+            couleur_accent = HexColor(couleur_accent)
+        styles['doc_title'].textColor = couleur_accent
+        styles['value'].textColor = couleur_accent
+        styles['total_label'].textColor = couleur_accent
+        styles['total_amount'].textColor = couleur_accent
+        styles['employer_name'].textColor = couleur_accent
+        styles['body_justify'].textColor = couleur_accent
+        styles['body_left'].textColor = couleur_accent
+
+    if couleur_texte:
+        if isinstance(couleur_texte, str):
+            couleur_texte = HexColor(couleur_texte)
+        styles['label'].textColor = couleur_texte
+
+    if police:
+        # ReportLab font families:
+        # Helvetica -> Helvetica-Bold
+        # Times-Roman -> Times-Bold
+        # Courier -> Courier-Bold
+        FONT_BOLD_MAP = {
+            'Helvetica': 'Helvetica-Bold',
+            'Times-Roman': 'Times-Bold',
+            'Courier': 'Courier-Bold',
+        }
+        police_bold = FONT_BOLD_MAP.get(police, police + '-Bold')
+        for key in ('doc_title', 'section_title', 'value', 'amount_positive',
+                     'amount_negative', 'total_label', 'total_amount',
+                     'employer_name'):
+            styles[key].fontName = police_bold
+        for key in ('doc_subtitle', 'label', 'footer', 'employer_detail',
+                     'confidential'):
+            styles[key].fontName = police
+        styles['body_justify'].fontName = police
+        styles['body_left'].fontName = police
+
+    return styles
+
+
 # ==============================================================================
 # Ligne verte decorative (flowable)
 # ==============================================================================

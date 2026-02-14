@@ -36,9 +36,14 @@ from .pdf_styles import (
 class DeclarationCotisationsPDF:
     """Generateur PDF pour une DeclarationCotisations."""
 
-    def __init__(self, declaration):
+    def __init__(self, declaration, style_config=None):
         self.declaration = declaration
-        self.styles = get_salaires_styles()
+        self.style_config = style_config
+        if style_config:
+            from salaires.services.pdf_styles import get_salaires_styles_custom
+            self.styles = get_salaires_styles_custom(style_config)
+        else:
+            self.styles = get_salaires_styles()
 
     def _fmt(self, montant):
         """Formate un montant avec CHF."""

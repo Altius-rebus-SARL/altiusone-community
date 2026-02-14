@@ -373,6 +373,10 @@
                     </a>
                     {% endif %}
 
+                    <a href="{% url 'salaires:declaration-studio' declaration.pk %}" class="btn btn-info w-100">
+                        <i class="ph ph-paint-brush me-2"></i>{% trans "Studio PDF" %}
+                    </a>
+
                     <hr>
 
                     <a href="{% url 'salaires:declaration-cotisations-edit' declaration.pk %}" class="btn btn-outline-primary w-100">

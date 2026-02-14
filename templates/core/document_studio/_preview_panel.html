@@ -1,0 +1,52 @@
+{% load i18n %}
+
+<div class="studio-preview-panel">
+    <div class="studio-preview-header">
+        <div>
+            <i class="ph-duotone ph-eye me-1"></i>
+            <span class="fw-medium">{% trans "Aperçu PDF" %}</span>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <div class="studio-zoom-controls">
+                <button type="button" class="btn btn-light btn-sm" id="studio-zoom-out"
+                        data-bs-toggle="tooltip" title="{% trans 'Réduire' %}">
+                    <i class="ph-duotone ph-minus"></i>
+                </button>
+                <span id="studio-zoom-level" class="small">100%</span>
+                <button type="button" class="btn btn-light btn-sm" id="studio-zoom-in"
+                        data-bs-toggle="tooltip" title="{% trans 'Agrandir' %}">
+                    <i class="ph-duotone ph-plus"></i>
+                </button>
+            </div>
+            <button type="button" class="btn btn-light btn-sm" id="studio-refresh-preview"
+                    data-bs-toggle="tooltip" title="{% trans 'Actualiser' %}">
+                <i class="ph-duotone ph-arrow-clockwise"></i>
+            </button>
+        </div>
+    </div>
+    <div class="studio-preview-content">
+        <!-- Loading -->
+        <div class="studio-preview-loading" id="studio-preview-loading" style="display: none;">
+            <div class="spinner-border text-primary mb-3" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p>{% trans "Génération de l'aperçu..." %}</p>
+        </div>
+
+        <!-- Empty -->
+        <div class="studio-preview-empty" id="studio-preview-empty">
+            <i class="ph-duotone ph-file-pdf f-s-60 mb-3"></i>
+            <p>{% trans "Chargement de l'aperçu..." %}</p>
+        </div>
+
+        <!-- Error -->
+        <div class="studio-preview-error" id="studio-preview-error" style="display: none;">
+            <i class="ph-duotone ph-warning f-s-60 mb-3 text-warning"></i>
+            <p class="text-danger error-message"></p>
+            <small class="text-muted">{% trans "Vérifiez les paramètres et réessayez" %}</small>
+        </div>
+
+        <!-- PDF Iframe -->
+        <iframe id="studio-pdf-preview" class="studio-pdf-frame" style="display: none;"></iframe>
+    </div>
+</div>

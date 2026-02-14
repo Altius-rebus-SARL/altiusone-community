@@ -101,4 +101,7 @@ urlpatterns = [
     path("tarifs/", views.TarifMandatListView.as_view(), name="tarif-list"),
     path("tarifs/nouveau/", views.TarifMandatCreateView.as_view(), name="tarif-create"),
     path("tarifs/<uuid:pk>/modifier/", views.TarifMandatUpdateView.as_view(), name="tarif-update"),
+    # Document Studio
+    path("factures/<uuid:pk>/studio/", views.facture_studio, name="facture-studio"),
+    path("api/studio/preview/", views.facture_studio_preview, name="facture-studio-preview"),
 ]

@@ -89,6 +89,10 @@ from .graph_views import (
     GraphStatsAPIView,
 )
 
+from .studio_views import (
+    modele_pdf_save,
+)
+
 from .admin_views import (
     # Administration Dashboard
     AdminDashboardView,
@@ -231,6 +235,8 @@ __all__ = [
     'CollaborateurFiduciaireUpdateView',
     'collaborateur_fiduciaire_toggle',
     'ForcePasswordChangeView',
+    # Document Studio
+    'modele_pdf_save',
     # Graphe
     'GraphView',
     'GraphAPIView',
