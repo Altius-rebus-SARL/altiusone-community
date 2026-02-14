@@ -38,10 +38,37 @@ class ExplorerView(LoginRequiredMixin, BusinessPermissionMixin, TemplateView):
         context['types_relations'] = OntologieType.objects.filter(
             categorie='relation', is_active=True,
         ).values('id', 'nom', 'verbe')
-        context['entites_json'] = json.dumps(list(
+        # Nœud de départ = le plus connecté (pour un graphe riche dès l'ouverture)
+        best_node = (
+            Entite.objects.filter(is_active=True)
+            .annotate(nb_rels=Count('relations_sortantes') + Count('relations_entrantes'))
+            .order_by('-nb_rels')
+            .values('id', 'nom', 'type__nom')
+            .first()
+        )
+        all_entites = list(
             Entite.objects.filter(is_active=True)
             .values('id', 'nom', 'type__nom')[:100]
-        ), default=str)
+        )
+        if best_node and all_entites:
+            all_entites = [e for e in all_entites if str(e['id']) != str(best_node['id'])]
+            all_entites.insert(0, best_node)
+        context['entites_json'] = json.dumps(all_entites, default=str)
+
+        # Précharger le graphe initial côté serveur (pas d'appel API JS nécessaire)
+        initial_graph = {'nodes': [], 'links': []}
+        entite_param = self.request.GET.get('entite')
+        start_id = entite_param or (str(best_node['id']) if best_node else None)
+        if start_id:
+            try:
+                from .services.exploration import explorer_graphe
+                initial_graph = explorer_graphe(
+                    entite_id=start_id,
+                    profondeur=int(self.request.GET.get('profondeur', 3)),
+                )
+            except Exception:
+                pass
+        context['initial_graph_json'] = json.dumps(initial_graph, default=str)
         context['stats'] = {
             'entites': Entite.objects.filter(is_active=True).count(),
             'relations': Relation.objects.filter(is_active=True).count(),

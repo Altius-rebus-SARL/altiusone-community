@@ -174,18 +174,23 @@
     function loadGraph(entiteId, profondeur) {
         profondeur = profondeur || document.getElementById('profondeur').value || 2;
         const url = `${API_BASE}graph-entites/${entiteId}/explore/?profondeur=${profondeur}`;
+        console.log('[Graph] Loading:', url);
 
         fetch(url, {
             headers: { 'X-CSRFToken': CSRF },
             credentials: 'same-origin',
         })
-        .then(r => r.json())
+        .then(r => {
+            console.log('[Graph] Response status:', r.status);
+            return r.json();
+        })
         .then(data => {
+            console.log('[Graph] Data:', data.nodes?.length, 'nodes,', data.links?.length, 'links');
             nodes = data.nodes || [];
             links = data.links || [];
             render();
         })
-        .catch(err => console.error('Graph load error:', err));
+        .catch(err => console.error('[Graph] Load error:', err));
     }
 
     function expandNode(d) {
@@ -314,15 +319,23 @@
         }
     });
 
-    // Check URL params for initial load, or load first available entity
-    const urlParams = new URLSearchParams(window.location.search);
-    const initialEntite = urlParams.get('entite');
-    if (initialEntite) {
-        loadGraph(initialEntite);
+    // Charger le graphe initial préchargé côté serveur (pas de fetch nécessaire)
+    const initialGraph = CONFIG.initialGraph || {};
+    if (initialGraph.nodes && initialGraph.nodes.length > 0) {
+        nodes = initialGraph.nodes;
+        links = initialGraph.links || [];
+        render();
     } else {
-        const initData = CONFIG.entitesInitiales || [];
-        if (initData.length > 0) {
-            loadGraph(initData[0].id);
+        // Fallback: charger via API si pas de données préchargées
+        const urlParams = new URLSearchParams(window.location.search);
+        const initialEntite = urlParams.get('entite');
+        if (initialEntite) {
+            loadGraph(initialEntite);
+        } else {
+            const initData = CONFIG.entitesInitiales || [];
+            if (initData.length > 0) {
+                loadGraph(initData[0].id, 3);
+            }
         }
     }
 
