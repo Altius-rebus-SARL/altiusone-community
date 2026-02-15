@@ -116,11 +116,33 @@ echo "Applying migrations..."
 python manage.py migrate --noinput
 
 if [ $? -ne 0 ]; then
-    echo "❌ Failed to apply migrations. Exiting."
-    exit 1
-fi
+    echo "⚠ Migrations failed. Checking if DB can be reset..."
 
-echo "✓ Migrations applied successfully."
+    # Vérifier s'il y a des utilisateurs (= instance déjà en production)
+    HAS_USERS=$(PGPASSWORD=$POSTGRES_PASSWORD psql -h "$DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -c "SELECT COUNT(*) FROM auth_user;" 2>/dev/null || echo "0")
+    HAS_USERS=$(echo $HAS_USERS | xargs)
+
+    if [ "$HAS_USERS" = "0" ] || [ "$HAS_USERS" = "" ]; then
+        echo "No users found - this is a fresh provisioning with stale DB. Resetting..."
+        PGPASSWORD=$POSTGRES_PASSWORD psql -h "$DB_HOST" -U "$POSTGRES_USER" -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='$POSTGRES_DB' AND pid <> pg_backend_pid();" 2>/dev/null || true
+        PGPASSWORD=$POSTGRES_PASSWORD psql -h "$DB_HOST" -U "$POSTGRES_USER" -d postgres -c "DROP DATABASE IF EXISTS \"$POSTGRES_DB\";"
+        PGPASSWORD=$POSTGRES_PASSWORD psql -h "$DB_HOST" -U "$POSTGRES_USER" -d postgres -c "CREATE DATABASE \"$POSTGRES_DB\" OWNER \"$POSTGRES_USER\";"
+        echo "✓ Database reset. Recreating extensions..."
+        init_postgis_db "$POSTGRES_DB"
+        echo "Retrying migrations..."
+        python manage.py migrate --noinput
+        if [ $? -ne 0 ]; then
+            echo "❌ Migrations failed even after DB reset. Exiting."
+            exit 1
+        fi
+        echo "✓ Migrations applied successfully after DB reset."
+    else
+        echo "❌ Production DB with users - cannot auto-reset. Exiting."
+        exit 1
+    fi
+else
+    echo "✓ Migrations applied successfully."
+fi
 
 #======= commande ========
 echo "Load setup swiss chart of accounts (if empty)"
