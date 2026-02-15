@@ -202,10 +202,11 @@ class ClientViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"], url_path="validate-vat")
     def validate_vat(self, request):
         """
-        Valider un numero de TVA europeen via VIES.
+        Valider un numero de TVA (europeen via VIES ou suisse via UID Register).
         GET /api/v1/core/clients/validate-vat/?vat_number=FR40303265045
+        GET /api/v1/core/clients/validate-vat/?vat_number=CHE-175.923.751
         """
-        from .services import ViesValidationService
+        import re
 
         vat_number = request.query_params.get("vat_number", "").strip()
         if not vat_number:
@@ -214,17 +215,39 @@ class ClientViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        result = ViesValidationService.validate_full_number(vat_number)
-        data = {
-            "valid": result.valid,
-            "country_code": result.country_code,
-            "vat_number": result.vat_number,
-            "name": result.name,
-            "address": result.address,
-            "request_date": str(result.request_date) if result.request_date else None,
-        }
-        if result.error:
-            data["error"] = result.error
+        # Detecter les numeros suisses (CHE-xxx ou digits purs avec 9 chiffres)
+        cleaned = re.sub(r'[\s.\-]', '', vat_number).upper()
+        cleaned = re.sub(r'(MWST|TVA|IVA)$', '', cleaned)
+        is_swiss = cleaned.startswith('CHE')
+
+        if is_swiss:
+            from .services import SwissVatValidationService
+
+            result = SwissVatValidationService.validate(vat_number)
+            data = {
+                "valid": result.valid,
+                "country_code": "CH",
+                "vat_number": result.vat_number,
+                "name": result.name,
+                "address": result.address,
+                "request_date": None,
+            }
+            if result.error:
+                data["error"] = result.error
+        else:
+            from .services import ViesValidationService
+
+            result = ViesValidationService.validate_full_number(vat_number)
+            data = {
+                "valid": result.valid,
+                "country_code": result.country_code,
+                "vat_number": result.vat_number,
+                "name": result.name,
+                "address": result.address,
+                "request_date": str(result.request_date) if result.request_date else None,
+            }
+            if result.error:
+                data["error"] = result.error
 
         return Response(data)
 

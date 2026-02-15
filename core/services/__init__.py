@@ -9,6 +9,7 @@ from .swiss_companies_service import SwissCompaniesService
 from .swiss_post_address_service import SwissPostAddressService
 from .snb_exchange_rate_service import SNBExchangeRateService
 from .vies_validation_service import ViesValidationService
+from .swiss_vat_validation_service import SwissVatValidationService
 
 __all__ = [
     'ExportService',
@@ -19,4 +20,5 @@ __all__ = [
     'SwissPostAddressService',
     'SNBExchangeRateService',
     'ViesValidationService',
+    'SwissVatValidationService',
 ]

@@ -172,6 +172,9 @@ python manage.py init_roles || echo "Warning: Roles init failed, continuing..."
 echo "Init default currencies (CHF, EUR, USD, XOF)"
 python manage.py init_devises || echo "Warning: Currency init failed, continuing..."
 
+echo "Init default social contribution rates (Swiss 2026)"
+python manage.py init_taux_cotisations || echo "Warning: Social contribution rates init failed, continuing..."
+
 echo "Setup commands done"
 
 
