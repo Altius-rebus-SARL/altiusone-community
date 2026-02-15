@@ -166,6 +166,9 @@ python manage.py populate_graph || echo "Warning: Graph population failed, conti
 echo "Init PDF document templates"
 python manage.py init_modeles_pdf || echo "Warning: PDF templates init failed, continuing..."
 
+echo "Init default roles and permissions"
+python manage.py init_roles || echo "Warning: Roles init failed, continuing..."
+
 echo "Init default currencies (CHF, EUR, USD, XOF)"
 python manage.py init_devises || echo "Warning: Currency init failed, continuing..."
 
