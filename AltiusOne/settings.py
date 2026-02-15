@@ -597,6 +597,14 @@ TEMPLATES[0]['OPTIONS']['context_processors'].append(
 
 
 # ============================================================================
+# ZEFIX API (Swiss company registry)
+# ============================================================================
+# Full API (700k+ companies) requires free credentials from zefix@bj.admin.ch
+# Without credentials, falls back to LINDAS SPARQL (~30k companies only)
+ZEFIX_USERNAME = os.environ.get('ZEFIX_USERNAME', '')
+ZEFIX_PASSWORD = os.environ.get('ZEFIX_PASSWORD', '')
+
+# ============================================================================
 # S3/MINIO STORAGE CONFIGURATION
 # ============================================================================
 # MinIO est utilisé comme backend S3-compatible pour:

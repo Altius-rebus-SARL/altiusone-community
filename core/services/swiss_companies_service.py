@@ -1,44 +1,54 @@
 # core/services/swiss_companies_service.py
 """
-Service for searching Swiss companies via Zefix LINDAS SPARQL API.
-Used for autocomplete when creating new clients/entreprises.
+Service for searching Swiss companies via Zefix.
 
-Features:
-- Lightweight search (autocomplete) vs detailed lookup (get_by_uid)
-- Language-aware: aligns with Django's current language (fr/de/it)
-- Accent-insensitive search: "nestle" matches "Nestlé"
-- Cached results (1h)
+Two backends:
+1. Zefix PublicREST API (complete: 700k+ companies, requires credentials)
+   Credentials: request free access at zefix@bj.admin.ch
+   Docs: https://www.zefix.admin.ch/ZefixPublicREST/swagger-ui/index.html
+2. LINDAS SPARQL (fallback: ~30k companies, no auth needed)
+
+Set ZEFIX_USERNAME and ZEFIX_PASSWORD in environment to use the full API.
 """
 import logging
 import unicodedata
 import requests
 from dataclasses import dataclass
 from typing import Optional
+from django.conf import settings
 from django.core.cache import cache
 from django.utils.translation import get_language
 
 logger = logging.getLogger(__name__)
 
-ZEFIX_ENDPOINT = "https://register.ld.admin.ch/query/"
-CACHE_TIMEOUT = 3600
+# Zefix PublicREST API (complete dataset)
+ZEFIX_API_URL = "https://www.zefix.admin.ch/ZefixPublicREST/api/v1"
 
-# Zefix languages (Swiss official languages)
+# LINDAS SPARQL endpoint (fallback, ~30k companies only)
+LINDAS_ENDPOINT = "https://register.ld.admin.ch/query/"
+
+CACHE_TIMEOUT = 3600
 ZEFIX_LANGUAGES = {"fr", "de", "it"}
 
 
 def _get_zefix_lang() -> str:
-    """Get the SPARQL language filter aligned with Django's current language."""
     lang = (get_language() or "fr")[:2]
     return lang if lang in ZEFIX_LANGUAGES else "fr"
 
 
 def _strip_accents(text: str) -> str:
-    """Remove diacritical marks: é->e, ü->u, etc."""
     nfkd = unicodedata.normalize("NFD", text)
     return "".join(c for c in nfkd if unicodedata.category(c) != "Mn")
 
 
-# SPARQL REPLACE chain to normalize accents server-side
+def _has_zefix_credentials() -> bool:
+    return bool(
+        getattr(settings, "ZEFIX_USERNAME", None)
+        and getattr(settings, "ZEFIX_PASSWORD", None)
+    )
+
+
+# SPARQL accent normalization chain
 _SPARQL_NORMALIZE = (
     'REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE('
     'LCASE(?name),'
@@ -101,12 +111,126 @@ class SwissCompany:
         return self.ch_id
 
 
-class SwissCompaniesService:
-    """Service to search Swiss companies using Zefix LINDAS SPARQL API."""
+# =============================================================================
+# ZEFIX REST API BACKEND (complete, requires credentials)
+# =============================================================================
 
-    # Lightweight search: name, UID, legal form, seat, canton.
-    # - Language-aware: prefers Django's language, falls back to untagged
-    # - Accent-insensitive: normalizes both search term and name
+class _ZefixRestBackend:
+    """Backend using the official Zefix PublicREST API (700k+ companies)."""
+
+    # Legal form code mapping from Zefix API numeric codes
+    LEGAL_FORM_MAP = {
+        "0101": "Entreprise individuelle",
+        "0103": "Société en nom collectif",
+        "0104": "Société en commandite",
+        "0105": "Société en commandite par actions",
+        "0106": "Société anonyme",
+        "0107": "Société à responsabilité limitée",
+        "0108": "Société coopérative",
+        "0109": "Association",
+        "0110": "Fondation",
+        "0111": "Succursale CH d'une société étrangère",
+        "0113": "Institut de droit public",
+        "0114": "Entreprise étrangère",
+        "0117": "Administration fédérale / cantonale / communale",
+        "0151": "Succursale suisse",
+        "0152": "Société simple",
+    }
+
+    @classmethod
+    def _auth(cls):
+        return (settings.ZEFIX_USERNAME, settings.ZEFIX_PASSWORD)
+
+    @classmethod
+    def _parse_company(cls, item: dict) -> SwissCompany:
+        """Parse a Zefix REST API company object."""
+        uid_str = str(item.get("uid", ""))
+        # Extract address from first registered office
+        address = item.get("address", {}) or {}
+        # Legal form
+        lf = item.get("legalForm", {}) or {}
+        lf_id = str(lf.get("id", ""))
+        lf_code = lf_id.zfill(4) if lf_id else ""
+        lang = _get_zefix_lang()
+        lf_name = lf.get("name", {}).get(lang, "") if isinstance(lf.get("name"), dict) else str(lf.get("name", ""))
+        if not lf_name and lf_code in cls.LEGAL_FORM_MAP:
+            lf_name = cls.LEGAL_FORM_MAP[lf_code]
+        # Canton
+        canton = ""
+        seat = item.get("legalSeat", "")
+        rc = item.get("registryOfCommerce", {}) or {}
+        canton = rc.get("cantonAbbreviation", "")
+        # CH-ID
+        ch_id = str(item.get("chid", "")) if item.get("chid") else ""
+        # EHRAID
+        ehraid = str(item.get("ehraid", "")) if item.get("ehraid") else ""
+        # Status
+        status_raw = item.get("status", "")
+        status = str(status_raw) if status_raw else ""
+
+        return SwissCompany(
+            uid=uid_str,
+            name=item.get("name", ""),
+            legal_form=lf_name,
+            legal_form_code=lf_code,
+            legal_seat=seat,
+            canton=canton,
+            status=status,
+            ch_id=ch_id,
+            ofrc_id=ehraid,
+            address_street=address.get("street"),
+            address_number=address.get("houseNumber"),
+            address_postal_code=address.get("swissZipCode"),
+            address_city=address.get("city"),
+        )
+
+    @classmethod
+    def search(cls, search_term: str, limit: int = 10) -> list[SwissCompany]:
+        lang = _get_zefix_lang()
+        payload = {
+            "name": search_term,
+            "languageKey": lang,
+            "maxEntries": limit,
+        }
+        response = requests.post(
+            f"{ZEFIX_API_URL}/company/search",
+            json=payload,
+            auth=cls._auth(),
+            timeout=10,
+        )
+        response.raise_for_status()
+        items = response.json()
+        if not isinstance(items, list):
+            return []
+        return [cls._parse_company(item) for item in items[:limit]]
+
+    @classmethod
+    def get_by_uid(cls, uid: str) -> Optional[SwissCompany]:
+        formatted = uid
+        if len(uid) == 9 and uid.isdigit():
+            formatted = f"CHE-{uid[:3]}.{uid[3:6]}.{uid[6:]}"
+        response = requests.get(
+            f"{ZEFIX_API_URL}/company/uid/{formatted}",
+            auth=cls._auth(),
+            timeout=10,
+        )
+        if response.status_code == 404:
+            return None
+        response.raise_for_status()
+        items = response.json()
+        if not items:
+            return None
+        item = items[0] if isinstance(items, list) else items
+        return cls._parse_company(item)
+
+
+# =============================================================================
+# LINDAS SPARQL BACKEND (fallback, ~30k companies)
+# =============================================================================
+
+class _LindasBackend:
+    """Fallback backend using LINDAS SPARQL (~30k companies only)."""
+
     SPARQL_SEARCH = """
         PREFIX schema: <http://schema.org/>
         PREFIX admin: <https://schema.ld.admin.ch/>
@@ -148,7 +272,6 @@ class SwissCompaniesService:
         LIMIT {limit}
     """
 
-    # Full query for single company lookup by UID.
     SPARQL_BY_UID = """
         PREFIX schema: <http://schema.org/>
         PREFIX admin: <https://schema.ld.admin.ch/>
@@ -212,32 +335,97 @@ class SwissCompaniesService:
     """
 
     @classmethod
-    def _sparql_request(cls, query: str, timeout: int = 10) -> Optional[dict]:
+    def _sparql_request(cls, query: str) -> dict:
         response = requests.post(
-            ZEFIX_ENDPOINT,
+            LINDAS_ENDPOINT,
             data={"query": query},
             headers={
                 "Accept": "application/sparql-results+json",
                 "Content-Type": "application/x-www-form-urlencoded",
             },
-            timeout=timeout,
+            timeout=10,
         )
         response.raise_for_status()
         return response.json()
 
     @classmethod
     def search(cls, search_term: str, limit: int = 10) -> list[SwissCompany]:
-        """
-        Search for Swiss companies by name (lightweight, for autocomplete).
-        Accent-insensitive, language-aware (uses Django's current language).
-        """
+        lang = _get_zefix_lang()
+        normalized = _strip_accents(search_term.lower())
+        query = cls.SPARQL_SEARCH.format(
+            lang=lang,
+            search_term=normalized.replace('"', '\\"'),
+            normalize=_SPARQL_NORMALIZE,
+            limit=limit,
+        )
+        data = cls._sparql_request(query)
+        bindings = data.get("results", {}).get("bindings", [])
+
+        seen_uids = set()
+        results = []
+        for b in bindings:
+            uid = b.get("uid", {}).get("value", "")
+            if uid in seen_uids:
+                continue
+            seen_uids.add(uid)
+            results.append(SwissCompany(
+                uid=uid,
+                name=b.get("name", {}).get("value", ""),
+                legal_form=b.get("legalForm", {}).get("value", ""),
+                legal_form_code=b.get("legalFormCode", {}).get("value", ""),
+                legal_seat=b.get("seat", {}).get("value", ""),
+                canton=b.get("canton", {}).get("value", ""),
+                status="",
+            ))
+        return results
+
+    @classmethod
+    def get_by_uid(cls, uid: str) -> Optional[SwissCompany]:
+        lang = _get_zefix_lang()
+        query = cls.SPARQL_BY_UID.format(lang=lang, uid=uid)
+        data = cls._sparql_request(query)
+        bindings = data.get("results", {}).get("bindings", [])
+        if not bindings:
+            return None
+        b = bindings[0]
+        return SwissCompany(
+            uid=uid,
+            name=b.get("name", {}).get("value", ""),
+            legal_form=b.get("legalForm", {}).get("value", ""),
+            legal_form_code=b.get("legalFormCode", {}).get("value", ""),
+            legal_seat=b.get("seat", {}).get("value", ""),
+            canton=b.get("canton", {}).get("value", ""),
+            status=b.get("status", {}).get("value", ""),
+            ch_id=b.get("chid", {}).get("value", ""),
+            ofrc_id=b.get("ofrcid", {}).get("value", ""),
+            address_street=b.get("street", {}).get("value"),
+            address_number=b.get("streetNumber", {}).get("value"),
+            address_postal_code=b.get("postalCode", {}).get("value"),
+            address_city=b.get("city", {}).get("value"),
+        )
+
+
+# =============================================================================
+# PUBLIC SERVICE (auto-selects backend)
+# =============================================================================
+
+class SwissCompaniesService:
+    """
+    Service to search Swiss companies.
+    Uses Zefix REST API if credentials configured, falls back to LINDAS SPARQL.
+    """
+
+    @classmethod
+    def _backend(cls):
+        return _ZefixRestBackend if _has_zefix_credentials() else _LindasBackend
+
+    @classmethod
+    def search(cls, search_term: str, limit: int = 10) -> list[SwissCompany]:
         if not search_term or len(search_term) < 3:
             return []
 
         lang = _get_zefix_lang()
-        normalized_term = _strip_accents(search_term.lower())
-
-        safe_term = normalized_term.replace(" ", "_")
+        safe_term = _strip_accents(search_term.lower()).replace(" ", "_")
         cache_key = f"swiss_search:{lang}:{safe_term}:{limit}"
         try:
             cached = cache.get(cache_key)
@@ -247,39 +435,12 @@ class SwissCompaniesService:
             pass
 
         try:
-            query = cls.SPARQL_SEARCH.format(
-                lang=lang,
-                search_term=normalized_term.replace('"', '\\"'),
-                normalize=_SPARQL_NORMALIZE,
-                limit=limit,
-            )
-            data = cls._sparql_request(query)
-            bindings = data.get("results", {}).get("bindings", [])
-
-            seen_uids = set()
-            results = []
-            for b in bindings:
-                uid = b.get("uid", {}).get("value", "")
-                if uid in seen_uids:
-                    continue
-                seen_uids.add(uid)
-                results.append(SwissCompany(
-                    uid=uid,
-                    name=b.get("name", {}).get("value", ""),
-                    legal_form=b.get("legalForm", {}).get("value", ""),
-                    legal_form_code=b.get("legalFormCode", {}).get("value", ""),
-                    legal_seat=b.get("seat", {}).get("value", ""),
-                    canton=b.get("canton", {}).get("value", ""),
-                    status="",
-                ))
-
+            results = cls._backend().search(search_term, limit)
             try:
                 cache.set(cache_key, results, CACHE_TIMEOUT)
             except Exception:
                 pass
-
             return results
-
         except requests.RequestException as e:
             logger.error("Zefix API error: %s", e)
             return []
@@ -289,9 +450,7 @@ class SwissCompaniesService:
 
     @classmethod
     def get_by_uid(cls, uid: str) -> Optional[SwissCompany]:
-        """Get a specific company by UID with full details."""
         clean_uid = uid.replace("CHE-", "").replace("CHE", "").replace(".", "").replace(" ", "")
-
         if not clean_uid or len(clean_uid) != 9 or not clean_uid.isdigit():
             return None
 
@@ -305,37 +464,13 @@ class SwissCompaniesService:
             pass
 
         try:
-            query = cls.SPARQL_BY_UID.format(lang=lang, uid=clean_uid)
-            data = cls._sparql_request(query)
-            bindings = data.get("results", {}).get("bindings", [])
-
-            if not bindings:
-                return None
-
-            b = bindings[0]
-            company = SwissCompany(
-                uid=clean_uid,
-                name=b.get("name", {}).get("value", ""),
-                legal_form=b.get("legalForm", {}).get("value", ""),
-                legal_form_code=b.get("legalFormCode", {}).get("value", ""),
-                legal_seat=b.get("seat", {}).get("value", ""),
-                canton=b.get("canton", {}).get("value", ""),
-                status=b.get("status", {}).get("value", ""),
-                ch_id=b.get("chid", {}).get("value", ""),
-                ofrc_id=b.get("ofrcid", {}).get("value", ""),
-                address_street=b.get("street", {}).get("value"),
-                address_number=b.get("streetNumber", {}).get("value"),
-                address_postal_code=b.get("postalCode", {}).get("value"),
-                address_city=b.get("city", {}).get("value"),
-            )
-
-            try:
-                cache.set(cache_key, company, CACHE_TIMEOUT)
-            except Exception:
-                pass
-
+            company = cls._backend().get_by_uid(clean_uid)
+            if company:
+                try:
+                    cache.set(cache_key, company, CACHE_TIMEOUT)
+                except Exception:
+                    pass
             return company
-
         except requests.RequestException as e:
             logger.error("Zefix API error: %s", e)
             return None
