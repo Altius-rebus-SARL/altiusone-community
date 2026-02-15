@@ -2,53 +2,68 @@
 """
 Service for searching Swiss companies via Zefix.
 
-Two backends:
-1. Zefix PublicREST API (complete: 700k+ companies, requires credentials)
-   Credentials: request free access at zefix@bj.admin.ch
-   Docs: https://www.zefix.admin.ch/ZefixPublicREST/swagger-ui/index.html
-2. LINDAS SPARQL (fallback: ~30k companies, no auth needed)
+Backends:
+- LINDAS SPARQL (name search/autocomplete, ~30k companies)
+- UID Register SOAP (get_by_uid fallback, 700k+ companies, no auth needed)
 
-Set ZEFIX_USERNAME and ZEFIX_PASSWORD in environment to use the full API.
+Features:
+- Lightweight search (autocomplete) vs detailed lookup (get_by_uid)
+- Language-aware: aligns with Django's current language (fr/de/it)
+- Accent-insensitive search: "nestle" matches "Nestlé"
+- Cached results (1h)
 """
 import logging
 import unicodedata
 import requests
 from dataclasses import dataclass
 from typing import Optional
-from django.conf import settings
+from xml.etree import ElementTree as ET
 from django.core.cache import cache
 from django.utils.translation import get_language
 
 logger = logging.getLogger(__name__)
 
-# Zefix PublicREST API (complete dataset)
-ZEFIX_API_URL = "https://www.zefix.admin.ch/ZefixPublicREST/api/v1"
-
-# LINDAS SPARQL endpoint (fallback, ~30k companies only)
-LINDAS_ENDPOINT = "https://register.ld.admin.ch/query/"
-
+ZEFIX_ENDPOINT = "https://register.ld.admin.ch/query/"
+UID_WSE_ENDPOINT = "https://www.uid-wse.admin.ch/V3.0/PublicServices.svc"
 CACHE_TIMEOUT = 3600
+
+# Zefix languages (Swiss official languages)
 ZEFIX_LANGUAGES = {"fr", "de", "it"}
+
+# Legal form code mapping (eCH-0097 codes)
+LEGAL_FORM_MAP = {
+    "0101": "Entreprise individuelle",
+    "0103": "Société en nom collectif",
+    "0104": "Société en commandite",
+    "0105": "Société en commandite par actions",
+    "0106": "Société anonyme",
+    "0107": "Société à responsabilité limitée",
+    "0108": "Société coopérative",
+    "0109": "Association",
+    "0110": "Fondation",
+    "0111": "Succursale CH d'une société étrangère",
+    "0113": "Institut de droit public",
+    "0114": "Entreprise étrangère",
+    "0117": "Administration fédérale / cantonale / communale",
+    "0151": "Succursale suisse",
+    "0152": "Société simple",
+    "0302": "Communauté de copropriétaires",
+}
 
 
 def _get_zefix_lang() -> str:
+    """Get the SPARQL language filter aligned with Django's current language."""
     lang = (get_language() or "fr")[:2]
     return lang if lang in ZEFIX_LANGUAGES else "fr"
 
 
 def _strip_accents(text: str) -> str:
+    """Remove diacritical marks: é->e, ü->u, etc."""
     nfkd = unicodedata.normalize("NFD", text)
     return "".join(c for c in nfkd if unicodedata.category(c) != "Mn")
 
 
-def _has_zefix_credentials() -> bool:
-    return bool(
-        getattr(settings, "ZEFIX_USERNAME", None)
-        and getattr(settings, "ZEFIX_PASSWORD", None)
-    )
-
-
-# SPARQL accent normalization chain
+# SPARQL REPLACE chain to normalize accents server-side
 _SPARQL_NORMALIZE = (
     'REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE('
     'LCASE(?name),'
@@ -111,126 +126,12 @@ class SwissCompany:
         return self.ch_id
 
 
-# =============================================================================
-# ZEFIX REST API BACKEND (complete, requires credentials)
-# =============================================================================
+class SwissCompaniesService:
+    """Service to search Swiss companies using Zefix LINDAS SPARQL API."""
 
-class _ZefixRestBackend:
-    """Backend using the official Zefix PublicREST API (700k+ companies)."""
-
-    # Legal form code mapping from Zefix API numeric codes
-    LEGAL_FORM_MAP = {
-        "0101": "Entreprise individuelle",
-        "0103": "Société en nom collectif",
-        "0104": "Société en commandite",
-        "0105": "Société en commandite par actions",
-        "0106": "Société anonyme",
-        "0107": "Société à responsabilité limitée",
-        "0108": "Société coopérative",
-        "0109": "Association",
-        "0110": "Fondation",
-        "0111": "Succursale CH d'une société étrangère",
-        "0113": "Institut de droit public",
-        "0114": "Entreprise étrangère",
-        "0117": "Administration fédérale / cantonale / communale",
-        "0151": "Succursale suisse",
-        "0152": "Société simple",
-    }
-
-    @classmethod
-    def _auth(cls):
-        return (settings.ZEFIX_USERNAME, settings.ZEFIX_PASSWORD)
-
-    @classmethod
-    def _parse_company(cls, item: dict) -> SwissCompany:
-        """Parse a Zefix REST API company object."""
-        uid_str = str(item.get("uid", ""))
-        # Extract address from first registered office
-        address = item.get("address", {}) or {}
-        # Legal form
-        lf = item.get("legalForm", {}) or {}
-        lf_id = str(lf.get("id", ""))
-        lf_code = lf_id.zfill(4) if lf_id else ""
-        lang = _get_zefix_lang()
-        lf_name = lf.get("name", {}).get(lang, "") if isinstance(lf.get("name"), dict) else str(lf.get("name", ""))
-        if not lf_name and lf_code in cls.LEGAL_FORM_MAP:
-            lf_name = cls.LEGAL_FORM_MAP[lf_code]
-        # Canton
-        canton = ""
-        seat = item.get("legalSeat", "")
-        rc = item.get("registryOfCommerce", {}) or {}
-        canton = rc.get("cantonAbbreviation", "")
-        # CH-ID
-        ch_id = str(item.get("chid", "")) if item.get("chid") else ""
-        # EHRAID
-        ehraid = str(item.get("ehraid", "")) if item.get("ehraid") else ""
-        # Status
-        status_raw = item.get("status", "")
-        status = str(status_raw) if status_raw else ""
-
-        return SwissCompany(
-            uid=uid_str,
-            name=item.get("name", ""),
-            legal_form=lf_name,
-            legal_form_code=lf_code,
-            legal_seat=seat,
-            canton=canton,
-            status=status,
-            ch_id=ch_id,
-            ofrc_id=ehraid,
-            address_street=address.get("street"),
-            address_number=address.get("houseNumber"),
-            address_postal_code=address.get("swissZipCode"),
-            address_city=address.get("city"),
-        )
-
-    @classmethod
-    def search(cls, search_term: str, limit: int = 10) -> list[SwissCompany]:
-        lang = _get_zefix_lang()
-        payload = {
-            "name": search_term,
-            "languageKey": lang,
-            "maxEntries": limit,
-        }
-        response = requests.post(
-            f"{ZEFIX_API_URL}/company/search",
-            json=payload,
-            auth=cls._auth(),
-            timeout=10,
-        )
-        response.raise_for_status()
-        items = response.json()
-        if not isinstance(items, list):
-            return []
-        return [cls._parse_company(item) for item in items[:limit]]
-
-    @classmethod
-    def get_by_uid(cls, uid: str) -> Optional[SwissCompany]:
-        formatted = uid
-        if len(uid) == 9 and uid.isdigit():
-            formatted = f"CHE-{uid[:3]}.{uid[3:6]}.{uid[6:]}"
-        response = requests.get(
-            f"{ZEFIX_API_URL}/company/uid/{formatted}",
-            auth=cls._auth(),
-            timeout=10,
-        )
-        if response.status_code == 404:
-            return None
-        response.raise_for_status()
-        items = response.json()
-        if not items:
-            return None
-        item = items[0] if isinstance(items, list) else items
-        return cls._parse_company(item)
-
-
-# =============================================================================
-# LINDAS SPARQL BACKEND (fallback, ~30k companies)
-# =============================================================================
-
-class _LindasBackend:
-    """Fallback backend using LINDAS SPARQL (~30k companies only)."""
-
+    # Lightweight search: name, UID, legal form, seat, canton.
+    # - Language-aware: prefers Django's language, falls back to untagged
+    # - Accent-insensitive: normalizes both search term and name
     SPARQL_SEARCH = """
         PREFIX schema: <http://schema.org/>
         PREFIX admin: <https://schema.ld.admin.ch/>
@@ -272,6 +173,7 @@ class _LindasBackend:
         LIMIT {limit}
     """
 
+    # Full query for single company lookup by UID.
     SPARQL_BY_UID = """
         PREFIX schema: <http://schema.org/>
         PREFIX admin: <https://schema.ld.admin.ch/>
@@ -335,97 +237,32 @@ class _LindasBackend:
     """
 
     @classmethod
-    def _sparql_request(cls, query: str) -> dict:
+    def _sparql_request(cls, query: str, timeout: int = 10) -> Optional[dict]:
         response = requests.post(
-            LINDAS_ENDPOINT,
+            ZEFIX_ENDPOINT,
             data={"query": query},
             headers={
                 "Accept": "application/sparql-results+json",
                 "Content-Type": "application/x-www-form-urlencoded",
             },
-            timeout=10,
+            timeout=timeout,
         )
         response.raise_for_status()
         return response.json()
 
     @classmethod
     def search(cls, search_term: str, limit: int = 10) -> list[SwissCompany]:
-        lang = _get_zefix_lang()
-        normalized = _strip_accents(search_term.lower())
-        query = cls.SPARQL_SEARCH.format(
-            lang=lang,
-            search_term=normalized.replace('"', '\\"'),
-            normalize=_SPARQL_NORMALIZE,
-            limit=limit,
-        )
-        data = cls._sparql_request(query)
-        bindings = data.get("results", {}).get("bindings", [])
-
-        seen_uids = set()
-        results = []
-        for b in bindings:
-            uid = b.get("uid", {}).get("value", "")
-            if uid in seen_uids:
-                continue
-            seen_uids.add(uid)
-            results.append(SwissCompany(
-                uid=uid,
-                name=b.get("name", {}).get("value", ""),
-                legal_form=b.get("legalForm", {}).get("value", ""),
-                legal_form_code=b.get("legalFormCode", {}).get("value", ""),
-                legal_seat=b.get("seat", {}).get("value", ""),
-                canton=b.get("canton", {}).get("value", ""),
-                status="",
-            ))
-        return results
-
-    @classmethod
-    def get_by_uid(cls, uid: str) -> Optional[SwissCompany]:
-        lang = _get_zefix_lang()
-        query = cls.SPARQL_BY_UID.format(lang=lang, uid=uid)
-        data = cls._sparql_request(query)
-        bindings = data.get("results", {}).get("bindings", [])
-        if not bindings:
-            return None
-        b = bindings[0]
-        return SwissCompany(
-            uid=uid,
-            name=b.get("name", {}).get("value", ""),
-            legal_form=b.get("legalForm", {}).get("value", ""),
-            legal_form_code=b.get("legalFormCode", {}).get("value", ""),
-            legal_seat=b.get("seat", {}).get("value", ""),
-            canton=b.get("canton", {}).get("value", ""),
-            status=b.get("status", {}).get("value", ""),
-            ch_id=b.get("chid", {}).get("value", ""),
-            ofrc_id=b.get("ofrcid", {}).get("value", ""),
-            address_street=b.get("street", {}).get("value"),
-            address_number=b.get("streetNumber", {}).get("value"),
-            address_postal_code=b.get("postalCode", {}).get("value"),
-            address_city=b.get("city", {}).get("value"),
-        )
-
-
-# =============================================================================
-# PUBLIC SERVICE (auto-selects backend)
-# =============================================================================
-
-class SwissCompaniesService:
-    """
-    Service to search Swiss companies.
-    Uses Zefix REST API if credentials configured, falls back to LINDAS SPARQL.
-    """
-
-    @classmethod
-    def _backend(cls):
-        return _ZefixRestBackend if _has_zefix_credentials() else _LindasBackend
-
-    @classmethod
-    def search(cls, search_term: str, limit: int = 10) -> list[SwissCompany]:
+        """
+        Search for Swiss companies by name (lightweight, for autocomplete).
+        Accent-insensitive, language-aware (uses Django's current language).
+        """
         if not search_term or len(search_term) < 3:
             return []
 
         lang = _get_zefix_lang()
-        safe_term = _strip_accents(search_term.lower()).replace(" ", "_")
+        normalized_term = _strip_accents(search_term.lower())
+
+        safe_term = normalized_term.replace(" ", "_")
         cache_key = f"swiss_search:{lang}:{safe_term}:{limit}"
         try:
             cached = cache.get(cache_key)
@@ -435,12 +272,39 @@ class SwissCompaniesService:
             pass
 
         try:
-            results = cls._backend().search(search_term, limit)
+            query = cls.SPARQL_SEARCH.format(
+                lang=lang,
+                search_term=normalized_term.replace('"', '\\"'),
+                normalize=_SPARQL_NORMALIZE,
+                limit=limit,
+            )
+            data = cls._sparql_request(query)
+            bindings = data.get("results", {}).get("bindings", [])
+
+            seen_uids = set()
+            results = []
+            for b in bindings:
+                uid = b.get("uid", {}).get("value", "")
+                if uid in seen_uids:
+                    continue
+                seen_uids.add(uid)
+                results.append(SwissCompany(
+                    uid=uid,
+                    name=b.get("name", {}).get("value", ""),
+                    legal_form=b.get("legalForm", {}).get("value", ""),
+                    legal_form_code=b.get("legalFormCode", {}).get("value", ""),
+                    legal_seat=b.get("seat", {}).get("value", ""),
+                    canton=b.get("canton", {}).get("value", ""),
+                    status="",
+                ))
+
             try:
                 cache.set(cache_key, results, CACHE_TIMEOUT)
             except Exception:
                 pass
+
             return results
+
         except requests.RequestException as e:
             logger.error("Zefix API error: %s", e)
             return []
@@ -450,7 +314,13 @@ class SwissCompaniesService:
 
     @classmethod
     def get_by_uid(cls, uid: str) -> Optional[SwissCompany]:
+        """Get a specific company by UID with full details.
+
+        Tries LINDAS SPARQL first, falls back to UID Register SOAP API
+        which covers all 700k+ Swiss companies.
+        """
         clean_uid = uid.replace("CHE-", "").replace("CHE", "").replace(".", "").replace(" ", "")
+
         if not clean_uid or len(clean_uid) != 9 or not clean_uid.isdigit():
             return None
 
@@ -463,14 +333,139 @@ class SwissCompaniesService:
         except Exception:
             pass
 
+        # Try LINDAS SPARQL first
+        company = cls._get_by_uid_sparql(clean_uid, lang)
+
+        # Fallback to UID Register SOAP API (complete dataset)
+        if not company:
+            company = cls._get_by_uid_wse(clean_uid)
+
+        if company:
+            try:
+                cache.set(cache_key, company, CACHE_TIMEOUT)
+            except Exception:
+                pass
+
+        return company
+
+    @classmethod
+    def _get_by_uid_sparql(cls, uid: str, lang: str) -> Optional[SwissCompany]:
+        """Lookup by UID via LINDAS SPARQL (~30k companies)."""
         try:
-            company = cls._backend().get_by_uid(clean_uid)
-            if company:
-                try:
-                    cache.set(cache_key, company, CACHE_TIMEOUT)
-                except Exception:
-                    pass
-            return company
+            query = cls.SPARQL_BY_UID.format(lang=lang, uid=uid)
+            data = cls._sparql_request(query)
+            bindings = data.get("results", {}).get("bindings", [])
+
+            if not bindings:
+                return None
+
+            b = bindings[0]
+            return SwissCompany(
+                uid=uid,
+                name=b.get("name", {}).get("value", ""),
+                legal_form=b.get("legalForm", {}).get("value", ""),
+                legal_form_code=b.get("legalFormCode", {}).get("value", ""),
+                legal_seat=b.get("seat", {}).get("value", ""),
+                canton=b.get("canton", {}).get("value", ""),
+                status=b.get("status", {}).get("value", ""),
+                ch_id=b.get("chid", {}).get("value", ""),
+                ofrc_id=b.get("ofrcid", {}).get("value", ""),
+                address_street=b.get("street", {}).get("value"),
+                address_number=b.get("streetNumber", {}).get("value"),
+                address_postal_code=b.get("postalCode", {}).get("value"),
+                address_city=b.get("city", {}).get("value"),
+            )
         except requests.RequestException as e:
-            logger.error("Zefix API error: %s", e)
+            logger.warning("LINDAS SPARQL error: %s", e)
             return None
+
+    @classmethod
+    def _get_by_uid_wse(cls, uid: str) -> Optional[SwissCompany]:
+        """Lookup by UID via UID Register SOAP API (700k+ companies, no auth)."""
+        soap_body = f"""<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+               xmlns:uid="http://www.uid.admin.ch/xmlns/uid-wse"
+               xmlns:ech0097="http://www.ech.ch/xmlns/eCH-0097-f/2">
+  <soap:Body>
+    <uid:GetByUID>
+      <uid:uid>
+        <ech0097:uidOrganisationIdCategorie>CHE</ech0097:uidOrganisationIdCategorie>
+        <ech0097:uidOrganisationId>{uid}</ech0097:uidOrganisationId>
+      </uid:uid>
+    </uid:GetByUID>
+  </soap:Body>
+</soap:Envelope>"""
+
+        try:
+            response = requests.post(
+                UID_WSE_ENDPOINT,
+                data=soap_body.encode("utf-8"),
+                headers={
+                    "Content-Type": "text/xml; charset=utf-8",
+                    "SOAPAction": '"http://www.uid.admin.ch/xmlns/uid-wse/IPublicServices/GetByUID"',
+                },
+                timeout=10,
+            )
+            response.raise_for_status()
+            return cls._parse_uid_wse_response(uid, response.text)
+        except requests.RequestException as e:
+            logger.error("UID Register SOAP error: %s", e)
+            return None
+
+    @classmethod
+    def _parse_uid_wse_response(cls, uid: str, xml_text: str) -> Optional[SwissCompany]:
+        """Parse UID-WSE GetByUID SOAP response."""
+        ns = {
+            "ech097": "http://www.ech.ch/xmlns/eCH-0097-f/2",
+            "ech108": "http://www.ech.ch/xmlns/eCH-0108-f/3",
+            "ech010": "http://www.ech.ch/xmlns/eCH-0010-f/6",
+            "ech007": "http://www.ech.ch/xmlns/eCH-0007-f/6",
+        }
+        try:
+            root = ET.fromstring(xml_text)
+        except ET.ParseError:
+            return None
+
+        def _text(elem, xpath):
+            el = elem.find(xpath, ns)
+            return el.text if el is not None else ""
+
+        org = root.find(".//{http://www.uid.admin.ch/xmlns/uid-wse}organisationType")
+        if org is None:
+            return None
+
+        name = _text(org, ".//ech097:organisationName")
+        lf_code = _text(org, ".//ech097:legalForm")
+        lf_name = LEGAL_FORM_MAP.get(lf_code, "")
+        canton = _text(org, ".//ech108:cantonAbbreviationMainAddress")
+        town = _text(org, ".//ech010:town")
+        street = _text(org, ".//ech010:street")
+        house_number = _text(org, ".//ech010:houseNumber")
+        zip_code = _text(org, ".//ech010:swissZipCode")
+
+        # CH.HR ID and EHRAID
+        ch_id = ""
+        ofrc_id = ""
+        for other_id in org.findall(".//ech097:OtherOrganisationId", ns):
+            cat = _text(other_id, "ech097:organisationIdCategory")
+            val = _text(other_id, "ech097:organisationId")
+            if cat == "CH.HR":
+                ch_id = val
+            elif cat == "CH.EHRAID":
+                ofrc_id = val
+
+        return SwissCompany(
+            uid=uid,
+            name=name,
+            legal_form=lf_name,
+            legal_form_code=lf_code,
+            legal_seat=town,
+            canton=canton,
+            status="active",
+            ch_id=ch_id,
+            ofrc_id=ofrc_id,
+            address_street=street or None,
+            address_number=house_number or None,
+            address_postal_code=zip_code or None,
+            address_city=town or None,
+        )

@@ -65,9 +65,6 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      # Zefix API (Swiss company registry)
-      - ZEFIX_USERNAME=${ZEFIX_USERNAME:-}
-      - ZEFIX_PASSWORD=${ZEFIX_PASSWORD:-}
       # MinIO/S3 Storage
       - USE_S3=${USE_S3:-true}
       - AWS_ACCESS_KEY_ID=${MINIO_ROOT_USER:-minio}
