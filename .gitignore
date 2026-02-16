@@ -57,6 +57,9 @@ Thumbs.db
 *.bak
 *.tmp
 
+# Seeds specifiques a une instance (donnees projet client)
+**/management/commands/seed_*.py
+
 
 
 ##
