@@ -260,7 +260,22 @@ class Command(BaseCommand):
 
     def _clean_data(self):
         """Supprime les données existantes"""
+        from django.db import connection
+
         self.stdout.write("🧹 Nettoyage des données existantes...")
+
+        # D'abord, supprimer les tables non-gérées (managed=False) qui bloquent les cascades
+        unmanaged_tables = [
+            'document_embeddings',
+            'text_chunk_embeddings',
+        ]
+        with connection.cursor() as cursor:
+            for table in unmanaged_tables:
+                try:
+                    cursor.execute(f'TRUNCATE TABLE "{table}" CASCADE')
+                    self.stdout.write(f"  → {table}: truncated")
+                except Exception:
+                    pass  # Table n'existe pas, pas grave
 
         # Supprimer dans l'ordre inverse des dépendances
         models_to_clean = [
@@ -307,8 +322,15 @@ class Command(BaseCommand):
                 deleted, _ = model.objects.all().delete()
                 if deleted:
                     self.stdout.write(f"  → {model.__name__}: {deleted} supprimés")
-            except Exception as e:
-                self.stdout.write(f"  ⚠ {model.__name__}: {e}")
+            except Exception:
+                # Fallback: TRUNCATE CASCADE si le delete ORM échoue
+                table = model._meta.db_table
+                try:
+                    with connection.cursor() as cursor:
+                        cursor.execute(f'TRUNCATE TABLE "{table}" CASCADE')
+                    self.stdout.write(f"  → {model.__name__}: truncated (cascade)")
+                except Exception as e2:
+                    self.stdout.write(f"  ⚠ {model.__name__}: {e2}")
 
     # =========================================================================
     # HELPERS POUR TRADUCTIONS
