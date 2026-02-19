@@ -662,7 +662,22 @@ $(function() {
         } else if (xhr && xhr.responseJSON && xhr.responseJSON.error) {
             errorDetails += ': ' + xhr.responseJSON.error;
         } else if (xhr && xhr.status) {
-            errorDetails += ' (HTTP ' + xhr.status + ')';
+            // Cloudflare-specific error codes
+            const cfErrors = {
+                520: "Le serveur a retourne une erreur inattendue",
+                521: "Le serveur est arrete",
+                522: "Le serveur est injoignable",
+                523: "Le serveur est introuvable",
+                524: "Le serveur met trop de temps a repondre. Reessayez."
+            };
+            if (cfErrors[xhr.status]) {
+                errorDetails = cfErrors[xhr.status];
+            } else if (xhr.responseText && (xhr.responseText.startsWith('<!') || xhr.responseText.startsWith('<html'))) {
+                // HTML error page (Cloudflare, nginx, etc.) - don't show raw HTML
+                errorDetails += ' (HTTP ' + xhr.status + ')';
+            } else {
+                errorDetails += ' (HTTP ' + xhr.status + ')';
+            }
         }
         console.error('Chat Error:', xhr);
 

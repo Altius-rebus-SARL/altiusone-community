@@ -290,11 +290,16 @@ CONTEXTE DISPONIBLE:
             logger.error(f"Erreur chat conversation {conversation.id}: {e}")
             duree_ms = int((time.time() - start_time) * 1000)
 
+            # Sanitize error message (never save raw HTML)
+            error_str = str(e)
+            if '<html' in error_str.lower() or '<!doctype' in error_str.lower():
+                error_str = "Le service IA est temporairement indisponible"
+
             # Sauvegarder le message d'erreur
             Message.objects.create(
                 conversation=conversation,
                 role='SYSTEM',
-                contenu=f"Erreur: {str(e)}",
+                contenu=f"Erreur: {error_str}",
                 duree_ms=duree_ms
             )
 
@@ -305,7 +310,7 @@ CONTEXTE DISPONIBLE:
                 tokens_prompt=0,
                 tokens_completion=0,
                 duree_ms=duree_ms,
-                erreur=str(e)
+                erreur=error_str
             )
 
     def _search_all_entities(

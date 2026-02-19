@@ -207,12 +207,31 @@ class AltiusAIService:
             raise AIServiceError(f"Impossible de se connecter a {self.api_url}")
 
         except requests.exceptions.HTTPError as e:
-            error_msg = f"Erreur HTTP {e.response.status_code}"
+            status_code = e.response.status_code
+            # Cloudflare-specific errors (return HTML, not JSON)
+            cloudflare_errors = {
+                520: "Le service IA a retourne une erreur inattendue",
+                521: "Le service IA est arrete",
+                522: "Le service IA est injoignable (connexion impossible)",
+                523: "Le service IA est injoignable (origine introuvable)",
+                524: "Le service IA met trop de temps a repondre",
+            }
+            if status_code in cloudflare_errors:
+                error_msg = cloudflare_errors[status_code]
+                logger.error(f"Cloudflare {status_code}: {error_msg} ({url})")
+                raise AIServiceError(error_msg)
+
+            error_msg = f"Erreur HTTP {status_code}"
             try:
-                error_detail = e.response.json().get('detail', e.response.text)
-                error_msg = f"{error_msg}: {error_detail}"
+                # Detect HTML responses (Cloudflare, nginx, etc.)
+                content_type = e.response.headers.get('content-type', '')
+                if 'text/html' in content_type or e.response.text[:15].strip().startswith(('<', '<!',)):
+                    error_msg = f"Le service IA a retourne une erreur (HTTP {status_code})"
+                else:
+                    error_detail = e.response.json().get('detail', e.response.text)
+                    error_msg = f"{error_msg}: {error_detail}"
             except Exception:
-                error_msg = f"{error_msg}: {e.response.text[:200]}"
+                error_msg = f"Le service IA a retourne une erreur (HTTP {status_code})"
             logger.error(error_msg)
             raise AIServiceError(error_msg)
 
