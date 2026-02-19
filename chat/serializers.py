@@ -1,5 +1,14 @@
 from rest_framework import serializers
+from django.contrib.auth import get_user_model
 from .models import Conversation, Message
+
+User = get_user_model()
+
+
+class ParticipantSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'first_name', 'last_name', 'email']
 
 
 class MessageSerializer(serializers.ModelSerializer):
@@ -21,7 +30,7 @@ class ConversationListSerializer(serializers.ModelSerializer):
     last_message = serializers.SerializerMethodField()
     last_message_at = serializers.SerializerMethodField()
     unread_count = serializers.SerializerMethodField()
-    participants = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
+    participants = ParticipantSerializer(many=True, read_only=True)
 
     class Meta:
         model = Conversation

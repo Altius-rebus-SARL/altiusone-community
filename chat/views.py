@@ -18,11 +18,28 @@ class ConversationViewSet(viewsets.ModelViewSet):
         return Conversation.objects.filter(
             participants=self.request.user,
             is_ai_conversation=False,
-        ).prefetch_related('participants', 'messages')
+        ).distinct().prefetch_related('participants', 'messages')
 
-    def perform_create(self, serializer):
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         conversation = serializer.save()
-        conversation.participants.add(self.request.user)
+
+        # Add creator as participant
+        conversation.participants.add(request.user)
+
+        # Add other participants sent as list of UUIDs
+        participant_ids = request.data.get('participants', [])
+        if participant_ids:
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            users = User.objects.filter(id__in=participant_ids)
+            conversation.participants.add(*users)
+
+        # Re-serialize with participants now attached
+        conversation.refresh_from_db()
+        output_serializer = self.get_serializer(conversation)
+        return Response(output_serializer.data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['post'])
     def send_message(self, request, pk=None):
