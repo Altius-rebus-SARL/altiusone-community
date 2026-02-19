@@ -32,6 +32,7 @@ from .serializers import (
     ModelInfoSerializer,
     ModelInfoGroupedSerializer,
     ModelSchemaSerializer,
+    MobileFormSchemaSerializer,
 )
 from .services.introspector import ModelIntrospector
 from .services.submission_handler import SubmissionHandler
@@ -176,6 +177,135 @@ class FormConfigurationViewSet(viewsets.ModelViewSet):
             'form_schema': config.form_schema,
             'default_values': config.default_values,
         })
+
+    @action(detail=True, methods=['get'], url_path='mobile-schema')
+    def mobile_schema(self, request, pk=None):
+        """
+        Retourne le schéma pré-mergé pour le rendu mobile.
+
+        Fusionne introspection Django + field_mappings en une liste
+        de champs ordonnée et organisée par sections, prête à rendre.
+        Ne retourne QUE les champs présents dans field_mappings.
+        """
+        config = self.get_object()
+
+        if not config.target_model and not config.is_multi_model:
+            return Response(
+                {'error': 'Aucun modèle cible défini pour ce formulaire'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Récupérer les schémas introspectés par modèle source
+        introspected = {}
+        model_paths = set()
+        for mapping in config.field_mappings.all():
+            model_paths.add(mapping.source_model or config.target_model)
+
+        for model_path in model_paths:
+            try:
+                introspector = ModelIntrospector(model_path, validate=False)
+                schema = introspector.get_schema()
+                introspected[model_path] = {
+                    f['name']: f for f in schema['fields']
+                }
+            except ValueError:
+                introspected[model_path] = {}
+
+        # Pré-calculer les choices canton/country
+        canton_choices = ModelIntrospector.get_canton_choices()
+        country_choices = ModelIntrospector.get_country_choices()
+
+        # Construire les sections depuis form_schema
+        sections_config = (config.form_schema or {}).get('sections', [])
+        sections_map = {}
+        for sec in sections_config:
+            sections_map[sec.get('id', '')] = {
+                'id': sec.get('id', ''),
+                'title': sec.get('title', sec.get('id', '')),
+                'fields': [],
+            }
+
+        # Section par défaut pour les champs sans section
+        default_section = {'id': '_default', 'title': 'Général', 'fields': []}
+
+        # Fusionner chaque mapping avec l'introspection
+        default_values = config.default_values or {}
+
+        for mapping in config.field_mappings.select_related('form_config').order_by('order', 'field_name'):
+            source = mapping.source_model or config.target_model
+            introspected_fields = introspected.get(source, {})
+            intro_field = introspected_fields.get(mapping.field_name, {})
+
+            # Résoudre le widget_type: mapping prime sur introspection
+            widget_type = mapping.widget_type or intro_field.get('widget_type', 'text')
+
+            # Résoudre required: mapping (si non-null) prime sur introspection
+            required = mapping.required if mapping.required is not None else intro_field.get('required', False)
+
+            # Résoudre choices
+            choices = intro_field.get('choices', None)
+            if widget_type == 'canton' and not choices:
+                choices = canton_choices
+            elif widget_type == 'country' and not choices:
+                choices = country_choices
+
+            # Résoudre max_length
+            max_length = mapping.max_length or intro_field.get('max_length', None)
+
+            field_data = {
+                'name': mapping.field_name,
+                'source_model': source,
+                'widget_type': widget_type,
+                'label': mapping.label or intro_field.get('label', mapping.field_name),
+                'required': required,
+                'placeholder': mapping.placeholder or '',
+                'help_text': mapping.help_text or intro_field.get('help_text', ''),
+                'choices': choices,
+                'conditions': mapping.conditions or {},
+                'options': mapping.options or {},
+                'min_length': mapping.min_length,
+                'max_length': max_length,
+                'min_value': mapping.min_value or '',
+                'max_value': mapping.max_value or '',
+                'regex_pattern': mapping.regex_pattern or '',
+                'default_value': default_values.get(mapping.field_name),
+                'order': mapping.order,
+            }
+
+            # Placer dans la bonne section
+            section_id = mapping.section or ''
+            if section_id and section_id in sections_map:
+                sections_map[section_id]['fields'].append(field_data)
+            else:
+                default_section['fields'].append(field_data)
+
+        # Assembler les sections dans l'ordre du form_schema
+        sections = []
+        for sec in sections_config:
+            sec_id = sec.get('id', '')
+            if sec_id in sections_map and sections_map[sec_id]['fields']:
+                sections.append(sections_map[sec_id])
+
+        # Ajouter la section par défaut si elle a des champs
+        if default_section['fields']:
+            sections.append(default_section)
+
+        result = {
+            'id': config.id,
+            'code': config.code,
+            'name': config.name,
+            'description': config.description or '',
+            'icon': config.icon or 'ph-file-text',
+            'category': config.category,
+            'success_message': config.success_message or 'Formulaire soumis avec succès.',
+            'sections': sections,
+            'default_values': default_values,
+            'validation_rules': config.validation_rules or [],
+            'related_models': config.related_models or [],
+        }
+
+        serializer = MobileFormSchemaSerializer(result)
+        return Response(serializer.data)
 
     @action(detail=True, methods=['post'])
     def duplicate(self, request, pk=None):

@@ -477,6 +477,34 @@ class ModelIntrospector:
 
         return groups
 
+    @staticmethod
+    def get_canton_choices() -> List[Dict[str, str]]:
+        """Retourne les choix de cantons suisses."""
+        cantons = [
+            ('AG', 'Argovie'), ('AI', 'Appenzell Rh.-Int.'), ('AR', 'Appenzell Rh.-Ext.'),
+            ('BE', 'Berne'), ('BL', 'Bâle-Campagne'), ('BS', 'Bâle-Ville'),
+            ('FR', 'Fribourg'), ('GE', 'Genève'), ('GL', 'Glaris'),
+            ('GR', 'Grisons'), ('JU', 'Jura'), ('LU', 'Lucerne'),
+            ('NE', 'Neuchâtel'), ('NW', 'Nidwald'), ('OW', 'Obwald'),
+            ('SG', 'Saint-Gall'), ('SH', 'Schaffhouse'), ('SO', 'Soleure'),
+            ('SZ', 'Schwyz'), ('TG', 'Thurgovie'), ('TI', 'Tessin'),
+            ('UR', 'Uri'), ('VD', 'Vaud'), ('VS', 'Valais'),
+            ('ZG', 'Zoug'), ('ZH', 'Zurich'),
+        ]
+        return [{'value': code, 'label': label} for code, label in cantons]
+
+    @staticmethod
+    def get_country_choices() -> List[Dict[str, str]]:
+        """Retourne les choix de pays (principaux + tous)."""
+        countries = [
+            ('CH', 'Suisse'), ('FR', 'France'), ('DE', 'Allemagne'),
+            ('IT', 'Italie'), ('AT', 'Autriche'), ('LI', 'Liechtenstein'),
+            ('LU', 'Luxembourg'), ('BE', 'Belgique'), ('NL', 'Pays-Bas'),
+            ('ES', 'Espagne'), ('PT', 'Portugal'), ('GB', 'Royaume-Uni'),
+            ('US', 'États-Unis'), ('CA', 'Canada'),
+        ]
+        return [{'value': code, 'label': label} for code, label in countries]
+
     def get_json_schema(self) -> Dict[str, Any]:
         """
         Génère un schéma JSON Schema pour le modèle.

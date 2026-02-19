@@ -120,6 +120,7 @@ class FormConfigurationListSerializer(serializers.ModelSerializer):
             'status_display',
             'require_validation',
             'icon',
+            'success_message',
             'field_count',
             'submission_count',
             'model_count',
@@ -519,3 +520,53 @@ class ModelSchemaSerializer(serializers.Serializer):
     verbose_name_plural = serializers.CharField()
     fields = FieldInfoSerializer(many=True)
     suggested_groups = serializers.ListField()
+
+
+# =============================================================================
+# Mobile Schema Serializers
+# =============================================================================
+
+class MobileFieldSerializer(serializers.Serializer):
+    """Serializer pour un champ dans le schéma mobile pré-mergé."""
+
+    name = serializers.CharField()
+    source_model = serializers.CharField()
+    widget_type = serializers.CharField()
+    label = serializers.CharField()
+    required = serializers.BooleanField()
+    placeholder = serializers.CharField(allow_blank=True, default='')
+    help_text = serializers.CharField(allow_blank=True, default='')
+    choices = serializers.ListField(child=serializers.DictField(), allow_null=True, default=None)
+    conditions = serializers.DictField(default=dict)
+    options = serializers.DictField(default=dict)
+    min_length = serializers.IntegerField(allow_null=True, default=None)
+    max_length = serializers.IntegerField(allow_null=True, default=None)
+    min_value = serializers.CharField(allow_blank=True, default='')
+    max_value = serializers.CharField(allow_blank=True, default='')
+    regex_pattern = serializers.CharField(allow_blank=True, default='')
+    default_value = serializers.JSONField(allow_null=True, default=None)
+    order = serializers.IntegerField(default=0)
+
+
+class MobileSectionSerializer(serializers.Serializer):
+    """Serializer pour une section dans le schéma mobile."""
+
+    id = serializers.CharField()
+    title = serializers.CharField()
+    fields = MobileFieldSerializer(many=True)
+
+
+class MobileFormSchemaSerializer(serializers.Serializer):
+    """Serializer pour le schéma complet mobile pré-mergé."""
+
+    id = serializers.UUIDField()
+    code = serializers.CharField()
+    name = serializers.CharField()
+    description = serializers.CharField(allow_blank=True)
+    icon = serializers.CharField()
+    category = serializers.CharField()
+    success_message = serializers.CharField()
+    sections = MobileSectionSerializer(many=True)
+    default_values = serializers.DictField()
+    validation_rules = serializers.ListField()
+    related_models = serializers.ListField()
