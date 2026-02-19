@@ -313,6 +313,162 @@ CONTEXTE DISPONIBLE:
                 erreur=error_str
             )
 
+    def chat_stream(
+        self,
+        conversation,
+        message: str,
+        use_semantic_search: bool = True,
+        max_context_results: int = 10,
+        entity_types=None
+    ):
+        """
+        Stream a chat response as SSE events.
+
+        Yields JSON-serializable dicts with a 'type' field:
+        - sources: search results found
+        - token: individual AI token
+        - done: AI generation finished
+        - message_saved: assistant message persisted
+        - error: something went wrong
+        """
+        import json as _json
+        import time
+        from documents.models import Message, Document
+
+        start_time = time.time()
+
+        try:
+            # 1. Save user message
+            user_message = Message.objects.create(
+                conversation=conversation,
+                role='USER',
+                contenu=message
+            )
+
+            # 2. Universal search
+            search_results = []
+            sources = []
+            entities = []
+
+            if use_semantic_search:
+                search_results = self._search_all_entities(
+                    query=message,
+                    conversation=conversation,
+                    limit=max_context_results,
+                    entity_types=entity_types or self.DEFAULT_ENTITY_TYPES
+                )
+
+                for result in search_results:
+                    source_info = SourceInfo(
+                        entity_type=result.entity_type.value,
+                        entity_id=result.entity_id,
+                        title=result.title,
+                        subtitle=result.subtitle,
+                        url=result.url,
+                        icon=result.icon,
+                        color=result.color,
+                        score=result.score,
+                        snippet=result.description[:200] if result.description else '',
+                        metadata=result.metadata
+                    )
+
+                    if result.entity_type == EntityType.DOCUMENT:
+                        sources.append(source_info.to_dict())
+                    else:
+                        entities.append(source_info.to_dict())
+
+            # 3. Yield sources event
+            yield _json.dumps({
+                'type': 'sources',
+                'sources': sources,
+                'entities': entities,
+            }) + '\n'
+
+            # 4. Build system prompt and history
+            system_prompt = self._build_system_prompt(
+                conversation=conversation,
+                search_results=search_results
+            )
+            history = self._build_conversation_history(conversation)
+
+            # 5. Stream AI response
+            full_response = ''
+            model_name = ''
+            tokens_used = 0
+            processing_time_ms = 0
+
+            for event in self.ai_service.chat_stream(
+                message=message,
+                history=history,
+                system_prompt=system_prompt,
+                temperature=float(conversation.temperature)
+            ):
+                if event.get('error'):
+                    yield _json.dumps({
+                        'type': 'error',
+                        'error': event['error'],
+                    }) + '\n'
+                    return
+
+                if event.get('done'):
+                    model_name = event.get('model', '')
+                    tokens_used = event.get('tokens_used', 0)
+                    processing_time_ms = event.get('processing_time_ms', 0)
+                    yield _json.dumps({
+                        'type': 'done',
+                        'model': model_name,
+                        'tokens_used': tokens_used,
+                        'processing_time_ms': processing_time_ms,
+                    }) + '\n'
+                else:
+                    token = event.get('token', '')
+                    if token:
+                        full_response += token
+                        yield _json.dumps({
+                            'type': 'token',
+                            'token': token,
+                        }) + '\n'
+
+            # 6. Save assistant message
+            duree_ms = int((time.time() - start_time) * 1000)
+            all_sources = sources + entities
+
+            assistant_message = Message.objects.create(
+                conversation=conversation,
+                role='ASSISTANT',
+                contenu=full_response,
+                tokens_prompt=0,
+                tokens_completion=tokens_used,
+                duree_ms=duree_ms,
+                sources=all_sources
+            )
+
+            doc_ids = [s['entity_id'] for s in sources]
+            if doc_ids:
+                docs = Document.objects.filter(id__in=doc_ids)
+                assistant_message.documents_contexte.set(docs)
+
+            # 7. Yield message_saved event
+            yield _json.dumps({
+                'type': 'message_saved',
+                'message_id': str(assistant_message.id),
+            }) + '\n'
+
+            # 8. Generate title if first message
+            if conversation.nombre_messages <= 2:
+                conversation.generer_titre()
+
+        except Exception as e:
+            logger.error(f"Erreur chat stream conversation {conversation.id}: {e}")
+            error_str = str(e)
+            if '<html' in error_str.lower() or '<!doctype' in error_str.lower():
+                error_str = "Le service IA est temporairement indisponible"
+
+            yield _json.dumps({
+                'type': 'error',
+                'error': error_str,
+            }) + '\n'
+
     def _search_all_entities(
         self,
         query: str,

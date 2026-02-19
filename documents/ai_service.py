@@ -685,6 +685,126 @@ Contenu:
             logger.error(f"Erreur chat IA: {e}")
             raise AIServiceError(f"Erreur lors de la requete chat: {str(e)}")
 
+    def chat_stream(
+        self,
+        message: str,
+        system: Optional[str] = None,
+        system_prompt: Optional[str] = None,
+        context: Optional[str] = None,
+        history: Optional[List[Dict[str, str]]] = None,
+        temperature: float = 0.7,
+        max_tokens: Optional[int] = None
+    ):
+        """
+        Stream chat response token by token via SSE.
+
+        Same signature as chat() but yields dicts from the SSE stream.
+        Falls back gracefully if the server returns a non-streaming JSON response.
+
+        Yields:
+            Dict with 'token', 'done', and optionally 'model', 'tokens_used', 'processing_time_ms'
+        """
+        if not self.enabled:
+            raise AIServiceError("Service AI non configure. Verifiez AI_API_KEY et AI_API_URL dans .env")
+
+        # Support des deux noms de parametre
+        system = system or system_prompt
+
+        if context:
+            message = f"Contexte:\n{context}\n\nQuestion: {message}"
+
+        # Construire les messages pour l'API
+        messages = []
+        if system:
+            messages.append({'role': 'system', 'content': system})
+
+        if history:
+            for msg in history[:-1] if history else []:
+                role = msg.get('role', '').lower()
+                content = msg.get('content', '')
+                if role in ['user', 'assistant'] and content:
+                    messages.append({'role': role, 'content': content})
+
+        messages.append({'role': 'user', 'content': message})
+
+        url = f"{self.api_url}/chat"
+
+        try:
+            import json as _json
+            response = requests.post(
+                url,
+                json={
+                    'messages': messages,
+                    'temperature': temperature,
+                    'max_tokens': max_tokens,
+                    'stream': True,
+                },
+                headers=self._get_headers(),
+                stream=True,
+                timeout=self.timeout,
+            )
+
+            if response.status_code != 200:
+                cloudflare_errors = {
+                    520: "Le service IA a retourne une erreur inattendue",
+                    521: "Le service IA est arrete",
+                    522: "Le service IA est injoignable (connexion impossible)",
+                    523: "Le service IA est injoignable (origine introuvable)",
+                    524: "Le service IA met trop de temps a repondre",
+                }
+                if response.status_code in cloudflare_errors:
+                    raise AIServiceError(cloudflare_errors[response.status_code])
+                raise AIServiceError(f"Erreur HTTP {response.status_code}")
+
+            # Check if response is SSE or plain JSON
+            content_type = response.headers.get('content-type', '')
+            is_sse = 'text/event-stream' in content_type
+
+            if is_sse:
+                # True SSE streaming - yield token by token
+                for line in response.iter_lines(decode_unicode=True):
+                    if not line:
+                        continue
+                    if line.startswith('data: '):
+                        line = line[6:]
+                    try:
+                        event = _json.loads(line)
+                        yield event
+                        if event.get('done'):
+                            return
+                    except _json.JSONDecodeError:
+                        continue
+            else:
+                # Non-streaming fallback: server returned plain JSON
+                # Convert to streaming events for compatibility
+                data = response.json()
+                response_text = data.get('message',
+                                data.get('content',
+                                data.get('response', '')))
+
+                # Yield the full response as a single token
+                if response_text:
+                    yield {'type': 'token', 'token': response_text}
+
+                # Yield done event
+                yield {
+                    'type': 'done',
+                    'done': True,
+                    'model': data.get('model', ''),
+                    'tokens_used': data.get('tokens_used', 0),
+                    'processing_time_ms': data.get('processing_time_ms', 0),
+                }
+
+        except AIServiceError:
+            raise
+        except requests.exceptions.Timeout:
+            raise AIServiceError(f"L'API n'a pas repondu dans les {self.timeout}s")
+        except requests.exceptions.ConnectionError:
+            raise AIServiceError(f"Impossible de se connecter a {self.api_url}")
+        except Exception as e:
+            logger.error(f"Erreur chat stream: {e}")
+            raise AIServiceError(f"Erreur lors du streaming chat: {str(e)}")
+
     # =========================================================================
     # RESUME ET Q&A SUR DOCUMENTS
     # =========================================================================

@@ -13,6 +13,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 
@@ -136,6 +137,50 @@ class ConversationViewSet(viewsets.ModelViewSet):
             'tokens_used': response.tokens_prompt + response.tokens_completion,
             'duration_ms': response.duree_ms
         })
+
+    @action(detail=True, methods=['post'], url_path='stream_message')
+    def stream_message(self, request, pk=None):
+        """
+        Stream a message response as Server-Sent Events.
+
+        Same request body as send_message:
+        {
+            "message": "Texte du message",
+            "use_semantic_search": true,
+            "max_context_docs": 5
+        }
+
+        Response: text/event-stream with JSON lines:
+        {"type":"sources","sources":[...],"entities":[...]}
+        {"type":"token","token":"mot"}
+        {"type":"done","model":"...","tokens_used":N,"processing_time_ms":N}
+        {"type":"message_saved","message_id":"uuid"}
+        """
+        conversation = self.get_object()
+        serializer = MessageCreateSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        def event_stream():
+            for event in chat_service.chat_stream(
+                conversation=conversation,
+                message=serializer.validated_data['message'],
+                use_semantic_search=serializer.validated_data.get('use_semantic_search', True),
+                max_context_results=serializer.validated_data.get('max_context_docs', 10),
+            ):
+                yield f"data: {event}\n\n"
+
+        response = StreamingHttpResponse(
+            event_stream(),
+            content_type='text/event-stream',
+        )
+        response['Cache-Control'] = 'no-cache'
+        response['X-Accel-Buffering'] = 'no'
+        return response
 
     @action(detail=True, methods=['get'])
     def messages(self, request, pk=None):

@@ -80,4 +80,4 @@ pgvector>=0.3.0
 numpy>=1.26.0
 
 # AltiusOne AI SDK (OCR, Embeddings, Chat, Extraction)
-altiusone-ai>=1.1.0
+altiusone-ai>=1.2.2
