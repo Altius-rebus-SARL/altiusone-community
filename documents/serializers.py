@@ -20,6 +20,7 @@ class DocumentListSerializer(serializers.ModelSerializer):
     statut_traitement_display = serializers.CharField(
         source="get_statut_traitement_display", read_only=True
     )
+    has_fichier = serializers.SerializerMethodField()
 
     class Meta:
         model = Document
@@ -32,7 +33,11 @@ class DocumentListSerializer(serializers.ModelSerializer):
             "type_document",
             "statut_traitement",
             "statut_traitement_display",
+            "has_fichier",
         ]
+
+    def get_has_fichier(self, obj):
+        return bool(obj.fichier)
 
 
 class DocumentDetailSerializer(serializers.ModelSerializer):
