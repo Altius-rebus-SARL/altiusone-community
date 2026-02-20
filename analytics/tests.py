@@ -30,8 +30,8 @@ class BaseAnalyticsTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
         """Créer les données de test partagées par toutes les méthodes de test."""
-        # Créer un utilisateur de test
-        cls.user = User.objects.create_user(
+        # Créer un utilisateur de test (superuser pour passer BusinessPermissionMixin)
+        cls.user = User.objects.create_superuser(
             username='testuser',
             email='test@example.com',
             password='testpass123',
@@ -565,8 +565,8 @@ class TableauBordTestCase(BaseAnalyticsTestCase):
 
     def test_tableau_bord_visibility_prive(self):
         """Un tableau privé ne doit être visible que par son propriétaire."""
-        # Créer un autre utilisateur
-        other_user = User.objects.create_user(
+        # Créer un autre utilisateur (superuser pour passer BusinessPermissionMixin)
+        other_user = User.objects.create_superuser(
             username='otheruser',
             email='other@example.com',
             password='otherpass123'
