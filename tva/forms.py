@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from .models import (
     ConfigurationTVA,
+    RegimeFiscal,
     DeclarationTVA,
     LigneTVA,
     OperationTVA,
@@ -21,6 +22,7 @@ class ConfigurationTVAForm(forms.ModelForm):
         model = ConfigurationTVA
         fields = [
             "mandat",
+            "regime",
             "assujetti_tva",
             "numero_tva",
             "date_debut_assujettissement",
@@ -36,6 +38,7 @@ class ConfigurationTVAForm(forms.ModelForm):
         ]
         widgets = {
             "mandat": forms.Select(attrs={"class": "form-control select2"}),
+            "regime": forms.Select(attrs={"class": "form-control select2"}),
             "assujetti_tva": forms.CheckboxInput(attrs={"class": "form-check-input"}),
             "numero_tva": forms.TextInput(attrs={"class": "form-control"}),
             "date_debut_assujettissement": forms.DateInput(
@@ -70,6 +73,9 @@ class ConfigurationTVAForm(forms.ModelForm):
             code__in=['TRIMESTRIEL', 'SEMESTRIEL']
         )
         self.fields['periodicite_ref'].label = _('Périodicité')
+        self.fields['regime'].queryset = RegimeFiscal.objects.all()
+        self.fields['regime'].label = _('Régime fiscal')
+        self.fields['regime'].required = False
 
 
 class DeclarationTVAForm(forms.ModelForm):

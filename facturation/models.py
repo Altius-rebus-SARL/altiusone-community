@@ -5,6 +5,7 @@ from django.utils.translation import gettext_lazy as _
 from core.models import BaseModel, Devise, Mandat, Client, User
 from decimal import Decimal
 from datetime import datetime, date, timedelta
+from tva.utils import get_taux_tva_defaut
 
 
 class Prestation(BaseModel):
@@ -420,7 +421,7 @@ class TimeTracking(BaseModel):
                 prix_unitaire_ht=self.taux_horaire,
                 taux_tva=self.prestation.taux_tva_defaut
                 if self.prestation
-                else Decimal("8.1"),
+                else get_taux_tva_defaut(facture.mandat),
             )
 
         # Lier le temps à la ligne

@@ -2,6 +2,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .viewset import (
+    RegimeFiscalViewSet,
     ConfigurationTVAViewSet,
     TauxTVAViewSet,
     CodeTVAViewSet,
@@ -14,6 +15,7 @@ from .viewset import (
 app_name = "tva"
 
 router = DefaultRouter()
+router.register(r"regimes", RegimeFiscalViewSet, basename="regime")
 router.register(r"configurations", ConfigurationTVAViewSet, basename="configuration")
 router.register(r"taux", TauxTVAViewSet, basename="taux")
 router.register(r"codes", CodeTVAViewSet, basename="code")

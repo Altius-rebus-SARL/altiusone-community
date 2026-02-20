@@ -11,6 +11,7 @@ from core.pdf import PDFViewSetMixin
 
 from .models import (
     ConfigurationTVA,
+    RegimeFiscal,
     TauxTVA,
     CodeTVA,
     DeclarationTVA,
@@ -20,6 +21,7 @@ from .models import (
 )
 from .serializers import (
     ConfigurationTVASerializer,
+    RegimeFiscalSerializer,
     TauxTVASerializer,
     CodeTVASerializer,
     DeclarationTVAListSerializer,
@@ -30,24 +32,34 @@ from .serializers import (
 )
 
 
+class RegimeFiscalViewSet(viewsets.ReadOnlyModelViewSet):
+    """ViewSet pour les régimes fiscaux (lecture seule)"""
+
+    queryset = RegimeFiscal.objects.select_related('devise_defaut').all()
+    serializer_class = RegimeFiscalSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["code", "pays"]
+
+
 class ConfigurationTVAViewSet(viewsets.ModelViewSet):
     """ViewSet pour les configurations TVA"""
 
-    queryset = ConfigurationTVA.objects.all()
+    queryset = ConfigurationTVA.objects.select_related('regime').all()
     serializer_class = ConfigurationTVASerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["mandat", "assujetti_tva", "methode_calcul"]
+    filterset_fields = ["mandat", "assujetti_tva", "methode_calcul", "regime"]
 
 
 class TauxTVAViewSet(viewsets.ModelViewSet):
     """ViewSet pour les taux de TVA"""
 
-    queryset = TauxTVA.objects.all()
+    queryset = TauxTVA.objects.select_related('regime').all()
     serializer_class = TauxTVASerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ["type_taux"]
+    filterset_fields = ["type_taux", "regime"]
     ordering = ["-date_debut"]
 
     @action(detail=False, methods=["get"])
@@ -68,7 +80,7 @@ class TauxTVAViewSet(viewsets.ModelViewSet):
 class CodeTVAViewSet(viewsets.ModelViewSet):
     """ViewSet pour les codes TVA"""
 
-    queryset = CodeTVA.objects.all()
+    queryset = CodeTVA.objects.select_related('regime').all()
     serializer_class = CodeTVASerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [
@@ -76,7 +88,7 @@ class CodeTVAViewSet(viewsets.ModelViewSet):
         filters.SearchFilter,
         filters.OrderingFilter,
     ]
-    filterset_fields = ["categorie", "actif"]
+    filterset_fields = ["categorie", "actif", "regime"]
     search_fields = ["code", "libelle"]
     ordering = ["categorie", "ordre_affichage", "code"]
 

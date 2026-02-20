@@ -31,6 +31,41 @@ from .forms import (
 )
 from .filters import FactureFilter, TimeTrackingFilter, PaiementFilter
 from core.models import Mandat, Client
+from tva.utils import get_taux_tva_defaut
+
+
+def _get_tva_context(mandat=None):
+    """Retourne les variables TVA pour les templates facturation."""
+    from tva.models import RegimeFiscal, TauxTVA
+    ctx = {'taux_tva_defaut': get_taux_tva_defaut(mandat)}
+    try:
+        if mandat and hasattr(mandat, 'config_tva') and mandat.config_tva and mandat.config_tva.regime:
+            regime = mandat.config_tva.regime
+        else:
+            regime = RegimeFiscal.objects.filter(code='CH').first()
+        if regime:
+            ctx['taux_tva_normal'] = regime.taux_normal
+            from datetime import date
+            today = date.today()
+            reduit = TauxTVA.objects.filter(
+                regime=regime, type_taux='REDUIT',
+                date_debut__lte=today,
+            ).filter(
+                Q(date_fin__isnull=True) | Q(date_fin__gte=today)
+            ).first()
+            if reduit:
+                ctx['taux_tva_reduit'] = reduit.taux
+            special = TauxTVA.objects.filter(
+                regime=regime, type_taux='SPECIAL',
+                date_debut__lte=today,
+            ).filter(
+                Q(date_fin__isnull=True) | Q(date_fin__gte=today)
+            ).first()
+            if special:
+                ctx['taux_tva_special'] = special.taux
+    except Exception:
+        pass
+    return ctx
 
 
 # ============ PRESTATIONS ============
@@ -92,6 +127,11 @@ class PrestationCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateVi
     business_permission = 'facturation.view_prestations'
     success_url = reverse_lazy("facturation:prestation-list")
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(_get_tva_context())
+        return context
+
     def form_valid(self, form):
         form.instance.created_by = self.request.user
         messages.success(self.request, _("Prestation créée avec succès"))
@@ -105,6 +145,11 @@ class PrestationUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateVi
     template_name = "facturation/prestation_form.html"
     business_permission = 'facturation.view_prestations'
     success_url = reverse_lazy("facturation:prestation-list")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(_get_tva_context())
+        return context
 
     def form_valid(self, form):
         messages.success(self.request, _("Prestation modifiée avec succès"))
@@ -393,6 +438,13 @@ class FactureCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView)
             "id", "libelle", "prix_unitaire_ht", "unite", "taux_tva_defaut"
         )
 
+        # TVA context
+        mandat = None
+        mandat_id = self.request.GET.get("mandat")
+        if mandat_id:
+            mandat = Mandat.objects.filter(pk=mandat_id).first()
+        context.update(_get_tva_context(mandat))
+
         return context
 
     def get_success_url(self):
@@ -445,6 +497,10 @@ class FactureUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateView)
             "id", "libelle", "prix_unitaire_ht", "unite", "taux_tva_defaut"
         )
 
+        # TVA context
+        mandat = self.object.mandat if self.object else None
+        context.update(_get_tva_context(mandat))
+
         return context
 
     def get_success_url(self):
@@ -491,14 +547,17 @@ def ligne_facture_form_row(request):
         "id", "libelle", "prix_unitaire_ht", "unite", "taux_tva_defaut"
     )
 
+    ctx = {
+        "ligne_form": form,
+        "index": index,
+        "prestations": prestations,
+    }
+    ctx.update(_get_tva_context())
+
     return render(
         request,
         "facturation/partials/ligne_facture_row.html",
-        {
-            "ligne_form": form,
-            "index": index,
-            "prestations": prestations,
-        },
+        ctx,
     )
 
 

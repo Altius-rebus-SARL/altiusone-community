@@ -79,6 +79,16 @@ class ConfigurationTVAUpdateView(
     template_name = "tva/configuration_form.html"
     business_permission = 'tva.config_tva'
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        from .models import RegimeFiscal
+        regimes_methodes = {
+            r.pk.hex: r.methodes_disponibles
+            for r in RegimeFiscal.objects.all()
+        }
+        context['regimes_methodes_json'] = json.dumps(regimes_methodes)
+        return context
+
     def get_success_url(self):
         return reverse_lazy("tva:configuration-detail", kwargs={"pk": self.object.pk})
 

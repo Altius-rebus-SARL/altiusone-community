@@ -17,6 +17,81 @@ from django.shortcuts import get_object_or_404
 from datetime import datetime
 from django.utils.translation import gettext_lazy as _
 from django.contrib import messages
+from django_countries.fields import CountryField
+
+
+class RegimeFiscal(BaseModel):
+    """Regime fiscal / juridiction TVA (Suisse, Cameroun, Senegal, etc.)"""
+
+    code = models.CharField(
+        max_length=20, unique=True,
+        verbose_name=_('Code'),
+        help_text=_('Code du regime (ex: CH, CM, SN, CI)')
+    )
+    nom = models.CharField(
+        max_length=200,
+        verbose_name=_('Nom'),
+        help_text=_('Nom du regime fiscal (ex: Suisse, Cameroun OHADA)')
+    )
+    pays = CountryField(
+        verbose_name=_('Pays'),
+        help_text=_('Pays du regime fiscal')
+    )
+    devise_defaut = models.ForeignKey(
+        'core.Devise', on_delete=models.PROTECT,
+        verbose_name=_('Devise par défaut'),
+        help_text=_('Devise utilisée par défaut pour ce regime')
+    )
+    type_plan_comptable = models.ForeignKey(
+        'comptabilite.TypePlanComptable', on_delete=models.SET_NULL,
+        null=True, blank=True,
+        verbose_name=_('Type de plan comptable'),
+        help_text=_('Plan comptable associé à ce regime')
+    )
+    nom_taxe = models.CharField(
+        max_length=50, default='TVA',
+        verbose_name=_('Nom de la taxe'),
+        help_text=_('Nom local de la taxe (TVA, VAT, IVA)')
+    )
+    taux_normal = models.DecimalField(
+        max_digits=5, decimal_places=2,
+        verbose_name=_('Taux normal'),
+        help_text=_('Taux normal de la taxe en %')
+    )
+    a_taux_reduit = models.BooleanField(
+        default=False,
+        verbose_name=_('A un taux réduit'),
+        help_text=_('Le regime propose-t-il un taux réduit ?')
+    )
+    a_taux_special = models.BooleanField(
+        default=False,
+        verbose_name=_('A un taux spécial'),
+        help_text=_('Le regime propose-t-il un taux spécial ?')
+    )
+    format_numero_tva = models.CharField(
+        max_length=255, blank=True,
+        verbose_name=_('Format numéro TVA'),
+        help_text=_('Expression régulière de validation du numéro TVA')
+    )
+    supporte_xml = models.BooleanField(
+        default=False,
+        verbose_name=_('Supporte export XML'),
+        help_text=_('Seul le regime suisse supporte actuellement l\'export XML AFC')
+    )
+    methodes_disponibles = models.JSONField(
+        default=list,
+        verbose_name=_('Méthodes disponibles'),
+        help_text=_('Liste des méthodes de calcul disponibles pour ce regime')
+    )
+
+    class Meta:
+        db_table = 'regimes_fiscaux'
+        verbose_name = _('Régime fiscal')
+        verbose_name_plural = _('Régimes fiscaux')
+        ordering = ['code']
+
+    def __str__(self):
+        return f"{self.code} - {self.nom}"
 
 
 class ConfigurationTVA(BaseModel):
@@ -27,6 +102,9 @@ class ConfigurationTVA(BaseModel):
         ('TAUX_DETTE', 'Méthode des taux de la dette fiscale nette'),
         ('TAUX_FORFAITAIRE', 'Méthode des taux forfaitaires'),
         ('FORFAIT_BRANCHE', 'Forfait selon la branche'),
+        ('REEL_NORMAL', 'Régime réel normal'),
+        ('REEL_SIMPLIFIE', 'Régime réel simplifié'),
+        ('FORFAITAIRE', 'Régime forfaitaire'),
     ]
 
     # Conservé pour compatibilité/migration
@@ -40,6 +118,13 @@ class ConfigurationTVA(BaseModel):
         related_name='config_tva',
         verbose_name=_('Mandat'),
         help_text=_('Mandat concerné par cette configuration TVA')
+    )
+    regime = models.ForeignKey(
+        RegimeFiscal, on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name='configurations',
+        verbose_name=_('Régime fiscal'),
+        help_text=_('Régime fiscal applicable à ce mandat')
     )
 
     # Assujettissement
@@ -146,8 +231,15 @@ class TauxTVA(BaseModel):
         ('NORMAL', 'Taux normal'),
         ('REDUIT', 'Taux réduit'),
         ('SPECIAL', 'Taux spécial hébergement'),
+        ('EXONERE', 'Exonéré'),
     ]
 
+    regime = models.ForeignKey(
+        RegimeFiscal, on_delete=models.CASCADE,
+        related_name='taux',
+        verbose_name=_('Régime fiscal'),
+        help_text=_('Régime fiscal auquel appartient ce taux')
+    )
     type_taux = models.CharField(
         max_length=10, choices=TYPE_CHOICES,
         verbose_name=_('Type de taux'),
@@ -185,14 +277,17 @@ class TauxTVA(BaseModel):
         return f"{self.get_type_taux_display()} - {self.taux}%"
 
     @classmethod
-    def get_taux_actif(cls, date, type_taux='NORMAL'):
+    def get_taux_actif(cls, date, type_taux='NORMAL', regime=None):
         """Récupère le taux applicable à une date donnée"""
-        return cls.objects.filter(
+        qs = cls.objects.filter(
             type_taux=type_taux,
             date_debut__lte=date,
         ).filter(
             Q(date_fin__gte=date) | Q(date_fin__isnull=True)
-        ).first()
+        )
+        if regime:
+            qs = qs.filter(regime=regime)
+        return qs.first()
 
 
 class CodeTVA(BaseModel):
@@ -208,10 +303,16 @@ class CodeTVA(BaseModel):
         ('CORRECTIONS', 'Corrections'),
     ]
 
+    regime = models.ForeignKey(
+        RegimeFiscal, on_delete=models.CASCADE,
+        related_name='codes',
+        verbose_name=_('Régime fiscal'),
+        help_text=_('Régime fiscal auquel appartient ce code')
+    )
     code = models.CharField(
-        max_length=10, unique=True, db_index=True,
+        max_length=10, db_index=True,
         verbose_name=_('Code'),
-        help_text=_('Code du chiffre AFC (ex: 200, 302, 400)')
+        help_text=_('Code du chiffre (ex: 200, 302, 400)')
     )
     libelle = models.CharField(
         max_length=255,
@@ -265,6 +366,7 @@ class CodeTVA(BaseModel):
         db_table = 'codes_tva'
         verbose_name = _('Code TVA')
         ordering = ['categorie', 'ordre_affichage', 'code']
+        unique_together = [('regime', 'code')]
 
     def __str__(self):
         return f"{self.code} - {self.libelle}"
@@ -346,34 +448,34 @@ class DeclarationTVA(BaseModel):
     chiffre_affaires_total = models.DecimalField(
         max_digits=15, decimal_places=2, default=0,
         verbose_name=_('CA total'),
-        help_text=_('Chiffre d\'affaires total en CHF')
+        help_text=_('Chiffre d\'affaires total dans la devise du régime')
     )
     chiffre_affaires_imposable = models.DecimalField(
         max_digits=15, decimal_places=2, default=0,
         verbose_name=_('CA imposable'),
-        help_text=_('Chiffre d\'affaires soumis à la TVA en CHF')
+        help_text=_('Chiffre d\'affaires soumis à la TVA dans la devise du régime')
     )
 
     tva_due_total = models.DecimalField(
         max_digits=15, decimal_places=2, default=0,
         verbose_name=_('TVA due totale'),
-        help_text=_('Total de la TVA due en CHF')
+        help_text=_('Total de la TVA due dans la devise du régime')
     )
     tva_prealable_total = models.DecimalField(
         max_digits=15, decimal_places=2, default=0,
         verbose_name=_('TVA préalable totale'),
-        help_text=_('Total de l\'impôt préalable déductible en CHF')
+        help_text=_('Total de l\'impôt préalable déductible dans la devise du régime')
     )
 
     deductions_total = models.DecimalField(
         max_digits=15, decimal_places=2, default=0,
         verbose_name=_('Déductions totales'),
-        help_text=_('Total des déductions en CHF')
+        help_text=_('Total des déductions dans la devise du régime')
     )
     corrections_total = models.DecimalField(
         max_digits=15, decimal_places=2, default=0,
         verbose_name=_('Corrections totales'),
-        help_text=_('Total des corrections en CHF')
+        help_text=_('Total des corrections dans la devise du régime')
     )
 
     solde_tva = models.DecimalField(
@@ -468,6 +570,21 @@ class DeclarationTVA(BaseModel):
             models.Index(fields=['mandat', 'annee', 'trimestre']),
             models.Index(fields=['statut']),
         ]
+
+    @property
+    def devise_code(self):
+        """Code de la devise du régime fiscal, avec fallback CHF"""
+        try:
+            return self.mandat.config_tva.regime.devise_defaut.code
+        except (AttributeError, Exception):
+            return 'CHF'
+
+    def get_nom_taxe(self):
+        """Nom de la taxe du régime fiscal, avec fallback TVA"""
+        try:
+            return self.mandat.config_tva.regime.nom_taxe
+        except (AttributeError, Exception):
+            return 'TVA'
 
     def __str__(self):
         if self.trimestre:
@@ -633,10 +750,22 @@ class DeclarationTVA(BaseModel):
         return self
 
     def generer_xml(self):
-        """Génère le fichier XML AFC"""
+        """Génère le fichier XML AFC (uniquement pour le régime suisse)"""
         from xml.etree.ElementTree import Element, SubElement, tostring
         from xml.dom import minidom
         from django.core.files.base import ContentFile
+
+        # Seul le régime suisse supporte l'export XML AFC
+        regime_code = self.devise_code  # Utilise devise comme proxy
+        try:
+            regime_code = self.mandat.config_tva.regime.code
+        except (AttributeError, Exception):
+            pass
+        if regime_code != 'CH':
+            raise NotImplementedError(
+                f"L'export XML n'est pas supporté pour le régime {regime_code}. "
+                "Seul le régime suisse (CH) supporte l'export XML AFC."
+            )
 
         # Créer la structure XML selon le format AFC
         root = Element("VATDeclaration")
@@ -749,7 +878,7 @@ class DeclarationTVA(BaseModel):
 
         # En-tête
         p.setFont("Helvetica-Bold", 16)
-        p.drawString(2 * cm, height - 2 * cm, "DÉCLARATION TVA SUISSE")
+        p.drawString(2 * cm, height - 2 * cm, f"DÉCLARATION {self.get_nom_taxe()}")
 
         p.setFont("Helvetica-Bold", 14)
         p.drawString(2 * cm, height - 3 * cm, self.numero_declaration)
@@ -859,11 +988,12 @@ class DeclarationTVA(BaseModel):
         y -= 1 * cm
         p.setFont("Helvetica-Bold", 11)
 
+        devise = self.devise_code
         totaux = [
-            ("TVA due:", f"{self.tva_due_total:,.2f} CHF", colors.red),
-            ("TVA préalable:", f"{self.tva_prealable_total:,.2f} CHF", colors.green),
-            ("Déductions:", f"{self.deductions_total:,.2f} CHF", colors.black),
-            ("Corrections:", f"{self.corrections_total:,.2f} CHF", colors.black),
+            ("TVA due:", f"{self.tva_due_total:,.2f} {devise}", colors.red),
+            ("TVA préalable:", f"{self.tva_prealable_total:,.2f} {devise}", colors.green),
+            ("Déductions:", f"{self.deductions_total:,.2f} {devise}", colors.black),
+            ("Corrections:", f"{self.corrections_total:,.2f} {devise}", colors.black),
         ]
 
         for label, value, color in totaux:
@@ -892,7 +1022,7 @@ class DeclarationTVA(BaseModel):
             label = "SOLDE:"
 
         p.drawString(2 * cm, y, label)
-        p.drawRightString(width - 2 * cm, y, f"{abs(self.solde_tva):,.2f} CHF")
+        p.drawRightString(width - 2 * cm, y, f"{abs(self.solde_tva):,.2f} {devise}")
 
         # Pied de page
         p.setFont("Helvetica", 8)
@@ -941,7 +1071,7 @@ class LigneTVA(BaseModel):
     base_imposable = models.DecimalField(
         max_digits=15, decimal_places=2, default=0,
         verbose_name=_('Base imposable'),
-        help_text=_('Montant hors taxe en CHF')
+        help_text=_('Montant hors taxe dans la devise du régime')
     )
     taux_tva = models.DecimalField(
         max_digits=5, decimal_places=2, default=0,
@@ -951,7 +1081,7 @@ class LigneTVA(BaseModel):
     montant_tva = models.DecimalField(
         max_digits=15, decimal_places=2, default=0,
         verbose_name=_('Montant TVA'),
-        help_text=_('Montant de TVA calculé en CHF')
+        help_text=_('Montant de TVA calculé dans la devise du régime')
     )
 
     # Détails
@@ -1049,7 +1179,7 @@ class OperationTVA(BaseModel):
     montant_ht = models.DecimalField(
         max_digits=15, decimal_places=2,
         verbose_name=_('Montant HT'),
-        help_text=_('Montant hors taxe en CHF')
+        help_text=_('Montant hors taxe dans la devise du régime')
     )
     code_tva = models.ForeignKey(
         CodeTVA, on_delete=models.PROTECT,
@@ -1064,12 +1194,12 @@ class OperationTVA(BaseModel):
     montant_tva = models.DecimalField(
         max_digits=15, decimal_places=2,
         verbose_name=_('Montant TVA'),
-        help_text=_('Montant de TVA en CHF')
+        help_text=_('Montant de TVA dans la devise du régime')
     )
     montant_ttc = models.DecimalField(
         max_digits=15, decimal_places=2,
         verbose_name=_('Montant TTC'),
-        help_text=_('Montant toutes taxes comprises en CHF')
+        help_text=_('Montant toutes taxes comprises dans la devise du régime')
     )
 
     # Tiers
@@ -1117,8 +1247,16 @@ class OperationTVA(BaseModel):
             models.Index(fields=['integre_declaration']),
         ]
 
+    @property
+    def devise_code(self):
+        """Code de la devise du régime fiscal, avec fallback CHF"""
+        try:
+            return self.mandat.config_tva.regime.devise_defaut.code
+        except (AttributeError, Exception):
+            return 'CHF'
+
     def __str__(self):
-        return f"{self.date_operation} - {self.libelle[:50]} - {self.montant_tva} CHF"
+        return f"{self.date_operation} - {self.libelle[:50]} - {self.montant_tva} {self.devise_code}"
 
 
 class CorrectionTVA(BaseModel):
@@ -1153,7 +1291,7 @@ class CorrectionTVA(BaseModel):
     base_calcul = models.DecimalField(
         max_digits=15, decimal_places=2,
         verbose_name=_('Base de calcul'),
-        help_text=_('Montant servant de base au calcul en CHF')
+        help_text=_('Montant servant de base au calcul dans la devise du régime')
     )
     taux = models.DecimalField(
         max_digits=5, decimal_places=2,
@@ -1163,7 +1301,7 @@ class CorrectionTVA(BaseModel):
     montant_correction = models.DecimalField(
         max_digits=15, decimal_places=2,
         verbose_name=_('Montant de correction'),
-        help_text=_('Montant de la correction en CHF')
+        help_text=_('Montant de la correction dans la devise du régime')
     )
 
     description = models.TextField(
@@ -1180,5 +1318,13 @@ class CorrectionTVA(BaseModel):
         db_table = 'corrections_tva'
         verbose_name = _('Correction TVA')
 
+    @property
+    def devise_code(self):
+        """Code de la devise du régime fiscal, avec fallback CHF"""
+        try:
+            return self.declaration.mandat.config_tva.regime.devise_defaut.code
+        except (AttributeError, Exception):
+            return 'CHF'
+
     def __str__(self):
-        return f"Correction {self.get_type_correction_display()} - {self.montant_correction} CHF"
+        return f"Correction {self.get_type_correction_display()} - {self.montant_correction} {self.devise_code}"

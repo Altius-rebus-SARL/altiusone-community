@@ -1789,8 +1789,8 @@ def _generer_contenu_tva(rapport, styles):
     table_data = [
         ['Description', 'Base', 'TVA'],
         ['Chiffre d\'affaires imposable', _format_montant(data.get('ca_imposable', 0)), ''],
-        ['TVA due sur CA (7.7%)', '', _format_montant(data.get('tva_due', 0))],
-        ['TVA due sur CA (2.5%)', '', _format_montant(data.get('tva_due_reduit', 0))],
+        ['TVA due sur CA (taux normal)', '', _format_montant(data.get('tva_due', 0))],
+        ['TVA due sur CA (taux réduit)', '', _format_montant(data.get('tva_due_reduit', 0))],
         ['', '', ''],
         ['Impôt préalable déductible', '', _format_montant(data.get('tva_deductible', 0))],
         ['', '', ''],

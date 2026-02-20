@@ -24,6 +24,7 @@ class FacturePDF:
     def __init__(self, facture, style_config=None, avec_qr_bill=False):
         self.facture = facture
         self.avec_qr_bill = avec_qr_bill
+        self._devise_code = None
 
         defaults = get_default_style_config('FACTURE')
         self.style = merge_style_config(defaults, style_config or {})
@@ -57,6 +58,16 @@ class FacturePDF:
         # Textes et blocs
         self._textes = self.style.get('textes', {})
         self._blocs = self.style.get('blocs_visibles', {})
+
+    @property
+    def devise_code(self):
+        """Code devise depuis le regime fiscal du mandat, fallback CHF."""
+        if self._devise_code is None:
+            try:
+                self._devise_code = self.facture.mandat.config_tva.regime.devise_defaut.code
+            except (AttributeError, Exception):
+                self._devise_code = 'CHF'
+        return self._devise_code
 
     @staticmethod
     def _hex(color_value):
@@ -326,18 +337,19 @@ class FacturePDF:
 
         # Sous-total HT
         p.drawString(label_x, y, "Sous-total HT:")
-        p.drawRightString(value_x, y, f"{self.facture.montant_ht:.2f} CHF")
+        devise = self.devise_code
+        p.drawRightString(value_x, y, f"{self.facture.montant_ht:.2f} {devise}")
         y -= 0.35 * cm
 
         # Remise
         if self.facture.remise_pourcent and self.facture.remise_pourcent > 0:
             p.drawString(label_x, y, f"Remise ({self.facture.remise_pourcent}%):")
-            p.drawRightString(value_x, y, f"-{self.facture.remise_montant:.2f} CHF")
+            p.drawRightString(value_x, y, f"-{self.facture.remise_montant:.2f} {devise}")
             y -= 0.35 * cm
 
         # TVA
         p.drawString(label_x, y, "TVA:")
-        p.drawRightString(value_x, y, f"{self.facture.montant_tva:.2f} CHF")
+        p.drawRightString(value_x, y, f"{self.facture.montant_tva:.2f} {devise}")
         y -= 0.35 * cm
 
         # Ligne avant total
@@ -348,7 +360,7 @@ class FacturePDF:
         p.setFillColor(self._color_accent)
         p.setFont(self._font_bold, 10)
         p.drawString(label_x, y, "TOTAL TTC:")
-        p.drawRightString(value_x, y, f"{self.facture.montant_ttc:.2f} CHF")
+        p.drawRightString(value_x, y, f"{self.facture.montant_ttc:.2f} {devise}")
 
         # Montant paye
         if self.facture.montant_paye and self.facture.montant_paye > 0:
@@ -356,11 +368,11 @@ class FacturePDF:
             y -= 0.4 * cm
             p.setFont(self._font, 8)
             p.drawString(label_x, y, "Déjà payé:")
-            p.drawRightString(value_x, y, f"-{self.facture.montant_paye:.2f} CHF")
+            p.drawRightString(value_x, y, f"-{self.facture.montant_paye:.2f} {devise}")
             y -= 0.35 * cm
             p.setFont(self._font_bold, 9)
             p.drawString(label_x, y, "Reste à payer:")
-            p.drawRightString(value_x, y, f"{self.facture.montant_restant:.2f} CHF")
+            p.drawRightString(value_x, y, f"{self.facture.montant_restant:.2f} {devise}")
 
         return y
 
@@ -400,7 +412,7 @@ class FacturePDF:
 
         p.setFont(self._font, 9)
         p.drawString(self._margin_left, height - 3.2 * cm,
-                     f"Montant à payer: CHF {self.facture.montant_restant:.2f}")
+                     f"Montant à payer: {self.devise_code} {self.facture.montant_restant:.2f}")
         p.drawString(self._margin_left, height - 3.7 * cm,
                      f"Échéance: {self.facture.date_echeance.strftime('%d.%m.%Y')}")
 

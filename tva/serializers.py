@@ -2,6 +2,7 @@
 from rest_framework import serializers
 from .models import (
     ConfigurationTVA,
+    RegimeFiscal,
     TauxTVA,
     CodeTVA,
     DeclarationTVA,
@@ -10,6 +11,29 @@ from .models import (
     CorrectionTVA,
 )
 from core.serializers import MandatListSerializer, UserSerializer
+
+
+class RegimeFiscalSerializer(serializers.ModelSerializer):
+    """Serializer pour les régimes fiscaux"""
+
+    devise_code = serializers.CharField(source="devise_defaut.code", read_only=True)
+
+    class Meta:
+        model = RegimeFiscal
+        fields = [
+            "id",
+            "code",
+            "nom",
+            "pays",
+            "devise_defaut",
+            "devise_code",
+            "nom_taxe",
+            "taux_normal",
+            "a_taux_reduit",
+            "a_taux_special",
+            "supporte_xml",
+            "methodes_disponibles",
+        ]
 
 
 class ConfigurationTVASerializer(serializers.ModelSerializer):
@@ -22,6 +46,7 @@ class ConfigurationTVASerializer(serializers.ModelSerializer):
         source="get_periodicite_display", read_only=True
     )
     mandat_numero = serializers.CharField(source="mandat.numero", read_only=True)
+    regime_detail = RegimeFiscalSerializer(source="regime", read_only=True)
 
     class Meta:
         model = ConfigurationTVA
@@ -34,12 +59,15 @@ class TauxTVASerializer(serializers.ModelSerializer):
     type_taux_display = serializers.CharField(
         source="get_type_taux_display", read_only=True
     )
+    regime_code = serializers.CharField(source="regime.code", read_only=True)
     actif = serializers.SerializerMethodField()
 
     class Meta:
         model = TauxTVA
         fields = [
             "id",
+            "regime",
+            "regime_code",
             "type_taux",
             "type_taux_display",
             "taux",
@@ -65,12 +93,15 @@ class CodeTVASerializer(serializers.ModelSerializer):
     categorie_display = serializers.CharField(
         source="get_categorie_display", read_only=True
     )
+    regime_code = serializers.CharField(source="regime.code", read_only=True)
     taux_applicable_detail = TauxTVASerializer(source="taux_applicable", read_only=True)
 
     class Meta:
         model = CodeTVA
         fields = [
             "id",
+            "regime",
+            "regime_code",
             "code",
             "libelle",
             "categorie",

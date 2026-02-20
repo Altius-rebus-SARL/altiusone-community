@@ -326,7 +326,7 @@ $(document).ready(function() {
             $row.find('.description-input').val($option.data('libelle'));
             $row.find('.prix-input').val($option.data('prix') || 0);
             $row.find('.unite-input').val($option.data('unite') || 'heure');
-            $row.find('.tva-input').val($option.data('tva') || 8.1);
+            $row.find('.tva-input').val($option.data('tva') || {{ taux_tva_defaut|default:'8.1' }});
             
             calculerTotaux();
         }

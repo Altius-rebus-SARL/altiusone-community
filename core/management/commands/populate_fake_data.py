@@ -1076,6 +1076,9 @@ class Command(BaseCommand):
         """Crée les taux TVA suisses officiels"""
         self.stdout.write("💰 Création des taux TVA...")
 
+        from tva.models import RegimeFiscal
+        ch_regime = RegimeFiscal.objects.filter(code='CH').first()
+
         taux = [
             ("NORMAL", Decimal("8.1"), "Taux normal TVA Suisse"),
             ("REDUIT", Decimal("2.6"), "Taux réduit TVA Suisse"),
@@ -1083,20 +1086,26 @@ class Command(BaseCommand):
         ]
 
         for type_taux, valeur, description in taux:
-            TauxTVA.objects.get_or_create(
-                type_taux=type_taux,
-                date_debut=date(2024, 1, 1),
-                defaults={
-                    "taux": valeur,
-                    "description": description,
-                },
-            )
+            defaults = {
+                "taux": valeur,
+                "description": description,
+            }
+            lookup = {
+                "type_taux": type_taux,
+                "date_debut": date(2024, 1, 1),
+            }
+            if ch_regime:
+                lookup["regime"] = ch_regime
+            TauxTVA.objects.get_or_create(**lookup, defaults=defaults)
 
         self.stdout.write(f"  ✓ {len(taux)} taux TVA")
 
     def _create_codes_tva(self):
         """Crée les codes TVA avec traductions"""
         self.stdout.write("🏷️ Création des codes TVA...")
+
+        from tva.models import RegimeFiscal
+        ch_regime = RegimeFiscal.objects.filter(code='CH').first()
 
         codes = [
             {
@@ -1142,8 +1151,11 @@ class Command(BaseCommand):
         ]
 
         for code_data in codes:
+            lookup = {"code": code_data["code"]}
+            if ch_regime:
+                lookup["regime"] = ch_regime
             CodeTVA.objects.get_or_create(
-                code=code_data["code"],
+                **lookup,
                 defaults={
                     "libelle": code_data["libelle_fr"],
                     "categorie": code_data["categorie"],
@@ -1157,23 +1169,29 @@ class Command(BaseCommand):
         """Crée les configurations TVA"""
         self.stdout.write("⚙️ Configuration TVA...")
 
+        from tva.models import RegimeFiscal
+        ch_regime = RegimeFiscal.objects.filter(code='CH').first()
+
         count = 0
         tva_mandats = [
             m for m in mandats if m.type_mandat in ["TVA", "COMPTA", "GLOBAL"]
         ]
 
         for mandat in tva_mandats[:5]:
+            defaults = {
+                "assujetti_tva": True,
+                "numero_tva": f"CHE-{random.randint(100, 999)}.{random.randint(100, 999)}.{random.randint(100, 999)} TVA",
+                "date_debut_assujettissement": self.fake.date_between(
+                    start_date="-5y", end_date="-1y"
+                ),
+                "methode_calcul": "EFFECTIVE",
+                "periodicite": "TRIMESTRIEL",
+            }
+            if ch_regime:
+                defaults["regime"] = ch_regime
             ConfigurationTVA.objects.get_or_create(
                 mandat=mandat,
-                defaults={
-                    "assujetti_tva": True,
-                    "numero_tva": f"CHE-{random.randint(100, 999)}.{random.randint(100, 999)}.{random.randint(100, 999)} TVA",
-                    "date_debut_assujettissement": self.fake.date_between(
-                        start_date="-5y", end_date="-1y"
-                    ),
-                    "methode_calcul": "EFFECTIVE",
-                    "periodicite": "TRIMESTRIEL",
-                },
+                defaults=defaults,
             )
             count += 1
 
