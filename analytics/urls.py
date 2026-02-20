@@ -12,11 +12,11 @@ urlpatterns = [
         views.DashboardExecutifView.as_view(),
         name="dashboard-executif",
     ),
-    # Dashboard D3.js
+    # Visualisations D3.js
     path(
-        "d3/",
+        "visualisations/",
         views.D3DashboardView.as_view(),
-        name="d3-dashboard",
+        name="visualisations",
     ),
     # API D3.js
     path("api/d3/", include("analytics.d3_urls")),

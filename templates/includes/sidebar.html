@@ -441,6 +441,13 @@
             >
           </li>
           <li
+            data-active="{% if ns == 'analytics' and is_active == 'visualisations' %}true{% endif %}"
+          >
+            <a href="{% url 'analytics:visualisations' %}"
+              >{% trans "Visualisations" %}</a
+            >
+          </li>
+          <li
             data-active="{% if ns == 'analytics' and 'rapport' in is_active %}true{% endif %}"
           >
             <a href="{% url 'analytics:rapport-list' %}"

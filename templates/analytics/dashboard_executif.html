@@ -479,8 +479,8 @@
             </div>
             <div class="card-body">
                 <div class="d-flex flex-wrap gap-2">
-                    <a href="{% url 'analytics:d3-dashboard' %}{% if annee_selectionnee %}?annee={{ annee_selectionnee }}{% endif %}{% if mandat_selectionne %}&mandat={{ mandat_selectionne.pk }}{% endif %}" class="btn btn-primary">
-                        <i class="ti ti-chart-dots-3 me-2"></i>{% trans "Visualisations D3.js" %}
+                    <a href="{% url 'analytics:visualisations' %}{% if annee_selectionnee %}?annee={{ annee_selectionnee }}{% endif %}{% if mandat_selectionne %}&mandat={{ mandat_selectionne.pk }}{% endif %}" class="btn btn-primary">
+                        <i class="ti ti-chart-dots-3 me-2"></i>{% trans "Visualisations" %}
                     </a>
                     <a href="{% url 'analytics:rapport-generer' %}" class="btn btn-light-primary">
                         <i class="ti ti-file-analytics me-2"></i>{% trans "Générer un rapport" %}
