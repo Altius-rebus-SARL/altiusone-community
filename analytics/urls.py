@@ -1,5 +1,5 @@
 # analytics/urls.py
-from django.urls import path
+from django.urls import path, include
 from django.views.decorators.http import require_http_methods
 from . import views
 
@@ -12,6 +12,14 @@ urlpatterns = [
         views.DashboardExecutifView.as_view(),
         name="dashboard-executif",
     ),
+    # Dashboard D3.js
+    path(
+        "d3/",
+        views.D3DashboardView.as_view(),
+        name="d3-dashboard",
+    ),
+    # API D3.js
+    path("api/d3/", include("analytics.d3_urls")),
     path(
         "api/dashboard/refresh/",
         views.dashboard_api_refresh,

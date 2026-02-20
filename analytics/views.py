@@ -122,6 +122,42 @@ class DashboardExecutifView(LoginRequiredMixin, BusinessPermissionMixin, DetailV
         return context
 
 
+class D3DashboardView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
+    """Dashboard des visualisations D3.js avancées."""
+    template_name = "analytics/d3_dashboard.html"
+    business_permission = 'analytics.view_tableaux_bord'
+
+    def get_object(self):
+        return None
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        annee = self.request.GET.get('annee')
+        if annee:
+            try:
+                annee = int(annee)
+            except ValueError:
+                annee = None
+
+        mandat_id = self.request.GET.get('mandat')
+        mandat = None
+        if mandat_id:
+            try:
+                mandat = Mandat.objects.get(pk=mandat_id)
+            except Mandat.DoesNotExist:
+                pass
+
+        context['annees'] = list(range(datetime.now().year, datetime.now().year - 5, -1))
+        context['annee_selectionnee'] = annee or datetime.now().year
+        context['mandats'] = Mandat.objects.filter(
+            statut='ACTIF'
+        ).select_related('client').order_by('client__raison_sociale')
+        context['mandat_selectionne'] = mandat
+
+        return context
+
+
 @login_required
 def dashboard_api_refresh(request):
     """

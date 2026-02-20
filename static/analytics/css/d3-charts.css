@@ -1,0 +1,332 @@
+/* D3.js Visualisations - Styles communs */
+
+/* Containers */
+.d3-chart-container {
+    position: relative;
+    width: 100%;
+    min-height: 300px;
+    overflow: hidden;
+}
+.d3-chart-container svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* Tooltip */
+.d3-tooltip {
+    position: absolute;
+    pointer-events: none;
+    background: rgba(255, 255, 255, 0.97);
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: 'Rubik', sans-serif;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    max-width: 280px;
+}
+.d3-tooltip.visible { opacity: 1; }
+.d3-tooltip .tooltip-title {
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 4px;
+}
+.d3-tooltip .tooltip-value {
+    font-weight: 700;
+    color: #3b82f6;
+}
+.d3-tooltip .tooltip-detail {
+    color: #6b7280;
+    font-size: 0.75rem;
+}
+
+html.dark .d3-tooltip {
+    background: rgba(30, 30, 46, 0.97);
+    border-color: #374151;
+    color: #e5e7eb;
+}
+html.dark .d3-tooltip .tooltip-title { color: #f3f4f6; }
+html.dark .d3-tooltip .tooltip-value { color: #60a5fa; }
+html.dark .d3-tooltip .tooltip-detail { color: #9ca3af; }
+
+/* Loading state */
+.d3-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 300px;
+    color: #6b7280;
+}
+.d3-loading .spinner-border { width: 2rem; height: 2rem; }
+
+/* Empty state */
+.d3-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    height: 100%;
+    min-height: 300px;
+    color: #9ca3af;
+    text-align: center;
+}
+.d3-empty i { font-size: 3rem; margin-bottom: 0.75rem; }
+.d3-empty p { margin: 0; font-size: 0.9rem; }
+
+/* Error state */
+.d3-error {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    height: 100%;
+    min-height: 300px;
+    color: #ef4444;
+    text-align: center;
+}
+
+/* ============================
+   Sunburst
+   ============================ */
+#sunburst-container .arc {
+    cursor: pointer;
+    stroke: #fff;
+    stroke-width: 1px;
+    transition: opacity 0.2s;
+}
+#sunburst-container .arc:hover { opacity: 0.8; }
+html.dark #sunburst-container .arc { stroke: #1e1e2e; }
+
+#sunburst-container .label {
+    pointer-events: none;
+    font-size: 0.7rem;
+    fill: #374151;
+}
+html.dark #sunburst-container .label { fill: #d1d5db; }
+
+.sunburst-breadcrumb {
+    font-size: 0.8rem;
+    color: #6b7280;
+    margin-bottom: 0.5rem;
+    min-height: 1.5em;
+}
+.sunburst-breadcrumb span { cursor: pointer; color: #3b82f6; }
+.sunburst-breadcrumb span:hover { text-decoration: underline; }
+
+/* ============================
+   Sankey
+   ============================ */
+#sankey-container .link {
+    fill: none;
+    stroke-opacity: 0.3;
+    transition: stroke-opacity 0.2s;
+}
+#sankey-container .link:hover { stroke-opacity: 0.6; }
+
+#sankey-container .node rect {
+    cursor: pointer;
+    stroke: #fff;
+    stroke-width: 1px;
+    rx: 3;
+}
+html.dark #sankey-container .node rect { stroke: #1e1e2e; }
+
+#sankey-container .node text {
+    font-size: 0.75rem;
+    fill: #374151;
+}
+html.dark #sankey-container .node text { fill: #d1d5db; }
+
+/* ============================
+   Calendar Heatmap
+   ============================ */
+#calendar-container .day {
+    stroke: #fff;
+    stroke-width: 1.5px;
+    rx: 2;
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+#calendar-container .day:hover { opacity: 0.8; stroke: #374151; stroke-width: 2px; }
+html.dark #calendar-container .day { stroke: #1e1e2e; }
+html.dark #calendar-container .day:hover { stroke: #6b7280; }
+
+#calendar-container .month-label {
+    font-size: 0.7rem;
+    fill: #6b7280;
+}
+#calendar-container .day-label {
+    font-size: 0.65rem;
+    fill: #9ca3af;
+}
+
+.calendar-legend {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 0.5rem;
+}
+.calendar-legend .legend-cell {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+}
+
+/* ============================
+   Network (Force-directed)
+   ============================ */
+#network-container .node circle {
+    cursor: pointer;
+    stroke: #fff;
+    stroke-width: 2px;
+    transition: r 0.2s;
+}
+#network-container .node circle:hover {
+    filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.4));
+}
+html.dark #network-container .node circle { stroke: #1e1e2e; }
+
+#network-container .node text {
+    font-size: 0.7rem;
+    fill: #374151;
+    pointer-events: none;
+}
+html.dark #network-container .node text { fill: #d1d5db; }
+
+#network-container .link {
+    stroke: #d1d5db;
+    stroke-opacity: 0.6;
+    transition: stroke-opacity 0.2s;
+}
+#network-container .link:hover { stroke-opacity: 1; }
+html.dark #network-container .link { stroke: #4b5563; }
+
+.network-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 0.5rem;
+}
+.network-legend .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.network-legend .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+/* ============================
+   Icicle / Treemap
+   ============================ */
+#icicle-container .cell {
+    cursor: pointer;
+    stroke: #fff;
+    stroke-width: 1px;
+    transition: opacity 0.2s;
+}
+#icicle-container .cell:hover { opacity: 0.85; }
+html.dark #icicle-container .cell { stroke: #1e1e2e; }
+
+#icicle-container .cell-label {
+    pointer-events: none;
+    font-size: 0.7rem;
+    fill: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.icicle-breadcrumb {
+    font-size: 0.8rem;
+    color: #6b7280;
+    margin-bottom: 0.5rem;
+    min-height: 1.5em;
+}
+.icicle-breadcrumb span { cursor: pointer; color: #3b82f6; }
+.icicle-breadcrumb span:hover { text-decoration: underline; }
+
+/* ============================
+   Timeline / Gantt
+   ============================ */
+#timeline-container .bar {
+    cursor: pointer;
+    rx: 3;
+    transition: opacity 0.2s;
+}
+#timeline-container .bar:hover { opacity: 0.8; }
+
+#timeline-container .bar-progress {
+    pointer-events: none;
+    rx: 3;
+}
+#timeline-container .bar-label {
+    font-size: 0.7rem;
+    fill: #374151;
+    pointer-events: none;
+}
+html.dark #timeline-container .bar-label { fill: #d1d5db; }
+
+#timeline-container .grid-line {
+    stroke: #e5e7eb;
+    stroke-dasharray: 2;
+}
+html.dark #timeline-container .grid-line { stroke: #374151; }
+
+#timeline-container .today-line {
+    stroke: #ef4444;
+    stroke-width: 2;
+    stroke-dasharray: 4;
+}
+
+#timeline-container .axis text {
+    font-size: 0.7rem;
+    fill: #6b7280;
+}
+#timeline-container .axis line,
+#timeline-container .axis path {
+    stroke: #d1d5db;
+}
+html.dark #timeline-container .axis line,
+html.dark #timeline-container .axis path { stroke: #4b5563; }
+
+/* ============================
+   Metric selector buttons
+   ============================ */
+.d3-metric-btn {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    border: 1px solid #e5e7eb;
+    background: transparent;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.d3-metric-btn:hover { border-color: #3b82f6; color: #3b82f6; }
+.d3-metric-btn.active {
+    background: #3b82f6;
+    border-color: #3b82f6;
+    color: #fff;
+}
+html.dark .d3-metric-btn { border-color: #4b5563; color: #9ca3af; }
+html.dark .d3-metric-btn:hover { border-color: #60a5fa; color: #60a5fa; }
+html.dark .d3-metric-btn.active { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+
+/* ============================
+   Responsive
+   ============================ */
+@media (max-width: 768px) {
+    .d3-chart-container { min-height: 250px; }
+    .d3-tooltip { font-size: 0.75rem; padding: 8px 10px; }
+}
