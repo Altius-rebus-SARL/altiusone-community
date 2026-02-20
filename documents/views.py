@@ -76,6 +76,13 @@ class ChatView(LoginRequiredMixin, TemplateView):
         from .ai_service import ai_service
         context['ai_enabled'] = ai_service.enabled
 
+        # Utilisateurs actifs pour la messagerie (exclure l'utilisateur courant)
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        context['users'] = User.objects.filter(
+            is_active=True
+        ).exclude(id=user.id).select_related('role').order_by('first_name', 'last_name')
+
         return context
 
 

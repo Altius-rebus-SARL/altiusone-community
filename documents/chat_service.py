@@ -111,6 +111,7 @@ Quand tu cites une source, utilise ce format:
 - Pour un document: [Document: nom_fichier]
 - Pour un client: [Client: raison_sociale]
 - Pour un employe: [Employe: prenom nom]
+- Pour un utilisateur: [Utilisateur: prenom nom]
 - Pour une facture: [Facture: numero]
 - Pour une piece comptable: [Piece: numero - libelle]
 - Pour un type de plan: [Type de plan: code - nom]
@@ -143,6 +144,7 @@ CONTEXTE DISPONIBLE:
         EntityType.DECLARATION_FISCALE,
         EntityType.TACHE,
         EntityType.DOSSIER,
+        EntityType.UTILISATEUR,
     ]
 
     def __init__(self):

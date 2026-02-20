@@ -50,6 +50,7 @@ class EntityType(Enum):
     CLASSE_COMPTABLE = 'classe_comptable'
     PLAN_COMPTABLE = 'plan_comptable'
     JOURNAL = 'journal'
+    UTILISATEUR = 'utilisateur'
 
 
 @dataclass
@@ -210,6 +211,12 @@ class UniversalSearchService:
             'url_pattern': '/fr/comptabilite/journaux/{id}/',
             'search_fields': ['code', 'libelle', 'type_journal'],
         },
+        EntityType.UTILISATEUR: {
+            'icon': 'ph-user-circle',
+            'color': 'info',
+            'url_pattern': '/fr/admin/utilisateurs/{id}/',
+            'search_fields': ['first_name', 'last_name', 'email', 'username'],
+        },
     }
 
     def __init__(self):
@@ -319,6 +326,8 @@ class UniversalSearchService:
             return self._search_plans_comptables(query, context, limit)
         elif entity_type == EntityType.JOURNAL:
             return self._search_journaux(query, context, limit)
+        elif entity_type == EntityType.UTILISATEUR:
+            return self._search_utilisateurs(query, context, limit)
 
         return []
 
@@ -1235,6 +1244,61 @@ class UniversalSearchService:
                     'mandat_numero': journal.mandat.numero if journal.mandat else None,
                     'prefixe_piece': journal.prefixe_piece,
                     'numerotation_auto': journal.numerotation_auto,
+                }
+            ))
+
+        return results
+
+    def _search_utilisateurs(self, query: str, context: SearchContext, limit: int) -> List[SearchResult]:
+        """Recherche dans les utilisateurs."""
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+
+        results = []
+        config = self.ENTITY_CONFIG[EntityType.UTILISATEUR]
+
+        q_filter = Q(is_active=True) & (
+            Q(first_name__icontains=query) |
+            Q(last_name__icontains=query) |
+            Q(username__icontains=query) |
+            Q(email__icontains=query)
+        )
+
+        # Multi-word: also search concatenated full name
+        q_fullname = Q(full_name__icontains=query)
+        q_fullname_rev = Q(full_name_rev__icontains=query)
+
+        utilisateurs = User.objects.annotate(
+            full_name=Concat('first_name', Value(' '), 'last_name', output_field=CharField()),
+            full_name_rev=Concat('last_name', Value(' '), 'first_name', output_field=CharField()),
+        ).filter(q_filter | q_fullname | q_fullname_rev).select_related('role').distinct()[:limit]
+
+        for user in utilisateurs:
+            score = self._calculate_text_score(query, [
+                f"{user.first_name} {user.last_name}",
+                user.last_name,
+                user.first_name,
+                user.username,
+                user.email or '',
+            ])
+
+            role_nom = user.role.nom if user.role else 'Utilisateur'
+
+            results.append(SearchResult(
+                entity_type=EntityType.UTILISATEUR,
+                entity_id=str(user.id),
+                title=f"{user.first_name} {user.last_name}".strip() or user.username,
+                subtitle=role_nom,
+                description=f"Email: {user.email or 'N/A'} | Role: {role_nom}",
+                score=score,
+                url=config['url_pattern'].format(id=user.id),
+                icon=config['icon'],
+                color=config['color'],
+                metadata={
+                    'username': user.username,
+                    'email': user.email,
+                    'role': role_nom,
+                    'type_utilisateur': user.type_utilisateur,
                 }
             ))
 
