@@ -222,7 +222,7 @@ class D3DataService:
             tva_due = float(DeclarationTVA.objects.filter(
                 periode_debut__year=self.annee,
             ).aggregate(
-                total=Coalesce(Sum('montant_du'), Decimal('0'))
+                total=Coalesce(Sum('tva_due_total'), Decimal('0'))
             )['total'])
             if tva_due > 0:
                 dest_tva = add_node('dest_tva', 'TVA due', '#06b6d4')
