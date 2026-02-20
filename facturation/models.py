@@ -2,7 +2,7 @@
 from django.db import models
 from django.contrib.gis.db import models as gis_models
 from django.utils.translation import gettext_lazy as _
-from core.models import BaseModel, Mandat, Client, User
+from core.models import BaseModel, Devise, Mandat, Client, User
 from decimal import Decimal
 from datetime import datetime, date, timedelta
 
@@ -180,9 +180,11 @@ class TarifMandat(BaseModel):
         verbose_name=_("Prix forfaitaire"),
         help_text=_("Prix forfaitaire optionnel")
     )
-    devise = models.CharField(
-        max_length=3,
+    devise = models.ForeignKey(
+        Devise,
+        on_delete=models.PROTECT,
         default='CHF',
+        db_column='devise',
         verbose_name=_("Devise"),
         help_text=_("Devise du tarif")
     )
@@ -207,7 +209,7 @@ class TarifMandat(BaseModel):
         ordering = ['mandat', 'prestation']
 
     def __str__(self):
-        return f"{self.mandat} - {self.prestation} : {self.taux_horaire} {self.devise}/h"
+        return f"{self.mandat} - {self.prestation} : {self.taux_horaire} {self.devise_id}/h"
 
     def est_valide(self, date_ref=None):
         """Vérifie si le tarif est valide à une date donnée"""
@@ -1469,9 +1471,11 @@ class Paiement(BaseModel):
         verbose_name=_("Montant"),
         help_text=_("Montant du paiement")
     )
-    devise = models.CharField(
-        max_length=3,
+    devise = models.ForeignKey(
+        'core.Devise',
+        on_delete=models.PROTECT,
         default='CHF',
+        db_column='devise',
         verbose_name=_("Devise"),
         help_text=_("Devise du paiement")
     )

@@ -22,11 +22,12 @@ body.dark nav .app-logo .logo img {
 body.dark .app-logo .logo .logo-full-light { display: none; }
 body.dark .app-logo .logo .logo-full-dark  { display: inline; }
 
-/* Mini logos: constrain to 48x48 */
-.app-logo .logo .logo-mini-light,
-.app-logo .logo .logo-mini-dark {
-  width: 48px;
-  height: 48px;
+/* Mini logos: constrain to 48x48 (high specificity to override _nav.scss img rule) */
+nav .app-logo .logo .logo-mini-light,
+nav .app-logo .logo .logo-mini-dark {
+  width: 48px !important;
+  height: 48px !important;
+  object-fit: contain;
 }
 
 /* Semi-nav (collapsed, not hovered): show mini logos */

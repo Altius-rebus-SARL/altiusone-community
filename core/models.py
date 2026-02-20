@@ -686,12 +686,6 @@ class CompteBancaire(models.Model):
         ('QR', _('Compte QR-IBAN')),
     ]
 
-    DEVISE_CHOICES = [
-        ('CHF', 'CHF - Franc suisse'),
-        ('EUR', 'EUR - Euro'),
-        ('USD', 'USD - Dollar américain'),
-    ]
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     # Identification du compte
@@ -764,10 +758,11 @@ class CompteBancaire(models.Model):
     )
 
     # Devise
-    devise = models.CharField(
-        max_length=3,
-        choices=DEVISE_CHOICES,
+    devise = models.ForeignKey(
+        Devise,
+        on_delete=models.PROTECT,
         default='CHF',
+        db_column='devise',
         verbose_name=_('Devise')
     )
 
@@ -1252,33 +1247,6 @@ class Client(BaseModel):
     )
     tva_number = models.CharField(max_length=20, blank=True, db_index=True, verbose_name=_('Numéro TVA'))
     rc_number = models.CharField(max_length=50, blank=True, verbose_name=_('Numéro RC'))
-
-    # Siège social
-    siege = models.CharField(
-        max_length=100,
-        blank=True,
-        help_text='Localité du siège social',
-        verbose_name=_('Siège')
-    )
-    canton_rc = models.CharField(
-        max_length=2,
-        blank=True,
-        choices=SwissCantons.choices,
-        help_text='Canton du registre du commerce',
-        verbose_name=_('Canton RC')
-    )
-    npa = models.CharField(
-        max_length=10,
-        blank=True,
-        help_text='Numéro postal',
-        verbose_name=_('NPA')
-    )
-    localite = models.CharField(
-        max_length=100,
-        blank=True,
-        help_text='Localité',
-        verbose_name=_('Localité')
-    )
 
     # Coordonnées
     adresse_siege = models.ForeignKey(Adresse, on_delete=models.PROTECT,

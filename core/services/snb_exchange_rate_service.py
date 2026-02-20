@@ -1,14 +1,12 @@
 # core/services/snb_exchange_rate_service.py
 """
-Service d'integration avec la Banque Nationale Suisse (SNB/BNS)
-pour la recuperation des taux de change officiels.
+Service de recuperation des taux de change.
 
-API gratuite, sans authentification.
-Source: https://data.snb.ch
+Sources (par priorite):
+1. Frankfurter API (https://api.frankfurter.dev) - taux journaliers BCE, gratuit, sans auth
+2. SNB/BNS (https://data.snb.ch) - moyennes mensuelles officielles suisses, gratuit, sans auth
 
-Cube: devkum (Devisenkurse - Monatsmittelwerte / taux mensuels)
-Format dimSel: D1(EUR1,USD1,GBP1,...)
-Format CSV: "Date";"D0";"D1";"Value" (vertical, une ligne par devise)
+Le XOF est un taux fixe (1 EUR = 655.957 XOF), calcule a partir du taux EUR.
 """
 import logging
 from dataclasses import dataclass, field
@@ -20,6 +18,9 @@ import requests
 from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
+
+# Taux fixe XOF/EUR (parite CFA)
+XOF_PER_EUR = Decimal('655.957')
 
 # Mapping des codes devise AltiusOne -> codes SNB
 # La SNB utilise des suffixes indiquant l'unite (EUR1 = 1 EUR, JPY100 = 100 JPY)
@@ -62,11 +63,71 @@ class SNBExchangeRateService:
     """Service pour recuperer les taux de change depuis la BNS."""
 
     @staticmethod
+    def fetch_rates_frankfurter():
+        """
+        Recupere les taux journaliers depuis Frankfurter API (source BCE).
+        Gratuit, sans authentification, taux mis a jour quotidiennement.
+
+        Returns:
+            ExchangeRateResult avec les taux ou une erreur
+        """
+        cache_key = f"frankfurter_rates:{date.today().isoformat()}"
+        cached = cache.get(cache_key)
+        if cached:
+            return cached
+
+        try:
+            response = requests.get(
+                'https://api.frankfurter.dev/v1/latest',
+                params={'base': 'CHF'},
+                timeout=10,
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            result = ExchangeRateResult(
+                fetch_date=date.fromisoformat(data['date']),
+                source='Frankfurter/BCE',
+            )
+
+            for currency, rate_value in data.get('rates', {}).items():
+                result.rates.append(ExchangeRate(
+                    currency=currency,
+                    rate=Decimal(str(rate_value)).quantize(Decimal('0.000001')),
+                    date=result.fetch_date,
+                ))
+
+            # Calculer XOF depuis EUR (parite fixe 1 EUR = 655.957 XOF)
+            eur_rate = data.get('rates', {}).get('EUR')
+            if eur_rate:
+                xof_rate = (Decimal(str(eur_rate)) * XOF_PER_EUR).quantize(Decimal('0.000001'))
+                result.rates.append(ExchangeRate(
+                    currency='XOF',
+                    rate=xof_rate,
+                    date=result.fetch_date,
+                ))
+
+            if result.rates:
+                cache.set(cache_key, result, CACHE_TTL)
+            else:
+                result.error = "Aucun taux retourne par Frankfurter"
+
+            return result
+
+        except requests.RequestException as e:
+            logger.warning("Frankfurter API indisponible: %s", e)
+            return ExchangeRateResult(error=f"Erreur Frankfurter: {e}")
+        except (ValueError, KeyError) as e:
+            logger.warning("Reponse Frankfurter invalide: %s", e)
+            return ExchangeRateResult(error=f"Reponse Frankfurter invalide: {e}")
+
+    @staticmethod
     def fetch_rates(target_date=None, currencies=None):
         """
         Recupere les taux de change depuis l'API SNB.
 
         L'API fournit des moyennes mensuelles. La date est arrondie au mois.
+        Si le mois courant n'a pas de donnees, tente le mois precedent.
 
         Args:
             target_date: Date cible (defaut: aujourd'hui). Arrondie au mois.
@@ -81,7 +142,23 @@ class SNBExchangeRateService:
         if currencies is None:
             currencies = list(SNB_CURRENCY_MAP.keys())
 
-        # La SNB utilise des dates mensuelles YYYY-MM
+        result = SNBExchangeRateService._fetch_snb_month(target_date, currencies)
+
+        # Fallback au mois precedent si le mois courant n'a pas de donnees
+        if result.error and not result.rates:
+            if target_date.month == 1:
+                prev_date = date(target_date.year - 1, 12, 1)
+            else:
+                prev_date = date(target_date.year, target_date.month - 1, 1)
+            logger.info("SNB: pas de donnees pour %s, essai %s",
+                        target_date.strftime('%Y-%m'), prev_date.strftime('%Y-%m'))
+            result = SNBExchangeRateService._fetch_snb_month(prev_date, currencies)
+
+        return result
+
+    @staticmethod
+    def _fetch_snb_month(target_date, currencies):
+        """Fetch SNB rates for a specific month."""
         month_str = target_date.strftime('%Y-%m')
 
         cache_key = f"{CACHE_KEY_PREFIX}:{month_str}:{','.join(sorted(currencies))}"
@@ -89,7 +166,6 @@ class SNBExchangeRateService:
         if cached:
             return cached
 
-        # Construire le parametre dimSel au format D1(code1,code2,...)
         snb_codes = []
         for curr in currencies:
             if curr in SNB_CURRENCY_MAP:
@@ -206,14 +282,24 @@ class SNBExchangeRateService:
         """
         Met a jour les taux de change dans le modele Devise.
 
-        Returns:
-            dict avec 'updated', 'errors', 'date'
-        """
-        from core.models import Devise
+        Essaie Frankfurter (taux journaliers BCE) d'abord,
+        puis SNB (moyennes mensuelles) en fallback.
 
-        result = SNBExchangeRateService.fetch_rates(target_date=target_date)
+        Returns:
+            dict avec 'updated', 'errors', 'date', 'source'
+        """
+        # 1) Essayer Frankfurter (taux journaliers)
+        result = SNBExchangeRateService.fetch_rates_frankfurter()
+
+        # 2) Fallback SNB si Frankfurter echoue
+        if result.error or not result.rates:
+            logger.info("Frankfurter indisponible (%s), fallback SNB", result.error)
+            result = SNBExchangeRateService.fetch_rates(target_date=target_date)
+
         if result.error:
             return {'updated': [], 'errors': [result.error], 'date': str(target_date)}
+
+        from core.models import Devise
 
         updated = []
         errors = []

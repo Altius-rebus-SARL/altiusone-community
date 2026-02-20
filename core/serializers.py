@@ -170,6 +170,8 @@ class ClientListSerializer(serializers.ModelSerializer):
     )
     nombre_mandats = serializers.SerializerMethodField()
 
+    adresse_siege = AdresseSerializer(read_only=True)
+
     class Meta:
         model = Client
         fields = [
@@ -181,10 +183,7 @@ class ClientListSerializer(serializers.ModelSerializer):
             "ide_number",
             "ch_id",
             "ofrc_id",
-            "siege",
-            "canton_rc",
-            "npa",
-            "localite",
+            "adresse_siege",
             "statut",
             "statut_display",
             "email",

@@ -242,7 +242,7 @@ class EcritureComptableForm(forms.ModelForm):
             "montant_credit": forms.NumberInput(
                 attrs={"class": "form-control", "step": "0.01"}
             ),
-            "devise": forms.TextInput(attrs={"class": "form-control"}),
+            "devise": forms.Select(attrs={"class": "form-control"}),
             "taux_change": forms.NumberInput(
                 attrs={"class": "form-control", "step": "0.000001"}
             ),

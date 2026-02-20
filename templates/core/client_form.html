@@ -188,66 +188,13 @@
                             </div>
                         </div>
 
-                        <!-- Siège -->
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="{{ form.siege.id_for_label }}" class="form-label">
-                                    {{ form.siege.label }}
-                                </label>
-                                {{ form.siege }}
-                                {% if form.siege.errors %}
-                                <div class="text-danger f-s-12 mt-1">
-                                    {{ form.siege.errors }}
-                                </div>
-                                {% endif %}
-                            </div>
-                        </div>
+                    </div>
 
-                        <!-- Canton RC -->
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="{{ form.canton_rc.id_for_label }}" class="form-label">
-                                    {{ form.canton_rc.label }}
-                                </label>
-                                {{ form.canton_rc }}
-                                {% if form.canton_rc.errors %}
-                                <div class="text-danger f-s-12 mt-1">
-                                    {{ form.canton_rc.errors }}
-                                </div>
-                                {% endif %}
-                            </div>
-                        </div>
+                    <!-- Adresse du siège -->
+                    <h5 class="text-primary mt-4 mb-3">{% trans "Adresse du siège" %}</h5>
+                    {% include "includes/adresse_fields.html" with prefix="adresse" adresse_form=adresse_form %}
 
-                        <!-- NPA -->
-                        <div class="col-md-3">
-                            <div class="mb-3">
-                                <label for="{{ form.npa.id_for_label }}" class="form-label">
-                                    {{ form.npa.label }}
-                                </label>
-                                {{ form.npa }}
-                                {% if form.npa.errors %}
-                                <div class="text-danger f-s-12 mt-1">
-                                    {{ form.npa.errors }}
-                                </div>
-                                {% endif %}
-                            </div>
-                        </div>
-
-                        <!-- Localité -->
-                        <div class="col-md-9">
-                            <div class="mb-3">
-                                <label for="{{ form.localite.id_for_label }}" class="form-label">
-                                    {{ form.localite.label }}
-                                </label>
-                                {{ form.localite }}
-                                {% if form.localite.errors %}
-                                <div class="text-danger f-s-12 mt-1">
-                                    {{ form.localite.errors }}
-                                </div>
-                                {% endif %}
-                            </div>
-                        </div>
-
+                    <div class="row">
                         <!-- Email -->
                         <div class="col-md-6">
                             <div class="mb-3">
@@ -363,30 +310,17 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/adresse_autocomplete.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Autocomplete adresse sur le champ Siège
-    initAdresseAutocomplete({
-        prefix: 'client_addr',
-        triggerSelector: '{{ form.siege.id_for_label }}',
-        fieldMap: {
-            street: '{{ form.siege.id_for_label }}',
-            house_number: null,
-            zip_code: '{{ form.npa.id_for_label }}',
-            city: '{{ form.localite.id_for_label }}',
-            canton: '{{ form.canton_rc.id_for_label }}'
-        }
-    });
-
     const raisonSocialeInput = document.getElementById('{{ form.raison_sociale.id_for_label }}');
     const ideInput = document.getElementById('{{ form.ide_number.id_for_label }}');
     const chIdInput = document.getElementById('{{ form.ch_id.id_for_label }}');
     const ofrcIdInput = document.getElementById('{{ form.ofrc_id.id_for_label }}');
-    const siegeInput = document.getElementById('{{ form.siege.id_for_label }}');
-    const cantonRcSelect = document.getElementById('{{ form.canton_rc.id_for_label }}');
-    const npaInput = document.getElementById('{{ form.npa.id_for_label }}');
-    const localiteInput = document.getElementById('{{ form.localite.id_for_label }}');
+    const rueInput = document.getElementById('{{ adresse_form.rue.id_for_label }}');
+    const numeroInput = document.getElementById('{{ adresse_form.numero.id_for_label }}');
+    const cantonSelect = document.getElementById('{{ adresse_form.canton.id_for_label }}');
+    const npaInput = document.getElementById('{{ adresse_form.code_postal.id_for_label }}');
+    const localiteInput = document.getElementById('{{ adresse_form.localite.id_for_label }}');
     const formeJuridiqueSelect = document.getElementById('{{ form.forme_juridique.id_for_label }}');
     const resultsContainer = document.getElementById('autocomplete-results');
 
@@ -499,17 +433,14 @@ document.addEventListener('DOMContentLoaded', function() {
             ofrcIdInput.value = company.ofrc_id;
         }
 
-        // Fill Siege (legal seat) - use address city if legal_seat is empty
-        if (siegeInput) {
-            if (company.legal_seat) {
-                siegeInput.value = company.legal_seat;
-            } else if (company.address && company.address.city) {
-                siegeInput.value = company.address.city;
-            }
-        }
-
-        // Fill NPA and Localité from address
+        // Fill address fields from Zefix data
         if (company.address) {
+            if (rueInput && company.address.street) {
+                rueInput.value = company.address.street;
+            }
+            if (numeroInput && company.address.number) {
+                numeroInput.value = company.address.number;
+            }
             if (npaInput && company.address.postal_code) {
                 npaInput.value = company.address.postal_code;
             }
@@ -518,11 +449,11 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
 
-        // Fill Canton RC
-        if (cantonRcSelect && company.canton) {
-            const option = cantonRcSelect.querySelector(`option[value="${company.canton}"]`);
+        // Fill Canton
+        if (cantonSelect && company.canton) {
+            const option = cantonSelect.querySelector(`option[value="${company.canton}"]`);
             if (option) {
-                cantonRcSelect.value = company.canton;
+                cantonSelect.value = company.canton;
             }
         }
 
@@ -579,7 +510,7 @@ document.addEventListener('DOMContentLoaded', function() {
         hideResults();
 
         // Visual feedback for all filled fields
-        const filledFields = [raisonSocialeInput, ideInput, chIdInput, ofrcIdInput, siegeInput, npaInput, localiteInput].filter(f => f && f.value);
+        const filledFields = [raisonSocialeInput, ideInput, chIdInput, ofrcIdInput, rueInput, numeroInput, npaInput, localiteInput].filter(f => f && f.value);
         filledFields.forEach(field => field.classList.add('is-valid'));
         setTimeout(() => {
             filledFields.forEach(field => field.classList.remove('is-valid'));

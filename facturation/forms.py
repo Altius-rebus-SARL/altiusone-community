@@ -370,7 +370,7 @@ class PaiementForm(forms.ModelForm):
             "montant": forms.NumberInput(
                 attrs={"class": "form-control", "step": "0.01"}
             ),
-            "devise": forms.TextInput(attrs={"class": "form-control"}),
+            "devise": forms.Select(attrs={"class": "form-control"}),
             "date_paiement": forms.DateInput(
                 attrs={"class": "form-control", "type": "date"}
             ),
@@ -460,7 +460,7 @@ class TarifMandatForm(forms.ModelForm):
             "prix_forfaitaire": forms.NumberInput(
                 attrs={"class": "form-control", "step": "0.01"}
             ),
-            "devise": forms.TextInput(attrs={"class": "form-control"}),
+            "devise": forms.Select(attrs={"class": "form-control"}),
             "date_debut": forms.DateInput(
                 attrs={"class": "form-control", "type": "date"}
             ),

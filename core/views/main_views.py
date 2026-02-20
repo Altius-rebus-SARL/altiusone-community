@@ -259,10 +259,24 @@ class ClientCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     permission_required = "core.add_client"
     success_url = reverse_lazy("core:client-list")
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.POST:
+            context['adresse_form'] = AdresseForm(self.request.POST, prefix='adresse')
+        else:
+            context['adresse_form'] = AdresseForm(prefix='adresse')
+        return context
+
     def form_valid(self, form):
-        form.instance.created_by = self.request.user
-        messages.success(self.request, _("Client créé avec succès"))
-        return super().form_valid(form)
+        adresse_form = AdresseForm(self.request.POST, prefix='adresse')
+        if adresse_form.is_valid():
+            adresse = adresse_form.save()
+            form.instance.adresse_siege = adresse
+            form.instance.created_by = self.request.user
+            messages.success(self.request, _("Client créé avec succès"))
+            return super().form_valid(form)
+        else:
+            return self.form_invalid(form)
 
 
 class ClientUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
@@ -273,12 +287,35 @@ class ClientUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     template_name = "core/client_form.html"
     permission_required = "core.change_client"
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.POST:
+            context['adresse_form'] = AdresseForm(
+                self.request.POST, prefix='adresse',
+                instance=self.object.adresse_siege,
+            )
+        else:
+            context['adresse_form'] = AdresseForm(
+                prefix='adresse',
+                instance=self.object.adresse_siege,
+            )
+        return context
+
     def get_success_url(self):
         return reverse_lazy("core:client-detail", kwargs={"pk": self.object.pk})
 
     def form_valid(self, form):
-        messages.success(self.request, _("Client modifié avec succès"))
-        return super().form_valid(form)
+        adresse_form = AdresseForm(
+            self.request.POST, prefix='adresse',
+            instance=self.object.adresse_siege,
+        )
+        if adresse_form.is_valid():
+            adresse = adresse_form.save()
+            form.instance.adresse_siege = adresse
+            messages.success(self.request, _("Client modifié avec succès"))
+            return super().form_valid(form)
+        else:
+            return self.form_invalid(form)
 
 class MandatUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     """Modification d'un mandat"""

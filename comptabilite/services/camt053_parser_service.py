@@ -287,7 +287,7 @@ class Camt053ParserService:
                 libelle=libelle[:500],
                 montant_debit=montant_debit,
                 montant_credit=montant_credit,
-                devise=entry.currency,
+                devise_id=entry.currency,
                 statut='BROUILLON',
             )
             ecritures_count += 1

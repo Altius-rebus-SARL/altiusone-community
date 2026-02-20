@@ -1,7 +1,7 @@
 # apps/comptabilite/models.py
 from django.db import models
 from django.utils.translation import gettext_lazy as _
-from core.models import BaseModel, Mandat, User, ExerciceComptable
+from core.models import BaseModel, Devise, Mandat, User, ExerciceComptable
 from decimal import Decimal
 
 
@@ -620,9 +620,11 @@ class EcritureComptable(BaseModel):
         verbose_name=_("Montant crédit"),
         help_text=_("Montant au crédit (en devise du compte)")
     )
-    devise = models.CharField(
-        max_length=3,
+    devise = models.ForeignKey(
+        Devise,
+        on_delete=models.PROTECT,
         default='CHF',
+        db_column='devise',
         verbose_name=_("Devise"),
         help_text=_("Code ISO de la devise (CHF, EUR, USD)")
     )

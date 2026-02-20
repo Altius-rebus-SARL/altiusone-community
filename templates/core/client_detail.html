@@ -57,6 +57,16 @@
                                 <span class="text-muted">{% trans "Téléphone" %}</span>
                                 <span class="f-w-500">{{ client.telephone }}</span>
                             </li>
+                            {% if client.adresse_siege %}
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">{% trans "Adresse" %}</span>
+                                <span class="f-w-500 text-end">
+                                    {% if client.adresse_siege.rue %}{{ client.adresse_siege.rue }} {{ client.adresse_siege.numero }}<br>{% endif %}
+                                    {{ client.adresse_siege.code_postal }} {{ client.adresse_siege.localite }}
+                                    {% if client.adresse_siege.canton %}<br>{{ client.adresse_siege.get_canton_display }}{% endif %}
+                                </span>
+                            </li>
+                            {% endif %}
                         </ul>
                     </div>
                 </div>
