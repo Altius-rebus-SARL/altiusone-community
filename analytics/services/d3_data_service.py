@@ -134,17 +134,19 @@ class D3DataService:
             facture__in=factures_qs,
             prestation__isnull=False,
         ).values(
-            'prestation__type_prestation'
+            'prestation__type_prestation__code',
+            'prestation__type_prestation__libelle',
         ).annotate(total=Sum('montant_ht'))
 
         # Noeud central "Revenus"
         revenus_idx = add_node('revenus', 'Revenus', '#10b981')
 
         for row in lignes_qs:
-            tp = row['prestation__type_prestation'] or 'AUTRE'
+            tp_code = row['prestation__type_prestation__code'] or 'AUTRE'
+            tp_label = row['prestation__type_prestation__libelle'] or tp_code.replace('_', ' ').title()
             val = float(row['total'] or 0)
             if val > 0:
-                src_idx = add_node(f'src_{tp}', tp.replace('_', ' ').title(), '#3b82f6')
+                src_idx = add_node(f'src_{tp_code}', tp_label, '#3b82f6')
                 links.append({'source': src_idx, 'target': revenus_idx, 'value': val})
 
         # Revenus sans prestation

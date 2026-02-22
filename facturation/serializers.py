@@ -6,7 +6,10 @@ from core.serializers import MandatListSerializer, UserSerializer, ClientListSer
 
 class PrestationSerializer(serializers.ModelSerializer):
     type_prestation_display = serializers.CharField(
-        source="get_type_prestation_display", read_only=True
+        source="type_prestation.libelle", read_only=True
+    )
+    type_prestation_code = serializers.CharField(
+        source="type_prestation.code", read_only=True
     )
 
     class Meta:

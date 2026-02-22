@@ -36,7 +36,7 @@ class PrestationForm(forms.ModelForm):
             "code": forms.TextInput(attrs={"class": "form-control"}),
             "libelle": forms.TextInput(attrs={"class": "form-control"}),
             "description": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
-            "type_prestation": forms.Select(attrs={"class": "form-control"}),
+            "type_prestation": forms.Select(attrs={"class": "form-control select2"}),
             "prix_unitaire_ht": forms.NumberInput(
                 attrs={"class": "form-control", "step": "0.01"}
             ),

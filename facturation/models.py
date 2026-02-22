@@ -6,22 +6,32 @@ from core.models import BaseModel, Devise, Mandat, Client, User
 from decimal import Decimal
 from datetime import datetime, date, timedelta
 from tva.utils import get_taux_tva_defaut
+import uuid
+
+
+class TypePrestation(models.Model):
+    """Type/catégorie de prestation (table de référence)."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    code = models.CharField(max_length=30, unique=True, verbose_name=_('Code'))
+    libelle = models.CharField(max_length=100, verbose_name=_('Libellé'))
+    description = models.TextField(blank=True, verbose_name=_('Description'))
+    icone = models.CharField(max_length=50, blank=True, default='ph-package', verbose_name=_('Icône'))
+    couleur = models.CharField(max_length=20, blank=True, default='primary', verbose_name=_('Couleur'))
+    ordre = models.PositiveSmallIntegerField(default=0, verbose_name=_('Ordre'))
+    is_active = models.BooleanField(default=True, verbose_name=_('Actif'))
+
+    class Meta:
+        db_table = 'types_prestations'
+        ordering = ['ordre', 'libelle']
+        verbose_name = _('Type de prestation')
+        verbose_name_plural = _('Types de prestations')
+
+    def __str__(self):
+        return self.libelle
 
 
 class Prestation(BaseModel):
     """Prestation/Service fourni"""
-
-    TYPE_CHOICES = [
-        ('COMPTABILITE', _('Comptabilité')),
-        ('TVA', _('TVA')),
-        ('SALAIRES', _('Salaires')),
-        ('CONSEIL', _('Conseil')),
-        ('AUDIT', _('Audit')),
-        ('FISCALITE', _('Fiscalité')),
-        ('JURIDIQUE', _('Juridique')),
-        ('CREATION', _('Création entreprise')),
-        ('AUTRE', _('Autre')),
-    ]
 
     # Identification
     code = models.CharField(
@@ -42,9 +52,10 @@ class Prestation(BaseModel):
         help_text=_("Description détaillée de la prestation")
     )
 
-    type_prestation = models.CharField(
-        max_length=20,
-        choices=TYPE_CHOICES,
+    type_prestation = models.ForeignKey(
+        TypePrestation,
+        on_delete=models.PROTECT,
+        related_name='prestations',
         verbose_name=_("Type de prestation"),
         help_text=_("Catégorie de la prestation")
     )

@@ -242,30 +242,18 @@ class DashboardDataService:
             lignes_qs = lignes_qs.filter(facture__mandat=self.mandat)
 
         repartition = lignes_qs.values(
-            'prestation__type_prestation'
+            'prestation__type_prestation__code',
+            'prestation__type_prestation__libelle',
         ).annotate(
             total=Sum(F('quantite') * F('prix_unitaire_ht'))
         ).order_by('-total')
 
-        # Labels traduits
-        type_labels = {
-            'COMPTABILITE': 'Comptabilité',
-            'TVA': 'TVA',
-            'SALAIRES': 'Salaires',
-            'CONSEIL': 'Conseil',
-            'AUDIT': 'Audit',
-            'FISCALITE': 'Fiscalité',
-            'JURIDIQUE': 'Juridique',
-            'CREATION': 'Création',
-            'AUTRE': 'Autres',
-        }
-
         labels = []
         series = []
         for item in repartition:
-            type_code = item['prestation__type_prestation']
+            type_code = item['prestation__type_prestation__code']
             if type_code:
-                labels.append(type_labels.get(type_code, type_code))
+                labels.append(item['prestation__type_prestation__libelle'] or type_code)
                 series.append(float(item['total'] or 0))
 
         return {'labels': labels, 'series': series}

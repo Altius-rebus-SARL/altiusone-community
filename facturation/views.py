@@ -15,7 +15,7 @@ from decimal import Decimal
 import json
 from django.forms import inlineformset_factory
 from .models import (
-    Prestation, TimeTracking, Facture, LigneFacture, Paiement, Relance,
+    Prestation, TypePrestation, TimeTracking, Facture, LigneFacture, Paiement, Relance,
     ZoneGeographique, TarifMandat,
 )
 from .forms import (
@@ -87,12 +87,14 @@ class PrestationListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     paginate_by = 50
 
     def get_queryset(self):
-        queryset = Prestation.objects.annotate(nb_lignes_facture=Count("lignefacture"))
+        queryset = Prestation.objects.select_related("type_prestation").annotate(
+            nb_lignes_facture=Count("lignefacture")
+        )
 
         # Filtrer par type
-        type_prestation = self.request.GET.get("type")
-        if type_prestation:
-            queryset = queryset.filter(type_prestation=type_prestation)
+        type_code = self.request.GET.get("type")
+        if type_code:
+            queryset = queryset.filter(type_prestation__code=type_code)
 
         # Filtrer par actif
         actif = self.request.GET.get("actif")
@@ -104,11 +106,12 @@ class PrestationListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
+        context["types_prestation"] = TypePrestation.objects.filter(is_active=True)
         context["stats"] = {
             "total": self.get_queryset().count(),
             "actives": self.get_queryset().filter(actif=True).count(),
             "par_type": self.get_queryset()
-            .values("type_prestation")
+            .values("type_prestation__code")
             .annotate(count=Count("id")),
         }
 

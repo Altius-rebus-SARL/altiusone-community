@@ -241,22 +241,23 @@ $(document).ready(function() {
 
     // Suggestion de code basée sur le type
     $('#id_type_prestation').on('change', function() {
-        var type = $(this).val();
+        var selectedText = $(this).find('option:selected').text().trim();
         var codeField = $('#id_code');
-        
-        if (!codeField.val()) {
+
+        if (!codeField.val() && selectedText && selectedText !== '---------') {
             var prefixes = {
-                'COMPTABILITE': 'COMPTA',
+                'Comptabilité': 'COMPTA',
                 'TVA': 'TVA',
-                'SALAIRES': 'SAL',
-                'CONSEIL': 'CONS',
-                'AUDIT': 'AUD',
-                'FISCALITE': 'FISC',
-                'JURIDIQUE': 'JUR',
-                'CREATION': 'CREA'
+                'Salaires': 'SAL',
+                'Conseil': 'CONS',
+                'Audit': 'AUD',
+                'Fiscalité': 'FISC',
+                'Juridique': 'JUR',
+                'Création entreprise': 'CREA',
+                'Autre': 'AUTRE'
             };
-            
-            var prefix = prefixes[type] || type.substring(0, 3);
+
+            var prefix = prefixes[selectedText] || selectedText.substring(0, 4).toUpperCase();
             codeField.val(prefix + '-').focus();
         }
     });

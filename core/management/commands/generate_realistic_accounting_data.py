@@ -738,12 +738,15 @@ class Command(BaseCommand):
             ("CONSEIL", "Conseil", "CONSEIL", Decimal("200")),
         ]
 
+        from facturation.models import TypePrestation
+
         for code, libelle, type_p, prix in prestations_default:
+            type_obj = TypePrestation.objects.get(code=type_p)
             Prestation.objects.get_or_create(
                 code=code,
                 defaults={
                     "libelle": libelle,
-                    "type_prestation": type_p,
+                    "type_prestation": type_obj,
                     "prix_unitaire_ht": prix,
                     "unite": "heure",
                     "taux_horaire": prix,

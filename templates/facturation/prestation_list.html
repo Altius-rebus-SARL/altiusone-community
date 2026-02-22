@@ -89,12 +89,9 @@
                     <form method="get" class="d-flex gap-2">
                         <select name="type" class="form-select select-basic" onchange="this.form.submit()">
                             <option value="">{% trans "Tous les types" %}</option>
-                            <option value="COMPTABILITE" {% if request.GET.type == 'COMPTABILITE' %}selected{% endif %}>{% trans "Comptabilité" %}</option>
-                            <option value="TVA" {% if request.GET.type == 'TVA' %}selected{% endif %}>{% trans "TVA" %}</option>
-                            <option value="SALAIRES" {% if request.GET.type == 'SALAIRES' %}selected{% endif %}>{% trans "Salaires" %}</option>
-                            <option value="CONSEIL" {% if request.GET.type == 'CONSEIL' %}selected{% endif %}>{% trans "Conseil" %}</option>
-                            <option value="AUDIT" {% if request.GET.type == 'AUDIT' %}selected{% endif %}>{% trans "Audit" %}</option>
-                            <option value="FISCALITE" {% if request.GET.type == 'FISCALITE' %}selected{% endif %}>{% trans "Fiscalité" %}</option>
+                            {% for tp in types_prestation %}
+                            <option value="{{ tp.code }}" {% if request.GET.type == tp.code %}selected{% endif %}>{{ tp.libelle }}</option>
+                            {% endfor %}
                         </select>
                         <select name="actif" class="form-select select-basic" onchange="this.form.submit()">
                             <option value="">{% trans "Toutes" %}</option>
@@ -134,7 +131,7 @@
                                     </a>
                                 </td>
                                 <td>{{ prestation.libelle }}</td>
-                                <td><span class="badge bg-light-primary">{{ prestation.get_type_prestation_display }}</span></td>
+                                <td><span class="badge bg-light-{{ prestation.type_prestation.couleur }}"><i class="ph {{ prestation.type_prestation.icone }} me-1"></i>{{ prestation.type_prestation.libelle }}</span></td>
                                 <td>{{ prestation.unite }}</td>
                                 <td class="text-end">
                                     {% if prestation.prix_unitaire_ht %}

@@ -1303,13 +1303,16 @@ class Command(BaseCommand):
             },
         ]
 
+        from facturation.models import TypePrestation
+
         for p in prestations:
+            type_obj = TypePrestation.objects.get(code=p["type"])
             Prestation.objects.get_or_create(
                 code=p["code"],
                 defaults={
                     "libelle": p["libelle_fr"],
                     "description": p["desc_fr"],
-                    "type_prestation": p["type"],
+                    "type_prestation": type_obj,
                     "prix_unitaire_ht": p["prix"],
                     "unite": "heure",
                     "taux_horaire": p["prix"],

@@ -4,9 +4,10 @@ Resources d'import/export pour les modèles du module Facturation.
 """
 
 from import_export import resources, fields
+from import_export.widgets import ForeignKeyWidget
 from django.utils.translation import gettext_lazy as _
 
-from facturation.models import Prestation, Facture
+from facturation.models import Prestation, TypePrestation, Facture
 from core.models import Mandat, Client, User
 from core.import_export.base import BaseImportExportResource
 from core.import_export.widgets import (
@@ -36,6 +37,12 @@ class PrestationResource(BaseImportExportResource):
     - taux_tva_defaut
     """
 
+    type_prestation = fields.Field(
+        column_name='type_prestation',
+        attribute='type_prestation',
+        widget=ForeignKeyWidget(TypePrestation, field='code'),
+    )
+
     class Meta:
         model = Prestation
         import_id_fields = ['code']
@@ -59,7 +66,7 @@ class PrestationResource(BaseImportExportResource):
         data = super().get_template_data()
         data['descriptions'].update({
             'code': _('Code unique de la prestation'),
-            'type_prestation': _('Type: COMPTABILITE, TVA, SALAIRES, CONSEIL, AUDIT, FISCALITE'),
+            'type_prestation': _('Code du type: COMPTABILITE, TVA, SALAIRES, CONSEIL, AUDIT, FISCALITE'),
             'unite': _('Unité de facturation: heure, jour, forfait'),
             'soumis_tva': _('Soumis à TVA? Oui/Non'),
         })

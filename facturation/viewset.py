@@ -21,7 +21,7 @@ class PrestationViewSet(viewsets.ModelViewSet):
     queryset = Prestation.objects.all()
     serializer_class = PrestationSerializer
     permission_classes = [IsAuthenticated]
-    filterset_fields = ["type_prestation", "actif"]
+    filterset_fields = ["type_prestation__code", "actif"]
 
 
 class TimeTrackingViewSet(viewsets.ModelViewSet):

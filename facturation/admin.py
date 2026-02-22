@@ -1,9 +1,17 @@
 # facturation/admin.py
 from django.contrib import admin
 from .models import (
-    Prestation, TimeTracking, Facture, LigneFacture, Paiement, Relance,
+    TypePrestation, Prestation, TimeTracking, Facture, LigneFacture, Paiement, Relance,
     ZoneGeographique, TarifMandat,
 )
+
+
+@admin.register(TypePrestation)
+class TypePrestationAdmin(admin.ModelAdmin):
+    list_display = ["code", "libelle", "icone", "ordre", "is_active"]
+    list_filter = ["is_active"]
+    search_fields = ["code", "libelle"]
+    ordering = ["ordre"]
 
 
 @admin.register(Prestation)
