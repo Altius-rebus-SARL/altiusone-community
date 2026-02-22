@@ -28,7 +28,7 @@ const AltiusD3 = (function() {
         if (window.ALTIUSONE_DEVISE) {
             return { code: window.ALTIUSONE_DEVISE.code, taux: window.ALTIUSONE_DEVISE.taux };
         }
-        return { code: 'CHF', taux: 1 };
+        return { code: window.ALTIUSONE_DEVISE?.base || 'CHF', taux: 1 };
     }
 
     // Formatage monétaire (fr-CH)

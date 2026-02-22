@@ -116,7 +116,8 @@
                         <p class="mb-0 text-muted f-s-14">
                             {% trans "Matricule" %}: {{ fiche.employe.matricule }}<br>
                             {% trans "AVS" %}: {{ fiche.employe.avs_number }}<br>
-                            {% trans "Fonction" %}: {{ fiche.employe.fonction }}
+                            {% trans "Fonction" %}: {{ fiche.employe.fonction }}<br>
+                            {% trans "Devise" %}: {{ fiche.devise_id|default:"-" }}
                         </p>
                     </div>
                 </div>

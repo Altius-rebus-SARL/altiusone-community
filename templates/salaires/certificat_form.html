@@ -83,10 +83,14 @@
                                 {{ form.employe }}
                                 {% if form.employe.errors %}<div class="text-danger small">{{ form.employe.errors }}</div>{% endif %}
                             </div>
-                            <div class="col-md-6 mb-3">
+                            <div class="col-md-3 mb-3">
                                 <label class="form-label">{% trans "Année" %} <span class="text-danger">*</span></label>
                                 {{ form.annee }}
                                 {% if form.annee.errors %}<div class="text-danger small">{{ form.annee.errors }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">{% trans "Régime fiscal" %}</label>
+                                {{ form.regime_fiscal }}
                             </div>
                         </div>
                         <div class="row">

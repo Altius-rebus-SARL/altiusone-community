@@ -158,6 +158,7 @@ class FicheSalaireForm(forms.ModelForm):
         model = FicheSalaire
         fields = [
             "employe",
+            "devise",
             "periode",
             "jours_travailles",
             "heures_travaillees",
@@ -179,6 +180,7 @@ class FicheSalaireForm(forms.ModelForm):
         ]
         widgets = {
             "employe": forms.Select(attrs={"class": "form-control select2"}),
+            "devise": forms.Select(attrs={"class": "form-control", "disabled": "disabled"}),
             "periode": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
             "jours_travailles": forms.NumberInput(
                 attrs={"class": "form-control", "step": "0.01"}
@@ -258,6 +260,7 @@ class CertificatSalaireForm(forms.ModelForm):
         fields = [
             # === Identification et période ===
             "employe",
+            "regime_fiscal",
             "annee",
             "date_debut",
             "date_fin",
@@ -318,6 +321,7 @@ class CertificatSalaireForm(forms.ModelForm):
         widgets = {
             # Identification
             "employe": forms.Select(attrs={"class": "form-control select2"}),
+            "regime_fiscal": forms.Select(attrs={"class": "form-control"}),
             "annee": forms.NumberInput(attrs={"class": "form-control", "min": "2000", "max": "2099"}),
             "date_debut": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
             "date_fin": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
@@ -381,6 +385,7 @@ class CertificatSalaireForm(forms.ModelForm):
 
         # Marquer les champs non-requis
         optional_fields = [
+            "regime_fiscal",
             "chiffre_2_1_repas", "chiffre_2_2_voiture", "chiffre_2_3_autres",
             "chiffre_3_irregulier", "chiffre_4_capital", "chiffre_5_participations",
             "chiffre_6_ca", "chiffre_7_autres", "chiffre_10_2_lpp_rachat",
@@ -457,6 +462,7 @@ class CertificatTravailForm(forms.ModelForm):
         model = CertificatTravail
         fields = [
             "employe",
+            "regime_fiscal",
             "type_certificat",
             "date_debut_emploi",
             "date_fin_emploi",
@@ -479,6 +485,7 @@ class CertificatTravailForm(forms.ModelForm):
         ]
         widgets = {
             "employe": forms.Select(attrs={"class": "form-control select2"}),
+            "regime_fiscal": forms.Select(attrs={"class": "form-control"}),
             "type_certificat": forms.Select(attrs={"class": "form-control"}),
             "date_debut_emploi": forms.DateInput(
                 attrs={"class": "form-control", "type": "date"}

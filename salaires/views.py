@@ -984,7 +984,7 @@ class DeclarationCotisationsCreateView(LoginRequiredMixin, BusinessPermissionMix
     model = DeclarationCotisations
     business_permission = 'salaires.manage_cotisations'
     template_name = "salaires/declaration_cotisations_form.html"
-    fields = ['mandat', 'organisme', 'periode_type', 'annee', 'mois', 'trimestre',
+    fields = ['mandat', 'regime_fiscal', 'devise', 'organisme', 'periode_type', 'annee', 'mois', 'trimestre',
               'nom_caisse', 'numero_affilie', 'numero_contrat']
 
     def get_context_data(self, **kwargs):

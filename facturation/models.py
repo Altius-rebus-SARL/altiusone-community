@@ -192,7 +192,6 @@ class TarifMandat(BaseModel):
     devise = models.ForeignKey(
         Devise,
         on_delete=models.PROTECT,
-        default='CHF',
         db_column='devise',
         verbose_name=_("Devise"),
         help_text=_("Devise du tarif")
@@ -219,6 +218,12 @@ class TarifMandat(BaseModel):
 
     def __str__(self):
         return f"{self.mandat} - {self.prestation} : {self.taux_horaire} {self.devise_id}/h"
+
+    def save(self, *args, **kwargs):
+        # Auto-populate devise from mandat if not set
+        if not self.devise_id and self.mandat_id:
+            self.devise_id = self.mandat.devise_id
+        super().save(*args, **kwargs)
 
     def est_valide(self, date_ref=None):
         """Vérifie si le tarif est valide à une date donnée"""
@@ -768,7 +773,7 @@ class Facture(BaseModel):
         ]
 
     def __str__(self):
-        devise_code = self.devise_id or 'CHF'
+        devise_code = self.devise_id or self.mandat.devise_id
         return f"{self.numero_facture} - {self.client.raison_sociale} - {self.montant_ttc} {devise_code}"
 
     def save(self, *args, **kwargs):
@@ -1015,6 +1020,9 @@ class Facture(BaseModel):
         from reportlab.lib.units import mm
         from reportlab.lib import colors
 
+        # Swiss QR-Bill spec only allows CHF and EUR
+        devise_qr = self.devise_id if self.devise_id in ('CHF', 'EUR') else 'CHF'
+
         # Récupérer l'IBAN depuis CompteBancaire
         iban = None
         if self.qr_iban:
@@ -1101,7 +1109,7 @@ class Facture(BaseModel):
         canvas.drawString(5 * mm, 15 * mm, "Monnaie")
         canvas.drawString(20 * mm, 15 * mm, "Montant")
         canvas.setFont("Helvetica", 8)
-        canvas.drawString(5 * mm, 10 * mm, "CHF")
+        canvas.drawString(5 * mm, 10 * mm, devise_qr)
         canvas.drawString(20 * mm, 10 * mm, f"{self.montant_ttc:.2f}")
 
         # Point d'acceptation
@@ -1204,7 +1212,7 @@ class Facture(BaseModel):
         canvas.drawString(payment_x, 20 * mm, "Monnaie")
         canvas.drawString(payment_x + 25 * mm, 20 * mm, "Montant")
         canvas.setFont("Helvetica", 12)
-        canvas.drawString(payment_x, 12 * mm, "CHF")
+        canvas.drawString(payment_x, 12 * mm, devise_qr)
         canvas.drawString(payment_x + 25 * mm, 12 * mm, f"{self.montant_ttc:.2f}")
 
     def calculer_totaux(self):
@@ -1543,7 +1551,6 @@ class Paiement(BaseModel):
     devise = models.ForeignKey(
         'core.Devise',
         on_delete=models.PROTECT,
-        default='CHF',
         db_column='devise',
         verbose_name=_("Devise"),
         help_text=_("Devise du paiement")
@@ -1619,9 +1626,12 @@ class Paiement(BaseModel):
         ]
 
     def __str__(self):
-        return f"Paiement {self.montant} CHF - {self.facture.numero_facture}"
+        return f"Paiement {self.montant} {self.devise_id} - {self.facture.numero_facture}"
 
     def save(self, *args, **kwargs):
+        # Auto-populate devise from facture if not set
+        if not self.devise_id and self.facture_id:
+            self.devise_id = self.facture.devise_id
         super().save(*args, **kwargs)
 
         # Mise à jour du montant payé sur la facture

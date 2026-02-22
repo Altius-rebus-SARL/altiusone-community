@@ -410,7 +410,7 @@ class CorrectionFiscale(BaseModel):
         ordering = ['declaration', 'type_correction']
 
     def __str__(self):
-        devise_code = getattr(self.declaration, 'devise_id', None) or 'CHF'
+        devise_code = getattr(self.declaration, 'devise_id', None) or getattr(self.declaration, 'mandat', None) and self.declaration.mandat.devise_id
         return f"{self.get_type_correction_display()} - {self.montant_correction} {devise_code}"
 
     def save(self, *args, **kwargs):
@@ -711,7 +711,7 @@ class ReclamationFiscale(BaseModel):
         ordering = ['-date_reclamation']
 
     def __str__(self):
-        devise_code = getattr(self.declaration, 'devise_id', None) or 'CHF'
+        devise_code = getattr(self.declaration, 'devise_id', None) or getattr(self.declaration, 'mandat', None) and self.declaration.mandat.devise_id
         return f"Réclamation {self.declaration.numero_declaration} - {self.montant_conteste} {devise_code}"
 
 

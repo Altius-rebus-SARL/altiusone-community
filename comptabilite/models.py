@@ -424,7 +424,11 @@ class Compte(BaseModel):
     def get_solde_display(self):
         """Affichage du solde avec signe et devise du plan comptable"""
         solde = self.solde
-        devise_code = getattr(self.plan_comptable, 'devise_id', None) or 'CHF'
+        devise_code = (
+            getattr(self.plan_comptable, 'devise_id', None)
+            or getattr(self.plan_comptable, 'mandat', None) and self.plan_comptable.mandat.devise_id
+            or Devise.get_devise_base().code
+        )
         if solde >= 0:
             return f"{solde:,.2f} {devise_code}"
         else:
@@ -650,10 +654,9 @@ class EcritureComptable(BaseModel):
     devise = models.ForeignKey(
         Devise,
         on_delete=models.PROTECT,
-        default='CHF',
         db_column='devise',
         verbose_name=_("Devise"),
-        help_text=_("Code ISO de la devise (CHF, EUR, USD)")
+        help_text=_("Code ISO de la devise")
     )
     taux_change = models.DecimalField(
         max_digits=10,
@@ -780,6 +783,12 @@ class EcritureComptable(BaseModel):
 
         if not self.montant_debit and not self.montant_credit:
             raise ValidationError(_("Une écriture doit avoir un montant"))
+
+    def save(self, *args, **kwargs):
+        # Auto-populate devise from mandat if not set
+        if not self.devise_id and self.mandat_id:
+            self.devise_id = self.mandat.devise_id
+        super().save(*args, **kwargs)
 
     @property
     def sens(self):

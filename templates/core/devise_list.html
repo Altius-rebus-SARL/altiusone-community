@@ -46,7 +46,7 @@
                         <thead>
                             <tr>
                                 <th>{% trans "Devise" %}</th>
-                                <th>{% trans "Taux (1 CHF = X)" %}</th>
+                                <th>{% trans "Taux (1" %} {{ DEVISE_BASE_CODE }} = X)</th>
                                 <th>{% trans "Date SNB" %}</th>
                             </tr>
                         </thead>
@@ -100,7 +100,7 @@
                                 </td>
                                 <td>
                                     {% if devise.est_devise_base %}
-                                    <span class="badge text-light-success">{% trans "Base (CHF)" %}</span>
+                                    <span class="badge text-light-success">{% trans "Base" %} ({{ DEVISE_BASE_CODE }})</span>
                                     {% else %}
                                     <span class="text-muted">-</span>
                                     {% endif %}

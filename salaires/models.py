@@ -83,7 +83,6 @@ class Employe(BaseModel):
         help_text=_('Ville et pays de naissance')
     )
     nationalite = CountryField(
-        default='CH',
         verbose_name=_('Nationalité'),
         help_text=_('Nationalité de l\'employé')
     )
@@ -238,17 +237,15 @@ class Employe(BaseModel):
         max_digits=10, decimal_places=2,
         null=True, blank=True,
         verbose_name=_('Salaire horaire'),
-        help_text=_('Salaire horaire en CHF (si applicable)')
+        help_text=_('Salaire horaire (si applicable)')
     )
 
     nombre_heures_semaine = models.DecimalField(
         max_digits=5, decimal_places=2,
-        default=42,
         verbose_name=_('Heures par semaine'),
         help_text=_('Nombre d\'heures de travail hebdomadaires')
     )
     jours_vacances_annuel = models.IntegerField(
-        default=20,
         verbose_name=_('Jours de vacances'),
         help_text=_('Nombre de jours de vacances annuels')
     )
@@ -465,29 +462,60 @@ class EnfantEmploye(BaseModel):
 
 class TauxCotisation(BaseModel):
     """Taux de cotisations sociales"""
-    
+
     TYPE_COTISATION_CHOICES = [
+        # Suisse
         ('AVS', _('AVS/AI/APG')),
         ('AC', _('Assurance chômage')),
-        ('AC_SUPP', _('AC supplément (>148\'200)')),
+        ('AC_SUPP', _('AC supplément (>seuil plafond)')),
         ('LPP', _('LPP (2e pilier)')),
         ('LAA', _('LAA Accidents')),
         ('LAAC', _('LAAC Accidents complémentaire')),
         ('IJM', _('Indemnités journalières maladie')),
         ('AF', _('Allocations familiales')),
+        # Cameroun
+        ('CNPS_VIE', _('CNPS Assurance vieillesse')),
+        ('CNPS_AF', _('CNPS Allocations familiales')),
+        ('CNPS_AT', _('CNPS Accidents du travail')),
+        # Sénégal
+        ('CSS', _('CSS Sécurité sociale')),
+        ('IPRES_GEN', _('IPRES Régime général')),
+        ('IPRES_CAD', _('IPRES Régime cadre')),
+        ('IPM', _('IPM Maladie')),
+        ('CFCE', _('CFCE Formation professionnelle')),
+        # Côte d'Ivoire
+        ('CNPS_CI_RET', _('CNPS-CI Retraite')),
+        ('CNPS_CI_PF', _('CNPS-CI Prestations familiales')),
+        ('CNPS_CI_AT', _('CNPS-CI Accidents du travail')),
+        ('FNE', _('FNE Emploi')),
+        # Générique
+        ('AUTRE', _('Autre cotisation')),
     ]
-    
+
     REPARTITION_CHOICES = [
         ('EMPLOYEUR', _('Employeur uniquement')),
         ('EMPLOYE', _('Employé uniquement')),
         ('PARTAGE', _('Partagé employeur/employé')),
     ]
-    
+
     type_cotisation = models.CharField(
         max_length=20, choices=TYPE_COTISATION_CHOICES,
-        unique=True,
         verbose_name=_('Type de cotisation'),
         help_text=_('Nature de la cotisation sociale')
+    )
+    regime_fiscal = models.ForeignKey(
+        'tva.RegimeFiscal', on_delete=models.CASCADE,
+        null=True, blank=True,
+        related_name='taux_cotisations',
+        verbose_name=_('Régime fiscal'),
+        help_text=_('Régime fiscal applicable pour ce taux')
+    )
+    devise = models.ForeignKey(
+        'core.Devise', on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name='taux_cotisations',
+        verbose_name=_('Devise'),
+        help_text=_('Devise des seuils de salaire')
     )
     libelle = models.CharField(
         max_length=100,
@@ -523,13 +551,13 @@ class TauxCotisation(BaseModel):
         max_digits=10, decimal_places=2,
         null=True, blank=True,
         verbose_name=_('Salaire minimum'),
-        help_text=_('Salaire minimum soumis à cotisation en CHF')
+        help_text=_('Salaire minimum soumis à cotisation')
     )
     salaire_max = models.DecimalField(
         max_digits=10, decimal_places=2,
         null=True, blank=True,
         verbose_name=_('Salaire maximum'),
-        help_text=_('Plafond de salaire soumis en CHF')
+        help_text=_('Plafond de salaire soumis')
     )
 
     # Validité
@@ -553,20 +581,31 @@ class TauxCotisation(BaseModel):
         db_table = 'taux_cotisations'
         verbose_name = _('Taux de cotisation')
         ordering = ['type_cotisation', '-date_debut']
-    
+        unique_together = [('type_cotisation', 'regime_fiscal', 'date_debut')]
+
     def __str__(self):
-        return f"{self.get_type_cotisation_display()} - {self.taux_total}%"
-    
+        regime = f" ({self.regime_fiscal})" if self.regime_fiscal_id else ""
+        return f"{self.get_type_cotisation_display()} - {self.taux_total}%{regime}"
+
+    def save(self, *args, **kwargs):
+        # Auto-populate devise from regime_fiscal if not set
+        if not self.devise_id and self.regime_fiscal_id:
+            self.devise_id = self.regime_fiscal.devise_defaut_id
+        super().save(*args, **kwargs)
+
     @classmethod
-    def get_taux_actif(cls, type_cotisation, date):
-        """Récupère le taux applicable à une date"""
-        return cls.objects.filter(
+    def get_taux_actif(cls, type_cotisation, date, regime_fiscal=None):
+        """Récupère le taux applicable à une date, optionnellement par régime"""
+        qs = cls.objects.filter(
             type_cotisation=type_cotisation,
             date_debut__lte=date,
             actif=True
         ).filter(
             Q(date_fin__gte=date) | Q(date_fin__isnull=True)
-        ).first()
+        )
+        if regime_fiscal is not None:
+            qs = qs.filter(regime_fiscal=regime_fiscal)
+        return qs.first()
 
 
 class FicheSalaire(BaseModel):
@@ -585,6 +624,13 @@ class FicheSalaire(BaseModel):
         related_name='fiches_salaire',
         verbose_name=_('Employé'),
         help_text=_('Employé concerné')
+    )
+    devise = models.ForeignKey(
+        'core.Devise', on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name='fiches_salaire',
+        verbose_name=_('Devise'),
+        help_text=_('Devise de la fiche de salaire')
     )
     numero_fiche = models.CharField(
         max_length=50, unique=True, db_index=True,
@@ -643,22 +689,22 @@ class FicheSalaire(BaseModel):
     salaire_base = models.DecimalField(
         max_digits=10, decimal_places=2,
         verbose_name=_('Salaire de base'),
-        help_text=_('Salaire mensuel de base en CHF')
+        help_text=_('Salaire mensuel de base')
     )
     heures_supp_montant = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
         verbose_name=_('Montant heures supp.'),
-        help_text=_('Rémunération des heures supplémentaires en CHF')
+        help_text=_('Rémunération des heures supplémentaires')
     )
     primes = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
         verbose_name=_('Primes'),
-        help_text=_('Primes et bonus en CHF')
+        help_text=_('Primes et bonus')
     )
     indemnites = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
         verbose_name=_('Indemnités'),
-        help_text=_('Indemnités diverses en CHF')
+        help_text=_('Indemnités diverses')
     )
     treizieme_mois = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
@@ -669,139 +715,139 @@ class FicheSalaire(BaseModel):
     salaire_brut_total = models.DecimalField(
         max_digits=10, decimal_places=2,
         verbose_name=_('Salaire brut total'),
-        help_text=_('Total du salaire brut en CHF')
+        help_text=_('Total du salaire brut')
     )
     
     # Cotisations salariales (part employé)
     avs_employe = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
         verbose_name=_('AVS/AI/APG'),
-        help_text=_('Cotisation AVS/AI/APG employé en CHF')
+        help_text=_('Cotisation AVS/AI/APG employé')
     )
     ac_employe = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
         verbose_name=_('AC'),
-        help_text=_('Assurance chômage employé en CHF')
+        help_text=_('Assurance chômage employé')
     )
     ac_supp_employe = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
         verbose_name=_('AC supp.'),
-        help_text=_('AC supplémentaire (salaires > 148\'200) en CHF')
+        help_text=_('AC supplémentaire (salaires > seuil plafond)')
     )
     lpp_employe = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
         verbose_name=_('LPP'),
-        help_text=_('Cotisation 2ème pilier employé en CHF')
+        help_text=_('Cotisation 2ème pilier employé')
     )
     laa_employe = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
         verbose_name=_('LAA'),
-        help_text=_('Assurance accidents employé en CHF')
+        help_text=_('Assurance accidents employé')
     )
     laac_employe = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
         verbose_name=_('LAAC'),
-        help_text=_('Assurance accidents complémentaire en CHF')
+        help_text=_('Assurance accidents complémentaire')
     )
     ijm_employe = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
         verbose_name=_('IJM'),
-        help_text=_('Indemnités journalières maladie employé en CHF')
+        help_text=_('Indemnités journalières maladie employé')
     )
 
     total_cotisations_employe = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
         verbose_name=_('Total cotisations employé'),
-        help_text=_('Total des cotisations salariales en CHF')
+        help_text=_('Total des cotisations salariales')
     )
 
     # Impôt à la source
     impot_source = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
         verbose_name=_('Impôt à la source'),
-        help_text=_('Retenue d\'impôt à la source en CHF')
+        help_text=_('Retenue d\'impôt à la source')
     )
 
     # Autres déductions
     avance_salaire = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
         verbose_name=_('Avance sur salaire'),
-        help_text=_('Retenue pour avance consentie en CHF')
+        help_text=_('Retenue pour avance consentie')
     )
     saisie_salaire = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
         verbose_name=_('Saisie sur salaire'),
-        help_text=_('Retenue pour saisie de salaire en CHF')
+        help_text=_('Retenue pour saisie de salaire')
     )
     autres_deductions = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
         verbose_name=_('Autres déductions'),
-        help_text=_('Autres retenues en CHF')
+        help_text=_('Autres retenues')
     )
 
     total_deductions = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
         verbose_name=_('Total déductions'),
-        help_text=_('Total de toutes les déductions en CHF')
+        help_text=_('Total de toutes les déductions')
     )
 
     # Allocations
     allocations_familiales = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
         verbose_name=_('Allocations familiales'),
-        help_text=_('Allocations familiales en CHF')
+        help_text=_('Allocations familiales')
     )
     autres_allocations = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
         verbose_name=_('Autres allocations'),
-        help_text=_('Autres allocations en CHF')
+        help_text=_('Autres allocations')
     )
 
     # Salaire net
     salaire_net = models.DecimalField(
         max_digits=10, decimal_places=2,
         verbose_name=_('Salaire net'),
-        help_text=_('Salaire net à payer en CHF')
+        help_text=_('Salaire net à payer')
     )
     
     # Charges patronales (pour info)
     avs_employeur = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
         verbose_name=_('AVS employeur'),
-        help_text=_('Part patronale AVS/AI/APG en CHF')
+        help_text=_('Part patronale AVS/AI/APG')
     )
     ac_employeur = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
         verbose_name=_('AC employeur'),
-        help_text=_('Part patronale assurance chômage en CHF')
+        help_text=_('Part patronale assurance chômage')
     )
     lpp_employeur = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
         verbose_name=_('LPP employeur'),
-        help_text=_('Part patronale 2ème pilier en CHF')
+        help_text=_('Part patronale 2ème pilier')
     )
     laa_employeur = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
         verbose_name=_('LAA employeur'),
-        help_text=_('Part patronale assurance accidents en CHF')
+        help_text=_('Part patronale assurance accidents')
     )
     af_employeur = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
         verbose_name=_('AF employeur'),
-        help_text=_('Allocations familiales (charge patronale) en CHF')
+        help_text=_('Allocations familiales (charge patronale)')
     )
 
     total_charges_patronales = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
         verbose_name=_('Total charges patronales'),
-        help_text=_('Total des charges employeur en CHF')
+        help_text=_('Total des charges employeur')
     )
 
     # Coût total employeur
     cout_total_employeur = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
         verbose_name=_('Coût total employeur'),
-        help_text=_('Coût complet pour l\'employeur en CHF')
+        help_text=_('Coût complet pour l\'employeur')
     )
 
     # Statut
@@ -871,13 +917,17 @@ class FicheSalaire(BaseModel):
         # Extraction année/mois
         self.annee = self.periode.year
         self.mois = self.periode.month
-        
+
+        # Auto-populate devise from employe if not set
+        if not self.devise_id and self.employe_id:
+            self.devise_id = self.employe.devise_salaire_id
+
         # Génération numéro
         if not self.numero_fiche:
             self.numero_fiche = f"SAL-{self.periode.strftime('%Y%m')}-{self.employe.matricule}"
-        
+
         super().save(*args, **kwargs)
-    
+
     def calculer(self):
         """Calcule tous les montants de la fiche"""
         # Salaire brut total
@@ -946,7 +996,8 @@ class FicheSalaire(BaseModel):
     
     def _calculer_cotisation(self, type_cot, part):
         """Calcule une cotisation spécifique"""
-        taux_obj = TauxCotisation.get_taux_actif(type_cot, self.periode)
+        regime = getattr(self.employe, 'regime_fiscal', None)
+        taux_obj = TauxCotisation.get_taux_actif(type_cot, self.periode, regime_fiscal=regime)
         if not taux_obj:
             return Decimal('0.00')
         
@@ -1009,6 +1060,20 @@ class CertificatSalaire(BaseModel):
         verbose_name=_('Employé'),
         help_text=_('Employé concerné')
     )
+    regime_fiscal = models.ForeignKey(
+        'tva.RegimeFiscal', on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='certificats_salaire',
+        verbose_name=_('Régime fiscal'),
+        help_text=_('Régime fiscal applicable')
+    )
+    devise = models.ForeignKey(
+        'core.Devise', on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name='certificats_salaire',
+        verbose_name=_('Devise'),
+        help_text=_('Devise du certificat')
+    )
     annee = models.IntegerField(
         db_index=True,
         verbose_name=_('Année'),
@@ -1059,7 +1124,7 @@ class CertificatSalaire(BaseModel):
     chiffre_2_1_repas = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
         verbose_name=_('2.1 Repas'),
-        help_text=_('Valeur des repas gratuits (CHF 180/mois midi, CHF 180/mois soir)')
+        help_text=_('Valeur des repas gratuits')
     )
     repas_midi_gratuit = models.BooleanField(
         default=False,
@@ -1350,6 +1415,13 @@ class CertificatSalaire(BaseModel):
 
     def save(self, *args, **kwargs):
         """Recalcule les totaux avant sauvegarde"""
+        # Auto-populate regime_fiscal and devise from employe
+        if self.employe_id:
+            if not self.regime_fiscal_id:
+                self.regime_fiscal_id = getattr(self.employe, 'regime_fiscal_id', None) or \
+                    getattr(self.employe.mandat, 'regime_fiscal_id', None)
+            if not self.devise_id:
+                self.devise_id = self.employe.devise_salaire_id
         self.calculer_totaux()
         super().save(*args, **kwargs)
 
@@ -1609,6 +1681,20 @@ class DeclarationCotisations(BaseModel):
         verbose_name=_('Mandat'),
         help_text=_('Mandat employeur concerné')
     )
+    regime_fiscal = models.ForeignKey(
+        'tva.RegimeFiscal', on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='declarations_cotisations',
+        verbose_name=_('Régime fiscal'),
+        help_text=_('Régime fiscal applicable')
+    )
+    devise = models.ForeignKey(
+        'core.Devise', on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name='declarations_cotisations',
+        verbose_name=_('Devise'),
+        help_text=_('Devise de la déclaration')
+    )
     organisme = models.CharField(
         max_length=10, choices=ORGANISME_CHOICES,
         verbose_name=_('Organisme'),
@@ -1673,12 +1759,12 @@ class DeclarationCotisations(BaseModel):
     masse_salariale_brute = models.DecimalField(
         max_digits=15, decimal_places=2, default=0,
         verbose_name=_('Masse salariale brute'),
-        help_text=_('Total des salaires bruts en CHF')
+        help_text=_('Total des salaires bruts')
     )
     masse_salariale_soumise = models.DecimalField(
         max_digits=15, decimal_places=2, default=0,
         verbose_name=_('Masse salariale soumise'),
-        help_text=_('Total des salaires soumis à cotisation en CHF')
+        help_text=_('Total des salaires soumis à cotisation')
     )
 
     # Cotisations détaillées (selon organisme)
@@ -1706,7 +1792,7 @@ class DeclarationCotisations(BaseModel):
     cotisation_ac_supp = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
         verbose_name=_('AC supplémentaire'),
-        help_text=_('AC sur salaires > 148\'200 CHF')
+        help_text=_('AC sur salaires dépassant le seuil plafond')
     )
     frais_administration = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
@@ -1771,7 +1857,7 @@ class DeclarationCotisations(BaseModel):
     montant_cotisations = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
         verbose_name=_('Montant total'),
-        help_text=_('Total des cotisations dues en CHF')
+        help_text=_('Total des cotisations dues')
     )
 
     # Dates et statut
@@ -1844,6 +1930,15 @@ class DeclarationCotisations(BaseModel):
     def __str__(self):
         periode = f"{self.mois}/{self.annee}" if self.mois else f"T{self.trimestre}/{self.annee}" if self.trimestre else str(self.annee)
         return f"{self.get_organisme_display()} - {periode} - {self.mandat}"
+
+    def save(self, *args, **kwargs):
+        # Auto-populate regime_fiscal and devise from mandat
+        if self.mandat_id:
+            if not self.regime_fiscal_id:
+                self.regime_fiscal_id = getattr(self.mandat, 'regime_fiscal_id', None)
+            if not self.devise_id:
+                self.devise_id = self.mandat.devise_id
+        super().save(*args, **kwargs)
 
     def get_periode_display(self):
         """Affichage formaté de la période"""
@@ -2152,6 +2247,13 @@ class CertificatTravail(BaseModel):
         on_delete=models.CASCADE,
         related_name='certificats_travail'
     )
+    regime_fiscal = models.ForeignKey(
+        'tva.RegimeFiscal', on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='certificats_travail',
+        verbose_name=_('Régime fiscal'),
+        help_text=_('Régime fiscal applicable')
+    )
 
     # Type et période
     type_certificat = models.CharField(
@@ -2279,6 +2381,12 @@ class CertificatTravail(BaseModel):
 
     def __str__(self):
         return f"Certificat travail - {self.employe} ({self.type_certificat})"
+
+    def save(self, *args, **kwargs):
+        # Auto-populate regime_fiscal from employe's mandat
+        if not self.regime_fiscal_id and self.employe_id:
+            self.regime_fiscal_id = getattr(self.employe.mandat, 'regime_fiscal_id', None)
+        super().save(*args, **kwargs)
 
     def get_evaluation_moyenne(self):
         """Calcule la note moyenne des évaluations"""

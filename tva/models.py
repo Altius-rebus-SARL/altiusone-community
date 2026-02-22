@@ -587,12 +587,7 @@ class DeclarationTVA(BaseModel):
     @property
     def devise_code(self):
         """Code de la devise, avec fallback via mandat"""
-        if self.devise_id:
-            return self.devise_id
-        try:
-            return self.mandat.config_tva.regime.devise_defaut.code
-        except (AttributeError, Exception):
-            return 'CHF'
+        return self.devise_id or self.mandat.devise_id
 
     def get_nom_taxe(self):
         """Nom de la taxe du régime fiscal, avec fallback TVA"""
@@ -1289,11 +1284,8 @@ class OperationTVA(BaseModel):
 
     @property
     def devise_code(self):
-        """Code de la devise du régime fiscal, avec fallback CHF"""
-        try:
-            return self.mandat.config_tva.regime.devise_defaut.code
-        except (AttributeError, Exception):
-            return 'CHF'
+        """Code de la devise via mandat"""
+        return self.mandat.devise_id
 
     def __str__(self):
         return f"{self.date_operation} - {self.libelle[:50]} - {self.montant_tva} {self.devise_code}"
@@ -1360,11 +1352,8 @@ class CorrectionTVA(BaseModel):
 
     @property
     def devise_code(self):
-        """Code de la devise du régime fiscal, avec fallback CHF"""
-        try:
-            return self.declaration.mandat.config_tva.regime.devise_defaut.code
-        except (AttributeError, Exception):
-            return 'CHF'
+        """Code de la devise via déclaration ou mandat"""
+        return self.declaration.devise_id or self.declaration.mandat.devise_id
 
     def __str__(self):
         return f"Correction {self.get_type_correction_display()} - {self.montant_correction} {self.devise_code}"

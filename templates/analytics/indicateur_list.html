@@ -40,7 +40,7 @@
                     <a href="?categorie={{ cat.categorie }}"
                        class="btn btn-sm {% if request.GET.categorie == cat.categorie %}btn-primary{% else %}btn-light-secondary{% endif %}">
                         {% if cat.categorie == 'FINANCIER' %}
-                        <i class="ph ph-currency-chf me-1"></i>{% trans "Financier" %}
+                        <i class="ph ph-currency-circle-dollar me-1"></i>{% trans "Financier" %}
                         {% elif cat.categorie == 'OPERATIONNEL' %}
                         <i class="ph ph-gear me-1"></i>{% trans "Opérationnel" %}
                         {% elif cat.categorie == 'CLIENT' %}

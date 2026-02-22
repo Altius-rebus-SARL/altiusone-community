@@ -65,6 +65,17 @@
                     </div>
 
                     <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label">{% trans "Régime fiscal" %}</label>
+                            {{ form.regime_fiscal|default_if_none:"" }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{% trans "Devise" %}</label>
+                            {{ form.devise|default_if_none:"" }}
+                        </div>
+                    </div>
+
+                    <div class="row mb-4">
                         <div class="col-md-4">
                             <label class="form-label">{% trans "Type de période" %} <span class="text-danger">*</span></label>
                             <select name="periode_type" id="periode_type" class="form-select" required>

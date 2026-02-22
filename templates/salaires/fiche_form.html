@@ -60,7 +60,7 @@
                             </div>
                         </div>
 
-                        <div class="col-md-6">
+                        <div class="col-md-3">
                             <div class="mb-3">
                                 <label class="form-label">{% trans "Période (1er jour du mois)" %} <span class="text-danger">*</span></label>
                                 {{ form.periode|add_class:"form-control" }}
@@ -68,6 +68,13 @@
                                 {% if form.periode.errors %}
                                 <div class="text-danger f-s-12 mt-1">{{ form.periode.errors.0 }}</div>
                                 {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Devise" %}</label>
+                                {{ form.devise|add_class:"form-select" }}
+                                <small class="text-muted">{% trans "Auto-rempli depuis l'employé" %}</small>
                             </div>
                         </div>
                     </div>

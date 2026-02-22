@@ -761,7 +761,6 @@ class CompteBancaire(models.Model):
     devise = models.ForeignKey(
         Devise,
         on_delete=models.PROTECT,
-        default='CHF',
         db_column='devise',
         verbose_name=_('Devise')
     )
@@ -895,6 +894,12 @@ class CompteBancaire(models.Model):
                     )
 
     def save(self, *args, **kwargs):
+        # Auto-populate devise from mandat if not set
+        if not self.devise_id:
+            if self.mandat_id:
+                self.devise_id = self.mandat.devise_id
+            else:
+                self.devise_id = Devise.get_devise_base().code
         self.full_clean()
         super().save(*args, **kwargs)
 
@@ -990,7 +995,6 @@ class Tiers(BaseModel):
     )
     devise = models.ForeignKey(
         Devise, on_delete=models.PROTECT,
-        default='CHF',
         verbose_name=_('Devise')
     )
     client_lie = models.ForeignKey(
@@ -1012,6 +1016,12 @@ class Tiers(BaseModel):
 
     def __str__(self):
         return f"{self.code} - {self.nom}"
+
+    def save(self, *args, **kwargs):
+        # Auto-populate devise from mandat if not set
+        if not self.devise_id and self.mandat_id:
+            self.devise_id = self.mandat.devise_id
+        super().save(*args, **kwargs)
 
 
 # =============================================================================
