@@ -70,6 +70,15 @@
                         <span class="badge text-light-primary">{{ declaration.canton }}</span>
                     </div>
 
+                    <div class="col-md-3 mb-3">
+                        <p class="text-muted f-s-12 mb-1">{% trans "Régime fiscal" %}</p>
+                        <span class="badge text-light-info">{{ declaration.regime_fiscal.nom|default:"-" }}</span>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <p class="text-muted f-s-12 mb-1">{% trans "Devise" %}</p>
+                        <span class="f-w-600">{{ declaration.devise_id|default:"-" }}</span>
+                    </div>
+
                     <div class="col-md-6 mb-3">
                         <p class="text-muted f-s-12 mb-1">{% trans "Type de déclaration" %}</p>
                         <p class="f-w-600 mb-0">{{ declaration.get_type_declaration_display }}</p>

@@ -77,6 +77,19 @@
                             </div>
                         </div>
                     </div>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ form.regime_fiscal.id_for_label }}" class="form-label">
+                                    {{ form.regime_fiscal.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.regime_fiscal }}
+                                {% if form.regime_fiscal.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.regime_fiscal.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 

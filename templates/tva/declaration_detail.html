@@ -100,13 +100,17 @@
                 </div>
 
                 <div class="row mb-3">
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <label class="text-muted f-s-12">{% trans "Méthode" %}</label>
                         <h6><span class="badge bg-light-primary">{{ declaration.methode }}</span></h6>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <label class="text-muted f-s-12">{% trans "Type" %}</label>
                         <h6><span class="badge bg-light-secondary">{{ declaration.get_type_decompte_display }}</span></h6>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="text-muted f-s-12">{% trans "Régime fiscal" %}</label>
+                        <h6><span class="badge bg-light-info">{{ declaration.regime_fiscal.nom|default:"-" }}</span></h6>
                     </div>
                 </div>
 

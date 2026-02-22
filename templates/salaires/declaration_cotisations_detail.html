@@ -72,6 +72,21 @@
 
                 <hr>
 
+                <div class="row mb-3">
+                    {% if declaration.regime_fiscal %}
+                    <div class="col-md-6">
+                        <h6 class="text-muted mb-2">{% trans "Régime fiscal" %}</h6>
+                        <span class="badge bg-info fs-6">{{ declaration.regime_fiscal.nom }}</span>
+                    </div>
+                    {% endif %}
+                    {% if declaration.devise_id %}
+                    <div class="col-md-6">
+                        <h6 class="text-muted mb-2">{% trans "Devise" %}</h6>
+                        <span class="f-w-600 fs-5">{{ declaration.devise_id }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+
                 <div class="row">
                     <div class="col-md-4">
                         <h6 class="text-muted mb-2">{% trans "Période" %}</h6>

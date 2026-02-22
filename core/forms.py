@@ -242,6 +242,7 @@ class MandatForm(forms.ModelForm):
         fields = [
             "client",
             "type_mandat_ref",
+            "regime_fiscal",
             "statut",
             "date_debut",
             "date_fin",
@@ -257,6 +258,7 @@ class MandatForm(forms.ModelForm):
         widgets = {
             "client": forms.Select(attrs={"class": "form-control select2"}),
             "type_mandat_ref": forms.Select(attrs={"class": "form-control"}),
+            "regime_fiscal": forms.Select(attrs={"class": "form-control"}),
             "statut": forms.Select(attrs={"class": "form-control"}),
             "date_debut": forms.DateInput(
                 attrs={"class": "form-control", "type": "date"}

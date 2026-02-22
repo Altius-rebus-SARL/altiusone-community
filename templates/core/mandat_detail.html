@@ -126,6 +126,14 @@
                                         <span class="text-muted">{% trans "Type facturation" %}</span>
                                         <span class="f-w-500">{{ mandat.type_facturation_ref.libelle|default:mandat.get_type_facturation_display }}</span>
                                     </li>
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Régime fiscal" %}</span>
+                                        <span class="f-w-500">{{ mandat.regime_fiscal.nom|default:"-" }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Devise" %}</span>
+                                        <span class="f-w-500">{{ mandat.devise_id|default:"-" }}</span>
+                                    </li>
                                     {% if mandat.budget_prevu %}
                                     <li class="list-group-item d-flex justify-content-between">
                                         <span class="text-muted">{% trans "Budget prévu" %}</span>

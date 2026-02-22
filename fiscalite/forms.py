@@ -21,6 +21,7 @@ class DeclarationFiscaleForm(forms.ModelForm):
         model = DeclarationFiscale
         fields = [
             "mandat",
+            "regime_fiscal",
             "type_declaration",
             "type_impot",
             "exercice_comptable",
@@ -42,6 +43,7 @@ class DeclarationFiscaleForm(forms.ModelForm):
         ] 
         widgets = {
             "mandat": forms.Select(attrs={"class": "form-control select2"}),
+            "regime_fiscal": forms.Select(attrs={"class": "form-control"}),
             "type_declaration": forms.Select(attrs={"class": "form-control"}),
             "type_impot": forms.Select(attrs={"class": "form-control"}),
             "exercice_comptable": forms.Select(attrs={"class": "form-control select2"}),

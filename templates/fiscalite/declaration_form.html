@@ -60,6 +60,16 @@
 
                         <div class="col-md-6">
                             <div class="mb-3">
+                                <label class="form-label">{% trans "Régime fiscal" %}</label>
+                                {{ form.regime_fiscal }}
+                                {% if form.regime_fiscal.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.regime_fiscal.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
                                 <label class="form-label">{% trans "Exercice comptable" %}</label>
                                 {{ form.exercice_comptable|add_class:"form-select" }}
                                 {% if form.exercice_comptable.errors %}

@@ -140,6 +140,12 @@
                         <p class="text-muted mb-0">{% trans "Attestation de rentes, pensions et prestations en capital" %}</p>
                         <h4 class="mt-2">
                             <span class="badge bg-primary fs-4">{{ certificat.annee }}</span>
+                            {% if certificat.regime_fiscal %}
+                            <span class="badge bg-info fs-6 ms-2">{{ certificat.regime_fiscal.nom }}</span>
+                            {% endif %}
+                            {% if certificat.devise_id %}
+                            <span class="badge bg-secondary fs-6 ms-2">{{ certificat.devise_id }}</span>
+                            {% endif %}
                         </h4>
                     </div>
 
