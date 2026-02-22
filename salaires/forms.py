@@ -261,6 +261,7 @@ class CertificatSalaireForm(forms.ModelForm):
             # === Identification et période ===
             "employe",
             "regime_fiscal",
+            "devise",
             "annee",
             "date_debut",
             "date_fin",
@@ -322,6 +323,7 @@ class CertificatSalaireForm(forms.ModelForm):
             # Identification
             "employe": forms.Select(attrs={"class": "form-control select2"}),
             "regime_fiscal": forms.Select(attrs={"class": "form-control"}),
+            "devise": forms.Select(attrs={"class": "form-control", "disabled": "disabled"}),
             "annee": forms.NumberInput(attrs={"class": "form-control", "min": "2000", "max": "2099"}),
             "date_debut": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
             "date_fin": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
@@ -385,7 +387,7 @@ class CertificatSalaireForm(forms.ModelForm):
 
         # Marquer les champs non-requis
         optional_fields = [
-            "regime_fiscal",
+            "regime_fiscal", "devise",
             "chiffre_2_1_repas", "chiffre_2_2_voiture", "chiffre_2_3_autres",
             "chiffre_3_irregulier", "chiffre_4_capital", "chiffre_5_participations",
             "chiffre_6_ca", "chiffre_7_autres", "chiffre_10_2_lpp_rachat",

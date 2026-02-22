@@ -64,16 +64,23 @@
                         </div>
                     </div>
 
+                    {% if form.regime_fiscal or form.devise %}
                     <div class="row mb-4">
+                        {% if form.regime_fiscal %}
                         <div class="col-md-6">
                             <label class="form-label">{% trans "Régime fiscal" %}</label>
-                            {{ form.regime_fiscal|default_if_none:"" }}
+                            {{ form.regime_fiscal }}
                         </div>
+                        {% endif %}
+                        {% if form.devise %}
                         <div class="col-md-6">
                             <label class="form-label">{% trans "Devise" %}</label>
-                            {{ form.devise|default_if_none:"" }}
+                            {{ form.devise }}
+                            <small class="text-muted">{% trans "Auto-rempli depuis le mandat" %}</small>
                         </div>
+                        {% endif %}
                     </div>
+                    {% endif %}
 
                     <div class="row mb-4">
                         <div class="col-md-4">
