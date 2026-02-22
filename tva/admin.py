@@ -1,6 +1,7 @@
 # tva/admin.py
 from django.contrib import admin
 from .models import (
+    RegimeFiscal,
     ConfigurationTVA,
     TauxTVA,
     CodeTVA,
@@ -9,6 +10,13 @@ from .models import (
     OperationTVA,
     CorrectionTVA,
 )
+
+
+@admin.register(RegimeFiscal)
+class RegimeFiscalAdmin(admin.ModelAdmin):
+    list_display = ["code", "nom", "pays", "devise_defaut", "taux_normal"]
+    list_filter = ["pays"]
+    search_fields = ["code", "nom"]
 
 
 @admin.register(ConfigurationTVA)
@@ -35,12 +43,14 @@ class DeclarationTVAAdmin(admin.ModelAdmin):
     list_display = [
         "numero_declaration",
         "mandat",
+        "regime_fiscal",
+        "devise",
         "annee",
         "trimestre",
         "statut",
         "solde_tva",
     ]
-    list_filter = ["statut", "annee", "type_decompte"]
+    list_filter = ["statut", "annee", "type_decompte", "regime_fiscal"]
     search_fields = ["numero_declaration"]
     date_hierarchy = "periode_debut"
 

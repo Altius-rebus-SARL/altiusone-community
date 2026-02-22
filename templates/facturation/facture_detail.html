@@ -208,6 +208,9 @@
                                                 <div class="text-end mb-3">
                                                     <h6 class="f-w-600">{% trans "Détails" %}</h6>
                                                     <p>{% trans "Mandat" %}: {{ facture.mandat.numero }}</p>
+                                                    {% if facture.regime_fiscal %}
+                                                    <p>{% trans "Régime" %}: {{ facture.regime_fiscal.nom }}</p>
+                                                    {% endif %}
                                                     {% if facture.date_service_debut and facture.date_service_fin %}
                                                     <p>{% trans "Période" %}: {{ facture.date_service_debut|date:"d.m.Y" }} - {{ facture.date_service_fin|date:"d.m.Y" }}</p>
                                                     {% endif %}

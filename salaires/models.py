@@ -11,26 +11,26 @@ class Employe(BaseModel):
     """Employé d'un mandat client"""
     
     SEXE_CHOICES = [
-        ('M', 'Masculin'),
-        ('F', 'Féminin'),
-        ('X', 'Autre'),
+        ('M', _('Masculin')),
+        ('F', _('Féminin')),
+        ('X', _('Autre')),
     ]
     
     STATUT_CHOICES = [
-        ('ACTIF', 'Actif'),
-        ('SUSPENDU', 'Suspendu'),
-        ('CONGE', 'En congé'),
-        ('DEMISSION', 'Démission'),
-        ('LICENCIE', 'Licencié'),
-        ('RETRAITE', 'Retraité'),
+        ('ACTIF', _('Actif')),
+        ('SUSPENDU', _('Suspendu')),
+        ('CONGE', _('En congé')),
+        ('DEMISSION', _('Démission')),
+        ('LICENCIE', _('Licencié')),
+        ('RETRAITE', _('Retraité')),
     ]
     
     TYPE_CONTRAT_CHOICES = [
-        ('CDI', 'Contrat durée indéterminée'),
-        ('CDD', 'Contrat durée déterminée'),
-        ('APPRENTI', 'Apprentissage'),
-        ('STAGE', 'Stage'),
-        ('TEMPORAIRE', 'Temporaire'),
+        ('CDI', _('Contrat durée indéterminée')),
+        ('CDD', _('Contrat durée déterminée')),
+        ('APPRENTI', _('Apprentissage')),
+        ('STAGE', _('Stage')),
+        ('TEMPORAIRE', _('Temporaire')),
     ]
     
     # Identification
@@ -213,11 +213,26 @@ class Employe(BaseModel):
         help_text=_('Taux en % (100 = temps plein)')
     )
 
+    # Régime fiscal
+    regime_fiscal = models.ForeignKey(
+        'tva.RegimeFiscal', on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='employes',
+        verbose_name=_('Régime fiscal'),
+        help_text=_('Régime fiscal pour le calcul des charges sociales')
+    )
+
     # Salaire
+    devise_salaire = models.ForeignKey(
+        'core.Devise', on_delete=models.PROTECT,
+        related_name='employes',
+        verbose_name=_('Devise du salaire'),
+        help_text=_('Devise de versement du salaire')
+    )
     salaire_brut_mensuel = models.DecimalField(
         max_digits=10, decimal_places=2,
         verbose_name=_('Salaire brut mensuel'),
-        help_text=_('Salaire brut mensuel en CHF')
+        help_text=_('Salaire brut mensuel')
     )
     salaire_horaire = models.DecimalField(
         max_digits=10, decimal_places=2,
@@ -332,10 +347,10 @@ class EnfantEmploye(BaseModel):
     """
 
     TYPE_ALLOCATION_CHOICES = [
-        ('NAISSANCE', 'Allocation de naissance'),
-        ('ENFANT', 'Allocation pour enfant (0-16 ans)'),
-        ('FORMATION', 'Allocation de formation (16-25 ans)'),
-        ('AUCUNE', 'Pas d\'allocation'),
+        ('NAISSANCE', _('Allocation de naissance')),
+        ('ENFANT', _('Allocation pour enfant (0-16 ans)')),
+        ('FORMATION', _('Allocation de formation (16-25 ans)')),
+        ('AUCUNE', _('Pas d\'allocation')),
     ]
 
     employe = models.ForeignKey(
@@ -452,20 +467,20 @@ class TauxCotisation(BaseModel):
     """Taux de cotisations sociales"""
     
     TYPE_COTISATION_CHOICES = [
-        ('AVS', 'AVS/AI/APG'),
-        ('AC', 'Assurance chômage'),
-        ('AC_SUPP', 'AC supplément (>148\'200)'),
-        ('LPP', 'LPP (2e pilier)'),
-        ('LAA', 'LAA Accidents'),
-        ('LAAC', 'LAAC Accidents complémentaire'),
-        ('IJM', 'Indemnités journalières maladie'),
-        ('AF', 'Allocations familiales'),
+        ('AVS', _('AVS/AI/APG')),
+        ('AC', _('Assurance chômage')),
+        ('AC_SUPP', _('AC supplément (>148\'200)')),
+        ('LPP', _('LPP (2e pilier)')),
+        ('LAA', _('LAA Accidents')),
+        ('LAAC', _('LAAC Accidents complémentaire')),
+        ('IJM', _('Indemnités journalières maladie')),
+        ('AF', _('Allocations familiales')),
     ]
     
     REPARTITION_CHOICES = [
-        ('EMPLOYEUR', 'Employeur uniquement'),
-        ('EMPLOYE', 'Employé uniquement'),
-        ('PARTAGE', 'Partagé employeur/employé'),
+        ('EMPLOYEUR', _('Employeur uniquement')),
+        ('EMPLOYE', _('Employé uniquement')),
+        ('PARTAGE', _('Partagé employeur/employé')),
     ]
     
     type_cotisation = models.CharField(
@@ -558,10 +573,10 @@ class FicheSalaire(BaseModel):
     """Fiche de salaire mensuelle"""
     
     STATUT_CHOICES = [
-        ('BROUILLON', 'Brouillon'),
-        ('VALIDE', 'Validée'),
-        ('PAYE', 'Payée'),
-        ('COMPTABILISE', 'Comptabilisée'),
+        ('BROUILLON', _('Brouillon')),
+        ('VALIDE', _('Validée')),
+        ('PAYE', _('Payée')),
+        ('COMPTABILISE', _('Comptabilisée')),
     ]
     
     # Identification
@@ -971,18 +986,18 @@ class CertificatSalaire(BaseModel):
 
     # Choix pour le type d'occupation (Section F)
     TYPE_OCCUPATION_CHOICES = [
-        ('PLEIN_TEMPS', 'Plein temps'),
-        ('TEMPS_PARTIEL', 'Temps partiel'),
-        ('HORAIRE', 'Travail à l\'heure'),
+        ('PLEIN_TEMPS', _('Plein temps')),
+        ('TEMPS_PARTIEL', _('Temps partiel')),
+        ('HORAIRE', _('Travail à l\'heure')),
     ]
 
     # Statut du certificat
     STATUT_CHOICES = [
-        ('BROUILLON', 'Brouillon'),
-        ('CALCULE', 'Calculé'),
-        ('VERIFIE', 'Vérifié'),
-        ('SIGNE', 'Signé'),
-        ('ENVOYE', 'Envoyé'),
+        ('BROUILLON', _('Brouillon')),
+        ('CALCULE', _('Calculé')),
+        ('VERIFIE', _('Vérifié')),
+        ('SIGNE', _('Signé')),
+        ('ENVOYE', _('Envoyé')),
     ]
 
     # ==================== SECTION A-B: EMPLOYEUR ====================
@@ -1566,25 +1581,25 @@ class DeclarationCotisations(BaseModel):
     """
 
     ORGANISME_CHOICES = [
-        ('AVS', 'Caisse AVS/AI/APG/AC'),
-        ('LPP', 'Institution de prévoyance LPP'),
-        ('LAA', 'Assurance accidents LAA/LAAC'),
-        ('AF', 'Caisse allocations familiales'),
-        ('IJM', 'Assurance indemnités journalières maladie'),
+        ('AVS', _('Caisse AVS/AI/APG/AC')),
+        ('LPP', _('Institution de prévoyance LPP')),
+        ('LAA', _('Assurance accidents LAA/LAAC')),
+        ('AF', _('Caisse allocations familiales')),
+        ('IJM', _('Assurance indemnités journalières maladie')),
     ]
 
     PERIODE_TYPE_CHOICES = [
-        ('MENSUEL', 'Mensuelle'),
-        ('TRIMESTRIEL', 'Trimestrielle'),
-        ('ANNUEL', 'Annuelle'),
+        ('MENSUEL', _('Mensuelle')),
+        ('TRIMESTRIEL', _('Trimestrielle')),
+        ('ANNUEL', _('Annuelle')),
     ]
 
     STATUT_CHOICES = [
-        ('BROUILLON', 'Brouillon'),
-        ('CALCULEE', 'Calculée'),
-        ('VERIFIEE', 'Vérifiée'),
-        ('TRANSMISE', 'Transmise'),
-        ('PAYEE', 'Payée'),
+        ('BROUILLON', _('Brouillon')),
+        ('CALCULEE', _('Calculée')),
+        ('VERIFIEE', _('Vérifiée')),
+        ('TRANSMISE', _('Transmise')),
+        ('PAYEE', _('Payée')),
     ]
 
     # Identification
@@ -2115,20 +2130,20 @@ class CertificatTravail(BaseModel):
     """
 
     TYPE_CERTIFICAT_CHOICES = [
-        ('COMPLET', 'Certificat complet (qualifié)'),
-        ('SIMPLE', 'Attestation de travail (simple)'),
-        ('INTERMEDIAIRE', 'Certificat intermédiaire'),
+        ('COMPLET', _('Certificat complet (qualifié)')),
+        ('SIMPLE', _('Attestation de travail (simple)')),
+        ('INTERMEDIAIRE', _('Certificat intermédiaire')),
     ]
 
     MOTIF_DEPART_CHOICES = [
-        ('DEMISSION', 'Démission'),
-        ('FIN_CONTRAT', 'Fin de contrat'),
-        ('LICENCIEMENT', 'Licenciement'),
-        ('LICENCIEMENT_ECO', 'Licenciement économique'),
-        ('RETRAITE', 'Retraite'),
-        ('ACCORD_MUTUEL', 'Résiliation d\'un commun accord'),
-        ('DECES', 'Décès'),
-        ('', 'Non spécifié'),
+        ('DEMISSION', _('Démission')),
+        ('FIN_CONTRAT', _('Fin de contrat')),
+        ('LICENCIEMENT', _('Licenciement')),
+        ('LICENCIEMENT_ECO', _('Licenciement économique')),
+        ('RETRAITE', _('Retraite')),
+        ('ACCORD_MUTUEL', _('Résiliation d\'un commun accord')),
+        ('DECES', _('Décès')),
+        ('', _('Non spécifié')),
     ]
 
     # Relations
@@ -2168,11 +2183,11 @@ class CertificatTravail(BaseModel):
     # Évaluations (pour certificat complet - échelle standard suisse)
     # Échelle: 1=insuffisant, 2=satisfaisant, 3=bien, 4=très bien, 5=excellent
     NOTE_CHOICES = [
-        (1, 'Insuffisant'),
-        (2, 'Satisfaisant'),
-        (3, 'Bien'),
-        (4, 'Très bien'),
-        (5, 'Excellent'),
+        (1, _('Insuffisant')),
+        (2, _('Satisfaisant')),
+        (3, _('Bien')),
+        (4, _('Très bien')),
+        (5, _('Excellent')),
     ]
 
     evaluation_qualite_travail = models.IntegerField(

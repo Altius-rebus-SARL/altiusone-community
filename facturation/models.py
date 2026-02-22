@@ -83,9 +83,17 @@ class Prestation(BaseModel):
     taux_tva_defaut = models.DecimalField(
         max_digits=5,
         decimal_places=2,
-        default=8.1,
+        default=0,
         verbose_name=_("Taux TVA par défaut"),
-        help_text=_("Taux de TVA appliqué par défaut")
+        help_text=_("Taux de TVA appliqué par défaut (résolu depuis le régime fiscal si 0)")
+    )
+    taux_tva_ref = models.ForeignKey(
+        'tva.TauxTVA',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='prestations',
+        verbose_name=_("Taux TVA (référence)"),
+        help_text=_("Référence vers le taux TVA du régime fiscal")
     )
 
     # Compte comptable
@@ -300,6 +308,14 @@ class TimeTracking(BaseModel):
         decimal_places=2,
         verbose_name=_("Montant HT"),
         help_text=_("Montant hors taxes calculé")
+    )
+    devise = models.ForeignKey(
+        'core.Devise',
+        on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name='temps_travail',
+        verbose_name=_("Devise"),
+        help_text=_("Devise du taux horaire et du montant")
     )
 
     facture = models.ForeignKey(
@@ -671,6 +687,33 @@ class Facture(BaseModel):
         help_text=_("Pièce comptable associée")
     )
 
+    # Régime fiscal (support international)
+    regime_fiscal = models.ForeignKey(
+        'tva.RegimeFiscal',
+        on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name='factures',
+        verbose_name=_("Régime fiscal"),
+        help_text=_("Régime fiscal applicable à cette facture")
+    )
+    # Exercice comptable
+    exercice = models.ForeignKey(
+        'core.ExerciceComptable',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='factures',
+        verbose_name=_("Exercice comptable"),
+        help_text=_("Exercice comptable de rattachement")
+    )
+    # Devise (support international)
+    devise = models.ForeignKey(
+        'core.Devise',
+        on_delete=models.PROTECT,
+        related_name='factures',
+        verbose_name=_("Devise"),
+        help_text=_("Devise de facturation")
+    )
+
     # Textes
     introduction = models.TextField(
         blank=True,
@@ -725,9 +768,14 @@ class Facture(BaseModel):
         ]
 
     def __str__(self):
-        return f"{self.numero_facture} - {self.client.raison_sociale} - {self.montant_ttc} CHF"
+        devise_code = self.devise_id or 'CHF'
+        return f"{self.numero_facture} - {self.client.raison_sociale} - {self.montant_ttc} {devise_code}"
 
     def save(self, *args, **kwargs):
+        # Auto-populate regime_fiscal from mandat if not set
+        if not self.regime_fiscal_id and self.mandat_id:
+            self.regime_fiscal = getattr(self.mandat, 'regime_fiscal', None)
+
         # Génération numéro facture
         if not self.numero_facture:
             year = self.date_emission.year
@@ -878,7 +926,7 @@ class Facture(BaseModel):
             "", "", "", "", "", "", "",
             # Payment Amount
             f"{float(self.montant_ttc):.2f}",  # Amount
-            "CHF",  # Currency
+            self.devise_id if self.devise_id in ('CHF', 'EUR') else "CHF",  # Currency (QR-Bill: CHF/EUR only)
             # Ultimate Debtor (Address Type S)
             "S",
             self.client.raison_sociale[:70],
@@ -1385,9 +1433,25 @@ class LigneFacture(BaseModel):
     taux_tva = models.DecimalField(
         max_digits=5,
         decimal_places=2,
-        default=8.1,
+        default=0,
         verbose_name=_("Taux TVA"),
-        help_text=_("Taux de TVA appliqué")
+        help_text=_("Taux de TVA appliqué (résolu depuis le régime fiscal du mandat)")
+    )
+    taux_tva_ref = models.ForeignKey(
+        'tva.TauxTVA',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='lignes_facture',
+        verbose_name=_("Taux TVA (référence)"),
+        help_text=_("Référence vers le taux TVA du régime fiscal")
+    )
+    code_tva = models.ForeignKey(
+        'tva.CodeTVA',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='lignes_facture',
+        verbose_name=_("Code TVA"),
+        help_text=_("Code TVA applicable")
     )
     montant_tva = models.DecimalField(
         max_digits=15,
@@ -1430,6 +1494,10 @@ class LigneFacture(BaseModel):
         return f"{self.facture.numero_facture} - {self.description[:50]}"
 
     def save(self, *args, **kwargs):
+        # Resolve taux_tva from mandat regime if not explicitly set
+        if not self.taux_tva and self.facture_id:
+            self.taux_tva = get_taux_tva_defaut(self.facture.mandat)
+
         # Calcul automatique des montants
         montant_brut = self.quantite * self.prix_unitaire_ht
 

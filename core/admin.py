@@ -11,6 +11,7 @@ from .models import (
     AuditLog,
     Notification,
     Tache,
+    Tiers,
 )
 
 
@@ -63,6 +64,13 @@ class TacheAdmin(admin.ModelAdmin):
     list_display = ["titre", "assigne_a", "priorite", "statut", "date_echeance"]
     list_filter = ["priorite", "statut"]
     date_hierarchy = "date_echeance"
+
+
+@admin.register(Tiers)
+class TiersAdmin(admin.ModelAdmin):
+    list_display = ["code", "nom", "type_tiers", "mandat", "devise"]
+    list_filter = ["type_tiers"]
+    search_fields = ["code", "nom", "numero_tva"]
 
 
 admin.site.register(AuditLog)

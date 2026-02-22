@@ -259,6 +259,9 @@ class FactureForm(forms.ModelForm):
             "mandat",
             "client",
             "type_facture",
+            "regime_fiscal",
+            "exercice",
+            "devise",
             "date_emission",
             "date_service_debut",
             "date_service_fin",
@@ -273,6 +276,9 @@ class FactureForm(forms.ModelForm):
             "mandat": forms.Select(attrs={"class": "form-control select2"}),
             "client": forms.Select(attrs={"class": "form-control select2"}),
             "type_facture": forms.Select(attrs={"class": "form-control"}),
+            "regime_fiscal": forms.Select(attrs={"class": "form-control select2"}),
+            "exercice": forms.Select(attrs={"class": "form-control select2"}),
+            "devise": forms.Select(attrs={"class": "form-control"}),
             "date_emission": forms.DateInput(
                 attrs={"class": "form-control", "type": "date"}, format="%Y-%m-%d"
             ),
@@ -295,11 +301,19 @@ class FactureForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        self.mandat = kwargs.pop('mandat', None)
         super().__init__(*args, **kwargs)
         # Forcer le format de date
         self.fields["date_emission"].input_formats = ["%Y-%m-%d"]
         self.fields["date_service_debut"].input_formats = ["%Y-%m-%d"]
         self.fields["date_service_fin"].input_formats = ["%Y-%m-%d"]
+
+        # Pré-peupler la devise et le régime fiscal depuis le mandat
+        if not self.instance.pk and self.mandat:
+            if hasattr(self.mandat, 'devise_id') and self.mandat.devise_id:
+                self.fields["devise"].initial = self.mandat.devise_id
+            if hasattr(self.mandat, 'regime_fiscal_id') and self.mandat.regime_fiscal_id:
+                self.fields["regime_fiscal"].initial = self.mandat.regime_fiscal_id
 
 
 class LigneFactureForm(forms.ModelForm):

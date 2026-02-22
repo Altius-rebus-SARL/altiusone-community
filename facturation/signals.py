@@ -14,8 +14,15 @@ def recalculer_facture(sender, instance, **kwargs):
 
 @receiver(post_save, sender=Facture)
 def generer_qr_bill(sender, instance, created, **kwargs):
-    """Génère le QR-Bill lors de la validation de la facture"""
+    """Génère le QR-Bill lors de la validation de la facture (Suisse uniquement)"""
     if instance.statut == 'EMISE' and not instance.qr_reference:
+        # QR-Bill uniquement pour les mandats suisses
+        regime = instance.regime_fiscal
+        if not regime:
+            regime = getattr(instance.mandat, 'regime_fiscal', None)
+        if regime and regime.code != 'CH':
+            return
+
         instance.generer_qr_reference()
 
         # Générer l'image QR code
@@ -61,6 +68,32 @@ def comptabiliser_facture(sender, instance, **kwargs):
                 numero='1100'  # Créances clients
             ).first()
 
+            # Résolution dynamique du compte TVA via config_tva
+            compte_tva = None
+            code_tva_ventes = '200'  # Fallback
+            try:
+                config_tva = instance.mandat.config_tva
+                if config_tva and config_tva.compte_tva_due:
+                    compte_tva = config_tva.compte_tva_due
+                # Chercher le code TVA ventes du régime
+                if config_tva and config_tva.regime:
+                    from tva.models import CodeTVA
+                    code_obj = CodeTVA.objects.filter(
+                        regime=config_tva.regime,
+                        categorie='CHIFFRE_AFFAIRES',
+                        actif=True,
+                    ).first()
+                    if code_obj:
+                        code_tva_ventes = code_obj.code
+            except Exception:
+                pass
+
+            if not compte_tva:
+                compte_tva = Compte.objects.filter(
+                    plan_comptable__mandat=instance.mandat,
+                    numero='2200'  # TVA due (fallback)
+                ).first()
+
             if compte_client:
                 # Débit: Créance client (TTC)
                 EcritureComptable.objects.create(
@@ -76,7 +109,7 @@ def comptabiliser_facture(sender, instance, **kwargs):
                     compte_auxiliaire=instance.client.ide_number,
                     libelle=f"Facture {instance.numero_facture} - {instance.client.raison_sociale}",
                     montant_debit=instance.montant_ttc,
-                    piece_justificative=None,  # TODO: Lier au document PDF
+                    piece_justificative=None,
                     statut='VALIDE'
                 )
 
@@ -109,29 +142,23 @@ def comptabiliser_facture(sender, instance, **kwargs):
                         ligne_num += 1
 
                 # Crédit: TVA due
-                if instance.montant_tva > 0:
-                    compte_tva = Compte.objects.filter(
-                        plan_comptable__mandat=instance.mandat,
-                        numero='2200'  # TVA due
-                    ).first()
-
-                    if compte_tva:
-                        EcritureComptable.objects.create(
-                            mandat=instance.mandat,
-                            exercice=instance.mandat.exercices.filter(
-                                statut='OUVERT'
-                            ).first(),
-                            journal=journal,
-                            numero_piece=numero_piece,
-                            numero_ligne=ligne_num,
-                            date_ecriture=instance.date_emission,
-                            compte=compte_tva,
-                            libelle=f"TVA sur facture {instance.numero_facture}",
-                            montant_credit=instance.montant_tva,
-                            code_tva='200',  # Code TVA ventes
-                            montant_tva=instance.montant_tva,
-                            statut='VALIDE'
-                        )
+                if instance.montant_tva > 0 and compte_tva:
+                    EcritureComptable.objects.create(
+                        mandat=instance.mandat,
+                        exercice=instance.mandat.exercices.filter(
+                            statut='OUVERT'
+                        ).first(),
+                        journal=journal,
+                        numero_piece=numero_piece,
+                        numero_ligne=ligne_num,
+                        date_ecriture=instance.date_emission,
+                        compte=compte_tva,
+                        libelle=f"TVA sur facture {instance.numero_facture}",
+                        montant_credit=instance.montant_tva,
+                        code_tva=code_tva_ventes,
+                        montant_tva=instance.montant_tva,
+                        statut='VALIDE'
+                    )
 
                 instance.ecriture_comptable = piece
                 instance.save(update_fields=['ecriture_comptable'])

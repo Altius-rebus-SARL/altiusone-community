@@ -147,7 +147,7 @@
                             {% if form.taux_tva_defaut.errors %}
                             <div class="text-danger f-s-12">{{ form.taux_tva_defaut.errors.0 }}</div>
                             {% endif %}
-                            <small class="text-muted">{% trans "Taux standard:" %} {{ taux_tva_normal|default:"8.1" }}%</small>
+                            <small class="text-muted">{% trans "Taux standard:" %} {{ taux_tva_normal|default:"0" }}%</small>
                         </div>
                     </div>
 
@@ -213,7 +213,7 @@
                         <strong>{% trans "Prix unitaire vs Taux horaire" %}:</strong> {% trans "Le prix unitaire est utilisé pour la facturation directe, le taux horaire pour le time tracking" %}
                     </li>
                     <li class="mb-2">
-                        <strong>{% trans "TVA" %}:</strong> {% trans "Le taux standard est de" %} {{ taux_tva_normal|default:"8.1" }}%{% if taux_tva_reduit %}, {% trans "taux réduit:" %} {{ taux_tva_reduit }}%{% endif %}{% if taux_tva_special %}, {% trans "taux spécial:" %} {{ taux_tva_special }}%{% endif %}
+                        <strong>{% trans "TVA" %}:</strong> {% trans "Le taux standard est de" %} {{ taux_tva_normal|default:"0" }}%{% if taux_tva_reduit %}, {% trans "taux réduit:" %} {{ taux_tva_reduit }}%{% endif %}{% if taux_tva_special %}, {% trans "taux spécial:" %} {{ taux_tva_special }}%{% endif %}
                     </li>
                     <li>
                         <strong>{% trans "Compte produit" %}:</strong> {% trans "Compte du plan comptable où les ventes de cette prestation seront enregistrées (série 7xxx)" %}

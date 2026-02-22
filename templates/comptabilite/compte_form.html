@@ -285,6 +285,22 @@
                                 {% endif %}
                             </div>
                         </div>
+
+                        <!-- Code TVA (référence FK) -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.code_tva_defaut_ref.id_for_label }}" class="form-label">
+                                    {% trans "Code TVA (référence)" %}
+                                </label>
+                                {{ form.code_tva_defaut_ref }}
+                                {% if form.code_tva_defaut_ref.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.code_tva_defaut_ref.errors }}
+                                </div>
+                                {% endif %}
+                                <div class="form-text">{% trans "Référence au code TVA du régime fiscal" %}</div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Actions -->

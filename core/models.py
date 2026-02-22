@@ -929,6 +929,92 @@ class CompteBancaire(models.Model):
 
 
 # =============================================================================
+# TIERS (Fournisseur, débiteur, créditeur centralisé)
+# =============================================================================
+
+class Tiers(BaseModel):
+    """Tiers centralisé (fournisseur, débiteur, créditeur)"""
+
+    TYPE_TIERS_CHOICES = [
+        ('FOURNISSEUR', _('Fournisseur')),
+        ('CLIENT', _('Client')),
+        ('EMPLOYE', _('Employé')),
+        ('ADMINISTRATION', _('Administration')),
+        ('ASSOCIE', _('Associé')),
+        ('AUTRE', _('Autre')),
+    ]
+
+    mandat = models.ForeignKey(
+        'Mandat', on_delete=models.CASCADE,
+        related_name='tiers',
+        verbose_name=_('Mandat')
+    )
+    code = models.CharField(
+        max_length=50, db_index=True,
+        verbose_name=_('Code')
+    )
+    nom = models.CharField(
+        max_length=255,
+        verbose_name=_('Nom')
+    )
+    type_tiers = models.CharField(
+        max_length=20, choices=TYPE_TIERS_CHOICES,
+        default='FOURNISSEUR',
+        verbose_name=_('Type de tiers')
+    )
+    numero_tva = models.CharField(
+        max_length=50, blank=True,
+        verbose_name=_('Numéro TVA')
+    )
+    numero_ide = models.CharField(
+        max_length=20, blank=True,
+        verbose_name=_('Numéro IDE')
+    )
+    adresse = models.ForeignKey(
+        Adresse, on_delete=models.SET_NULL,
+        null=True, blank=True,
+        verbose_name=_('Adresse')
+    )
+    email = models.EmailField(
+        blank=True,
+        verbose_name=_('Email')
+    )
+    telephone = models.CharField(
+        max_length=20, blank=True,
+        verbose_name=_('Téléphone')
+    )
+    compte_associe = models.ForeignKey(
+        'comptabilite.Compte', on_delete=models.SET_NULL,
+        null=True, blank=True,
+        verbose_name=_('Compte associé')
+    )
+    devise = models.ForeignKey(
+        Devise, on_delete=models.PROTECT,
+        default='CHF',
+        verbose_name=_('Devise')
+    )
+    client_lie = models.ForeignKey(
+        'Client', on_delete=models.SET_NULL,
+        null=True, blank=True,
+        verbose_name=_('Client lié')
+    )
+    notes = models.TextField(
+        blank=True,
+        verbose_name=_('Notes')
+    )
+
+    class Meta:
+        db_table = 'tiers'
+        verbose_name = _('Tiers')
+        verbose_name_plural = _('Tiers')
+        unique_together = [('mandat', 'code')]
+        ordering = ['nom']
+
+    def __str__(self):
+        return f"{self.code} - {self.nom}"
+
+
+# =============================================================================
 # ENTREPRISE (Entités juridiques de la fiduciaire)
 # =============================================================================
 
@@ -1290,6 +1376,14 @@ class Client(BaseModel):
                                     related_name='clients_responsable',
                                     verbose_name=_('Responsable'))
     notes = models.TextField(blank=True, verbose_name=_('Notes'))
+
+    # Régime fiscal par défaut (pour les mandats de ce client)
+    regime_fiscal_defaut = models.ForeignKey(
+        'tva.RegimeFiscal', on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='clients',
+        verbose_name=_('Régime fiscal par défaut')
+    )
 
     # Hiérarchie clients (fiduciaire → client → sous-client)
     parent_client = models.ForeignKey(
@@ -1729,6 +1823,19 @@ class Mandat(BaseModel):
 
     description = models.TextField(blank=True, verbose_name=_('Description'))
     conditions_particulieres = models.TextField(blank=True, verbose_name=_('Conditions particulières'))
+
+    # Support international
+    regime_fiscal = models.ForeignKey(
+        'tva.RegimeFiscal', on_delete=models.PROTECT,
+        related_name='mandats',
+        verbose_name=_('Régime fiscal')
+    )
+    devise = models.ForeignKey(
+        Devise, on_delete=models.PROTECT,
+        related_name='mandats',
+        verbose_name=_('Devise'),
+        db_column='devise_mandat'
+    )
 
     class Meta:
         db_table = 'mandats'

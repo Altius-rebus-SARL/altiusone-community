@@ -29,6 +29,7 @@ class DeclarationFiscaleForm(forms.ModelForm):
             "periode_fin",
             "canton",
             "commune",
+            "subdivision",
             "numero_contribuable",
             "benefice_avant_impots",
             "benefice_imposable",
@@ -53,6 +54,7 @@ class DeclarationFiscaleForm(forms.ModelForm):
             ),
             "canton": forms.Select(attrs={"class": "form-control select2"}),
             "commune": forms.TextInput(attrs={"class": "form-control"}),
+            "subdivision": forms.TextInput(attrs={"class": "form-control"}),
             "numero_contribuable": forms.TextInput(attrs={"class": "form-control"}),
             "benefice_avant_impots": forms.NumberInput(
                 attrs={"class": "form-control", "step": "0.01"}

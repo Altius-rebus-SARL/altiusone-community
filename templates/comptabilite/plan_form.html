@@ -151,6 +151,22 @@
                             </div>
                         </div>
 
+                        <!-- Devise -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.devise.id_for_label }}" class="form-label">
+                                    {% trans "Devise" %}
+                                </label>
+                                {{ form.devise }}
+                                {% if form.devise.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.devise.errors }}
+                                </div>
+                                {% endif %}
+                                <div class="form-text">{% trans "Devise du plan comptable (héritée du mandat)" %}</div>
+                            </div>
+                        </div>
+
                         <!-- Description FR -->
                         <div class="col-12">
                             <div class="mb-3">

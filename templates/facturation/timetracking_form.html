@@ -212,7 +212,7 @@
 
                         <div class="col-md-6 mb-3">
                             <label class="form-label">
-                                {% trans "Taux horaire" %} (CHF/h) *
+                                {% trans "Taux horaire" %} ({{ DEVISE_CODE }}/h) *
                                 <span class="badge bg-secondary f-s-11 ms-1 d-none" id="taux-badge"></span>
                             </label>
                             {{ form.taux_horaire|add_class:"form-control" }}
@@ -410,8 +410,8 @@ function setDuree(minutes) {
                     var pct = b.pourcent;
                     var colorClass = pct > 90 ? 'text-danger' : (pct > 70 ? 'text-warning' : 'text-success');
                     budgetText.innerHTML =
-                        '{% trans "Prévu" %}: <strong>' + b.budget_prevu.toLocaleString('fr-CH') + ' CHF</strong> | ' +
-                        '{% trans "Réel" %}: <strong>' + b.budget_reel.toLocaleString('fr-CH') + ' CHF</strong> | ' +
+                        '{% trans "Prévu" %}: <strong>' + b.budget_prevu.toLocaleString('fr-CH') + ' {{ DEVISE_CODE }}</strong> | ' +
+                        '{% trans "Réel" %}: <strong>' + b.budget_reel.toLocaleString('fr-CH') + ' {{ DEVISE_CODE }}</strong> | ' +
                         '{% trans "Consommé" %}: <strong class="' + colorClass + '">' + pct + '%</strong>';
                     budgetContainer.classList.remove('d-none');
                 } else {

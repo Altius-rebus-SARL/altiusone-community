@@ -138,17 +138,18 @@
                 </div>
                 <div class="card-body">
                     <div class="row">
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <div class="mb-3">
-                                <label class="form-label">{% trans "Canton" %} <span class="text-danger">*</span></label>
+                                <label class="form-label">{% trans "Canton" %}</label>
                                 {{ form.canton|add_class:"form-select" }}
                                 {% if form.canton.errors %}
                                 <div class="text-danger f-s-12 mt-1">{{ form.canton.errors.0 }}</div>
                                 {% endif %}
+                                <small class="text-muted">{% trans "Suisse uniquement" %}</small>
                             </div>
                         </div>
 
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <div class="mb-3">
                                 <label class="form-label">{% trans "Commune" %}</label>
                                 {{ form.commune|add_class:"form-control" }}
@@ -158,7 +159,18 @@
                             </div>
                         </div>
 
-                        <div class="col-md-4">
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Subdivision" %}</label>
+                                {{ form.subdivision|add_class:"form-control" }}
+                                {% if form.subdivision.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.subdivision.errors.0 }}</div>
+                                {% endif %}
+                                <small class="text-muted">{% trans "Région/ville (hors Suisse)" %}</small>
+                            </div>
+                        </div>
+
+                        <div class="col-md-3">
                             <div class="mb-3">
                                 <label class="form-label">{% trans "Numéro contribuable" %}</label>
                                 {{ form.numero_contribuable|add_class:"form-control" }}
@@ -174,7 +186,7 @@
             <!-- Bases imposables -->
             <div class="card">
                 <div class="card-header">
-                    <h5><i class="ph ph-currency-chf me-2"></i>{% trans "Bases imposables" %}</h5>
+                    <h5><i class="ph ph-currency-circle-dollar me-2"></i>{% trans "Bases imposables" %}</h5>
                 </div>
                 <div class="card-body">
                     <div class="row">

@@ -39,9 +39,15 @@ def _get_tva_context(mandat=None):
     from tva.models import RegimeFiscal, TauxTVA
     ctx = {'taux_tva_defaut': get_taux_tva_defaut(mandat)}
     try:
-        if mandat and hasattr(mandat, 'config_tva') and mandat.config_tva and mandat.config_tva.regime:
+        regime = None
+        # Priorité 1: mandat.regime_fiscal (FK directe)
+        if mandat and hasattr(mandat, 'regime_fiscal') and mandat.regime_fiscal_id:
+            regime = mandat.regime_fiscal
+        # Priorité 2: config_tva.regime
+        elif mandat and hasattr(mandat, 'config_tva') and mandat.config_tva and mandat.config_tva.regime:
             regime = mandat.config_tva.regime
-        else:
+        # Fallback: régime CH
+        if not regime:
             regime = RegimeFiscal.objects.filter(code='CH').first()
         if regime:
             ctx['taux_tva_normal'] = regime.taux_normal

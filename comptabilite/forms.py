@@ -32,6 +32,7 @@ class PlanComptableForm(forms.ModelForm):
             "description_en",
             "is_template",
             "mandat",
+            "devise",
             "base_sur",
         ]
         widgets = {
@@ -54,6 +55,7 @@ class PlanComptableForm(forms.ModelForm):
             ),
             "is_template": forms.CheckboxInput(attrs={"class": "form-check-input"}),
             "mandat": forms.Select(attrs={"class": "form-control select2"}),
+            "devise": forms.Select(attrs={"class": "form-control select2"}),
             "base_sur": forms.Select(attrs={"class": "form-control select2"}),
         }
 
@@ -95,6 +97,7 @@ class CompteForm(forms.ModelForm):
             "obligatoire_tiers",
             "soumis_tva",
             "code_tva_defaut",
+            "code_tva_defaut_ref",
         ]
         widgets = {
             "plan_comptable": forms.Select(attrs={"class": "form-control select2"}),
@@ -119,6 +122,7 @@ class CompteForm(forms.ModelForm):
             ),
             "soumis_tva": forms.CheckboxInput(attrs={"class": "form-check-input"}),
             "code_tva_defaut": forms.TextInput(attrs={"class": "form-control"}),
+            "code_tva_defaut_ref": forms.Select(attrs={"class": "form-control select2"}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -161,12 +165,14 @@ class JournalForm(forms.ModelForm):
             "libelle",
             "type_journal",
             "compte_contrepartie_defaut",
+            "devise",
             "numerotation_auto",
             "prefixe_piece",
             "dernier_numero",
         ]
         widgets = {
             "mandat": forms.Select(attrs={"class": "form-control select2"}),
+            "devise": forms.Select(attrs={"class": "form-control select2"}),
             "code": forms.TextInput(attrs={"class": "form-control"}),
             "libelle": forms.TextInput(attrs={"class": "form-control"}),
             "type_journal": forms.Select(attrs={"class": "form-control select-basic"}),

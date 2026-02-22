@@ -47,12 +47,30 @@
                     {% endif %}
 
                     <div class="row">
-                        <div class="col-md-12 mb-3">
+                        <div class="col-md-6 mb-3">
                             <label class="form-label">{% trans "Mandat" %} *</label>
                             {{ form.mandat|add_class:"form-control select2" }}
                             {% if form.mandat.errors %}
                             <div class="text-danger f-s-12">{{ form.mandat.errors.0 }}</div>
                             {% endif %}
+                        </div>
+
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">{% trans "Régime fiscal" %}</label>
+                            {{ form.regime_fiscal|add_class:"form-control select2" }}
+                            {% if form.regime_fiscal.errors %}
+                            <div class="text-danger f-s-12">{{ form.regime_fiscal.errors.0 }}</div>
+                            {% endif %}
+                            <small class="text-muted">{% trans "Auto-rempli depuis le mandat" %}</small>
+                        </div>
+
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">{% trans "Devise" %}</label>
+                            {{ form.devise|add_class:"form-control select2" }}
+                            {% if form.devise.errors %}
+                            <div class="text-danger f-s-12">{{ form.devise.errors.0 }}</div>
+                            {% endif %}
+                            <small class="text-muted">{% trans "Auto-rempli depuis le régime" %}</small>
                         </div>
 
                         <div class="col-md-4 mb-3">

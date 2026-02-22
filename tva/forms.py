@@ -85,6 +85,8 @@ class DeclarationTVAForm(forms.ModelForm):
         model = DeclarationTVA
         fields = [
             "mandat",
+            "regime_fiscal",
+            "devise",
             "annee",
             "trimestre",
             "semestre",
@@ -94,6 +96,8 @@ class DeclarationTVAForm(forms.ModelForm):
         ]
         widgets = {
             "mandat": forms.Select(attrs={"class": "form-control select2"}),
+            "regime_fiscal": forms.Select(attrs={"class": "form-control select2"}),
+            "devise": forms.Select(attrs={"class": "form-control select2"}),
             "annee": forms.NumberInput(attrs={"class": "form-control"}),
             "trimestre": forms.NumberInput(
                 attrs={"class": "form-control", "min": "1", "max": "4"}
@@ -229,8 +233,10 @@ class OperationTVAForm(forms.ModelForm):
             "taux_tva",
             "montant_tva",
             "tiers",
+            "tiers_ref",
             "numero_tva_tiers",
             "numero_facture",
+            "facture",
             "libelle",
         ]
         widgets = {
@@ -239,6 +245,8 @@ class OperationTVAForm(forms.ModelForm):
                 attrs={"class": "form-control", "type": "date"}
             ),
             "type_operation": forms.Select(attrs={"class": "form-control"}),
+            "tiers_ref": forms.Select(attrs={"class": "form-control select2"}),
+            "facture": forms.Select(attrs={"class": "form-control select2"}),
             "montant_ht": forms.NumberInput(
                 attrs={"class": "form-control", "step": "0.01"}
             ),

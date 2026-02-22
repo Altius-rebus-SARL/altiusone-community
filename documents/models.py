@@ -22,12 +22,12 @@ class Dossier(BaseModel):
     """Dossier/Répertoire dans la GED"""
 
     TYPE_CHOICES = [
-        ('RACINE', 'Racine'),
-        ('CLIENT', 'Dossier client'),
-        ('MANDAT', 'Dossier mandat'),
-        ('EXERCICE', 'Exercice comptable'),
-        ('STANDARD', 'Dossier standard'),
-        ('ARCHIVE', 'Archive'),
+        ('RACINE', _('Racine')),
+        ('CLIENT', _('Dossier client')),
+        ('MANDAT', _('Dossier mandat')),
+        ('EXERCICE', _('Exercice comptable')),
+        ('STANDARD', _('Dossier standard')),
+        ('ARCHIVE', _('Archive')),
     ]
 
     # Hiérarchie
@@ -277,23 +277,23 @@ class TypeDocument(BaseModel):
     """Types de documents spécifiques"""
 
     TYPE_CHOICES = [
-        ('FACTURE_VENTE', 'Facture de vente'),
-        ('FACTURE_ACHAT', 'Facture d\'achat'),
-        ('DEVIS', 'Devis'),
-        ('BON_COMMANDE', 'Bon de commande'),
-        ('BON_LIVRAISON', 'Bon de livraison'),
-        ('RELEVE_BANQUE', 'Relevé bancaire'),
-        ('JUSTIFICATIF', 'Justificatif'),
-        ('CONTRAT', 'Contrat'),
-        ('STATUTS', 'Statuts'),
-        ('PV_ASSEMBLEE', 'PV Assemblée'),
-        ('DECLARATION_TVA', 'Déclaration TVA'),
-        ('FICHE_SALAIRE', 'Fiche de salaire'),
-        ('CERTIFICAT_SALAIRE', 'Certificat de salaire'),
-        ('ATTESTATION', 'Attestation'),
-        ('COURRIER', 'Courrier'),
-        ('EMAIL', 'Email'),
-        ('AUTRE', 'Autre'),
+        ('FACTURE_VENTE', _('Facture de vente')),
+        ('FACTURE_ACHAT', _("Facture d\'achat")),
+        ('DEVIS', _('Devis')),
+        ('BON_COMMANDE', _('Bon de commande')),
+        ('BON_LIVRAISON', _('Bon de livraison')),
+        ('RELEVE_BANQUE', _('Relevé bancaire')),
+        ('JUSTIFICATIF', _('Justificatif')),
+        ('CONTRAT', _('Contrat')),
+        ('STATUTS', _('Statuts')),
+        ('PV_ASSEMBLEE', _('PV Assemblée')),
+        ('DECLARATION_TVA', _('Déclaration TVA')),
+        ('FICHE_SALAIRE', _('Fiche de salaire')),
+        ('CERTIFICAT_SALAIRE', _('Certificat de salaire')),
+        ('ATTESTATION', _('Attestation')),
+        ('COURRIER', _('Courrier')),
+        ('EMAIL', _('Email')),
+        ('AUTRE', _('Autre')),
     ]
 
     code = models.CharField(
@@ -360,21 +360,21 @@ class Document(BaseModel):
     """Document dans la GED"""
 
     STATUT_TRAITEMENT_CHOICES = [
-        ('UPLOAD', 'Uploadé'),
-        ('OCR_EN_COURS', 'OCR en cours'),
-        ('OCR_TERMINE', 'OCR terminé'),
-        ('CLASSIFICATION_EN_COURS', 'Classification en cours'),
-        ('CLASSIFICATION_TERMINEE', 'Classification terminée'),
-        ('EXTRACTION_EN_COURS', 'Extraction données en cours'),
-        ('EXTRACTION_TERMINEE', 'Extraction terminée'),
-        ('VALIDE', 'Validé'),
-        ('ERREUR', 'Erreur traitement'),
+        ('UPLOAD', _('Uploadé')),
+        ('OCR_EN_COURS', _('OCR en cours')),
+        ('OCR_TERMINE', _('OCR terminé')),
+        ('CLASSIFICATION_EN_COURS', _('Classification en cours')),
+        ('CLASSIFICATION_TERMINEE', _('Classification terminée')),
+        ('EXTRACTION_EN_COURS', _('Extraction données en cours')),
+        ('EXTRACTION_TERMINEE', _('Extraction terminée')),
+        ('VALIDE', _('Validé')),
+        ('ERREUR', _('Erreur traitement')),
     ]
 
     STATUT_VALIDATION_CHOICES = [
-        ('EN_ATTENTE', 'En attente validation'),
-        ('VALIDE', 'Validé'),
-        ('REJETE', 'Rejeté'),
+        ('EN_ATTENTE', _('En attente validation')),
+        ('VALIDE', _('Validé')),
+        ('REJETE', _('Rejeté')),
     ]
 
     # Rattachement
@@ -697,18 +697,18 @@ class TraitementDocument(BaseModel):
     """Log des traitements automatiques (OCR, AI, etc.)"""
 
     TYPE_TRAITEMENT_CHOICES = [
-        ('OCR', 'OCR / Extraction texte'),
-        ('CLASSIFICATION', 'Classification automatique'),
-        ('EXTRACTION', 'Extraction métadonnées'),
-        ('COMPRESSION', 'Compression'),
-        ('CONVERSION', 'Conversion format'),
-        ('WATERMARK', 'Ajout watermark'),
+        ('OCR', _('OCR / Extraction texte')),
+        ('CLASSIFICATION', _('Classification automatique')),
+        ('EXTRACTION', _('Extraction métadonnées')),
+        ('COMPRESSION', _('Compression')),
+        ('CONVERSION', _('Conversion format')),
+        ('WATERMARK', _('Ajout watermark')),
     ]
 
     STATUT_CHOICES = [
-        ('EN_COURS', 'En cours'),
-        ('TERMINE', 'Terminé'),
-        ('ERREUR', 'Erreur'),
+        ('EN_COURS', _('En cours')),
+        ('TERMINE', _('Terminé')),
+        ('ERREUR', _('Erreur')),
     ]
 
     document = models.ForeignKey(
@@ -1093,9 +1093,9 @@ class Conversation(BaseModel):
     """
 
     STATUT_CHOICES = [
-        ('ACTIVE', 'Active'),
-        ('ARCHIVEE', 'Archivee'),
-        ('SUPPRIMEE', 'Supprimee'),
+        ('ACTIVE', _('Active')),
+        ('ARCHIVEE', _('Archivee')),
+        ('SUPPRIMEE', _('Supprimee')),
     ]
 
     # Rattachement
@@ -1236,9 +1236,9 @@ class Message(BaseModel):
     """
 
     ROLE_CHOICES = [
-        ('USER', 'Utilisateur'),
-        ('ASSISTANT', 'Assistant'),
-        ('SYSTEM', 'Systeme'),
+        ('USER', _('Utilisateur')),
+        ('ASSISTANT', _('Assistant')),
+        ('SYSTEM', _('Système')),
     ]
 
     conversation = models.ForeignKey(

@@ -19,7 +19,8 @@ from django.urls import reverse
 from django.contrib.auth import get_user_model
 
 from analytics.models import Rapport, TableauBord, Indicateur
-from core.models import Mandat, Client, Adresse
+from core.models import Mandat, Client, Adresse, Devise
+from tva.models import RegimeFiscal
 
 User = get_user_model()
 
@@ -38,6 +39,25 @@ class BaseAnalyticsTestCase(TestCase):
             first_name='Test',
             last_name='User'
         )
+
+        # Créer les données de référence pour le support international
+        cls.devise_chf = Devise.objects.get_or_create(
+            code='CHF',
+            defaults={
+                'nom': 'Franc suisse',
+                'symbole': 'Fr.',
+                'decimales': 2,
+            }
+        )[0]
+        cls.regime_ch = RegimeFiscal.objects.get_or_create(
+            code='CH',
+            defaults={
+                'nom': 'Suisse',
+                'pays': 'CH',
+                'devise_defaut': cls.devise_chf,
+                'taux_normal': Decimal('8.1'),
+            }
+        )[0]
 
         # Créer une adresse pour le client
         cls.adresse = Adresse.objects.create(
@@ -72,7 +92,9 @@ class BaseAnalyticsTestCase(TestCase):
             statut='ACTIF',
             date_debut=date(2025, 1, 1),
             responsable=cls.user,
-            created_by=cls.user
+            created_by=cls.user,
+            regime_fiscal=cls.regime_ch,
+            devise=cls.devise_chf,
         )
 
         # Créer un second mandat pour tester le filtrage
@@ -82,7 +104,9 @@ class BaseAnalyticsTestCase(TestCase):
             statut='ACTIF',
             date_debut=date(2025, 1, 1),
             responsable=cls.user,
-            created_by=cls.user
+            created_by=cls.user,
+            regime_fiscal=cls.regime_ch,
+            devise=cls.devise_chf,
         )
 
     def setUp(self):

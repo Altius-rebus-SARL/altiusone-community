@@ -118,7 +118,23 @@
                             {% endif %}
                         </div>
 
-                        <div class="col-md-12 mb-3">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Régime fiscal" %}</label>
+                            {{ form.regime_fiscal }}
+                            {% if form.regime_fiscal.errors %}
+                            <div class="text-danger f-s-12">{{ form.regime_fiscal.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Exercice comptable" %}</label>
+                            {{ form.exercice }}
+                            {% if form.exercice.errors %}
+                            <div class="text-danger f-s-12">{{ form.exercice.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4 mb-3">
                             <label class="form-label">{% trans "Remise globale (%)" %}</label>
                             {{ form.remise_pourcent }}
                             {% if form.remise_pourcent.errors %}
@@ -326,7 +342,7 @@ $(document).ready(function() {
             $row.find('.description-input').val($option.data('libelle'));
             $row.find('.prix-input').val($option.data('prix') || 0);
             $row.find('.unite-input').val($option.data('unite') || 'heure');
-            $row.find('.tva-input').val($option.data('tva') || {{ taux_tva_defaut|default:'8.1' }});
+            $row.find('.tva-input').val($option.data('tva') || {{ taux_tva_defaut|default:'0' }});
             
             calculerTotaux();
         }

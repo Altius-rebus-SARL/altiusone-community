@@ -80,11 +80,20 @@
                         </div>
 
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">{% trans "Tiers" %}</label>
+                            <label class="form-label">{% trans "Tiers (texte)" %}</label>
                             {{ form.tiers|add_class:"form-control" }}
                             {% if form.tiers.errors %}
                             <div class="text-danger f-s-12">{{ form.tiers.errors.0 }}</div>
                             {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Tiers (référence)" %}</label>
+                            {{ form.tiers_ref|add_class:"form-control select2" }}
+                            {% if form.tiers_ref.errors %}
+                            <div class="text-danger f-s-12">{{ form.tiers_ref.errors.0 }}</div>
+                            {% endif %}
+                            <small class="text-muted">{% trans "Lien vers le tiers centralisé" %}</small>
                         </div>
 
                         <div class="col-md-6 mb-3">
@@ -95,12 +104,21 @@
                             {% endif %}
                         </div>
 
-                        <div class="col-md-6 mb-3">
+                        <div class="col-md-3 mb-3">
                             <label class="form-label">{% trans "Numéro facture" %}</label>
                             {{ form.numero_facture|add_class:"form-control" }}
                             {% if form.numero_facture.errors %}
                             <div class="text-danger f-s-12">{{ form.numero_facture.errors.0 }}</div>
                             {% endif %}
+                        </div>
+
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">{% trans "Facture" %}</label>
+                            {{ form.facture|add_class:"form-control select2" }}
+                            {% if form.facture.errors %}
+                            <div class="text-danger f-s-12">{{ form.facture.errors.0 }}</div>
+                            {% endif %}
+                            <small class="text-muted">{% trans "Lien FK vers la facture" %}</small>
                         </div>
 
                         <div class="col-md-6 mb-3">

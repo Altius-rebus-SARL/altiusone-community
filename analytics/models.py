@@ -81,7 +81,7 @@ class TableauBord(BaseModel):
     ordre = models.IntegerField(
         default=0,
         verbose_name=_('Ordre'),
-        help_text=_('Position d\'affichage dans la liste')
+        help_text=_("Position d\'affichage dans la liste")
     )
 
     class Meta:
@@ -218,7 +218,7 @@ class Indicateur(BaseModel):
     unite = models.CharField(
         max_length=20, blank=True,
         verbose_name=_('Unité'),
-        help_text=_('Unité d\'affichage (CHF, %, h, etc.)')
+        help_text=_("Unité d\'affichage (CHF, %, h, etc.)")
     )
     decimales = models.IntegerField(
         default=2,
@@ -230,13 +230,13 @@ class Indicateur(BaseModel):
     seuil_alerte_bas = models.DecimalField(
         max_digits=15, decimal_places=2,
         null=True, blank=True,
-        verbose_name=_('Seuil d\'alerte bas'),
+        verbose_name=_("Seuil d\'alerte bas"),
         help_text=_('Valeur en dessous de laquelle une alerte est déclenchée')
     )
     seuil_alerte_haut = models.DecimalField(
         max_digits=15, decimal_places=2,
         null=True, blank=True,
-        verbose_name=_('Seuil d\'alerte haut'),
+        verbose_name=_("Seuil d\'alerte haut"),
         help_text=_('Valeur au-dessus de laquelle une alerte est déclenchée')
     )
 
@@ -343,7 +343,7 @@ class ValeurIndicateur(BaseModel):
 
     class Meta:
         db_table = 'valeurs_indicateur'
-        verbose_name = _('Valeur d\'indicateur')
+        verbose_name = _("Valeur d\'indicateur")
         unique_together = [['indicateur', 'mandat', 'date_mesure']]
         ordering = ['-date_mesure']
         indexes = [
@@ -796,7 +796,7 @@ class AlerteMetrique(BaseModel):
     )
     date_acquittement = models.DateTimeField(
         null=True, blank=True,
-        verbose_name=_('Date d\'acquittement'),
+        verbose_name=_("Date d\'acquittement"),
         help_text=_('Date et heure de prise en charge')
     )
 
@@ -856,7 +856,7 @@ class ExportDonnees(BaseModel):
     )
     type_export = models.CharField(
         max_length=30, choices=TYPE_EXPORT_CHOICES,
-        verbose_name=_('Type d\'export'),
+        verbose_name=_("Type d\'export"),
         help_text=_('Catégorie de données à exporter')
     )
 
@@ -887,15 +887,15 @@ class ExportDonnees(BaseModel):
     # Format
     format_export = models.CharField(
         max_length=10, choices=FORMAT_CHOICES,
-        verbose_name=_('Format d\'export'),
-        help_text=_('Format du fichier d\'export')
+        verbose_name=_("Format d\'export"),
+        help_text=_("Format du fichier d\'export")
     )
 
     # Fichier
     fichier = models.FileField(
         upload_to='exports/', null=True, blank=True,
         verbose_name=_('Fichier'),
-        help_text=_('Fichier d\'export généré')
+        help_text=_("Fichier d\'export généré")
     )
     taille_fichier = models.IntegerField(
         null=True, blank=True,
@@ -917,7 +917,7 @@ class ExportDonnees(BaseModel):
     date_demande = models.DateTimeField(
         auto_now_add=True,
         verbose_name=_('Date de demande'),
-        help_text=_('Date et heure de la demande d\'export')
+        help_text=_("Date et heure de la demande d\'export")
     )
     date_generation = models.DateTimeField(
         null=True, blank=True,

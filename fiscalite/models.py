@@ -14,11 +14,22 @@ class DeclarationFiscale(BaseModel):
     ]
 
     TYPE_IMPOT_CHOICES = [
+        # Suisse
         ('IFD', _('Impôt fédéral direct (IFD)')),
         ('ICC', _('Impôt cantonal et communal (ICC)')),
         ('FORTUNE', _('Impôt sur la fortune')),
         ('BENEFICE', _('Impôt sur le bénéfice')),
         ('CAPITAL', _('Impôt sur le capital')),
+        # Cameroun / Zone CEMAC
+        ('IS_CM', _('Impôt sur les sociétés (IS)')),
+        ('IRPP', _('Impôt sur le revenu des personnes physiques (IRPP)')),
+        ('PATENTE', _('Patente')),
+        ('TPF', _('Taxe sur la propriété foncière (TPF)')),
+        # Sénégal / Côte d'Ivoire / Zone UEMOA
+        ('IS_SN', _('Impôt sur les sociétés (IS)')),
+        ('IR', _('Impôt sur le revenu (IR)')),
+        ('CFE', _('Contribution foncière des entreprises (CFE)')),
+        ('AUTRE', _('Autre impôt')),
     ]
 
     STATUT_CHOICES = [
@@ -58,6 +69,20 @@ class DeclarationFiscale(BaseModel):
         help_text=_('Nature de l\'impôt concerné')
     )
 
+    # Support international
+    regime_fiscal = models.ForeignKey(
+        'tva.RegimeFiscal', on_delete=models.PROTECT,
+        related_name='declarations_fiscales',
+        verbose_name=_('Régime fiscal'),
+        help_text=_('Régime fiscal applicable')
+    )
+    devise = models.ForeignKey(
+        'core.Devise', on_delete=models.PROTECT,
+        related_name='declarations_fiscales',
+        verbose_name=_('Devise'),
+        help_text=_('Devise de la déclaration fiscale')
+    )
+
     # Période
     exercice_comptable = models.ForeignKey(
         ExerciceComptable, on_delete=models.PROTECT,
@@ -83,13 +108,19 @@ class DeclarationFiscale(BaseModel):
     # Autorité fiscale
     canton = models.CharField(
         max_length=2, choices=SwissCantons.choices,
+        blank=True,
         verbose_name=_('Canton'),
-        help_text=_('Canton de taxation')
+        help_text=_('Canton de taxation (Suisse uniquement)')
     )
     commune = models.CharField(
         max_length=100, blank=True,
         verbose_name=_('Commune'),
         help_text=_('Commune de taxation')
+    )
+    subdivision = models.CharField(
+        max_length=100, blank=True,
+        verbose_name=_('Subdivision'),
+        help_text=_('Région, département ou subdivision fiscale (régimes non-suisses)')
     )
     numero_contribuable = models.CharField(
         max_length=50, blank=True,
@@ -101,44 +132,44 @@ class DeclarationFiscale(BaseModel):
     benefice_avant_impots = models.DecimalField(
         max_digits=15, decimal_places=2, default=0,
         verbose_name=_('Bénéfice avant impôts'),
-        help_text=_('Bénéfice comptable avant impôts en CHF')
+        help_text=_('Bénéfice comptable avant impôts dans la devise du régime')
     )
     benefice_imposable = models.DecimalField(
         max_digits=15, decimal_places=2, default=0,
         verbose_name=_('Bénéfice imposable'),
-        help_text=_('Bénéfice après corrections fiscales en CHF')
+        help_text=_('Bénéfice après corrections fiscales dans la devise du régime')
     )
 
     capital_propre = models.DecimalField(
         max_digits=15, decimal_places=2, default=0,
         verbose_name=_('Capital propre'),
-        help_text=_('Capital propre comptable en CHF')
+        help_text=_('Capital propre comptable dans la devise du régime')
     )
     capital_imposable = models.DecimalField(
         max_digits=15, decimal_places=2, default=0,
         verbose_name=_('Capital imposable'),
-        help_text=_('Capital après corrections fiscales en CHF')
+        help_text=_('Capital après corrections fiscales dans la devise du régime')
     )
 
     impot_federal = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
         verbose_name=_('Impôt fédéral'),
-        help_text=_('Montant de l\'impôt fédéral direct en CHF')
+        help_text=_('Montant de l\'impôt fédéral direct dans la devise du régime')
     )
     impot_cantonal = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
         verbose_name=_('Impôt cantonal'),
-        help_text=_('Montant de l\'impôt cantonal en CHF')
+        help_text=_('Montant de l\'impôt cantonal dans la devise du régime')
     )
     impot_communal = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
         verbose_name=_('Impôt communal'),
-        help_text=_('Montant de l\'impôt communal en CHF')
+        help_text=_('Montant de l\'impôt communal dans la devise du régime')
     )
     impot_total = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
         verbose_name=_('Impôt total'),
-        help_text=_('Somme des impôts fédéral, cantonal et communal en CHF')
+        help_text=_('Somme des impôts fédéral, cantonal et communal dans la devise du régime')
     )
 
     # Statut
@@ -340,7 +371,7 @@ class CorrectionFiscale(BaseModel):
     montant_comptable = models.DecimalField(
         max_digits=15, decimal_places=2, default=0,
         verbose_name=_('Montant comptable'),
-        help_text=_('Valeur inscrite en comptabilité en CHF')
+        help_text=_('Valeur inscrite en comptabilité dans la devise du régime')
     )
     montant_correction = models.DecimalField(
         max_digits=15, decimal_places=2,
@@ -350,7 +381,7 @@ class CorrectionFiscale(BaseModel):
     montant_fiscal = models.DecimalField(
         max_digits=15, decimal_places=2, default=0,
         verbose_name=_('Montant fiscal'),
-        help_text=_('Valeur retenue fiscalement en CHF (calculé automatiquement)')
+        help_text=_('Valeur retenue fiscalement dans la devise du régime (calculé automatiquement)')
     )
 
     # Référence comptable
@@ -379,7 +410,8 @@ class CorrectionFiscale(BaseModel):
         ordering = ['declaration', 'type_correction']
 
     def __str__(self):
-        return f"{self.get_type_correction_display()} - {self.montant_correction} CHF"
+        devise_code = getattr(self.declaration, 'devise_id', None) or 'CHF'
+        return f"{self.get_type_correction_display()} - {self.montant_correction} {devise_code}"
 
     def save(self, *args, **kwargs):
         self.montant_fiscal = self.montant_comptable + self.montant_correction
@@ -404,18 +436,18 @@ class ReportPerte(BaseModel):
     montant_perte = models.DecimalField(
         max_digits=15, decimal_places=2,
         verbose_name=_('Montant de la perte'),
-        help_text=_('Montant initial de la perte fiscale en CHF')
+        help_text=_('Montant initial de la perte fiscale dans la devise du régime')
     )
 
     montant_utilise = models.DecimalField(
         max_digits=15, decimal_places=2, default=0,
         verbose_name=_('Montant utilisé'),
-        help_text=_('Cumul des pertes déjà imputées en CHF')
+        help_text=_('Cumul des pertes déjà imputées dans la devise du régime')
     )
     montant_restant = models.DecimalField(
         max_digits=15, decimal_places=2,
         verbose_name=_('Montant restant'),
-        help_text=_('Solde de perte encore reportable en CHF')
+        help_text=_('Solde de perte encore reportable dans la devise du régime')
     )
 
     annee_expiration = models.IntegerField(
@@ -437,7 +469,7 @@ class ReportPerte(BaseModel):
         ]
 
     def __str__(self):
-        return f"Perte {self.annee_origine} - {self.montant_restant} CHF restant"
+        return f"Perte {self.annee_origine} - {self.montant_restant} restant"
 
     def save(self, *args, **kwargs):
         self.montant_restant = self.montant_perte - self.montant_utilise
@@ -469,7 +501,7 @@ class UtilisationPerte(BaseModel):
     montant_utilise = models.DecimalField(
         max_digits=15, decimal_places=2,
         verbose_name=_('Montant utilisé'),
-        help_text=_('Montant de perte imputé sur cette déclaration en CHF')
+        help_text=_('Montant de perte imputé sur cette déclaration dans la devise du régime')
     )
 
     class Meta:
@@ -477,7 +509,7 @@ class UtilisationPerte(BaseModel):
         verbose_name = _('Utilisation de perte')
 
     def __str__(self):
-        return f"Utilisation {self.montant_utilise} CHF - Perte {self.report_perte.annee_origine}"
+        return f"Utilisation {self.montant_utilise} - Perte {self.report_perte.annee_origine}"
 
 
 class TauxImposition(BaseModel):
@@ -491,13 +523,26 @@ class TauxImposition(BaseModel):
 
     canton = models.CharField(
         max_length=2, choices=SwissCantons.choices,
+        blank=True,
         verbose_name=_('Canton'),
-        help_text=_('Canton suisse concerné')
+        help_text=_('Canton suisse concerné (Suisse uniquement)')
     )
     commune = models.CharField(
         max_length=100, blank=True,
         verbose_name=_('Commune'),
         help_text=_('Commune (si taux spécifique)')
+    )
+    subdivision = models.CharField(
+        max_length=100, blank=True,
+        verbose_name=_('Subdivision'),
+        help_text=_('Région ou subdivision fiscale (régimes non-suisses)')
+    )
+    regime_fiscal = models.ForeignKey(
+        'tva.RegimeFiscal', on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='taux_imposition',
+        verbose_name=_('Régime fiscal'),
+        help_text=_('Régime fiscal associé')
     )
 
     type_impot = models.CharField(
@@ -548,7 +593,7 @@ class TauxImposition(BaseModel):
     class Meta:
         db_table = 'taux_imposition'
         verbose_name = _('Taux d\'imposition')
-        unique_together = [['canton', 'commune', 'type_impot', 'annee']]
+        unique_together = [['canton', 'commune', 'subdivision', 'type_impot', 'annee']]
         ordering = ['canton', 'annee']
 
     def __str__(self):
@@ -614,12 +659,12 @@ class ReclamationFiscale(BaseModel):
     montant_conteste = models.DecimalField(
         max_digits=12, decimal_places=2,
         verbose_name=_('Montant contesté'),
-        help_text=_('Montant d\'impôt remis en cause en CHF')
+        help_text=_('Montant d\'impôt remis en cause dans la devise du régime')
     )
     montant_demande = models.DecimalField(
         max_digits=12, decimal_places=2,
         verbose_name=_('Montant demandé'),
-        help_text=_('Montant d\'impôt souhaité après correction en CHF')
+        help_text=_('Montant d\'impôt souhaité après correction dans la devise du régime')
     )
 
     statut = models.CharField(
@@ -638,7 +683,7 @@ class ReclamationFiscale(BaseModel):
         max_digits=12, decimal_places=2,
         null=True, blank=True,
         verbose_name=_('Montant accordé'),
-        help_text=_('Réduction d\'impôt finalement obtenue en CHF')
+        help_text=_('Réduction d\'impôt finalement obtenue dans la devise du régime')
     )
 
     decision = models.TextField(
@@ -666,7 +711,8 @@ class ReclamationFiscale(BaseModel):
         ordering = ['-date_reclamation']
 
     def __str__(self):
-        return f"Réclamation {self.declaration.numero_declaration} - {self.montant_conteste} CHF"
+        devise_code = getattr(self.declaration, 'devise_id', None) or 'CHF'
+        return f"Réclamation {self.declaration.numero_declaration} - {self.montant_conteste} {devise_code}"
 
 
 class OptimisationFiscale(BaseModel):
@@ -716,7 +762,7 @@ class OptimisationFiscale(BaseModel):
     economie_estimee = models.DecimalField(
         max_digits=12, decimal_places=2,
         verbose_name=_('Économie estimée'),
-        help_text=_('Économie d\'impôt estimée en CHF')
+        help_text=_('Économie d\'impôt estimée dans la devise du régime')
     )
     annee_application = models.IntegerField(
         verbose_name=_('Année d\'application'),
@@ -762,7 +808,7 @@ class OptimisationFiscale(BaseModel):
         max_digits=12, decimal_places=2,
         null=True, blank=True,
         verbose_name=_('Économie réelle'),
-        help_text=_('Économie d\'impôt effectivement réalisée en CHF')
+        help_text=_('Économie d\'impôt effectivement réalisée dans la devise du régime')
     )
 
     notes = models.TextField(
@@ -777,4 +823,4 @@ class OptimisationFiscale(BaseModel):
         ordering = ['-economie_estimee']
 
     def __str__(self):
-        return f"{self.titre} - Économie: {self.economie_estimee} CHF"
+        return f"{self.titre} - Économie: {self.economie_estimee}"

@@ -34,6 +34,10 @@ class TimeTrackingSerializer(serializers.ModelSerializer):
 class FactureListSerializer(serializers.ModelSerializer):
     statut_display = serializers.CharField(source="get_statut_display", read_only=True)
     client_name = serializers.CharField(source="client.raison_sociale", read_only=True)
+    devise_code = serializers.CharField(source="devise_id", read_only=True)
+    regime_fiscal_code = serializers.CharField(
+        source="regime_fiscal.code", read_only=True, default=None
+    )
 
     class Meta:
         model = Facture
@@ -47,6 +51,8 @@ class FactureListSerializer(serializers.ModelSerializer):
             "montant_restant",
             "statut",
             "statut_display",
+            "devise_code",
+            "regime_fiscal_code",
         ]
 
 

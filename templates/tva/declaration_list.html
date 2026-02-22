@@ -80,7 +80,7 @@
                         <p class="text-muted mb-0">{% trans "TVA année" %}</p>
                     </div>
                     <div class="h-50 w-50 d-flex-center rounded-circle bg-light-info">
-                        <i class="ph ph-currency-chf f-s-24 text-info"></i>
+                        <i class="ph ph-currency-circle-dollar f-s-24 text-info"></i>
                     </div>
                 </div>
             </div>
@@ -130,6 +130,7 @@
                             <tr>
                                 <th>{% trans "Numéro" %}</th>
                                 <th>{% trans "Mandat" %}</th>
+                                <th>{% trans "Régime" %}</th>
                                 <th>{% trans "Période" %}</th>
                                 <th>{% trans "Méthode" %}</th>
                                 <th class="text-end">{% trans "TVA due" %}</th>
@@ -148,6 +149,13 @@
                                     </a>
                                 </td>
                                 <td>{{ declaration.mandat.client.raison_sociale }}</td>
+                                <td>
+                                    {% if declaration.regime_fiscal %}
+                                    <span class="badge bg-light-secondary">{{ declaration.regime_fiscal.code }}</span>
+                                    {% else %}
+                                    <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
                                 <td>
                                     {% if declaration.trimestre %}
                                     {{ declaration.annee }} T{{ declaration.trimestre }}

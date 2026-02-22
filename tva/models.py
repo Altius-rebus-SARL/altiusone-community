@@ -98,19 +98,19 @@ class ConfigurationTVA(BaseModel):
     """Configuration TVA d'un mandat"""
 
     METHODE_CHOICES = [
-        ('EFFECTIVE', 'Méthode effective'),
-        ('TAUX_DETTE', 'Méthode des taux de la dette fiscale nette'),
-        ('TAUX_FORFAITAIRE', 'Méthode des taux forfaitaires'),
-        ('FORFAIT_BRANCHE', 'Forfait selon la branche'),
-        ('REEL_NORMAL', 'Régime réel normal'),
-        ('REEL_SIMPLIFIE', 'Régime réel simplifié'),
-        ('FORFAITAIRE', 'Régime forfaitaire'),
+        ('EFFECTIVE', _('Méthode effective')),
+        ('TAUX_DETTE', _('Méthode des taux de la dette fiscale nette')),
+        ('TAUX_FORFAITAIRE', _('Méthode des taux forfaitaires')),
+        ('FORFAIT_BRANCHE', _('Forfait selon la branche')),
+        ('REEL_NORMAL', _('Régime réel normal')),
+        ('REEL_SIMPLIFIE', _('Régime réel simplifié')),
+        ('FORFAITAIRE', _('Régime forfaitaire')),
     ]
 
     # Conservé pour compatibilité/migration
     PERIODICITE_CHOICES = [
-        ('TRIMESTRIEL', 'Trimestriel'),
-        ('SEMESTRIEL', 'Semestriel'),
+        ('TRIMESTRIEL', _('Trimestriel')),
+        ('SEMESTRIEL', _('Semestriel')),
     ]
 
     mandat = models.OneToOneField(
@@ -121,7 +121,6 @@ class ConfigurationTVA(BaseModel):
     )
     regime = models.ForeignKey(
         RegimeFiscal, on_delete=models.PROTECT,
-        null=True, blank=True,
         related_name='configurations',
         verbose_name=_('Régime fiscal'),
         help_text=_('Régime fiscal applicable à ce mandat')
@@ -228,10 +227,10 @@ class TauxTVA(BaseModel):
     """Taux de TVA en vigueur"""
 
     TYPE_CHOICES = [
-        ('NORMAL', 'Taux normal'),
-        ('REDUIT', 'Taux réduit'),
-        ('SPECIAL', 'Taux spécial hébergement'),
-        ('EXONERE', 'Exonéré'),
+        ('NORMAL', _('Taux normal')),
+        ('REDUIT', _('Taux réduit')),
+        ('SPECIAL', _('Taux spécial hébergement')),
+        ('EXONERE', _('Exonéré')),
     ]
 
     regime = models.ForeignKey(
@@ -294,13 +293,13 @@ class CodeTVA(BaseModel):
     """Codes TVA (chiffres du décompte AFC)"""
 
     CATEGORIE_CHOICES = [
-        ('CHIFFRE_AFFAIRES', 'Chiffre d\'affaires'),
-        ('PRESTATIONS_IMPOSABLES', 'Prestations imposables'),
-        ('PRESTATIONS_EXCLUES', 'Prestations exclues'),
-        ('TVA_DUE', 'TVA due'),
-        ('TVA_PREALABLE', 'Impôt préalable'),
-        ('DEDUCTIONS', 'Déductions'),
-        ('CORRECTIONS', 'Corrections'),
+        ('CHIFFRE_AFFAIRES', _('Chiffre d\'affaires')),
+        ('PRESTATIONS_IMPOSABLES', _('Prestations imposables')),
+        ('PRESTATIONS_EXCLUES', _('Prestations exclues')),
+        ('TVA_DUE', _('TVA due')),
+        ('TVA_PREALABLE', _('Impôt préalable')),
+        ('DEDUCTIONS', _('Déductions')),
+        ('CORRECTIONS', _('Corrections')),
     ]
 
     regime = models.ForeignKey(
@@ -376,21 +375,21 @@ class DeclarationTVA(BaseModel):
     """Décompte TVA trimestriel/semestriel"""
 
     STATUT_CHOICES = [
-        ('BROUILLON', 'Brouillon'),
-        ('EN_COURS', 'En cours de préparation'),
-        ('A_VALIDER', 'À valider'),
-        ('VALIDE', 'Validé'),
-        ('SOUMIS', 'Soumis à l\'AFC'),
-        ('ACCEPTE', 'Accepté par l\'AFC'),
-        ('PAYE', 'Payé'),
-        ('CLOTURE', 'Clôturé'),
+        ('BROUILLON', _('Brouillon')),
+        ('EN_COURS', _('En cours de préparation')),
+        ('A_VALIDER', _('À valider')),
+        ('VALIDE', _('Validé')),
+        ('SOUMIS', _('Soumis à l\'AFC')),
+        ('ACCEPTE', _('Accepté par l\'AFC')),
+        ('PAYE', _('Payé')),
+        ('CLOTURE', _('Clôturé')),
     ]
 
     TYPE_DECOMPTE_CHOICES = [
-        ('NORMAL', 'Décompte normal'),
-        ('FINAL', 'Décompte final'),
-        ('COMPLEMENTAIRE', 'Décompte complémentaire'),
-        ('RECTIFICATIF', 'Décompte rectificatif'),
+        ('NORMAL', _('Décompte normal')),
+        ('FINAL', _('Décompte final')),
+        ('COMPLEMENTAIRE', _('Décompte complémentaire')),
+        ('RECTIFICATIF', _('Décompte rectificatif')),
     ]
 
     # Identification
@@ -399,6 +398,20 @@ class DeclarationTVA(BaseModel):
         related_name='declarations_tva',
         verbose_name=_('Mandat'),
         help_text=_('Mandat concerné par cette déclaration')
+    )
+    regime_fiscal = models.ForeignKey(
+        RegimeFiscal, on_delete=models.PROTECT,
+        related_name='declarations_tva',
+        null=True, blank=True,
+        verbose_name=_('Régime fiscal'),
+        help_text=_('Régime fiscal applicable à cette déclaration')
+    )
+    devise = models.ForeignKey(
+        'core.Devise', on_delete=models.PROTECT,
+        related_name='declarations_tva',
+        null=True, blank=True,
+        verbose_name=_('Devise'),
+        help_text=_('Devise de la déclaration TVA')
     )
     numero_declaration = models.CharField(
         max_length=50, unique=True, db_index=True,
@@ -573,7 +586,9 @@ class DeclarationTVA(BaseModel):
 
     @property
     def devise_code(self):
-        """Code de la devise du régime fiscal, avec fallback CHF"""
+        """Code de la devise, avec fallback via mandat"""
+        if self.devise_id:
+            return self.devise_id
         try:
             return self.mandat.config_tva.regime.devise_defaut.code
         except (AttributeError, Exception):
@@ -581,6 +596,8 @@ class DeclarationTVA(BaseModel):
 
     def get_nom_taxe(self):
         """Nom de la taxe du régime fiscal, avec fallback TVA"""
+        if self.regime_fiscal:
+            return self.regime_fiscal.nom_taxe
         try:
             return self.mandat.config_tva.regime.nom_taxe
         except (AttributeError, Exception):
@@ -593,6 +610,15 @@ class DeclarationTVA(BaseModel):
             return f"TVA {self.annee} S{self.semestre} - {self.mandat.numero}"
 
     def save(self, *args, **kwargs):
+        # Auto-populate regime_fiscal and devise from mandat if not set
+        if not self.regime_fiscal_id:
+            try:
+                self.regime_fiscal = self.mandat.config_tva.regime
+            except (AttributeError, Exception):
+                pass
+        if not self.devise_id and self.regime_fiscal:
+            self.devise = self.regime_fiscal.devise_defaut
+
         if not self.numero_declaration:
             # Format: TVA-2025-T1-001
             periode = f"T{self.trimestre}" if self.trimestre else f"S{self.semestre}"
@@ -1132,12 +1158,12 @@ class OperationTVA(BaseModel):
     """Opération soumise à TVA (liée aux écritures comptables)"""
 
     TYPE_OPERATION_CHOICES = [
-        ('VENTE', 'Vente'),
-        ('ACHAT', 'Achat'),
-        ('IMPORT', 'Importation'),
-        ('EXPORT', 'Exportation'),
-        ('INTRA_COM', 'Intracommunautaire'),
-        ('AUTRE', 'Autre'),
+        ('VENTE', _('Vente')),
+        ('ACHAT', _('Achat')),
+        ('IMPORT', _('Importation')),
+        ('EXPORT', _('Exportation')),
+        ('INTRA_COM', _('Intracommunautaire')),
+        ('AUTRE', _('Autre')),
     ]
 
     mandat = models.ForeignKey(
@@ -1208,6 +1234,13 @@ class OperationTVA(BaseModel):
         verbose_name=_('Tiers'),
         help_text=_('Nom du client ou fournisseur')
     )
+    tiers_ref = models.ForeignKey(
+        'core.Tiers', on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='operations_tva',
+        verbose_name=_('Tiers (référence)'),
+        help_text=_('Référence structurée vers le tiers centralisé')
+    )
     numero_tva_tiers = models.CharField(
         max_length=20, blank=True,
         verbose_name=_('N° TVA tiers'),
@@ -1215,6 +1248,13 @@ class OperationTVA(BaseModel):
     )
 
     # Justification
+    facture = models.ForeignKey(
+        'facturation.Facture', on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='operations_tva',
+        verbose_name=_('Facture'),
+        help_text=_('Facture liée à cette opération TVA')
+    )
     numero_facture = models.CharField(
         max_length=50, blank=True,
         verbose_name=_('N° facture'),
@@ -1263,11 +1303,11 @@ class CorrectionTVA(BaseModel):
     """Corrections TVA (ex: autoconsommation, usage privé)"""
 
     TYPE_CORRECTION_CHOICES = [
-        ('AUTOCONSOMMATION', 'Autoconsommation'),
-        ('USAGE_PRIVE', 'Usage privé'),
-        ('CORRECTION_DEDUCTION', 'Correction déduction impôt préalable'),
-        ('SUBVENTION', 'Correction subventions'),
-        ('AUTRE', 'Autre correction'),
+        ('AUTOCONSOMMATION', _('Autoconsommation')),
+        ('USAGE_PRIVE', _('Usage privé')),
+        ('CORRECTION_DEDUCTION', _('Correction déduction impôt préalable')),
+        ('SUBVENTION', _('Correction subventions')),
+        ('AUTRE', _('Autre correction')),
     ]
 
     declaration = models.ForeignKey(

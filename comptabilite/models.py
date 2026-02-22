@@ -221,6 +221,16 @@ class PlanComptable(BaseModel):
         help_text=_("Mandat utilisant ce plan comptable (vide pour les templates)")
     )
 
+    # Devise du plan comptable
+    devise = models.ForeignKey(
+        Devise,
+        on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name='plans_comptables',
+        verbose_name=_("Devise"),
+        help_text=_("Devise dans laquelle sont exprimés les soldes de ce plan")
+    )
+
     # Héritage de template
     base_sur = models.ForeignKey(
         'self',
@@ -364,6 +374,14 @@ class Compte(BaseModel):
         verbose_name=_("Code TVA par défaut"),
         help_text=_("Code TVA appliqué par défaut (200, 205, 300, etc.)")
     )
+    code_tva_defaut_ref = models.ForeignKey(
+        'tva.CodeTVA',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='comptes_defaut',
+        verbose_name=_("Code TVA par défaut (référence)"),
+        help_text=_("Référence structurée vers le code TVA du régime fiscal")
+    )
 
     # Soldes
     solde_debit = models.DecimalField(
@@ -404,12 +422,13 @@ class Compte(BaseModel):
             return self.solde_credit - self.solde_debit
 
     def get_solde_display(self):
-        """Affichage du solde avec signe"""
+        """Affichage du solde avec signe et devise du plan comptable"""
         solde = self.solde
+        devise_code = getattr(self.plan_comptable, 'devise_id', None) or 'CHF'
         if solde >= 0:
-            return f"{solde:,.2f} CHF"
+            return f"{solde:,.2f} {devise_code}"
         else:
-            return f"-{abs(solde):,.2f} CHF"
+            return f"-{abs(solde):,.2f} {devise_code}"
 
 
 # =============================================================================
@@ -455,6 +474,14 @@ class Journal(BaseModel):
         help_text=_("Type de journal (Ventes, Achats, Banque, etc.)")
     )
 
+    devise = models.ForeignKey(
+        Devise,
+        on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name='journaux',
+        verbose_name=_("Devise"),
+        help_text=_("Devise de référence du journal (vide si multi-devise)")
+    )
     compte_contrepartie_defaut = models.ForeignKey(
         Compte,
         on_delete=models.SET_NULL,
@@ -642,6 +669,22 @@ class EcritureComptable(BaseModel):
         blank=True,
         verbose_name=_("Code TVA"),
         help_text=_("Code TVA applicable (200, 205, 300, etc.)")
+    )
+    code_tva_ref = models.ForeignKey(
+        'tva.CodeTVA',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='ecritures_comptables',
+        verbose_name=_("Code TVA (référence)"),
+        help_text=_("Référence structurée vers le code TVA du régime fiscal")
+    )
+    tiers = models.ForeignKey(
+        'core.Tiers',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='ecritures_comptables',
+        verbose_name=_("Tiers"),
+        help_text=_("Tiers associé à cette écriture")
     )
     montant_tva = models.DecimalField(
         max_digits=15,
@@ -978,6 +1021,24 @@ class PieceComptable(BaseModel):
         blank=True,
         verbose_name=_("N° TVA du tiers"),
         help_text=_("Numéro de TVA du fournisseur ou client")
+    )
+    tiers = models.ForeignKey(
+        'core.Tiers',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='pieces_comptables',
+        verbose_name=_("Tiers (référence)"),
+        help_text=_("Référence structurée vers le tiers centralisé")
+    )
+
+    # Devise
+    devise = models.ForeignKey(
+        Devise,
+        on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name='pieces_comptables',
+        verbose_name=_("Devise"),
+        help_text=_("Devise des montants de cette pièce")
     )
 
     # Montants (peuvent être pré-remplis par OCR)

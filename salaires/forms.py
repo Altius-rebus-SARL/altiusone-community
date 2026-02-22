@@ -65,6 +65,7 @@ class EmployeForm(forms.ModelForm):
             "iban",
             "banque",
             "statut",
+            "regime_fiscal",
             "soumis_is",
             "barreme_is",
             "taux_is",

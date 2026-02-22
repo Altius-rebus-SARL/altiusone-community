@@ -1,11 +1,12 @@
 import uuid
 from django.conf import settings
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 
 
 class Conversation(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    title = models.CharField(max_length=255, blank=True)
+    title = models.CharField(max_length=255, blank=True, verbose_name=_("Titre"))
     participants = models.ManyToManyField(
         settings.AUTH_USER_MODEL, related_name='chat_conversations'
     )
