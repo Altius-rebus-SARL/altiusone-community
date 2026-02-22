@@ -89,6 +89,17 @@
                                 {% endif %}
                             </div>
                         </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ form.devise.id_for_label }}" class="form-label">
+                                    {{ form.devise.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.devise }}
+                                {% if form.devise.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.devise.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -270,17 +281,6 @@
                                 {{ form.cloture_mois }}
                                 {% if form.cloture_mois.errors %}
                                 <div class="text-danger f-s-12 mt-1">{{ form.cloture_mois.errors }}</div>
-                                {% endif %}
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label for="{{ form.devise.id_for_label }}" class="form-label">
-                                    {{ form.devise.label }}
-                                </label>
-                                {{ form.devise }}
-                                {% if form.devise.errors %}
-                                <div class="text-danger f-s-12 mt-1">{{ form.devise.errors }}</div>
                                 {% endif %}
                             </div>
                         </div>

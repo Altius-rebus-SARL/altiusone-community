@@ -183,12 +183,6 @@ class MandatForm(forms.ModelForm):
         ]
     ]
 
-    DEVISE_CHOICES = [
-        ('CHF', 'CHF'),
-        ('EUR', 'EUR'),
-        ('USD', 'USD'),
-    ]
-
     MODULES_CHOICES = [
         ('compta', _('Comptabilité')),
         ('tva', _('TVA')),
@@ -223,13 +217,6 @@ class MandatForm(forms.ModelForm):
         widget=forms.Select(attrs={"class": "form-control"}),
         label=_('Mois de clôture'),
     )
-    devise = forms.ChoiceField(
-        choices=DEVISE_CHOICES,
-        initial='CHF',
-        required=False,
-        widget=forms.Select(attrs={"class": "form-control"}),
-        label=_('Devise'),
-    )
     modules_actifs = forms.MultipleChoiceField(
         choices=MODULES_CHOICES,
         required=False,
@@ -243,6 +230,7 @@ class MandatForm(forms.ModelForm):
             "client",
             "type_mandat_ref",
             "regime_fiscal",
+            "devise",
             "statut",
             "date_debut",
             "date_fin",
@@ -259,6 +247,7 @@ class MandatForm(forms.ModelForm):
             "client": forms.Select(attrs={"class": "form-control select2"}),
             "type_mandat_ref": forms.Select(attrs={"class": "form-control"}),
             "regime_fiscal": forms.Select(attrs={"class": "form-control"}),
+            "devise": forms.Select(attrs={"class": "form-control"}),
             "statut": forms.Select(attrs={"class": "form-control"}),
             "date_debut": forms.DateInput(
                 attrs={"class": "form-control", "type": "date"}
@@ -298,7 +287,6 @@ class MandatForm(forms.ModelForm):
             self.fields['methode_tva'].initial = config.get('methode_tva', '')
             self.fields['periodicite_tva'].initial = config.get('periodicite_tva', '')
             self.fields['cloture_mois'].initial = config.get('cloture_mois', '')
-            self.fields['devise'].initial = config.get('devise', 'CHF')
             self.fields['modules_actifs'].initial = config.get('modules_actifs', [])
 
     def save(self, commit=True):
@@ -306,7 +294,7 @@ class MandatForm(forms.ModelForm):
 
         # Sérialiser les champs de configuration dans le JSONField
         config = instance.configuration or {}
-        for key in ('plan_comptable', 'methode_tva', 'periodicite_tva', 'devise'):
+        for key in ('plan_comptable', 'methode_tva', 'periodicite_tva'):
             val = self.cleaned_data.get(key)
             if val:
                 config[key] = val
