@@ -347,7 +347,7 @@ class IntrospectionAPITests(TestCase):
 
         self.factory = APIRequestFactory()
         self.view_models = IntrospectionViewSet.as_view({'get': 'models'})
-        self.view_schema = IntrospectionViewSet.as_view({'get': 'schema'})
+        self.view_schema = IntrospectionViewSet.as_view({'get': 'model_schema'})
         self.view_fields = IntrospectionViewSet.as_view({'get': 'fields'})
         self.force_authenticate = force_authenticate
 
