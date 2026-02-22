@@ -14,7 +14,7 @@ import json
 from decimal import Decimal
 from datetime import date, timedelta
 
-from django.test import TestCase, Client as TestClient
+from django.test import TestCase, Client as TestClient, override_settings
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 
@@ -25,6 +25,7 @@ from tva.models import RegimeFiscal
 User = get_user_model()
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class BaseAnalyticsTestCase(TestCase):
     """Classe de base pour les tests analytics avec fixtures communes."""
 

@@ -138,14 +138,39 @@ def make_client(responsable=None, adresse_siege=None, **kwargs):
     return Client.objects.create(**defaults)
 
 
+def make_regime_fiscal(**kwargs):
+    """Crée ou récupère un RegimeFiscal pour les tests."""
+    from tva.models import RegimeFiscal
+    from core.models import Devise
+    devise = Devise.objects.get_or_create(
+        code='CHF',
+        defaults={'nom': 'Franc suisse', 'symbole': 'Fr.', 'decimales': 2},
+    )[0]
+    defaults = {
+        'code': 'CH',
+        'nom': 'Suisse',
+        'pays': 'CH',
+        'devise_defaut': devise,
+        'taux_normal': Decimal('8.1'),
+    }
+    defaults.update(kwargs)
+    obj, _ = RegimeFiscal.objects.get_or_create(code=defaults.pop('code'), defaults=defaults)
+    return obj
+
+
 def make_mandat(client=None, responsable=None, **kwargs):
     """Crée un Mandat minimal pour les tests."""
-    from core.models import Mandat
+    from core.models import Mandat, Devise
     uid = uuid.uuid4().hex[:6]
     if responsable is None:
         responsable = make_user()
     if client is None:
         client = make_client(responsable=responsable)
+    regime = make_regime_fiscal()
+    devise = Devise.objects.get_or_create(
+        code='CHF',
+        defaults={'nom': 'Franc suisse', 'symbole': 'Fr.', 'decimales': 2},
+    )[0]
     defaults = {
         'client': client,
         'numero': f'MAN-TEST-{uid}',
@@ -153,6 +178,8 @@ def make_mandat(client=None, responsable=None, **kwargs):
         'date_debut': date(2025, 1, 1),
         'responsable': responsable,
         'statut': 'ACTIF',
+        'regime_fiscal': regime,
+        'devise': devise,
     }
     defaults.update(kwargs)
     return Mandat.objects.create(**defaults)
