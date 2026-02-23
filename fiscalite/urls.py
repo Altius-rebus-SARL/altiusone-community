@@ -110,6 +110,26 @@ urlpatterns = [
         views.TauxImpositionListView.as_view(),
         name="taux-imposition-list",
     ),
+    path(
+        "taux-imposition/tab/<uuid:regime_pk>/",
+        views.taux_imposition_tab,
+        name="taux-imposition-tab",
+    ),
+    path(
+        "taux-imposition/nouveau/",
+        views.TauxImpositionCreateView.as_view(),
+        name="taux-imposition-create",
+    ),
+    path(
+        "taux-imposition/<uuid:pk>/modifier/",
+        views.TauxImpositionUpdateView.as_view(),
+        name="taux-imposition-update",
+    ),
+    path(
+        "taux-imposition/<uuid:pk>/supprimer/",
+        views.taux_imposition_delete,
+        name="taux-imposition-delete",
+    ),
     # Rapports
     path(
         "mandats/<uuid:mandat_pk>/rapport-annuel/",

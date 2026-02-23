@@ -10,6 +10,7 @@ from .models import (
     ReportPerte,
     ReclamationFiscale,
     OptimisationFiscale,
+    TauxImposition,
 )
 from core.models import Mandat, ExerciceComptable
 
@@ -197,4 +198,41 @@ class OptimisationFiscaleForm(forms.ModelForm):
             "niveau_risque": forms.Select(attrs={"class": "form-control"}),
             "reference_legale": forms.TextInput(attrs={"class": "form-control"}),
             "notes": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+        }
+
+
+class TauxImpositionForm(forms.ModelForm):
+    """Formulaire pour un taux d'imposition"""
+
+    class Meta:
+        model = TauxImposition
+        fields = [
+            "regime_fiscal",
+            "type_impot",
+            "annee",
+            "canton",
+            "commune",
+            "subdivision",
+            "taux_fixe",
+            "multiplicateur_cantonal",
+            "multiplicateur_communal",
+            "actif",
+        ]
+        widgets = {
+            "regime_fiscal": forms.Select(attrs={"class": "form-control"}),
+            "type_impot": forms.Select(attrs={"class": "form-control"}),
+            "annee": forms.NumberInput(attrs={"class": "form-control"}),
+            "canton": forms.Select(attrs={"class": "form-control select2"}),
+            "commune": forms.TextInput(attrs={"class": "form-control"}),
+            "subdivision": forms.TextInput(attrs={"class": "form-control"}),
+            "taux_fixe": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01"}
+            ),
+            "multiplicateur_cantonal": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01"}
+            ),
+            "multiplicateur_communal": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01"}
+            ),
+            "actif": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }

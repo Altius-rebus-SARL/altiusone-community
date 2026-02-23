@@ -213,6 +213,9 @@ class EstvTaxRateService:
         if rates.communal_rate is not None:
             entries.append(('ICC_CAPITAL', rates.communal_rate, None, None))
 
+        from tva.models import RegimeFiscal
+        regime_ch = RegimeFiscal.objects.filter(code='CH').first()
+
         for type_impot, taux, mult_cant, mult_comm in entries:
             try:
                 obj, was_created = TauxImposition.objects.update_or_create(
@@ -220,6 +223,7 @@ class EstvTaxRateService:
                     commune=commune,
                     type_impot=type_impot,
                     annee=year,
+                    regime_fiscal=regime_ch,
                     defaults={
                         'taux_fixe': taux,
                         'multiplicateur_cantonal': mult_cant,

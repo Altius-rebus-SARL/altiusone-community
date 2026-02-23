@@ -28,8 +28,9 @@ class DeclarationFiscaleAdmin(admin.ModelAdmin):
 
 @admin.register(TauxImposition)
 class TauxImpositionAdmin(admin.ModelAdmin):
-    list_display = ["canton", "type_impot", "annee", "taux_fixe", "actif"]
-    list_filter = ["canton", "type_impot", "actif"]
+    list_display = ["regime_fiscal", "canton", "type_impot", "annee", "taux_fixe", "actif"]
+    list_filter = ["regime_fiscal", "canton", "type_impot", "actif"]
+    search_fields = ["canton", "commune", "subdivision"]
 
 
 admin.site.register(AnnexeFiscale)

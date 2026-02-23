@@ -32,6 +32,7 @@ from .forms import (
     ReportPerteForm,
     ReclamationFiscaleForm,
     OptimisationFiscaleForm,
+    TauxImpositionForm,
 )
 from .filters import DeclarationFiscaleFilter, OptimisationFiscaleFilter
 from core.models import Mandat, ExerciceComptable
@@ -479,7 +480,7 @@ def optimisation_changer_statut(request, pk):
 
 
 class TauxImpositionListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
-    """Liste des taux d'imposition"""
+    """Liste des taux d'imposition avec onglets par régime fiscal"""
 
     model = TauxImposition
     template_name = "fiscalite/taux_imposition_list.html"
@@ -487,9 +488,88 @@ class TauxImpositionListView(LoginRequiredMixin, BusinessPermissionMixin, ListVi
     business_permission = 'fiscalite.view_declarations_fiscales'
 
     def get_queryset(self):
-        return TauxImposition.objects.filter(actif=True).order_by(
-            "canton", "commune", "-annee"
-        )
+        return TauxImposition.objects.filter(actif=True).select_related('regime_fiscal')
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from tva.models import RegimeFiscal
+        ctx['regimes'] = RegimeFiscal.objects.filter(
+            taux_imposition__isnull=False
+        ).distinct().order_by('code')
+        return ctx
+
+
+@login_required
+def taux_imposition_tab(request, regime_pk):
+    """Partial HTMX : taux d'imposition pour un régime fiscal donné."""
+    from tva.models import RegimeFiscal
+    regime = get_object_or_404(RegimeFiscal, pk=regime_pk)
+    taux = TauxImposition.objects.filter(
+        regime_fiscal=regime, actif=True
+    ).order_by('canton', 'subdivision', 'commune', '-annee')
+
+    is_swiss = regime.code == 'CH'
+    template = (
+        'fiscalite/partials/taux_tab_suisse.html'
+        if is_swiss
+        else 'fiscalite/partials/taux_tab_ohada.html'
+    )
+
+    return render(request, template, {
+        'regime': regime,
+        'taux': taux,
+        'is_swiss': is_swiss,
+    })
+
+
+class TauxImpositionCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView):
+    """Création d'un taux d'imposition"""
+
+    model = TauxImposition
+    form_class = TauxImpositionForm
+    template_name = "fiscalite/taux_imposition_form.html"
+    business_permission = 'fiscalite.view_declarations_fiscales'
+    success_url = reverse_lazy("fiscalite:taux-imposition-list")
+
+    def get_initial(self):
+        initial = super().get_initial()
+        regime_pk = self.request.GET.get('regime')
+        if regime_pk:
+            from tva.models import RegimeFiscal
+            regime = RegimeFiscal.objects.filter(pk=regime_pk).first()
+            if regime:
+                initial['regime_fiscal'] = regime
+        return initial
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        messages.success(self.request, _("Taux d'imposition créé avec succès"))
+        return super().form_valid(form)
+
+
+class TauxImpositionUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateView):
+    """Modification d'un taux d'imposition"""
+
+    model = TauxImposition
+    form_class = TauxImpositionForm
+    template_name = "fiscalite/taux_imposition_form.html"
+    business_permission = 'fiscalite.view_declarations_fiscales'
+    success_url = reverse_lazy("fiscalite:taux-imposition-list")
+    context_object_name = "taux_obj"
+
+    def form_valid(self, form):
+        messages.success(self.request, _("Taux d'imposition mis à jour avec succès"))
+        return super().form_valid(form)
+
+
+@login_required
+@require_http_methods(["POST"])
+def taux_imposition_delete(request, pk):
+    """Suppression d'un taux d'imposition"""
+    taux = get_object_or_404(TauxImposition, pk=pk)
+    taux.delete()
+    messages.success(request, _("Taux d'imposition supprimé"))
+    return redirect("fiscalite:taux-imposition-list")
 
 
 # ============ RAPPORTS FISCAUX ============

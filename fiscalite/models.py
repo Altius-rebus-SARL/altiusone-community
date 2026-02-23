@@ -516,9 +516,21 @@ class TauxImposition(BaseModel):
     """Taux d'imposition par canton/commune"""
 
     TYPE_IMPOT_CHOICES = [
+        # Suisse
         ('IFD_BENEFICE', _('IFD Bénéfice')),
         ('ICC_BENEFICE', _('ICC Bénéfice')),
         ('ICC_CAPITAL', _('ICC Capital')),
+        # Cameroun / CEMAC
+        ('IS_CM', _('Impôt sur les sociétés (IS)')),
+        ('IRPP', _('Impôt sur le revenu (IRPP)')),
+        ('PATENTE', _('Patente')),
+        ('TPF', _('Taxe propriété foncière (TPF)')),
+        # Sénégal / CI / UEMOA
+        ('IS_SN', _('Impôt sur les sociétés (IS)')),
+        ('IR', _('Impôt sur le revenu (IR)')),
+        ('CFE', _('Contribution foncière entreprises (CFE)')),
+        # Générique
+        ('AUTRE', _('Autre impôt')),
     ]
 
     canton = models.CharField(
@@ -538,8 +550,7 @@ class TauxImposition(BaseModel):
         help_text=_('Région ou subdivision fiscale (régimes non-suisses)')
     )
     regime_fiscal = models.ForeignKey(
-        'tva.RegimeFiscal', on_delete=models.SET_NULL,
-        null=True, blank=True,
+        'tva.RegimeFiscal', on_delete=models.PROTECT,
         related_name='taux_imposition',
         verbose_name=_('Régime fiscal'),
         help_text=_('Régime fiscal associé')
@@ -593,7 +604,7 @@ class TauxImposition(BaseModel):
     class Meta:
         db_table = 'taux_imposition'
         verbose_name = _('Taux d\'imposition')
-        unique_together = [['canton', 'commune', 'subdivision', 'type_impot', 'annee']]
+        unique_together = [['regime_fiscal', 'canton', 'commune', 'subdivision', 'type_impot', 'annee']]
         ordering = ['canton', 'annee']
 
     def __str__(self):
