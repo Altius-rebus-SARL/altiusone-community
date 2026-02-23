@@ -695,11 +695,11 @@ def tache_calendar_events(request):
 
     taches = taches.distinct()
 
-    color_map = {
-        'URGENTE': '#dc3545',
-        'HAUTE': '#ffc107',
-        'NORMALE': '#0dcaf0',
-        'BASSE': '#6c757d',
+    class_map = {
+        'URGENTE': 'event-danger',
+        'HAUTE': 'event-warning',
+        'NORMALE': 'event-info',
+        'BASSE': 'event-secondary',
     }
 
     events = []
@@ -712,9 +712,7 @@ def tache_calendar_events(request):
             'title': t.titre,
             'start': event_date.isoformat(),
             'url': reverse('core:tache-detail', kwargs={'pk': t.pk}),
-            'backgroundColor': color_map.get(t.priorite, '#0dcaf0'),
-            'borderColor': color_map.get(t.priorite, '#0dcaf0'),
-            'textColor': '#000' if t.priorite == 'HAUTE' else '#fff',
+            'className': class_map.get(t.priorite, 'event-info'),
             'extendedProps': {
                 'description': t.description[:100] if t.description else '',
                 'statut': t.get_statut_display(),
