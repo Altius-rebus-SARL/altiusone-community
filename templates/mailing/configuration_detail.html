@@ -18,12 +18,10 @@
                     </ol>
                 </div>
                 <div class="page-header-right">
-                    <form method="post" action="{% url 'mailing:configuration-test' configuration.pk %}" class="d-inline">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-info me-2">
-                            <i class="ti ti-plug me-2"></i>{% trans "Tester connexion" %}
-                        </button>
-                    </form>
+                    <button type="button" class="btn btn-info me-2" id="btnTestConnexion"
+                            data-url="{% url 'mailing:configuration-test' configuration.pk %}">
+                        <i class="ti ti-plug me-2"></i>{% trans "Tester connexion" %}
+                    </button>
                     <a href="{% url 'mailing:configuration-update' configuration.pk %}" class="btn btn-primary">
                         <i class="ti ti-edit me-2"></i>{% trans "Modifier" %}
                     </a>
@@ -250,5 +248,83 @@
             </div>
         </div>
     </div>
+
+    <!-- Résultat du test de connexion -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card d-none" id="testResultCard">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5><i class="ti ti-plug me-2"></i>{% trans "Résultat du test de connexion" %}</h5>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('testResultCard').classList.add('d-none')">
+                        <i class="ti ti-x"></i>
+                    </button>
+                </div>
+                <div class="card-body" id="testResultBody">
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('btnTestConnexion').addEventListener('click', function() {
+    const btn = this;
+    const url = btn.dataset.url;
+    const card = document.getElementById('testResultCard');
+    const body = document.getElementById('testResultBody');
+
+    // Désactiver le bouton et afficher le spinner
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>{% trans "Test en cours..." %}';
+
+    // Afficher la carte avec un loader
+    card.classList.remove('d-none');
+    body.innerHTML = '<div class="text-center py-4"><span class="spinner-border text-info"></span><p class="text-muted mt-2">{% trans "Connexion au serveur en cours... Cela peut prendre jusqu\'à 15 secondes." %}</p></div>';
+
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        let html = '';
+
+        if (data.results) {
+            for (const [proto, result] of Object.entries(data.results)) {
+                const label = proto.toUpperCase();
+                const icon = result.success ? 'ti-circle-check text-success' : 'ti-circle-x text-danger';
+                const bgClass = result.success ? 'bg-success-subtle border-success' : 'bg-danger-subtle border-danger';
+
+                html += `
+                    <div class="alert ${bgClass} border d-flex align-items-start mb-3" role="alert">
+                        <i class="ti ${icon} me-3" style="font-size: 1.5rem; margin-top: 2px;"></i>
+                        <div>
+                            <strong>${label}</strong>
+                            <p class="mb-0 mt-1">${result.message}</p>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        if (!html) {
+            html = '<div class="alert alert-warning">{% trans "Aucun serveur configuré à tester." %}</div>';
+        }
+
+        body.innerHTML = html;
+    })
+    .catch(error => {
+        body.innerHTML = `<div class="alert alert-danger"><strong>{% trans "Erreur réseau" %}</strong><p class="mb-0 mt-1">${error.message}</p></div>`;
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="ti ti-plug me-2"></i>{% trans "Tester connexion" %}';
+    });
+});
+</script>
 {% endblock %}

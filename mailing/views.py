@@ -111,22 +111,41 @@ class ConfigurationUpdateView(LoginRequiredMixin, ManagerRequiredMixin, UpdateVi
 @login_required
 @require_http_methods(["POST"])
 def configuration_test(request, pk):
-    """Teste une configuration email"""
+    """Teste une configuration email (SMTP et/ou IMAP) avec diagnostic détaillé"""
     if not (request.user.is_superuser or request.user.is_manager()):
         return JsonResponse({'success': False, 'message': 'Non autorisé'}, status=403)
 
     config = get_object_or_404(ConfigurationEmail, pk=pk)
     service = EmailService()
 
-    success, message = service.test_configuration(config)
+    results = {}
+
+    # Test SMTP si configuré
+    if config.smtp_host:
+        smtp_ok, smtp_msg = service._test_smtp(config)
+        results['smtp'] = {'success': smtp_ok, 'message': smtp_msg}
+
+    # Test IMAP si configuré
+    if config.imap_host:
+        imap_ok, imap_msg = service._test_imap(config)
+        results['imap'] = {'success': imap_ok, 'message': imap_msg}
+
+    # Résumé global
+    all_ok = all(r['success'] for r in results.values()) if results else False
 
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return JsonResponse({'success': success, 'message': message})
+        return JsonResponse({'success': all_ok, 'results': results})
 
-    if success:
-        messages.success(request, message)
-    else:
-        messages.error(request, message)
+    # Fallback non-AJAX : flash messages
+    for proto, result in results.items():
+        label = proto.upper()
+        if result['success']:
+            messages.success(request, f"{label} : {result['message']}")
+        else:
+            messages.error(request, f"{label} : {result['message']}")
+
+    if not results:
+        messages.warning(request, "Aucun serveur SMTP ou IMAP configuré à tester.")
 
     return redirect('mailing:configuration-detail', pk=pk)
 

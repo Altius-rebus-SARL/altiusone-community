@@ -2,6 +2,7 @@
 Services pour la gestion des emails.
 """
 import smtplib
+import ssl
 import imaplib
 import email
 from email.mime.text import MIMEText
@@ -280,43 +281,164 @@ class EmailService:
             return False, str(e)
 
     def _test_smtp(self, config: ConfigurationEmail) -> Tuple[bool, str]:
-        """Teste une configuration SMTP."""
+        """Teste une configuration SMTP avec diagnostic détaillé."""
+        import socket
+
+        host = config.smtp_host
+        port = config.smtp_port
+        protocole = "SSL" if config.smtp_use_ssl else ("STARTTLS" if config.smtp_use_tls else "non chiffré")
+
+        # 1. Résolution DNS
+        try:
+            ip = socket.getaddrinfo(host, port, socket.AF_UNSPEC, socket.SOCK_STREAM)
+            if not ip:
+                return False, (
+                    f"Résolution DNS échouée : le serveur « {host} » est introuvable. "
+                    f"Vérifiez le nom du serveur SMTP."
+                )
+        except socket.gaierror as e:
+            return False, (
+                f"Résolution DNS échouée pour « {host} » : {e}. "
+                f"Vérifiez que le nom du serveur SMTP est correct."
+            )
+
+        # 2. Connexion TCP
         try:
             if config.smtp_use_ssl:
-                server = smtplib.SMTP_SSL(config.smtp_host, config.smtp_port, timeout=10)
+                server = smtplib.SMTP_SSL(host, port, timeout=15)
             else:
-                server = smtplib.SMTP(config.smtp_host, config.smtp_port, timeout=10)
-                if config.smtp_use_tls:
-                    server.starttls()
+                server = smtplib.SMTP(host, port, timeout=15)
+        except socket.timeout:
+            return False, (
+                f"Timeout : le serveur « {host}:{port} » ne répond pas dans les 15 secondes. "
+                f"Causes possibles : port {port} bloqué par le pare-feu, "
+                f"mauvais port (essayez 587 pour STARTTLS ou 465 pour SSL), "
+                f"ou le serveur est injoignable depuis ce réseau."
+            )
+        except ConnectionRefusedError:
+            return False, (
+                f"Connexion refusée par « {host}:{port} ». "
+                f"Le serveur existe mais refuse les connexions sur ce port. "
+                f"Vérifiez le port (465 pour SSL, 587 pour STARTTLS, 25 pour non chiffré)."
+            )
+        except ssl.SSLError as e:
+            return False, (
+                f"Erreur SSL lors de la connexion à « {host}:{port} » : {e}. "
+                f"Le port {port} n'accepte peut-être pas les connexions SSL. "
+                f"Essayez le port 587 avec STARTTLS au lieu de SSL."
+            )
+        except OSError as e:
+            return False, (
+                f"Erreur réseau vers « {host}:{port} » : {e}. "
+                f"Vérifiez que le serveur est accessible depuis ce réseau."
+            )
 
-            server.login(config.username, config.password)
+        # 3. STARTTLS (si applicable)
+        try:
+            if not config.smtp_use_ssl and config.smtp_use_tls:
+                server.starttls()
+        except smtplib.SMTPNotSupportedError:
             server.quit()
-
-            return True, "Connexion SMTP réussie"
-        except smtplib.SMTPAuthenticationError:
-            return False, "Erreur d'authentification SMTP"
-        except smtplib.SMTPConnectError as e:
-            return False, f"Impossible de se connecter au serveur SMTP: {e}"
+            return False, (
+                f"Le serveur « {host}:{port} » ne supporte pas STARTTLS. "
+                f"Essayez SSL sur le port 465, ou désactivez TLS."
+            )
         except Exception as e:
-            return False, f"Erreur SMTP: {e}"
+            server.quit()
+            return False, (
+                f"Erreur STARTTLS sur « {host}:{port} » : {e}. "
+                f"Le serveur ne supporte peut-être pas TLS sur ce port."
+            )
+
+        # 4. Authentification
+        try:
+            server.login(config.username, config.password)
+        except smtplib.SMTPAuthenticationError as e:
+            server.quit()
+            code = e.smtp_code if hasattr(e, 'smtp_code') else ''
+            return False, (
+                f"Authentification refusée (code {code}). "
+                f"L'utilisateur « {config.username} » ou le mot de passe est incorrect. "
+                f"Vérifiez les identifiants dans la configuration."
+            )
+        except smtplib.SMTPNotSupportedError:
+            server.quit()
+            return False, (
+                f"Le serveur « {host}:{port} » ne supporte pas l'authentification. "
+                f"Vérifiez la configuration du serveur mail."
+            )
+        except Exception as e:
+            server.quit()
+            return False, f"Erreur lors de l'authentification : {e}"
+
+        # 5. Tout OK
+        server.quit()
+        return True, (
+            f"Connexion SMTP réussie : {host}:{port} ({protocole}), "
+            f"authentifié en tant que « {config.username} »."
+        )
 
     def _test_imap(self, config: ConfigurationEmail) -> Tuple[bool, str]:
-        """Teste une configuration IMAP."""
+        """Teste une configuration IMAP avec diagnostic détaillé."""
+        import socket
+
+        host = config.imap_host
+        port = config.imap_port
+
+        # 1. Résolution DNS
+        try:
+            socket.getaddrinfo(host, port, socket.AF_UNSPEC, socket.SOCK_STREAM)
+        except socket.gaierror as e:
+            return False, (
+                f"Résolution DNS échouée pour « {host} » : {e}. "
+                f"Vérifiez que le nom du serveur IMAP est correct."
+            )
+
+        # 2. Connexion
         try:
             if config.imap_use_ssl:
-                server = imaplib.IMAP4_SSL(config.imap_host, config.imap_port)
+                server = imaplib.IMAP4_SSL(host, port)
             else:
-                server = imaplib.IMAP4(config.imap_host, config.imap_port)
+                server = imaplib.IMAP4(host, port)
+        except socket.timeout:
+            return False, (
+                f"Timeout : le serveur IMAP « {host}:{port} » ne répond pas. "
+                f"Vérifiez le port (993 pour SSL, 143 pour non chiffré) "
+                f"et que le pare-feu autorise la connexion."
+            )
+        except ConnectionRefusedError:
+            return False, (
+                f"Connexion refusée par « {host}:{port} ». "
+                f"Vérifiez le port IMAP (993 pour SSL, 143 pour non chiffré)."
+            )
+        except OSError as e:
+            return False, f"Erreur réseau vers « {host}:{port} » : {e}."
 
+        # 3. Authentification
+        try:
             server.login(config.username, config.password)
-            server.select(config.imap_dossier or 'INBOX')
-            server.logout()
-
-            return True, "Connexion IMAP réussie"
         except imaplib.IMAP4.error as e:
-            return False, f"Erreur IMAP: {e}"
-        except Exception as e:
-            return False, f"Erreur: {e}"
+            return False, (
+                f"Authentification IMAP refusée pour « {config.username} » : {e}. "
+                f"Vérifiez les identifiants."
+            )
+
+        # 4. Sélection du dossier
+        dossier = config.imap_dossier or 'INBOX'
+        try:
+            server.select(dossier)
+        except imaplib.IMAP4.error as e:
+            server.logout()
+            return False, (
+                f"Le dossier « {dossier} » n'existe pas ou n'est pas accessible : {e}."
+            )
+
+        server.logout()
+        protocole = "SSL" if config.imap_use_ssl else "non chiffré"
+        return True, (
+            f"Connexion IMAP réussie : {host}:{port} ({protocole}), "
+            f"authentifié en tant que « {config.username} », dossier « {dossier} »."
+        )
 
     def fetch_emails(
         self,
