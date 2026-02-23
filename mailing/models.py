@@ -352,7 +352,7 @@ class EmailEnvoye(models.Model):
         default=list,
         blank=True,
         verbose_name=_('Pièces jointes'),
-        help_text=_('[{"nom": "doc.pdf", "path": "/path/to/file"}]')
+        help_text=_('[{"nom": "doc.pdf", "cle_s3": "abc123_doc.pdf", "taille": 1024, "type_mime": "application/pdf"}]')
     )
 
     # Statut

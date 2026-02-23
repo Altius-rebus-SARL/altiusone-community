@@ -221,12 +221,23 @@ class EmailService:
 
             # Ajouter les pièces jointes
             for pj in email_envoye.pieces_jointes:
-                if 'path' in pj and 'nom' in pj:
-                    try:
-                        with open(pj['path'], 'rb') as f:
-                            msg.attach(pj['nom'], f.read())
-                    except Exception as e:
-                        logger.warning(f"Impossible d'attacher {pj['nom']}: {e}")
+                nom = pj.get('nom', 'fichier')
+                cle = pj.get('cle_s3') or pj.get('path')
+                if not cle:
+                    continue
+                try:
+                    if pj.get('cle_s3'):
+                        from core.storage import MailingStorage
+                        storage = MailingStorage()
+                        with storage.open(cle, 'rb') as f:
+                            contenu = f.read()
+                    else:
+                        with open(cle, 'rb') as f:
+                            contenu = f.read()
+                    type_mime = pj.get('type_mime')
+                    msg.attach(nom, contenu, type_mime)
+                except Exception as e:
+                    logger.warning(f"Impossible d'attacher {nom}: {e}")
 
             # Envoyer
             msg.send()

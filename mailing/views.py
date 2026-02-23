@@ -449,14 +449,33 @@ def email_compose(request):
             messages.error(request, _("Aucune configuration email disponible"))
             return redirect('mailing:email-recu-list')
 
+        # Sauvegarder les pièces jointes en S3
+        pieces_jointes_meta = []
+        fichiers = request.FILES.getlist('pieces_jointes')
+        if fichiers:
+            import uuid as _uuid
+            from core.storage import MailingStorage
+            storage = MailingStorage()
+            for fichier in fichiers:
+                cle = f"{_uuid.uuid4().hex[:12]}_{fichier.name}"
+                cle_sauvee = storage.save(cle, fichier)
+                pieces_jointes_meta.append({
+                    'nom': fichier.name,
+                    'cle_s3': cle_sauvee,
+                    'taille': fichier.size,
+                    'type_mime': fichier.content_type or 'application/octet-stream',
+                })
+
         # Créer l'email
         email = EmailEnvoye.objects.create(
             configuration=configuration,
             utilisateur=request.user,
             destinataire=form.cleaned_data['destinataire'],
-            cc=','.join(form.cleaned_data.get('cc', [])),
+            destinataires_cc=form.cleaned_data.get('cc', []),
             sujet=form.cleaned_data['sujet'],
             corps_texte=form.cleaned_data['message'],
+            corps_html=form.cleaned_data['message'],
+            pieces_jointes=pieces_jointes_meta,
             statut=EmailEnvoye.Statut.EN_ATTENTE,
         )
 

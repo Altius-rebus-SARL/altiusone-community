@@ -214,6 +214,20 @@ if USE_S3:
             'CacheControl': 'private, no-cache',
         }
 
+    class S3MailingStorage(S3BaseStorage):
+        """
+        Storage pour les pièces jointes des emails (privées).
+        """
+        bucket_name = getattr(settings, 'AWS_STORAGE_BUCKET_NAME', 'altiusone-media')
+        location = 'mailing/attachments'
+        default_acl = 'private'
+        file_overwrite = False
+        querystring_auth = True
+
+        object_parameters = {
+            'CacheControl': 'private, no-cache',
+        }
+
     # Alias pour usage dans les models
     DocumentStorage = S3DocumentStorage
     PublicMediaStorage = S3PublicMediaStorage
@@ -223,6 +237,7 @@ if USE_S3:
     FiscaliteStorage = S3FiscaliteStorage
     ExportStorage = S3ExportStorage
     TVAStorage = S3TVAStorage
+    MailingStorage = S3MailingStorage
 
 else:
     # Stockage local (développement ou si S3 non configuré)
@@ -244,6 +259,7 @@ else:
     FiscaliteStorage = LocalStorage
     ExportStorage = LocalStorage
     TVAStorage = LocalStorage
+    MailingStorage = LocalStorage
 
 
 def get_storage_backend(storage_type='document'):
@@ -252,7 +268,7 @@ def get_storage_backend(storage_type='document'):
 
     Args:
         storage_type: 'document', 'public', 'profile', 'invoice',
-                      'salaires', 'fiscalite', 'export', 'tva'
+                      'salaires', 'fiscalite', 'export', 'tva', 'mailing'
 
     Returns:
         Instance du storage backend
@@ -266,6 +282,7 @@ def get_storage_backend(storage_type='document'):
         'fiscalite': FiscaliteStorage,
         'export': ExportStorage,
         'tva': TVAStorage,
+        'mailing': MailingStorage,
     }
 
     storage_class = storage_map.get(storage_type, DocumentStorage)
