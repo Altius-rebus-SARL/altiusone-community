@@ -564,17 +564,10 @@
             >
           </li>
           <li
-            data-active="{% if ns == 'mailing' and 'envoye' in is_active %}true{% endif %}"
+            data-active="{% if ns == 'mailing' and is_active == 'boite-reception' %}true{% endif %}"
           >
-            <a href="{% url 'mailing:email-envoye-list' %}"
-              >{% trans "Emails envoyés" %}</a
-            >
-          </li>
-          <li
-            data-active="{% if ns == 'mailing' and 'recu' in is_active %}true{% endif %}"
-          >
-            <a href="{% url 'mailing:email-recu-list' %}"
-              >{% trans "Emails reçus" %}</a
+            <a href="{% url 'mailing:boite-reception' %}"
+              >{% trans "Boîte de réception" %}</a
             >
           </li>
         </ul>

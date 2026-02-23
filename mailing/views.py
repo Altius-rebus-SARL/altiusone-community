@@ -233,11 +233,154 @@ def template_preview(request, pk):
 
 
 # =============================================================================
+# BOITE DE RECEPTION UNIFIEE
+# =============================================================================
+
+DOSSIERS_VALIDES = ('reception', 'envoyes', 'importants', 'analyses', 'pieces')
+
+
+def _is_valid_uuid(value):
+    import uuid
+    try:
+        uuid.UUID(str(value))
+        return True
+    except (ValueError, AttributeError):
+        return False
+
+
+class BoiteReceptionView(LoginRequiredMixin, ManagerRequiredMixin, ListView):
+    """Boîte de réception unifiée avec navigation par dossiers"""
+
+    template_name = "mailing/boite_reception.html"
+    context_object_name = "emails"
+    paginate_by = 50
+
+    def get_dossier(self):
+        dossier = self.request.GET.get('dossier', 'reception')
+        return dossier if dossier in DOSSIERS_VALIDES else 'reception'
+
+    def get_queryset(self):
+        from django.db.models import Q
+        dossier = self.get_dossier()
+
+        if dossier == 'envoyes':
+            queryset = EmailEnvoye.objects.select_related('configuration', 'utilisateur')
+
+            statut = self.request.GET.get('statut')
+            if statut:
+                queryset = queryset.filter(statut=statut)
+
+            search = self.request.GET.get('q')
+            if search:
+                queryset = queryset.filter(
+                    Q(destinataire__icontains=search) |
+                    Q(sujet__icontains=search)
+                )
+
+            configuration = self.request.GET.get('configuration')
+            if configuration and _is_valid_uuid(configuration):
+                queryset = queryset.filter(configuration_id=configuration)
+
+            return queryset.order_by('-created_at')
+
+        # Tous les autres dossiers = EmailRecu
+        queryset = EmailRecu.objects.select_related('configuration', 'mandat_detecte', 'client_detecte')
+
+        if dossier == 'importants':
+            queryset = queryset.filter(est_important=True)
+        elif dossier == 'analyses':
+            queryset = queryset.filter(analyse_effectuee=True)
+        elif dossier == 'pieces':
+            queryset = queryset.exclude(pieces_jointes=[]).exclude(pieces_jointes__isnull=True)
+
+        # Filtres transversaux
+        lu = self.request.GET.get('lu')
+        if lu == '1':
+            queryset = queryset.filter(date_lecture__isnull=False)
+        elif lu == '0':
+            queryset = queryset.filter(date_lecture__isnull=True)
+
+        important = self.request.GET.get('important')
+        if important == '1':
+            queryset = queryset.filter(est_important=True)
+
+        analyse = self.request.GET.get('analyse')
+        if analyse == '1':
+            queryset = queryset.filter(analyse_effectuee=True)
+        elif analyse == '0':
+            queryset = queryset.filter(analyse_effectuee=False)
+
+        search = self.request.GET.get('q')
+        if search:
+            queryset = queryset.filter(
+                Q(expediteur__icontains=search) |
+                Q(expediteur_nom__icontains=search) |
+                Q(sujet__icontains=search)
+            )
+
+        configuration = self.request.GET.get('configuration')
+        if configuration and _is_valid_uuid(configuration):
+            queryset = queryset.filter(configuration_id=configuration)
+
+        return queryset.order_by('-date_reception')
+
+    def get_context_data(self, **kwargs):
+        from django.utils import timezone
+        context = super().get_context_data(**kwargs)
+
+        dossier = self.get_dossier()
+        context['dossier_actuel'] = dossier
+        context['is_sent_folder'] = (dossier == 'envoyes')
+
+        # Stats pour badges sidebar
+        context['stats'] = {
+            'total_recus': EmailRecu.objects.count(),
+            'non_lus': EmailRecu.objects.filter(date_lecture__isnull=True).count(),
+            'total_envoyes': EmailEnvoye.objects.count(),
+            'importants': EmailRecu.objects.filter(est_important=True).count(),
+            'analyses': EmailRecu.objects.filter(analyse_effectuee=True).count(),
+            'avec_pieces': EmailRecu.objects.exclude(pieces_jointes=[]).exclude(pieces_jointes__isnull=True).count(),
+        }
+
+        # Stats envoyés (pour sidebar)
+        context['stats_envoyes'] = {
+            'envoyes': EmailEnvoye.objects.filter(statut='ENVOYE').count(),
+            'en_attente': EmailEnvoye.objects.filter(statut='EN_ATTENTE').count(),
+            'echecs': EmailEnvoye.objects.filter(statut='ECHEC').count(),
+        }
+        context['statuts_envoyes'] = EmailEnvoye.Statut.choices
+
+        # Configurations IMAP (boîtes mail) + SMTP (composer)
+        context['configurations'] = ConfigurationEmail.objects.filter(
+            actif=True
+        ).exclude(imap_host='')
+        context['configurations_smtp'] = ConfigurationEmail.objects.filter(
+            actif=True
+        ).exclude(smtp_host='')
+
+        context['today'] = timezone.now().date()
+
+        return context
+
+
+@login_required
+def redirect_envoyes_to_inbox(request):
+    """Redirection backward-compat envoyes/ -> boite-reception?dossier=envoyes"""
+    return redirect(reverse('mailing:boite-reception') + '?dossier=envoyes')
+
+
+@login_required
+def redirect_recus_to_inbox(request):
+    """Redirection backward-compat recus/ -> boite-reception"""
+    return redirect('mailing:boite-reception')
+
+
+# =============================================================================
 # VUES EMAILS ENVOYES
 # =============================================================================
 
 class EmailEnvoyeListView(LoginRequiredMixin, ManagerRequiredMixin, ListView):
-    """Liste des emails envoyés"""
+    """Liste des emails envoyés (legacy, remplacé par BoiteReceptionView)"""
 
     model = EmailEnvoye
     template_name = "mailing/email_envoye_list.html"
@@ -290,7 +433,7 @@ def email_renvoyer(request, pk):
     """Renvoyer un email en échec"""
     if not (request.user.is_superuser or request.user.is_manager()):
         messages.error(request, _("Non autorisé"))
-        return redirect('mailing:email-envoye-list')
+        return redirect('mailing:boite-reception')
 
     email = get_object_or_404(EmailEnvoye, pk=pk)
 
@@ -402,7 +545,7 @@ def email_analyser(request, pk):
     """Analyser un email avec l'IA"""
     if not (request.user.is_superuser or request.user.is_manager()):
         messages.error(request, _("Non autorisé"))
-        return redirect('mailing:email-recu-list')
+        return redirect('mailing:boite-reception')
 
     email = get_object_or_404(EmailRecu, pk=pk)
 
@@ -419,13 +562,13 @@ def emails_fetch(request):
     """Récupérer les nouveaux emails"""
     if not (request.user.is_superuser or request.user.is_manager()):
         messages.error(request, _("Non autorisé"))
-        return redirect('mailing:email-recu-list')
+        return redirect('mailing:boite-reception')
 
     from .tasks import fetch_emails_task
     fetch_emails_task.delay()
 
     messages.success(request, _("Récupération des emails lancée"))
-    return redirect('mailing:email-recu-list')
+    return redirect('mailing:boite-reception')
 
 
 @login_required
@@ -434,7 +577,7 @@ def email_compose(request):
     """Composer et envoyer un nouvel email"""
     if not (request.user.is_superuser or request.user.is_manager()):
         messages.error(request, _("Non autorisé"))
-        return redirect('mailing:email-recu-list')
+        return redirect('mailing:boite-reception')
 
     from .forms import ComposeEmailForm
 
@@ -450,7 +593,7 @@ def email_compose(request):
 
         if not configuration:
             messages.error(request, _("Aucune configuration email disponible"))
-            return redirect('mailing:email-recu-list')
+            return redirect('mailing:boite-reception')
 
         # Sauvegarder les pièces jointes en S3
         pieces_jointes_meta = []
@@ -492,4 +635,4 @@ def email_compose(request):
             for error in errors:
                 messages.error(request, f"{field}: {error}")
 
-    return redirect('mailing:email-recu-list')
+    return redirect('mailing:boite-reception')

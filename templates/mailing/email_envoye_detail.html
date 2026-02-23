@@ -13,7 +13,7 @@
                     <h3>{% trans "Detail de l'email" %}</h3>
                     <ol class="breadcrumb">
                         <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}"><i class="ti ti-home"></i></a></li>
-                        <li class="breadcrumb-item"><a href="{% url 'mailing:email-envoye-list' %}">{% trans "Emails envoyes" %}</a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'mailing:boite-reception' %}?dossier=envoyes">{% trans "Emails envoyes" %}</a></li>
                         <li class="breadcrumb-item active">{{ email.sujet|truncatechars:30 }}</li>
                     </ol>
                 </div>

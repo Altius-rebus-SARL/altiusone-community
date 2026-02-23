@@ -24,16 +24,19 @@ urlpatterns = [
     path("templates/<uuid:pk>/preview/", views.template_preview, name="template-preview"),
 
     # ============================================================================
-    # EMAILS ENVOYES
+    # BOITE DE RECEPTION UNIFIEE
     # ============================================================================
-    path("envoyes/", views.EmailEnvoyeListView.as_view(), name="email-envoye-list"),
-    path("envoyes/<uuid:pk>/", views.EmailEnvoyeDetailView.as_view(), name="email-envoye-detail"),
-    path("envoyes/<uuid:pk>/renvoyer/", views.email_renvoyer, name="email-renvoyer"),
+    path("", views.BoiteReceptionView.as_view(), name="boite-reception"),
+
+    # Redirections backward-compat
+    path("envoyes/", views.redirect_envoyes_to_inbox, name="email-envoye-list"),
+    path("recus/", views.redirect_recus_to_inbox, name="email-recu-list"),
 
     # ============================================================================
-    # EMAILS RECUS
+    # DETAILS & ACTIONS EMAILS
     # ============================================================================
-    path("recus/", views.EmailRecuListView.as_view(), name="email-recu-list"),
+    path("envoyes/<uuid:pk>/", views.EmailEnvoyeDetailView.as_view(), name="email-envoye-detail"),
+    path("envoyes/<uuid:pk>/renvoyer/", views.email_renvoyer, name="email-renvoyer"),
     path("recus/<uuid:pk>/", views.EmailRecuDetailView.as_view(), name="email-recu-detail"),
     path("recus/<uuid:pk>/analyser/", views.email_analyser, name="email-analyser"),
     path("recus/fetch/", views.emails_fetch, name="emails-fetch"),

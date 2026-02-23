@@ -107,7 +107,7 @@
                     <h3>{% trans "Lecture email" %}</h3>
                     <ol class="breadcrumb">
                         <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}"><i class="ti ti-home"></i></a></li>
-                        <li class="breadcrumb-item"><a href="{% url 'mailing:email-recu-list' %}">{% trans "Boite de reception" %}</a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'mailing:boite-reception' %}">{% trans "Boite de reception" %}</a></li>
                         <li class="breadcrumb-item active">{{ email.sujet|truncatechars:30 }}</li>
                     </ol>
                 </div>
@@ -121,7 +121,7 @@
                 <!-- Sidebar -->
                 <div class="mail-sidebar">
                     <!-- Back Button -->
-                    <a href="{% url 'mailing:email-recu-list' %}" class="btn btn-outline-secondary w-100 mb-4">
+                    <a href="{% url 'mailing:boite-reception' %}" class="btn btn-outline-secondary w-100 mb-4">
                         <i class="ti ti-arrow-left me-2"></i>{% trans "Retour" %}
                     </a>
 
@@ -150,11 +150,11 @@
                     <!-- Navigation -->
                     <div class="mb-4">
                         <h6 class="text-muted text-uppercase f-s-12 mb-3">{% trans "Navigation" %}</h6>
-                        <a href="{% url 'mailing:email-recu-list' %}" class="folder-item">
+                        <a href="{% url 'mailing:boite-reception' %}" class="folder-item">
                             <i class="ti ti-inbox"></i>
                             <span>{% trans "Boite de reception" %}</span>
                         </a>
-                        <a href="{% url 'mailing:email-envoye-list' %}" class="folder-item">
+                        <a href="{% url 'mailing:boite-reception' %}?dossier=envoyes" class="folder-item">
                             <i class="ti ti-send"></i>
                             <span>{% trans "Envoyes" %}</span>
                         </a>
