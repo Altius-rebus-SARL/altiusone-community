@@ -308,6 +308,14 @@
                 {% csrf_token %}
                 <div class="modal-body">
                     <div class="mb-3">
+                        <label for="compose_config" class="form-label">{% trans "Envoyer depuis" %}</label>
+                        <select name="configuration" id="compose_config" class="form-select">
+                            {% for config in configurations_smtp %}
+                            <option value="{{ config.pk }}" {% if config.est_defaut %}selected{% endif %}>{{ config.nom }} ({{ config.email_address }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
                         <label for="compose_to" class="form-label">{% trans "Destinataire" %} <span class="text-danger">*</span></label>
                         <input type="email" name="destinataire" id="compose_to" class="form-control" placeholder="destinataire@email.com" required>
                     </div>

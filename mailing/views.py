@@ -267,6 +267,9 @@ class EmailEnvoyeListView(LoginRequiredMixin, ManagerRequiredMixin, ListView):
             'en_attente': EmailEnvoye.objects.filter(statut='EN_ATTENTE').count(),
             'echecs': EmailEnvoye.objects.filter(statut='ECHEC').count(),
         }
+        context['configurations_smtp'] = ConfigurationEmail.objects.filter(
+            actif=True
+        ).exclude(smtp_host='')
         return context
 
 
