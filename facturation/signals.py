@@ -141,24 +141,45 @@ def comptabiliser_facture(sender, instance, **kwargs):
                         )
                         ligne_num += 1
 
-                # Crédit: TVA due
+                # Crédit: TVA due - ventilation par taux
                 if instance.montant_tva > 0 and compte_tva:
-                    EcritureComptable.objects.create(
-                        mandat=instance.mandat,
-                        exercice=instance.mandat.exercices.filter(
-                            statut='OUVERT'
-                        ).first(),
-                        journal=journal,
-                        numero_piece=numero_piece,
-                        numero_ligne=ligne_num,
-                        date_ecriture=instance.date_emission,
-                        compte=compte_tva,
-                        libelle=f"TVA sur facture {instance.numero_facture}",
-                        montant_credit=instance.montant_tva,
-                        code_tva=code_tva_ventes,
-                        montant_tva=instance.montant_tva,
-                        statut='VALIDE'
-                    )
+                    # Grouper les lignes facture par taux TVA
+                    from collections import defaultdict
+                    tva_par_taux = defaultdict(lambda: {'ht': Decimal('0'), 'tva': Decimal('0')})
+                    for ligne in instance.lignes.all():
+                        taux = ligne.taux_tva or Decimal('0')
+                        tva_par_taux[taux]['ht'] += ligne.montant_ht
+                        tva_par_taux[taux]['tva'] += ligne.montant_tva
+
+                    # Mapping taux -> code AFC (302=normal 8.1%, 312=réduit 2.6%, 342=spécial 3.8%)
+                    TAUX_CODE_MAP = {
+                        Decimal('8.1'): '302',
+                        Decimal('2.6'): '312',
+                        Decimal('3.8'): '342',
+                    }
+
+                    for taux, montants in tva_par_taux.items():
+                        if montants['tva'] <= 0:
+                            continue
+                        code_tva_taux = TAUX_CODE_MAP.get(taux, code_tva_ventes)
+
+                        EcritureComptable.objects.create(
+                            mandat=instance.mandat,
+                            exercice=instance.mandat.exercices.filter(
+                                statut='OUVERT'
+                            ).first(),
+                            journal=journal,
+                            numero_piece=numero_piece,
+                            numero_ligne=ligne_num,
+                            date_ecriture=instance.date_emission,
+                            compte=compte_tva,
+                            libelle=f"TVA {taux}% sur facture {instance.numero_facture}",
+                            montant_credit=montants['tva'],
+                            code_tva=code_tva_taux,
+                            montant_tva=montants['tva'],
+                            statut='VALIDE'
+                        )
+                        ligne_num += 1
 
                 instance.ecriture_comptable = piece
                 instance.save(update_fields=['ecriture_comptable'])

@@ -195,6 +195,27 @@ def declaration_valider(request, pk):
 
 @login_required
 @require_http_methods(["POST"])
+def declaration_populate_comptabilite(request, pk):
+    """Pré-remplit les montants depuis la comptabilité"""
+    from .services.auto_populate import populate_from_comptabilite
+
+    declaration = get_object_or_404(DeclarationFiscale, pk=pk)
+
+    if declaration.statut not in ("BROUILLON", "EN_PREPARATION"):
+        messages.error(request, _("Seules les déclarations en préparation peuvent être pré-remplies"))
+        return redirect("fiscalite:declaration-detail", pk=pk)
+
+    success = populate_from_comptabilite(declaration)
+    if success:
+        messages.success(request, _("Montants pré-remplis depuis la comptabilité"))
+    else:
+        messages.error(request, _("Impossible de pré-remplir : vérifiez l'exercice comptable lié"))
+
+    return redirect("fiscalite:declaration-detail", pk=pk)
+
+
+@login_required
+@require_http_methods(["POST"])
 def declaration_deposer(request, pk):
     """Marque une déclaration comme déposée"""
     declaration = get_object_or_404(DeclarationFiscale, pk=pk)

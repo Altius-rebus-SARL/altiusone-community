@@ -70,6 +70,31 @@ class FacturePDF:
         return self._devise_code
 
     @staticmethod
+    def _fmt(value):
+        """Formate un montant selon la convention suisse : 1'234.56"""
+        from decimal import Decimal, InvalidOperation
+        if value is None:
+            return '0.00'
+        try:
+            val = Decimal(str(value))
+        except (InvalidOperation, TypeError, ValueError):
+            return f"{value:.2f}"
+        is_negative = val < 0
+        val = abs(val)
+        parts = f"{val:.2f}".split('.')
+        entier = parts[0]
+        decimale = parts[1]
+        result = ''
+        for i, digit in enumerate(reversed(entier)):
+            if i > 0 and i % 3 == 0:
+                result = "'" + result
+            result = digit + result
+        formatted = f"{result}.{decimale}"
+        if is_negative:
+            formatted = f"-{formatted}"
+        return formatted
+
+    @staticmethod
     def _hex(color_value):
         """Convertit une valeur de couleur en HexColor."""
         if isinstance(color_value, str):
@@ -96,7 +121,8 @@ class FacturePDF:
 
         y = self._draw_header(p, width, height)
         y = self._draw_emetteur(p, y)
-        self._draw_destinataire(p, width, height)
+        if not facture.est_simplifiee:
+            self._draw_destinataire(p, width, height)
         y = self._draw_info_facture(p, y, width, height)
         y = self._draw_lignes(p, y, width, height)
         y = self._draw_totaux(p, y, width)
@@ -306,20 +332,23 @@ class FacturePDF:
             p.drawRightString(x - 0.2 * cm, y, qty_text)
 
             x += col_widths[1]
-            p.drawRightString(x - 0.2 * cm, y, f"{ligne.prix_unitaire_ht:.2f}")
+            p.drawRightString(x - 0.2 * cm, y, self._fmt(ligne.prix_unitaire_ht))
 
             x += col_widths[2]
             p.drawRightString(x - 0.2 * cm, y, f"{ligne.taux_tva:.1f}%")
 
             x += col_widths[3]
-            p.drawRightString(x - 0.2 * cm, y, f"{ligne.montant_ht:.2f}")
+            p.drawRightString(x - 0.2 * cm, y, self._fmt(ligne.montant_ht))
 
             y -= current_row_height
 
         return y
 
     def _draw_totaux(self, p, y, width):
-        """Dessine la section totaux."""
+        """Dessine la section totaux avec ventilation TVA multi-taux."""
+        from collections import OrderedDict
+        from decimal import Decimal
+
         col_widths = [8 * cm, 2 * cm, 2.5 * cm, 1.5 * cm, 2.5 * cm]
         y -= 0.2 * cm
 
@@ -334,23 +363,50 @@ class FacturePDF:
         p.setFont(self._font, 8)
         label_x = totaux_x + 0.2 * cm
         value_x = self._margin_left + sum(col_widths) - 0.2 * cm
+        devise = self.devise_code
 
         # Sous-total HT
         p.drawString(label_x, y, "Sous-total HT:")
-        devise = self.devise_code
-        p.drawRightString(value_x, y, f"{self.facture.montant_ht:.2f} {devise}")
+        p.drawRightString(value_x, y, f"{self._fmt(self.facture.montant_ht)} {devise}")
         y -= 0.35 * cm
 
         # Remise
         if self.facture.remise_pourcent and self.facture.remise_pourcent > 0:
             p.drawString(label_x, y, f"Remise ({self.facture.remise_pourcent}%):")
-            p.drawRightString(value_x, y, f"-{self.facture.remise_montant:.2f} {devise}")
+            p.drawRightString(value_x, y, f"-{self._fmt(self.facture.remise_montant)} {devise}")
             y -= 0.35 * cm
 
-        # TVA
-        p.drawString(label_x, y, "TVA:")
-        p.drawRightString(value_x, y, f"{self.facture.montant_tva:.2f} {devise}")
-        y -= 0.35 * cm
+        # Ventilation TVA par taux
+        tva_par_taux = OrderedDict()
+        for ligne in self.facture.lignes.all().order_by('taux_tva'):
+            taux = ligne.taux_tva or Decimal('0')
+            if taux not in tva_par_taux:
+                tva_par_taux[taux] = {'base': Decimal('0'), 'tva': Decimal('0')}
+            tva_par_taux[taux]['base'] += ligne.montant_ht
+            tva_par_taux[taux]['tva'] += ligne.montant_tva
+
+        if len(tva_par_taux) > 1:
+            # Multi-taux : une ligne par taux
+            tva_totale = Decimal('0')
+            for taux, montants in tva_par_taux.items():
+                if montants['tva'] > 0:
+                    p.drawString(label_x, y,
+                                 f"TVA {taux:.1f}% (sur {self._fmt(montants['base'])}):")
+                    p.drawRightString(value_x, y, f"{self._fmt(montants['tva'])} {devise}")
+                    tva_totale += montants['tva']
+                    y -= 0.35 * cm
+
+            # Total TVA
+            p.setFont(self._font_bold, 8)
+            p.drawString(label_x, y, "Total TVA:")
+            p.drawRightString(value_x, y, f"{self._fmt(tva_totale)} {devise}")
+            p.setFont(self._font, 8)
+            y -= 0.35 * cm
+        else:
+            # Taux unique : ligne simple
+            p.drawString(label_x, y, "TVA:")
+            p.drawRightString(value_x, y, f"{self._fmt(self.facture.montant_tva)} {devise}")
+            y -= 0.35 * cm
 
         # Ligne avant total
         p.line(totaux_x, y + 0.1 * cm, totaux_x + totaux_width, y + 0.1 * cm)
@@ -360,7 +416,7 @@ class FacturePDF:
         p.setFillColor(self._color_accent)
         p.setFont(self._font_bold, 10)
         p.drawString(label_x, y, "TOTAL TTC:")
-        p.drawRightString(value_x, y, f"{self.facture.montant_ttc:.2f} {devise}")
+        p.drawRightString(value_x, y, f"{self._fmt(self.facture.montant_ttc)} {devise}")
 
         # Montant paye
         if self.facture.montant_paye and self.facture.montant_paye > 0:
@@ -368,11 +424,11 @@ class FacturePDF:
             y -= 0.4 * cm
             p.setFont(self._font, 8)
             p.drawString(label_x, y, "Déjà payé:")
-            p.drawRightString(value_x, y, f"-{self.facture.montant_paye:.2f} {devise}")
+            p.drawRightString(value_x, y, f"-{self._fmt(self.facture.montant_paye)} {devise}")
             y -= 0.35 * cm
             p.setFont(self._font_bold, 9)
             p.drawString(label_x, y, "Reste à payer:")
-            p.drawRightString(value_x, y, f"{self.facture.montant_restant:.2f} {devise}")
+            p.drawRightString(value_x, y, f"{self._fmt(self.facture.montant_restant)} {devise}")
 
         return y
 

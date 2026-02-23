@@ -231,6 +231,7 @@ class TauxTVA(BaseModel):
         ('REDUIT', _('Taux réduit')),
         ('SPECIAL', _('Taux spécial hébergement')),
         ('EXONERE', _('Exonéré')),
+        ('SSS', _('Taux de la dette fiscale nette (SSS)')),
     ]
 
     regime = models.ForeignKey(
@@ -625,7 +626,31 @@ class DeclarationTVA(BaseModel):
             seq = 1 if not last else int(last.numero_declaration.split('-')[-1]) + 1
             self.numero_declaration = f"TVA-{self.annee}-{periode}-{seq:03d}"
 
+        # Auto-calculer la date d'echeance de paiement
+        if not self.date_echeance_paiement and self.periode_fin:
+            self.date_echeance_paiement = self._calculer_echeance()
+
         super().save(*args, **kwargs)
+
+    def _calculer_echeance(self):
+        """Calcule la date d'echeance de paiement selon la periodicite"""
+        from datetime import date as dt_date
+        if self.trimestre:
+            # Effective (trimestriel) : delais fixes AFC
+            echeances = {
+                1: dt_date(self.annee, 5, 31),      # Q1 -> 31 mai
+                2: dt_date(self.annee, 8, 31),      # Q2 -> 31 août
+                3: dt_date(self.annee, 11, 30),     # Q3 -> 30 nov
+                4: dt_date(self.annee + 1, 2, 28),  # Q4 -> 28 fév N+1
+            }
+            return echeances.get(self.trimestre)
+        elif self.semestre:
+            # SSS (semestriel) : 60 jours apres fin de semestre
+            if self.semestre == 1:
+                return dt_date(self.annee, 8, 31)   # H1 -> 31 août
+            else:
+                return dt_date(self.annee + 1, 2, 28)  # H2 -> 28 fév N+1
+        return None
 
     def calculer_solde(self):
         """Calcule le solde TVA à payer ou à récupérer"""
@@ -639,7 +664,100 @@ class DeclarationTVA(BaseModel):
         return self.solde_tva
     
     def calculer_automatiquement(self):
-        """Calcule automatiquement la déclaration depuis les opérations"""
+        """Calcule automatiquement la déclaration selon la méthode"""
+        config = ConfigurationTVA.objects.filter(mandat=self.mandat).first()
+        if config and config.methode_calcul in ('TAUX_DETTE', 'TAUX_FORFAITAIRE'):
+            return self.calculer_sss()
+        return self._calculer_effective()
+
+    def calculer_sss(self):
+        """Calcule selon la méthode des taux de la dette fiscale nette (SSS).
+        Formule simplifiée : Impôt = CA brut TTC x taux SSS
+        Pas de déduction d'impôt préalable."""
+        from django.db.models import Sum
+
+        config = ConfigurationTVA.objects.filter(mandat=self.mandat).first()
+        if not config:
+            raise ValueError("Aucune configuration TVA pour ce mandat")
+
+        # Taux SSS : utiliser taux_forfaitaire_ventes ou le premier taux SSS du regime
+        taux_sss = config.taux_forfaitaire_ventes
+        if not taux_sss:
+            taux_obj = TauxTVA.objects.filter(
+                regime=config.regime,
+                type_taux='SSS',
+                date_fin__isnull=True,
+            ).first()
+            if taux_obj:
+                taux_sss = taux_obj.taux
+            else:
+                raise ValueError("Aucun taux SSS configuré")
+
+        # Récupérer les opérations de la période
+        operations = OperationTVA.objects.filter(
+            mandat=self.mandat,
+            date_operation__gte=self.periode_debut,
+            date_operation__lte=self.periode_fin,
+            integre_declaration=False,
+        )
+
+        # Calculer le CA brut TTC depuis les opérations de vente
+        ca_ttc = operations.filter(
+            type_operation='VENTE'
+        ).aggregate(total=Sum('montant_ttc'))['total'] or Decimal('0')
+
+        # Si pas d'opérations, utiliser le CA total saisi
+        if ca_ttc == 0 and self.chiffre_affaires_total > 0:
+            ca_ttc = self.chiffre_affaires_total
+
+        # Calcul SSS : impôt = CA TTC x taux SSS / 100
+        impot_sss = (ca_ttc * taux_sss / Decimal('100')).quantize(Decimal('0.01'))
+
+        # Supprimer les lignes auto-calculées
+        self.lignes.filter(calcul_automatique=True).delete()
+
+        # Créer la ligne SSS
+        code_tva_sss = CodeTVA.objects.filter(
+            regime__code='CH', code='321'
+        ).first()
+        if not code_tva_sss:
+            # Fallback sur le code 500 (montant à payer)
+            code_tva_sss = CodeTVA.objects.filter(
+                regime__code='CH', code='500'
+            ).first()
+
+        if code_tva_sss:
+            LigneTVA.objects.create(
+                declaration=self,
+                code_tva=code_tva_sss,
+                base_imposable=ca_ttc,
+                taux_tva=taux_sss,
+                montant_tva=impot_sss,
+                libelle=f"Impôt SSS {self.periode_debut} - {self.periode_fin}",
+                calcul_automatique=True,
+                ordre=1,
+            )
+
+        # Mettre à jour les totaux
+        self.chiffre_affaires_total = ca_ttc
+        self.chiffre_affaires_imposable = ca_ttc
+        self.tva_due_total = impot_sss
+        self.tva_prealable_total = Decimal('0')  # Pas d'impôt préalable en SSS
+        self.deductions_total = Decimal('0')
+        self.solde_tva = impot_sss + self.corrections_total
+        self.save()
+
+        # Marquer les opérations comme intégrées
+        for op in operations:
+            op.integre_declaration = True
+            op.declaration_tva = self
+            op.date_integration = datetime.now()
+            op.save()
+
+        return self
+
+    def _calculer_effective(self):
+        """Calcule selon la méthode effective (logique existante)"""
         from django.db.models import Sum
 
         # Récupérer les opérations non intégrées de la période
@@ -1366,3 +1484,175 @@ class CorrectionTVA(BaseModel):
 
     def __str__(self):
         return f"Correction {self.get_type_correction_display()} - {self.montant_correction} {self.devise_code}"
+
+
+class RapprochementAnnuel(BaseModel):
+    """Rapprochement annuel TVA (Jahresabstimmung) - Art. 72 LTVA"""
+
+    STATUT_CHOICES = [
+        ('BROUILLON', _('Brouillon')),
+        ('VALIDE', _('Validé')),
+        ('DEPOSE', _('Déposé')),
+    ]
+
+    mandat = models.ForeignKey(
+        Mandat, on_delete=models.CASCADE,
+        related_name='rapprochements_tva',
+        verbose_name=_('Mandat'),
+    )
+    annee = models.IntegerField(
+        verbose_name=_('Année'),
+        help_text=_('Année fiscale du rapprochement')
+    )
+    statut = models.CharField(
+        max_length=20, choices=STATUT_CHOICES, default='BROUILLON',
+        verbose_name=_('Statut'),
+    )
+
+    # CA comptable vs CA déclaré
+    ca_comptable = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name=_('CA comptable'),
+        help_text=_('Chiffre d\'affaires total depuis la comptabilité')
+    )
+    ca_declare = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name=_('CA déclaré'),
+        help_text=_('Chiffre d\'affaires total déclaré dans les décomptes TVA')
+    )
+    ecart_ca = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name=_('Écart CA'),
+    )
+
+    # TVA due comptable vs déclarée
+    tva_due_comptable = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name=_('TVA due comptable'),
+        help_text=_('TVA due depuis les comptes de passif (2200)')
+    )
+    tva_due_declaree = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name=_('TVA due déclarée'),
+    )
+    ecart_tva_due = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name=_('Écart TVA due'),
+    )
+
+    # TVA préalable
+    tva_prealable_comptable = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name=_('TVA préalable comptable'),
+        help_text=_('Impôt préalable depuis les comptes d\'actif (1170)')
+    )
+    tva_prealable_declaree = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name=_('TVA préalable déclarée'),
+    )
+    ecart_tva_prealable = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name=_('Écart TVA préalable'),
+    )
+
+    # Déclaration complémentaire
+    declaration_complementaire_necessaire = models.BooleanField(
+        default=False,
+        verbose_name=_('Déclaration complémentaire nécessaire'),
+    )
+    montant_complementaire = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name=_('Montant complémentaire'),
+    )
+
+    # Délai : 180 jours après clôture exercice
+    date_limite = models.DateField(
+        null=True, blank=True,
+        verbose_name=_('Date limite'),
+        help_text=_('180 jours après la clôture de l\'exercice')
+    )
+    remarques = models.TextField(
+        blank=True,
+        verbose_name=_('Remarques'),
+    )
+
+    class Meta:
+        db_table = 'rapprochements_annuels_tva'
+        verbose_name = _('Rapprochement annuel TVA')
+        verbose_name_plural = _('Rapprochements annuels TVA')
+        unique_together = [('mandat', 'annee')]
+        ordering = ['-annee']
+
+    def __str__(self):
+        return f"Rapprochement TVA {self.annee} - {self.mandat.numero}"
+
+    def calculer(self):
+        """Calcule les écarts entre comptabilité et déclarations"""
+        from django.db.models import Sum
+
+        # Somme des CA déclarés
+        declarations = DeclarationTVA.objects.filter(
+            mandat=self.mandat, annee=self.annee,
+            statut__in=['VALIDE', 'SOUMIS', 'ACCEPTE', 'PAYE', 'CLOTURE'],
+        )
+        agg = declarations.aggregate(
+            ca=Sum('chiffre_affaires_total'),
+            tva_due=Sum('tva_due_total'),
+            tva_prealable=Sum('tva_prealable_total'),
+        )
+        self.ca_declare = agg['ca'] or Decimal('0')
+        self.tva_due_declaree = agg['tva_due'] or Decimal('0')
+        self.tva_prealable_declaree = agg['tva_prealable'] or Decimal('0')
+
+        # Somme depuis la comptabilité (comptes liés)
+        config = ConfigurationTVA.objects.filter(mandat=self.mandat).first()
+        if config:
+            from comptabilite.models import EcritureComptable
+            from datetime import date as dt_date
+            debut = dt_date(self.annee, 1, 1)
+            fin = dt_date(self.annee, 12, 31)
+            ecritures_base = EcritureComptable.objects.filter(
+                mandat=self.mandat,
+                date_ecriture__gte=debut,
+                date_ecriture__lte=fin,
+                statut__in=['VALIDE', 'LETTRE', 'CLOTURE'],
+            )
+
+            # CA comptable = produits (classe 3)
+            self.ca_comptable = ecritures_base.filter(
+                compte__numero__startswith='3'
+            ).aggregate(
+                total=Sum('montant_credit')
+            )['total'] or Decimal('0')
+
+            # TVA due comptable (comptes 2200)
+            if config.compte_tva_due:
+                self.tva_due_comptable = ecritures_base.filter(
+                    compte=config.compte_tva_due
+                ).aggregate(
+                    total=Sum('montant_credit')
+                )['total'] or Decimal('0')
+
+            # TVA préalable comptable (comptes 1170)
+            if config.compte_tva_prealable:
+                self.tva_prealable_comptable = ecritures_base.filter(
+                    compte=config.compte_tva_prealable
+                ).aggregate(
+                    total=Sum('montant_debit')
+                )['total'] or Decimal('0')
+
+        # Écarts
+        self.ecart_ca = self.ca_comptable - self.ca_declare
+        self.ecart_tva_due = self.tva_due_comptable - self.tva_due_declaree
+        self.ecart_tva_prealable = self.tva_prealable_comptable - self.tva_prealable_declaree
+
+        # Déclaration complémentaire nécessaire si écart significatif
+        seuil = Decimal('100')  # Seuil de matérialité
+        self.declaration_complementaire_necessaire = (
+            abs(self.ecart_tva_due) > seuil or abs(self.ecart_tva_prealable) > seuil
+        )
+        if self.declaration_complementaire_necessaire:
+            self.montant_complementaire = self.ecart_tva_due - self.ecart_tva_prealable
+
+        self.save()
+        return self

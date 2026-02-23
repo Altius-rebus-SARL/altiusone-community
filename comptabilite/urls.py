@@ -136,6 +136,21 @@ urlpatterns = [
         views.balance_generale,
         name="balance-generale",
     ),
+    path(
+        "rapports/bilan/<uuid:mandat_pk>/",
+        views.bilan,
+        name="bilan",
+    ),
+    path(
+        "rapports/compte-resultat/<uuid:mandat_pk>/",
+        views.compte_resultat,
+        name="compte-resultat",
+    ),
+    path(
+        "rapports/cloture/<uuid:mandat_pk>/",
+        views.cloture_exercice,
+        name="cloture-exercice",
+    ),
     # Exports
     path("comptes/export/csv/", views.export_comptes_csv, name="compte-export-csv"),
     path("comptes/export/excel/", views.export_comptes_excel, name="compte-export-excel"),

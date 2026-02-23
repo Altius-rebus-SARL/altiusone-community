@@ -33,6 +33,7 @@ from .models import (
     LigneTVA,
     OperationTVA,
     CorrectionTVA,
+    RapprochementAnnuel,
 )
 from .forms import (
     ConfigurationTVAForm,
@@ -568,3 +569,109 @@ def operation_tva_delete(request, pk):
     operation.delete()
     messages.success(request, _("Opération TVA supprimée"))
     return redirect("tva:operation-list")
+
+
+# ============ RAPPROCHEMENT TVA ============
+
+
+@login_required
+@permission_required_business('tva.view_declarations')
+def rapprochement_tva(request, mandat_pk):
+    """Vue de rapprochement TVA par mandat/année"""
+    mandat = get_object_or_404(Mandat, pk=mandat_pk)
+    annee = int(request.GET.get('annee', datetime.now().year))
+
+    config = ConfigurationTVA.objects.filter(mandat=mandat).first()
+
+    # Données des déclarations TVA
+    declarations = DeclarationTVA.objects.filter(
+        mandat=mandat, annee=annee,
+        statut__in=['VALIDE', 'SOUMIS', 'ACCEPTE', 'PAYE', 'CLOTURE'],
+    ).order_by('trimestre', 'semestre')
+
+    total_declare = declarations.aggregate(
+        tva_due=Sum('tva_due_total'),
+        tva_prealable=Sum('tva_prealable_total'),
+        solde=Sum('solde_tva'),
+    )
+
+    # Données comptables
+    tva_due_comptable = Decimal('0')
+    tva_prealable_comptable = Decimal('0')
+    if config:
+        from comptabilite.models import EcritureComptable
+        from datetime import date
+        debut = date(annee, 1, 1)
+        fin = date(annee, 12, 31)
+        ecritures_base = EcritureComptable.objects.filter(
+            mandat=mandat,
+            date_ecriture__gte=debut,
+            date_ecriture__lte=fin,
+            statut__in=['VALIDE', 'LETTRE', 'CLOTURE'],
+        )
+
+        if config.compte_tva_due:
+            tva_due_comptable = ecritures_base.filter(
+                compte=config.compte_tva_due
+            ).aggregate(total=Sum('montant_credit'))['total'] or Decimal('0')
+
+        if config.compte_tva_prealable:
+            tva_prealable_comptable = ecritures_base.filter(
+                compte=config.compte_tva_prealable
+            ).aggregate(total=Sum('montant_debit'))['total'] or Decimal('0')
+
+    # Détail par période (trimestre ou semestre)
+    periodes = []
+    for decl in declarations:
+        periode_label = f"T{decl.trimestre}" if decl.trimestre else f"S{decl.semestre}"
+        periodes.append({
+            'label': periode_label,
+            'declaration': decl,
+            'tva_due': decl.tva_due_total,
+            'tva_prealable': decl.tva_prealable_total,
+            'solde': decl.solde_tva,
+        })
+
+    context = {
+        'mandat': mandat,
+        'annee': annee,
+        'annees': range(2020, datetime.now().year + 2),
+        'config': config,
+        'declarations': declarations,
+        'periodes': periodes,
+        'total_declare': total_declare,
+        'tva_due_comptable': tva_due_comptable,
+        'tva_prealable_comptable': tva_prealable_comptable,
+        'ecart_tva_due': tva_due_comptable - (total_declare['tva_due'] or Decimal('0')),
+        'ecart_tva_prealable': tva_prealable_comptable - (total_declare['tva_prealable'] or Decimal('0')),
+    }
+    return render(request, 'tva/rapprochement.html', context)
+
+
+@login_required
+@permission_required_business('tva.view_declarations')
+def rapprochement_annuel(request, mandat_pk):
+    """Vue du rapprochement annuel TVA (Jahresabstimmung)"""
+    mandat = get_object_or_404(Mandat, pk=mandat_pk)
+    annee = int(request.GET.get('annee', datetime.now().year - 1))
+
+    rapprochement, created = RapprochementAnnuel.objects.get_or_create(
+        mandat=mandat,
+        annee=annee,
+        defaults={
+            'date_limite': datetime(annee + 1, 6, 30).date(),
+        }
+    )
+
+    if request.method == 'POST' and request.POST.get('action') == 'calculer':
+        rapprochement.calculer()
+        messages.success(request, _("Rapprochement annuel calculé"))
+        return redirect(f"{request.path}?annee={annee}")
+
+    context = {
+        'mandat': mandat,
+        'annee': annee,
+        'annees': range(2020, datetime.now().year + 1),
+        'rapprochement': rapprochement,
+    }
+    return render(request, 'tva/rapprochement_annuel.html', context)

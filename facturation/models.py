@@ -794,6 +794,12 @@ class Facture(BaseModel):
         devise_code = self.devise_id or self.mandat.devise_id
         return f"{self.numero_facture} - {self.client.raison_sociale} - {self.montant_ttc} {devise_code}"
 
+    @property
+    def est_simplifiee(self):
+        """Facture simplifiée (Art. 26 MWSTG) : montant TTC < CHF 400."""
+        from decimal import Decimal
+        return self.montant_ttc < Decimal('400')
+
     def save(self, *args, **kwargs):
         # Auto-populate regime_fiscal from mandat if not set
         if not self.regime_fiscal_id and self.mandat_id:

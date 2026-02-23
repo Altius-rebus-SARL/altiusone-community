@@ -1551,6 +1551,282 @@ def grand_livre(request, compte_pk):
     return render(request, "comptabilite/grand_livre.html", context)
 
 
+# ============ BILAN ============
+
+
+@login_required
+def bilan(request, mandat_pk):
+    """Bilan (Actifs vs Passifs) d'un mandat — PME suisse classes 1 et 2"""
+    mandat = get_object_or_404(Mandat, pk=mandat_pk)
+
+    exercice_id = request.GET.get("exercice")
+    if exercice_id:
+        exercice = get_object_or_404(ExerciceComptable, pk=exercice_id)
+    else:
+        exercice = mandat.exercices.filter(statut="OUVERT").first()
+
+    plan = mandat.plans_comptables.first()
+    if not plan:
+        messages.error(request, _("Aucun plan comptable trouvé pour ce mandat"))
+        return redirect("core:mandat-detail", pk=mandat.pk)
+
+    def _solde_comptes(type_compte):
+        comptes = Compte.objects.filter(
+            plan_comptable=plan, imputable=True, type_compte=type_compte
+        ).order_by("numero")
+        items = []
+        total = Decimal("0")
+        for compte in comptes:
+            ecritures = compte.ecritures.filter(
+                exercice=exercice, statut__in=["VALIDE", "LETTRE", "CLOTURE"]
+            )
+            debit = ecritures.aggregate(Sum("montant_debit"))["montant_debit__sum"] or Decimal("0")
+            credit = ecritures.aggregate(Sum("montant_credit"))["montant_credit__sum"] or Decimal("0")
+            if type_compte == "ACTIF":
+                solde = debit - credit
+            else:
+                solde = credit - debit
+            if solde != 0:
+                items.append({"compte": compte, "solde": solde})
+                total += solde
+        return items, total
+
+    actifs, total_actifs = _solde_comptes("ACTIF")
+    passifs, total_passifs = _solde_comptes("PASSIF")
+    equilibre = total_actifs == total_passifs
+
+    context = {
+        "mandat": mandat,
+        "exercice": exercice,
+        "exercices": mandat.exercices.all(),
+        "actifs": actifs,
+        "passifs": passifs,
+        "total_actifs": total_actifs,
+        "total_passifs": total_passifs,
+        "equilibre": equilibre,
+    }
+
+    return render(request, "comptabilite/bilan.html", context)
+
+
+# ============ COMPTE DE RÉSULTAT ============
+
+
+@login_required
+def compte_resultat(request, mandat_pk):
+    """Compte de résultat (Produits vs Charges) — PME suisse classes 3-8"""
+    mandat = get_object_or_404(Mandat, pk=mandat_pk)
+
+    exercice_id = request.GET.get("exercice")
+    if exercice_id:
+        exercice = get_object_or_404(ExerciceComptable, pk=exercice_id)
+    else:
+        exercice = mandat.exercices.filter(statut="OUVERT").first()
+
+    plan = mandat.plans_comptables.first()
+    if not plan:
+        messages.error(request, _("Aucun plan comptable trouvé pour ce mandat"))
+        return redirect("core:mandat-detail", pk=mandat.pk)
+
+    def _solde_comptes(type_compte):
+        comptes = Compte.objects.filter(
+            plan_comptable=plan, imputable=True, type_compte=type_compte
+        ).order_by("numero")
+        items = []
+        total = Decimal("0")
+        for compte in comptes:
+            ecritures = compte.ecritures.filter(
+                exercice=exercice, statut__in=["VALIDE", "LETTRE", "CLOTURE"]
+            )
+            debit = ecritures.aggregate(Sum("montant_debit"))["montant_debit__sum"] or Decimal("0")
+            credit = ecritures.aggregate(Sum("montant_credit"))["montant_credit__sum"] or Decimal("0")
+            if type_compte == "CHARGE":
+                solde = debit - credit
+            else:
+                solde = credit - debit
+            if solde != 0:
+                items.append({"compte": compte, "solde": solde})
+                total += solde
+        return items, total
+
+    produits, total_produits = _solde_comptes("PRODUIT")
+    charges, total_charges = _solde_comptes("CHARGE")
+    resultat = total_produits - total_charges
+
+    context = {
+        "mandat": mandat,
+        "exercice": exercice,
+        "exercices": mandat.exercices.all(),
+        "produits": produits,
+        "charges": charges,
+        "total_produits": total_produits,
+        "total_charges": total_charges,
+        "resultat": resultat,
+    }
+
+    return render(request, "comptabilite/compte_resultat.html", context)
+
+
+# ============ CLÔTURE D'EXERCICE ============
+
+
+@login_required
+def cloture_exercice(request, mandat_pk):
+    """Workflow de clôture d'exercice comptable"""
+    from django.utils import timezone
+
+    mandat = get_object_or_404(Mandat, pk=mandat_pk)
+
+    exercice_id = request.GET.get("exercice")
+    if exercice_id:
+        exercice = get_object_or_404(ExerciceComptable, pk=exercice_id)
+    else:
+        exercice = mandat.exercices.filter(statut="OUVERT").first()
+
+    if not exercice:
+        messages.error(request, _("Aucun exercice ouvert trouvé"))
+        return redirect("core:mandat-detail", pk=mandat.pk)
+
+    plan = mandat.plans_comptables.first()
+
+    # Vérifications pré-clôture
+    ecritures_brouillon = EcritureComptable.objects.filter(
+        exercice=exercice, statut="BROUILLON"
+    ).count()
+
+    from tva.models import DeclarationTVA
+    declarations_non_soumises = DeclarationTVA.objects.filter(
+        mandat=mandat,
+        periode_debut__gte=exercice.date_debut,
+        periode_fin__lte=exercice.date_fin,
+    ).exclude(statut="SOUMISE").count()
+
+    pret_a_cloturer = ecritures_brouillon == 0 and declarations_non_soumises == 0
+
+    if request.method == "POST" and request.POST.get("action") == "cloturer":
+        if not pret_a_cloturer:
+            messages.error(request, _("Impossible de clôturer : vérifiez les conditions préalables"))
+            return redirect(request.path + f"?exercice={exercice.pk}")
+
+        # 1. Calculer le résultat (Produits - Charges)
+        produits_total = Decimal("0")
+        charges_total = Decimal("0")
+        comptes_resultat = Compte.objects.filter(
+            plan_comptable=plan, imputable=True, type_compte__in=["PRODUIT", "CHARGE"]
+        )
+
+        journal_cloture = Journal.objects.filter(plan_comptable=plan).first()
+        numero_piece = f"CLO-{exercice.annee}"
+        date_cloture = exercice.date_fin
+
+        for compte in comptes_resultat:
+            ecritures = compte.ecritures.filter(
+                exercice=exercice, statut__in=["VALIDE", "LETTRE", "CLOTURE"]
+            )
+            debit = ecritures.aggregate(Sum("montant_debit"))["montant_debit__sum"] or Decimal("0")
+            credit = ecritures.aggregate(Sum("montant_credit"))["montant_credit__sum"] or Decimal("0")
+            solde = debit - credit
+
+            if solde == 0:
+                continue
+
+            if compte.type_compte == "PRODUIT":
+                produits_total += credit - debit
+            else:
+                charges_total += debit - credit
+
+            # Écriture de clôture : solder le compte
+            EcritureComptable.objects.create(
+                mandat=mandat,
+                exercice=exercice,
+                journal=journal_cloture,
+                numero_piece=numero_piece,
+                date_ecriture=date_cloture,
+                compte=compte,
+                libelle=_("Clôture exercice %(annee)s") % {"annee": exercice.annee},
+                montant_debit=credit if credit > debit else Decimal("0"),
+                montant_credit=debit if debit > credit else Decimal("0"),
+                statut="CLOTURE",
+            )
+
+        # 2. Écriture de résultat vers compte résultat (2990 ou 2979 PME suisse)
+        resultat = produits_total - charges_total
+        compte_resultat_obj = Compte.objects.filter(
+            plan_comptable=plan, numero__startswith="299", imputable=True
+        ).first()
+
+        if compte_resultat_obj and resultat != 0:
+            EcritureComptable.objects.create(
+                mandat=mandat,
+                exercice=exercice,
+                journal=journal_cloture,
+                numero_piece=numero_piece,
+                date_ecriture=date_cloture,
+                compte=compte_resultat_obj,
+                libelle=_("Résultat exercice %(annee)s") % {"annee": exercice.annee},
+                montant_debit=abs(resultat) if resultat < 0 else Decimal("0"),
+                montant_credit=resultat if resultat > 0 else Decimal("0"),
+                statut="CLOTURE",
+            )
+
+        # 3. Verrouiller l'exercice
+        exercice.statut = "CLOTURE_DEFINITIVE"
+        exercice.date_cloture = timezone.now()
+        exercice.cloture_par = request.user
+        exercice.resultat_exercice = resultat
+        exercice.save()
+
+        # 4. Créer écritures d'ouverture pour l'exercice suivant
+        exercice_suivant = mandat.exercices.filter(annee=exercice.annee + 1).first()
+        if exercice_suivant:
+            comptes_bilan = Compte.objects.filter(
+                plan_comptable=plan, imputable=True, type_compte__in=["ACTIF", "PASSIF"]
+            )
+            journal_ouverture = journal_cloture
+            numero_ouverture = f"OUV-{exercice_suivant.annee}"
+
+            for compte in comptes_bilan:
+                ecritures = compte.ecritures.filter(
+                    exercice=exercice, statut__in=["VALIDE", "LETTRE", "CLOTURE"]
+                )
+                debit = ecritures.aggregate(Sum("montant_debit"))["montant_debit__sum"] or Decimal("0")
+                credit = ecritures.aggregate(Sum("montant_credit"))["montant_credit__sum"] or Decimal("0")
+                solde = debit - credit
+
+                if solde == 0:
+                    continue
+
+                EcritureComptable.objects.create(
+                    mandat=mandat,
+                    exercice=exercice_suivant,
+                    journal=journal_ouverture,
+                    numero_piece=numero_ouverture,
+                    date_ecriture=exercice_suivant.date_debut,
+                    compte=compte,
+                    libelle=_("Report à nouveau exercice %(annee)s") % {"annee": exercice.annee},
+                    montant_debit=solde if solde > 0 else Decimal("0"),
+                    montant_credit=abs(solde) if solde < 0 else Decimal("0"),
+                    statut="VALIDE",
+                )
+
+        messages.success(request, _("Exercice %(annee)s clôturé avec succès. Résultat : %(resultat)s") % {
+            "annee": exercice.annee,
+            "resultat": f"{resultat:,.2f}",
+        })
+        return redirect("comptabilite:balance-generale", mandat_pk=mandat.pk)
+
+    context = {
+        "mandat": mandat,
+        "exercice": exercice,
+        "exercices": mandat.exercices.all(),
+        "ecritures_brouillon": ecritures_brouillon,
+        "declarations_non_soumises": declarations_non_soumises,
+        "pret_a_cloturer": pret_a_cloturer,
+    }
+
+    return render(request, "comptabilite/cloture_exercice.html", context)
+
+
 # ============ EXPORTS ============
 
 

@@ -1,0 +1,168 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load devise_tags %}
+
+{% block title %}{% trans "Bilan" %} - {{ mandat.client.raison_sociale }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Bilan" %} (Bilanz)</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:mandat-detail' mandat.pk %}">
+                    <span>{{ mandat.client.raison_sociale }}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Bilan" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Filtre exercice -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body py-2">
+                <form method="get" class="d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center gap-3">
+                        <label class="form-label mb-0 f-w-600">{{ mandat.client.raison_sociale }}</label>
+                        <select name="exercice" class="form-select select-basic" style="width: auto" onchange="this.form.submit()">
+                            {% for ex in exercices %}
+                            <option value="{{ ex.pk }}" {% if exercice.pk == ex.pk %}selected{% endif %}>
+                                {% trans "Exercice" %} {{ ex.annee }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        {% if equilibre %}
+                        <span class="badge bg-success"><i class="ph ph-check-circle me-1"></i>{% trans "Équilibré" %}</span>
+                        {% else %}
+                        <span class="badge bg-danger"><i class="ph ph-warning me-1"></i>{% trans "Non équilibré" %}</span>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bilan : Actifs et Passifs côte à côte -->
+<div class="row">
+    <!-- ACTIFS -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">{% trans "Actifs" %} (Aktiven)</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr class="table-active">
+                                <th>{% trans "Compte" %}</th>
+                                <th>{% trans "Libellé" %}</th>
+                                <th class="text-end">{% trans "Solde" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in actifs %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'comptabilite:compte-detail' item.compte.pk %}">
+                                        <span class="badge bg-light-dark f-w-600">{{ item.compte.numero }}</span>
+                                    </a>
+                                </td>
+                                <td>{{ item.compte.libelle }}</td>
+                                <td class="text-end">{{ item.solde|devise:DEVISE_TAUX|floatformat:2 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-center py-3 text-muted">{% trans "Aucun actif" %}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-active">
+                                <th colspan="2">{% trans "Total Actifs" %}</th>
+                                <th class="text-end">
+                                    <span class="f-w-600">{{ total_actifs|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</span>
+                                </th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PASSIFS -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">{% trans "Passifs" %} (Passiven)</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr class="table-active">
+                                <th>{% trans "Compte" %}</th>
+                                <th>{% trans "Libellé" %}</th>
+                                <th class="text-end">{% trans "Solde" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in passifs %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'comptabilite:compte-detail' item.compte.pk %}">
+                                        <span class="badge bg-light-dark f-w-600">{{ item.compte.numero }}</span>
+                                    </a>
+                                </td>
+                                <td>{{ item.compte.libelle }}</td>
+                                <td class="text-end">{{ item.solde|devise:DEVISE_TAUX|floatformat:2 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-center py-3 text-muted">{% trans "Aucun passif" %}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-active">
+                                <th colspan="2">{% trans "Total Passifs" %}</th>
+                                <th class="text-end">
+                                    <span class="f-w-600">{{ total_passifs|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</span>
+                                </th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Navigation rapports -->
+<div class="row mt-3">
+    <div class="col-12 text-end">
+        <a href="{% url 'comptabilite:balance-generale' mandat.pk %}?exercice={{ exercice.pk }}" class="btn btn-outline-secondary">
+            <i class="ph ph-list me-1"></i>{% trans "Balance générale" %}
+        </a>
+        <a href="{% url 'comptabilite:compte-resultat' mandat.pk %}?exercice={{ exercice.pk }}" class="btn btn-outline-primary">
+            <i class="ph ph-chart-line-up me-1"></i>{% trans "Compte de résultat" %}
+        </a>
+    </div>
+</div>
+{% endblock %}

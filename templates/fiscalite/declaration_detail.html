@@ -317,6 +317,15 @@
             </div>
             <div class="card-body">
                 <div class="d-grid gap-2">
+                    {% if declaration.statut == 'BROUILLON' or declaration.statut == 'EN_PREPARATION' %}
+                    <form method="post" action="{% url 'fiscalite:declaration-populate-comptabilite' declaration.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-primary w-100">
+                            <i class="ph ph-database me-2"></i>{% trans "Pré-remplir depuis comptabilité" %}
+                        </button>
+                    </form>
+                    {% endif %}
+
                     {% if declaration.statut == 'BROUILLON' %}
                     <form method="post" action="{% url 'fiscalite:declaration-valider' declaration.pk %}">
                         {% csrf_token %}

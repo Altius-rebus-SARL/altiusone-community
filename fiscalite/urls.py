@@ -32,6 +32,11 @@ urlpatterns = [
         name="declaration-deposer",
     ),
     path(
+        "declarations/<uuid:pk>/populate-comptabilite/",
+        views.declaration_populate_comptabilite,
+        name="declaration-populate-comptabilite",
+    ),
+    path(
         "declarations/<uuid:pk>/telecharger-declaration/",
         views.declaration_telecharger_fichier,
         name="declaration-telecharger-fichier",

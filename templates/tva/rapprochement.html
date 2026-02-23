@@ -1,0 +1,179 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load devise_tags %}
+{% load tva_tags %}
+
+{% block title %}{% trans "Rapprochement TVA" %} - {{ mandat.client.raison_sociale }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Rapprochement TVA" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'tva:declaration-list' %}">
+                    <span>{% trans "Déclarations TVA" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Rapprochement" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Filtres -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body py-2">
+                <form method="get" class="d-flex align-items-center gap-3">
+                    <label class="form-label mb-0 f-w-600">{{ mandat.client.raison_sociale }}</label>
+                    <select name="annee" class="form-select select-basic" style="width: auto" onchange="this.form.submit()">
+                        {% for y in annees %}
+                        <option value="{{ y }}" {% if y == annee %}selected{% endif %}>{{ y }}</option>
+                        {% endfor %}
+                    </select>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Comparaison Comptabilité vs Déclarations -->
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header"><h6 class="mb-0">{% trans "TVA due" %}</h6></div>
+            <div class="card-body">
+                <div class="mb-2">
+                    <label class="text-muted f-s-12">{% trans "Comptabilité (comptes 2200)" %}</label>
+                    <h5 class="text-danger mb-0">{{ tva_due_comptable|devise:DEVISE_TAUX|floatformat:2 }}</h5>
+                </div>
+                <div class="mb-2">
+                    <label class="text-muted f-s-12">{% trans "Déclarations TVA" %}</label>
+                    <h5 class="text-danger mb-0">{{ total_declare.tva_due|devise:DEVISE_TAUX|floatformat:2 }}</h5>
+                </div>
+                <hr>
+                <div>
+                    <label class="text-muted f-s-12">{% trans "Écart" %}</label>
+                    <h5 class="{% if ecart_tva_due != 0 %}text-warning{% else %}text-success{% endif %} mb-0">
+                        {{ ecart_tva_due|devise:DEVISE_TAUX|floatformat:2 }}
+                    </h5>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header"><h6 class="mb-0">{% trans "TVA préalable" %}</h6></div>
+            <div class="card-body">
+                <div class="mb-2">
+                    <label class="text-muted f-s-12">{% trans "Comptabilité (comptes 1170)" %}</label>
+                    <h5 class="text-success mb-0">{{ tva_prealable_comptable|devise:DEVISE_TAUX|floatformat:2 }}</h5>
+                </div>
+                <div class="mb-2">
+                    <label class="text-muted f-s-12">{% trans "Déclarations TVA" %}</label>
+                    <h5 class="text-success mb-0">{{ total_declare.tva_prealable|devise:DEVISE_TAUX|floatformat:2 }}</h5>
+                </div>
+                <hr>
+                <div>
+                    <label class="text-muted f-s-12">{% trans "Écart" %}</label>
+                    <h5 class="{% if ecart_tva_prealable != 0 %}text-warning{% else %}text-success{% endif %} mb-0">
+                        {{ ecart_tva_prealable|devise:DEVISE_TAUX|floatformat:2 }}
+                    </h5>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header"><h6 class="mb-0">{% trans "Solde total" %}</h6></div>
+            <div class="card-body">
+                <div class="mb-2">
+                    <label class="text-muted f-s-12">{% trans "Solde déclaré" %}</label>
+                    {% if total_declare.solde > 0 %}
+                    <h5 class="text-danger mb-0">{{ total_declare.solde|devise:DEVISE_TAUX|floatformat:2 }}</h5>
+                    {% elif total_declare.solde < 0 %}
+                    <h5 class="text-success mb-0">{{ total_declare.solde|devise:DEVISE_TAUX|floatformat:2 }}</h5>
+                    {% else %}
+                    <h5 class="text-muted mb-0">0.00</h5>
+                    {% endif %}
+                </div>
+                <hr>
+                <a href="{% url 'tva:rapprochement-annuel' mandat.pk %}?annee={{ annee }}" class="btn btn-outline-primary btn-sm">
+                    <i class="ph ph-chart-bar me-1"></i>{% trans "Rapprochement annuel" %}
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Détail par période -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Détail par période" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Période" %}</th>
+                                <th>{% trans "Déclaration" %}</th>
+                                <th>{% trans "Statut" %}</th>
+                                <th class="text-end">{% trans "TVA due" %}</th>
+                                <th class="text-end">{% trans "TVA préalable" %}</th>
+                                <th class="text-end">{% trans "Solde" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in periodes %}
+                            <tr>
+                                <td><span class="f-w-600">{{ annee }} {{ p.label }}</span></td>
+                                <td>
+                                    <a href="{% url 'tva:declaration-detail' p.declaration.pk %}">
+                                        {{ p.declaration.numero_declaration }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <span class="badge {{ p.declaration.statut|statut_badge_class }} text-uppercase">
+                                        {{ p.declaration.get_statut_display }}
+                                    </span>
+                                </td>
+                                <td class="text-end text-danger">{{ p.tva_due|devise:DEVISE_TAUX|floatformat:2 }}</td>
+                                <td class="text-end text-success">{{ p.tva_prealable|devise:DEVISE_TAUX|floatformat:2 }}</td>
+                                <td class="text-end f-w-600">
+                                    {% if p.solde > 0 %}
+                                    <span class="text-danger">{{ p.solde|devise:DEVISE_TAUX|floatformat:2 }}</span>
+                                    {% elif p.solde < 0 %}
+                                    <span class="text-success">{{ p.solde|devise:DEVISE_TAUX|floatformat:2 }}</span>
+                                    {% else %}
+                                    <span class="text-muted">0.00</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-muted">
+                                    {% trans "Aucune déclaration validée pour cette année" %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

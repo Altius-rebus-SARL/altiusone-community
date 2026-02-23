@@ -125,4 +125,15 @@ urlpatterns = [
         views.operation_tva_delete,
         name="operation-tva-delete",
     ),
+    # Rapprochement TVA
+    path(
+        "rapprochement/<uuid:mandat_pk>/",
+        views.rapprochement_tva,
+        name="rapprochement",
+    ),
+    path(
+        "rapprochement-annuel/<uuid:mandat_pk>/",
+        views.rapprochement_annuel,
+        name="rapprochement-annuel",
+    ),
 ]

@@ -55,23 +55,39 @@ def verifier_equilibre_piece(sender, instance, **kwargs):
 @receiver(post_save, sender=EcritureComptable)
 def creer_operation_tva(sender, instance, created, **kwargs):
     """Crée automatiquement une opération TVA si code TVA présent"""
-    if created and instance.code_tva and instance.montant_tva > 0:
-        from tva.models import OperationTVA, CodeTVA
+    if not (created and instance.code_tva and instance.montant_tva and instance.montant_tva > 0):
+        return
 
-        code_tva_obj = CodeTVA.objects.filter(code=instance.code_tva).first()
-        if code_tva_obj:
-            type_op = 'VENTE' if instance.montant_credit > 0 else 'ACHAT'
-            montant_base = instance.montant_credit or instance.montant_debit
+    from tva.models import OperationTVA, CodeTVA
 
-            OperationTVA.objects.create(
-                mandat=instance.mandat,
-                ecriture_comptable=instance,
-                date_operation=instance.date_ecriture,
-                type_operation=type_op,
-                montant_ht=montant_base,
-                code_tva=code_tva_obj,
-                taux_tva=Decimal(instance.code_tva.split('_')[-1]) if '_' in instance.code_tva else Decimal('8.1'),
-                montant_tva=instance.montant_tva,
-                montant_ttc=montant_base + instance.montant_tva,
-                libelle=instance.libelle
-            )
+    # Eviter les doublons
+    if OperationTVA.objects.filter(ecriture_comptable=instance).exists():
+        return
+
+    code_tva_obj = CodeTVA.objects.filter(code=instance.code_tva).first()
+    if not code_tva_obj:
+        return
+
+    type_op = 'VENTE' if instance.montant_credit > 0 else 'ACHAT'
+    montant_base = instance.montant_credit or instance.montant_debit
+
+    # Résoudre le taux TVA depuis le CodeTVA ou le montant
+    taux = Decimal('0')
+    if code_tva_obj.taux_applicable:
+        taux = code_tva_obj.taux_applicable.taux
+    elif montant_base > 0:
+        # Calculer le taux implicite
+        taux = (instance.montant_tva / montant_base * 100).quantize(Decimal('0.01'))
+
+    OperationTVA.objects.create(
+        mandat=instance.mandat,
+        ecriture_comptable=instance,
+        date_operation=instance.date_ecriture,
+        type_operation=type_op,
+        montant_ht=montant_base,
+        code_tva=code_tva_obj,
+        taux_tva=taux,
+        montant_tva=instance.montant_tva,
+        montant_ttc=montant_base + instance.montant_tva,
+        libelle=instance.libelle
+    )

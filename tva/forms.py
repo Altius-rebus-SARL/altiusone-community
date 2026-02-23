@@ -1,4 +1,6 @@
 # tva/forms.py
+import re
+
 from django import forms
 from django.utils.translation import gettext_lazy as _
 from decimal import Decimal
@@ -76,6 +78,27 @@ class ConfigurationTVAForm(forms.ModelForm):
         self.fields['regime'].queryset = RegimeFiscal.objects.all()
         self.fields['regime'].label = _('Régime fiscal')
         self.fields['regime'].required = False
+
+    def clean_numero_tva(self):
+        """Valide le format du numéro TVA selon le regex du régime fiscal"""
+        numero = self.cleaned_data.get('numero_tva', '').strip()
+        if not numero:
+            return numero
+
+        regime = self.cleaned_data.get('regime')
+        if not regime and self.instance and self.instance.pk:
+            regime = self.instance.regime
+
+        if regime and regime.format_numero_tva:
+            if not re.match(regime.format_numero_tva, numero):
+                raise forms.ValidationError(
+                    _('Format invalide. Pour le régime %(regime)s, '
+                      'le format attendu est : %(format)s') % {
+                        'regime': regime.code,
+                        'format': 'CHE-xxx.xxx.xxx TVA' if regime.code == 'CH' else regime.format_numero_tva,
+                    }
+                )
+        return numero
 
 
 class DeclarationTVAForm(forms.ModelForm):
