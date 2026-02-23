@@ -171,6 +171,15 @@
                         </div>
                     </li>
 
+                    <!-- Calendrier des tâches -->
+                    <li class="header-calendar">
+                        <a class="d-block head-icon bg-light-dark rounded-circle f-s-22 p-2"
+                           href="{% url 'core:tache-calendar' %}"
+                           title="{% trans 'Calendrier des tâches' %}">
+                            <i class="ph ph-calendar"></i>
+                        </a>
+                    </li>
+
                     <!-- Notifications -->
                     <li class="header-notification">
                         <a aria-controls="notificationcanvasRight" 
