@@ -4,13 +4,13 @@
 {% load i18n %}
 {% load widget_tweaks %}
 
-{% block title %}{% trans "Nouvelle déclaration TVA" %}{% endblock %}
+{% block title %}{% if form.instance.pk %}{% trans "Modifier la déclaration TVA" %}{% else %}{% trans "Nouvelle déclaration TVA" %}{% endif %}{% endblock %}
 
 {% block content %}
 <!-- Breadcrumb -->
 <div class="row m-1">
     <div class="col-12">
-        <h4 class="main-title">{% trans "Nouvelle déclaration TVA" %}</h4>
+        <h4 class="main-title">{% if form.instance.pk %}{% trans "Modifier la déclaration TVA" %}{% else %}{% trans "Nouvelle déclaration TVA" %}{% endif %}</h4>
         <ul class="app-line-breadcrumbs mb-3">
             <li>
                 <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
@@ -23,7 +23,7 @@
                 </a>
             </li>
             <li class="active">
-                <a class="f-s-14 f-w-500" href="#">{% trans "Nouvelle" %}</a>
+                <a class="f-s-14 f-w-500" href="#">{% if form.instance.pk %}{{ form.instance.numero_declaration }}{% else %}{% trans "Nouvelle" %}{% endif %}</a>
             </li>
         </ul>
     </div>
@@ -39,7 +39,7 @@
             <div class="card-body">
                 <form method="post" class="app-form">
                     {% csrf_token %}
-                    
+
                     {% if form.non_field_errors %}
                     <div class="alert alert-danger">
                         {{ form.non_field_errors }}
@@ -123,11 +123,17 @@
                     </div>
 
                     <div class="d-flex justify-content-between mt-4">
+                        {% if form.instance.pk %}
+                        <a href="{% url 'tva:declaration-detail' form.instance.pk %}" class="btn btn-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        {% else %}
                         <a href="{% url 'tva:declaration-list' %}" class="btn btn-secondary">
                             <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
                         </a>
+                        {% endif %}
                         <button type="submit" class="btn btn-primary">
-                            <i class="ph ph-check me-2"></i>{% trans "Créer" %}
+                            <i class="ph ph-check me-2"></i>{% if form.instance.pk %}{% trans "Enregistrer" %}{% else %}{% trans "Créer" %}{% endif %}
                         </button>
                     </div>
                 </form>

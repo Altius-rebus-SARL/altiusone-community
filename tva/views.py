@@ -185,6 +185,11 @@ class DeclarationTVADetailView(LoginRequiredMixin, BusinessPermissionMixin, Deta
         # Corrections
         context["corrections"] = declaration.corrections.select_related("code_tva")
 
+        # Formulaires pour ajout inline (brouillon uniquement)
+        if declaration.statut == 'BROUILLON':
+            context["ligne_form"] = LigneTVAForm()
+            context["correction_form"] = CorrectionTVAForm()
+
         return context
 
 
@@ -365,3 +370,201 @@ class OperationTVACreateView(LoginRequiredMixin, BusinessPermissionMixin, Create
         form.instance.created_by = self.request.user
         messages.success(self.request, _("Opération TVA créée avec succès"))
         return super().form_valid(form)
+
+
+# ============ DÉCLARATION — ÉDITION / SUPPRESSION / ACTIONS ============
+
+
+class DeclarationTVAUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateView):
+    """Modification d'une déclaration TVA (brouillon uniquement)"""
+
+    model = DeclarationTVA
+    form_class = DeclarationTVAForm
+    template_name = "tva/declaration_form.html"
+    business_permission = 'tva.add_declaration'
+
+    def get_queryset(self):
+        return super().get_queryset().filter(statut='BROUILLON')
+
+    def get_success_url(self):
+        return reverse_lazy("tva:declaration-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, _("Déclaration TVA modifiée avec succès"))
+        return super().form_valid(form)
+
+
+@login_required
+@require_http_methods(["POST"])
+def declaration_supprimer(request, pk):
+    """Supprime une déclaration TVA (brouillon uniquement)"""
+    declaration = get_object_or_404(DeclarationTVA, pk=pk, statut="BROUILLON")
+
+    # Délier les opérations intégrées
+    declaration.operations.update(integre_declaration=False, declaration_tva=None, date_integration=None)
+
+    declaration.delete()
+    messages.success(request, _("Déclaration TVA supprimée"))
+    return redirect("tva:declaration-list")
+
+
+@login_required
+@require_http_methods(["POST"])
+def declaration_rouvrir(request, pk):
+    """Rouvre une déclaration validée → brouillon"""
+    declaration = get_object_or_404(DeclarationTVA, pk=pk, statut="VALIDE")
+
+    try:
+        declaration.rouvrir()
+        messages.success(request, _("Déclaration rouverte en brouillon"))
+    except ValueError as e:
+        messages.error(request, str(e))
+
+    return redirect("tva:declaration-detail", pk=pk)
+
+
+@login_required
+@require_http_methods(["POST"])
+def declaration_soumettre(request, pk):
+    """Soumet une déclaration validée à l'AFC"""
+    declaration = get_object_or_404(DeclarationTVA, pk=pk, statut="VALIDE")
+
+    try:
+        numero_reference = request.POST.get('numero_reference', '').strip()
+        declaration.soumettre_afc(request.user, numero_reference=numero_reference or None)
+        messages.success(request, _("Déclaration soumise à l'AFC"))
+    except ValueError as e:
+        messages.error(request, str(e))
+
+    return redirect("tva:declaration-detail", pk=pk)
+
+
+# ============ LIGNES TVA — CRUD ============
+
+
+@login_required
+def ligne_tva_create(request, declaration_pk):
+    """Ajouter une ligne TVA à une déclaration"""
+    declaration = get_object_or_404(DeclarationTVA, pk=declaration_pk, statut="BROUILLON")
+
+    if request.method == "POST":
+        form = LigneTVAForm(request.POST)
+        if form.is_valid():
+            ligne = form.save(commit=False)
+            ligne.declaration = declaration
+            ligne.save()
+            declaration.recalculer_totaux()
+            messages.success(request, _("Ligne TVA ajoutée"))
+            return redirect("tva:declaration-detail", pk=declaration.pk)
+    else:
+        form = LigneTVAForm()
+
+    return render(request, "tva/ligne_tva_form.html", {
+        "form": form,
+        "declaration": declaration,
+    })
+
+
+@login_required
+def ligne_tva_update(request, pk):
+    """Modifier une ligne TVA"""
+    ligne = get_object_or_404(LigneTVA, pk=pk, declaration__statut="BROUILLON")
+    declaration = ligne.declaration
+
+    if request.method == "POST":
+        form = LigneTVAForm(request.POST, instance=ligne)
+        if form.is_valid():
+            form.save()
+            declaration.recalculer_totaux()
+            messages.success(request, _("Ligne TVA modifiée"))
+            return redirect("tva:declaration-detail", pk=declaration.pk)
+    else:
+        form = LigneTVAForm(instance=ligne)
+
+    return render(request, "tva/ligne_tva_form.html", {
+        "form": form,
+        "declaration": declaration,
+        "ligne": ligne,
+    })
+
+
+@login_required
+@require_http_methods(["POST"])
+def ligne_tva_delete(request, pk):
+    """Supprimer une ligne TVA"""
+    ligne = get_object_or_404(LigneTVA, pk=pk, declaration__statut="BROUILLON")
+    declaration = ligne.declaration
+    ligne.delete()
+    declaration.recalculer_totaux()
+    messages.success(request, _("Ligne TVA supprimée"))
+    return redirect("tva:declaration-detail", pk=declaration.pk)
+
+
+# ============ CORRECTIONS TVA — CRUD ============
+
+
+@login_required
+def correction_tva_create(request, declaration_pk):
+    """Ajouter une correction TVA"""
+    declaration = get_object_or_404(DeclarationTVA, pk=declaration_pk, statut="BROUILLON")
+
+    if request.method == "POST":
+        form = CorrectionTVAForm(request.POST)
+        if form.is_valid():
+            correction = form.save(commit=False)
+            correction.declaration = declaration
+            correction.save()
+            declaration.recalculer_totaux()
+            messages.success(request, _("Correction TVA ajoutée"))
+            return redirect("tva:declaration-detail", pk=declaration.pk)
+    else:
+        form = CorrectionTVAForm()
+
+    return render(request, "tva/correction_form.html", {
+        "form": form,
+        "declaration": declaration,
+    })
+
+
+@login_required
+@require_http_methods(["POST"])
+def correction_tva_delete(request, pk):
+    """Supprimer une correction TVA"""
+    correction = get_object_or_404(CorrectionTVA, pk=pk, declaration__statut="BROUILLON")
+    declaration = correction.declaration
+    correction.delete()
+    declaration.recalculer_totaux()
+    messages.success(request, _("Correction TVA supprimée"))
+    return redirect("tva:declaration-detail", pk=declaration.pk)
+
+
+# ============ OPÉRATIONS TVA — ÉDITION / SUPPRESSION ============
+
+
+class OperationTVAUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateView):
+    """Modification d'une opération TVA (non intégrée uniquement)"""
+
+    model = OperationTVA
+    form_class = OperationTVAForm
+    template_name = "tva/operation_form.html"
+    business_permission = 'tva.view_operations'
+
+    def get_queryset(self):
+        return super().get_queryset().filter(integre_declaration=False)
+
+    def get_success_url(self):
+        return reverse_lazy("tva:operation-list")
+
+    def form_valid(self, form):
+        messages.success(self.request, _("Opération TVA modifiée avec succès"))
+        return super().form_valid(form)
+
+
+@login_required
+@require_http_methods(["POST"])
+def operation_tva_delete(request, pk):
+    """Supprimer une opération TVA (non intégrée uniquement)"""
+    operation = get_object_or_404(OperationTVA, pk=pk, integre_declaration=False)
+    operation.delete()
+    messages.success(request, _("Opération TVA supprimée"))
+    return redirect("tva:operation-list")

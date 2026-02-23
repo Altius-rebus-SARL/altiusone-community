@@ -187,12 +187,28 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <a href="{% url 'tva:declaration-detail' declaration.pk %}" 
+                                    <a href="{% url 'tva:declaration-detail' declaration.pk %}"
                                        class="btn btn-sm btn-light-primary"
                                        data-bs-toggle="tooltip"
                                        title="{% trans 'Voir' %}">
                                         <i class="ph ph-eye"></i>
                                     </a>
+                                    {% if declaration.statut == 'BROUILLON' %}
+                                    <a href="{% url 'tva:declaration-update' declaration.pk %}"
+                                       class="btn btn-sm btn-light-warning"
+                                       data-bs-toggle="tooltip"
+                                       title="{% trans 'Modifier' %}">
+                                        <i class="ph ph-pencil"></i>
+                                    </a>
+                                    <form method="post" action="{% url 'tva:declaration-supprimer' declaration.pk %}" class="d-inline"
+                                          onsubmit="return confirm('{% trans "Supprimer cette déclaration ?" %}')">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-light-danger"
+                                                data-bs-toggle="tooltip" title="{% trans 'Supprimer' %}">
+                                            <i class="ph ph-trash"></i>
+                                        </button>
+                                    </form>
+                                    {% endif %}
                                 </td>
                             </tr>
                             {% empty %}

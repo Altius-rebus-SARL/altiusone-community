@@ -1,0 +1,126 @@
+<!-- tva/ligne_tva_form.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load widget_tweaks %}
+
+{% block title %}{% if ligne %}{% trans "Modifier la ligne TVA" %}{% else %}{% trans "Nouvelle ligne TVA" %}{% endif %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% if ligne %}{% trans "Modifier la ligne TVA" %}{% else %}{% trans "Nouvelle ligne TVA" %}{% endif %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'tva:declaration-list' %}">
+                    <span>{% trans "Déclarations TVA" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'tva:declaration-detail' declaration.pk %}">
+                    <span>{{ declaration.numero_declaration }}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% if ligne %}{% trans "Modifier ligne" %}{% else %}{% trans "Nouvelle ligne" %}{% endif %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Form -->
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Ligne de déclaration TVA" %}</h5>
+                <small class="text-muted">{{ declaration.numero_declaration }} — {{ declaration.mandat.client.raison_sociale }}</small>
+            </div>
+            <div class="card-body">
+                <form method="post" class="app-form">
+                    {% csrf_token %}
+
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {{ form.non_field_errors }}
+                    </div>
+                    {% endif %}
+
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label class="form-label">{% trans "Code TVA" %} *</label>
+                            {{ form.code_tva|add_class:"form-control select2" }}
+                            {% if form.code_tva.errors %}
+                            <div class="text-danger f-s-12">{{ form.code_tva.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Base imposable" %} *</label>
+                            {{ form.base_imposable|add_class:"form-control" }}
+                            {% if form.base_imposable.errors %}
+                            <div class="text-danger f-s-12">{{ form.base_imposable.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Taux TVA (%)" %}</label>
+                            {{ form.taux_tva|add_class:"form-control" }}
+                            {% if form.taux_tva.errors %}
+                            <div class="text-danger f-s-12">{{ form.taux_tva.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Montant TVA" %}</label>
+                            {{ form.montant_tva|add_class:"form-control" }}
+                            {% if form.montant_tva.errors %}
+                            <div class="text-danger f-s-12">{{ form.montant_tva.errors.0 }}</div>
+                            {% endif %}
+                            <small class="text-muted">{% trans "Auto-calculé si coché ci-dessous" %}</small>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <div class="form-check mt-4">
+                                {{ form.calcul_automatique|add_class:"form-check-input" }}
+                                <label class="form-check-label">{% trans "Calcul automatique" %}</label>
+                            </div>
+                        </div>
+
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label">{% trans "Libellé" %}</label>
+                            {{ form.libelle|add_class:"form-control" }}
+                            {% if form.libelle.errors %}
+                            <div class="text-danger f-s-12">{{ form.libelle.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label">{% trans "Description" %}</label>
+                            {{ form.description|add_class:"form-control" }}
+                            {% if form.description.errors %}
+                            <div class="text-danger f-s-12">{{ form.description.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'tva:declaration-detail' declaration.pk %}" class="btn btn-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ph ph-check me-2"></i>{% if ligne %}{% trans "Enregistrer" %}{% else %}{% trans "Ajouter" %}{% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

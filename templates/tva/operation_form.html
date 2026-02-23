@@ -4,13 +4,13 @@
 {% load i18n %}
 {% load widget_tweaks %}
 
-{% block title %}{% trans "Nouvelle opération TVA" %}{% endblock %}
+{% block title %}{% if form.instance.pk %}{% trans "Modifier l'opération TVA" %}{% else %}{% trans "Nouvelle opération TVA" %}{% endif %}{% endblock %}
 
 {% block content %}
 <!-- Breadcrumb -->
 <div class="row m-1">
     <div class="col-12">
-        <h4 class="main-title">{% trans "Nouvelle opération TVA" %}</h4>
+        <h4 class="main-title">{% if form.instance.pk %}{% trans "Modifier l'opération TVA" %}{% else %}{% trans "Nouvelle opération TVA" %}{% endif %}</h4>
         <ul class="app-line-breadcrumbs mb-3">
             <li>
                 <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
@@ -23,7 +23,7 @@
                 </a>
             </li>
             <li class="active">
-                <a class="f-s-14 f-w-500" href="#">{% trans "Nouvelle" %}</a>
+                <a class="f-s-14 f-w-500" href="#">{% if form.instance.pk %}{% trans "Modifier" %}{% else %}{% trans "Nouvelle" %}{% endif %}</a>
             </li>
         </ul>
     </div>
@@ -39,7 +39,7 @@
             <div class="card-body">
                 <form method="post" class="app-form">
                     {% csrf_token %}
-                    
+
                     {% if form.non_field_errors %}
                     <div class="alert alert-danger">
                         {{ form.non_field_errors }}
@@ -159,13 +159,44 @@
                         <a href="{% url 'tva:operation-list' %}" class="btn btn-secondary">
                             <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
                         </a>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="ph ph-check me-2"></i>{% trans "Créer" %}
-                        </button>
+                        <div>
+                            {% if form.instance.pk %}
+                            <button type="button" class="btn btn-danger me-2" data-bs-toggle="modal" data-bs-target="#modalSupprimerOp">
+                                <i class="ph ph-trash me-2"></i>{% trans "Supprimer" %}
+                            </button>
+                            {% endif %}
+                            <button type="submit" class="btn btn-primary">
+                                <i class="ph ph-check me-2"></i>{% if form.instance.pk %}{% trans "Enregistrer" %}{% else %}{% trans "Créer" %}{% endif %}
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 </div>
+
+{% if form.instance.pk %}
+<!-- Modal Supprimer opération -->
+<div class="modal fade" id="modalSupprimerOp" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "Supprimer l'opération" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "Voulez-vous vraiment supprimer cette opération TVA ?" %}</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Annuler" %}</button>
+                <form method="post" action="{% url 'tva:operation-tva-delete' form.instance.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">{% trans "Supprimer" %}</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}

@@ -651,8 +651,8 @@ class DeclarationTVA(BaseModel):
         )
 
         if operations.exists():
-            # Supprimer les lignes existantes seulement si on a des opérations
-            self.lignes.all().delete()
+            # Supprimer uniquement les lignes auto-calculées, préserver les manuelles
+            self.lignes.filter(calcul_automatique=True).delete()
 
             # Grouper par code TVA
             operations_groupees = {}
@@ -769,6 +769,15 @@ class DeclarationTVA(BaseModel):
 
         self.save()
         return self
+
+    def rouvrir(self):
+        """Rouvre une déclaration validée pour la remettre en brouillon"""
+        if self.statut != 'VALIDE':
+            raise ValueError("Seule une déclaration validée peut être rouverte")
+        self.statut = 'BROUILLON'
+        self.valide_par = None
+        self.date_validation = None
+        self.save(update_fields=['statut', 'valide_par', 'date_validation'])
 
     def generer_xml(self):
         """Génère le fichier XML AFC (uniquement pour le régime suisse)"""
