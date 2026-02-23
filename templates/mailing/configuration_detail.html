@@ -269,62 +269,74 @@
 
 {% block extra_js %}
 <script>
-document.getElementById('btnTestConnexion').addEventListener('click', function() {
-    const btn = this;
-    const url = btn.dataset.url;
-    const card = document.getElementById('testResultCard');
-    const body = document.getElementById('testResultBody');
+(function() {
+    var btnTest = document.getElementById('btnTestConnexion');
+    if (!btnTest) return;
 
-    // Désactiver le bouton et afficher le spinner
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>{% trans "Test en cours..." %}';
+    var lblTest = btnTest.innerHTML;
+    var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')
+        ? document.querySelector('[name=csrfmiddlewaretoken]').value
+        : "{{ csrf_token }}";
 
-    // Afficher la carte avec un loader
-    card.classList.remove('d-none');
-    body.innerHTML = '<div class="text-center py-4"><span class="spinner-border text-info"></span><p class="text-muted mt-2">{% trans "Connexion au serveur en cours... Cela peut prendre jusqu\'à 15 secondes." %}</p></div>';
+    btnTest.addEventListener('click', function() {
+        var url = btnTest.dataset.url;
+        var card = document.getElementById('testResultCard');
+        var body = document.getElementById('testResultBody');
 
-    fetch(url, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': '{{ csrf_token }}',
-            'X-Requested-With': 'XMLHttpRequest',
-        },
-    })
-    .then(response => response.json())
-    .then(data => {
-        let html = '';
+        btnTest.disabled = true;
+        btnTest.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Test en cours...';
 
-        if (data.results) {
-            for (const [proto, result] of Object.entries(data.results)) {
-                const label = proto.toUpperCase();
-                const icon = result.success ? 'ti-circle-check text-success' : 'ti-circle-x text-danger';
-                const bgClass = result.success ? 'bg-success-subtle border-success' : 'bg-danger-subtle border-danger';
+        card.classList.remove('d-none');
+        body.innerHTML = '<div class="text-center py-4">'
+            + '<span class="spinner-border text-info"></span>'
+            + '<p class="text-muted mt-2">Connexion au serveur en cours (15 sec. max)...</p>'
+            + '</div>';
 
-                html += `
-                    <div class="alert ${bgClass} border d-flex align-items-start mb-3" role="alert">
-                        <i class="ti ${icon} me-3" style="font-size: 1.5rem; margin-top: 2px;"></i>
-                        <div>
-                            <strong>${label}</strong>
-                            <p class="mb-0 mt-1">${result.message}</p>
-                        </div>
-                    </div>
-                `;
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest'
             }
-        }
+        })
+        .then(function(response) { return response.json(); })
+        .then(function(data) {
+            var html = '';
 
-        if (!html) {
-            html = '<div class="alert alert-warning">{% trans "Aucun serveur configuré à tester." %}</div>';
-        }
+            if (data.results) {
+                var protos = Object.keys(data.results);
+                for (var i = 0; i < protos.length; i++) {
+                    var proto = protos[i];
+                    var r = data.results[proto];
+                    var label = proto.toUpperCase();
+                    var icon = r.success ? 'ti-circle-check text-success' : 'ti-circle-x text-danger';
+                    var bg = r.success ? 'bg-success-subtle border-success' : 'bg-danger-subtle border-danger';
 
-        body.innerHTML = html;
-    })
-    .catch(error => {
-        body.innerHTML = `<div class="alert alert-danger"><strong>{% trans "Erreur réseau" %}</strong><p class="mb-0 mt-1">${error.message}</p></div>`;
-    })
-    .finally(() => {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="ti ti-plug me-2"></i>{% trans "Tester connexion" %}';
+                    html += '<div class="alert ' + bg + ' border d-flex align-items-start mb-3">'
+                        + '<i class="ti ' + icon + ' me-3" style="font-size:1.5rem;margin-top:2px"></i>'
+                        + '<div><strong>' + label + '</strong>'
+                        + '<p class="mb-0 mt-1">' + r.message + '</p>'
+                        + '</div></div>';
+                }
+            }
+
+            if (!html) {
+                html = '<div class="alert alert-warning">Aucun serveur SMTP ou IMAP a tester.</div>';
+            }
+
+            body.innerHTML = html;
+        })
+        .catch(function(err) {
+            body.innerHTML = '<div class="alert alert-danger">'
+                + '<strong>Erreur réseau</strong>'
+                + '<p class="mb-0 mt-1">' + err.message + '</p>'
+                + '</div>';
+        })
+        .finally(function() {
+            btnTest.disabled = false;
+            btnTest.innerHTML = lblTest;
+        });
     });
-});
+})();
 </script>
 {% endblock %}
