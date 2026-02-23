@@ -102,10 +102,9 @@ class ConfigurationEmail(models.Model):
     email_address = models.EmailField(
         verbose_name=_('Adresse email')
     )
-    username = models.CharField(
-        max_length=255,
+    username = models.EmailField(
         verbose_name=_('Nom d\'utilisateur'),
-        help_text=_('Généralement identique à l\'adresse email')
+        help_text=_('Adresse email d\'authentification SMTP/IMAP')
     )
     password = EncryptedTextField(
         verbose_name=_('Mot de passe'),

@@ -85,10 +85,10 @@
                     </div>
                     <div class="card-body">
                         <div class="mb-3">
-                            <label for="id_username" class="form-label">{% trans "Nom d'utilisateur" %}</label>
+                            <label for="id_username" class="form-label">{% trans "Email d'authentification" %} <span class="text-danger">*</span></label>
                             {{ form.username }}
                             {% if form.username.errors %}<div class="text-danger f-s-12">{{ form.username.errors|join:", " }}</div>{% endif %}
-                            <small class="text-muted">{% trans "Laissez vide si identique a l'adresse email" %}</small>
+                            <small class="text-muted">{% trans "Adresse email utilisee pour l'authentification SMTP/IMAP" %}</small>
                         </div>
 
                         <div class="mb-3">
@@ -181,7 +181,14 @@
                                         data-smtp-host="smtp.mail.yahoo.com" data-smtp-port="587" data-smtp-security="TLS">
                                     <i class="ti ti-mail me-1"></i>Yahoo
                                 </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm preset-btn"
+                                        data-smtp-host="mail.votre-domaine.ch" data-smtp-port="465" data-smtp-security="SSL">
+                                    <i class="ti ti-server me-1"></i>Mailcow
+                                </button>
                             </div>
+                            <small class="text-muted d-block mt-2">
+                                {% trans "Mailcow: remplacez 'votre-domaine.ch' par le domaine de votre serveur Mailcow." %}
+                            </small>
                         </div>
                     </div>
                 </div>
@@ -263,7 +270,14 @@
                                         data-imap-host="imap.mail.yahoo.com" data-imap-port="993" data-imap-security="SSL">
                                     <i class="ti ti-mail me-1"></i>Yahoo
                                 </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm preset-btn"
+                                        data-imap-host="mail.votre-domaine.ch" data-imap-port="993" data-imap-security="SSL">
+                                    <i class="ti ti-server me-1"></i>Mailcow
+                                </button>
                             </div>
+                            <small class="text-muted d-block mt-2">
+                                {% trans "Mailcow: remplacez 'votre-domaine.ch' par le domaine de votre serveur Mailcow." %}
+                            </small>
                         </div>
                     </div>
                 </div>
