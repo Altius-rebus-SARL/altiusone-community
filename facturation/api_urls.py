@@ -8,6 +8,9 @@ from .viewset import (
     LigneFactureViewSet,
     PaiementViewSet,
     RelanceViewSet,
+    TypePrestationViewSet,
+    ZoneGeographiqueViewSet,
+    TarifMandatViewSet,
 )
 
 app_name = "facturation"
@@ -19,6 +22,9 @@ router.register(r"factures", FactureViewSet, basename="facture")
 router.register(r"lignes", LigneFactureViewSet, basename="ligne")
 router.register(r"paiements", PaiementViewSet, basename="paiement")
 router.register(r"relances", RelanceViewSet, basename="relance")
+router.register(r"types-prestations", TypePrestationViewSet, basename="type-prestation")
+router.register(r"zones-geographiques", ZoneGeographiqueViewSet, basename="zone-geographique")
+router.register(r"tarifs-mandats", TarifMandatViewSet, basename="tarif-mandat")
 
 urlpatterns = [
     path("", include(router.urls)),

@@ -10,6 +10,7 @@ from .viewset import (
     LigneTVAViewSet,
     OperationTVAViewSet,
     CorrectionTVAViewSet,
+    RapprochementAnnuelViewSet,
 )
 
 app_name = "tva"
@@ -23,6 +24,7 @@ router.register(r"declarations", DeclarationTVAViewSet, basename="declaration")
 router.register(r"lignes", LigneTVAViewSet, basename="ligne")
 router.register(r"operations", OperationTVAViewSet, basename="operation")
 router.register(r"corrections", CorrectionTVAViewSet, basename="correction")
+router.register(r"rapprochements-annuels", RapprochementAnnuelViewSet, basename="rapprochement-annuel")
 
 urlpatterns = [
     path("", include(router.urls)),

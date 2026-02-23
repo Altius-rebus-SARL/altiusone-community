@@ -18,6 +18,7 @@ from .models import (
     LigneTVA,
     OperationTVA,
     CorrectionTVA,
+    RapprochementAnnuel,
 )
 from .serializers import (
     ConfigurationTVASerializer,
@@ -29,6 +30,7 @@ from .serializers import (
     LigneTVASerializer,
     OperationTVASerializer,
     CorrectionTVASerializer,
+    RapprochementAnnuelSerializer,
 )
 
 
@@ -312,3 +314,21 @@ class CorrectionTVAViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["declaration", "type_correction"]
+
+
+class RapprochementAnnuelViewSet(viewsets.ModelViewSet):
+    """ViewSet pour les rapprochements annuels TVA"""
+
+    queryset = RapprochementAnnuel.objects.select_related("mandat").all()
+    serializer_class = RapprochementAnnuelSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["mandat", "annee", "statut"]
+
+    @action(detail=True, methods=["post"])
+    def calculer(self, request, pk=None):
+        """Calculer les écarts du rapprochement annuel"""
+        instance = self.get_object()
+        instance.calculer()
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)

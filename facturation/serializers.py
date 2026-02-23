@@ -1,6 +1,16 @@
 # facturation/serializers.py
 from rest_framework import serializers
-from .models import Prestation, TimeTracking, Facture, LigneFacture, Paiement, Relance
+from .models import (
+    Prestation,
+    TimeTracking,
+    Facture,
+    LigneFacture,
+    Paiement,
+    Relance,
+    TypePrestation,
+    ZoneGeographique,
+    TarifMandat,
+)
 from core.serializers import MandatListSerializer, UserSerializer, ClientListSerializer
 
 
@@ -41,6 +51,7 @@ class FactureListSerializer(serializers.ModelSerializer):
     regime_fiscal_code = serializers.CharField(
         source="regime_fiscal.code", read_only=True, default=None
     )
+    est_simplifiee = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Facture
@@ -56,12 +67,14 @@ class FactureListSerializer(serializers.ModelSerializer):
             "statut_display",
             "devise_code",
             "regime_fiscal_code",
+            "est_simplifiee",
         ]
 
 
 class FactureDetailSerializer(serializers.ModelSerializer):
     client = ClientListSerializer(read_only=True)
     mandat = MandatListSerializer(read_only=True)
+    est_simplifiee = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Facture
@@ -83,4 +96,36 @@ class PaiementSerializer(serializers.ModelSerializer):
 class RelanceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Relance
+        fields = "__all__"
+
+
+class TypePrestationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TypePrestation
+        fields = [
+            "id",
+            "code",
+            "libelle",
+            "description",
+            "icone",
+            "couleur",
+            "ordre",
+            "is_active",
+        ]
+
+
+class ZoneGeographiqueSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ZoneGeographique
+        fields = ["id", "nom", "description", "couleur"]
+
+
+class TarifMandatSerializer(serializers.ModelSerializer):
+    mandat_numero = serializers.CharField(source="mandat.numero", read_only=True)
+    prestation_libelle = serializers.CharField(
+        source="prestation.libelle", read_only=True
+    )
+
+    class Meta:
+        model = TarifMandat
         fields = "__all__"

@@ -745,33 +745,65 @@ class RapportsViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=["get"])
     def bilan(self, request):
-        """Générer le bilan"""
+        """Générer le bilan (Actifs vs Passifs) — PME suisse classes 1 et 2"""
         mandat_id = request.query_params.get("mandat")
-        date = request.query_params.get("date")
+        date_bilan = request.query_params.get("date")
+        exercice_id = request.query_params.get("exercice")
 
-        if not mandat_id or not date:
+        if not mandat_id or not date_bilan:
             return Response(
                 {"error": "mandat et date requis"}, status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Calculs simplifiés pour l'exemple
-        actif_circulant = Decimal("0")
-        actif_immobilise = Decimal("0")
-        capitaux_tiers_ct = Decimal("0")
-        capitaux_tiers_lt = Decimal("0")
-        capitaux_propres = Decimal("0")
+        plan = PlanComptable.objects.filter(mandat_id=mandat_id).first()
+        if not plan:
+            return Response(
+                {"error": "Aucun plan comptable trouvé pour ce mandat"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
-        # TODO: Implémenter la logique réelle de calcul
+        def _solde_comptes(type_compte):
+            comptes = Compte.objects.filter(
+                plan_comptable=plan, imputable=True, type_compte=type_compte
+            ).order_by("numero")
+            items = []
+            total = Decimal("0")
+            for compte in comptes:
+                qs = EcritureComptable.objects.filter(
+                    compte=compte,
+                    statut__in=["VALIDE", "LETTRE", "CLOTURE"],
+                )
+                if exercice_id:
+                    qs = qs.filter(exercice_id=exercice_id)
+                else:
+                    qs = qs.filter(date_ecriture__lte=date_bilan)
+                debit = qs.aggregate(s=Sum("montant_debit"))["s"] or Decimal("0")
+                credit = qs.aggregate(s=Sum("montant_credit"))["s"] or Decimal("0")
+                solde = debit - credit if type_compte == "ACTIF" else credit - debit
+                if solde != 0:
+                    items.append({
+                        "compte": CompteListSerializer(compte).data,
+                        "solde": solde,
+                    })
+                    total += solde
+            return items, total
+
+        actifs, total_actifs = _solde_comptes("ACTIF")
+        passifs, total_passifs = _solde_comptes("PASSIF")
 
         bilan_data = {
-            "actif_circulant": actif_circulant,
-            "actif_immobilise": actif_immobilise,
-            "total_actif": actif_circulant + actif_immobilise,
-            "capitaux_tiers_ct": capitaux_tiers_ct,
-            "capitaux_tiers_lt": capitaux_tiers_lt,
-            "capitaux_propres": capitaux_propres,
-            "total_passif": capitaux_tiers_ct + capitaux_tiers_lt + capitaux_propres,
-            "details": {},
+            "actif_circulant": total_actifs,
+            "actif_immobilise": Decimal("0"),
+            "total_actif": total_actifs,
+            "capitaux_tiers_ct": Decimal("0"),
+            "capitaux_tiers_lt": Decimal("0"),
+            "capitaux_propres": total_passifs,
+            "total_passif": total_passifs,
+            "details": {
+                "actifs": actifs,
+                "passifs": passifs,
+                "equilibre": total_actifs == total_passifs,
+            },
         }
 
         serializer = BilanSerializer(bilan_data)
@@ -779,10 +811,11 @@ class RapportsViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=["get"])
     def compte_resultats(self, request):
-        """Générer le compte de résultats"""
+        """Générer le compte de résultats (Produits vs Charges) — PME suisse classes 3-8"""
         mandat_id = request.query_params.get("mandat")
         date_debut = request.query_params.get("date_debut")
         date_fin = request.query_params.get("date_fin")
+        exercice_id = request.query_params.get("exercice")
 
         if not mandat_id or not date_debut or not date_fin:
             return Response(
@@ -790,31 +823,57 @@ class RapportsViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Calculs simplifiés pour l'exemple
-        produits_exploitation = Decimal("0")
-        charges_exploitation = Decimal("0")
-        produits_financiers = Decimal("0")
-        charges_financieres = Decimal("0")
-        impots = Decimal("0")
+        plan = PlanComptable.objects.filter(mandat_id=mandat_id).first()
+        if not plan:
+            return Response(
+                {"error": "Aucun plan comptable trouvé pour ce mandat"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
-        # TODO: Implémenter la logique réelle de calcul
+        def _solde_comptes(type_compte):
+            comptes = Compte.objects.filter(
+                plan_comptable=plan, imputable=True, type_compte=type_compte
+            ).order_by("numero")
+            items = []
+            total = Decimal("0")
+            for compte in comptes:
+                qs = EcritureComptable.objects.filter(
+                    compte=compte,
+                    date_ecriture__gte=date_debut,
+                    date_ecriture__lte=date_fin,
+                    statut__in=["VALIDE", "LETTRE", "CLOTURE"],
+                )
+                if exercice_id:
+                    qs = qs.filter(exercice_id=exercice_id)
+                debit = qs.aggregate(s=Sum("montant_debit"))["s"] or Decimal("0")
+                credit = qs.aggregate(s=Sum("montant_credit"))["s"] or Decimal("0")
+                solde = debit - credit if type_compte == "CHARGE" else credit - debit
+                if solde != 0:
+                    items.append({
+                        "compte": CompteListSerializer(compte).data,
+                        "solde": solde,
+                    })
+                    total += solde
+            return items, total
 
-        resultat_exploitation = produits_exploitation - charges_exploitation
-        resultat_financier = produits_financiers - charges_financieres
-        resultat_avant_impots = resultat_exploitation + resultat_financier
-        resultat_net = resultat_avant_impots - impots
+        produits, total_produits = _solde_comptes("PRODUIT")
+        charges, total_charges = _solde_comptes("CHARGE")
+        resultat = total_produits - total_charges
 
         cr_data = {
-            "produits_exploitation": produits_exploitation,
-            "charges_exploitation": charges_exploitation,
-            "resultat_exploitation": resultat_exploitation,
-            "produits_financiers": produits_financiers,
-            "charges_financieres": charges_financieres,
-            "resultat_financier": resultat_financier,
-            "resultat_avant_impots": resultat_avant_impots,
-            "impots": impots,
-            "resultat_net": resultat_net,
-            "details": {},
+            "produits_exploitation": total_produits,
+            "charges_exploitation": total_charges,
+            "resultat_exploitation": resultat,
+            "produits_financiers": Decimal("0"),
+            "charges_financieres": Decimal("0"),
+            "resultat_financier": Decimal("0"),
+            "resultat_avant_impots": resultat,
+            "impots": Decimal("0"),
+            "resultat_net": resultat,
+            "details": {
+                "produits": produits,
+                "charges": charges,
+            },
         }
 
         serializer = CompteResultatsSerializer(cr_data)

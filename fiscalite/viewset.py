@@ -4,6 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
+from django.utils import timezone
 from .models import (
     DeclarationFiscale,
     AnnexeFiscale,
@@ -11,6 +12,8 @@ from .models import (
     ReportPerte,
     TauxImposition,
     OptimisationFiscale,
+    ReclamationFiscale,
+    UtilisationPerte,
 )
 from .serializers import (
     DeclarationFiscaleListSerializer,
@@ -20,6 +23,8 @@ from .serializers import (
     ReportPerteSerializer,
     TauxImpositionSerializer,
     OptimisationFiscaleSerializer,
+    ReclamationFiscaleSerializer,
+    UtilisationPerteSerializer,
 )
 
 
@@ -36,17 +41,71 @@ class DeclarationFiscaleViewSet(viewsets.ModelViewSet):
             return DeclarationFiscaleListSerializer
         return DeclarationFiscaleDetailSerializer
 
+    @action(detail=True, methods=["post"])
+    def valider(self, request, pk=None):
+        """Passer la déclaration au statut A_VALIDER"""
+        declaration = self.get_object()
+        if declaration.statut not in ("BROUILLON", "EN_PREPARATION"):
+            return Response(
+                {"error": "La déclaration ne peut pas être validée dans son état actuel"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        declaration.statut = "A_VALIDER"
+        declaration.save(update_fields=["statut"])
+        serializer = self.get_serializer(declaration)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["post"])
+    def soumettre(self, request, pk=None):
+        """Soumettre la déclaration (statut → DEPOSE)"""
+        declaration = self.get_object()
+        if declaration.statut not in ("VALIDE", "A_VALIDER"):
+            return Response(
+                {"error": "La déclaration doit être validée avant soumission"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        declaration.statut = "DEPOSE"
+        declaration.date_depot = timezone.now().date()
+        declaration.save(update_fields=["statut", "date_depot"])
+        serializer = self.get_serializer(declaration)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["post"])
+    def populate_comptabilite(self, request, pk=None):
+        """Peupler la déclaration depuis les données comptables"""
+        declaration = self.get_object()
+        if hasattr(declaration, "populate_from_comptabilite"):
+            declaration.populate_from_comptabilite()
+            serializer = self.get_serializer(declaration)
+            return Response(serializer.data)
+        return Response(
+            {"error": "Méthode populate_from_comptabilite non disponible"},
+            status=status.HTTP_501_NOT_IMPLEMENTED,
+        )
+
+    @action(detail=True, methods=["get"])
+    def annexes(self, request, pk=None):
+        """Liste des annexes liées à cette déclaration"""
+        declaration = self.get_object()
+        annexes = declaration.annexes.all().order_by("ordre")
+        serializer = AnnexeFiscaleSerializer(annexes, many=True)
+        return Response(serializer.data)
+
 
 class AnnexeFiscaleViewSet(viewsets.ModelViewSet):
     queryset = AnnexeFiscale.objects.all()
     serializer_class = AnnexeFiscaleSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["declaration", "type_annexe"]
 
 
 class CorrectionFiscaleViewSet(viewsets.ModelViewSet):
     queryset = CorrectionFiscale.objects.all()
     serializer_class = CorrectionFiscaleSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["declaration", "type_correction"]
 
 
 class ReportPerteViewSet(viewsets.ModelViewSet):
@@ -55,6 +114,13 @@ class ReportPerteViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["mandat", "expire"]
+
+    @action(detail=False, methods=["get"])
+    def disponibles(self, request):
+        """Reports de pertes non expirés avec montant restant > 0"""
+        qs = self.queryset.filter(expire=False, montant_restant__gt=0)
+        serializer = self.get_serializer(qs, many=True)
+        return Response(serializer.data)
 
 
 class TauxImpositionViewSet(viewsets.ModelViewSet):
@@ -182,3 +248,25 @@ class OptimisationFiscaleViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["mandat", "categorie", "statut"]
+
+
+class ReclamationFiscaleViewSet(viewsets.ModelViewSet):
+    """ViewSet pour les réclamations fiscales"""
+
+    queryset = ReclamationFiscale.objects.select_related("declaration").all()
+    serializer_class = ReclamationFiscaleSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["declaration", "statut"]
+
+
+class UtilisationPerteViewSet(viewsets.ModelViewSet):
+    """ViewSet pour les utilisations de pertes"""
+
+    queryset = UtilisationPerte.objects.select_related(
+        "report_perte", "declaration_fiscale"
+    ).all()
+    serializer_class = UtilisationPerteSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["report_perte", "declaration_fiscale"]

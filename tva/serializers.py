@@ -9,6 +9,7 @@ from .models import (
     LigneTVA,
     OperationTVA,
     CorrectionTVA,
+    RapprochementAnnuel,
 )
 from core.serializers import MandatListSerializer, UserSerializer
 
@@ -248,3 +249,18 @@ class CorrectionTVASerializer(serializers.ModelSerializer):
             "description",
             "justification",
         ]
+
+
+class RapprochementAnnuelSerializer(serializers.ModelSerializer):
+    """Serializer pour les rapprochements annuels TVA"""
+
+    mandat_numero = serializers.CharField(source="mandat.numero", read_only=True)
+    statut_display = serializers.CharField(source="get_statut_display", read_only=True)
+    ecart_total = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RapprochementAnnuel
+        fields = "__all__"
+
+    def get_ecart_total(self, obj):
+        return obj.ecart_tva_due - obj.ecart_tva_prealable

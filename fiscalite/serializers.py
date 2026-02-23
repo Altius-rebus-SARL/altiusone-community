@@ -7,6 +7,8 @@ from .models import (
     ReportPerte,
     TauxImposition,
     OptimisationFiscale,
+    ReclamationFiscale,
+    UtilisationPerte,
 )
 from core.serializers import MandatListSerializer
 
@@ -75,4 +77,28 @@ class OptimisationFiscaleSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OptimisationFiscale
+        fields = "__all__"
+
+
+class ReclamationFiscaleSerializer(serializers.ModelSerializer):
+    statut_display = serializers.CharField(source="get_statut_display", read_only=True)
+    declaration_numero = serializers.CharField(
+        source="declaration.numero_declaration", read_only=True
+    )
+
+    class Meta:
+        model = ReclamationFiscale
+        fields = "__all__"
+
+
+class UtilisationPerteSerializer(serializers.ModelSerializer):
+    report_annee_origine = serializers.IntegerField(
+        source="report_perte.annee_origine", read_only=True
+    )
+    declaration_numero = serializers.CharField(
+        source="declaration_fiscale.numero_declaration", read_only=True
+    )
+
+    class Meta:
+        model = UtilisationPerte
         fields = "__all__"

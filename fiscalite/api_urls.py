@@ -8,6 +8,8 @@ from .viewset import (
     ReportPerteViewSet,
     TauxImpositionViewSet,
     OptimisationFiscaleViewSet,
+    ReclamationFiscaleViewSet,
+    UtilisationPerteViewSet,
 )
 
 app_name = "fiscalite"
@@ -19,6 +21,8 @@ router.register(r"corrections", CorrectionFiscaleViewSet, basename="correction")
 router.register(r"reports-pertes", ReportPerteViewSet, basename="report-perte")
 router.register(r"taux", TauxImpositionViewSet, basename="taux")
 router.register(r"optimisations", OptimisationFiscaleViewSet, basename="optimisation")
+router.register(r"reclamations", ReclamationFiscaleViewSet, basename="reclamation")
+router.register(r"utilisations-pertes", UtilisationPerteViewSet, basename="utilisation-perte")
 
 urlpatterns = [
     path("", include(router.urls)),
