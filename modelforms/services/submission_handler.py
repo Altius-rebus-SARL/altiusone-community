@@ -455,14 +455,14 @@ class SubmissionHandler:
             except (User.DoesNotExist, ValueError):
                 assign_to = self.user
 
-        Tache.objects.create(
+        tache = Tache.objects.create(
             titre=title,
             description=f"Créé automatiquement suite à la soumission du formulaire {self.form_config.code}",
-            assigne_a=assign_to,
             cree_par=self.user,
             mandat=self.mandat,
             priorite='NORMALE',
         )
+        tache.assignes.add(assign_to)
 
     def _create_notification_action(self, action: Dict, record: models.Model):
         """

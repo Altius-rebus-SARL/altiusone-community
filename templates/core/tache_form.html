@@ -69,16 +69,31 @@
                             </div>
                         </div>
 
-                        <!-- Assigné à -->
+                        <!-- Assignés -->
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="{{ form.assigne_a.id_for_label }}" class="form-label">
-                                    {{ form.assigne_a.label }} <span class="text-danger">*</span>
+                                <label for="{{ form.assignes.id_for_label }}" class="form-label">
+                                    {{ form.assignes.label }}
                                 </label>
-                                {{ form.assigne_a }}
-                                {% if form.assigne_a.errors %}
+                                {{ form.assignes }}
+                                {% if form.assignes.errors %}
                                 <div class="text-danger f-s-12 mt-1">
-                                    {{ form.assigne_a.errors }}
+                                    {{ form.assignes.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Prestation -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.prestation.id_for_label }}" class="form-label">
+                                    {{ form.prestation.label }}
+                                </label>
+                                {{ form.prestation }}
+                                {% if form.prestation.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.prestation.errors }}
                                 </div>
                                 {% endif %}
                             </div>
@@ -178,4 +193,42 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var mandatSelect = document.getElementById('id_mandat');
+    var assignesSelect = document.getElementById('id_assignes');
+
+    if (mandatSelect && assignesSelect) {
+        // Sauvegarder les valeurs sélectionnées actuelles
+        var currentValues = Array.from(assignesSelect.selectedOptions).map(o => o.value);
+
+        mandatSelect.addEventListener('change', function() {
+            var mandatId = this.value;
+            var url = '{% url "core:tache-assignable-users" %}';
+            if (mandatId) {
+                url += '?mandat_id=' + mandatId;
+            }
+
+            fetch(url)
+                .then(function(response) { return response.json(); })
+                .then(function(users) {
+                    // Vider et repeupler
+                    assignesSelect.innerHTML = '';
+                    users.forEach(function(u) {
+                        var option = new Option(u.name, u.id);
+                        if (currentValues.includes(u.id)) {
+                            option.selected = true;
+                        }
+                        assignesSelect.add(option);
+                    });
+                    // Réinitialiser Select2 si présent
+                    if (typeof $ !== 'undefined' && $(assignesSelect).data('select2')) {
+                        $(assignesSelect).trigger('change');
+                    }
+                });
+        });
+    }
+});
+</script>
 {% endblock %}

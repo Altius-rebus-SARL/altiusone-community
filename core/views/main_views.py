@@ -103,7 +103,7 @@ class DashboardView(LoginRequiredMixin, ListView):
             "clients_actifs": Client.objects.filter(statut="ACTIF").count(),
             "mandats_actifs": self.get_queryset().count(),
             "taches_en_cours": Tache.objects.filter(
-                assigne_a=user, statut__in=["A_FAIRE", "EN_COURS"]
+                assignes=user, statut__in=["A_FAIRE", "EN_COURS"]
             ).count(),
             "notifications_non_lues": Notification.objects.filter(
                 destinataire=user, lue=False
@@ -113,11 +113,12 @@ class DashboardView(LoginRequiredMixin, ListView):
         # Tâches urgentes
         context["taches_urgentes"] = (
             Tache.objects.filter(
-                assigne_a=user,
+                assignes=user,
                 statut__in=["A_FAIRE", "EN_COURS"],
                 priorite__in=["HAUTE", "URGENTE"],
             )
             .select_related("mandat", "cree_par")
+            .distinct()
             .order_by("date_echeance")[:5]
         )
 
@@ -401,7 +402,7 @@ class MandatDetailView(LoginRequiredMixin, DetailView):
         # Tâches
         context["taches"] = (
             Tache.objects.filter(mandat=mandat)
-            .select_related("assigne_a")
+            .prefetch_related("assignes")
             .order_by("-date_echeance")[:20]
         )
 
@@ -527,14 +528,16 @@ class TacheListView(LoginRequiredMixin, ListView):
     paginate_by = 50
 
     def get_queryset(self):
-        queryset = Tache.objects.select_related(
-            "assigne_a", "cree_par", "mandat__client"
+        queryset = Tache.objects.prefetch_related('assignes').select_related(
+            "cree_par", "mandat__client"
         )
 
         # Filtrer par utilisateur si pas admin
         user = self.request.user
         if not user.is_manager():
-            queryset = queryset.filter(Q(assigne_a=user) | Q(cree_par=user))
+            queryset = queryset.filter(
+                Q(assignes=user) | Q(cree_par=user)
+            ).distinct()
 
         # Appliquer filtres
         self.filterset = TacheFilter(self.request.GET, queryset=queryset)
@@ -546,7 +549,7 @@ class TacheListView(LoginRequiredMixin, ListView):
 
         # Statistiques
         user = self.request.user
-        queryset = Tache.objects.filter(assigne_a=user)
+        queryset = Tache.objects.filter(assignes=user)
 
         context["stats"] = {
             "a_faire": queryset.filter(statut="A_FAIRE").count(),
@@ -570,6 +573,11 @@ class TacheDetailView(LoginRequiredMixin, DetailView):
     template_name = "core/tache_detail.html"
     context_object_name = "tache"
 
+    def get_queryset(self):
+        return Tache.objects.prefetch_related('assignes', 'temps_travail').select_related(
+            'cree_par', 'mandat__client', 'prestation'
+        )
+
 
 class TacheCreateView(LoginRequiredMixin, CreateView):
     """Création d'une tâche"""
@@ -579,12 +587,35 @@ class TacheCreateView(LoginRequiredMixin, CreateView):
     template_name = "core/tache_form.html"
     success_url = reverse_lazy("core:tache-list")
 
+    def dispatch(self, request, *args, **kwargs):
+        # Vérifier qu'une ConfigurationEmail SMTP active existe
+        from mailing.models import ConfigurationEmail
+        config = ConfigurationEmail.objects.filter(
+            type_config='SMTP', actif=True
+        ).filter(
+            Q(usage='NOTIFICATIONS') | Q(est_defaut=True)
+        ).first()
+        if not config:
+            messages.warning(
+                request,
+                _("Veuillez configurer un compte email SMTP pour les notifications avant de créer des tâches.")
+            )
+            return redirect('mailing:configuration-create')
+        return super().dispatch(request, *args, **kwargs)
+
     def get_initial(self):
         initial = super().get_initial()
         mandat_pk = self.request.GET.get("mandat")
         if mandat_pk:
             initial["mandat"] = mandat_pk
         return initial
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        mandat_pk = self.request.GET.get("mandat")
+        if mandat_pk:
+            kwargs['mandat_id'] = mandat_pk
+        return kwargs
 
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
@@ -600,7 +631,11 @@ class TacheCreateView(LoginRequiredMixin, CreateView):
             form.instance.mandat_id = mandat_pk
         form.instance.cree_par = self.request.user
         messages.success(self.request, _("Tâche créée avec succès"))
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        # Envoyer les notifications aux assignés
+        from core.services.tache_service import envoyer_notification_assignation
+        envoyer_notification_assignation(self.object, self.request.user)
+        return response
 
 
 class TacheUpdateView(LoginRequiredMixin, UpdateView):
@@ -611,9 +646,126 @@ class TacheUpdateView(LoginRequiredMixin, UpdateView):
     template_name = "core/tache_form.html"
     success_url = reverse_lazy("core:tache-list")
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        if self.object.mandat_id:
+            kwargs['mandat_id'] = str(self.object.mandat_id)
+        return kwargs
+
     def form_valid(self, form):
+        # Détecter les nouveaux assignés avant le save
+        old_assignes = set(self.object.assignes.values_list('pk', flat=True))
         messages.success(self.request, _("Tâche modifiée avec succès"))
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        # Notifier seulement les nouveaux assignés
+        new_assignes = set(self.object.assignes.values_list('pk', flat=True))
+        added = new_assignes - old_assignes
+        if added:
+            from core.services.tache_service import envoyer_notification_assignation
+            new_users = User.objects.filter(pk__in=added)
+            envoyer_notification_assignation(self.object, self.request.user, only_users=new_users)
+        return response
+
+
+class TacheCalendarView(LoginRequiredMixin, TemplateView):
+    """Vue calendrier des tâches"""
+    template_name = "core/tache_calendar.html"
+
+
+@login_required
+def tache_calendar_events(request):
+    """Retourne les tâches au format JSON FullCalendar"""
+    from django.urls import reverse
+
+    start = request.GET.get('start')
+    end = request.GET.get('end')
+
+    taches = Tache.objects.filter(
+        assignes=request.user
+    ).exclude(statut='ANNULEE')
+
+    if start:
+        taches = taches.filter(
+            Q(date_echeance__gte=start) | Q(date_echeance__isnull=True, date_debut__gte=start)
+        )
+    if end:
+        taches = taches.filter(
+            Q(date_echeance__lte=end) | Q(date_echeance__isnull=True, date_debut__lte=end)
+        )
+
+    taches = taches.distinct()
+
+    color_map = {
+        'URGENTE': '#dc3545',
+        'HAUTE': '#ffc107',
+        'NORMALE': '#0dcaf0',
+        'BASSE': '#6c757d',
+    }
+
+    events = []
+    for t in taches:
+        event_date = t.date_echeance or (t.date_debut.date() if t.date_debut else None)
+        if not event_date:
+            continue
+        events.append({
+            'id': str(t.pk),
+            'title': t.titre,
+            'start': event_date.isoformat(),
+            'url': reverse('core:tache-detail', kwargs={'pk': t.pk}),
+            'backgroundColor': color_map.get(t.priorite, '#0dcaf0'),
+            'borderColor': color_map.get(t.priorite, '#0dcaf0'),
+            'textColor': '#000' if t.priorite == 'HAUTE' else '#fff',
+            'extendedProps': {
+                'description': t.description[:100] if t.description else '',
+                'statut': t.get_statut_display(),
+                'priorite': t.get_priorite_display(),
+            }
+        })
+
+    return JsonResponse(events, safe=False)
+
+
+@login_required
+def api_get_assignable_users(request):
+    """Retourne les utilisateurs assignables pour un mandat donné"""
+    mandat_id = request.GET.get('mandat_id')
+
+    from core.models import AccesMandat, CollaborateurFiduciaire
+
+    # Staff actifs
+    users = list(
+        User.objects.filter(is_active=True, type_utilisateur='STAFF').values('id', 'first_name', 'last_name', 'username')
+    )
+
+    if mandat_id:
+        # Utilisateurs AccesMandat actifs
+        acces_ids = AccesMandat.objects.filter(
+            mandat_id=mandat_id, is_active=True
+        ).values_list('utilisateur_id', flat=True)
+        # Collaborateurs fiduciaire actifs
+        collab_ids = CollaborateurFiduciaire.objects.filter(
+            mandat_id=mandat_id, is_active=True
+        ).values_list('utilisateur_id', flat=True)
+
+        external_ids = set(acces_ids) | set(collab_ids)
+        # Exclure ceux déjà dans staff
+        staff_ids = {u['id'] for u in users}
+        new_ids = external_ids - staff_ids
+
+        if new_ids:
+            external_users = User.objects.filter(pk__in=new_ids).values(
+                'id', 'first_name', 'last_name', 'username'
+            )
+            users.extend(external_users)
+
+    result = [
+        {
+            'id': str(u['id']),
+            'name': f"{u['first_name']} {u['last_name']}".strip() or u['username'],
+        }
+        for u in users
+    ]
+    return JsonResponse(result, safe=False)
 
 
 # ============ API AJAX ============
@@ -668,8 +820,8 @@ def get_stats_dashboard(request):
 
     data = {
         "taches": {
-            "a_faire": Tache.objects.filter(assigne_a=user, statut="A_FAIRE").count(),
-            "en_cours": Tache.objects.filter(assigne_a=user, statut="EN_COURS").count(),
+            "a_faire": Tache.objects.filter(assignes=user, statut="A_FAIRE").count(),
+            "en_cours": Tache.objects.filter(assignes=user, statut="EN_COURS").count(),
         },
         "notifications": Notification.objects.filter(
             destinataire=user, lue=False
@@ -873,13 +1025,13 @@ class ProfileView(LoginRequiredMixin, TemplateView):
 
         # Statistiques de l'utilisateur
         context["stats"] = {
-            "taches_total": Tache.objects.filter(assigne_a=user).count(),
+            "taches_total": Tache.objects.filter(assignes=user).distinct().count(),
             "taches_en_cours": Tache.objects.filter(
-                assigne_a=user, statut="EN_COURS"
-            ).count(),
+                assignes=user, statut="EN_COURS"
+            ).distinct().count(),
             "taches_completees": Tache.objects.filter(
-                assigne_a=user, statut="TERMINEE"
-            ).count(),
+                assignes=user, statut="TERMINEE"
+            ).distinct().count(),
             "mandats_responsable": Mandat.objects.filter(responsable=user).count(),
             "mandats_equipe": Mandat.objects.filter(
                 equipe=user
@@ -887,7 +1039,7 @@ class ProfileView(LoginRequiredMixin, TemplateView):
         }
 
         # Tâches récentes de l'utilisateur
-        context["taches_recentes"] = Tache.objects.filter(assigne_a=user).order_by(
+        context["taches_recentes"] = Tache.objects.filter(assignes=user).distinct().order_by(
             "-created_at"
         )[:5]
 

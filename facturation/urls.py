@@ -90,6 +90,7 @@ urlpatterns = [
         name="ligne-delete-row",
     ),
     # API
+    path("api/tache-context/", views.api_tache_context, name="tache-context"),
     path("api/taux-horaire/", views.get_taux_horaire, name="get-taux-horaire"),
     path("api/positions/", views.get_positions, name="get-positions"),
     path("api/operations/", views.get_operations, name="get-operations"),

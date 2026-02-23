@@ -857,10 +857,9 @@ class Command(BaseCommand):
         count = 0
         for _ in range(40):
             template = random.choice(tache_templates)
-            Tache.objects.create(
+            tache = Tache.objects.create(
                 titre=template["titre_fr"],
                 description=template["desc_fr"],
-                assigne_a=random.choice(users),
                 cree_par=random.choice(users),
                 mandat=random.choice(mandats),
                 priorite=random.choice(["BASSE", "NORMALE", "HAUTE", "URGENTE"]),
@@ -870,6 +869,7 @@ class Command(BaseCommand):
                 statut=random.choice(["A_FAIRE", "EN_COURS", "TERMINEE"]),
                 temps_estime_heures=Decimal(str(random.randint(1, 16))),
             )
+            tache.assignes.add(random.choice(users))
             count += 1
 
         self.stdout.write(f"  ✓ {count} tâches")

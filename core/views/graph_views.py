@@ -402,7 +402,7 @@ class GraphDataMixin:
         # ==============================================
         taches = Tache.objects.filter(
             statut__in=['A_FAIRE', 'EN_COURS']
-        ).select_related('mandat', 'assigne_a')[:limit_per_type or 100]
+        ).select_related('mandat').prefetch_related('assignes')[:limit_per_type or 100]
 
         for tache in taches:
             tache_id = add_node('Tache', tache.pk, tache.titre[:30], {
@@ -415,8 +415,8 @@ class GraphDataMixin:
                 if mandat_node_id in nodes:
                     add_edge(mandat_node_id, tache_id, 'tache_de')
 
-            if tache.assigne_a_id:
-                user_node_id = f"User:{tache.assigne_a_id}"
+            for assignee in tache.assignes.all():
+                user_node_id = f"User:{assignee.pk}"
                 if user_node_id in nodes:
                     add_edge(tache_id, user_node_id, 'assigne_a')
 

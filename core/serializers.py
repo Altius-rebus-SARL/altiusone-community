@@ -480,13 +480,15 @@ class TacheSerializer(serializers.ModelSerializer):
         source="get_priorite_display", read_only=True
     )
     statut_display = serializers.CharField(source="get_statut_display", read_only=True)
-    assigne_a_name = serializers.CharField(
-        source="assigne_a.get_full_name", read_only=True
+    assignes = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=User.objects.all(), required=False
     )
+    assignes_details = serializers.SerializerMethodField()
     cree_par_name = serializers.CharField(
         source="cree_par.get_full_name", read_only=True
     )
     mandat_numero = serializers.CharField(source="mandat.numero", read_only=True, allow_null=True, default=None)
+    prestation_libelle = serializers.CharField(source="prestation.libelle", read_only=True, allow_null=True, default=None)
 
     class Meta:
         model = Tache
@@ -494,12 +496,14 @@ class TacheSerializer(serializers.ModelSerializer):
             "id",
             "titre",
             "description",
-            "assigne_a",
-            "assigne_a_name",
+            "assignes",
+            "assignes_details",
             "cree_par",
             "cree_par_name",
             "mandat",
             "mandat_numero",
+            "prestation",
+            "prestation_libelle",
             "priorite",
             "priorite_display",
             "date_echeance",
@@ -514,6 +518,12 @@ class TacheSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["cree_par", "created_at"]
+
+    def get_assignes_details(self, obj):
+        return [
+            {"id": u.pk, "name": u.get_full_name() or u.username}
+            for u in obj.assignes.all()
+        ]
 
 
 # =============================================================================

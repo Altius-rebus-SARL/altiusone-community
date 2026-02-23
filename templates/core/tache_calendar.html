@@ -1,0 +1,157 @@
+<!-- core/tache_calendar.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Calendrier des tâches" %}{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet">
+<style>
+    .fc-event { cursor: pointer; border: none; padding: 2px 4px; }
+    .fc .fc-toolbar-title { font-size: 1.2rem; }
+    .priority-legend .badge { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Calendrier des tâches" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:tache-list' %}">{% trans "Tâches" %}</a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Calendrier" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<div class="row">
+    <!-- Sidebar -->
+    <div class="col-xxl-3 col-xl-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="text-primary mb-3">{% trans "Actions" %}</h5>
+                <a href="{% url 'core:tache-create' %}" class="btn btn-primary w-100 mb-3">
+                    <i class="ti ti-plus me-2"></i>{% trans "Nouvelle tâche" %}
+                </a>
+                <a href="{% url 'core:tache-list' %}" class="btn btn-secondary w-100 mb-4">
+                    <i class="ti ti-list me-2"></i>{% trans "Vue liste" %}
+                </a>
+
+                <h6 class="text-muted mb-3">{% trans "Légende des priorités" %}</h6>
+                <div class="priority-legend">
+                    <div class="mb-2">
+                        <span class="badge" style="background-color: #dc3545;"></span>
+                        <span class="f-s-14">{% trans "Urgente" %}</span>
+                    </div>
+                    <div class="mb-2">
+                        <span class="badge" style="background-color: #ffc107;"></span>
+                        <span class="f-s-14">{% trans "Haute" %}</span>
+                    </div>
+                    <div class="mb-2">
+                        <span class="badge" style="background-color: #0dcaf0;"></span>
+                        <span class="f-s-14">{% trans "Normale" %}</span>
+                    </div>
+                    <div class="mb-2">
+                        <span class="badge" style="background-color: #6c757d;"></span>
+                        <span class="f-s-14">{% trans "Basse" %}</span>
+                    </div>
+                </div>
+
+                <hr class="my-3">
+
+                <h6 class="text-muted mb-3">{% trans "Légende des statuts" %}</h6>
+                <div class="priority-legend">
+                    <div class="mb-2">
+                        <i class="ti ti-circle-filled f-s-10 text-primary me-2"></i>
+                        <span class="f-s-14">{% trans "À faire" %}</span>
+                    </div>
+                    <div class="mb-2">
+                        <i class="ti ti-circle-filled f-s-10 text-info me-2"></i>
+                        <span class="f-s-14">{% trans "En cours" %}</span>
+                    </div>
+                    <div class="mb-2">
+                        <i class="ti ti-circle-filled f-s-10 text-success me-2"></i>
+                        <span class="f-s-14">{% trans "Terminée" %}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Calendar -->
+    <div class="col-xxl-9 col-xl-8">
+        <div class="card">
+            <div class="card-body">
+                <div id="calendar"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.11/locales/fr.global.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var calendarEl = document.getElementById('calendar');
+    var calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        locale: 'fr',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
+        },
+        buttonText: {
+            today: "Aujourd'hui",
+            month: 'Mois',
+            week: 'Semaine',
+            day: 'Jour',
+            list: 'Liste'
+        },
+        events: {
+            url: '{% url "core:tache-calendar-events" %}',
+            failure: function() {
+                console.error('Erreur lors du chargement des événements');
+            }
+        },
+        eventClick: function(info) {
+            if (info.event.url) {
+                info.jsEvent.preventDefault();
+                window.location.href = info.event.url;
+            }
+        },
+        eventDidMount: function(info) {
+            if (info.event.extendedProps.description) {
+                new bootstrap.Tooltip(info.el, {
+                    title: info.event.extendedProps.description,
+                    placement: 'top',
+                    trigger: 'hover',
+                    container: 'body'
+                });
+            }
+        },
+        height: 'auto',
+        navLinks: true,
+        editable: false,
+        dayMaxEvents: true
+    });
+    calendar.render();
+});
+</script>
+{% endblock %}

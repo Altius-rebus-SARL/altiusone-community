@@ -921,6 +921,21 @@ def relance_create(request, facture_pk):
 
 
 @login_required
+def api_tache_context(request):
+    """Retourne mandat_id et prestation_id d'une tâche pour pré-remplir le form TimeTracking"""
+    tache_id = request.GET.get('tache_id')
+    if not tache_id:
+        return JsonResponse({'error': 'tache_id requis'}, status=400)
+
+    from core.models import Tache
+    tache = get_object_or_404(Tache, pk=tache_id)
+    return JsonResponse({
+        'mandat_id': str(tache.mandat_id) if tache.mandat_id else None,
+        'prestation_id': str(tache.prestation_id) if tache.prestation_id else None,
+    })
+
+
+@login_required
 def get_taux_horaire(request):
     """Endpoint HTMX/JSON : retourne le taux horaire selon la cascade TarifMandat → Prestation → Mandat"""
     mandat_id = request.GET.get("mandat")

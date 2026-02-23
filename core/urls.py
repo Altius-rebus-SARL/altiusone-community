@@ -93,6 +93,7 @@ urlpatterns = [
     # ============================================================================
     path("taches/", views.TacheListView.as_view(), name="tache-list"),
     path("taches/nouvelle/", views.TacheCreateView.as_view(), name="tache-create"),
+    path("taches/calendrier/", views.TacheCalendarView.as_view(), name="tache-calendar"),
     path("taches/<uuid:pk>/", views.TacheDetailView.as_view(), name="tache-detail"),
     path(
         "taches/<uuid:pk>/modifier/",
@@ -164,6 +165,8 @@ urlpatterns = [
         views.tache_changer_statut,
         name="tache-changer-statut",
     ),
+    path("api/taches/calendrier-events/", views.tache_calendar_events, name="tache-calendar-events"),
+    path("api/taches/assignable-users/", views.api_get_assignable_users, name="tache-assignable-users"),
     path(
         "api/notifications/<uuid:pk>/lire/",
         views.notification_marquer_lue,

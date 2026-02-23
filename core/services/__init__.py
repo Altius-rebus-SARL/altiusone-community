@@ -10,6 +10,7 @@ from .swiss_post_address_service import SwissPostAddressService
 from .snb_exchange_rate_service import SNBExchangeRateService
 from .vies_validation_service import ViesValidationService
 from .swiss_vat_validation_service import SwissVatValidationService
+from .tache_service import envoyer_notification_assignation
 
 __all__ = [
     'ExportService',
@@ -21,4 +22,5 @@ __all__ = [
     'SNBExchangeRateService',
     'ViesValidationService',
     'SwissVatValidationService',
+    'envoyer_notification_assignation',
 ]

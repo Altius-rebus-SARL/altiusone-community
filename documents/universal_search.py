@@ -896,7 +896,7 @@ class UniversalSearchService:
         if context.mandat_ids:
             q_filter &= Q(mandat_id__in=context.mandat_ids)
 
-        taches = Tache.objects.filter(q_filter).select_related('assigne_a', 'mandat')[:limit]
+        taches = Tache.objects.filter(q_filter).select_related('mandat').prefetch_related('assignes')[:limit]
 
         for tache in taches:
             score = self._calculate_text_score(query, [
@@ -917,7 +917,7 @@ class UniversalSearchService:
                 metadata={
                     'statut': tache.statut,
                     'priorite': tache.priorite,
-                    'assigne_a': str(tache.assigne_a) if tache.assigne_a else None,
+                    'assignes': [str(u) for u in tache.assignes.all()],
                     'date_echeance': tache.date_echeance.isoformat() if tache.date_echeance else None,
                 }
             ))

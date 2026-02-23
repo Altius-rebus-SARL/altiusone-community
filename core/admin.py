@@ -61,7 +61,7 @@ class ExerciceComptableAdmin(admin.ModelAdmin):
 
 @admin.register(Tache)
 class TacheAdmin(admin.ModelAdmin):
-    list_display = ["titre", "assigne_a", "priorite", "statut", "date_echeance"]
+    list_display = ["titre", "priorite", "statut", "date_echeance"]
     list_filter = ["priorite", "statut"]
     date_hierarchy = "date_echeance"
 

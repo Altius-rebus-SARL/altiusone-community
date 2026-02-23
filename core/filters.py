@@ -103,8 +103,8 @@ class TacheFilter(django_filters.FilterSet):
         choices=Tache.PRIORITE_CHOICES, label=_("Priorité")
     )
 
-    assigne_a = django_filters.ModelChoiceFilter(
-        queryset=User.objects.all(), label=_("Assigné à")
+    assignes = django_filters.ModelChoiceFilter(
+        field_name='assignes', queryset=User.objects.all(), label=_("Assigné à")
     )
 
     date_echeance = django_filters.DateFromToRangeFilter(label=_("Échéance"))
@@ -115,4 +115,4 @@ class TacheFilter(django_filters.FilterSet):
 
     class Meta:
         model = Tache
-        fields = ["titre", "statut", "priorite", "assigne_a", "date_echeance", "mandat"]
+        fields = ["titre", "statut", "priorite", "assignes", "date_echeance", "mandat"]

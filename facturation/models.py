@@ -350,6 +350,13 @@ class TimeTracking(BaseModel):
         help_text=_("Date à laquelle ce temps a été facturé")
     )
 
+    # Lien avec une tâche
+    tache = models.ForeignKey(
+        'core.Tache', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='temps_travail',
+        verbose_name=_('Tâche')
+    )
+
     # Lien avec le module projets
     position = models.ForeignKey(
         "projets.Position",

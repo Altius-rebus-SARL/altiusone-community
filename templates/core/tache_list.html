@@ -101,9 +101,14 @@
                 <div id="tachesTable">
                     <!-- Header with Add button and Search -->
                     <div class="list-table-header d-flex justify-content-between align-items-center mb-3">
-                        <a href="{% url 'core:tache-create' %}" class="btn btn-primary">
-                            <i class="ti ti-plus me-2"></i>{% trans "Nouvelle tâche" %}
-                        </a>
+                        <div class="d-flex gap-2">
+                            <a href="{% url 'core:tache-create' %}" class="btn btn-primary">
+                                <i class="ti ti-plus me-2"></i>{% trans "Nouvelle tâche" %}
+                            </a>
+                            <a href="{% url 'core:tache-calendar' %}" class="btn btn-info">
+                                <i class="ti ti-calendar me-2"></i>{% trans "Calendrier" %}
+                            </a>
+                        </div>
 
                         <form method="get" class="app-form app-icon-form">
                             <div class="position-relative">
@@ -186,7 +191,13 @@
                                             -
                                         {% endif %}
                                     </td>
-                                    <td>{{ tache.assigne_a.get_full_name|default:tache.assigne_a.username }}</td>
+                                    <td>
+                                        {% for user in tache.assignes.all %}
+                                            <span class="badge bg-light-primary text-primary">{{ user.get_full_name|default:user.username }}</span>
+                                        {% empty %}
+                                            <span class="text-muted">-</span>
+                                        {% endfor %}
+                                    </td>
                                     <td>{{ tache.date_echeance|date:"d.m.Y"|default:"-" }}</td>
                                     <td>
                                         {% if tache.priorite == 'URGENTE' %}

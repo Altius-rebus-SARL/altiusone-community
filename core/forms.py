@@ -358,8 +358,9 @@ class TacheForm(forms.ModelForm):
         fields = [
             "titre",
             "description",
-            "assigne_a",
+            "assignes",
             "mandat",
+            "prestation",
             "priorite",
             "date_echeance",
             "temps_estime_heures",
@@ -368,14 +369,42 @@ class TacheForm(forms.ModelForm):
         widgets = {
             "titre": forms.TextInput(attrs={"class": "form-control"}),
             "description": forms.Textarea(attrs={"class": "form-control", "rows": 4}),
-            "assigne_a": forms.Select(attrs={"class": "form-control"}),
+            "assignes": forms.SelectMultiple(attrs={"class": "form-control select2", "multiple": "multiple"}),
             "mandat": forms.Select(attrs={"class": "form-control select2"}),
+            "prestation": forms.Select(attrs={"class": "form-control select2"}),
             "priorite": forms.Select(attrs={"class": "form-control"}),
             "date_echeance": forms.DateInput(
                 attrs={"class": "form-control", "type": "date"}
             ),
             "temps_estime_heures": forms.NumberInput(attrs={"class": "form-control"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        mandat_id = kwargs.pop('mandat_id', None)
+        super().__init__(*args, **kwargs)
+
+        from facturation.models import Prestation
+
+        # Build assignes queryset: active staff + (if mandat) external users
+        users_qs = User.objects.filter(is_active=True, type_utilisateur='STAFF')
+
+        if mandat_id:
+            from core.models import AccesMandat, CollaborateurFiduciaire
+            acces_users = AccesMandat.objects.filter(
+                mandat_id=mandat_id, is_active=True
+            ).values_list('utilisateur_id', flat=True)
+            collab_users = CollaborateurFiduciaire.objects.filter(
+                mandat_id=mandat_id, is_active=True
+            ).values_list('utilisateur_id', flat=True)
+            external_ids = set(acces_users) | set(collab_users)
+            if external_ids:
+                users_qs = User.objects.filter(
+                    Q(is_active=True, type_utilisateur='STAFF') | Q(pk__in=external_ids)
+                ).distinct()
+
+        self.fields['assignes'].queryset = users_qs
+        self.fields['prestation'].queryset = Prestation.objects.filter(actif=True)
+        self.fields['prestation'].required = False
 
 
 

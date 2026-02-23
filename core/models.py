@@ -2067,10 +2067,11 @@ class Tache(BaseModel):
     titre = models.CharField(max_length=255, verbose_name=_('Titre'))
     description = models.TextField(blank=True, verbose_name=_('Description'))
 
-    # Assignation
-    assigne_a = models.ForeignKey(User, on_delete=models.PROTECT,
-                                  related_name='taches_assignees',
-                                  verbose_name=_('Assigné à'))
+    # Assignation multiple
+    assignes = models.ManyToManyField(
+        User, related_name='taches_assignees', blank=True,
+        verbose_name=_('Assignés à')
+    )
     cree_par = models.ForeignKey(User, on_delete=models.PROTECT,
                                  related_name='taches_creees',
                                  verbose_name=_('Créé par'))
@@ -2080,6 +2081,13 @@ class Tache(BaseModel):
                                null=True, blank=True,
                                related_name='taches',
                                verbose_name=_('Mandat'))
+
+    # Prestation associée
+    prestation = models.ForeignKey(
+        'facturation.Prestation', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='taches',
+        verbose_name=_('Prestation')
+    )
 
     # Priorité et échéance
     priorite = models.CharField(max_length=20, choices=PRIORITE_CHOICES,
@@ -2114,12 +2122,11 @@ class Tache(BaseModel):
         verbose_name_plural = _('Tâches')
         ordering = ['-priorite', 'date_echeance']
         indexes = [
-            models.Index(fields=['assigne_a', 'statut']),
             models.Index(fields=['date_echeance', 'statut']),
         ]
 
     def __str__(self):
-        return f"{self.titre} - {self.assigne_a.username}"
+        return self.titre
 
 
 # =============================================================================

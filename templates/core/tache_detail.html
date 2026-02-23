@@ -99,6 +99,44 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Temps passé -->
+                <div class="card mt-4">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="text-primary mb-0">{% trans "Temps passé" %}</h5>
+                            <a href="{% url 'facturation:timetracking-create' %}?tache={{ tache.pk }}" class="btn btn-sm btn-primary">
+                                <i class="ti ti-clock-plus me-1"></i>{% trans "Saisir du temps" %}
+                            </a>
+                        </div>
+                        {% if tache.temps_travail.all %}
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bottom-border mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>{% trans "Date" %}</th>
+                                        <th>{% trans "Utilisateur" %}</th>
+                                        <th>{% trans "Durée" %}</th>
+                                        <th>{% trans "Description" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for tt in tache.temps_travail.all %}
+                                    <tr>
+                                        <td>{{ tt.date_travail|date:"d.m.Y" }}</td>
+                                        <td>{{ tt.utilisateur.get_full_name|default:tt.utilisateur.username }}</td>
+                                        <td>{{ tt.duree_minutes }} min</td>
+                                        <td>{{ tt.description|truncatewords:10 }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <p class="text-muted mb-0">{% trans "Aucun temps enregistré" %}</p>
+                        {% endif %}
+                    </div>
+                </div>
             </div>
 
             <!-- Informations complémentaires -->
@@ -107,27 +145,42 @@
                     <div class="card-body">
                         <h5 class="text-primary mb-3">{% trans "Informations" %}</h5>
                         
+                        <h6 class="text-muted mb-2">{% trans "Assignés à" %}</h6>
                         <ul class="box-list">
+                            {% for user in tache.assignes.all %}
                             <li class="d-flex align-items-center">
                                 <div class="h-40 w-40 d-flex-center b-r-12 overflow-hidden flex-shrink-0 bg-primary text-white">
-                                    {{ tache.assigne_a.first_name.0|default:tache.assigne_a.username.0|upper }}
+                                    {{ user.first_name.0|default:user.username.0|upper }}
                                 </div>
                                 <div class="ms-3">
-                                    <h6 class="mb-0 f-w-500">{{ tache.assigne_a.get_full_name|default:tache.assigne_a.username }}</h6>
-                                    <p class="text-muted mb-0">{% trans "Assigné à" %}</p>
+                                    <h6 class="mb-0 f-w-500">{{ user.get_full_name|default:user.username }}</h6>
+                                    <p class="text-muted mb-0">{{ user.email }}</p>
                                 </div>
                             </li>
+                            {% empty %}
+                            <li class="text-muted">{% trans "Aucun assigné" %}</li>
+                            {% endfor %}
+                        </ul>
 
+                        <hr class="my-3">
+                        <h6 class="text-muted mb-2">{% trans "Créé par" %}</h6>
+                        <ul class="box-list">
                             <li class="d-flex align-items-center">
                                 <div class="h-40 w-40 d-flex-center b-r-12 overflow-hidden flex-shrink-0 bg-secondary text-white">
                                     {{ tache.cree_par.first_name.0|default:tache.cree_par.username.0|upper }}
                                 </div>
                                 <div class="ms-3">
                                     <h6 class="mb-0 f-w-500">{{ tache.cree_par.get_full_name|default:tache.cree_par.username }}</h6>
-                                    <p class="text-muted mb-0">{% trans "Créé par" %}</p>
+                                    <p class="text-muted mb-0">{% trans "Créateur" %}</p>
                                 </div>
                             </li>
                         </ul>
+
+                        {% if tache.prestation %}
+                        <hr class="my-3">
+                        <h6 class="text-muted mb-2">{% trans "Prestation" %}</h6>
+                        <p class="f-w-500">{{ tache.prestation }}</p>
+                        {% endif %}
 
                         <hr class="my-3">
 

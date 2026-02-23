@@ -40,7 +40,10 @@ from .main_views import (
     TacheDetailView,
     TacheCreateView,
     TacheUpdateView,
+    TacheCalendarView,
     tache_changer_statut,
+    tache_calendar_events,
+    api_get_assignable_users,
     # Notifications
     NotificationListView,
     notification_marquer_lue,
@@ -171,7 +174,10 @@ __all__ = [
     'TacheDetailView',
     'TacheCreateView',
     'TacheUpdateView',
+    'TacheCalendarView',
     'tache_changer_statut',
+    'tache_calendar_events',
+    'api_get_assignable_users',
     # Notifications
     'NotificationListView',
     'notification_marquer_lue',

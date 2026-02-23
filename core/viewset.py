@@ -484,28 +484,34 @@ class TacheViewSet(viewsets.ModelViewSet):
         filters.SearchFilter,
         filters.OrderingFilter,
     ]
-    filterset_fields = ["assigne_a", "statut", "priorite", "mandat"]
+    filterset_fields = ["statut", "priorite", "mandat"]
     search_fields = ["titre", "description"]
     ordering_fields = ["date_echeance", "priorite", "created_at"]
     ordering = ["date_echeance", "-priorite"]
 
     def get_queryset(self):
         user = self.request.user
-        queryset = Tache.objects.all()
+        queryset = Tache.objects.prefetch_related('assignes').select_related(
+            'cree_par', 'mandat__client', 'prestation'
+        )
 
         # Par défaut, montrer les tâches assignées à l'utilisateur
         if not user.is_staff:
-            queryset = queryset.filter(Q(assigne_a=user) | Q(cree_par=user))
+            queryset = queryset.filter(
+                Q(assignes=user) | Q(cree_par=user)
+            ).distinct()
 
-        # Filtres personnalisés
-        mes_taches = self.request.query_params.get("mes_taches", None)
-        if mes_taches == "true":
-            queryset = queryset.filter(assigne_a=user)
+        # Filtre par assigné
+        assigne_id = self.request.query_params.get("assignes", None)
+        if assigne_id:
+            queryset = queryset.filter(assignes__pk=assigne_id).distinct()
 
         return queryset
 
     def perform_create(self, serializer):
-        serializer.save(cree_par=self.request.user)
+        tache = serializer.save(cree_par=self.request.user)
+        from core.services.tache_service import envoyer_notification_assignation
+        envoyer_notification_assignation(tache, self.request.user)
 
     @action(detail=True, methods=["post"])
     def change_status(self, request, pk=None):
@@ -536,8 +542,8 @@ class TacheViewSet(viewsets.ModelViewSet):
     def mes_taches(self, request):
         """Récupérer les tâches de l'utilisateur connecté"""
         taches = self.get_queryset().filter(
-            assigne_a=request.user, statut__in=["A_FAIRE", "EN_COURS"]
-        )
+            assignes=request.user, statut__in=["A_FAIRE", "EN_COURS"]
+        ).distinct()
         serializer = self.get_serializer(taches, many=True)
         return Response(serializer.data)
 

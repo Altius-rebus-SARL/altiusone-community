@@ -334,7 +334,13 @@
                                                         {{ tache.titre }}
                                                     </a>
                                                 </td>
-                                                <td>{{ tache.assigne_a.get_full_name|default:tache.assigne_a.username }}</td>
+                                                <td>
+                                                    {% for user in tache.assignes.all %}
+                                                        <span class="badge bg-light-primary text-primary">{{ user.get_full_name|default:user.username }}</span>
+                                                    {% empty %}
+                                                        <span class="text-muted">-</span>
+                                                    {% endfor %}
+                                                </td>
                                                 <td>{{ tache.date_echeance|date:"d.m.Y"|default:"-" }}</td>
                                                 <td>
                                                     <span class="badge bg-light-{{ tache.priorite|lower }}">

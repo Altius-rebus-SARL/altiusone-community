@@ -81,6 +81,7 @@ class TimeTrackingForm(CoordonneesMixin, forms.ModelForm):
             "mandat",
             "utilisateur",
             "prestation",
+            "tache",
             "position",
             "operation",
             "date_travail",
@@ -95,6 +96,7 @@ class TimeTrackingForm(CoordonneesMixin, forms.ModelForm):
             "mandat": forms.Select(attrs={"class": "form-control select2"}),
             "utilisateur": forms.Select(attrs={"class": "form-control select2"}),
             "prestation": forms.Select(attrs={"class": "form-control select2"}),
+            "tache": forms.Select(attrs={"class": "form-control select2"}),
             "position": forms.Select(attrs={"class": "form-control select2"}),
             "operation": forms.Select(attrs={"class": "form-control select2"}),
             "date_travail": forms.DateInput(
@@ -115,6 +117,19 @@ class TimeTrackingForm(CoordonneesMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
+
+        # Tache: filtrer par utilisateur pour les non-managers
+        from core.models import Tache
+        if self.user and not self.user.is_manager():
+            self.fields['tache'].queryset = Tache.objects.filter(
+                assignes=self.user,
+                statut__in=['A_FAIRE', 'EN_COURS'],
+            ).distinct()
+        else:
+            self.fields['tache'].queryset = Tache.objects.filter(
+                statut__in=['A_FAIRE', 'EN_COURS', 'EN_ATTENTE'],
+            )
+        self.fields['tache'].required = False
 
         # Initialiser les coordonnées depuis l'instance existante
         self._init_coordonnees()
