@@ -304,6 +304,11 @@ CELERY_TIMEZONE = 'Europe/Zurich'
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
 
+# Desktop/local mode: tasks synchrones, pas de worker Celery séparé
+if os.environ.get('CELERY_TASK_ALWAYS_EAGER', 'False').lower() in ('true', '1', 'yes'):
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_EAGER_PROPAGATES = True
+
 # Celery Beat - Taches planifiees
 CELERY_BEAT_SCHEDULE = {
     # Traiter les documents en attente toutes les 5 minutes
