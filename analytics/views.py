@@ -50,7 +50,7 @@ from core.models import Mandat
 
 class DashboardExecutifView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
     """
-    Dashboard Exécutif - Vue principale d'analyse pour fiduciaires.
+    Dashboard Exécutif - Vue principale d'analyse.
 
     Affiche:
     - KPIs principaux (CA, recouvrement, encours, DSO)

@@ -82,7 +82,7 @@ class ChatService:
     """
 
     # Prompt systeme par defaut - enrichi pour gerer tous les types de donnees
-    DEFAULT_SYSTEM_PROMPT = """Tu es un assistant IA specialise pour une fiduciaire suisse.
+    DEFAULT_SYSTEM_PROMPT = """Tu es un assistant IA specialise en gestion d'entreprise.
 Tu as acces a toutes les donnees de l'entreprise:
 - Documents (factures, contrats, releves, etc.)
 - Clients et contacts

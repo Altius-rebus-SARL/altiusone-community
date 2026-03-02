@@ -1,6 +1,6 @@
 # documents/schemas.py
 """
-Schemas d'extraction personnalises pour documents fiduciaires suisses.
+Schemas d'extraction personnalises pour documents professionnels.
 
 Ces schemas definissent les champs a extraire pour chaque type de document.
 Optimises pour le contexte suisse (TVA, AVS, IBAN CH, etc.)

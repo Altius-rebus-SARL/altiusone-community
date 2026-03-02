@@ -1276,7 +1276,7 @@ class AboutView(LoginRequiredMixin, TemplateView):
         context["app_info"] = {
             "name": "AltiusOne",
             "version": "1.0.0",
-            "description": _("Gestion fiduciaire complète pour la Suisse"),
+            "description": _("Plateforme de gestion d'entreprise tout-en-un"),
             "company": "AltiusOne SA",
             "year": datetime.now().year,
         }

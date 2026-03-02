@@ -453,7 +453,7 @@ if DEBUG:
 
 SPECTACULAR_SETTINGS = {
     'TITLE': 'AltiusOne API',
-    'DESCRIPTION': 'API de gestion fiduciaire complète pour la Suisse',
+    'DESCRIPTION': 'API de gestion d\'entreprise tout-en-un — comptabilité, facturation, projets, documents, IA',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
     'CONTACT': {'email': 'contact@altiusone.ch'},

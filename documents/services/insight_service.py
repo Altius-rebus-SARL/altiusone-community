@@ -299,7 +299,7 @@ Si tout est coherent, reponds: {{"recommandations": []}}"""
         try:
             response = self.ai_service.chat(
                 message=prompt,
-                system="Tu es un expert fiduciaire suisse. Analyse la coherence des dossiers clients.",
+                system="Tu es un expert en gestion d'entreprise. Analyse la coherence des dossiers clients.",
                 temperature=0.3,
                 max_tokens=800
             )

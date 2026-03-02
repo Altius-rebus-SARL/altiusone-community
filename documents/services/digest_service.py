@@ -257,7 +257,7 @@ Reponds en JSON:
         try:
             response = self.ai_service.chat(
                 message=prompt,
-                system="Tu es un assistant fiduciaire suisse. Genere des resumes executifs clairs et professionnels.",
+                system="Tu es un assistant en gestion d'entreprise. Genere des resumes executifs clairs et professionnels.",
                 temperature=0.3,
                 max_tokens=600
             )

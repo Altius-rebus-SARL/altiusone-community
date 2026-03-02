@@ -3,7 +3,7 @@
 Service de données pour le Dashboard Exécutif.
 
 Agrège les données de toutes les applications Django pour alimenter
-les graphiques et KPIs du tableau de bord fiduciaire.
+les graphiques et KPIs du tableau de bord executif.
 """
 from decimal import Decimal
 from datetime import date, timedelta
@@ -141,7 +141,7 @@ class DashboardDataService:
             },
             'taux_recouvrement': {
                 'valeur': round(taux_recouvrement, 1),
-                'objectif': 95,  # Objectif standard fiduciaire
+                'objectif': 95,  # Objectif standard
             },
             'encours_clients': {
                 'valeur': encours_total,

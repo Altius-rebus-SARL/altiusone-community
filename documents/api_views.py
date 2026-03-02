@@ -461,8 +461,8 @@ def quick_chat(request):
             context_text += f"\n--- {doc.nom_fichier} ---\n"
             context_text += doc.ocr_text[:1000] + "\n"
 
-    system_prompt = f"""Tu es un assistant pour une fiduciaire suisse.
-Reponds en francais, de maniere concise.
+    system_prompt = f"""Tu es un assistant en gestion d'entreprise.
+Reponds de maniere concise.
 
 Contexte documentaire:
 {context_text if context_text else 'Aucun document disponible.'}

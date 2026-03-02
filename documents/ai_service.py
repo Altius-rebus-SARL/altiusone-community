@@ -477,7 +477,7 @@ class AltiusAIService:
         # Types de documents disponibles (depuis schemas.py)
         types_disponibles = get_available_document_types()
 
-        system_prompt = f"""Tu es un assistant specialise dans la classification de documents professionnels suisses (fiduciaire, comptabilite, RH).
+        system_prompt = f"""Tu es un assistant specialise dans la classification de documents professionnels (comptabilite, facturation, RH, projets).
 
 Types de documents disponibles:
 - FACTURE_ACHAT, FACTURE_VENTE: Factures fournisseurs ou clients
