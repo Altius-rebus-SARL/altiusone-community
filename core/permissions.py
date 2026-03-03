@@ -898,9 +898,13 @@ def permissions_context(request):
                 perms_by_app[app] = {}
             perms_by_app[app][code] = True
 
-    # URLs des services externes (Nextcloud, MinIO)
+    # URLs des services externes (Nextcloud, MinIO) — cloud edition only
     domain = os.environ.get('DOMAIN', 'localhost')
-    nextcloud_enabled = os.environ.get('NEXTCLOUD_ENABLED', 'False').lower() in ('true', '1', 'yes')
+    community_mode = getattr(settings, 'COMMUNITY_MODE', False)
+    nextcloud_enabled = (
+        not community_mode
+        and os.environ.get('NEXTCLOUD_ENABLED', 'False').lower() in ('true', '1', 'yes')
+    )
     nextcloud_url = f"https://nextcloud.{domain}" if nextcloud_enabled else None
     minio_url = f"https://minio.{domain}" if nextcloud_enabled else None
 

@@ -206,14 +206,6 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minio123}
       MINIO_DOMAIN: minio
-      # OIDC SSO with AltiusOne (leave MINIO_OIDC_CONFIG_URL empty to disable)
-      MINIO_IDENTITY_OPENID_CONFIG_URL: ${MINIO_OIDC_CONFIG_URL:-}
-      MINIO_IDENTITY_OPENID_CLIENT_ID: ${MINIO_OIDC_CLIENT_ID:-}
-      MINIO_IDENTITY_OPENID_CLIENT_SECRET: ${MINIO_OIDC_CLIENT_SECRET:-}
-      MINIO_IDENTITY_OPENID_SCOPES: "openid,email,profile"
-      MINIO_IDENTITY_OPENID_REDIRECT_URI: ${MINIO_OIDC_REDIRECT_URI:-}
-      MINIO_IDENTITY_OPENID_CLAIM_NAME: "policy"
-      MINIO_IDENTITY_OPENID_DISPLAY_NAME: "AltiusOne"
     volumes:
       - minio_data:/data
     ports:
@@ -247,103 +239,6 @@ services:
     networks:
       - altiusone_network
 
-  # ===========================================================================
-  # Nextcloud - Collaboration et stockage de fichiers
-  # ===========================================================================
-  altiusone_nextcloud_db:
-    image: postgres:17-alpine
-    container_name: altiusone_nextcloud_db
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: nextcloud
-      POSTGRES_USER: nextcloud_user
-      POSTGRES_PASSWORD: ${NEXTCLOUD_DB_PASSWORD:-NextCloud@2026}
-    volumes:
-      - nextcloud_db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U nextcloud_user -d nextcloud"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - altiusone_network
-
-  altiusone_nextcloud:
-    build:
-      context: .
-      dockerfile: Dockerfile.nextcloud
-    image: altiusone-nextcloud
-    container_name: altiusone_nextcloud
-    restart: unless-stopped
-    depends_on:
-      altiusone_nextcloud_db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-    environment:
-      # PostgreSQL
-      POSTGRES_HOST: altiusone_nextcloud_db
-      POSTGRES_DB: nextcloud
-      POSTGRES_USER: nextcloud_user
-      POSTGRES_PASSWORD: ${NEXTCLOUD_DB_PASSWORD:-NextCloud@2026}
-      # Redis (reuses AltiusOne Redis, database 1)
-      REDIS_HOST: redis
-      # MinIO S3 Storage
-      MINIO_ENDPOINT: minio
-      MINIO_PORT: 9000
-      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minio}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minio123}
-      MINIO_BUCKET: ${AWS_STORAGE_BUCKET_NAME:-altiusone-media}
-      # OIDC SSO with AltiusOne (URL externe, pas http://django:8000
-      # car Nextcloud bloque les adresses locales - protection SSRF)
-      OIDC_PROVIDER_URL: https://${DOMAIN:-localhost}
-      OIDC_CLIENT_ID: ${NEXTCLOUD_OIDC_CLIENT_ID:-nextcloud}
-      OIDC_CLIENT_SECRET: ${NEXTCLOUD_OIDC_CLIENT_SECRET:-nextcloud-secret-change-me}
-      # Nextcloud Admin
-      NEXTCLOUD_ADMIN_USER: ${NEXTCLOUD_ADMIN_USER:-admin}
-      NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_ADMIN_PASSWORD:-admin123}
-      NEXTCLOUD_TRUSTED_DOMAINS: ${NEXTCLOUD_TRUSTED_DOMAINS:-localhost nextcloud.localhost}
-      # Reverse proxy settings
-      OVERWRITEPROTOCOL: https
-      OVERWRITEHOST: ${NEXTCLOUD_DOMAIN:-nextcloud.localhost}
-      # OnlyOffice
-      ONLYOFFICE_JWT_SECRET: ${ONLYOFFICE_JWT_SECRET:-onlyoffice-jwt-secret}
-      ONLYOFFICE_PUBLIC_URL: ${ONLYOFFICE_PUBLIC_URL:-http://localhost:9980/}
-    volumes:
-      - nextcloud_data:/var/www/html
-      - nextcloud_config:/var/www/html/config
-      - nextcloud_apps:/var/www/html/custom_apps
-    ports:
-      - "${NEXTCLOUD_PORT:-8585}:80"
-    networks:
-      - altiusone_network
-
-  # ===========================================================================
-  # OnlyOffice Document Server
-  # ===========================================================================
-  altiusone_onlyoffice:
-    image: onlyoffice/documentserver:latest
-    container_name: altiusone_onlyoffice
-    restart: unless-stopped
-    environment:
-      JWT_ENABLED: "true"
-      JWT_SECRET: ${ONLYOFFICE_JWT_SECRET:-onlyoffice-jwt-secret}
-    volumes:
-      - onlyoffice_data:/var/www/onlyoffice/Data
-      - onlyoffice_logs:/var/log/onlyoffice
-    ports:
-      - "${ONLYOFFICE_PORT:-9980}:80"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/healthcheck"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    networks:
-      - altiusone_network
-
 volumes:
   postgres_data:
     driver: local
@@ -356,18 +251,6 @@ volumes:
   logs:
     driver: local
   minio_data:
-    driver: local
-  nextcloud_db_data:
-    driver: local
-  nextcloud_data:
-    driver: local
-  nextcloud_config:
-    driver: local
-  nextcloud_apps:
-    driver: local
-  onlyoffice_data:
-    driver: local
-  onlyoffice_logs:
     driver: local
 
 networks:

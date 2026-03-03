@@ -2,16 +2,6 @@ upstream django_backend {
     server django:8000;
 }
 
-# Nextcloud
-upstream nextcloud_backend {
-    server altiusone_nextcloud:80;
-}
-
-# OnlyOffice Document Server
-upstream onlyoffice_backend {
-    server altiusone_onlyoffice:80;
-}
-
 # MinIO S3 API
 upstream minio_backend {
     server minio:9000;
@@ -26,7 +16,7 @@ server {
     listen 80;
     server_name localhost;
 
-    # Limite de taille des uploads (augmentée pour Nextcloud)
+    # Limite de taille des uploads
     client_max_body_size 1024M;
 
     # Logs
@@ -93,89 +83,7 @@ server {
 }
 
 # =========================================================================
-# Nextcloud - Collaboration et stockage de fichiers
-# En production, Ansible génère un server block séparé avec subdomain
-# nextcloud.{domain} - voir portal/infrastructure/ansible/templates/
-# =========================================================================
-server {
-    listen 80;
-    server_name nextcloud.localhost;
-
-    client_max_body_size 1024M;
-    proxy_request_buffering off;
-
-    # Logs
-    access_log /var/log/nginx/nextcloud_access.log;
-    error_log /var/log/nginx/nextcloud_error.log;
-
-    # CalDAV/CardDAV redirects
-    location /.well-known/carddav {
-        return 301 $scheme://$host/remote.php/dav;
-    }
-    location /.well-known/caldav {
-        return 301 $scheme://$host/remote.php/dav;
-    }
-    location /.well-known/webfinger {
-        return 301 $scheme://$host/index.php/.well-known/webfinger;
-    }
-    location /.well-known/nodeinfo {
-        return 301 $scheme://$host/index.php/.well-known/nodeinfo;
-    }
-
-    location / {
-        proxy_pass http://nextcloud_backend;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-Host $host;
-        proxy_set_header X-Forwarded-Port $server_port;
-
-        # WebSocket support for Nextcloud Talk
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-
-        # Timeouts pour gros fichiers
-        proxy_connect_timeout 3600;
-        proxy_send_timeout 3600;
-        proxy_read_timeout 3600;
-    }
-}
-
-# =========================================================================
-# OnlyOffice Document Server
-# En production, Ansible génère un server block avec subdomain
-# onlyoffice.{domain}
-# =========================================================================
-server {
-    listen 80;
-    server_name onlyoffice.localhost;
-
-    client_max_body_size 100M;
-
-    # Logs
-    access_log /var/log/nginx/onlyoffice_access.log;
-    error_log /var/log/nginx/onlyoffice_error.log;
-
-    location / {
-        proxy_pass http://onlyoffice_backend;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        # WebSocket support
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-    }
-}
-
-# =========================================================================
 # MinIO Console - Accès direct au stockage S3
-# En production, Ansible génère un server block avec subdomain
-# minio.{domain}
 # =========================================================================
 server {
     listen 80;
