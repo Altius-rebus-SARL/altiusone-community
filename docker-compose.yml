@@ -10,19 +10,19 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-altiusone}
-      POSTGRES_USER: ${POSTGRES_USER:-MainFiDuUser}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-Z@mbie92FiDu}
+      POSTGRES_USER: ${POSTGRES_USER:-altiusone}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_HOST_AUTH_METHOD: trust
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-extensions.sql:/docker-entrypoint-initdb.d/init-extensions.sql
     ports:
-      - "${POSTGRES_PORT:-5439}:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          "pg_isready -U ${POSTGRES_USER:-MainFiDuUser} -d ${POSTGRES_DB:-altiusone}",
+          "pg_isready -U ${POSTGRES_USER:-altiusone} -d ${POSTGRES_DB:-altiusone}",
         ]
       interval: 10s
       timeout: 5s
@@ -61,14 +61,14 @@ services:
       - .env
     environment:
       - DB_HOST=altiusone_postgres
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-MainFiDuUser}:${POSTGRES_PASSWORD:-Z@mbie92FiDu}@altiusone_postgres:5432/${POSTGRES_DB:-altiusone}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-altiusone}:${POSTGRES_PASSWORD}@altiusone_postgres:5432/${POSTGRES_DB:-altiusone}
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       # MinIO/S3 Storage
       - USE_S3=${USE_S3:-true}
       - AWS_ACCESS_KEY_ID=${MINIO_ROOT_USER:-minio}
-      - AWS_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD:-minio123}
+      - AWS_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD}
       - AWS_STORAGE_BUCKET_NAME=${AWS_STORAGE_BUCKET_NAME:-altiusone-media}
       - AWS_S3_ENDPOINT_URL=http://minio:9000
       - AWS_S3_REGION_NAME=us-east-1
@@ -78,7 +78,6 @@ services:
       - media:/app/media
       - static:/app/staticfiles
       - logs:/app/logs
-      - ./oidc_rsa_key.pem:/app/oidc_rsa_key.pem:ro
     ports:
       - "${DJANGO_PORT:-8011}:8000"
     depends_on:
@@ -110,14 +109,14 @@ services:
       - .env
     environment:
       - DB_HOST=altiusone_postgres
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-MainFiDuUser}:${POSTGRES_PASSWORD:-Z@mbie92FiDu}@altiusone_postgres:5432/${POSTGRES_DB:-altiusone}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-altiusone}:${POSTGRES_PASSWORD}@altiusone_postgres:5432/${POSTGRES_DB:-altiusone}
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       # MinIO/S3 Storage
       - USE_S3=${USE_S3:-true}
       - AWS_ACCESS_KEY_ID=${MINIO_ROOT_USER:-minio}
-      - AWS_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD:-minio123}
+      - AWS_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD}
       - AWS_STORAGE_BUCKET_NAME=${AWS_STORAGE_BUCKET_NAME:-altiusone-media}
       - AWS_S3_ENDPOINT_URL=http://minio:9000
       - AWS_S3_REGION_NAME=us-east-1
@@ -125,7 +124,6 @@ services:
     volumes:
       - media:/app/media
       - logs:/app/logs
-      - ./oidc_rsa_key.pem:/app/oidc_rsa_key.pem:ro
     depends_on:
       altiusone_postgres:
         condition: service_healthy
@@ -149,21 +147,20 @@ services:
       - .env
     environment:
       - DB_HOST=altiusone_postgres
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-MainFiDuUser}:${POSTGRES_PASSWORD:-Z@mbie92FiDu}@altiusone_postgres:5432/${POSTGRES_DB:-altiusone}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-altiusone}:${POSTGRES_PASSWORD}@altiusone_postgres:5432/${POSTGRES_DB:-altiusone}
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       # MinIO/S3 Storage
       - USE_S3=${USE_S3:-true}
       - AWS_ACCESS_KEY_ID=${MINIO_ROOT_USER:-minio}
-      - AWS_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD:-minio123}
+      - AWS_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD}
       - AWS_STORAGE_BUCKET_NAME=${AWS_STORAGE_BUCKET_NAME:-altiusone-media}
       - AWS_S3_ENDPOINT_URL=http://minio:9000
       - AWS_S3_REGION_NAME=us-east-1
       - DJANGO_SETTINGS_MODULE=AltiusOne.settings_community
     volumes:
       - logs:/app/logs
-      - ./oidc_rsa_key.pem:/app/oidc_rsa_key.pem:ro
     depends_on:
       altiusone_postgres:
         condition: service_healthy
@@ -204,7 +201,7 @@ services:
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minio123}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
       MINIO_DOMAIN: minio
     volumes:
       - minio_data:/data
@@ -231,7 +228,7 @@ services:
         condition: service_healthy
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minio123}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       AWS_STORAGE_BUCKET_NAME: ${AWS_STORAGE_BUCKET_NAME:-altiusone-media}
     volumes:
       - ./docker/minio/init-buckets.sh:/init-buckets.sh:ro
