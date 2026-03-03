@@ -36,9 +36,9 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Installer les dépendances Python
-COPY requirements.txt .
+COPY requirements_community.txt .
 RUN pip install --upgrade pip && \
-    pip install -r requirements.txt
+    pip install -r requirements_community.txt
 
 # =============================================================================
 # Stage 2: Runtime - Image finale légère

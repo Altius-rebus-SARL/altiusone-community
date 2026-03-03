@@ -72,6 +72,7 @@ services:
       - AWS_STORAGE_BUCKET_NAME=${AWS_STORAGE_BUCKET_NAME:-altiusone-media}
       - AWS_S3_ENDPOINT_URL=http://minio:9000
       - AWS_S3_REGION_NAME=us-east-1
+      - DJANGO_SETTINGS_MODULE=AltiusOne.settings_community
     command: /app/entrypoint.sh
     volumes:
       - media:/app/media
@@ -120,6 +121,7 @@ services:
       - AWS_STORAGE_BUCKET_NAME=${AWS_STORAGE_BUCKET_NAME:-altiusone-media}
       - AWS_S3_ENDPOINT_URL=http://minio:9000
       - AWS_S3_REGION_NAME=us-east-1
+      - DJANGO_SETTINGS_MODULE=AltiusOne.settings_community
     volumes:
       - media:/app/media
       - logs:/app/logs
@@ -158,6 +160,7 @@ services:
       - AWS_STORAGE_BUCKET_NAME=${AWS_STORAGE_BUCKET_NAME:-altiusone-media}
       - AWS_S3_ENDPOINT_URL=http://minio:9000
       - AWS_S3_REGION_NAME=us-east-1
+      - DJANGO_SETTINGS_MODULE=AltiusOne.settings_community
     volumes:
       - logs:/app/logs
       - ./oidc_rsa_key.pem:/app/oidc_rsa_key.pem:ro
