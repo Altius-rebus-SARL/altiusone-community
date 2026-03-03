@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Insights" %} - {{ mandat.numero }}{% endblock %}
+
+{% block content %}
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Insights AI" %} - {{ mandat.numero }}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:mandat-detail' mandat.pk %}">
+                    <span><i class="ph-duotone ph-briefcase f-s-16"></i> {{ mandat.numero }}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">
+                    <span><i class="ph-duotone ph-brain f-s-16"></i> {% trans "Insights" %}</span>
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        {% for insight in insights %}
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="d-flex align-items-start">
+                    <div class="me-3">
+                        {% if insight.severite == 'CRITICAL' %}
+                        <span class="badge bg-danger p-2"><i class="ti ti-alert-triangle f-s-16"></i></span>
+                        {% elif insight.severite == 'WARNING' %}
+                        <span class="badge bg-warning p-2"><i class="ti ti-alert-circle f-s-16"></i></span>
+                        {% else %}
+                        <span class="badge bg-info p-2"><i class="ti ti-info-circle f-s-16"></i></span>
+                        {% endif %}
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <h6 class="mb-0 f-w-600">{{ insight.titre }}</h6>
+                            <div>
+                                <span class="badge bg-light-secondary me-1">{{ insight.get_type_insight_display }}</span>
+                                {% if insight.traite %}
+                                <span class="badge bg-light-success">{% trans "Traité" %}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <p class="text-muted f-s-13 mb-2">{{ insight.description }}</p>
+                        <small class="text-muted">{{ insight.created_at|date:"d.m.Y H:i" }}</small>
+                    </div>
+                    {% if not insight.traite %}
+                    <button class="btn btn-sm btn-light ms-2" data-insight-id="{{ insight.pk }}" onclick="marquerTraite(this)">
+                        <i class="ti ti-check"></i>
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="ti ti-brain text-muted" style="font-size: 48px;"></i>
+                <p class="text-muted mt-3">{% trans "Aucun insight pour ce mandat." %}</p>
+                <p class="text-muted f-s-13">{% trans "Lancez une analyse pour générer des insights." %}</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function marquerTraite(el) {
+    const insightId = el.getAttribute('data-insight-id');
+    fetch('/documents/insights/' + insightId + '/traiter/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            el.closest('.card').style.opacity = '0.5';
+            el.remove();
+        }
+    });
+}
+</script>
+{% endblock %}

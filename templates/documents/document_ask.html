@@ -1,0 +1,250 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Q&A" %} - {{ document.nom_fichier }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Questions sur le document" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'documents:document-list' %}">
+                    <span>{% trans "Documents" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'documents:document-detail' document.pk %}">
+                    <span>{{ document.nom_fichier|truncatechars:30 }}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Q&A" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-4">
+        <!-- Document info -->
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-file me-2"></i>{% trans "Document" %}</h5>
+            </div>
+            <div class="card-body">
+                <p class="f-w-600">{{ document.nom_fichier }}</p>
+                <p class="text-muted f-s-14">
+                    {{ document.taille|filesizeformat }} • {{ document.prediction_type|default:"Non classé" }}
+                </p>
+                {% if document.metadata_extraite %}
+                <hr>
+                <p class="f-s-12 text-muted mb-2">{% trans "Métadonnées disponibles" %}</p>
+                <div class="d-flex flex-wrap gap-1">
+                    {% for key, value in document.metadata_extraite.items %}
+                        {% if value %}
+                        <span class="badge text-light-secondary f-s-10">{{ key }}</span>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Suggestions -->
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-lightbulb me-2"></i>{% trans "Questions suggérées" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-sm btn-light-primary suggestion-btn" data-question="{% trans 'Quel est le montant total de ce document?' %}">
+                        {% trans "Montant total?" %}
+                    </button>
+                    <button class="btn btn-sm btn-light-primary suggestion-btn" data-question="{% trans 'Quelle est la date de ce document?' %}">
+                        {% trans "Date du document?" %}
+                    </button>
+                    <button class="btn btn-sm btn-light-primary suggestion-btn" data-question="{% trans 'Qui est l\'émetteur de ce document?' %}">
+                        {% trans "Émetteur?" %}
+                    </button>
+                    <button class="btn btn-sm btn-light-primary suggestion-btn" data-question="{% trans 'Résume les informations principales' %}">
+                        {% trans "Informations clés?" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <!-- Chat interface -->
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-chat-circle me-2"></i>{% trans "Conversation" %}</h5>
+            </div>
+            <div class="card-body p-0">
+                <div id="chatContainer" class="p-3" style="height: 400px; overflow-y: auto;">
+                    <div class="text-center text-muted py-5" id="emptyState">
+                        <i class="ph ph-chat-circle" style="font-size: 48px;"></i>
+                        <p class="mt-2">{% trans "Posez une question sur le document" %}</p>
+                    </div>
+                </div>
+
+                <div class="border-top p-3">
+                    <form id="questionForm">
+                        <div class="input-group">
+                            <input type="text" id="questionInput" class="form-control"
+                                   placeholder="{% trans 'Posez votre question...' %}" required>
+                            <button type="submit" class="btn btn-primary" id="sendBtn">
+                                <i class="ph ph-paper-plane-right"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const chatContainer = document.getElementById('chatContainer');
+    const questionForm = document.getElementById('questionForm');
+    const questionInput = document.getElementById('questionInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const emptyState = document.getElementById('emptyState');
+    const suggestionBtns = document.querySelectorAll('.suggestion-btn');
+
+    let history = [];
+
+    function addMessage(role, content, confidence = null) {
+        if (emptyState) {
+            emptyState.remove();
+        }
+
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `mb-3 ${role === 'user' ? 'text-end' : ''}`;
+
+        if (role === 'user') {
+            msgDiv.innerHTML = `
+                <div class="d-inline-block bg-primary text-white rounded-3 p-3" style="max-width: 80%;">
+                    ${content}
+                </div>
+            `;
+        } else {
+            let confidenceHtml = '';
+            if (confidence !== null) {
+                const confidenceClass = confidence >= 0.7 ? 'success' : confidence >= 0.4 ? 'warning' : 'danger';
+                confidenceHtml = `<span class="badge text-light-${confidenceClass} ms-2">{% trans "Confiance" %}: ${Math.round(confidence * 100)}%</span>`;
+            }
+
+            msgDiv.innerHTML = `
+                <div class="d-inline-block bg-body-secondary rounded-3 p-3" style="max-width: 80%;">
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="ph ph-robot text-primary me-2"></i>
+                        <strong>{% trans "Assistant" %}</strong>
+                        ${confidenceHtml}
+                    </div>
+                    <div>${content}</div>
+                </div>
+            `;
+        }
+
+        chatContainer.appendChild(msgDiv);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    function addLoadingMessage() {
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'mb-3';
+        loadingDiv.id = 'loadingMsg';
+        loadingDiv.innerHTML = `
+            <div class="d-inline-block bg-body-secondary rounded-3 p-3">
+                <div class="d-flex align-items-center">
+                    <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                    <span class="text-muted">{% trans "Réflexion en cours..." %}</span>
+                </div>
+            </div>
+        `;
+        chatContainer.appendChild(loadingDiv);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    function removeLoadingMessage() {
+        const loadingMsg = document.getElementById('loadingMsg');
+        if (loadingMsg) {
+            loadingMsg.remove();
+        }
+    }
+
+    async function askQuestion(question) {
+        // Add user message
+        addMessage('user', question);
+        history.push({ role: 'user', content: question });
+
+        // Show loading
+        addLoadingMessage();
+        sendBtn.disabled = true;
+        questionInput.disabled = true;
+
+        try {
+            const response = await fetch('{% url "documents:document-ask" document.pk %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    question: question,
+                    history: history.slice(-6)  // Last 3 exchanges
+                })
+            });
+
+            const data = await response.json();
+            removeLoadingMessage();
+
+            if (data.success) {
+                addMessage('assistant', data.answer, data.confidence);
+                history.push({ role: 'assistant', content: data.answer });
+            } else {
+                addMessage('assistant', `<span class="text-danger">${data.error || '{% trans "Erreur lors du traitement" %}'}</span>`);
+            }
+        } catch (error) {
+            removeLoadingMessage();
+            addMessage('assistant', `<span class="text-danger">{% trans "Erreur de connexion" %}: ${error.message}</span>`);
+        }
+
+        sendBtn.disabled = false;
+        questionInput.disabled = false;
+        questionInput.focus();
+    }
+
+    questionForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const question = questionInput.value.trim();
+        if (question) {
+            askQuestion(question);
+            questionInput.value = '';
+        }
+    });
+
+    suggestionBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const question = this.dataset.question;
+            questionInput.value = question;
+            askQuestion(question);
+            questionInput.value = '';
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,241 @@
+<!-- tva/configuration_form.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load widget_tweaks %}
+
+{% block title %}{% trans "Configuration TVA" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Configuration TVA" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'tva:configuration-list' %}">
+                    <span>{% trans "Configurations TVA" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Modifier" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Form -->
+<div class="row">
+    <div class="col-md-10 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Paramètres de configuration" %}</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" class="app-form">
+                    {% csrf_token %}
+                    
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {{ form.non_field_errors }}
+                    </div>
+                    {% endif %}
+
+                    <!-- Régime fiscal -->
+                    <h6 class="mb-3 text-primary">{% trans "Régime fiscal" %}</h6>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Régime" %}</label>
+                            {{ form.regime|add_class:"form-control select2" }}
+                            {% if form.regime.errors %}
+                            <div class="text-danger f-s-12">{{ form.regime.errors.0 }}</div>
+                            {% endif %}
+                            <small class="text-muted">{% trans "Détermine les méthodes de calcul et taux applicables" %}</small>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <!-- Assujettissement -->
+                    <h6 class="mb-3 text-primary">{% trans "Assujettissement" %}</h6>
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <div class="form-check">
+                                {{ form.assujetti_tva }}
+                                <label class="form-check-label" for="{{ form.assujetti_tva.id_for_label }}">
+                                    {% trans "Assujetti à la TVA" %}
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Numéro TVA" %}</label>
+                            {{ form.numero_tva|add_class:"form-control" }}
+                            {% if form.numero_tva.errors %}
+                            <div class="text-danger f-s-12">{{ form.numero_tva.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Date début" %}</label>
+                            {{ form.date_debut_assujettissement|add_class:"form-control" }}
+                            {% if form.date_debut_assujettissement.errors %}
+                            <div class="text-danger f-s-12">{{ form.date_debut_assujettissement.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Date fin" %}</label>
+                            {{ form.date_fin_assujettissement|add_class:"form-control" }}
+                            {% if form.date_fin_assujettissement.errors %}
+                            <div class="text-danger f-s-12">{{ form.date_fin_assujettissement.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <!-- Méthode -->
+                    <h6 class="mb-3 text-primary">{% trans "Méthode de calcul" %}</h6>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Méthode" %} *</label>
+                            {{ form.methode_calcul|add_class:"form-control select-basic" }}
+                            {% if form.methode_calcul.errors %}
+                            <div class="text-danger f-s-12">{{ form.methode_calcul.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Périodicité" %} *</label>
+                            {{ form.periodicite|add_class:"form-control select-basic" }}
+                            {% if form.periodicite.errors %}
+                            <div class="text-danger f-s-12">{{ form.periodicite.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Taux forfaitaire ventes (%)" %}</label>
+                            {{ form.taux_forfaitaire_ventes|add_class:"form-control" }}
+                            {% if form.taux_forfaitaire_ventes.errors %}
+                            <div class="text-danger f-s-12">{{ form.taux_forfaitaire_ventes.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Taux forfaitaire achats (%)" %}</label>
+                            {{ form.taux_forfaitaire_achats|add_class:"form-control" }}
+                            {% if form.taux_forfaitaire_achats.errors %}
+                            <div class="text-danger f-s-12">{{ form.taux_forfaitaire_achats.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <!-- Options -->
+                    <h6 class="mb-3 text-primary">{% trans "Options" %}</h6>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="form-check">
+                                {{ form.option_imposition_prestations }}
+                                <label class="form-check-label" for="{{ form.option_imposition_prestations.id_for_label }}">
+                                    {% trans "Imposition de prestations exclues" %}
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <div class="form-check">
+                                {{ form.option_reduction_deduction }}
+                                <label class="form-check-label" for="{{ form.option_reduction_deduction.id_for_label }}">
+                                    {% trans "Réduction de la déduction" %}
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <!-- Comptes -->
+                    <h6 class="mb-3 text-primary">{% trans "Comptes de liaison" %}</h6>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Compte TVA due (2200)" %}</label>
+                            {{ form.compte_tva_due|add_class:"form-control select2" }}
+                            {% if form.compte_tva_due.errors %}
+                            <div class="text-danger f-s-12">{{ form.compte_tva_due.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Compte TVA préalable (1170)" %}</label>
+                            {{ form.compte_tva_prealable|add_class:"form-control select2" }}
+                            {% if form.compte_tva_prealable.errors %}
+                            <div class="text-danger f-s-12">{{ form.compte_tva_prealable.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'tva:configuration-list' %}" class="btn btn-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ph ph-check me-2"></i>{% trans "Enregistrer" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    const regimesMethodes = {{ regimes_methodes_json|safe }};
+    const $regime = $('[name="regime"]');
+    const $methode = $('[name="methode_calcul"]');
+
+    if (!$regime.length || !$methode.length) return;
+
+    // Store all original options
+    const allOptions = $methode.find('option').clone();
+
+    function filterMethodes() {
+        const regimeId = $regime.val();
+        if (!regimeId || !regimesMethodes[regimeId]) {
+            // Show all options
+            $methode.empty().append(allOptions.clone());
+            return;
+        }
+
+        const currentVal = $methode.val();
+        const allowed = regimesMethodes[regimeId];
+        $methode.empty();
+
+        allOptions.each(function() {
+            const $opt = $(this);
+            if (!$opt.val() || allowed.indexOf($opt.val()) !== -1) {
+                $methode.append($opt.clone());
+            }
+        });
+
+        // Restore selection if still valid
+        if ($methode.find('option[value="' + currentVal + '"]').length) {
+            $methode.val(currentVal);
+        }
+    }
+
+    $regime.on('change', filterMethodes);
+    filterMethodes();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,665 @@
+{% load static %} {% load i18n %}
+<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE|default:'fr' }}">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- CRITICAL: Apply theme BEFORE any rendering to prevent flash -->
+    <script>
+      (function () {
+        // Clé utilisée par le thème ki-admin
+        var theme =
+          localStorage.getItem("ki-admin-theme-mode") ||
+          localStorage.getItem("theme-mode") ||
+          "light";
+        // Appliquer immédiatement sur <html>
+        document.documentElement.classList.add(theme);
+        // Stocker pour réutilisation par les autres scripts
+        window.__ALTIUSONE_THEME__ = theme;
+      })();
+    </script>
+    <style>
+      /* CRITICAL: Dark mode base styles - inline pour charger avant le CSS externe */
+      html.dark,
+      html.dark body,
+      html.dark .loader-wrapper {
+        background-color: #1a1a2e !important;
+      }
+      /* Dark mode loader - inverser les couleurs */
+      html.dark .loader_24 {
+        background: radial-gradient(
+            circle closest-side,
+            rgba(255, 255, 255, 0.9) 94%,
+            rgba(0, 0, 0, 0)
+          )
+          right/calc(200% - 1em) 100% !important;
+      }
+      html.dark .loader_24::before {
+        background-image: radial-gradient(
+          circle closest-side,
+          #1a1a2e 94%,
+          rgba(15, 98, 106, 0)
+        ) !important;
+      }
+    </style>
+    <script>
+      window.ALTIUSONE_DEVISE = {
+        code: "{{ DEVISE_CODE }}",
+        taux: {{ DEVISE_TAUX|default:"1" }},
+        base: "{{ DEVISE_BASE_CODE|default:"CHF" }}"
+      };
+    </script>
+    <meta content="IE=edge" http-equiv="X-UA-Compatible" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <meta
+      content="{% block meta_description %}AltiusOne - Plateforme de gestion d'entreprise{% endblock %}"
+      name="description"
+    />
+    <meta content="AltiusOne" name="author" />
+
+    <link
+      href="{% static 'assets/images/logo/favicon.png' %}"
+      rel="icon"
+      type="image/x-icon"
+    />
+
+    <link
+      href="{% static 'assets/images/logo/favicon.png' %}"
+      rel="shortcut icon"
+      type="image/x-icon"
+    />
+
+    <title>
+      {% block title %}AltiusOne | {% trans "Gestion d'Application" %}{% endblock %}
+    </title>
+
+    <!-- Animation css -->
+    <link
+      href="{% static 'assets/vendor/animation/animate.min.css' %}"
+      rel="stylesheet"
+    />
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin href="https://fonts.gstatic.com" rel="preconnect" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Rubik:ital,wght@0,300..900;1,300..900&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- flag Icon css-->
+    <link
+      href="{% static 'assets/vendor/flag-icons-master/flag-icon.css' %}"
+      rel="stylesheet"
+      type="text/css"
+    />
+
+    <!-- tabler icons-->
+    <link
+      href="{% static 'assets/vendor/tabler-icons/tabler-icons.css' %}"
+      rel="stylesheet"
+      type="text/css"
+    />
+
+    <!-- Bootstrap css-->
+    <link
+      href="{% static 'assets/vendor/bootstrap/bootstrap.min.css' %}"
+      rel="stylesheet"
+      type="text/css"
+    />
+
+    <!-- simplebar css-->
+    <link
+      href="{% static 'assets/vendor/simplebar/simplebar.css' %}"
+      rel="stylesheet"
+      type="text/css"
+    />
+
+    <!-- Select css -->
+    <link
+      href="{% static 'assets/vendor/select/select2.min.css' %}"
+      rel="stylesheet"
+      type="text/css"
+    />
+
+    <!-- App css-->
+    <link
+      href="{% static 'assets/css/style.css' %}"
+      rel="stylesheet"
+      type="text/css"
+    />
+
+    <!-- Responsive css-->
+    <link
+      href="{% static 'assets/css/responsive.css' %}"
+      rel="stylesheet"
+      type="text/css"
+    />
+
+    <!-- AltiusOne custom css-->
+    <link
+      href="{% static 'assets/css/altiusone.css' %}"
+      rel="stylesheet"
+      type="text/css"
+    />
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+
+    {% block extra_css %}{% endblock %}
+  </head>
+
+  <body class="">
+    <div class="app-wrapper">
+      <div class="loader-wrapper">
+        <div class="loader_24"></div>
+      </div>
+
+      {% include 'includes/sidebar.html' %}
+
+      <div class="app-content">
+        <div class="">
+          {% include 'includes/navbar.html' %} {% if messages %}
+          <div class="container-fluid mt-3">
+            {% for message in messages %}
+            <div
+              class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show"
+              role="alert"
+            >
+              {{ message }}
+              <button
+                type="button"
+                class="btn-close"
+                data-bs-dismiss="alert"
+                aria-label="Close"
+              ></button>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+          <main>
+            <div class="container-fluid">{% block content %}{% endblock %}</div>
+          </main>
+        </div>
+      </div>
+
+      <div class="go-top">
+        <span class="progress-value">
+          <i class="ti ti-chevron-up"></i>
+        </span>
+      </div>
+
+      <!-- Boutons Flottants AltiusOne -->
+      {% if user.is_authenticated %}
+      <div class="altiusone-fab-container">
+        <!-- Bouton Ajout Rapide avec expansion horizontale -->
+        <div class="fab-add-container">
+          <div class="fab-add-options" id="fabAddOptions">
+            <a
+              href="{% url 'comptabilite:piece-create' %}"
+              class="fab-option"
+              title="{% trans 'Pièce comptable' %}"
+            >
+              <i class="ti ti-receipt"></i>
+              <span>{% trans 'Pièce' %}</span>
+            </a>
+            <a
+              href="{% url 'documents:document-upload' %}"
+              class="fab-option"
+              title="{% trans 'Document' %}"
+            >
+              <i class="ti ti-file-upload"></i>
+              <span>{% trans 'Document' %}</span>
+            </a>
+            <a
+              href="{% url 'documents:dossier-create' %}"
+              class="fab-option"
+              title="{% trans 'Dossier' %}"
+            >
+              <i class="ti ti-folder-plus"></i>
+              <span>{% trans 'Dossier' %}</span>
+            </a>
+          </div>
+          <div
+            id="fab-add-btn"
+            class="fab-btn fab-add"
+            title="{% trans 'Ajouter' %}"
+          >
+            <i class="ti ti-plus"></i>
+          </div>
+        </div>
+
+        <!-- Bouton Graphe Relationnel -->
+        <a
+          href="{% url 'graph:explorer' %}"
+          class="fab-btn fab-graph"
+          title="{% trans 'Graphe relationnel' %}"
+        >
+          <i class="ti ti-topology-star-3"></i>
+        </a>
+
+        <!-- Bouton Assistant IA -->
+        <div
+          id="ai-chat-fab"
+          class="fab-btn fab-chat"
+          title="{% trans 'Assistant IA' %}"
+        >
+          <i class="ti ti-message-chatbot"></i>
+          <span class="chat-badge" style="display: none">0</span>
+        </div>
+      </div>
+      {% endif %} {% include 'includes/footer.html' %}
+    </div>
+
+    <div id="customizer"></div>
+
+    <!-- jQuery -->
+    <script src="{% static 'assets/js/jquery-3.6.3.min.js' %}"></script>
+
+    <!-- Bootstrap -->
+    <script src="{% static 'assets/vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
+
+    <!-- Select2 -->
+    <script src="{% static 'assets/vendor/select/select2.min.js' %}"></script>
+    <script src="{% static 'assets/js/select.js' %}"></script>
+
+    <!-- Simplebar -->
+    <script src="{% static 'assets/vendor/simplebar/simplebar.js' %}"></script>
+
+    <!-- Phosphor -->
+    <script src="{% static 'assets/vendor/phosphor/phosphor.js' %}"></script>
+
+    <!-- Customizer -->
+    <script src="{% static 'assets/js/customizer.js' %}"></script>
+
+    <!-- App -->
+    <script src="{% static 'assets/js/script.js' %}"></script>
+
+    <!-- Omnibar -->
+    <script src="{% static 'assets/js/omnibar.js' %}"></script>
+
+    <!-- AltiusOne: Theme + Sidebar Fix -->
+    <script>
+      // IMMÉDIAT: Appliquer le thème sur body AVANT $(function)
+      // Ceci s'exécute dès que le script est parsé, pas besoin d'attendre DOMContentLoaded
+      (function () {
+        var theme =
+          window.__ALTIUSONE_THEME__ ||
+          localStorage.getItem("ki-admin-theme-mode") ||
+          localStorage.getItem("theme-mode") ||
+          "light";
+        // Appliquer sur body immédiatement (le body existe déjà à ce stade)
+        document.body.classList.remove("light", "dark");
+        document.body.classList.add(theme);
+        // S'assurer que html a aussi la classe
+        document.documentElement.classList.remove("light", "dark");
+        document.documentElement.classList.add(theme);
+      })();
+
+      $(function () {
+        // 1. THEME - Synchroniser les icônes et états visuels
+        var themeMode =
+          window.__ALTIUSONE_THEME__ ||
+          localStorage.getItem("ki-admin-theme-mode") ||
+          localStorage.getItem("theme-mode") ||
+          "light";
+        if (themeMode === "dark") {
+          $(".sun-logo").addClass("sun");
+          $(".moon-logo").addClass("moon");
+        } else {
+          $(".sun-logo").removeClass("sun");
+          $(".moon-logo").removeClass("moon");
+        }
+
+        // 2. SIDEBAR - Utiliser data-active du template Django
+        // Reset d'abord (script.js du theme peut avoir mis des classes incorrectes)
+        $(".main-nav li").removeClass("active");
+        $(".main-nav .collapse").removeClass("show");
+        $(".main-nav a[aria-expanded]").attr("aria-expanded", "false");
+
+        // Appliquer depuis data-active (défini par Django)
+        $('.main-nav li[data-active="true"]').each(function () {
+          var $li = $(this);
+          $li.addClass("active");
+
+          // Si c'est un sous-menu, ouvrir le parent
+          var $parentCollapse = $li.closest("ul.collapse");
+          if ($parentCollapse.length) {
+            $parentCollapse.addClass("show");
+            var $parentLi = $parentCollapse.closest("li");
+            if ($parentLi.length) {
+              $parentLi.addClass("active");
+              $parentLi
+                .find('> a[data-bs-toggle="collapse"]')
+                .attr("aria-expanded", "true");
+            }
+          }
+        });
+
+        // Appliquer data-show sur les collapses
+        $('.main-nav .collapse[data-show="true"]')
+          .addClass("show")
+          .closest("li")
+          .find('> a[data-bs-toggle="collapse"]')
+          .attr("aria-expanded", "true");
+      });
+    </script>
+
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+
+    <script>
+      document.body.addEventListener("htmx:configRequest", function (evt) {
+        var csrfToken =
+          document.querySelector("[name=csrfmiddlewaretoken]")?.value ||
+          getCookie("csrftoken");
+        if (csrfToken) evt.detail.headers["X-CSRFToken"] = csrfToken;
+      });
+
+      function getCookie(name) {
+        var cookieValue = null;
+        if (document.cookie && document.cookie !== "") {
+          var cookies = document.cookie.split(";");
+          for (var i = 0; i < cookies.length; i++) {
+            var cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === name + "=") {
+              cookieValue = decodeURIComponent(
+                cookie.substring(name.length + 1)
+              );
+              break;
+            }
+          }
+        }
+        return cookieValue;
+      }
+    </script>
+
+    <!-- ApexCharts -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
+    <!-- Leaflet JS -->
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+    <!-- Password visibility toggle -->
+    <script src="{% static 'core/js/password-toggle.js' %}"></script>
+
+    {% block extra_js %}{% endblock %} {% if user.is_authenticated %}
+    <!-- AltiusOne FAB Styles -->
+    <style>
+      /* Container principal des FABs - colonne alignée à droite */
+      .altiusone-fab-container {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 16px;
+        z-index: 1050;
+      }
+
+      /* Style commun des boutons FAB */
+      .fab-btn {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        position: relative;
+        flex-shrink: 0;
+      }
+
+      .fab-btn:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+      }
+
+      .fab-btn i {
+        font-size: 24px;
+        color: white;
+        transition: transform 0.3s ease;
+      }
+
+      /* Bouton Assistant IA */
+      .fab-graph {
+        background: linear-gradient(
+          135deg,
+          #06b6d4 0%,
+          #0891b2 100%
+        );
+        color: white;
+        text-decoration: none;
+      }
+
+      .fab-graph:hover {
+        box-shadow: 0 6px 20px rgba(6, 182, 212, 0.5);
+        color: white;
+      }
+
+      .fab-graph i {
+        color: white;
+        font-size: 24px;
+      }
+
+      .fab-chat {
+        background: linear-gradient(
+          135deg,
+          var(--bs-primary, #6366f1) 0%,
+          #6366f1 100%
+        );
+      }
+
+      .fab-chat:hover {
+        box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+      }
+
+      .fab-chat .chat-badge {
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        background: #ef4444;
+        color: white;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 2px 6px;
+        border-radius: 10px;
+        min-width: 18px;
+        text-align: center;
+      }
+
+      /* Container du bouton Ajout - position relative pour les options */
+      .fab-add-container {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+      }
+
+      .fab-add {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      }
+
+      .fab-add:hover {
+        box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+      }
+
+      .fab-add.active i {
+        transform: rotate(45deg);
+      }
+
+      /* Options d'ajout - positionnées à gauche du bouton */
+      .fab-add-options {
+        position: absolute;
+        right: 68px;
+        top: 50%;
+        transform: translateY(-50%) translateX(20px);
+        display: flex;
+        flex-direction: row;
+        gap: 8px;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        pointer-events: none;
+      }
+
+      .fab-add-options.show {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(-50%) translateX(0);
+        pointer-events: auto;
+      }
+
+      .fab-option {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        background: white;
+        border-radius: 24px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        text-decoration: none;
+        color: #374151;
+        font-size: 14px;
+        font-weight: 500;
+        white-space: nowrap;
+        transition: all 0.2s ease;
+      }
+
+      .fab-option:hover {
+        background: #f3f4f6;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+        color: #111827;
+        text-decoration: none;
+      }
+
+      .fab-option i {
+        font-size: 20px;
+      }
+
+      .fab-option:nth-child(1) i {
+        color: #f59e0b;
+      }
+      .fab-option:nth-child(2) i {
+        color: #3b82f6;
+      }
+      .fab-option:nth-child(3) i {
+        color: #8b5cf6;
+      }
+
+      /* Dark mode */
+      .dark .fab-graph {
+        background: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%);
+      }
+
+      .dark .fab-chat {
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      }
+
+      .dark .fab-add {
+        background: linear-gradient(135deg, #059669 0%, #047857 100%);
+      }
+
+      .dark .fab-option {
+        background: #1f2937;
+        color: #f3f4f6;
+      }
+
+      .dark .fab-option:hover {
+        background: #374151;
+        color: white;
+      }
+
+      /* Ajustement du bouton customizer du thème */
+      .customizer-btn {
+        bottom: 240px !important;
+        right: 30px !important;
+      }
+
+      /* Ajustement du bouton go-top */
+      .go-top {
+        bottom: 300px !important;
+        right: 30px !important;
+      }
+
+      /* Responsive */
+      @media (max-width: 768px) {
+        .altiusone-fab-container {
+          bottom: 20px;
+          right: 20px;
+          gap: 12px;
+        }
+
+        .fab-btn {
+          width: 48px;
+          height: 48px;
+        }
+
+        .fab-btn i {
+          font-size: 20px;
+        }
+
+        .fab-add-options {
+          right: 58px;
+        }
+
+        .fab-option {
+          padding: 8px 12px;
+          font-size: 12px;
+        }
+
+        .fab-option span {
+          display: none;
+        }
+
+        .customizer-btn {
+          bottom: 210px !important;
+          right: 20px !important;
+        }
+
+        .go-top {
+          bottom: 260px !important;
+          right: 20px !important;
+        }
+      }
+    </style>
+    <script>
+      $(function () {
+        // Click sur le FAB Chat ouvre la page chat
+        $("#ai-chat-fab").on("click", function () {
+          window.location.href = '{% url "documents:chat" %}';
+        });
+
+        // Toggle des options d'ajout
+        $("#fab-add-btn").on("click", function (e) {
+          e.stopPropagation();
+          $(this).toggleClass("active");
+          $("#fabAddOptions").toggleClass("show");
+        });
+
+        // Fermer les options si on clique ailleurs
+        $(document).on("click", function (e) {
+          if (!$(e.target).closest(".fab-add-container").length) {
+            $("#fab-add-btn").removeClass("active");
+            $("#fabAddOptions").removeClass("show");
+          }
+        });
+
+        // Fermer les options avec Escape
+        $(document).on("keydown", function (e) {
+          if (e.key === "Escape") {
+            $("#fab-add-btn").removeClass("active");
+            $("#fabAddOptions").removeClass("show");
+          }
+        });
+      });
+    </script>
+    {% endif %}
+  </body>
+</html>

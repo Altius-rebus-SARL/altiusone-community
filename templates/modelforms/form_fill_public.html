@@ -1,0 +1,189 @@
+<!-- modelforms/form_fill_public.html -->
+{% extends 'modelforms/base_form_public.html' %}
+{% load static %}
+{% load i18n %}
+{% load modelforms_tags %}
+
+{% block title %}{{ form_config.name }}{% endblock %}
+
+{% block form_header %}
+<h1>{{ form_config.name }}</h1>
+{% if form_config.description %}
+<p>{{ form_config.description }}</p>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<form method="post" action="{% url 'modelforms:public-form-submit' form_config.public_token %}" class="app-form" enctype="multipart/form-data" id="dynamic-form">
+    {% csrf_token %}
+
+    {% if sections %}
+    <!-- Progress bar -->
+    {% if sections|length > 1 %}
+    <div class="progress mb-4" style="height: 6px;">
+        <div class="progress-bar" role="progressbar" style="width: 0%" id="form-progress"></div>
+    </div>
+    {% endif %}
+
+    <!-- Formulaire avec sections -->
+    {% for section in sections %}
+    <div class="card mb-3">
+        <div class="card-header">
+            <h5>
+                {% if section.icon %}<i class="{{ section.icon }} me-2"></i>{% endif %}
+                {{ section.title }}
+            </h5>
+        </div>
+        <div class="card-body">
+            {% for mapping in fields_by_section|get_item:section.id %}
+            {% include 'modelforms/partials/form_field.html' with mapping=mapping default_values=default_values %}
+            {% empty %}
+            <p class="text-muted">{% trans "Aucun champ dans cette section" %}</p>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- Champs sans section -->
+    {% if fields_by_section.other %}
+    <div class="card mb-3">
+        <div class="card-header">
+            <h5>{% trans "Autres informations" %}</h5>
+        </div>
+        <div class="card-body">
+            {% for mapping in fields_by_section.other %}
+            {% include 'modelforms/partials/form_field.html' with mapping=mapping default_values=default_values %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <!-- Formulaire sans sections -->
+    <div class="card">
+        <div class="card-body">
+            {% for mapping in field_mappings %}
+            {% include 'modelforms/partials/form_field.html' with mapping=mapping default_values=default_values %}
+            {% empty %}
+            <p class="text-muted">{% trans "Aucun champ configuré pour ce formulaire" %}</p>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Submit -->
+    <div class="d-grid mt-4">
+        <button type="submit" class="btn btn-primary btn-lg">
+            <i class="ti ti-send me-2"></i>{% trans "Soumettre" %}
+        </button>
+    </div>
+
+    <p class="text-center text-muted small mt-3">
+        {% trans "Les champs marqués d'un astérisque (*) sont obligatoires." %}
+    </p>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('dynamic-form');
+
+    // Progress bar
+    const progressBar = document.getElementById('form-progress');
+    if (progressBar) {
+        function updateProgress() {
+            const fields = form.querySelectorAll('input:not([type="hidden"]), select, textarea');
+            const filled = Array.from(fields).filter(function(f) {
+                return f.value && f.value.trim() !== '';
+            }).length;
+            const pct = fields.length ? Math.round((filled / fields.length) * 100) : 0;
+            progressBar.style.width = pct + '%';
+        }
+        form.addEventListener('input', updateProgress);
+        form.addEventListener('change', updateProgress);
+        updateProgress();
+    }
+
+    // Form validation
+    form.addEventListener('submit', function(e) {
+        let valid = true;
+        form.querySelectorAll('[required]').forEach(function(field) {
+            if (!field.value.trim()) {
+                field.classList.add('is-invalid');
+                valid = false;
+            } else {
+                field.classList.remove('is-invalid');
+            }
+        });
+        if (!valid) {
+            e.preventDefault();
+            var firstInvalid = form.querySelector('.is-invalid');
+            if (firstInvalid) {
+                firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                firstInvalid.focus();
+            }
+        }
+    });
+
+    // Clear validation on input
+    form.querySelectorAll('input, select, textarea').forEach(function(field) {
+        field.addEventListener('input', function() {
+            this.classList.remove('is-invalid');
+        });
+    });
+
+    // Conditional field visibility
+    (function() {
+        var wrappers = form.querySelectorAll('[data-conditions]');
+        if (!wrappers.length) return;
+
+        function getFieldValue(fieldName) {
+            var inputs = form.querySelectorAll('input, select, textarea');
+            for (var i = 0; i < inputs.length; i++) {
+                var name = inputs[i].name || '';
+                if (name === fieldName || name.endsWith('__' + fieldName)) {
+                    if (inputs[i].type === 'radio') {
+                        var checked = form.querySelector('input[name="' + name + '"]:checked');
+                        return checked ? checked.value : '';
+                    }
+                    if (inputs[i].type === 'checkbox') return inputs[i].checked ? 'true' : 'false';
+                    return inputs[i].value;
+                }
+            }
+            return '';
+        }
+
+        function evaluateCondition(condition) {
+            var value = getFieldValue(condition.field);
+            switch (condition.operator) {
+                case 'equals': case 'eq': return value === String(condition.value);
+                case 'not_equals': case 'neq': return value !== String(condition.value);
+                case 'in': return Array.isArray(condition.value) && condition.value.map(String).includes(value);
+                case 'not_empty': return value.trim() !== '';
+                case 'empty': return value.trim() === '';
+                default: return true;
+            }
+        }
+
+        function applyConditions() {
+            wrappers.forEach(function(wrapper) {
+                try {
+                    var conditions = JSON.parse(wrapper.getAttribute('data-conditions'));
+                    var condList = Array.isArray(conditions) ? conditions : [conditions];
+                    var visible = condList.every(evaluateCondition);
+                    wrapper.style.display = visible ? '' : 'none';
+                    wrapper.querySelectorAll('input, select, textarea').forEach(function(el) {
+                        el.disabled = !visible;
+                    });
+                } catch(e) {}
+            });
+        }
+
+        form.addEventListener('change', applyConditions);
+        form.addEventListener('input', applyConditions);
+        applyConditions();
+    })();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,185 @@
+{% load i18n %}
+{% load devise_tags %}
+
+<!-- Enveloppe mandat -->
+{% if mandat.budget_prevu and mandat.budget_prevu > 0 %}
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card border-primary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="text-primary mb-0">
+                        <i class="ti ti-wallet me-1"></i>{% trans "Enveloppe mandat" %}
+                    </h5>
+                    <h4 class="mb-0 text-primary">{{ mandat.budget_prevu|devise:DEVISE_TAUX|floatformat:0 }} {{ DEVISE_CODE }}</h4>
+                </div>
+                <div class="d-flex justify-content-between mb-1">
+                    <small class="text-muted">{% trans "Alloué aux positions" %}: {{ total_prevu|devise:DEVISE_TAUX|floatformat:0 }} {{ DEVISE_CODE }}</small>
+                    <small class="text-muted">{{ forfait_alloue_pourcent }}%</small>
+                </div>
+                <div class="progress" style="height:10px">
+                    <div class="progress-bar bg-{% if forfait_alloue_pourcent > 100 %}danger{% elif forfait_alloue_pourcent > 90 %}warning{% else %}primary{% endif %}"
+                         style="width:{% if forfait_alloue_pourcent > 100 %}100{% else %}{{ forfait_alloue_pourcent }}{% endif %}%">
+                    </div>
+                </div>
+                {% if forfait_alloue_pourcent > 100 %}
+                <small class="text-danger mt-1 d-block">{% trans "Le budget alloué dépasse l'enveloppe mandat" %}</small>
+                {% endif %}
+                <div class="d-flex justify-content-between mt-2">
+                    <small class="text-muted">{% trans "Réel" %}: {{ mandat.budget_reel|devise:DEVISE_TAUX|floatformat:0 }} {{ DEVISE_CODE }}</small>
+                    <small class="text-muted">{{ mandat.budget_consomme_pourcent }}%</small>
+                </div>
+                <div class="progress mt-1" style="height:6px">
+                    <div class="progress-bar bg-{% if mandat.budget_consomme_pourcent > 90 %}danger{% elif mandat.budget_consomme_pourcent > 70 %}warning{% else %}success{% endif %}"
+                         style="width:{% if mandat.budget_consomme_pourcent > 100 %}100{% else %}{{ mandat.budget_consomme_pourcent }}{% endif %}%">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Budget global + Répartition -->
+<div class="row">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="text-primary mb-3">{% trans "Budget global" %}</h5>
+                <div class="row text-center mb-3">
+                    <div class="col-4">
+                        <h4 class="mb-0 text-primary">{{ total_prevu|devise:DEVISE_TAUX|floatformat:0 }}</h4>
+                        <small class="text-muted">{% trans "Prévu" %} ({{ DEVISE_CODE }})</small>
+                    </div>
+                    <div class="col-4">
+                        <h4 class="mb-0 text-{% if total_pourcent > 90 %}danger{% elif total_pourcent > 70 %}warning{% else %}success{% endif %}">{{ total_reel|devise:DEVISE_TAUX|floatformat:0 }}</h4>
+                        <small class="text-muted">{% trans "Réel" %} ({{ DEVISE_CODE }})</small>
+                    </div>
+                    <div class="col-4">
+                        <h4 class="mb-0 text-{% if total_ecart < 0 %}danger{% else %}success{% endif %}">{{ total_ecart|devise:DEVISE_TAUX|floatformat:0 }}</h4>
+                        <small class="text-muted">{% trans "Écart" %} ({{ DEVISE_CODE }})</small>
+                    </div>
+                </div>
+                <div class="progress mb-2" style="height:12px">
+                    <div class="progress-bar bg-{% if total_pourcent > 90 %}danger{% elif total_pourcent > 70 %}warning{% else %}primary{% endif %}"
+                         style="width:{% if total_pourcent > 100 %}100{% else %}{{ total_pourcent }}{% endif %}%">
+                        {{ total_pourcent }}%
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="text-primary mb-3">{% trans "Répartition par position" %}</h5>
+                <div id="budgetBarChart" style="height:200px"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Interne vs Sous-traité -->
+<div class="row mt-3">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="text-primary mb-3">{% trans "Interne vs Sous-traité" %}</h5>
+                <div id="budgetDonutChart" style="height:250px"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="text-primary mb-3">{% trans "Détail par position" %}</h5>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Position" %}</th>
+                                <th class="text-end">{% trans "Prévu" %}</th>
+                                <th class="text-end">{% trans "Réel" %}</th>
+                                <th class="text-end">{% trans "Écart" %}</th>
+                                <th style="width:100px">%</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for pd in positions_data %}
+                            <tr>
+                                <td>
+                                    <span class="f-w-500">{{ pd.position.numero }}</span>
+                                    {{ pd.position.titre|truncatechars:25 }}
+                                </td>
+                                <td class="text-end">{{ pd.prevu|devise:DEVISE_TAUX|floatformat:0 }}</td>
+                                <td class="text-end">{{ pd.reel|devise:DEVISE_TAUX|floatformat:0 }}</td>
+                                <td class="text-end text-{% if pd.ecart < 0 %}danger{% else %}success{% endif %}">{{ pd.ecart|devise:DEVISE_TAUX|floatformat:0 }}</td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-1">
+                                        <div class="progress flex-grow-1" style="height:6px">
+                                            <div class="progress-bar bg-{% if pd.pourcent > 90 %}danger{% elif pd.pourcent > 70 %}warning{% else %}primary{% endif %}"
+                                                 style="width:{% if pd.pourcent > 100 %}100{% else %}{{ pd.pourcent }}{% endif %}%"></div>
+                                        </div>
+                                        <small class="f-s-11">{{ pd.pourcent }}%</small>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-3">{% trans "Aucune position" %}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const _d = window.ALTIUSONE_DEVISE || { code: '{{ DEVISE_CODE }}', taux: 1 };
+    const labels = {{ chart_labels_json|safe }};
+    const prevu = {{ chart_prevu_json|safe }};
+    const reel = {{ chart_reel_json|safe }};
+    const interne = {{ chart_interne }};
+    const sousTraite = {{ chart_sous_traite }};
+
+    // Bar chart - Prévu vs Réel par position
+    if (labels.length > 0) {
+        new ApexCharts(document.getElementById('budgetBarChart'), {
+            series: [
+                { name: '{% trans "Prévu" %}', data: prevu },
+                { name: '{% trans "Réel" %}', data: reel },
+            ],
+            chart: { type: 'bar', height: 200, toolbar: { show: false }, fontFamily: 'inherit' },
+            plotOptions: { bar: { horizontal: true, barHeight: '60%' } },
+            colors: ['#088178', '#2c3e50'],
+            xaxis: { categories: labels },
+            legend: { position: 'top' },
+            dataLabels: { enabled: false },
+            tooltip: {
+                y: { formatter: val => (val * _d.taux).toLocaleString('fr-CH') + ' ' + _d.code }
+            }
+        }).render();
+    }
+
+    // Donut chart - Interne vs Sous-traité
+    if (interne > 0 || sousTraite > 0) {
+        new ApexCharts(document.getElementById('budgetDonutChart'), {
+            series: [interne, sousTraite],
+            chart: { type: 'donut', height: 250, fontFamily: 'inherit' },
+            labels: ['{% trans "Interne" %}', '{% trans "Sous-traité" %}'],
+            colors: ['#088178', '#f39c12'],
+            legend: { position: 'bottom' },
+            dataLabels: {
+                formatter: function(val) { return val.toFixed(0) + '%'; }
+            },
+            tooltip: {
+                y: { formatter: val => (val * _d.taux).toLocaleString('fr-CH') + ' ' + _d.code }
+            }
+        }).render();
+    }
+})();
+</script>

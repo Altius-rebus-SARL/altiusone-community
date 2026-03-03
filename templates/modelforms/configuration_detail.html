@@ -1,0 +1,354 @@
+<!-- modelforms/configuration_detail.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ configuration.name }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{{ configuration.name }}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'modelforms:configuration-list' %}">{% trans "Formulaires dynamiques" %}</a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{{ configuration.code }}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<div class="row">
+    <!-- Main Content -->
+    <div class="col-lg-8">
+        <!-- Info Card -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>{% trans "Informations générales" %}</h5>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'modelforms:configuration-update' configuration.pk %}" class="btn btn-sm btn-primary">
+                        <i class="ti ti-edit me-1"></i>{% trans "Modifier" %}
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted">{% trans "Code" %}</label>
+                        <p class="mb-0">
+                            <span class="badge bg-light-secondary text-dark">
+                                <i class="{{ configuration.icon }} me-1"></i>
+                                {{ configuration.code }}
+                            </span>
+                        </p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted">{% trans "Catégorie" %}</label>
+                        <p class="mb-0">
+                            <span class="badge bg-light-info">{{ configuration.get_category_display }}</span>
+                        </p>
+                    </div>
+                </div>
+
+                {% if configuration.description %}
+                <div class="mb-3">
+                    <label class="form-label text-muted">{% trans "Description" %}</label>
+                    <p class="mb-0">{{ configuration.description }}</p>
+                </div>
+                {% endif %}
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted">{% trans "Modèle cible" %}</label>
+                        <p class="mb-0"><code>{{ configuration.target_model }}</code></p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted">{% trans "Statut" %}</label>
+                        <p class="mb-0">
+                            {% if configuration.status == 'ACTIVE' %}
+                                <span class="badge bg-success-subtle text-success">{{ configuration.get_status_display }}</span>
+                            {% elif configuration.status == 'DRAFT' %}
+                                <span class="badge bg-warning-subtle text-warning">{{ configuration.get_status_display }}</span>
+                            {% else %}
+                                <span class="badge bg-secondary-subtle text-secondary">{{ configuration.get_status_display }}</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted">{% trans "Validation requise" %}</label>
+                        <p class="mb-0">
+                            {% if configuration.require_validation %}
+                                <span class="badge bg-info-subtle text-info">{% trans "Oui" %}</span>
+                            {% else %}
+                                <span class="badge bg-light text-muted">{% trans "Non" %}</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted">{% trans "Créé le" %}</label>
+                        <p class="mb-0">{{ configuration.created_at|date:"d/m/Y H:i" }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fields Card -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>{% trans "Champs configurés" %} <span class="badge bg-primary ms-2">{{ field_mappings.count }}</span></h5>
+                <a href="{% url 'modelforms:form-builder' configuration.pk %}" class="btn btn-sm btn-outline-primary">
+                    <i class="ti ti-settings me-1"></i>{% trans "Gérer les champs" %}
+                </a>
+            </div>
+            <div class="card-body">
+                {% if field_mappings %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width: 30px;"></th>
+                                <th>{% trans "Champ" %}</th>
+                                <th>{% trans "Label" %}</th>
+                                <th>{% trans "Type" %}</th>
+                                <th>{% trans "Requis" %}</th>
+                                <th>{% trans "Section" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody id="fields-sortable">
+                            {% for mapping in field_mappings %}
+                            <tr data-id="{{ mapping.pk }}">
+                                <td class="drag-handle" style="cursor: grab;"><i class="ti ti-grip-vertical text-muted"></i></td>
+                                <td><code>{{ mapping.field_name }}</code></td>
+                                <td>{{ mapping.label|default:"-" }}</td>
+                                <td><span class="badge bg-light text-dark">{{ mapping.widget_type }}</span></td>
+                                <td>
+                                    {% if mapping.required %}
+                                        <i class="ti ti-check text-success"></i>
+                                    {% else %}
+                                        <i class="ti ti-minus text-muted"></i>
+                                    {% endif %}
+                                </td>
+                                <td>{{ mapping.section|default:"-" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="ph-duotone ph-list-dashes f-s-40 text-muted"></i>
+                    <p class="text-muted mt-2">{% trans "Aucun champ configuré" %}</p>
+                    <a href="{% url 'modelforms:form-builder' configuration.pk %}" class="btn btn-primary btn-sm">
+                        <i class="ti ti-plus me-1"></i>{% trans "Ajouter des champs" %}
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Recent Submissions -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>{% trans "Soumissions récentes" %}</h5>
+                <a href="{% url 'modelforms:submission-list' %}?form_config={{ configuration.pk }}" class="btn btn-sm btn-outline-secondary">
+                    {% trans "Voir tout" %}
+                </a>
+            </div>
+            <div class="card-body">
+                {% if recent_submissions %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Date" %}</th>
+                                <th>{% trans "Soumis par" %}</th>
+                                <th>{% trans "Statut" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for submission in recent_submissions %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'modelforms:submission-detail' submission.pk %}">
+                                        {{ submission.submitted_at|date:"d/m/Y H:i" }}
+                                    </a>
+                                </td>
+                                <td>{% if submission.submitted_by %}{{ submission.submitted_by.get_full_name|default:submission.submitted_by.username }}{% else %}<span class="text-muted">{% trans "Anonyme" %}</span>{% endif %}</td>
+                                <td>
+                                    {% if submission.status == 'COMPLETED' %}
+                                        <span class="badge bg-success-subtle text-success">{{ submission.get_status_display }}</span>
+                                    {% elif submission.status == 'PENDING' %}
+                                        <span class="badge bg-warning-subtle text-warning">{{ submission.get_status_display }}</span>
+                                    {% elif submission.status == 'FAILED' %}
+                                        <span class="badge bg-danger-subtle text-danger">{{ submission.get_status_display }}</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary-subtle text-secondary">{{ submission.get_status_display }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center mb-0 py-3">{% trans "Aucune soumission" %}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Actions Card -->
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Actions" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{% url 'modelforms:configuration-update' configuration.pk %}" class="btn btn-primary">
+                        <i class="ti ti-edit me-2"></i>{% trans "Modifier" %}
+                    </a>
+                    <a href="{% url 'modelforms:configuration-advanced' configuration.pk %}" class="btn btn-outline-secondary">
+                        <i class="ti ti-settings me-2"></i>{% trans "Configuration avancée" %}
+                    </a>
+                    <a href="{% url 'modelforms:form-builder' configuration.pk %}" class="btn btn-outline-info">
+                        <i class="ti ti-list me-2"></i>{% trans "Gérer les champs" %}
+                    </a>
+                    <form action="{% url 'modelforms:configuration-duplicate' configuration.pk %}" method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-primary w-100">
+                            <i class="ti ti-copy me-2"></i>{% trans "Dupliquer" %}
+                        </button>
+                    </form>
+                    <hr class="my-2">
+                    <a href="{% url 'modelforms:configuration-delete' configuration.pk %}" class="btn btn-outline-danger">
+                        <i class="ti ti-trash me-2"></i>{% trans "Supprimer" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Public Access Card -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>{% trans "Accès public" %}</h5>
+                <span>
+                    {% if configuration.access_level == 'public' %}
+                        <span class="badge bg-success-subtle text-success">{% trans "Public" %}</span>
+                    {% elif configuration.access_level == 'code' %}
+                        <span class="badge bg-warning-subtle text-warning">{% trans "Code d'accès" %}</span>
+                    {% else %}
+                        <span class="badge bg-info-subtle text-info">{% trans "Authentifié" %}</span>
+                    {% endif %}
+                </span>
+            </div>
+            <div class="card-body">
+                {% if configuration.status == 'ACTIVE' %}
+                    {% include 'modelforms/partials/qr_code.html' with qr_code_data_uri=qr_code_data_uri public_url=public_url configuration=configuration %}
+                {% else %}
+                    <div class="text-center text-muted py-3">
+                        <i class="ph-duotone ph-warning f-s-24"></i>
+                        <p class="small mt-2 mb-0">{% trans "Le QR code sera disponible lorsque le formulaire sera actif." %}</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Mandats associés -->
+        {% if mandats %}
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Mandats associés" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-2">
+                    {% for mandat in mandats %}
+                    <span class="badge bg-light-primary text-primary">
+                        <i class="ph-duotone ph-briefcase me-1"></i>
+                        {{ mandat.numero }} – {{ mandat.client }}
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Stats Card -->
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Statistiques" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="text-muted">{% trans "Champs" %}</span>
+                    <span class="badge bg-primary">{{ field_mappings.count }}</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="text-muted">{% trans "Soumissions totales" %}</span>
+                    <span class="badge bg-secondary">{{ submission_count }}</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="text-muted">{% trans "Dernière modification" %}</span>
+                    <span>{{ configuration.updated_at|date:"d/m/Y" }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- JSON Schema Preview -->
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Aperçu JSON Schema" %}</h5>
+            </div>
+            <div class="card-body">
+                <pre class="bg-light p-2 rounded small" style="max-height: 200px; overflow: auto;"><code>{{ json_schema|default:"{}" }}</code></pre>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tbody = document.getElementById('fields-sortable');
+    if (!tbody) return;
+
+    Sortable.create(tbody, {
+        handle: '.drag-handle',
+        animation: 150,
+        onEnd: function() {
+            const rows = tbody.querySelectorAll('tr[data-id]');
+            const order = [];
+            rows.forEach(function(row, index) {
+                order.push({id: parseInt(row.dataset.id), order: index});
+            });
+
+            fetch("{% url 'modelforms:reorder-fields' configuration.pk %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({order: order})
+            });
+        }
+    });
+});
+</script>
+{% endblock %}

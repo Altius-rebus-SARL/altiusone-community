@@ -1,0 +1,32 @@
+<!-- modelforms/partials/field_mappings.html -->
+{% load i18n %}
+
+{% if field_mappings %}
+<div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+        <thead>
+            <tr>
+                <th style="width: 40px;"></th>
+                <th>{% trans "Champ" %}</th>
+                <th>{% trans "Label" %}</th>
+                <th>{% trans "Type" %}</th>
+                <th>{% trans "Requis" %}</th>
+                <th>{% trans "Section" %}</th>
+                <th>{% trans "Ordre" %}</th>
+                <th style="width: 100px;">{% trans "Actions" %}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for mapping in field_mappings %}
+            {% include 'modelforms/partials/field_mapping_row.html' %}
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="text-center py-5">
+    <i class="ph-duotone ph-list-dashes f-s-50 text-muted"></i>
+    <p class="text-muted mt-2">{% trans "Aucun champ configuré" %}</p>
+    <p class="text-muted small">{% trans "Cliquez sur 'Ajouter un champ' ou utilisez les boutons '+' dans la liste des champs du modèle." %}</p>
+</div>
+{% endif %}

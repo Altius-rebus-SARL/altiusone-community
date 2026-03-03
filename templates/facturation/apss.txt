@@ -1,0 +1,1789 @@
+<!-- facturation/facture_detail.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load facturation_tags %}
+
+{% block title %}{% trans "Facture" %} {{ facture.numero_facture }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Facture" %} {{ facture.numero_facture }}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'facturation:facture-list' %}">
+                    <span>{% trans "Factures" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{{ facture.numero_facture }}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Action Buttons -->
+<div class="row mb-3">
+    <div class="col-12 text-end">
+        {% if facture.statut == 'BROUILLON' %}
+        <form method="post" action="{% url 'facturation:facture-valider' facture.pk %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-success">
+                <i class="ph ph-check-circle me-2"></i>{% trans "Valider" %}
+            </button>
+        </form>
+        <a href="{% url 'facturation:facture-update' facture.pk %}" class="btn btn-warning">
+            <i class="ph ph-pencil me-2"></i>{% trans "Modifier" %}
+        </a>
+        {% endif %}
+        
+        <a href="{% url 'facturation:facture-generer-pdf' facture.pk %}" class="btn btn-primary">
+            <i class="ph ph-file-pdf me-2"></i>{% trans "Télécharger PDF" %}
+        </a>
+        
+        <button class="btn btn-secondary" onclick="window.print()">
+            <i class="ph ph-printer me-2"></i>{% trans "Imprimer" %}
+        </button>
+    </div>
+</div>
+
+<!-- Invoice Container -->
+<div class="container invoice-container">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <!-- Header -->
+                            <tr>
+                                <td>
+                                    <table class="table table-lg w-100 invoice-header">
+                                        <tbody>
+                                        <tr>
+                                            <td>
+                                                <div class="mb-3">
+                                                    <div class="mb-3">
+                                                        {% if facture.mandat.client.logo %}
+                                                        <img alt="{{ facture.mandat.client.nom }}" 
+                                                             class="w-200" 
+                                                             src="{{ facture.mandat.client.logo.url }}">
+                                                        {% else %}
+                                                        <h3>{{ facture.mandat.client.nom }}</h3>
+                                                        {% endif %}
+                                                    </div>
+                                                    <div>
+                                                        <address>
+                                                            {% if facture.mandat.client.adresse %}{{ facture.mandat.client.adresse }}{% endif %}<br>
+                                                            {% if facture.mandat.client.complement_adresse %}
+                                                            {{ facture.mandat.client.complement_adresse }}<br>
+                                                            {% endif %}
+                                                            {% if facture.mandat.client.code_postal and facture.mandat.client.ville %}
+                                                            {{ facture.mandat.client.code_postal }} {{ facture.mandat.client.ville }}<br>
+                                                            {% endif %}
+                                                            {% if facture.mandat.client.email %}
+                                                            {{ facture.mandat.client.email }}
+                                                            {% endif %}
+                                                        </address>
+                                                        {% if facture.mandat.client.telephone %}
+                                                        {{ facture.mandat.client.telephone }}
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="text-end">
+                                                    <div class="mb-1">
+                                                        <h3 class="text-primary">{% trans "FACTURE" %}</h3>
+                                                    </div>
+                                                    <p>{% trans "Facture" %} <strong>{{ facture.numero_facture }}</strong></p>
+                                                    <p>{% trans "Date d'émission" %} <strong>{{ facture.date_emission|date:"d.m.Y" }}</strong></p>
+                                                    <p>{% trans "Date d'échéance" %} <strong>{{ facture.date_echeance|date:"d.m.Y" }}</strong></p>
+                                                    <p>
+                                                        {% if facture.statut == 'BROUILLON' %}
+                                                        <span class="badge bg-secondary">{% trans "Brouillon" %}</span>
+                                                        {% elif facture.statut == 'EMISE' %}
+                                                        <span class="badge bg-primary">{% trans "Émise" %}</span>
+                                                        {% elif facture.statut == 'PAYEE' %}
+                                                        <span class="badge bg-success">{% trans "Payée" %}</span>
+                                                        {% elif facture.statut == 'EN_RETARD' %}
+                                                        <span class="badge bg-danger">{% trans "En retard" %}</span>
+                                                        {% endif %}
+                                                    </p>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+
+                            <!-- Details -->
+                            <tr>
+                                <td>
+                                    <table class="invoice-details-table table table-lg w-100">
+                                        <tbody>
+                                        <tr>
+                                            <td>
+                                                <div class="mb-3">
+                                                    <h6 class="f-w-600">{% trans "Facturé par" %}</h6>
+                                                    {{ facture.mandat.client.nom }}
+                                                    <address>
+                                                        {% if facture.mandat.client.adresse %}{{ facture.mandat.client.adresse }}<br>{% endif %}
+                                                        {% if facture.mandat.client.complement_adresse %}
+                                                        {{ facture.mandat.client.complement_adresse }}<br>
+                                                        {% endif %}
+                                                        {% if facture.mandat.client.code_postal and facture.mandat.client.ville %}
+                                                        {{ facture.mandat.client.code_postal }} {{ facture.mandat.client.ville }}<br>
+                                                        {% endif %}
+                                                        {% if facture.mandat.client.email %}
+                                                        {{ facture.mandat.client.email }}
+                                                        {% endif %}
+                                                    </address>
+                                                    {% if facture.mandat.client.telephone %}
+                                                    {{ facture.mandat.client.telephone }}
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="mb-3">
+                                                    <h6 class="f-w-600">{% trans "Facturé à" %}</h6>
+                                                    {{ facture.client.nom }}
+                                                    <address>
+                                                        {% if facture.client.adresse %}{{ facture.client.adresse }}<br>{% endif %}
+                                                        {% if facture.client.complement_adresse %}
+                                                        {{ facture.client.complement_adresse }}<br>
+                                                        {% endif %}
+                                                        {% if facture.client.code_postal and facture.client.ville %}
+                                                        {{ facture.client.code_postal }} {{ facture.client.ville }}<br>
+                                                        {% endif %}
+                                                        {% if facture.client.email %}
+                                                        {{ facture.client.email }}
+                                                        {% endif %}
+                                                    </address>
+                                                    {% if facture.client.telephone %}
+                                                    {{ facture.client.telephone }}
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="text-end mb-3">
+                                                    <h6 class="f-w-600">{% trans "Détails" %}</h6>
+                                                    <p>{% trans "Mandat" %}: {{ facture.mandat.numero }}</p>
+                                                    {% if facture.date_service_debut and facture.date_service_fin %}
+                                                    <p>{% trans "Période" %}: {{ facture.date_service_debut|date:"d.m.Y" }} - {{ facture.date_service_fin|date:"d.m.Y" }}</p>
+                                                    {% endif %}
+                                                    <p>{% trans "Délai de paiement" %}: {{ facture.delai_paiement_jours }} {% trans "jours" %}</p>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+
+                            <!-- Lines -->
+                            <tr>
+                                <td>
+                                    <table class="table table-lg table-bottom-border invoice-table w-100">
+                                        <thead>
+                                        <tr>
+                                            <th scope="col">#</th>
+                                            <th scope="col">{% trans "Description" %}</th>
+                                            <th scope="col">{% trans "Qté" %}</th>
+                                            <th scope="col">{% trans "Prix unit. HT" %}</th>
+                                            <th scope="col">{% trans "TVA" %}</th>
+                                            <th scope="col" class="text-end">{% trans "Total HT" %}</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        {% for ligne in facture.lignes.all %}
+                                        <tr>
+                                            <td>{{ forloop.counter }}</td>
+                                            <td>
+                                                <strong>{{ ligne.description }}</strong>
+                                                {% if ligne.description_detaillee %}
+                                                <p class="text-muted f-s-12 mb-0">{{ ligne.description_detaillee|truncatewords:20 }}</p>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ ligne.quantite|floatformat:2 }} {{ ligne.unite }}</td>
+                                            <td>{{ ligne.prix_unitaire_ht|floatformat:2 }}</td>
+                                            <td>{{ ligne.taux_tva|floatformat:1 }}%</td>
+                                            <td class="text-end">{{ ligne.montant_ht|floatformat:2 }} CHF</td>
+                                        </tr>
+                                        {% endfor %}
+                                        
+                                        <tr>
+                                            <td colspan="3"></td>
+                                            <td colspan="3">
+                                                <table class="table mb-0">
+                                                    <tbody>
+                                                    <tr>
+                                                        <td>{% trans "Sous-total HT" %}</td>
+                                                        <td class="text-end">{{ facture.montant_ht|floatformat:2 }} CHF</td>
+                                                    </tr>
+                                                    {% if facture.remise_montant > 0 %}
+                                                    <tr>
+                                                        <td>{% trans "Remise" %} ({{ facture.remise_pourcent }}%)</td>
+                                                        <td class="text-end">-{{ facture.remise_montant|floatformat:2 }} CHF</td>
+                                                    </tr>
+                                                    {% endif %}
+                                                    <tr>
+                                                        <td>{% trans "TVA" %}</td>
+                                                        <td class="text-end">{{ facture.montant_tva|floatformat:2 }} CHF</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th class="border-0 pb-0">{% trans "Total TTC" %}</th>
+                                                        <th class="border-0 text-end pb-0">{{ facture.montant_ttc|floatformat:2 }} CHF</th>
+                                                    </tr>
+                                                    {% if facture.montant_paye > 0 %}
+                                                    <tr>
+                                                        <td>{% trans "Déjà payé" %}</td>
+                                                        <td class="text-end text-success">{{ facture.montant_paye|floatformat:2 }} CHF</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th class="border-0 pb-0">{% trans "Restant dû" %}</th>
+                                                        <th class="border-0 text-end pb-0 text-danger">{{ facture.montant_restant|floatformat:2 }} CHF</th>
+                                                    </tr>
+                                                    {% endif %}
+                                                    </tbody>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <!-- QR-Bill Section -->
+                    {% if facture.qr_code_image %}
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="alert alert-info">
+                                <h6>{% trans "QR-Bill Suisse" %}</h6>
+                                <p class="mb-0">{% trans "Référence" %}: {{ facture.qr_reference }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Notes -->
+                    {% if facture.conclusion %}
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <p class="text-muted">{{ facture.conclusion }}</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Paiements -->
+            {% if paiements %}
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5>{% trans "Paiements" %}</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-bottom-border">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Date" %}</th>
+                                <th>{% trans "Mode" %}</th>
+                                <th>{% trans "Référence" %}</th>
+                                <th class="text-end">{% trans "Montant" %}</th>
+                                <th>{% trans "Statut" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for paiement in paiements %}
+                            <tr>
+                                <td>{{ paiement.date_paiement|date:"d.m.Y" }}</td>
+                                <td>{{ paiement.get_mode_paiement_display }}</td>
+                                <td>{{ paiement.reference|default:"—" }}</td>
+                                <td class="text-end">{{ paiement.montant|floatformat:2 }} CHF</td>
+                                <td>
+                                    {% if paiement.valide %}
+                                    <span class="badge bg-success">{% trans "Validé" %}</span>
+                                    {% else %}
+                                    <span class="badge bg-warning">{% trans "En attente" %}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Action Buttons Bottom -->
+            <div class="invoice-footer float-end mb-3 mt-3">
+                <button class="btn btn-primary m-1" onclick="window.print()" type="button">
+                    <i class="ph ph-printer"></i> {% trans "Imprimer" %}
+                </button>
+                {% if facture.statut != 'BROUILLON' %}
+                <a href="{% url 'facturation:facture-envoyer-email' facture.pk %}" class="btn btn-secondary m-1">
+                    <i class="ph ph-paper-plane-tilt"></i> {% trans "Envoyer par email" %}
+                </a>
+                {% endif %}
+                <a href="{% url 'facturation:facture-generer-pdf' facture.pk %}" class="btn btn-success m-1">
+                    <i class="ph ph-download"></i> {% trans "Télécharger PDF" %}
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}<!-- facturation/facture_form.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load widget_tweaks %}
+
+{% block title %}{% trans "Nouvelle facture" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Nouvelle facture" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'facturation:facture-list' %}">
+                    <span>{% trans "Factures" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Nouvelle" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Form -->
+<div class="row">
+    <div class="col-md-10 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Informations de la facture" %}</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" class="app-form">
+                    {% csrf_token %}
+                    
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {{ form.non_field_errors }}
+                    </div>
+                    {% endif %}
+
+                    <!-- Client -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Mandat" %} *</label>
+                            {{ form.mandat|add_class:"form-control select2" }}
+                            {% if form.mandat.errors %}
+                            <div class="text-danger f-s-12">{{ form.mandat.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Client" %} *</label>
+                            {{ form.client|add_class:"form-control select2" }}
+                            {% if form.client.errors %}
+                            <div class="text-danger f-s-12">{{ form.client.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Dates -->
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Date d'émission" %} *</label>
+                            {{ form.date_emission|add_class:"form-control" }}
+                            {% if form.date_emission.errors %}
+                            <div class="text-danger f-s-12">{{ form.date_emission.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Délai de paiement (jours)" %} *</label>
+                            {{ form.delai_paiement_jours|add_class:"form-control" }}
+                            {% if form.delai_paiement_jours.errors %}
+                            <div class="text-danger f-s-12">{{ form.delai_paiement_jours.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Type" %}</label>
+                            {{ form.type_facture|add_class:"form-control" }}
+                            {% if form.type_facture.errors %}
+                            <div class="text-danger f-s-12">{{ form.type_facture.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Période de service -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Période début" %}</label>
+                            {{ form.date_service_debut|add_class:"form-control" }}
+                            {% if form.date_service_debut.errors %}
+                            <div class="text-danger f-s-12">{{ form.date_service_debut.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Période fin" %}</label>
+                            {{ form.date_service_fin|add_class:"form-control" }}
+                            {% if form.date_service_fin.errors %}
+                            <div class="text-danger f-s-12">{{ form.date_service_fin.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Remise -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Remise (%)" %}</label>
+                            {{ form.remise_pourcent|add_class:"form-control" }}
+                            {% if form.remise_pourcent.errors %}
+                            <div class="text-danger f-s-12">{{ form.remise_pourcent.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Textes -->
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label">{% trans "Introduction" %}</label>
+                            {{ form.introduction|add_class:"form-control" }}
+                            {% if form.introduction.errors %}
+                            <div class="text-danger f-s-12">{{ form.introduction.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label">{% trans "Conclusion" %}</label>
+                            {{ form.conclusion|add_class:"form-control" }}
+                            {% if form.conclusion.errors %}
+                            <div class="text-danger f-s-12">{{ form.conclusion.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label">{% trans "Conditions de paiement" %}</label>
+                            {{ form.conditions_paiement|add_class:"form-control" }}
+                            {% if form.conditions_paiement.errors %}
+                            <div class="text-danger f-s-12">{{ form.conditions_paiement.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label">{% trans "Notes internes" %}</label>
+                            {{ form.notes|add_class:"form-control" }}
+                            {% if form.notes.errors %}
+                            <div class="text-danger f-s-12">{{ form.notes.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'facturation:facture-list' %}" class="btn btn-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ph ph-check me-2"></i>{% trans "Créer" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}<!-- facturation/facture_list.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Factures" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Factures" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Factures" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-success mb-0">{{ stats.ca_annee|floatformat:0 }}</h3>
+                        <p class="text-muted mb-0">{% trans "CA Année" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-success">
+                        <i class="ph ph-currency-chf f-s-24 text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-primary mb-0">{{ stats.emises }}</h3>
+                        <p class="text-muted mb-0">{% trans "Émises" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-primary">
+                        <i class="ph ph-paper-plane-tilt f-s-24 text-primary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-danger mb-0">{{ stats.impaye_total|floatformat:0 }}</h3>
+                        <p class="text-muted mb-0">{% trans "Impayés" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-danger">
+                        <i class="ph ph-warning f-s-24 text-danger"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-success mb-0">{{ stats.payees }}</h3>
+                        <p class="text-muted mb-0">{% trans "Payées" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-success">
+                        <i class="ph ph-check-circle f-s-24 text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Liste des factures" %}</h5>
+            </div>
+            <div class="card-body">
+                <!-- Header -->
+                <div class="list-table-header d-flex justify-content-between align-items-center mb-3">
+                    <a href="{% url 'facturation:facture-create' %}" class="btn btn-primary">
+                        <i class="ph ph-plus me-2"></i>{% trans "Nouvelle facture" %}
+                    </a>
+                    <form method="get" class="d-flex gap-2">
+                        <select name="statut" class="form-select select-basic" onchange="this.form.submit()">
+                            <option value="">{% trans "Tous les statuts" %}</option>
+                            <option value="BROUILLON" {% if request.GET.statut == 'BROUILLON' %}selected{% endif %}>{% trans "Brouillon" %}</option>
+                            <option value="EMISE" {% if request.GET.statut == 'EMISE' %}selected{% endif %}>{% trans "Émise" %}</option>
+                            <option value="PAYEE" {% if request.GET.statut == 'PAYEE' %}selected{% endif %}>{% trans "Payée" %}</option>
+                            <option value="EN_RETARD" {% if request.GET.statut == 'EN_RETARD' %}selected{% endif %}>{% trans "En retard" %}</option>
+                        </select>
+                        {% if request.GET.statut %}
+                        <a href="{% url 'facturation:facture-list' %}" class="btn btn-secondary">
+                            <i class="ph ph-x"></i>
+                        </a>
+                        {% endif %}
+                    </form>
+                </div>
+
+                <!-- Table -->
+                <div class="overflow-auto app-scroll">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "N° Facture" %}</th>
+                                <th>{% trans "Client" %}</th>
+                                <th>{% trans "Date" %}</th>
+                                <th>{% trans "Échéance" %}</th>
+                                <th class="text-end">{% trans "Montant" %}</th>
+                                <th class="text-end">{% trans "Payé" %}</th>
+                                <th class="text-end">{% trans "Restant" %}</th>
+                                <th>{% trans "Statut" %}</th>
+                                <th>{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for facture in factures %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'facturation:facture-detail' facture.pk %}" class="f-w-600">
+                                        {{ facture.numero_facture }}
+                                    </a>
+                                </td>
+                                <td>{{ facture.client.nom|truncatewords:3 }}</td>
+                                <td>{{ facture.date_emission|date:"d.m.Y" }}</td>
+                                <td>{{ facture.date_echeance|date:"d.m.Y" }}</td>
+                                <td class="text-end f-w-600">{{ facture.montant_ttc|floatformat:2 }}</td>
+                                <td class="text-end">{{ facture.montant_paye|floatformat:2 }}</td>
+                                <td class="text-end f-w-600">{{ facture.montant_restant|floatformat:2 }}</td>
+                                <td>
+                                    {% if facture.statut == 'BROUILLON' %}
+                                    <span class="badge bg-secondary">{% trans "Brouillon" %}</span>
+                                    {% elif facture.statut == 'EMISE' %}
+                                    <span class="badge bg-primary">{% trans "Émise" %}</span>
+                                    {% elif facture.statut == 'PAYEE' %}
+                                    <span class="badge bg-success">{% trans "Payée" %}</span>
+                                    {% elif facture.statut == 'EN_RETARD' %}
+                                    <span class="badge bg-danger">{% trans "En retard" %}</span>
+                                    {% elif facture.statut == 'RELANCEE' %}
+                                    <span class="badge bg-warning">{% trans "Relancée" %}</span>
+                                    {% else %}
+                                    <span class="badge bg-light-dark">{{ facture.get_statut_display }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-light-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                            <i class="ph ph-dots-three-outline-vertical"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'facturation:facture-detail' facture.pk %}">
+                                                    <i class="ph ph-eye me-2"></i>{% trans "Voir" %}
+                                                </a>
+                                            </li>
+                                            {% if facture.statut == 'BROUILLON' %}
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'facturation:facture-update' facture.pk %}">
+                                                    <i class="ph ph-pencil me-2"></i>{% trans "Modifier" %}
+                                                </a>
+                                            </li>
+                                            {% endif %}
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'facturation:facture-generer-pdf' facture.pk %}">
+                                                    <i class="ph ph-file-pdf me-2"></i>{% trans "PDF" %}
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="9" class="text-center py-5">
+                                    <i class="ph ph-scroll f-s-50 text-muted"></i>
+                                    <p class="text-muted mt-2">{% trans "Aucune facture trouvée" %}</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if is_paginated %}
+                <div class="list-pagination mt-3">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}">
+                                <i class="ph ph-caret-double-left"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}">
+                                <i class="ph ph-caret-left"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                            <li class="page-item active"><a class="page-link">{{ num }}</a></li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item"><a class="page-link" href="?page={{ num }}{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}">{{ num }}</a></li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}">
+                                <i class="ph ph-caret-right"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}">
+                                <i class="ph ph-caret-double-right"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}<!-- facturation/paiement_form.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load widget_tweaks %}
+
+{% block title %}{% trans "Enregistrer un paiement" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Enregistrer un paiement" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'facturation:facture-list' %}">
+                    <span>{% trans "Factures" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'facturation:facture-detail' facture.pk %}">
+                    <span>{{ facture.numero_facture }}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Paiement" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Facture Info -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-muted mb-2">{% trans "Facture" %}</h6>
+                        <h4>{{ facture.numero_facture }}</h4>
+                        <p class="mb-0">{{ facture.client.nom }}</p>
+                        <small class="text-muted">{% trans "Échéance" %}: {{ facture.date_echeance|date:"d.m.Y" }}</small>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <h6 class="text-muted mb-2">{% trans "Montants" %}</h6>
+                        <div class="mb-2">
+                            <span class="text-muted">{% trans "Total" %}:</span>
+                            <span class="f-w-600 f-s-18">{{ facture.montant_ttc|floatformat:2 }} CHF</span>
+                        </div>
+                        <div class="mb-2">
+                            <span class="text-muted">{% trans "Déjà payé" %}:</span>
+                            <span class="f-w-600 text-success">{{ facture.montant_paye|floatformat:2 }} CHF</span>
+                        </div>
+                        <div>
+                            <span class="text-muted">{% trans "Restant dû" %}:</span>
+                            <span class="f-w-600 f-s-20 text-danger">{{ facture.montant_restant|floatformat:2 }} CHF</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Form -->
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Détails du paiement" %}</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" class="app-form">
+                    {% csrf_token %}
+                    
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {{ form.non_field_errors }}
+                    </div>
+                    {% endif %}
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Montant (CHF)" %} *</label>
+                            {{ form.montant|add_class:"form-control" }}
+                            {% if form.montant.errors %}
+                            <div class="text-danger f-s-12">{{ form.montant.errors.0 }}</div>
+                            {% endif %}
+                            <small class="text-muted">{% trans "Maximum" %}: {{ facture.montant_restant|floatformat:2 }} CHF</small>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Devise" %}</label>
+                            {{ form.devise|add_class:"form-control" }}
+                            {% if form.devise.errors %}
+                            <div class="text-danger f-s-12">{{ form.devise.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Date de paiement" %} *</label>
+                            {{ form.date_paiement|add_class:"form-control" }}
+                            {% if form.date_paiement.errors %}
+                            <div class="text-danger f-s-12">{{ form.date_paiement.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Mode de paiement" %} *</label>
+                            {{ form.mode_paiement|add_class:"form-control select-basic" }}
+                            {% if form.mode_paiement.errors %}
+                            <div class="text-danger f-s-12">{{ form.mode_paiement.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label">{% trans "Référence" %}</label>
+                            {{ form.reference|add_class:"form-control" }}
+                            {% if form.reference.errors %}
+                            <div class="text-danger f-s-12">{{ form.reference.errors.0 }}</div>
+                            {% endif %}
+                            <small class="text-muted">{% trans "Numéro de transaction, référence bancaire, etc." %}</small>
+                        </div>
+
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label">{% trans "Notes" %}</label>
+                            {{ form.notes|add_class:"form-control" }}
+                            {% if form.notes.errors %}
+                            <div class="text-danger f-s-12">{{ form.notes.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Quick amounts -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label">{% trans "Montants rapides" %}</label>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-outline-primary btn-sm" 
+                                        onclick="document.querySelector('input[name=montant]').value = '{{ facture.montant_restant|floatformat:2 }}'">
+                                    {% trans "Solde complet" %}
+                                </button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" 
+                                        onclick="document.querySelector('input[name=montant]').value = '{{ facture.montant_restant|divisibleby:2|floatformat:2 }}'">
+                                    {% trans "50%" %}
+                                </button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" 
+                                        onclick="document.querySelector('input[name=montant]').value = '{{ facture.montant_restant|divisibleby:3|floatformat:2 }}'">
+                                    {% trans "33%" %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'facturation:facture-detail' facture.pk %}" class="btn btn-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-success">
+                            <i class="ph ph-check me-2"></i>{% trans "Enregistrer le paiement" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}<!-- facturation/prestation_detail.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Prestation" %} {{ prestation.code }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Prestation" %} {{ prestation.code }}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'facturation:prestation-list' %}">
+                    <span>{% trans "Prestations" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{{ prestation.code }}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Action Buttons -->
+<div class="row mb-3">
+    <div class="col-12 text-end">
+        <a href="{% url 'facturation:prestation-update' prestation.pk %}" class="btn btn-warning">
+            <i class="ph ph-pencil me-2"></i>{% trans "Modifier" %}
+        </a>
+    </div>
+</div>
+
+<!-- Info Card -->
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Informations de la prestation" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Code" %}</label>
+                        <h6>{{ prestation.code }}</h6>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Type" %}</label>
+                        <h6><span class="badge bg-light-primary">{{ prestation.get_type_prestation_display }}</span></h6>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <label class="text-muted f-s-12">{% trans "Libellé" %}</label>
+                        <h6>{{ prestation.libelle }}</h6>
+                    </div>
+                </div>
+
+                {% if prestation.description %}
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <label class="text-muted f-s-12">{% trans "Description" %}</label>
+                        <p class="mb-0">{{ prestation.description }}</p>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label class="text-muted f-s-12">{% trans "Unité" %}</label>
+                        <h6>{{ prestation.unite }}</h6>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="text-muted f-s-12">{% trans "Prix unitaire HT" %}</label>
+                        <h6>
+                            {% if prestation.prix_unitaire_ht %}
+                            {{ prestation.prix_unitaire_ht|floatformat:2 }} CHF
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </h6>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="text-muted f-s-12">{% trans "Taux horaire" %}</label>
+                        <h6>
+                            {% if prestation.taux_horaire %}
+                            {{ prestation.taux_horaire|floatformat:2 }} CHF/h
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </h6>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Soumis à TVA" %}</label>
+                        <h6>
+                            {% if prestation.soumis_tva %}
+                            <i class="ph ph-check-circle text-success f-s-18"></i>
+                            {% trans "Oui" %} ({{ prestation.taux_tva_defaut }}%)
+                            {% else %}
+                            <i class="ph ph-x-circle text-danger f-s-18"></i>
+                            {% trans "Non" %}
+                            {% endif %}
+                        </h6>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Statut" %}</label>
+                        <h6>
+                            {% if prestation.actif %}
+                            <span class="badge bg-success">{% trans "Active" %}</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{% trans "Inactive" %}</span>
+                            {% endif %}
+                        </h6>
+                    </div>
+                </div>
+
+                {% if prestation.compte_produit %}
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <label class="text-muted f-s-12">{% trans "Compte produit" %}</label>
+                        <h6>
+                            <a href="{% url 'comptabilite:compte-detail' prestation.compte_produit.pk %}">
+                                {{ prestation.compte_produit.numero }} - {{ prestation.compte_produit.libelle }}
+                            </a>
+                        </h6>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Statistiques" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="text-muted f-s-12">{% trans "Utilisée dans" %}</label>
+                    <h6>{{ prestation.lignefacture_set.count }} {% trans "facture(s)" %}</h6>
+                </div>
+                <div class="mb-3">
+                    <label class="text-muted f-s-12">{% trans "Temps enregistrés" %}</label>
+                    <h6>{{ prestation.temps_travail.count }} {% trans "entrée(s)" %}</h6>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}<!-- facturation/prestation_list.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Prestations" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Prestations" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Prestations" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-primary mb-0">{{ stats.total }}</h3>
+                        <p class="text-muted mb-0">{% trans "Total prestations" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-primary">
+                        <i class="ph ph-package f-s-24 text-primary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-success mb-0">{{ stats.actives }}</h3>
+                        <p class="text-muted mb-0">{% trans "Actives" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-success">
+                        <i class="ph ph-check-circle f-s-24 text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-info mb-0">{{ stats.par_type.count }}</h3>
+                        <p class="text-muted mb-0">{% trans "Types" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-info">
+                        <i class="ph ph-folder f-s-24 text-info"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Liste des prestations" %}</h5>
+            </div>
+            <div class="card-body">
+                <!-- Header -->
+                <div class="list-table-header d-flex justify-content-between align-items-center mb-3">
+                    <a href="{% url 'facturation:prestation-create' %}" class="btn btn-primary">
+                        <i class="ph ph-plus me-2"></i>{% trans "Nouvelle prestation" %}
+                    </a>
+                    <form method="get" class="d-flex gap-2">
+                        <select name="type" class="form-select select-basic" onchange="this.form.submit()">
+                            <option value="">{% trans "Tous les types" %}</option>
+                            <option value="COMPTABILITE" {% if request.GET.type == 'COMPTABILITE' %}selected{% endif %}>{% trans "Comptabilité" %}</option>
+                            <option value="TVA" {% if request.GET.type == 'TVA' %}selected{% endif %}>{% trans "TVA" %}</option>
+                            <option value="SALAIRES" {% if request.GET.type == 'SALAIRES' %}selected{% endif %}>{% trans "Salaires" %}</option>
+                            <option value="CONSEIL" {% if request.GET.type == 'CONSEIL' %}selected{% endif %}>{% trans "Conseil" %}</option>
+                            <option value="AUDIT" {% if request.GET.type == 'AUDIT' %}selected{% endif %}>{% trans "Audit" %}</option>
+                            <option value="FISCALITE" {% if request.GET.type == 'FISCALITE' %}selected{% endif %}>{% trans "Fiscalité" %}</option>
+                        </select>
+                        <select name="actif" class="form-select select-basic" onchange="this.form.submit()">
+                            <option value="">{% trans "Toutes" %}</option>
+                            <option value="true" {% if request.GET.actif == 'true' %}selected{% endif %}>{% trans "Actives" %}</option>
+                            <option value="false" {% if request.GET.actif == 'false' %}selected{% endif %}>{% trans "Inactives" %}</option>
+                        </select>
+                        {% if request.GET.type or request.GET.actif %}
+                        <a href="{% url 'facturation:prestation-list' %}" class="btn btn-secondary">
+                            <i class="ph ph-x"></i>
+                        </a>
+                        {% endif %}
+                    </form>
+                </div>
+
+                <!-- Table -->
+                <div class="overflow-auto app-scroll">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Code" %}</th>
+                                <th>{% trans "Libellé" %}</th>
+                                <th>{% trans "Type" %}</th>
+                                <th>{% trans "Unité" %}</th>
+                                <th class="text-end">{% trans "Prix HT" %}</th>
+                                <th class="text-end">{% trans "Taux horaire" %}</th>
+                                <th>{% trans "TVA" %}</th>
+                                <th>{% trans "Statut" %}</th>
+                                <th>{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for prestation in prestations %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'facturation:prestation-detail' prestation.pk %}" class="f-w-600">
+                                        {{ prestation.code }}
+                                    </a>
+                                </td>
+                                <td>{{ prestation.libelle }}</td>
+                                <td><span class="badge bg-light-primary">{{ prestation.get_type_prestation_display }}</span></td>
+                                <td>{{ prestation.unite }}</td>
+                                <td class="text-end">
+                                    {% if prestation.prix_unitaire_ht %}
+                                    {{ prestation.prix_unitaire_ht|floatformat:2 }} CHF
+                                    {% else %}
+                                    <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    {% if prestation.taux_horaire %}
+                                    {{ prestation.taux_horaire|floatformat:2 }} CHF/h
+                                    {% else %}
+                                    <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if prestation.soumis_tva %}
+                                    <span class="badge bg-light-info">{{ prestation.taux_tva_defaut }}%</span>
+                                    {% else %}
+                                    <span class="badge bg-light-secondary">{% trans "Exempt" %}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if prestation.actif %}
+                                    <span class="badge bg-success">{% trans "Active" %}</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">{% trans "Inactive" %}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-light-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                            <i class="ph ph-dots-three-outline-vertical"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'facturation:prestation-detail' prestation.pk %}">
+                                                    <i class="ph ph-eye me-2"></i>{% trans "Voir" %}
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'facturation:prestation-update' prestation.pk %}">
+                                                    <i class="ph ph-pencil me-2"></i>{% trans "Modifier" %}
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="9" class="text-center py-5">
+                                    <i class="ph ph-package f-s-50 text-muted"></i>
+                                    <p class="text-muted mt-2">{% trans "Aucune prestation trouvée" %}</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if is_paginated %}
+                <div class="list-pagination mt-3">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1">
+                                <i class="ph ph-caret-double-left"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                                <i class="ph ph-caret-left"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                            <li class="page-item active"><a class="page-link">{{ num }}</a></li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                                <i class="ph ph-caret-right"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">
+                                <i class="ph ph-caret-double-right"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}<!-- facturation/timetracking_form.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load widget_tweaks %}
+
+{% block title %}{% trans "Enregistrer un paiement" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Enregistrer un paiement" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'facturation:facture-list' %}">
+                    <span>{% trans "Factures" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'facturation:facture-detail' facture.pk %}">
+                    <span>{{ facture.numero_facture }}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Paiement" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Facture Info -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-muted mb-2">{% trans "Facture" %}</h6>
+                        <h4>{{ facture.numero_facture }}</h4>
+                        <p class="mb-0">{{ facture.client.raison_sociale }}</p>
+                        <small class="text-muted">{% trans "Échéance" %}: {{ facture.date_echeance|date:"d.m.Y" }}</small>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <h6 class="text-muted mb-2">{% trans "Montants" %}</h6>
+                        <div class="mb-2">
+                            <span class="text-muted">{% trans "Total" %}:</span>
+                            <span class="f-w-600 f-s-18">{{ facture.montant_ttc|floatformat:2 }} CHF</span>
+                        </div>
+                        <div class="mb-2">
+                            <span class="text-muted">{% trans "Déjà payé" %}:</span>
+                            <span class="f-w-600 text-success">{{ facture.montant_paye|floatformat:2 }} CHF</span>
+                        </div>
+                        <div>
+                            <span class="text-muted">{% trans "Restant dû" %}:</span>
+                            <span class="f-w-600 f-s-20 text-danger">{{ facture.montant_restant|floatformat:2 }} CHF</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Form -->
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Détails du paiement" %}</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" class="app-form">
+                    {% csrf_token %}
+                    
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {{ form.non_field_errors }}
+                    </div>
+                    {% endif %}
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Montant (CHF)" %} *</label>
+                            {{ form.montant|add_class:"form-control" }}
+                            {% if form.montant.errors %}
+                            <div class="text-danger f-s-12">{{ form.montant.errors.0 }}</div>
+                            {% endif %}
+                            <small class="text-muted">{% trans "Maximum" %}: {{ facture.montant_restant|floatformat:2 }} CHF</small>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Devise" %}</label>
+                            {{ form.devise|add_class:"form-control" }}
+                            {% if form.devise.errors %}
+                            <div class="text-danger f-s-12">{{ form.devise.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Date de paiement" %} *</label>
+                            {{ form.date_paiement|add_class:"form-control" }}
+                            {% if form.date_paiement.errors %}
+                            <div class="text-danger f-s-12">{{ form.date_paiement.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Mode de paiement" %} *</label>
+                            {{ form.mode_paiement|add_class:"form-control select-basic" }}
+                            {% if form.mode_paiement.errors %}
+                            <div class="text-danger f-s-12">{{ form.mode_paiement.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label">{% trans "Référence" %}</label>
+                            {{ form.reference|add_class:"form-control" }}
+                            {% if form.reference.errors %}
+                            <div class="text-danger f-s-12">{{ form.reference.errors.0 }}</div>
+                            {% endif %}
+                            <small class="text-muted">{% trans "Numéro de transaction, référence bancaire, etc." %}</small>
+                        </div>
+
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label">{% trans "Notes" %}</label>
+                            {{ form.notes|add_class:"form-control" }}
+                            {% if form.notes.errors %}
+                            <div class="text-danger f-s-12">{{ form.notes.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Quick amounts -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label">{% trans "Montants rapides" %}</label>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-outline-primary btn-sm" 
+                                        onclick="document.querySelector('input[name=montant]').value = '{{ facture.montant_restant|floatformat:2 }}'">
+                                    {% trans "Solde complet" %}
+                                </button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" 
+                                        onclick="document.querySelector('input[name=montant]').value = '{{ facture.montant_restant|divisibleby:2|floatformat:2 }}'">
+                                    {% trans "50%" %}
+                                </button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" 
+                                        onclick="document.querySelector('input[name=montant]').value = '{{ facture.montant_restant|divisibleby:3|floatformat:2 }}'">
+                                    {% trans "33%" %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'facturation:facture-detail' facture.pk %}" class="btn btn-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-success">
+                            <i class="ph ph-check me-2"></i>{% trans "Enregistrer le paiement" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}<!-- facturation/timetracking_list.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Suivi du temps" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Suivi du temps" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Suivi du temps" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-primary mb-0">{{ stats.total_heures_display|floatformat:1 }}h</h3>
+                        <p class="text-muted mb-0">{% trans "Total heures" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-primary">
+                        <i class="ph ph-clock f-s-24 text-primary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-warning mb-0">{{ stats.non_facture }}</h3>
+                        <p class="text-muted mb-0">{% trans "Non facturées" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-warning">
+                        <i class="ph ph-hourglass f-s-24 text-warning"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-success mb-0">{{ stats.montant_non_facture|floatformat:0 }}</h3>
+                        <p class="text-muted mb-0">{% trans "À facturer" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-success">
+                        <i class="ph ph-currency-chf f-s-24 text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-info mb-0">{{ temps_par_utilisateur.count }}</h3>
+                        <p class="text-muted mb-0">{% trans "Collaborateurs" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-info">
+                        <i class="ph ph-users f-s-24 text-info"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Liste des temps de travail" %}</h5>
+            </div>
+            <div class="card-body">
+                <!-- Header -->
+                <div class="list-table-header d-flex justify-content-between align-items-center mb-3">
+                    <a href="{% url 'facturation:timetracking-create' %}" class="btn btn-primary">
+                        <i class="ph ph-plus me-2"></i>{% trans "Saisir du temps" %}
+                    </a>
+                    <form method="get" class="d-flex gap-2">
+                        <input type="date" name="date_debut" class="form-control" 
+                               value="{{ request.GET.date_debut }}"
+                               placeholder="{% trans 'Date début' %}">
+                        <input type="date" name="date_fin" class="form-control" 
+                               value="{{ request.GET.date_fin }}"
+                               placeholder="{% trans 'Date fin' %}">
+                        <select name="facturable" class="form-select select-basic" onchange="this.form.submit()">
+                            <option value="">{% trans "Tous" %}</option>
+                            <option value="false" {% if request.GET.facturable == 'false' %}selected{% endif %}>{% trans "Non facturées" %}</option>
+                            <option value="true" {% if request.GET.facturable == 'true' %}selected{% endif %}>{% trans "Facturées" %}</option>
+                        </select>
+                        {% if request.GET.date_debut or request.GET.date_fin or request.GET.facturable %}
+                        <a href="{% url 'facturation:timetracking-list' %}" class="btn btn-secondary">
+                            <i class="ph ph-x"></i>
+                        </a>
+                        {% endif %}
+                    </form>
+                </div>
+
+                <!-- Table -->
+                <div class="overflow-auto app-scroll">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Date" %}</th>
+                                <th>{% trans "Utilisateur" %}</th>
+                                <th>{% trans "Mandat" %}</th>
+                                <th>{% trans "Prestation" %}</th>
+                                <th>{% trans "Description" %}</th>
+                                <th>{% trans "Durée" %}</th>
+                                <th class="text-end">{% trans "Taux" %}</th>
+                                <th class="text-end">{% trans "Montant" %}</th>
+                                <th>{% trans "Statut" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for temps in temps %}
+                            <tr>
+                                <td>{{ temps.date_travail|date:"d.m.Y" }}</td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <span class="h-35 w-35 d-flex-center b-r-50 bg-light-primary me-2">
+                                            <span class="f-w-600 text-primary">{{ temps.utilisateur.first_name.0 }}{{ temps.utilisateur.last_name.0 }}</span>
+                                        </span>
+                                        <span>{{ temps.utilisateur.get_full_name }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <a href="{% url 'core:mandat-detail' temps.mandat.pk %}">
+                                        {{ temps.mandat.numero }}
+                                    </a>
+                                </td>
+                                <td>{{ temps.prestation.libelle|truncatewords:3 }}</td>
+                                <td>
+                                    <span class="text-muted">{{ temps.description|truncatewords:8 }}</span>
+                                </td>
+                                <td>
+                                    {% if temps.heure_debut and temps.heure_fin %}
+                                    <span class="badge bg-light-info">
+                                        {{ temps.heure_debut|time:"H:i" }} - {{ temps.heure_fin|time:"H:i" }}
+                                    </span>
+                                    {% endif %}
+                                    <br>
+                                    <span class="f-w-600">{{ temps.duree_heures|floatformat:2 }}h</span>
+                                </td>
+                                <td class="text-end">{{ temps.taux_horaire|floatformat:2 }}</td>
+                                <td class="text-end f-w-600">{{ temps.montant_ht|floatformat:2 }}</td>
+                                <td>
+                                    {% if temps.facture %}
+                                    <a href="{% url 'facturation:facture-detail' temps.facture.pk %}">
+                                        <span class="badge bg-success">{% trans "Facturé" %}</span>
+                                    </a>
+                                    {% elif temps.facturable %}
+                                    <span class="badge bg-warning">{% trans "À facturer" %}</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">{% trans "Non facturable" %}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="9" class="text-center py-5">
+                                    <i class="ph ph-clock f-s-50 text-muted"></i>
+                                    <p class="text-muted mt-2">{% trans "Aucun temps enregistré" %}</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if is_paginated %}
+                <div class="list-pagination mt-3">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1">
+                                <i class="ph ph-caret-double-left"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                                <i class="ph ph-caret-left"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                            <li class="page-item active"><a class="page-link">{{ num }}</a></li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                                <i class="ph ph-caret-right"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">
+                                <i class="ph ph-caret-double-right"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Temps par utilisateur (si admin/manager) -->
+{% if temps_par_utilisateur %}
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Temps par collaborateur" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bottom-border">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Collaborateur" %}</th>
+                                <th class="text-end">{% trans "Total heures" %}</th>
+                                <th class="text-end">{% trans "Total montant" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in temps_par_utilisateur %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <span class="h-35 w-35 d-flex-center b-r-50 bg-light-primary me-2">
+                                            <span class="f-w-600 text-primary">{{ item.utilisateur__first_name.0 }}{{ item.utilisateur__last_name.0 }}</span>
+                                        </span>
+                                        <span>{{ item.utilisateur__first_name }} {{ item.utilisateur__last_name }}</span>
+                                    </div>
+                                </td>
+                                <td class="text-end f-w-600">{{ item.total_minutes|floatformat:0 }} min ({{ item.total_minutes|divisibleby:60 }}h)</td>
+                                <td class="text-end f-w-600 text-success">{{ item.total_montant|floatformat:2 }} CHF</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

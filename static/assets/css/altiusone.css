@@ -1,0 +1,135 @@
+/* AltiusOne Custom Styles */
+
+/* ========================================
+   SIDEBAR LOGO - Light/Dark + Full/Mini
+   1.png = light full, 2.png = dark full,
+   3.png = light mini, 4.png = dark mini
+   ======================================== */
+
+/* Hide all variants by default */
+.app-logo .logo .logo-full-dark,
+.app-logo .logo .logo-mini-light,
+.app-logo .logo .logo-mini-dark {
+  display: none;
+}
+
+/* Override framework brightness filter — we use dedicated dark logos */
+body.dark nav .app-logo .logo img {
+  filter: none;
+}
+
+/* Dark mode expanded: show 2.png */
+body.dark .app-logo .logo .logo-full-light { display: none; }
+body.dark .app-logo .logo .logo-full-dark  { display: inline; }
+
+/* Mini logos: constrain to 48x48 (high specificity to override _nav.scss img rule) */
+nav .app-logo .logo .logo-mini-light,
+nav .app-logo .logo .logo-mini-dark {
+  width: 48px !important;
+  height: 48px !important;
+  object-fit: contain;
+}
+
+/* Semi-nav (collapsed, not hovered): show mini logos */
+nav.semi-nav:not(:hover) .app-logo .logo .logo-full-light,
+nav.semi-nav:not(:hover) .app-logo .logo .logo-full-dark  { display: none !important; }
+nav.semi-nav:not(:hover) .app-logo .logo .logo-mini-light  { display: inline; }
+
+/* Semi-nav + dark mode: show 4.png instead of 3.png */
+body.dark nav.semi-nav:not(:hover) .app-logo .logo .logo-mini-light { display: none !important; }
+body.dark nav.semi-nav:not(:hover) .app-logo .logo .logo-mini-dark  { display: inline !important; }
+
+/* ========================================
+   DARK MODE - LOADER & BASE STYLES
+   Appliqué via html.dark pour éviter le flash
+   ======================================== */
+
+/* Base dark background - applied immediately via inline style in head */
+html.dark,
+html.dark body {
+    background-color: #1a1a2e !important;
+}
+
+/* Loader dark mode - fond sombre */
+html.dark .loader-wrapper,
+body.dark .loader-wrapper {
+    background-color: #1a1a2e !important;
+}
+
+/* Loader dark mode - texte "Loading..." visible sur fond sombre
+   Original: fond dark avec texte blanc révélé
+   Dark mode: fond blanc (texte) avec cercle sombre qui révèle */
+html.dark .loader_24,
+body.dark .loader_24 {
+    background: radial-gradient(circle closest-side, rgba(255, 255, 255, 0.9) 94%, rgba(0, 0, 0, 0)) right/calc(200% - 1em) 100% !important;
+}
+
+html.dark .loader_24::before,
+body.dark .loader_24::before {
+    background-image: radial-gradient(circle closest-side, #1a1a2e 94%, rgba(15, 98, 106, 0)) !important;
+}
+
+/* ========================================
+   SIDEBAR ACTIVE STATE STYLES
+   ======================================== */
+
+/* Parent menu item active state (with dropdown) */
+nav .app-nav .main-nav > li.active > a {
+    color: rgba(var(--primary), 1) !important;
+    font-weight: 600;
+}
+
+nav .app-nav .main-nav > li.active > a i {
+    color: rgba(var(--primary), 1) !important;
+}
+
+/* Override expanded menu background - reduce opacity for better readability */
+nav .app-nav .main-nav > li:not(.menu-title) > a[aria-expanded=true] {
+    background: rgba(var(--primary), 0.15) !important;
+    color: rgba(var(--primary), 1) !important;
+}
+
+nav .app-nav .main-nav > li:not(.menu-title) > a[aria-expanded=true] i {
+    color: rgba(var(--primary), 1) !important;
+}
+
+/* Sub-menu item active state - enhanced visibility */
+nav .app-nav .main-nav > li:not(.menu-title) ul li.active {
+    background-color: rgba(var(--primary), 0.08);
+    border-radius: 6px;
+    margin: 2px 8px;
+}
+
+nav .app-nav .main-nav > li:not(.menu-title) ul li.active a {
+    color: rgba(var(--primary), 1) !important;
+    font-weight: 600;
+}
+
+nav .app-nav .main-nav > li:not(.menu-title) ul li.active a::before {
+    background-color: rgba(var(--primary), 1);
+    width: 4px;
+    border-radius: 2px;
+}
+
+/* No-sub menu item (like Dashboard) active state */
+nav .app-nav .main-nav > li.no-sub.active > a {
+    background-color: rgba(var(--primary), 0.1);
+    color: rgba(var(--primary), 1) !important;
+    font-weight: 600;
+    border-radius: 8px;
+    margin: 0 8px;
+}
+
+nav .app-nav .main-nav > li.no-sub.active > a i {
+    color: rgba(var(--primary), 1) !important;
+}
+
+/* Collapsed menu indicator when active */
+nav .app-nav .main-nav > li.active > a[data-bs-toggle="collapse"]::after {
+    color: rgba(var(--primary), 1);
+}
+
+/* Ensure collapse menus show properly */
+nav .app-nav .main-nav .collapse.show {
+    display: block;
+}

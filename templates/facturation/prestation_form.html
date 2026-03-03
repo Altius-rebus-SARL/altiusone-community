@@ -1,0 +1,266 @@
+<!-- facturation/prestation_form.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load widget_tweaks %}
+
+{% block title %}
+{% if object %}{% trans "Modifier la prestation" %}{% else %}{% trans "Nouvelle prestation" %}{% endif %}
+{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">
+            {% if object %}{% trans "Modifier la prestation" %}{% else %}{% trans "Nouvelle prestation" %}{% endif %}
+        </h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'facturation:prestation-list' %}">
+                    <span>{% trans "Prestations" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">
+                    {% if object %}{{ object.code }}{% else %}{% trans "Nouvelle" %}{% endif %}
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Form -->
+<div class="row">
+    <div class="col-md-10 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Informations de la prestation" %}</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" class="app-form">
+                    {% csrf_token %}
+                    
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {{ form.non_field_errors }}
+                    </div>
+                    {% endif %}
+
+                    <!-- Identification -->
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Code" %} *</label>
+                            {{ form.code|add_class:"form-control" }}
+                            {% if form.code.errors %}
+                            <div class="text-danger f-s-12">{{ form.code.errors.0 }}</div>
+                            {% endif %}
+                            <small class="text-muted">{% trans "Code unique de la prestation" %}</small>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Type" %} *</label>
+                            {{ form.type_prestation|add_class:"form-control" }}
+                            {% if form.type_prestation.errors %}
+                            <div class="text-danger f-s-12">{{ form.type_prestation.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Unité" %} *</label>
+                            {{ form.unite|add_class:"form-control" }}
+                            {% if form.unite.errors %}
+                            <div class="text-danger f-s-12">{{ form.unite.errors.0 }}</div>
+                            {% endif %}
+                            <small class="text-muted">{% trans "Ex: heure, jour, forfait, unité" %}</small>
+                        </div>
+                    </div>
+
+                    <!-- Libellé -->
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label">{% trans "Libellé" %} *</label>
+                            {{ form.libelle|add_class:"form-control" }}
+                            {% if form.libelle.errors %}
+                            <div class="text-danger f-s-12">{{ form.libelle.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label">{% trans "Description" %}</label>
+                            {{ form.description|add_class:"form-control" }}
+                            {% if form.description.errors %}
+                            <div class="text-danger f-s-12">{{ form.description.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Tarification -->
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <h6 class="text-muted f-w-600">{% trans "Tarification" %}</h6>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Prix unitaire HT" %} ({{ DEVISE_CODE }})</label>
+                            {{ form.prix_unitaire_ht|add_class:"form-control" }}
+                            {% if form.prix_unitaire_ht.errors %}
+                            <div class="text-danger f-s-12">{{ form.prix_unitaire_ht.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Taux horaire" %} ({{ DEVISE_CODE }}/h)</label>
+                            {{ form.taux_horaire|add_class:"form-control" }}
+                            {% if form.taux_horaire.errors %}
+                            <div class="text-danger f-s-12">{{ form.taux_horaire.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- TVA -->
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <h6 class="text-muted f-w-600">{% trans "TVA" %}</h6>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <div class="form-check">
+                                {{ form.soumis_tva }}
+                                <label class="form-check-label" for="{{ form.soumis_tva.id_for_label }}">
+                                    {% trans "Prestation soumise à la TVA" %}
+                                </label>
+                            </div>
+                            {% if form.soumis_tva.errors %}
+                            <div class="text-danger f-s-12">{{ form.soumis_tva.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Taux TVA par défaut (%)" %}</label>
+                            {{ form.taux_tva_defaut|add_class:"form-control" }}
+                            {% if form.taux_tva_defaut.errors %}
+                            <div class="text-danger f-s-12">{{ form.taux_tva_defaut.errors.0 }}</div>
+                            {% endif %}
+                            <small class="text-muted">{% trans "Taux standard:" %} {{ taux_tva_normal|default:"0" }}%</small>
+                        </div>
+                    </div>
+
+                    <!-- Comptabilité -->
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <h6 class="text-muted f-w-600">{% trans "Comptabilité" %}</h6>
+                        </div>
+
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label">{% trans "Compte produit" %}</label>
+                            {{ form.compte_produit|add_class:"form-control" }}
+                            {% if form.compte_produit.errors %}
+                            <div class="text-danger f-s-12">{{ form.compte_produit.errors.0 }}</div>
+                            {% endif %}
+                            <small class="text-muted">{% trans "Compte de produit associé dans le plan comptable" %}</small>
+                        </div>
+                    </div>
+
+                    <!-- Statut -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="form-check">
+                                {{ form.actif }}
+                                <label class="form-check-label" for="{{ form.actif.id_for_label }}">
+                                    {% trans "Prestation active" %}
+                                </label>
+                            </div>
+                            {% if form.actif.errors %}
+                            <div class="text-danger f-s-12">{{ form.actif.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Boutons -->
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'facturation:prestation-list' %}" class="btn btn-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ph ph-check me-2"></i>
+                            {% if object %}{% trans "Enregistrer" %}{% else %}{% trans "Créer" %}{% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Aide contextuelle -->
+        <div class="card mt-3">
+            <div class="card-body">
+                <h6 class="text-primary mb-3">
+                    <i class="ph ph-info me-2"></i>{% trans "Aide" %}
+                </h6>
+                <ul class="mb-0 f-s-14">
+                    <li class="mb-2">
+                        <strong>{% trans "Code" %}:</strong> {% trans "Identifiant unique de la prestation (ex: COMPTA-MENSUEL, TVA-TRIM)" %}
+                    </li>
+                    <li class="mb-2">
+                        <strong>{% trans "Type" %}:</strong> {% trans "Catégorie de prestation pour faciliter le regroupement et l'analyse" %}
+                    </li>
+                    <li class="mb-2">
+                        <strong>{% trans "Prix unitaire vs Taux horaire" %}:</strong> {% trans "Le prix unitaire est utilisé pour la facturation directe, le taux horaire pour le time tracking" %}
+                    </li>
+                    <li class="mb-2">
+                        <strong>{% trans "TVA" %}:</strong> {% trans "Le taux standard est de" %} {{ taux_tva_normal|default:"0" }}%{% if taux_tva_reduit %}, {% trans "taux réduit:" %} {{ taux_tva_reduit }}%{% endif %}{% if taux_tva_special %}, {% trans "taux spécial:" %} {{ taux_tva_special }}%{% endif %}
+                    </li>
+                    <li>
+                        <strong>{% trans "Compte produit" %}:</strong> {% trans "Compte du plan comptable où les ventes de cette prestation seront enregistrées (série 7xxx)" %}
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+
+    // Toggle taux TVA field based on soumis_tva checkbox
+    $('#id_soumis_tva').on('change', function() {
+        if ($(this).is(':checked')) {
+            $('#id_taux_tva_defaut').prop('disabled', false).closest('.col-md-6').show();
+        } else {
+            $('#id_taux_tva_defaut').prop('disabled', true).closest('.col-md-6').hide();
+        }
+    }).trigger('change');
+
+    // Suggestion de code basée sur le type
+    $('#id_type_prestation').on('change', function() {
+        var selectedText = $(this).find('option:selected').text().trim();
+        var codeField = $('#id_code');
+
+        if (!codeField.val() && selectedText && selectedText !== '---------') {
+            var prefixes = {
+                'Comptabilité': 'COMPTA',
+                'TVA': 'TVA',
+                'Salaires': 'SAL',
+                'Conseil': 'CONS',
+                'Audit': 'AUD',
+                'Fiscalité': 'FISC',
+                'Juridique': 'JUR',
+                'Création entreprise': 'CREA',
+                'Autre': 'AUTRE'
+            };
+
+            var prefix = prefixes[selectedText] || selectedText.substring(0, 4).toUpperCase();
+            codeField.val(prefix + '-').focus();
+        }
+    });
+});
+</script>
+{% endblock %}

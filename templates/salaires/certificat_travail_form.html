@@ -1,0 +1,270 @@
+<!-- salaires/certificat_travail_form.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load widget_tweaks %}
+
+{% block title %}
+    {% if object %}
+        {% trans "Modifier le certificat de travail" %}
+    {% else %}
+        {% trans "Nouveau certificat de travail" %}
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">
+            {% if object %}
+                {% trans "Modifier le certificat de travail" %}
+            {% else %}
+                {% trans "Nouveau certificat de travail" %}
+            {% endif %}
+        </h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'salaires:certificat-travail-list' %}">
+                    <span>{% trans "Certificats de travail" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">
+                    {% if object %}{% trans "Modifier" %}{% else %}{% trans "Nouveau" %}{% endif %}
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+
+    <div class="row">
+        <!-- Informations de base -->
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">{% trans "Informations de base" %}</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label" for="id_employe">{% trans "Employé" %} *</label>
+                            {{ form.employe }}
+                            {% if form.employe.errors %}
+                                <div class="invalid-feedback d-block">{{ form.employe.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label" for="id_type_certificat">{% trans "Type de certificat" %} *</label>
+                            {{ form.type_certificat }}
+                            <small class="text-muted">
+                                {% trans "Complet = avec évaluation, Simple = attestation basique" %}
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label" for="id_date_debut_emploi">{% trans "Date de début" %} *</label>
+                            {{ form.date_debut_emploi }}
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label" for="id_date_fin_emploi">{% trans "Date de fin" %}</label>
+                            {{ form.date_fin_emploi }}
+                            <small class="text-muted">{% trans "Laisser vide si toujours en poste" %}</small>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label" for="id_date_demande">{% trans "Date de demande" %}</label>
+                            {{ form.date_demande }}
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label" for="id_fonction_principale">{% trans "Fonction principale" %} *</label>
+                            {{ form.fonction_principale }}
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label" for="id_departement">{% trans "Département" %}</label>
+                            {{ form.departement }}
+                        </div>
+                        <div class="col-md-2 mb-3">
+                            <label class="form-label" for="id_taux_occupation">{% trans "Taux (%)" %}</label>
+                            {{ form.taux_occupation }}
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label" for="id_motif_depart">{% trans "Motif de départ" %}</label>
+                            {{ form.motif_depart }}
+                            {% if form.motif_depart.errors %}
+                                <div class="invalid-feedback d-block">{{ form.motif_depart.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Description des tâches -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">{% trans "Description du poste" %}</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label" for="id_description_taches">{% trans "Description des tâches et responsabilités" %}</label>
+                        {{ form.description_taches }}
+                        <small class="text-muted">{% trans "Obligatoire pour un certificat complet" %}</small>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label" for="id_formations_suivies">{% trans "Formations suivies" %}</label>
+                            {{ form.formations_suivies }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label" for="id_projets_speciaux">{% trans "Projets spéciaux" %}</label>
+                            {{ form.projets_speciaux }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Évaluation (visible seulement pour certificat complet) -->
+            <div class="card" id="evaluation-section">
+                <div class="card-header">
+                    <h6 class="mb-0">{% trans "Évaluation" %}</h6>
+                    <small class="text-muted">{% trans "Uniquement pour certificat complet" %}</small>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Qualité du travail" %}</label>
+                            {{ form.evaluation_qualite_travail }}
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Quantité de travail" %}</label>
+                            {{ form.evaluation_quantite_travail }}
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Compétences" %}</label>
+                            {{ form.evaluation_competences }}
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Comportement" %}</label>
+                            {{ form.evaluation_comportement }}
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Relations" %}</label>
+                            {{ form.evaluation_relations }}
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Autonomie" %}</label>
+                            {{ form.evaluation_autonomie }}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="id_texte_evaluation">{% trans "Texte d'évaluation personnalisé" %}</label>
+                        {{ form.texte_evaluation }}
+                        <small class="text-muted">{% trans "Si laissé vide, un texte sera généré automatiquement selon les notes" %}</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formule de fin -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">{% trans "Formule de fin" %}</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label" for="id_formule_fin">{% trans "Remerciements et vœux pour l'avenir" %}</label>
+                        {{ form.formule_fin }}
+                        <small class="text-muted">{% trans "Si laissé vide, une formule standard sera générée selon le motif de départ" %}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Aide -->
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0"><i class="ph ph-info me-2"></i>{% trans "Aide" %}</h6>
+                </div>
+                <div class="card-body">
+                    <h6>{% trans "Types de certificats" %}</h6>
+                    <ul class="small">
+                        <li><strong>{% trans "Complet" %}</strong>: {% trans "Certificat qualifié avec évaluation détaillée des performances et du comportement." %}</li>
+                        <li><strong>{% trans "Simple" %}</strong>: {% trans "Attestation de travail basique sans évaluation (dates, fonction, taux)." %}</li>
+                        <li><strong>{% trans "Intermédiaire" %}</strong>: {% trans "Certificat pour un employé toujours en poste." %}</li>
+                    </ul>
+
+                    <hr>
+
+                    <h6>{% trans "Échelle d'évaluation" %}</h6>
+                    <ul class="small mb-0">
+                        <li><strong>5</strong>: {% trans "Excellent - a toujours dépassé nos attentes" %}</li>
+                        <li><strong>4</strong>: {% trans "Très bien - à notre entière satisfaction" %}</li>
+                        <li><strong>3</strong>: {% trans "Bien - à notre satisfaction" %}</li>
+                        <li><strong>2</strong>: {% trans "Satisfaisant - dans l'ensemble satisfaisant" %}</li>
+                        <li><strong>1</strong>: {% trans "Insuffisant - s'est efforcé" %}</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="ph ph-check me-2"></i>
+                            {% if object %}{% trans "Enregistrer les modifications" %}{% else %}{% trans "Créer le certificat" %}{% endif %}
+                        </button>
+                        <a href="{% url 'salaires:certificat-travail-list' %}" class="btn btn-outline-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const typeCertificat = document.getElementById('id_type_certificat');
+    const evaluationSection = document.getElementById('evaluation-section');
+
+    function toggleEvaluationSection() {
+        if (typeCertificat.value === 'SIMPLE') {
+            evaluationSection.style.display = 'none';
+        } else {
+            evaluationSection.style.display = 'block';
+        }
+    }
+
+    // Initial check
+    toggleEvaluationSection();
+
+    // Listen for changes
+    typeCertificat.addEventListener('change', toggleEvaluationSection);
+});
+</script>
+{% endblock %}

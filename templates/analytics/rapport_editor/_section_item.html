@@ -1,0 +1,61 @@
+{% load i18n %}
+<!--
+    Composant: Élément de section dans la liste de l'éditeur
+    Variables attendues:
+    - section: objet section ou données JSON
+    - is_template: boolean pour mode template JS
+-->
+
+{% if is_template %}
+<!-- Template JS pour création dynamique - géré directement dans le JavaScript -->
+{% else %}
+<!-- Rendu serveur -->
+<div class="section-item card mb-2" data-section-id="{{ section.id }}" data-section-type="{{ section.type_section }}">
+    <div class="card-body py-2 px-3 d-flex align-items-center">
+        <div class="section-handle me-2 cursor-move">
+            <i class="ph-duotone ph-dots-six-vertical text-muted"></i>
+        </div>
+        <div class="section-icon me-2">
+            {% if section.type_section == 'titre' %}
+            <i class="ph-duotone ph-text-h-one text-primary"></i>
+            {% elif section.type_section == 'texte' %}
+            <i class="ph-duotone ph-text-align-left text-secondary"></i>
+            {% elif section.type_section == 'graphique' %}
+            <i class="ph-duotone ph-chart-bar text-success"></i>
+            {% elif section.type_section == 'tableau' %}
+            <i class="ph-duotone ph-table text-info"></i>
+            {% elif section.type_section == 'kpi' %}
+            <i class="ph-duotone ph-gauge text-warning"></i>
+            {% elif section.type_section == 'saut_page' %}
+            <i class="ph-duotone ph-file-dashed text-muted"></i>
+            {% elif section.type_section == 'separateur' %}
+            <i class="ph-duotone ph-minus text-muted"></i>
+            {% endif %}
+        </div>
+        <div class="section-info flex-grow-1">
+            <span class="section-type-label fw-medium">{{ section.get_type_section_display }}</span>
+            <small class="section-preview text-muted d-block text-truncate" style="max-width: 200px;">
+                {% if section.type_section == 'titre' or section.type_section == 'texte' %}
+                {{ section.contenu_texte|striptags|truncatechars:50 }}
+                {% elif section.type_graphique %}
+                {{ section.type_graphique.nom }}
+                {% endif %}
+            </small>
+        </div>
+        <div class="section-actions">
+            <button type="button" class="btn btn-sm btn-icon btn-light-primary edit-section"
+                    title="{% trans 'Modifier' %}">
+                <i class="ph-duotone ph-pencil-simple"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-icon btn-light-secondary toggle-visibility"
+                    title="{% trans 'Masquer/Afficher' %}">
+                <i class="ph-duotone ph-eye{% if not section.visible %}-slash{% endif %}"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-icon btn-light-danger delete-section"
+                    title="{% trans 'Supprimer' %}">
+                <i class="ph-duotone ph-trash"></i>
+            </button>
+        </div>
+    </div>
+</div>
+{% endif %}

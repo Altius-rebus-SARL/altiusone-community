@@ -1,0 +1,328 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{% trans "Documents" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Gestion documentaire" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Documents" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="row">
+    <div class="col-md-3">
+        <div class="card bg-light-primary">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar bg-primary rounded me-3">
+                        <i class="ph-duotone ph-files text-white f-s-30"></i>
+                    </div>
+                    <div>
+                        <p class="text-muted mb-1 f-s-12">{% trans "Total documents" %}</p>
+                        <h5 class="text-primary mb-0">{{ stats.total }}</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card bg-light-warning">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar bg-warning rounded me-3">
+                        <i class="ph-duotone ph-clock text-white f-s-30"></i>
+                    </div>
+                    <div>
+                        <p class="text-muted mb-1 f-s-12">{% trans "En attente" %}</p>
+                        <h5 class="text-warning mb-0">{{ stats.en_attente }}</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card bg-light-success">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar bg-success rounded me-3">
+                        <i class="ph-duotone ph-check-circle text-white f-s-30"></i>
+                    </div>
+                    <div>
+                        <p class="text-muted mb-1 f-s-12">{% trans "Validés" %}</p>
+                        <h5 class="text-success mb-0">{{ stats.valide }}</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card bg-light-info">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar bg-info rounded me-3">
+                        <i class="ph-duotone ph-hard-drives text-white f-s-30"></i>
+                    </div>
+                    <div>
+                        <p class="text-muted mb-1 f-s-12">{% trans "Taille totale" %}</p>
+                        <h5 class="text-info mb-0">{{ stats.taille_totale|filesizeformat }}</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtres et liste -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">{% trans "Documents" %}</h5>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-light-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse">
+                            <i class="ph ph-funnel me-2"></i>{% trans "Filtres" %}
+                        </button>
+                        <a href="{% url 'documents:document-upload' %}" class="btn btn-primary">
+                            <i class="ph ph-upload me-2"></i>{% trans "Uploader" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filtres (collapsible) -->
+            <div class="collapse" id="filterCollapse">
+                <div class="card-body border-top">
+                    <form method="get" class="app-form">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">{% trans "Nom fichier" %}</label>
+                                    {{ filter.form.nom_fichier }}
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">{% trans "Mandat" %}</label>
+                                    {{ filter.form.mandat }}
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">{% trans "Type" %}</label>
+                                    {{ filter.form.type_document }}
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">{% trans "Catégorie" %}</label>
+                                    {{ filter.form.categorie }}
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">{% trans "Extension" %}</label>
+                                    {{ filter.form.extension }}
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">{% trans "Statut traitement" %}</label>
+                                    {{ filter.form.statut_traitement }}
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">{% trans "Statut validation" %}</label>
+                                    {{ filter.form.statut_validation }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="ph ph-magnifying-glass me-2"></i>{% trans "Rechercher" %}
+                            </button>
+                            <a href="{% url 'documents:document-list' %}" class="btn btn-secondary">
+                                <i class="ph ph-x me-2"></i>{% trans "Réinitialiser" %}
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Fichier" %}</th>
+                                <th>{% trans "Mandat" %}</th>
+                                <th>{% trans "Type" %}</th>
+                                <th>{% trans "Taille" %}</th>
+                                <th>{% trans "Date upload" %}</th>
+                                <th>{% trans "Statut" %}</th>
+                                <th class="text-end">{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for doc in documents %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="me-3">
+                                            {% if doc.extension in '.jpg,.jpeg,.png,.gif,.webp' %}
+                                                {% if doc.fichier %}
+                                                <!-- Vignette pour les images -->
+                                                <a href="{% url 'documents:document-detail' doc.pk %}" title="{{ doc.nom_fichier }}">
+                                                    <img src="{% url 'documents:document-apercu' doc.pk %}"
+                                                         alt="{{ doc.nom_fichier }}"
+                                                         class="rounded"
+                                                         style="width: 40px; height: 40px; object-fit: cover;"
+                                                         onerror="this.onerror=null; this.outerHTML='<i class=\'ph ph-image text-info f-s-24\'></i>';">
+                                                </a>
+                                                {% else %}
+                                                <i class="ph ph-image text-info f-s-24"></i>
+                                                {% endif %}
+                                            {% elif doc.extension == '.pdf' %}
+                                            <i class="ph ph-file-pdf text-danger f-s-24"></i>
+                                            {% elif doc.extension in '.doc,.docx' %}
+                                            <i class="ph ph-file-doc text-primary f-s-24"></i>
+                                            {% elif doc.extension in '.xls,.xlsx' %}
+                                            <i class="ph ph-file-xls text-success f-s-24"></i>
+                                            {% else %}
+                                            <i class="ph ph-file text-secondary f-s-24"></i>
+                                            {% endif %}
+                                        </div>
+                                        <div>
+                                            <a href="{% url 'documents:document-detail' doc.pk %}" class="text-dark f-w-600">
+                                                {{ doc.nom_fichier|truncatechars:40 }}
+                                            </a>
+                                            <p class="text-muted f-s-12 mb-0">{{ doc.dossier.nom }}</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge text-light-primary">{{ doc.mandat.numero }}</span>
+                                </td>
+                                <td>
+                                    {% if doc.type_document %}
+                                    <span class="badge text-light-secondary">{{ doc.type_document.libelle }}</span>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ doc.taille|filesizeformat }}</td>
+                                <td>
+                                    <span class="text-muted f-s-12">{{ doc.date_upload|date:"d/m/Y H:i" }}</span>
+                                </td>
+                                <td>
+                                    {% if doc.statut_validation == 'VALIDE' %}
+                                    <span class="badge text-light-success">
+                                        <i class="ph ph-check-circle me-1"></i>{% trans "Validé" %}
+                                    </span>
+                                    {% elif doc.statut_validation == 'EN_ATTENTE' %}
+                                    <span class="badge text-light-warning">
+                                        <i class="ph ph-clock me-1"></i>{% trans "En attente" %}
+                                    </span>
+                                    {% elif doc.statut_validation == 'REJETE' %}
+                                    <span class="badge text-light-danger">
+                                        <i class="ph ph-x-circle me-1"></i>{% trans "Rejeté" %}
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <div class="dropdown">
+                                        <a class="text-muted" data-bs-toggle="dropdown" role="button">
+                                            <i class="ph ph-dots-three-vertical f-s-18"></i>
+                                        </a>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'documents:document-detail' doc.pk %}">
+                                                    <i class="ph ph-eye me-2"></i>{% trans "Voir" %}
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'documents:document-telecharger' doc.pk %}">
+                                                    <i class="ph ph-download me-2"></i>{% trans "Télécharger" %}
+                                                </a>
+                                            </li>
+                                            {% if doc.statut_validation == 'EN_ATTENTE' %}
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'documents:document-valider' doc.pk %}">
+                                                    <i class="ph ph-check me-2"></i>{% trans "Valider" %}
+                                                </a>
+                                            </li>
+                                            {% endif %}
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center py-5">
+                                    <i class="ph ph-file-x f-s-48 text-muted d-block mb-3"></i>
+                                    <p class="text-muted">{% trans "Aucun document trouvé" %}</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            {% if is_paginated %}
+            <div class="card-footer">
+                <div class="d-flex justify-content-between align-items-center">
+                    <p class="text-secondary mb-0">
+                        {% trans "Affichage de" %} {{ page_obj.start_index }} à {{ page_obj.end_index }} 
+                        {% trans "sur" %} {{ page_obj.paginator.count }}
+                    </p>
+                    <ul class="pagination app-pagination mb-0">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1">{% trans "Premier" %}</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">{% trans "Précédent" %}</a>
+                        </li>
+                        {% endif %}
+
+                        <li class="page-item active">
+                            <a class="page-link" href="#">{{ page_obj.number }}</a>
+                        </li>
+
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}">{% trans "Suivant" %}</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">{% trans "Dernier" %}</a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

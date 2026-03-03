@@ -1,0 +1,297 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+{% load devise_tags %}
+
+{% block title %}{% trans "Déclarations fiscales" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Déclarations fiscales" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Fiscalité" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="row">
+    <div class="col-md-3">
+        <div class="card bg-light-primary">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar bg-primary rounded me-3">
+                        <i class="ph-duotone ph-file-text text-white f-s-30"></i>
+                    </div>
+                    <div>
+                        <p class="text-muted mb-1 f-s-12">{% trans "Total déclarations" %}</p>
+                        <h5 class="text-primary mb-0">{{ stats.total }}</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card bg-light-warning">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar bg-warning rounded me-3">
+                        <i class="ph-duotone ph-pencil-simple text-white f-s-30"></i>
+                    </div>
+                    <div>
+                        <p class="text-muted mb-1 f-s-12">{% trans "Brouillons" %}</p>
+                        <h5 class="text-warning mb-0">{{ stats.brouillon }}</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card bg-light-info">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar bg-info rounded me-3">
+                        <i class="ph-duotone ph-paper-plane-tilt text-white f-s-30"></i>
+                    </div>
+                    <div>
+                        <p class="text-muted mb-1 f-s-12">{% trans "Déposées" %}</p>
+                        <h5 class="text-info mb-0">{{ stats.deposees }}</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card bg-light-success">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar bg-success rounded me-3">
+                        <i class="ph-duotone ph-currency-circle-dollar text-white f-s-30"></i>
+                    </div>
+                    <div>
+                        <p class="text-muted mb-1 f-s-12">{% trans "Impôts année" %}</p>
+                        <h5 class="text-success mb-0">{{ stats.impot_total_annee|devise:DEVISE_TAUX|floatformat:2 }}</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Liste -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">{% trans "Déclarations fiscales" %}</h5>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-light-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse">
+                            <i class="ph ph-funnel me-2"></i>{% trans "Filtres" %}
+                        </button>
+                        <a href="{% url 'fiscalite:declaration-create' %}" class="btn btn-primary">
+                            <i class="ph ph-plus me-2"></i>{% trans "Nouvelle déclaration" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filtres -->
+            <div class="collapse" id="filterCollapse">
+                <div class="card-body border-top">
+                    <form method="get" class="app-form">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">{% trans "Numéro" %}</label>
+                                    {{ filter.form.numero_declaration }}
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">{% trans "Mandat" %}</label>
+                                    {{ filter.form.mandat }}
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="mb-3">
+                                    <label class="form-label">{% trans "Année fiscale" %}</label>
+                                    {{ filter.form.annee_fiscale }}
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="mb-3">
+                                    <label class="form-label">{% trans "Type d'impôt" %}</label>
+                                    {{ filter.form.type_impot }}
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="mb-3">
+                                    <label class="form-label">{% trans "Statut" %}</label>
+                                    {{ filter.form.statut }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="ph ph-magnifying-glass me-2"></i>{% trans "Rechercher" %}
+                            </button>
+                            <a href="{% url 'fiscalite:declaration-list' %}" class="btn btn-secondary">
+                                <i class="ph ph-x me-2"></i>{% trans "Réinitialiser" %}
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Numéro" %}</th>
+                                <th>{% trans "Mandat" %}</th>
+                                <th>{% trans "Type" %}</th>
+                                <th>{% trans "Année" %}</th>
+                                <th>{% trans "Canton" %}</th>
+                                <th>{% trans "Impôt total" %}</th>
+                                <th>{% trans "Statut" %}</th>
+                                <th class="text-end">{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for declaration in declarations %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'fiscalite:declaration-detail' declaration.pk %}" class="text-primary f-w-600">
+                                        {{ declaration.numero_declaration }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <div>
+                                        <p class="f-w-600 mb-0">{{ declaration.mandat.numero }}</p>
+                                        <p class="text-muted f-s-12 mb-0">{{ declaration.mandat.client.raison_sociale|truncatechars:30 }}</p>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge text-light-primary">
+                                        {{ declaration.get_type_impot_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="f-w-600">{{ declaration.annee_fiscale }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge text-light-secondary">{{ declaration.canton }}</span>
+                                </td>
+                                <td>
+                                    <span class="f-w-600 text-primary">{{ declaration.impot_total|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</span>
+                                </td>
+                                <td>
+                                    {% if declaration.statut == 'BROUILLON' %}
+                                    <span class="badge text-light-secondary">
+                                        <i class="ph ph-pencil me-1"></i>{% trans "Brouillon" %}
+                                    </span>
+                                    {% elif declaration.statut == 'DEPOSEE' %}
+                                    <span class="badge text-light-info">
+                                        <i class="ph ph-paper-plane-tilt me-1"></i>{% trans "Déposée" %}
+                                    </span>
+                                    {% elif declaration.statut == 'ACCEPTE' %}
+                                    <span class="badge text-light-success">
+                                        <i class="ph ph-check-circle me-1"></i>{% trans "Acceptée" %}
+                                    </span>
+                                    {% elif declaration.statut == 'VALIDE' %}
+                                    <span class="badge text-light-success">
+                                        <i class="ph ph-seal-check me-1"></i>{% trans "Validée" %}
+                                    </span>
+                                    {% else %}
+                                    <span class="badge text-light-warning">
+                                        {{ declaration.get_statut_display }}
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <div class="dropdown">
+                                        <a class="text-muted" data-bs-toggle="dropdown" role="button">
+                                            <i class="ph ph-dots-three-vertical f-s-18"></i>
+                                        </a>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'fiscalite:declaration-detail' declaration.pk %}">
+                                                    <i class="ph ph-eye me-2"></i>{% trans "Voir" %}
+                                                </a>
+                                            </li>
+                                            {% if declaration.statut == 'BROUILLON' %}
+                                            <li>
+                                                <a class="dropdown-item" href="#">
+                                                    <i class="ph ph-pencil me-2"></i>{% trans "Modifier" %}
+                                                </a>
+                                            </li>
+                                            {% endif %}
+                                            <li>
+                                                <a class="dropdown-item" href="#">
+                                                    <i class="ph ph-download me-2"></i>{% trans "Télécharger" %}
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="8" class="text-center py-5">
+                                    <i class="ph ph-file-x f-s-48 text-muted d-block mb-3"></i>
+                                    <p class="text-muted">{% trans "Aucune déclaration trouvée" %}</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            {% if is_paginated %}
+            <div class="card-footer">
+                <div class="d-flex justify-content-between align-items-center">
+                    <p class="text-secondary mb-0">
+                        {% trans "Affichage de" %} {{ page_obj.start_index }} à {{ page_obj.end_index }} 
+                        {% trans "sur" %} {{ page_obj.paginator.count }}
+                    </p>
+                    <ul class="pagination app-pagination mb-0">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">{% trans "Précédent" %}</a>
+                        </li>
+                        {% endif %}
+
+                        <li class="page-item active">
+                            <a class="page-link" href="#">{{ page_obj.number }}</a>
+                        </li>
+
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}">{% trans "Suivant" %}</a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

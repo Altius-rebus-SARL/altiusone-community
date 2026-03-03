@@ -1,0 +1,312 @@
+<!-- analytics/comparaison_form.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load widget_tweaks %}
+
+{% block title %}{% trans "Nouvelle comparaison de périodes" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Nouvelle comparaison de périodes" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Accueil" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'analytics:dashboard-executif' %}">{% trans "Analytics" %}</a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Comparaison" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Informations générales -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5><i class="ph ph-info me-2"></i>{% trans "Informations générales" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label for="{{ form.nom.id_for_label }}" class="form-label">{% trans "Nom de la comparaison" %} *</label>
+                            {% render_field form.nom class="form-control" placeholder="Ex: Comparaison 2024 vs 2023" %}
+                            {% if form.nom.errors %}
+                            <div class="text-danger small">{{ form.nom.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.type_comparaison.id_for_label }}" class="form-label">{% trans "Type" %} *</label>
+                            {% render_field form.type_comparaison class="form-select" id="type-comparaison" %}
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.mandat.id_for_label }}" class="form-label">{% trans "Mandat" %} *</label>
+                            {% render_field form.mandat class="form-select select-basic" %}
+                            {% if form.mandat.errors %}
+                            <div class="text-danger small">{{ form.mandat.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Période 1 -->
+            <div class="card mb-4">
+                <div class="card-header bg-light-primary">
+                    <h5 class="text-primary mb-0">
+                        <i class="ph ph-calendar me-2"></i>{% trans "Période 1" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.libelle_periode1.id_for_label }}" class="form-label">{% trans "Libellé" %} *</label>
+                            {% render_field form.libelle_periode1 class="form-control" placeholder="Ex: Année 2024" %}
+                            {% if form.libelle_periode1.errors %}
+                            <div class="text-danger small">{{ form.libelle_periode1.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.periode1_debut.id_for_label }}" class="form-label">{% trans "Date de début" %} *</label>
+                            {% render_field form.periode1_debut class="form-control" type="date" %}
+                            {% if form.periode1_debut.errors %}
+                            <div class="text-danger small">{{ form.periode1_debut.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.periode1_fin.id_for_label }}" class="form-label">{% trans "Date de fin" %} *</label>
+                            {% render_field form.periode1_fin class="form-control" type="date" %}
+                            {% if form.periode1_fin.errors %}
+                            <div class="text-danger small">{{ form.periode1_fin.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Période 2 -->
+            <div class="card mb-4">
+                <div class="card-header bg-light-success">
+                    <h5 class="text-success mb-0">
+                        <i class="ph ph-calendar me-2"></i>{% trans "Période 2" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.libelle_periode2.id_for_label }}" class="form-label">{% trans "Libellé" %} *</label>
+                            {% render_field form.libelle_periode2 class="form-control" placeholder="Ex: Année 2023" %}
+                            {% if form.libelle_periode2.errors %}
+                            <div class="text-danger small">{{ form.libelle_periode2.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.periode2_debut.id_for_label }}" class="form-label">{% trans "Date de début" %} *</label>
+                            {% render_field form.periode2_debut class="form-control" type="date" %}
+                            {% if form.periode2_debut.errors %}
+                            <div class="text-danger small">{{ form.periode2_debut.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.periode2_fin.id_for_label }}" class="form-label">{% trans "Date de fin" %} *</label>
+                            {% render_field form.periode2_fin class="form-control" type="date" %}
+                            {% if form.periode2_fin.errors %}
+                            <div class="text-danger small">{{ form.periode2_fin.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Preview des périodes -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5><i class="ph ph-arrows-left-right me-2"></i>{% trans "Aperçu" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="text-center flex-fill">
+                            <div class="bg-light-primary p-3 rounded">
+                                <i class="ph ph-calendar-blank f-s-24 text-primary"></i>
+                                <p class="mb-0 small text-muted mt-2" id="preview-periode1">{% trans "Période 1" %}</p>
+                            </div>
+                        </div>
+                        <div class="px-3">
+                            <i class="ph ph-arrows-left-right f-s-20 text-muted"></i>
+                        </div>
+                        <div class="text-center flex-fill">
+                            <div class="bg-light-success p-3 rounded">
+                                <i class="ph ph-calendar-blank f-s-24 text-success"></i>
+                                <p class="mb-0 small text-muted mt-2" id="preview-periode2">{% trans "Période 2" %}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Aide -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5><i class="ph ph-question me-2"></i>{% trans "Types de comparaison" %}</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="small text-muted mb-0">
+                        <li class="mb-2">
+                            <strong>{% trans "Année N vs N-1" %}</strong><br>
+                            {% trans "Compare une année complète avec l'année précédente" %}
+                        </li>
+                        <li class="mb-2">
+                            <strong>{% trans "Trimestrielle" %}</strong><br>
+                            {% trans "Compare deux trimestres de votre choix" %}
+                        </li>
+                        <li class="mb-2">
+                            <strong>{% trans "Mensuelle" %}</strong><br>
+                            {% trans "Compare deux mois de votre choix" %}
+                        </li>
+                        <li class="mb-2">
+                            <strong>{% trans "Budget vs Réalisé" %}</strong><br>
+                            {% trans "Compare les prévisions budgétaires aux résultats réels" %}
+                        </li>
+                        <li>
+                            <strong>{% trans "Personnalisée" %}</strong><br>
+                            {% trans "Définissez librement les deux périodes à comparer" %}
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="card">
+                <div class="card-body">
+                    <button type="submit" class="btn btn-primary w-100 mb-2">
+                        <i class="ph ph-chart-line-up me-2"></i>
+                        {% trans "Créer la comparaison" %}
+                    </button>
+                    <a href="{% url 'analytics:dashboard-executif' %}" class="btn btn-light-secondary w-100">
+                        {% trans "Annuler" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const typeSelect = document.getElementById('type-comparaison');
+    const libelle1 = document.querySelector('[name="libelle_periode1"]');
+    const libelle2 = document.querySelector('[name="libelle_periode2"]');
+    const periode1Debut = document.querySelector('[name="periode1_debut"]');
+    const periode1Fin = document.querySelector('[name="periode1_fin"]');
+    const periode2Debut = document.querySelector('[name="periode2_debut"]');
+    const periode2Fin = document.querySelector('[name="periode2_fin"]');
+    const previewP1 = document.getElementById('preview-periode1');
+    const previewP2 = document.getElementById('preview-periode2');
+
+    // Mise à jour du preview
+    function updatePreview() {
+        const l1 = libelle1.value || '{% trans "Période 1" %}';
+        const l2 = libelle2.value || '{% trans "Période 2" %}';
+        previewP1.textContent = l1;
+        previewP2.textContent = l2;
+    }
+
+    libelle1.addEventListener('input', updatePreview);
+    libelle2.addEventListener('input', updatePreview);
+
+    // Pré-remplissage selon le type de comparaison
+    typeSelect.addEventListener('change', function() {
+        const type = this.value;
+        const now = new Date();
+        const year = now.getFullYear();
+
+        switch(type) {
+            case 'N_VS_N-1':
+                libelle1.value = 'Année ' + year;
+                libelle2.value = 'Année ' + (year - 1);
+                periode1Debut.value = year + '-01-01';
+                periode1Fin.value = year + '-12-31';
+                periode2Debut.value = (year - 1) + '-01-01';
+                periode2Fin.value = (year - 1) + '-12-31';
+                break;
+
+            case 'TRIMESTRE':
+                const quarter = Math.floor(now.getMonth() / 3);
+                const q1Start = new Date(year, quarter * 3, 1);
+                const q1End = new Date(year, (quarter + 1) * 3, 0);
+                const prevQuarter = quarter === 0 ? 3 : quarter - 1;
+                const prevYear = quarter === 0 ? year - 1 : year;
+                const q2Start = new Date(prevYear, prevQuarter * 3, 1);
+                const q2End = new Date(prevYear, (prevQuarter + 1) * 3, 0);
+
+                libelle1.value = 'T' + (quarter + 1) + ' ' + year;
+                libelle2.value = 'T' + (prevQuarter + 1) + ' ' + prevYear;
+                periode1Debut.value = q1Start.toISOString().split('T')[0];
+                periode1Fin.value = q1End.toISOString().split('T')[0];
+                periode2Debut.value = q2Start.toISOString().split('T')[0];
+                periode2Fin.value = q2End.toISOString().split('T')[0];
+                break;
+
+            case 'MOIS':
+                const month = now.getMonth();
+                const m1Start = new Date(year, month, 1);
+                const m1End = new Date(year, month + 1, 0);
+                const prevMonth = month === 0 ? 11 : month - 1;
+                const prevMonthYear = month === 0 ? year - 1 : year;
+                const m2Start = new Date(prevMonthYear, prevMonth, 1);
+                const m2End = new Date(prevMonthYear, prevMonth + 1, 0);
+
+                const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+                                   'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+                libelle1.value = monthNames[month] + ' ' + year;
+                libelle2.value = monthNames[prevMonth] + ' ' + prevMonthYear;
+                periode1Debut.value = m1Start.toISOString().split('T')[0];
+                periode1Fin.value = m1End.toISOString().split('T')[0];
+                periode2Debut.value = m2Start.toISOString().split('T')[0];
+                periode2Fin.value = m2End.toISOString().split('T')[0];
+                break;
+
+            case 'BUDGET_REEL':
+                libelle1.value = 'Réalisé ' + year;
+                libelle2.value = 'Budget ' + year;
+                periode1Debut.value = year + '-01-01';
+                periode1Fin.value = year + '-12-31';
+                periode2Debut.value = year + '-01-01';
+                periode2Fin.value = year + '-12-31';
+                break;
+
+            case 'CUSTOM':
+                // Ne pas pré-remplir pour la personnalisée
+                break;
+        }
+
+        updatePreview();
+    });
+
+    // Initialisation
+    updatePreview();
+});
+</script>
+{% endblock %}

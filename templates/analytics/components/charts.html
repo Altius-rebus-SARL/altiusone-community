@@ -1,0 +1,636 @@
+{% comment %}
+    Composants de graphiques ApexCharts réutilisables pour Analytics
+
+    Utilisation:
+    {% include 'analytics/components/charts.html' %}
+
+    Puis dans votre JS:
+    AltiusCharts.line('chart-id', data, options);
+    AltiusCharts.area('chart-id', data, options);
+    AltiusCharts.donut('chart-id', data, options);
+    etc.
+{% endcomment %}
+{% load static %}
+{% load i18n %}
+
+<!-- ApexCharts Library -->
+<script src="{% static 'assets/vendor/apexcharts/apexcharts.min.js' %}"></script>
+
+<script>
+/**
+ * AltiusOne Charts - Bibliothèque de graphiques pour fiduciaires
+ * Basé sur ApexCharts avec styles professionnels
+ */
+const AltiusCharts = {
+    // Configuration globale
+    defaultLocale: '{{ LANGUAGE_CODE|default:"fr" }}',
+    currency: window.ALTIUSONE_DEVISE ? window.ALTIUSONE_DEVISE.code : '{{ DEVISE_CODE }}',
+    taux: window.ALTIUSONE_DEVISE ? window.ALTIUSONE_DEVISE.taux : 1,
+
+    // Palette de couleurs professionnelle
+    colors: {
+        primary: '#3b82f6',
+        success: '#10b981',
+        warning: '#f59e0b',
+        danger: '#ef4444',
+        info: '#06b6d4',
+        purple: '#8b5cf6',
+        pink: '#ec4899',
+        gray: '#6b7280',
+        // Dégradés pour graphiques
+        gradient: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'],
+    },
+
+    // Formateur monétaire (applique la conversion de devise)
+    formatCurrency(value, decimals = 0) {
+        const converted = value * this.taux;
+        return new Intl.NumberFormat('fr-CH', {
+            style: 'currency',
+            currency: this.currency,
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        }).format(converted);
+    },
+
+    // Formateur pourcentage
+    formatPercent(value, decimals = 1) {
+        return new Intl.NumberFormat('fr-CH', {
+            style: 'percent',
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        }).format(value / 100);
+    },
+
+    // Formateur nombre
+    formatNumber(value, decimals = 0) {
+        return new Intl.NumberFormat('fr-CH', {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        }).format(value);
+    },
+
+    // Configuration de base commune
+    getBaseConfig() {
+        const isDark = document.documentElement.classList.contains('dark');
+        return {
+            chart: {
+                fontFamily: 'Rubik, sans-serif',
+                toolbar: { show: false },
+                zoom: { enabled: false },
+                background: 'transparent',
+            },
+            theme: {
+                mode: isDark ? 'dark' : 'light'
+            },
+            tooltip: {
+                theme: isDark ? 'dark' : 'light',
+                y: {
+                    formatter: (val) => this.formatCurrency(val)
+                }
+            },
+            grid: {
+                borderColor: isDark ? '#374151' : '#e5e7eb',
+                strokeDashArray: 4,
+            },
+            colors: this.colors.gradient,
+        };
+    },
+
+    /**
+     * Graphique en ligne - Évolution temporelle
+     * @param {string} elementId - ID de l'élément DOM
+     * @param {Object} data - {categories: [], series: [{name, data}]}
+     * @param {Object} options - Options supplémentaires
+     */
+    line(elementId, data, options = {}) {
+        const config = {
+            ...this.getBaseConfig(),
+            chart: {
+                ...this.getBaseConfig().chart,
+                type: 'line',
+                height: options.height || 350,
+            },
+            series: data.series,
+            xaxis: {
+                categories: data.categories,
+                labels: {
+                    style: { fontSize: '12px' }
+                }
+            },
+            yaxis: {
+                labels: {
+                    formatter: options.formatter || ((val) => this.formatCurrency(val))
+                }
+            },
+            stroke: {
+                curve: 'smooth',
+                width: 3
+            },
+            markers: {
+                size: 4,
+                hover: { size: 6 }
+            },
+            legend: {
+                position: 'top',
+                horizontalAlign: 'right'
+            },
+            ...options
+        };
+
+        const chart = new ApexCharts(document.getElementById(elementId), config);
+        chart.render();
+        return chart;
+    },
+
+    /**
+     * Graphique en aire - CA avec tendance
+     * @param {string} elementId
+     * @param {Object} data - {categories: [], series: [{name, data}]}
+     * @param {Object} options
+     */
+    area(elementId, data, options = {}) {
+        const config = {
+            ...this.getBaseConfig(),
+            chart: {
+                ...this.getBaseConfig().chart,
+                type: 'area',
+                height: options.height || 350,
+            },
+            series: data.series,
+            xaxis: {
+                categories: data.categories,
+            },
+            yaxis: {
+                labels: {
+                    formatter: options.formatter || ((val) => this.formatCurrency(val))
+                }
+            },
+            stroke: {
+                curve: 'smooth',
+                width: 2
+            },
+            fill: {
+                type: 'gradient',
+                gradient: {
+                    shadeIntensity: 1,
+                    opacityFrom: 0.4,
+                    opacityTo: 0.1,
+                    stops: [0, 90, 100]
+                }
+            },
+            dataLabels: { enabled: false },
+            ...options
+        };
+
+        const chart = new ApexCharts(document.getElementById(elementId), config);
+        chart.render();
+        return chart;
+    },
+
+    /**
+     * Graphique à barres verticales
+     * @param {string} elementId
+     * @param {Object} data - {categories: [], series: [{name, data}]}
+     * @param {Object} options
+     */
+    bar(elementId, data, options = {}) {
+        const config = {
+            ...this.getBaseConfig(),
+            chart: {
+                ...this.getBaseConfig().chart,
+                type: 'bar',
+                height: options.height || 350,
+            },
+            series: data.series,
+            xaxis: {
+                categories: data.categories,
+            },
+            yaxis: {
+                labels: {
+                    formatter: options.formatter || ((val) => this.formatCurrency(val))
+                }
+            },
+            plotOptions: {
+                bar: {
+                    borderRadius: 4,
+                    columnWidth: '60%',
+                    dataLabels: { position: 'top' }
+                }
+            },
+            dataLabels: {
+                enabled: options.showLabels || false,
+                formatter: options.formatter || ((val) => this.formatCurrency(val)),
+                offsetY: -20,
+                style: { fontSize: '11px' }
+            },
+            ...options
+        };
+
+        const chart = new ApexCharts(document.getElementById(elementId), config);
+        chart.render();
+        return chart;
+    },
+
+    /**
+     * Graphique à barres horizontales - Top clients, ranking
+     * @param {string} elementId
+     * @param {Object} data - {categories: [], series: [{name, data}]}
+     * @param {Object} options
+     */
+    horizontalBar(elementId, data, options = {}) {
+        const config = {
+            ...this.getBaseConfig(),
+            chart: {
+                ...this.getBaseConfig().chart,
+                type: 'bar',
+                height: options.height || 350,
+            },
+            series: data.series,
+            xaxis: {
+                categories: data.categories,
+                labels: {
+                    formatter: options.formatter || ((val) => this.formatCurrency(val))
+                }
+            },
+            yaxis: {
+                labels: {
+                    style: { fontSize: '12px' },
+                    maxWidth: 200
+                }
+            },
+            plotOptions: {
+                bar: {
+                    horizontal: true,
+                    borderRadius: 4,
+                    barHeight: '70%',
+                    distributed: options.distributed || false,
+                }
+            },
+            dataLabels: {
+                enabled: true,
+                formatter: options.formatter || ((val) => this.formatCurrency(val)),
+                style: { fontSize: '11px' }
+            },
+            legend: { show: false },
+            ...options
+        };
+
+        const chart = new ApexCharts(document.getElementById(elementId), config);
+        chart.render();
+        return chart;
+    },
+
+    /**
+     * Graphique Donut - Répartition
+     * @param {string} elementId
+     * @param {Object} data - {labels: [], series: []}
+     * @param {Object} options
+     */
+    donut(elementId, data, options = {}) {
+        const config = {
+            ...this.getBaseConfig(),
+            chart: {
+                ...this.getBaseConfig().chart,
+                type: 'donut',
+                height: options.height || 350,
+            },
+            series: data.series,
+            labels: data.labels,
+            plotOptions: {
+                pie: {
+                    donut: {
+                        size: '70%',
+                        labels: {
+                            show: true,
+                            name: { show: true },
+                            value: {
+                                show: true,
+                                formatter: options.valueFormatter || ((val) => this.formatCurrency(val))
+                            },
+                            total: {
+                                show: true,
+                                label: options.totalLabel || 'Total',
+                                formatter: (w) => {
+                                    const total = w.globals.seriesTotals.reduce((a, b) => a + b, 0);
+                                    return options.totalFormatter
+                                        ? options.totalFormatter(total)
+                                        : this.formatCurrency(total);
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            legend: {
+                position: 'bottom',
+                horizontalAlign: 'center'
+            },
+            dataLabels: { enabled: false },
+            ...options
+        };
+
+        const chart = new ApexCharts(document.getElementById(elementId), config);
+        chart.render();
+        return chart;
+    },
+
+    /**
+     * Graphique Radial/Gauge - KPI avec objectif
+     * @param {string} elementId
+     * @param {Object} data - {value: number, label: string}
+     * @param {Object} options
+     */
+    radialBar(elementId, data, options = {}) {
+        const value = data.value;
+        const config = {
+            ...this.getBaseConfig(),
+            chart: {
+                ...this.getBaseConfig().chart,
+                type: 'radialBar',
+                height: options.height || 280,
+            },
+            series: [value],
+            plotOptions: {
+                radialBar: {
+                    startAngle: -135,
+                    endAngle: 135,
+                    hollow: {
+                        size: '70%',
+                    },
+                    track: {
+                        background: '#e7e7e7',
+                        strokeWidth: '100%',
+                    },
+                    dataLabels: {
+                        name: {
+                            show: true,
+                            fontSize: '14px',
+                            offsetY: -10
+                        },
+                        value: {
+                            show: true,
+                            fontSize: '28px',
+                            fontWeight: 700,
+                            formatter: options.formatter || ((val) => val + '%')
+                        }
+                    }
+                }
+            },
+            labels: [data.label || ''],
+            colors: [this.getColorByValue(value, options.thresholds)],
+            ...options
+        };
+
+        const chart = new ApexCharts(document.getElementById(elementId), config);
+        chart.render();
+        return chart;
+    },
+
+    /**
+     * Graphique mixte - Comparaison N vs N-1
+     * @param {string} elementId
+     * @param {Object} data - {categories: [], series: [{name, type, data}]}
+     * @param {Object} options
+     */
+    mixed(elementId, data, options = {}) {
+        const config = {
+            ...this.getBaseConfig(),
+            chart: {
+                ...this.getBaseConfig().chart,
+                type: 'line',
+                height: options.height || 350,
+                stacked: false,
+            },
+            series: data.series,
+            xaxis: {
+                categories: data.categories,
+            },
+            yaxis: [
+                {
+                    title: { text: data.series[0]?.name || '' },
+                    labels: {
+                        formatter: options.formatter || ((val) => this.formatCurrency(val))
+                    }
+                },
+                {
+                    opposite: true,
+                    title: { text: data.series[1]?.name || '' },
+                    labels: {
+                        formatter: options.secondaryFormatter || ((val) => this.formatPercent(val))
+                    }
+                }
+            ],
+            stroke: {
+                width: [0, 3],
+                curve: 'smooth'
+            },
+            ...options
+        };
+
+        const chart = new ApexCharts(document.getElementById(elementId), config);
+        chart.render();
+        return chart;
+    },
+
+    /**
+     * Treemap - Répartition hiérarchique
+     * @param {string} elementId
+     * @param {Object} data - {series: [{data: [{x, y}]}]}
+     * @param {Object} options
+     */
+    treemap(elementId, data, options = {}) {
+        const config = {
+            ...this.getBaseConfig(),
+            chart: {
+                ...this.getBaseConfig().chart,
+                type: 'treemap',
+                height: options.height || 350,
+            },
+            series: data.series,
+            plotOptions: {
+                treemap: {
+                    distributed: true,
+                    enableShades: true,
+                }
+            },
+            dataLabels: {
+                enabled: true,
+                style: { fontSize: '12px' },
+                formatter: (text, op) => {
+                    return [text, this.formatCurrency(op.value)];
+                },
+                offsetY: -4
+            },
+            ...options
+        };
+
+        const chart = new ApexCharts(document.getElementById(elementId), config);
+        chart.render();
+        return chart;
+    },
+
+    /**
+     * Heatmap - Matrice activité/temps
+     * @param {string} elementId
+     * @param {Object} data - {series: [{name, data}]}
+     * @param {Object} options
+     */
+    heatmap(elementId, data, options = {}) {
+        const config = {
+            ...this.getBaseConfig(),
+            chart: {
+                ...this.getBaseConfig().chart,
+                type: 'heatmap',
+                height: options.height || 350,
+            },
+            series: data.series,
+            plotOptions: {
+                heatmap: {
+                    shadeIntensity: 0.5,
+                    colorScale: {
+                        ranges: options.ranges || [
+                            { from: 0, to: 25, color: '#e5e7eb', name: 'Faible' },
+                            { from: 26, to: 50, color: '#fbbf24', name: 'Moyen' },
+                            { from: 51, to: 75, color: '#f97316', name: 'Bon' },
+                            { from: 76, to: 100, color: '#10b981', name: 'Excellent' }
+                        ]
+                    }
+                }
+            },
+            dataLabels: { enabled: false },
+            ...options
+        };
+
+        const chart = new ApexCharts(document.getElementById(elementId), config);
+        chart.render();
+        return chart;
+    },
+
+    /**
+     * Sparkline - Mini graphique pour KPI cards
+     * @param {string} elementId
+     * @param {Object} data - {series: [numbers]}
+     * @param {Object} options
+     */
+    sparkline(elementId, data, options = {}) {
+        const trend = data.series[data.series.length - 1] >= data.series[0];
+        const config = {
+            chart: {
+                type: options.type || 'area',
+                height: options.height || 50,
+                sparkline: { enabled: true },
+            },
+            series: [{
+                data: data.series
+            }],
+            stroke: {
+                curve: 'smooth',
+                width: 2
+            },
+            fill: {
+                type: 'gradient',
+                gradient: {
+                    shadeIntensity: 1,
+                    opacityFrom: 0.3,
+                    opacityTo: 0,
+                }
+            },
+            colors: [trend ? this.colors.success : this.colors.danger],
+            tooltip: {
+                enabled: true,
+                y: {
+                    formatter: options.formatter || ((val) => this.formatCurrency(val))
+                }
+            },
+            ...options
+        };
+
+        const chart = new ApexCharts(document.getElementById(elementId), config);
+        chart.render();
+        return chart;
+    },
+
+    /**
+     * Stacked Bar - Aging analysis, répartition empilée
+     * @param {string} elementId
+     * @param {Object} data - {categories: [], series: [{name, data}]}
+     * @param {Object} options
+     */
+    stackedBar(elementId, data, options = {}) {
+        const config = {
+            ...this.getBaseConfig(),
+            chart: {
+                ...this.getBaseConfig().chart,
+                type: 'bar',
+                height: options.height || 350,
+                stacked: true,
+                stackType: options.stackType || 'normal', // '100%' pour pourcentage
+            },
+            series: data.series,
+            xaxis: {
+                categories: data.categories,
+            },
+            yaxis: {
+                labels: {
+                    formatter: options.formatter || ((val) => this.formatCurrency(val))
+                }
+            },
+            plotOptions: {
+                bar: {
+                    horizontal: options.horizontal || false,
+                    borderRadius: 4,
+                }
+            },
+            legend: {
+                position: 'top',
+            },
+            fill: { opacity: 1 },
+            ...options
+        };
+
+        const chart = new ApexCharts(document.getElementById(elementId), config);
+        chart.render();
+        return chart;
+    },
+
+    // Helpers
+    getColorByValue(value, thresholds = {}) {
+        const { danger = 30, warning = 60, success = 80 } = thresholds;
+        if (value < danger) return this.colors.danger;
+        if (value < warning) return this.colors.warning;
+        if (value < success) return this.colors.info;
+        return this.colors.success;
+    },
+
+    // Détruit un graphique existant
+    destroy(chartInstance) {
+        if (chartInstance) {
+            chartInstance.destroy();
+        }
+    },
+
+    // Met à jour les données d'un graphique
+    updateSeries(chartInstance, newData) {
+        if (chartInstance) {
+            chartInstance.updateSeries(newData);
+        }
+    }
+};
+
+// Écouter les changements de thème
+document.addEventListener('DOMContentLoaded', () => {
+    // Observer les changements de classe sur html
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            if (mutation.attributeName === 'class') {
+                // Déclencher un événement pour que les graphiques puissent se mettre à jour
+                window.dispatchEvent(new CustomEvent('themeChanged', {
+                    detail: { isDark: document.documentElement.classList.contains('dark') }
+                }));
+            }
+        });
+    });
+
+    observer.observe(document.documentElement, { attributes: true });
+});
+</script>

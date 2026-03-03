@@ -1,0 +1,153 @@
+{% load static %}
+{% load i18n %}
+<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE|default:'fr' }}">
+  <head>
+    <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+    <meta content="IE=edge" http-equiv="X-UA-Compatible" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <meta content="AltiusOne" name="author" />
+    <link
+      href="{% static 'assets/images/logo/favicon.png' %}"
+      rel="icon"
+      type="image/x-icon"
+    />
+
+    <title>{% block title %}Formulaire{% endblock %} | AltiusOne</title>
+
+    <!-- font-awesome-css -->
+    <link
+      href="{% static 'assets/vendor/fontawesome/css/all.css' %}"
+      rel="stylesheet"
+    />
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin href="https://fonts.gstatic.com" rel="preconnect" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Rubik:ital,wght@0,300..900;1,300..900&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- tabler icons -->
+    <link
+      href="{% static 'assets/vendor/tabler-icons/tabler-icons.css' %}"
+      rel="stylesheet"
+      type="text/css"
+    />
+
+    <!-- Bootstrap css -->
+    <link
+      href="{% static 'assets/vendor/bootstrap/bootstrap.min.css' %}"
+      rel="stylesheet"
+      type="text/css"
+    />
+
+    <!-- App css -->
+    <link
+      href="{% static 'assets/css/style.css' %}"
+      rel="stylesheet"
+      type="text/css"
+    />
+
+    <!-- Responsive css -->
+    <link
+      href="{% static 'assets/css/responsive.css' %}"
+      rel="stylesheet"
+      type="text/css"
+    />
+
+    {% block extra_css %}{% endblock %}
+
+    <style>
+      .public-form-wrapper {
+        min-height: 100vh;
+        background: #f8f9fa;
+        padding: 2rem 0;
+      }
+      .public-form-container {
+        max-width: 800px;
+        margin: 0 auto;
+      }
+      .public-form-header {
+        text-align: center;
+        margin-bottom: 2rem;
+      }
+      .public-form-header img {
+        max-height: 48px;
+        margin-bottom: 1rem;
+      }
+      .public-form-header h1 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+      }
+      .public-form-header p {
+        color: #6c757d;
+        font-size: 0.95rem;
+      }
+      .public-form-footer {
+        text-align: center;
+        padding: 2rem 0 1rem;
+        color: #adb5bd;
+        font-size: 0.8rem;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="public-form-wrapper">
+      <div class="container">
+        <div class="public-form-container">
+          <!-- Header -->
+          <div class="public-form-header">
+            <a href="/">
+              <img
+                alt="AltiusOne"
+                src="{% static 'assets/images/logo/3.png' %}"
+              />
+            </a>
+            {% block form_header %}{% endblock %}
+          </div>
+
+          <!-- Messages Django -->
+          {% if messages %}
+            {% for message in messages %}
+            <div
+              class="alert alert-{{ message.tags }} alert-dismissible fade show"
+              role="alert"
+            >
+              {{ message }}
+              <button
+                type="button"
+                class="btn-close"
+                data-bs-dismiss="alert"
+                aria-label="Close"
+              ></button>
+            </div>
+            {% endfor %}
+          {% endif %}
+
+          <!-- Contenu -->
+          {% block content %}{% endblock %}
+
+          <!-- Footer -->
+          <div class="public-form-footer">
+            {% trans "Propulsé par" %} AltiusOne
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- jquery -->
+    <script src="{% static 'assets/js/jquery-3.6.3.min.js' %}"></script>
+
+    <!-- Bootstrap js -->
+    <script src="{% static 'assets/vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
+
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+
+    {% block extra_js %}{% endblock %}
+  </body>
+</html>

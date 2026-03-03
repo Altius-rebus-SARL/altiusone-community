@@ -1,0 +1,97 @@
+{% comment %}
+Partial template for address fields with Swiss Post autocomplete.
+
+Usage:
+    {% include "includes/adresse_fields.html" with prefix="adresse" adresse_form=adresse_form %}
+
+Required context:
+    - prefix: form prefix for field names/IDs (e.g. "adresse")
+    - adresse_form: AdresseInlineForm instance (with prefix set)
+{% endcomment %}
+
+{% load static %}
+{% load i18n %}
+{% load widget_tweaks %}
+
+<div class="row">
+    <!-- Rue (champ principal avec autocomplete) -->
+    <div class="col-md-8">
+        <div class="mb-3">
+            <label for="{{ adresse_form.rue.id_for_label }}" class="form-label">{% trans "Rue" %}</label>
+            {{ adresse_form.rue|add_class:"form-control"|attr:"placeholder:Commencez à taper pour chercher..." }}
+            {% if adresse_form.rue.errors %}
+            <div class="text-danger f-s-12 mt-1">{{ adresse_form.rue.errors.0 }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Numéro -->
+    <div class="col-md-4">
+        <div class="mb-3">
+            <label for="{{ adresse_form.numero.id_for_label }}" class="form-label">{% trans "Numéro" %}</label>
+            {{ adresse_form.numero|add_class:"form-control" }}
+        </div>
+    </div>
+
+    <!-- Complément -->
+    <div class="col-md-12">
+        <div class="mb-3">
+            <label for="{{ adresse_form.complement.id_for_label }}" class="form-label">{% trans "Complément" %}</label>
+            {{ adresse_form.complement|add_class:"form-control"|attr:"placeholder:Case postale, étage, etc." }}
+        </div>
+    </div>
+
+    <!-- Code postal -->
+    <div class="col-md-3">
+        <div class="mb-3">
+            <label for="{{ adresse_form.code_postal.id_for_label }}" class="form-label">{% trans "NPA" %}</label>
+            {{ adresse_form.code_postal|add_class:"form-control" }}
+            {% if adresse_form.code_postal.errors %}
+            <div class="text-danger f-s-12 mt-1">{{ adresse_form.code_postal.errors.0 }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Localité -->
+    <div class="col-md-5">
+        <div class="mb-3">
+            <label for="{{ adresse_form.localite.id_for_label }}" class="form-label">{% trans "Localité" %}</label>
+            {{ adresse_form.localite|add_class:"form-control" }}
+            {% if adresse_form.localite.errors %}
+            <div class="text-danger f-s-12 mt-1">{{ adresse_form.localite.errors.0 }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Canton -->
+    <div class="col-md-4">
+        <div class="mb-3">
+            <label for="{{ adresse_form.canton.id_for_label }}" class="form-label">{% trans "Canton" %}</label>
+            {{ adresse_form.canton|add_class:"form-control" }}
+        </div>
+    </div>
+
+    <!-- Pays -->
+    <div class="col-md-4">
+        <div class="mb-3">
+            <label for="{{ adresse_form.pays.id_for_label }}" class="form-label">{% trans "Pays" %}</label>
+            {{ adresse_form.pays|add_class:"form-control" }}
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'js/adresse_autocomplete.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    initAdresseAutocomplete({
+        prefix: 'id_{{ prefix }}',
+        fieldMap: {
+            street: '{{ adresse_form.rue.id_for_label }}',
+            house_number: '{{ adresse_form.numero.id_for_label }}',
+            zip_code: '{{ adresse_form.code_postal.id_for_label }}',
+            city: '{{ adresse_form.localite.id_for_label }}',
+            canton: '{{ adresse_form.canton.id_for_label }}'
+        }
+    });
+});
+</script>

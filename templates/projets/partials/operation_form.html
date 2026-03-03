@@ -1,0 +1,153 @@
+{% load i18n %}
+
+{% if form.non_field_errors %}
+<div class="alert alert-danger f-s-13">{{ form.non_field_errors }}</div>
+{% endif %}
+
+<div class="row g-2 operation-form-fields">
+    <div class="col-md-6">
+        <label class="form-label f-s-12">{% trans "Titre" %} <span class="text-danger">*</span></label>
+        {{ form.titre }}
+        {% if form.titre.errors %}<div class="text-danger f-s-12">{{ form.titre.errors.0 }}</div>{% endif %}
+    </div>
+    <div class="col-md-3">
+        <label class="form-label f-s-12">{% trans "Statut" %}</label>
+        {{ form.statut }}
+    </div>
+    <div class="col-md-3">
+        <label class="form-label f-s-12">{% trans "Priorité" %}</label>
+        {{ form.priorite }}
+    </div>
+    <div class="col-12">
+        <label class="form-label f-s-12">{% trans "Description" %}</label>
+        {{ form.description }}
+    </div>
+    <div class="col-md-3">
+        <label class="form-label f-s-12">{% trans "Budget prévu" %}</label>
+        {{ form.budget_prevu }}
+        {% if form.budget_prevu.errors %}<div class="text-danger f-s-12">{{ form.budget_prevu.errors.0 }}</div>{% endif %}
+    </div>
+    <div class="col-md-3">
+        <label class="form-label f-s-12">{% trans "Coût réel" %}</label>
+        {{ form.cout_reel }}
+    </div>
+    <div class="col-md-3">
+        <label class="form-label f-s-12">{% trans "Date début" %}</label>
+        {{ form.date_debut }}
+    </div>
+    <div class="col-md-3">
+        <label class="form-label f-s-12">{% trans "Date fin" %}</label>
+        {{ form.date_fin }}
+    </div>
+    <div class="col-md-4">
+        <label class="form-label f-s-12">{% trans "Assigné à" %}</label>
+        {{ form.assigne_a }}
+    </div>
+    <div class="col-md-4">
+        <label class="form-label f-s-12">{% trans "Contacts assignés" %}</label>
+        {{ form.contacts_assignes }}
+    </div>
+    <div class="col-md-4">
+        <label class="form-label f-s-12">{% trans "Durée estimée (h)" %}</label>
+        {{ form.duree_estimee_heures }}
+    </div>
+    <div class="col-md-4">
+        <label class="form-label f-s-12">{% trans "Adresse" %}</label>
+        {{ form.adresse }}
+    </div>
+
+    <!-- Picker GPS -->
+    <div class="col-12">
+        {{ form.coordonnees }}
+        <label class="form-label f-s-12 text-muted"><i class="ti ti-map-pin me-1"></i>{% trans "Coordonnées GPS" %}</label>
+        <div class="op-coord-picker" style="height:200px; border-radius:6px; border:1px solid #dee2e6"></div>
+        <small class="op-coord-display text-muted f-s-12 mt-1 d-block"></small>
+    </div>
+</div>
+
+<script>
+(function() {
+    // Find elements relative to the most recently added form (avoids duplicate ID conflicts)
+    var allWrappers = document.querySelectorAll('.operation-form-fields');
+    var wrapper = allWrappers[allWrappers.length - 1];
+    if (!wrapper) return;
+
+    // Leaflet coord picker
+    if (typeof L === 'undefined') return;
+    var coordInput = wrapper.querySelector('input[name="coordonnees"]');
+    var coordDisplay = wrapper.querySelector('.op-coord-display');
+    var pickerEl = wrapper.querySelector('.op-coord-picker');
+    if (!pickerEl) return;
+
+    // Destroy previous instance if re-swapped by HTMX
+    if (pickerEl._leaflet_id) {
+        pickerEl._leaflet_id = null;
+        pickerEl.innerHTML = '';
+    }
+
+    var initial = coordInput && coordInput.value ? coordInput.value.split(',').map(Number) : [46.8, 8.2];
+    var initialZoom = coordInput && coordInput.value ? 15 : 8;
+    var map = L.map(pickerEl).setView(initial, initialZoom);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap', maxZoom: 19,
+    }).addTo(map);
+
+    var marker = null;
+    if (coordInput && coordInput.value) {
+        marker = L.marker(initial).addTo(map);
+        coordDisplay.textContent = 'Lat: ' + initial[0].toFixed(6) + ', Lng: ' + initial[1].toFixed(6);
+    }
+
+    function setCoord(lat, lng) {
+        if (marker) marker.remove();
+        marker = L.marker([lat, lng]).addTo(map);
+        coordInput.value = lat.toFixed(6) + ',' + lng.toFixed(6);
+        coordDisplay.textContent = 'Lat: ' + lat.toFixed(6) + ', Lng: ' + lng.toFixed(6);
+    }
+
+    map.on('click', function(e) {
+        setCoord(e.latlng.lat, e.latlng.lng);
+    });
+
+    // Geocode when address changes (scoped to this form)
+    var adresseInput = wrapper.querySelector('[name="adresse"]');
+    var geocodeTimer = null;
+    if (adresseInput) {
+        adresseInput.addEventListener('change', function() {
+            var q = this.value.trim();
+            if (!q) return;
+            clearTimeout(geocodeTimer);
+            geocodeTimer = setTimeout(function() {
+                fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(q))
+                .then(function(r) { return r.json(); })
+                .then(function(results) {
+                    if (results.length > 0) {
+                        var lat = parseFloat(results[0].lat);
+                        var lng = parseFloat(results[0].lon);
+                        setCoord(lat, lng);
+                        map.setView([lat, lng], 15);
+                    }
+                });
+            }, 300);
+        });
+    }
+
+    // Fix Leaflet sizing
+    map.invalidateSize();
+    setTimeout(function() { map.invalidateSize(); }, 300);
+
+    // Re-invalidate when Bootstrap collapse/tab becomes visible
+    var collapse = pickerEl.closest('.collapse');
+    if (collapse) {
+        collapse.addEventListener('shown.bs.collapse', function() { map.invalidateSize(); });
+    }
+    var tabPane = pickerEl.closest('.tab-pane');
+    if (tabPane) {
+        document.addEventListener('shown.bs.tab', function(e) {
+            var target = e.target.getAttribute('data-bs-target') || e.target.getAttribute('href');
+            if (target === '#' + tabPane.id) map.invalidateSize();
+        });
+    }
+})();
+</script>

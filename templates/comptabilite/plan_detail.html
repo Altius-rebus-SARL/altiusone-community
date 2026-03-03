@@ -1,0 +1,321 @@
+<!-- comptabilite/plan_detail.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ plan.nom }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{{ plan.nom }}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'comptabilite:plan-list' %}">
+                    <span>{% trans "Plans comptables" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{{ plan.nom }}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Action buttons -->
+<div class="row mb-3">
+    <div class="col-12 text-end">
+        <a href="{% url 'comptabilite:plan-update' plan.pk %}" class="btn btn-warning">
+            <i class="ph ph-pencil me-2"></i>{% trans "Modifier" %}
+        </a>
+        <a href="{% url 'comptabilite:compte-create' %}?plan={{ plan.pk }}" class="btn btn-primary">
+            <i class="ph ph-plus me-2"></i>{% trans "Nouveau compte" %}
+        </a>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-primary mb-0">{{ stats.total_comptes }}</h3>
+                        <p class="text-muted mb-0">{% trans "Comptes" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-primary">
+                        <i class="ph ph-list-numbers f-s-24 text-primary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-success mb-0">{{ stats.comptes_imputables }}</h3>
+                        <p class="text-muted mb-0">{% trans "Imputables" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-success">
+                        <i class="ph ph-check-circle f-s-24 text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-warning mb-0">{{ stats.comptes_lettrables }}</h3>
+                        <p class="text-muted mb-0">{% trans "Lettrables" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-warning">
+                        <i class="ph ph-link f-s-24 text-warning"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-info mb-0">{{ stats.comptes_collectifs }}</h3>
+                        <p class="text-muted mb-0">{% trans "Collectifs" %}</p>
+                    </div>
+                    <div class="h-40 w-40 d-flex-center rounded-circle bg-light-info">
+                        <i class="ph ph-stack f-s-20 text-info"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Info Card -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Informations générales" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <label class="text-muted f-s-12">{% trans "Type de plan" %}</label>
+                        <h6><span class="badge bg-light-primary">{{ plan.get_type_plan_display }}</span></h6>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="text-muted f-s-12">{% trans "Mandat" %}</label>
+                        <h6>
+                            {% if plan.mandat %}
+                            <a href="{% url 'core:mandat-detail' plan.mandat.pk %}">{{ plan.mandat.client.raison_sociale }}</a>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </h6>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="text-muted f-s-12">{% trans "Statut" %}</label>
+                        <h6>
+                            {% if plan.is_active %}
+                            <span class="badge bg-success">{% trans "Actif" %}</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{% trans "Inactif" %}</span>
+                            {% endif %}
+                        </h6>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="text-muted f-s-12">{% trans "Type" %}</label>
+                        <h6>
+                            {% if plan.is_template %}
+                            <span class="badge bg-warning">{% trans "Template" %}</span>
+                            {% else %}
+                            <span class="badge bg-info">{% trans "Instance" %}</span>
+                            {% endif %}
+                        </h6>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Comptes Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Comptes du plan" %}</h5>
+            </div>
+            <div class="card-body">
+                <!-- Filters -->
+                <div class="list-table-header d-flex justify-content-between align-items-center mb-3">
+                    <a href="{% url 'comptabilite:compte-create' %}?plan={{ plan.pk }}" class="btn btn-primary">
+                        <i class="ph ph-plus me-2"></i>{% trans "Nouveau compte" %}
+                    </a>
+                    <form method="get" class="d-flex gap-2">
+                        <div class="app-form app-icon-form">
+                            <div class="position-relative">
+                                <input aria-label="Search" 
+                                       class="form-control search" 
+                                       placeholder="{% trans 'Rechercher...' %}"
+                                       type="search"
+                                       name="q"
+                                       value="{{ request.GET.q }}">
+                                <i class="ph ph-magnifying-glass text-dark"></i>
+                            </div>
+                        </div>
+                        <select name="classe" class="form-select select-basic" onchange="this.form.submit()">
+                            <option value="">{% trans "Toutes les classes" %}</option>
+                            {% for classe in classes_disponibles %}
+                            <option value="{{ classe }}" {% if request.GET.classe == classe|stringformat:"s" %}selected{% endif %}>
+                                {% trans "Classe" %} {{ classe }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        {% if request.GET.classe or request.GET.q %}
+                        <a href="{% url 'comptabilite:plan-detail' plan.pk %}" class="btn btn-secondary">
+                            <i class="ph ph-x"></i>
+                        </a>
+                        {% endif %}
+                    </form>
+                </div>
+
+                <!-- Table -->
+                <div class="overflow-auto app-scroll">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Numéro" %}</th>
+                                <th>{% trans "Libellé" %}</th>
+                                <th>{% trans "Classe" %}</th>
+                                <th>{% trans "Type" %}</th>
+                                <th class="text-end">{% trans "Solde" %}</th>
+                                <th class="text-center">{% trans "Imputable" %}</th>
+                                <th class="text-end">{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for compte in comptes %}
+                            <tr>
+                                <td><span class="badge bg-light-dark f-w-600">{{ compte.numero }}</span></td>
+                                <td>
+                                    <a href="{% url 'comptabilite:compte-detail' compte.pk %}" class="text-dark f-w-500">
+                                        {{ compte.libelle }}
+                                    </a>
+                                </td>
+                                <td><span class="badge bg-light-secondary">{% trans "Classe" %} {{ compte.classe }}</span></td>
+                                <td>
+                                    {% if compte.type_compte == 'ACTIF' %}
+                                    <span class="badge bg-light-primary">{% trans "Actif" %}</span>
+                                    {% elif compte.type_compte == 'PASSIF' %}
+                                    <span class="badge bg-light-danger">{% trans "Passif" %}</span>
+                                    {% elif compte.type_compte == 'CHARGE' %}
+                                    <span class="badge bg-light-warning">{% trans "Charge" %}</span>
+                                    {% elif compte.type_compte == 'PRODUIT' %}
+                                    <span class="badge bg-light-success">{% trans "Produit" %}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    {% if compte.solde > 0 %}
+                                    <span class="text-success f-w-600">{{ compte.get_solde_display }}</span>
+                                    {% elif compte.solde < 0 %}
+                                    <span class="text-danger f-w-600">{{ compte.get_solde_display }}</span>
+                                    {% else %}
+                                    <span class="text-muted">0.00 {{ DEVISE_CODE }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if compte.imputable %}
+                                    <i class="ph ph-check-circle text-success f-s-18"></i>
+                                    {% else %}
+                                    <i class="ph ph-minus-circle text-muted f-s-18"></i>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <a href="{% url 'comptabilite:compte-detail' compte.pk %}" 
+                                       class="btn btn-sm btn-light-primary"
+                                       data-bs-toggle="tooltip"
+                                       title="{% trans 'Voir' %}">
+                                        <i class="ph ph-eye"></i>
+                                    </a>
+                                    <a href="{% url 'comptabilite:compte-update' compte.pk %}" 
+                                       class="btn btn-sm btn-success"
+                                       data-bs-toggle="tooltip"
+                                       title="{% trans 'Modifier' %}">
+                                        <i class="ph ph-pencil"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center py-5">
+                                    <i class="ph ph-list-dashes f-s-50 text-muted"></i>
+                                    <p class="text-muted mt-2">{% trans "Aucun compte trouvé" %}</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if is_paginated %}
+                <div class="list-pagination mt-3">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1{% if request.GET.classe %}&classe={{ request.GET.classe }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                                <i class="ph ph-caret-double-left"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.classe %}&classe={{ request.GET.classe }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                                <i class="ph ph-caret-left"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                            <li class="page-item active"><a class="page-link">{{ num }}</a></li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item"><a class="page-link" href="?page={{ num }}{% if request.GET.classe %}&classe={{ request.GET.classe }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">{{ num }}</a></li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.classe %}&classe={{ request.GET.classe }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                                <i class="ph ph-caret-right"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.classe %}&classe={{ request.GET.classe }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                                <i class="ph ph-caret-double-right"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+                {% endif %}
+
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

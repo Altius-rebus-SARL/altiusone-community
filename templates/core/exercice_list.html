@@ -1,0 +1,258 @@
+<!-- core/exercice_list.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load devise_tags %}
+
+{% block title %}{% trans "Exercices comptables" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Exercices comptables" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Exercices comptables" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<div class="row">
+    <!-- Statistics Cards -->
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-primary mb-0">{{ stats.total }}</h3>
+                        <p class="text-muted mb-0">{% trans "Total" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-primary">
+                        <i class="ti ti-calendar f-s-24 text-primary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-success mb-0">{{ stats.ouverts }}</h3>
+                        <p class="text-muted mb-0">{% trans "Ouverts" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-success">
+                        <i class="ti ti-lock-open f-s-24 text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-warning mb-0">{{ stats.clotures_provisoire }}</h3>
+                        <p class="text-muted mb-0">{% trans "Clôtures provisoires" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-warning">
+                        <i class="ti ti-lock f-s-24 text-warning"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-info mb-0">{{ stats.clotures_definitif }}</h3>
+                        <p class="text-muted mb-0">{% trans "Clôtures définitives" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-info">
+                        <i class="ti ti-lock-check f-s-24 text-info"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Liste des exercices comptables" %}</h5>
+            </div>
+            <div class="card-body">
+                <div id="exercicesTable">
+                    <!-- Header with Add button and filters -->
+                    <div class="list-table-header d-flex justify-content-between align-items-center mb-3">
+                        <a href="{% url 'core:exercice-create' %}" class="btn btn-primary">
+                            <i class="ti ti-plus me-2"></i>{% trans "Nouvel exercice" %}
+                        </a>
+
+                        <form method="get" class="d-flex gap-2">
+                            <select name="mandat" class="form-select select-basic" onchange="this.form.submit()">
+                                <option value="">{% trans "Tous les mandats" %}</option>
+                                {% for mandat in mandats %}
+                                <option value="{{ mandat.pk }}" {% if request.GET.mandat == mandat.pk|stringformat:"s" %}selected{% endif %}>
+                                    {{ mandat.client.raison_sociale }} - {{ mandat.numero }}
+                                </option>
+                                {% endfor %}
+                            </select>
+
+                            <select name="statut" class="form-select select-basic" onchange="this.form.submit()">
+                                <option value="">{% trans "Tous les statuts" %}</option>
+                                <option value="OUVERT" {% if request.GET.statut == 'OUVERT' %}selected{% endif %}>{% trans "Ouvert" %}</option>
+                                <option value="CLOTURE_PROVISOIRE" {% if request.GET.statut == 'CLOTURE_PROVISOIRE' %}selected{% endif %}>{% trans "Clôture provisoire" %}</option>
+                                <option value="CLOTURE_DEFINITIVE" {% if request.GET.statut == 'CLOTURE_DEFINITIVE' %}selected{% endif %}>{% trans "Clôture définitive" %}</option>
+                            </select>
+
+                            {% if request.GET.mandat or request.GET.statut %}
+                            <a href="{% url 'core:exercice-list' %}" class="btn btn-secondary">
+                                <i class="ti ti-x"></i>
+                            </a>
+                            {% endif %}
+                        </form>
+                    </div>
+
+                    <!-- Table -->
+                    <div class="overflow-auto app-scroll">
+                        <table class="table table-bottom-border align-middle mb-0">
+                            <thead>
+                                <tr class="app-sort">
+                                    <th scope="col">{% trans "Année" %}</th>
+                                    <th scope="col">{% trans "Mandat" %}</th>
+                                    <th scope="col">{% trans "Client" %}</th>
+                                    <th scope="col">{% trans "Période" %}</th>
+                                    <th scope="col">{% trans "Statut" %}</th>
+                                    <th scope="col">{% trans "Résultat" %}</th>
+                                    <th scope="col">{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="list">
+                                {% for exercice in exercices %}
+                                <tr>
+                                    <td class="f-w-500">{{ exercice.annee }}</td>
+                                    <td>
+                                        <a href="{% url 'core:mandat-detail' exercice.mandat.pk %}">
+                                            {{ exercice.mandat.numero }}
+                                        </a>
+                                    </td>
+                                    <td>{{ exercice.mandat.client.raison_sociale }}</td>
+                                    <td>{{ exercice.date_debut|date:"d.m.Y" }} - {{ exercice.date_fin|date:"d.m.Y" }}</td>
+                                    <td>
+                                        {% if exercice.statut == 'OUVERT' %}
+                                            <span class="badge bg-success-subtle text-success text-uppercase">
+                                                {{ exercice.get_statut_display }}
+                                            </span>
+                                        {% elif exercice.statut == 'CLOTURE_PROVISOIRE' %}
+                                            <span class="badge bg-warning-subtle text-warning text-uppercase">
+                                                {{ exercice.get_statut_display }}
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-info-subtle text-info text-uppercase">
+                                                {{ exercice.get_statut_display }}
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if exercice.resultat_exercice %}
+                                            <span class="{% if exercice.resultat_exercice >= 0 %}text-success{% else %}text-danger{% endif %} f-w-500">
+                                                {{ exercice.resultat_exercice|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}
+                                            </span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'core:exercice-detail' exercice.pk %}" 
+                                           class="btn btn-sm btn-light-primary"
+                                           data-bs-toggle="tooltip"
+                                           title="{% trans 'Voir' %}">
+                                            <i class="ti ti-eye"></i>
+                                        </a>
+                                        {% if exercice.statut == 'OUVERT' %}
+                                        <a href="{% url 'core:exercice-update' exercice.pk %}" 
+                                           class="btn btn-sm btn-success"
+                                           data-bs-toggle="tooltip"
+                                           title="{% trans 'Modifier' %}">
+                                            <i class="ti ti-edit"></i>
+                                        </a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center py-5">
+                                        <i class="ti ti-calendar-off f-s-50 text-muted"></i>
+                                        <p class="text-muted mt-2">{% trans "Aucun exercice comptable trouvé" %}</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if is_paginated %}
+                    <div class="list-pagination mt-3">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1">
+                                    <i class="ti ti-chevrons-left"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                                    <i class="ti ti-chevron-left"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+
+                            {% for num in page_obj.paginator.page_range %}
+                                {% if page_obj.number == num %}
+                                <li class="page-item active"><a class="page-link">{{ num }}</a></li>
+                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                                    <i class="ti ti-chevron-right"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">
+                                    <i class="ti ti-chevrons-right"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

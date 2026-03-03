@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Inviter un collaborateur" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h3>{% trans "Inviter un collaborateur" %}</h3>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}"><i class="ti ti-home"></i></a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'core:admin-dashboard' %}">{% trans "Administration" %}</a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'core:admin-invitation-list' %}">{% trans "Invitations" %}</a></li>
+                        <li class="breadcrumb-item active">{% trans "Nouveau" %}</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-xl-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Inviter un collaborateur interne" %}</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors }}
+                        </div>
+                        {% endif %}
+
+                        <div class="row">
+                            <!-- Email -->
+                            <div class="col-md-12 mb-3">
+                                <label for="id_email" class="form-label">{% trans "Adresse email" %} *</label>
+                                {{ form.email }}
+                                {% if form.email.errors %}<div class="text-danger f-s-12">{{ form.email.errors|join:", " }}</div>{% endif %}
+                                <small class="text-muted">{% trans "Un email d'invitation sera envoye a cette adresse" %}</small>
+                            </div>
+
+                            <!-- Role -->
+                            <div class="col-md-6 mb-3">
+                                <label for="id_role" class="form-label">{% trans "Role a attribuer" %}</label>
+                                {{ form.role }}
+                                {% if form.role.errors %}<div class="text-danger f-s-12">{{ form.role.errors|join:", " }}</div>{% endif %}
+                                <small class="text-muted">{% trans "Le role sera attribue une fois l'invitation acceptee" %}</small>
+                            </div>
+
+                            <!-- Force password change -->
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">&nbsp;</label>
+                                <div class="form-check mt-2">
+                                    {{ form.forcer_changement_mdp }}
+                                    <label class="form-check-label" for="id_forcer_changement_mdp">
+                                        {% trans "Forcer le changement de mot de passe" %}
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Message -->
+                            <div class="col-12 mb-3">
+                                <label for="id_message" class="form-label">{% trans "Message personnalise" %}</label>
+                                {{ form.message }}
+                                {% if form.message.errors %}<div class="text-danger f-s-12">{{ form.message.errors|join:", " }}</div>{% endif %}
+                                <small class="text-muted">{% trans "Ce message sera inclus dans l'email d'invitation" %}</small>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'core:admin-invitation-list' %}" class="btn btn-secondary">
+                                <i class="ti ti-arrow-left me-2"></i>{% trans "Retour" %}
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="ti ti-send me-2"></i>{% trans "Envoyer l'invitation" %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Help Card -->
+        <div class="col-xl-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Aide" %}</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted f-s-14">
+                        {% trans "Une invitation sera envoyee par email au collaborateur. Il disposera de 7 jours pour accepter l'invitation et creer son compte." %}
+                    </p>
+                    <p class="text-muted f-s-14 mt-3">
+                        <strong>{% trans "Collaborateur interne" %}:</strong><br>
+                        {% trans "Aura acces a l'ensemble des mandats et fonctionnalites selon les permissions de son role." %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

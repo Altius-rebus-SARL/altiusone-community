@@ -1,0 +1,194 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Devises & Taux de change" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Devises & Taux de change" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Devises" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Actions SNB -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="ph ph-currency-circle-dollar me-2"></i>{% trans "Taux de change BNS (SNB)" %}</h5>
+                <div>
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="btn-preview-snb">
+                        <i class="ph ph-eye me-1"></i>{% trans "Preview" %}
+                    </button>
+                    <button type="button" class="btn btn-primary btn-sm ms-2" id="btn-update-snb">
+                        <i class="ph ph-download me-1"></i>{% trans "Mettre à jour" %}
+                    </button>
+                </div>
+            </div>
+            <div class="card-body" id="snb-preview-zone" style="display:none;">
+                <div class="alert alert-info mb-2">
+                    <i class="ph ph-info me-2"></i>{% trans "Preview des taux SNB (moyennes mensuelles). Non sauvegardé." %}
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bottom-border mb-0" id="snb-preview-table">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Devise" %}</th>
+                                <th>{% trans "Taux (1" %} {{ DEVISE_BASE_CODE }} = X)</th>
+                                <th>{% trans "Date SNB" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Liste des devises -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-coins me-2"></i>{% trans "Devises actives" %}</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Code" %}</th>
+                                <th>{% trans "Nom" %}</th>
+                                <th>{% trans "Symbole" %}</th>
+                                <th>{% trans "Taux de change" %}</th>
+                                <th>{% trans "Date du taux" %}</th>
+                                <th>{% trans "Devise de base" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for devise in devises %}
+                            <tr>
+                                <td><span class="badge text-light-primary f-w-600">{{ devise.code }}</span></td>
+                                <td>{{ devise.nom }}</td>
+                                <td>{{ devise.symbole }}</td>
+                                <td>
+                                    {% if devise.est_devise_base %}
+                                    <span class="text-muted">1.000000</span>
+                                    {% else %}
+                                    <span class="f-w-600 text-success">{{ devise.taux_change }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if devise.date_taux %}
+                                    <span class="text-muted">{{ devise.date_taux }}</span>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if devise.est_devise_base %}
+                                    <span class="badge text-light-success">{% trans "Base" %} ({{ DEVISE_BASE_CODE }})</span>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center py-5">
+                                    <i class="ph ph-currency-circle-dollar f-s-48 text-muted d-block mb-3"></i>
+                                    <p class="text-muted">{% trans "Aucune devise active" %}</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Info -->
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="card bg-light-info">
+            <div class="card-body">
+                <h6 class="text-info mb-2">
+                    <i class="ph ph-info me-2"></i>{% trans "Source des taux" %}
+                </h6>
+                <p class="mb-0 text-muted">
+                    {% trans "Les taux de change proviennent de la Banque Nationale Suisse (BNS/SNB). Il s'agit de moyennes mensuelles. La mise à jour automatique s'exécute chaque jour ouvrable à 07h30." %}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const csrfToken = '{{ csrf_token }}';
+
+document.getElementById('btn-preview-snb').addEventListener('click', function() {
+    const zone = document.getElementById('snb-preview-zone');
+    const tbody = document.querySelector('#snb-preview-table tbody');
+    tbody.innerHTML = '<tr><td colspan="3" class="text-center"><i class="ph ph-spinner ph-spin"></i> {% trans "Chargement..." %}</td></tr>';
+    zone.style.display = 'block';
+
+    fetch('/api/v1/devises/taux-snb/')
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) {
+                tbody.innerHTML = '<tr><td colspan="3" class="text-danger">' + data.error + '</td></tr>';
+                return;
+            }
+            tbody.innerHTML = '';
+            data.rates.forEach(r => {
+                const row = document.createElement('tr');
+                row.innerHTML = '<td><span class="badge text-light-primary">' + r.currency + '</span></td>' +
+                    '<td class="f-w-600 text-success">' + r.rate + '</td>' +
+                    '<td class="text-muted">' + r.date + '</td>';
+                tbody.appendChild(row);
+            });
+        })
+        .catch(err => {
+            tbody.innerHTML = '<tr><td colspan="3" class="text-danger">' + err + '</td></tr>';
+        });
+});
+
+document.getElementById('btn-update-snb').addEventListener('click', function() {
+    if (!confirm('{% trans "Mettre à jour les taux de change depuis la BNS ?" %}')) return;
+
+    fetch('/api/v1/devises/update-rates/', {
+        method: 'POST',
+        headers: {'X-CSRFToken': csrfToken, 'Content-Type': 'application/json'},
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.updated && data.updated.length > 0) {
+            alert('{% trans "Taux mis à jour:" %} ' + data.updated.map(u => u.code + '=' + u.rate).join(', '));
+            location.reload();
+        } else if (data.errors && data.errors.length > 0) {
+            alert('{% trans "Erreurs:" %} ' + data.errors.join(', '));
+        } else {
+            alert('{% trans "Aucun taux mis à jour (devises non trouvées en BD)." %}');
+        }
+    })
+    .catch(err => alert('{% trans "Erreur:" %} ' + err));
+});
+</script>
+{% endblock %}

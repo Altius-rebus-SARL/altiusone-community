@@ -1,0 +1,488 @@
+<!-- facturation/timetracking_form.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load widget_tweaks %}
+
+{% block title %}{% trans "Saisir du temps" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Saisir du temps" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'facturation:timetracking-list' %}">
+                    <span>{% trans "Suivi du temps" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Nouveau" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Form -->
+<div class="row">
+    <div class="col-md-10 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Saisie du temps de travail" %}</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" class="app-form">
+                    {% csrf_token %}
+
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {{ form.non_field_errors }}
+                    </div>
+                    {% endif %}
+
+                    <!-- Rattachement -->
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <h6 class="text-muted f-w-600">{% trans "Rattachement" %}</h6>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Mandat" %} *</label>
+                            {{ form.mandat|add_class:"form-control select2" }}
+                            {% if form.mandat.errors %}
+                            <div class="text-danger f-s-12">{{ form.mandat.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Prestation" %} *</label>
+                            {{ form.prestation|add_class:"form-control select2" }}
+                            {% if form.prestation.errors %}
+                            <div class="text-danger f-s-12">{{ form.prestation.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        {% if is_manager %}
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Utilisateur" %} *</label>
+                            {{ form.utilisateur|add_class:"form-control select2" }}
+                            {% if form.utilisateur.errors %}
+                            <div class="text-danger f-s-12">{{ form.utilisateur.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        {% else %}
+                        {{ form.utilisateur }}
+                        {% endif %}
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Date" %} *</label>
+                            {{ form.date_travail|add_class:"form-control" }}
+                            {% if form.date_travail.errors %}
+                            <div class="text-danger f-s-12">{{ form.date_travail.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Projet (Position / Opération) -->
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <h6 class="text-muted f-w-600">
+                                <i class="ph ph-folder-simple me-1"></i>{% trans "Projet" %}
+                                <small class="text-muted f-w-400">({% trans "optionnel" %})</small>
+                            </h6>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Position" %}</label>
+                            {{ form.position|add_class:"form-control select2" }}
+                            {% if form.position.errors %}
+                            <div class="text-danger f-s-12">{{ form.position.errors.0 }}</div>
+                            {% endif %}
+                            <small class="text-muted">{% trans "Sélectionnez d'abord un mandat" %}</small>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Opération" %}</label>
+                            {{ form.operation|add_class:"form-control select2" }}
+                            {% if form.operation.errors %}
+                            <div class="text-danger f-s-12">{{ form.operation.errors.0 }}</div>
+                            {% endif %}
+                            <small class="text-muted">{% trans "Sélectionnez d'abord une position" %}</small>
+                        </div>
+
+                        <!-- Budget info badge (hidden, filled by JS) -->
+                        <div class="col-md-12 mb-3 d-none" id="budget-info-container">
+                            <div class="alert alert-info py-2 mb-0 f-s-13">
+                                <i class="ph ph-chart-pie me-1"></i>
+                                <strong>{% trans "Budget mandat" %} :</strong>
+                                <span id="budget-info-text"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Durée -->
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <h6 class="text-muted f-w-600">{% trans "Durée" %}</h6>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Heure début" %}</label>
+                            {{ form.heure_debut_time|add_class:"form-control" }}
+                            {% if form.heure_debut_time.errors %}
+                            <div class="text-danger f-s-12">{{ form.heure_debut_time.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Heure fin" %}</label>
+                            {{ form.heure_fin_time|add_class:"form-control" }}
+                            {% if form.heure_fin_time.errors %}
+                            <div class="text-danger f-s-12">{{ form.heure_fin_time.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Durée (minutes)" %} *</label>
+                            {{ form.duree_minutes|add_class:"form-control" }}
+                            {% if form.duree_minutes.errors %}
+                            <div class="text-danger f-s-12">{{ form.duree_minutes.errors.0 }}</div>
+                            {% endif %}
+                            <small class="text-muted">{% trans "Calculé automatiquement si heures saisies" %}</small>
+                        </div>
+                    </div>
+
+                    <!-- Quick duration buttons -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label">{% trans "Durées rapides" %}</label>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setDuree(15)">15min</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setDuree(30)">30min</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setDuree(60)">1h</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setDuree(120)">2h</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setDuree(240)">4h</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setDuree(480)">8h</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label">{% trans "Description" %} *</label>
+                            {{ form.description|add_class:"form-control" }}
+                            {% if form.description.errors %}
+                            <div class="text-danger f-s-12">{{ form.description.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label">{% trans "Notes internes" %}</label>
+                            {{ form.notes_internes|add_class:"form-control" }}
+                            {% if form.notes_internes.errors %}
+                            <div class="text-danger f-s-12">{{ form.notes_internes.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Facturation -->
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <h6 class="text-muted f-w-600">{% trans "Facturation" %}</h6>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <div class="form-check">
+                                {{ form.facturable }}
+                                <label class="form-check-label" for="{{ form.facturable.id_for_label }}">
+                                    {% trans "Temps facturable" %}
+                                </label>
+                            </div>
+                            {% if form.facturable.errors %}
+                            <div class="text-danger f-s-12">{{ form.facturable.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">
+                                {% trans "Taux horaire" %} ({{ DEVISE_CODE }}/h) *
+                                <span class="badge bg-secondary f-s-11 ms-1 d-none" id="taux-badge"></span>
+                            </label>
+                            {{ form.taux_horaire|add_class:"form-control" }}
+                            {% if form.taux_horaire.errors %}
+                            <div class="text-danger f-s-12">{{ form.taux_horaire.errors.0 }}</div>
+                            {% endif %}
+                            <small class="text-muted" id="taux-source">{% trans "Rempli automatiquement selon le mandat et la prestation" %}</small>
+                        </div>
+                    </div>
+
+                    <!-- Localisation (optionnel) -->
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <h6 class="text-muted f-w-600">
+                                <i class="ph ph-map-pin me-1"></i>{% trans "Localisation" %}
+                                <small class="text-muted f-w-400">({% trans "optionnel" %})</small>
+                            </h6>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Zone géographique" %}</label>
+                            {{ form.zone_geographique|add_class:"form-control select2" }}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Position GPS" %}</label>
+                            <button type="button" class="btn btn-outline-secondary btn-sm d-block" id="btn-gps">
+                                <i class="ph ph-crosshair me-1"></i>{% trans "Ma position GPS" %}
+                            </button>
+                        </div>
+
+                        <div class="col-12 mb-3">
+                            {{ form.coordonnees }}
+                            <div id="map-picker" style="height:250px; border-radius:6px; border:1px solid #dee2e6"></div>
+                            <small class="text-muted f-s-12 mt-1 d-block" id="coord-display"></small>
+                        </div>
+                    </div>
+
+                    <!-- Boutons -->
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'facturation:timetracking-list' %}" class="btn btn-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ph ph-check me-2"></i>{% trans "Enregistrer" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Aide -->
+        <div class="card mt-3">
+            <div class="card-body">
+                <h6 class="text-primary mb-3">
+                    <i class="ph ph-info me-2"></i>{% trans "Conseils de saisie" %}
+                </h6>
+                <ul class="mb-0 f-s-14">
+                    <li class="mb-2">
+                        <strong>{% trans "Durée" %}:</strong> {% trans "Saisissez soit les heures de début/fin, soit la durée directement" %}
+                    </li>
+                    <li class="mb-2">
+                        <strong>{% trans "Description" %}:</strong> {% trans "Soyez précis sur le travail effectué pour faciliter la facturation" %}
+                    </li>
+                    <li class="mb-2">
+                        <strong>{% trans "Facturable" %}:</strong> {% trans "Décochez si c'est du temps interne non facturable au client" %}
+                    </li>
+                    <li class="mb-2">
+                        <strong>{% trans "Taux horaire" %}:</strong> {% trans "Le taux est déterminé automatiquement : Tarif mandat > Prestation > Mandat" %}
+                    </li>
+                    <li>
+                        <strong>{% trans "Localisation" %}:</strong> {% trans "Cliquez sur la carte ou utilisez le GPS pour enregistrer votre position" %}
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Quick duration buttons
+function setDuree(minutes) {
+    document.getElementById('id_duree_minutes').value = minutes;
+}
+
+// ============ Cascade Mandat → Position → Opération + Taux horaire ============
+(function() {
+    var mandatSel = document.getElementById('id_mandat');
+    var prestaSel = document.getElementById('id_prestation');
+    var positionSel = document.getElementById('id_position');
+    var operationSel = document.getElementById('id_operation');
+    var tauxInput = document.getElementById('id_taux_horaire');
+    var tauxSource = document.getElementById('taux-source');
+    var tauxBadge = document.getElementById('taux-badge');
+    var budgetContainer = document.getElementById('budget-info-container');
+    var budgetText = document.getElementById('budget-info-text');
+
+    // Helper: populate a <select> with options from JSON array [{id, text, ...}]
+    function populateSelect(selectEl, data, placeholder) {
+        // Destroy Select2 before manipulating DOM
+        if ($(selectEl).hasClass('select2-hidden-accessible')) {
+            $(selectEl).select2('destroy');
+        }
+        selectEl.innerHTML = '';
+        var opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = placeholder || '---------';
+        selectEl.appendChild(opt);
+        data.forEach(function(item) {
+            var o = document.createElement('option');
+            o.value = item.id;
+            o.textContent = item.text;
+            selectEl.appendChild(o);
+        });
+        // Re-init Select2
+        $(selectEl).select2({theme: 'bootstrap-5', allowClear: true, placeholder: placeholder || '---------'});
+    }
+
+    // --- Cascade: Mandat change → load positions + fetch taux ---
+    function onMandatChange() {
+        var mandatId = mandatSel ? mandatSel.value : '';
+
+        // Reset position & operation
+        if (positionSel) populateSelect(positionSel, [], '{% trans "Sélectionnez un mandat d\'abord" %}');
+        if (operationSel) populateSelect(operationSel, [], '{% trans "Sélectionnez une position d\'abord" %}');
+
+        if (!mandatId) {
+            budgetContainer.classList.add('d-none');
+            return;
+        }
+
+        // Fetch positions for this mandat
+        fetch('{% url "facturation:get-positions" %}?mandat=' + mandatId)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (positionSel) populateSelect(positionSel, data, '{% trans "Choisir une position..." %}');
+            });
+
+        // Fetch taux
+        fetchTaux();
+    }
+
+    // --- Cascade: Position change → load operations ---
+    function onPositionChange() {
+        var positionId = positionSel ? positionSel.value : '';
+
+        // Reset operation
+        if (operationSel) populateSelect(operationSel, [], '{% trans "Sélectionnez une position d\'abord" %}');
+
+        if (!positionId) return;
+
+        fetch('{% url "facturation:get-operations" %}?position=' + positionId)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (operationSel) populateSelect(operationSel, data, '{% trans "Choisir une opération..." %}');
+            });
+    }
+
+    // --- Fetch taux horaire + budget info ---
+    function fetchTaux() {
+        var mandat = mandatSel ? mandatSel.value : '';
+        var presta = prestaSel ? prestaSel.value : '';
+        if (!mandat && !presta) return;
+
+        fetch('{% url "facturation:get-taux-horaire" %}?mandat=' + mandat + '&prestation=' + presta)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                // Taux horaire
+                if (data.taux_horaire !== null) {
+                    tauxInput.value = data.taux_horaire;
+                    var labels = {
+                        'tarif_mandat': '{% trans "Tarif mandat/prestation" %}',
+                        'prestation': '{% trans "Taux prestation" %}',
+                        'mandat': '{% trans "Taux mandat" %}'
+                    };
+                    var badgeColors = {
+                        'tarif_mandat': 'bg-success',
+                        'prestation': 'bg-primary',
+                        'mandat': 'bg-secondary'
+                    };
+                    tauxSource.textContent = labels[data.source] || '';
+                    tauxBadge.textContent = labels[data.source] || '';
+                    tauxBadge.className = 'badge f-s-11 ms-1 ' + (badgeColors[data.source] || 'bg-secondary');
+                    tauxBadge.classList.remove('d-none');
+                } else {
+                    tauxBadge.classList.add('d-none');
+                }
+
+                // Budget info
+                if (data.budget_info && data.budget_info.budget_prevu > 0) {
+                    var b = data.budget_info;
+                    var pct = b.pourcent;
+                    var colorClass = pct > 90 ? 'text-danger' : (pct > 70 ? 'text-warning' : 'text-success');
+                    budgetText.innerHTML =
+                        '{% trans "Prévu" %}: <strong>' + b.budget_prevu.toLocaleString('fr-CH') + ' {{ DEVISE_CODE }}</strong> | ' +
+                        '{% trans "Réel" %}: <strong>' + b.budget_reel.toLocaleString('fr-CH') + ' {{ DEVISE_CODE }}</strong> | ' +
+                        '{% trans "Consommé" %}: <strong class="' + colorClass + '">' + pct + '%</strong>';
+                    budgetContainer.classList.remove('d-none');
+                } else {
+                    budgetContainer.classList.add('d-none');
+                }
+            });
+    }
+
+    // Bind events — use jQuery for Select2 compatibility
+    if (mandatSel) $(mandatSel).on('change', onMandatChange);
+    if (prestaSel) $(prestaSel).on('change', fetchTaux);
+    if (positionSel) $(positionSel).on('change', onPositionChange);
+})();
+
+// ============ Leaflet map picker ============
+(function() {
+    var coordInput = document.getElementById('id_coordonnees');
+    var coordDisplay = document.getElementById('coord-display');
+    var pickerEl = document.getElementById('map-picker');
+    if (!pickerEl) return;
+
+    var initial = coordInput && coordInput.value ? coordInput.value.split(',').map(Number) : [46.8, 8.2];
+    var initialZoom = coordInput && coordInput.value ? 15 : 8;
+    var map = L.map(pickerEl).setView(initial, initialZoom);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap', maxZoom: 19,
+    }).addTo(map);
+
+    var marker = null;
+    if (coordInput && coordInput.value) {
+        marker = L.marker(initial).addTo(map);
+        coordDisplay.textContent = 'Lat: ' + initial[0].toFixed(6) + ', Lng: ' + initial[1].toFixed(6);
+    }
+
+    function setCoord(lat, lng) {
+        if (marker) marker.remove();
+        marker = L.marker([lat, lng]).addTo(map);
+        coordInput.value = lat.toFixed(6) + ',' + lng.toFixed(6);
+        coordDisplay.textContent = 'Lat: ' + lat.toFixed(6) + ', Lng: ' + lng.toFixed(6);
+    }
+
+    map.on('click', function(e) {
+        setCoord(e.latlng.lat, e.latlng.lng);
+    });
+
+    // GPS button
+    var btnGps = document.getElementById('btn-gps');
+    if (btnGps && navigator.geolocation) {
+        btnGps.addEventListener('click', function() {
+            btnGps.disabled = true;
+            btnGps.innerHTML = '<i class="ph ph-spinner ph-spin me-1"></i>{% trans "Localisation..." %}';
+            navigator.geolocation.getCurrentPosition(
+                function(pos) {
+                    setCoord(pos.coords.latitude, pos.coords.longitude);
+                    map.setView([pos.coords.latitude, pos.coords.longitude], 15);
+                    btnGps.disabled = false;
+                    btnGps.innerHTML = '<i class="ph ph-crosshair me-1"></i>{% trans "Ma position GPS" %}';
+                },
+                function() {
+                    btnGps.disabled = false;
+                    btnGps.innerHTML = '<i class="ph ph-crosshair me-1"></i>{% trans "Ma position GPS" %}';
+                    alert('{% trans "Impossible d\'obtenir votre position" %}');
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        });
+    }
+
+    // Fix Leaflet sizing
+    setTimeout(function() { map.invalidateSize(); }, 300);
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,258 @@
+<!-- salaires/declaration_cotisations_generer_masse.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Génération en masse" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Génération en masse des déclarations de cotisations" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'salaires:declaration-cotisations-list' %}">
+                    <span>{% trans "Déclarations cotisations" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Génération en masse" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-stack me-2"></i>{% trans "Générer les déclarations" %}</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" class="app-form" id="formGeneration">
+                    {% csrf_token %}
+
+                    <!-- Période -->
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <label class="form-label">{% trans "Année" %} <span class="text-danger">*</span></label>
+                            <input type="number" name="annee" class="form-control form-control-lg"
+                                   min="2020" max="2099" value="{{ current_year }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">{% trans "Mois" %}</label>
+                            <select name="mois" class="form-select form-select-lg">
+                                <option value="">{% trans "Année complète" %}</option>
+                                <option value="1" {% if current_month == 1 %}selected{% endif %}>{% trans "Janvier" %}</option>
+                                <option value="2" {% if current_month == 2 %}selected{% endif %}>{% trans "Février" %}</option>
+                                <option value="3" {% if current_month == 3 %}selected{% endif %}>{% trans "Mars" %}</option>
+                                <option value="4" {% if current_month == 4 %}selected{% endif %}>{% trans "Avril" %}</option>
+                                <option value="5" {% if current_month == 5 %}selected{% endif %}>{% trans "Mai" %}</option>
+                                <option value="6" {% if current_month == 6 %}selected{% endif %}>{% trans "Juin" %}</option>
+                                <option value="7" {% if current_month == 7 %}selected{% endif %}>{% trans "Juillet" %}</option>
+                                <option value="8" {% if current_month == 8 %}selected{% endif %}>{% trans "Août" %}</option>
+                                <option value="9" {% if current_month == 9 %}selected{% endif %}>{% trans "Septembre" %}</option>
+                                <option value="10" {% if current_month == 10 %}selected{% endif %}>{% trans "Octobre" %}</option>
+                                <option value="11" {% if current_month == 11 %}selected{% endif %}>{% trans "Novembre" %}</option>
+                                <option value="12" {% if current_month == 12 %}selected{% endif %}>{% trans "Décembre" %}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end">
+                            <div class="alert alert-info mb-0 flex-grow-1 py-2">
+                                <small><i class="ph ph-info me-1"></i>{% trans "Laissez vide pour l'année entière" %}</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Organismes -->
+                    <div class="mb-4">
+                        <label class="form-label">{% trans "Organismes" %}</label>
+                        <div class="row">
+                            {% for code, label in organismes %}
+                            <div class="col-md-4 mb-2">
+                                <div class="form-check">
+                                    <input type="checkbox" name="organismes" value="{{ code }}" id="org_{{ code }}"
+                                           class="form-check-input" checked>
+                                    <label class="form-check-label" for="org_{{ code }}">
+                                        <span class="badge
+                                            {% if code == 'AVS' %}bg-primary
+                                            {% elif code == 'LPP' %}bg-success
+                                            {% elif code == 'LAA' %}bg-warning
+                                            {% elif code == 'AF' %}bg-info
+                                            {% else %}bg-secondary{% endif %} me-1">{{ code }}</span>
+                                        {{ label }}
+                                    </label>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <div class="mt-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="selectAllOrg">{% trans "Tout sélectionner" %}</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="deselectAllOrg">{% trans "Tout désélectionner" %}</button>
+                        </div>
+                    </div>
+
+                    <!-- Mandats -->
+                    <div class="mb-4">
+                        <label class="form-label">{% trans "Mandats" %}</label>
+                        <div class="border rounded p-3" style="max-height: 250px; overflow-y: auto;">
+                            {% for m in mandats %}
+                            <div class="form-check">
+                                <input type="checkbox" name="mandats" value="{{ m.id }}" id="mdt_{{ m.id }}"
+                                       class="form-check-input" checked>
+                                <label class="form-check-label" for="mdt_{{ m.id }}">
+                                    <strong>{{ m.client.raison_sociale }}</strong>
+                                    <small class="text-muted">- {{ m.numero }}</small>
+                                </label>
+                            </div>
+                            {% empty %}
+                            <p class="text-muted mb-0">{% trans "Aucun mandat actif" %}</p>
+                            {% endfor %}
+                        </div>
+                        <div class="mt-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="selectAllMdt">{% trans "Tout sélectionner" %}</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="deselectAllMdt">{% trans "Tout désélectionner" %}</button>
+                        </div>
+                    </div>
+
+                    <!-- Options -->
+                    <div class="mb-4">
+                        <h6 class="mb-3">{% trans "Options" %}</h6>
+                        <div class="form-check mb-2">
+                            <input type="checkbox" name="auto_calculer" id="auto_calculer" class="form-check-input" checked>
+                            <label class="form-check-label" for="auto_calculer">
+                                <strong>{% trans "Calcul automatique" %}</strong>
+                                <span class="text-muted">- {% trans "Agrège les fiches de salaire validées" %}</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Avertissement -->
+                    <div class="alert alert-warning mb-4">
+                        <h6 class="mb-2"><i class="ph ph-warning me-2"></i>{% trans "Attention" %}</h6>
+                        <ul class="mb-0">
+                            <li>{% trans "Les déclarations déjà existantes ne seront pas recréées" %}</li>
+                            <li>{% trans "Seules les fiches de salaire validées seront prises en compte" %}</li>
+                            <li>{% trans "Vérifiez que toutes les fiches du mois sont validées avant de générer" %}</li>
+                        </ul>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'salaires:declaration-cotisations-list' %}" class="btn btn-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="ph ph-stack me-2"></i>{% trans "Générer les déclarations" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Résultats -->
+        {% if resultats %}
+        <div class="card mt-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="ph ph-check-circle me-2"></i>{% trans "Résultats de la génération" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center mb-4">
+                    <div class="col-md-4">
+                        <div class="fs-2 text-success">{{ resultats.crees|length }}</div>
+                        <div class="text-muted">{% trans "Déclarations créées" %}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="fs-2 text-warning">{{ resultats.existants|length }}</div>
+                        <div class="text-muted">{% trans "Déjà existantes" %}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="fs-2 text-danger">{{ resultats.erreurs|length }}</div>
+                        <div class="text-muted">{% trans "Erreurs" %}</div>
+                    </div>
+                </div>
+
+                {% if resultats.crees %}
+                <h6>{% trans "Déclarations créées" %}</h6>
+                <div class="table-responsive mb-4">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Mandat" %}</th>
+                                <th>{% trans "Organisme" %}</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c in resultats.crees %}
+                            <tr>
+                                <td>{{ c.mandat }}</td>
+                                <td><span class="badge bg-primary">{{ c.organisme }}</span></td>
+                                <td>
+                                    <a href="{% url 'salaires:declaration-cotisations-detail' c.declaration_id %}" class="btn btn-sm btn-outline-primary">
+                                        <i class="ph ph-arrow-right"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+
+                {% if resultats.existants %}
+                <h6 class="text-warning">{% trans "Déclarations existantes (ignorées)" %}</h6>
+                <ul class="list-unstyled mb-4">
+                    {% for e in resultats.existants %}
+                    <li class="mb-1">
+                        <i class="ph ph-minus-circle text-warning me-1"></i>
+                        {{ e.mandat }} - {{ e.organisme }}
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+
+                {% if resultats.erreurs %}
+                <h6 class="text-danger">{% trans "Erreurs" %}</h6>
+                <ul class="list-unstyled">
+                    {% for e in resultats.erreurs %}
+                    <li class="mb-1 text-danger">
+                        <i class="ph ph-x-circle me-1"></i>
+                        {{ e.mandat }} - {{ e.organisme }}: {{ e.erreur }}
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Sélection organismes
+    document.getElementById('selectAllOrg').addEventListener('click', function() {
+        document.querySelectorAll('input[name="organismes"]').forEach(cb => cb.checked = true);
+    });
+    document.getElementById('deselectAllOrg').addEventListener('click', function() {
+        document.querySelectorAll('input[name="organismes"]').forEach(cb => cb.checked = false);
+    });
+
+    // Sélection mandats
+    document.getElementById('selectAllMdt').addEventListener('click', function() {
+        document.querySelectorAll('input[name="mandats"]').forEach(cb => cb.checked = true);
+    });
+    document.getElementById('deselectAllMdt').addEventListener('click', function() {
+        document.querySelectorAll('input[name="mandats"]').forEach(cb => cb.checked = false);
+    });
+});
+</script>
+{% endblock %}

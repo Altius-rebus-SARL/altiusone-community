@@ -1,0 +1,212 @@
+<!-- comptabilite/journal_form.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}
+    {% if form.instance.pk %}{% trans "Modifier journal" %}{% else %}{% trans "Nouveau journal" %}{% endif %}
+{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">
+            {% if form.instance.pk %}{% trans "Modifier journal" %}{% else %}{% trans "Nouveau journal" %}{% endif %}
+        </h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'comptabilite:journal-list' %}">
+                    <span>{% trans "Journaux" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">
+                    {% if form.instance.pk %}{% trans "Modifier" %}{% else %}{% trans "Nouveau" %}{% endif %}
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-body">
+                <h4 class="text-primary mb-4">
+                    {% if form.instance.pk %}
+                        {% trans "Modifier le journal" %}
+                    {% else %}
+                        {% trans "Nouveau journal" %}
+                    {% endif %}
+                </h4>
+
+                <form method="post" class="app-form">
+                    {% csrf_token %}
+
+                    <div class="row">
+                        <!-- Mandat -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.mandat.id_for_label }}" class="form-label">
+                                    {{ form.mandat.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.mandat }}
+                                {% if form.mandat.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.mandat.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Type de journal -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.type_journal.id_for_label }}" class="form-label">
+                                    {{ form.type_journal.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.type_journal }}
+                                {% if form.type_journal.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.type_journal.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Code -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.code.id_for_label }}" class="form-label">
+                                    {{ form.code.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.code }}
+                                {% if form.code.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.code.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Libellé -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.libelle.id_for_label }}" class="form-label">
+                                    {{ form.libelle.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.libelle }}
+                                {% if form.libelle.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.libelle.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Préfixe pièce -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.prefixe_piece.id_for_label }}" class="form-label">
+                                    {{ form.prefixe_piece.label }}
+                                </label>
+                                {{ form.prefixe_piece }}
+                                {% if form.prefixe_piece.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.prefixe_piece.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Compte contrepartie -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.compte_contrepartie_defaut.id_for_label }}" class="form-label">
+                                    {{ form.compte_contrepartie_defaut.label }}
+                                </label>
+                                {{ form.compte_contrepartie_defaut }}
+                                {% if form.compte_contrepartie_defaut.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.compte_contrepartie_defaut.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Devise -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.devise.id_for_label }}" class="form-label">
+                                    {% trans "Devise" %}
+                                </label>
+                                {{ form.devise }}
+                                {% if form.devise.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.devise.errors }}
+                                </div>
+                                {% endif %}
+                                <div class="form-text">{% trans "Optionnel — devise de référence du journal" %}</div>
+                            </div>
+                        </div>
+
+                        <!-- Numérotation auto -->
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    {{ form.numerotation_auto }}
+                                    <label class="form-check-label" for="{{ form.numerotation_auto.id_for_label }}">
+                                        {{ form.numerotation_auto.label }}
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <a href="{% if form.instance.pk %}{% url 'comptabilite:journal-detail' form.instance.pk %}{% else %}{% url 'comptabilite:journal-list' %}{% endif %}" 
+                           class="btn btn-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ph ph-check me-2"></i>{% trans "Enregistrer" %}
+                        </button>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Aide -->
+    <div class="col-lg-4">
+        <div class="card bg-light-primary">
+            <div class="card-body">
+                <h6 class="text-primary mb-3">
+                    <i class="ph ph-info me-2"></i>{% trans "Types de journaux" %}
+                </h6>
+                
+                <ul class="f-s-12 text-muted mb-0 ps-3">
+                    <li><strong>VTE</strong> : {% trans "Ventes" %}</li>
+                    <li><strong>ACH</strong> : {% trans "Achats" %}</li>
+                    <li><strong>BNQ</strong> : {% trans "Banque" %}</li>
+                    <li><strong>CAS</strong> : {% trans "Caisse" %}</li>
+                    <li><strong>OD</strong> : {% trans "Opérations diverses" %}</li>
+                    <li><strong>ANO</strong> : {% trans "A-nouveaux" %}</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

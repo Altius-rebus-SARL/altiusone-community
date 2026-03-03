@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Inviter un client" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h3>{% trans "Inviter un client externe" %}</h3>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}"><i class="ti ti-home"></i></a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'core:admin-dashboard' %}">{% trans "Administration" %}</a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'core:admin-invitation-list' %}">{% trans "Invitations" %}</a></li>
+                        <li class="breadcrumb-item active">{% trans "Client" %}</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-xl-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Inviter un client externe" %}</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors }}
+                        </div>
+                        {% endif %}
+
+                        <div class="row">
+                            <!-- Email -->
+                            <div class="col-md-12 mb-3">
+                                <label for="id_email" class="form-label">{% trans "Adresse email" %} *</label>
+                                {{ form.email }}
+                                {% if form.email.errors %}<div class="text-danger f-s-12">{{ form.email.errors|join:", " }}</div>{% endif %}
+                            </div>
+
+                            <!-- Mandat -->
+                            <div class="col-md-12 mb-3">
+                                <label for="id_mandat" class="form-label">{% trans "Mandat" %} *</label>
+                                {{ form.mandat }}
+                                {% if form.mandat.errors %}<div class="text-danger f-s-12">{{ form.mandat.errors|join:", " }}</div>{% endif %}
+                                <small class="text-muted">{% trans "Le client aura acces a ce mandat uniquement" %}</small>
+                            </div>
+
+                            <!-- Est responsable -->
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check">
+                                    {{ form.est_responsable }}
+                                    <label class="form-check-label" for="id_est_responsable">
+                                        {% trans "Responsable du mandat cote client" %}
+                                    </label>
+                                </div>
+                                <small class="text-muted">{% trans "Le responsable peut inviter d'autres utilisateurs" %}</small>
+                            </div>
+
+                            <!-- Limite invitations -->
+                            <div class="col-md-6 mb-3">
+                                <label for="id_limite_invitations" class="form-label">{% trans "Limite d'invitations" %}</label>
+                                {{ form.limite_invitations }}
+                                {% if form.limite_invitations.errors %}<div class="text-danger f-s-12">{{ form.limite_invitations.errors|join:", " }}</div>{% endif %}
+                                <small class="text-muted">{% trans "Nombre max d'utilisateurs que ce responsable peut inviter" %}</small>
+                            </div>
+
+                            <!-- Permissions -->
+                            <div class="col-12 mb-3">
+                                <label class="form-label">{% trans "Permissions sur le mandat" %}</label>
+                                <div class="border rounded p-3" style="max-height: 200px; overflow-y: auto;">
+                                    {{ form.permissions }}
+                                </div>
+                                {% if form.permissions.errors %}<div class="text-danger f-s-12">{{ form.permissions.errors|join:", " }}</div>{% endif %}
+                            </div>
+
+                            <!-- Force password change -->
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check">
+                                    {{ form.forcer_changement_mdp }}
+                                    <label class="form-check-label" for="id_forcer_changement_mdp">
+                                        {% trans "Forcer le changement de mot de passe" %}
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Message -->
+                            <div class="col-12 mb-3">
+                                <label for="id_message" class="form-label">{% trans "Message personnalise" %}</label>
+                                {{ form.message }}
+                                {% if form.message.errors %}<div class="text-danger f-s-12">{{ form.message.errors|join:", " }}</div>{% endif %}
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'core:admin-invitation-list' %}" class="btn btn-secondary">
+                                <i class="ti ti-arrow-left me-2"></i>{% trans "Retour" %}
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="ti ti-send me-2"></i>{% trans "Envoyer l'invitation" %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Help Card -->
+        <div class="col-xl-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Aide" %}</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted f-s-14">
+                        {% trans "Une invitation sera envoyee par email. Le client disposera de 7 jours pour accepter l'invitation." %}
+                    </p>
+                    <p class="text-muted f-s-14 mt-3">
+                        <strong>{% trans "Client externe" %}:</strong><br>
+                        {% trans "N'aura acces qu'au mandat specifie et aux fonctionnalites selon les permissions selectionnees." %}
+                    </p>
+                    <p class="text-muted f-s-14 mt-3">
+                        <strong>{% trans "Responsable" %}:</strong><br>
+                        {% trans "Si designe responsable, il pourra inviter d'autres utilisateurs de son entreprise (dans la limite configuree)." %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

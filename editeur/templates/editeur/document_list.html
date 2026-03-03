@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Documents collaboratifs" %} - AltiusOne{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- En-tête -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">{% trans "Documents collaboratifs" %}</h1>
+            <p class="text-muted mb-0">
+                {% trans "Gérez vos documents d'équipe" %}
+            </p>
+        </div>
+        <a href="{% url 'editeur:document_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i>
+            {% trans "Nouveau document" %}
+        </a>
+    </div>
+
+    <!-- Filtres -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" name="q" class="form-control"
+                               placeholder="{% trans 'Rechercher...' %}"
+                               value="{{ filtres_actifs.q|default:'' }}">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <select name="statut" class="form-select">
+                        <option value="">{% trans "Tous les statuts" %}</option>
+                        {% for value, label in statuts %}
+                        <option value="{{ value }}" {% if filtres_actifs.statut == value %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select name="type" class="form-select">
+                        <option value="">{% trans "Tous les types" %}</option>
+                        {% for value, label in types %}
+                        <option value="{{ value }}" {% if filtres_actifs.type == value %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-secondary w-100">
+                        <i class="bi bi-funnel me-1"></i>
+                        {% trans "Filtrer" %}
+                    </button>
+                </div>
+                {% if filtres_actifs.q or filtres_actifs.statut or filtres_actifs.type %}
+                <div class="col-md-2">
+                    <a href="{% url 'editeur:document_list' %}" class="btn btn-outline-secondary w-100">
+                        <i class="bi bi-x-lg me-1"></i>
+                        {% trans "Effacer" %}
+                    </a>
+                </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+
+    <!-- Liste des documents -->
+    {% if documents %}
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>{% trans "Titre" %}</th>
+                        <th>{% trans "Type" %}</th>
+                        <th>{% trans "Statut" %}</th>
+                        <th>{% trans "Mandat" %}</th>
+                        <th>{% trans "Créateur" %}</th>
+                        <th>{% trans "Collaborateurs" %}</th>
+                        <th>{% trans "Modifié" %}</th>
+                        <th class="text-end">{% trans "Actions" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doc in documents %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'editeur:document_detail' pk=doc.pk %}" class="fw-bold text-decoration-none">
+                                {{ doc.titre }}
+                            </a>
+                            {% if doc.est_public %}
+                            <i class="bi bi-globe text-muted ms-1" title="{% trans 'Public' %}"></i>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary">
+                                {{ doc.get_type_document_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge bg-{{ doc.statut|lower }}">
+                                {{ doc.get_statut_display }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if doc.mandat %}
+                            {{ doc.mandat.nom|truncatechars:20 }}
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {{ doc.createur.get_full_name|default:doc.createur.email|truncatechars:20 }}
+                        </td>
+                        <td>
+                            <span class="badge bg-light text-dark">
+                                <i class="bi bi-people me-1"></i>
+                                {{ doc.nombre_collaborateurs }}
+                            </span>
+                        </td>
+                        <td>
+                            <small class="text-muted">
+                                {{ doc.date_modification|timesince }}
+                            </small>
+                        </td>
+                        <td class="text-end">
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'editeur:document_detail' pk=doc.pk %}"
+                                   class="btn btn-outline-secondary" title="{% trans 'Voir' %}">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                {% if doc.est_editable %}
+                                <a href="{% url 'editeur:document_edit' pk=doc.pk %}"
+                                   class="btn btn-outline-primary" title="{% trans 'Éditer' %}">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in filtres_actifs.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                    {% trans "Précédent" %}
+                </a>
+            </li>
+            {% endif %}
+
+            <li class="page-item disabled">
+                <span class="page-link">
+                    {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+                </span>
+            </li>
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in filtres_actifs.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                    {% trans "Suivant" %}
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+    {% else %}
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-file-earmark-text display-1 text-muted"></i>
+            <h4 class="mt-3">{% trans "Aucun document" %}</h4>
+            <p class="text-muted">
+                {% if filtres_actifs.q or filtres_actifs.statut or filtres_actifs.type %}
+                {% trans "Aucun document ne correspond à vos critères." %}
+                {% else %}
+                {% trans "Commencez par créer votre premier document collaboratif." %}
+                {% endif %}
+            </p>
+            <a href="{% url 'editeur:document_create' %}" class="btn btn-primary">
+                <i class="bi bi-plus-lg me-1"></i>
+                {% trans "Nouveau document" %}
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.badge.bg-brouillon { background-color: #6c757d !important; }
+.badge.bg-en_cours { background-color: #0d6efd !important; }
+.badge.bg-revision { background-color: #ffc107 !important; color: #000; }
+.badge.bg-valide { background-color: #198754 !important; }
+.badge.bg-archive { background-color: #6c757d !important; }
+</style>
+{% endblock %}

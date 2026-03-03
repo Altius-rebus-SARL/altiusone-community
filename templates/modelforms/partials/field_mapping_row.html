@@ -1,0 +1,56 @@
+<!-- modelforms/partials/field_mapping_row.html -->
+{% load i18n %}
+
+<tr class="field-mapping-row" data-mapping-id="{{ mapping.pk }}">
+    <td>
+        <span class="drag-handle text-muted cursor-grab" title="{% trans 'Glisser pour réorganiser' %}">
+            <i class="ti ti-grip-vertical"></i>
+        </span>
+    </td>
+    <td>
+        <code>{{ mapping.field_name }}</code>
+        {% if mapping.model_path %}
+        <br><small class="text-muted">{{ mapping.model_path }}</small>
+        {% endif %}
+    </td>
+    <td>{{ mapping.label|default:"-" }}</td>
+    <td><span class="badge bg-light text-dark">{{ mapping.get_widget_type_display }}</span></td>
+    <td>
+        {% if mapping.required %}
+            <i class="ti ti-check text-success"></i>
+        {% elif mapping.required is None %}
+            <span class="text-muted small">{% trans "défaut" %}</span>
+        {% else %}
+            <i class="ti ti-minus text-muted"></i>
+        {% endif %}
+    </td>
+    <td>
+        {% if mapping.section %}
+        <span class="badge bg-light-info">{{ mapping.section }}</span>
+        {% else %}
+        <span class="text-muted">-</span>
+        {% endif %}
+    </td>
+    <td>{{ mapping.order }}</td>
+    <td>
+        <button type="button"
+                class="btn btn-sm btn-outline-primary"
+                hx-get="{% url 'modelforms:add-field-mapping' configuration.pk %}?mapping_id={{ mapping.pk }}"
+                hx-target="#edit-field-modal .modal-body"
+                hx-swap="innerHTML"
+                data-bs-toggle="modal"
+                data-bs-target="#edit-field-modal"
+                title="{% trans 'Modifier' %}">
+            <i class="ti ti-edit"></i>
+        </button>
+        <button type="button"
+                class="btn btn-sm btn-outline-danger"
+                hx-delete="{% url 'modelforms:delete-field-mapping' configuration.pk mapping.pk %}"
+                hx-target="#field-mappings-list"
+                hx-swap="innerHTML"
+                hx-confirm="{% trans 'Êtes-vous sûr de vouloir supprimer ce champ ?' %}"
+                title="{% trans 'Supprimer' %}">
+            <i class="ti ti-trash"></i>
+        </button>
+    </td>
+</tr>

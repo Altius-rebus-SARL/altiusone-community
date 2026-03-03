@@ -1,0 +1,212 @@
+<!-- comptabilite/lettrage_form.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load devise_tags %}
+
+{% block title %}{% trans "Lettrage" %} - {{ compte.numero }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Lettrage du compte" %} {{ compte.numero }}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'comptabilite:compte-detail' compte.pk %}">
+                    <span>{{ compte.numero }}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Lettrage" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<!-- Info Card -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Lettrage du compte" %} {{ compte.numero }} - {{ compte.libelle }}</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="ph ph-info me-2"></i>
+                    {% trans "Sélectionnez les écritures à lettrer. Le total débit doit être égal au total crédit." %}
+                </div>
+
+                <form method="post">
+                    {% csrf_token %}
+
+                    <!-- Table -->
+                    <div class="overflow-auto app-scroll mb-3">
+                        <table class="table table-bottom-border align-middle mb-0">
+                            <thead>
+                                <tr class="table-active">
+                                    <th>
+                                        <input type="checkbox" class="form-check-input" id="selectAll">
+                                    </th>
+                                    <th>{% trans "Date" %}</th>
+                                    <th>{% trans "Pièce" %}</th>
+                                    <th>{% trans "Journal" %}</th>
+                                    <th>{% trans "Libellé" %}</th>
+                                    <th class="text-end">{% trans "Débit" %}</th>
+                                    <th class="text-end">{% trans "Crédit" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for ecriture in ecritures %}
+                                <tr>
+                                    <td>
+                                        <input type="checkbox" name="ecritures" value="{{ ecriture.pk }}" 
+                                               class="form-check-input ecriture-check"
+                                               data-debit="{{ ecriture.montant_debit }}"
+                                               data-credit="{{ ecriture.montant_credit }}">
+                                    </td>
+                                    <td>{{ ecriture.date_ecriture|date:"d.m.Y" }}</td>
+                                    <td>
+                                        <span class="badge bg-light-dark">{{ ecriture.numero_piece }}</span>
+                                    </td>
+                                    <td>{{ ecriture.journal.code }}</td>
+                                    <td>{{ ecriture.libelle|truncatewords:10 }}</td>
+                                    <td class="text-end">
+                                        {% if ecriture.montant_debit > 0 %}
+                                        <span class="text-success">{{ ecriture.montant_debit|devise:DEVISE_TAUX|floatformat:2 }}</span>
+                                        {% else %}
+                                        <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end">
+                                        {% if ecriture.montant_credit > 0 %}
+                                        <span class="text-danger">{{ ecriture.montant_credit|devise:DEVISE_TAUX|floatformat:2 }}</span>
+                                        {% else %}
+                                        <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center py-5">
+                                        <i class="ph ph-check-circle f-s-50 text-success"></i>
+                                        <p class="text-muted mt-2">{% trans "Aucune écriture à lettrer" %}</p>
+                                        <a href="{% url 'comptabilite:compte-detail' compte.pk %}" class="btn btn-primary">
+                                            <i class="ph ph-arrow-left me-2"></i>{% trans "Retour au compte" %}
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            {% if ecritures %}
+                            <tfoot>
+                                <tr class="table-active">
+                                    <th colspan="5">{% trans "Totaux sélectionnés" %}</th>
+                                    <th class="text-end">
+                                        <span id="total-debit" class="text-success f-w-600">0.00</span>
+                                    </th>
+                                    <th class="text-end">
+                                        <span id="total-credit" class="text-danger f-w-600">0.00</span>
+                                    </th>
+                                </tr>
+                                <tr>
+                                    <th colspan="5">{% trans "Différence" %}</th>
+                                    <th colspan="2" class="text-end">
+                                        <span id="difference" class="f-w-600">0.00</span>
+                                    </th>
+                                </tr>
+                            </tfoot>
+                            {% endif %}
+                        </table>
+                    </div>
+
+                    {% if ecritures %}
+                    <!-- Actions -->
+                    <div class="d-flex justify-content-between align-items-center mt-4">
+                        <a href="{% url 'comptabilite:compte-detail' compte.pk %}" class="btn btn-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary" id="btn-lettrer" disabled>
+                            <i class="ph ph-link me-2"></i>{% trans "Effectuer le lettrage" %}
+                        </button>
+                    </div>
+                    {% endif %}
+                </form>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Gestion du lettrage
+const ecritureChecks = document.querySelectorAll('.ecriture-check');
+const selectAll = document.getElementById('selectAll');
+const totalDebitEl = document.getElementById('total-debit');
+const totalCreditEl = document.getElementById('total-credit');
+const differenceEl = document.getElementById('difference');
+const btnLettrer = document.getElementById('btn-lettrer');
+
+function updateTotals() {
+    let totalDebit = 0;
+    let totalCredit = 0;
+    
+    ecritureChecks.forEach(check => {
+        if (check.checked) {
+            totalDebit += parseFloat(check.dataset.debit || 0);
+            totalCredit += parseFloat(check.dataset.credit || 0);
+        }
+    });
+    
+    const diff = totalDebit - totalCredit;
+    
+    totalDebitEl.textContent = totalDebit.toFixed(2);
+    totalCreditEl.textContent = totalCredit.toFixed(2);
+    differenceEl.textContent = Math.abs(diff).toFixed(2);
+    
+    // Colorer la différence
+    if (diff === 0 && totalDebit > 0) {
+        differenceEl.className = 'f-w-600 text-success';
+        btnLettrer.disabled = false;
+    } else if (diff > 0) {
+        differenceEl.className = 'f-w-600 text-danger';
+        btnLettrer.disabled = true;
+    } else if (diff < 0) {
+        differenceEl.className = 'f-w-600 text-warning';
+        btnLettrer.disabled = true;
+    } else {
+        differenceEl.className = 'f-w-600 text-muted';
+        btnLettrer.disabled = true;
+    }
+}
+
+// Select all
+if (selectAll) {
+    selectAll.addEventListener('change', function() {
+        ecritureChecks.forEach(check => {
+            check.checked = this.checked;
+        });
+        updateTotals();
+    });
+}
+
+// Individual checks
+ecritureChecks.forEach(check => {
+    check.addEventListener('change', updateTotals);
+});
+
+// Initial update
+updateTotals();
+</script>
+{% endblock %}

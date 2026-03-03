@@ -1,0 +1,525 @@
+<!-- comptabilite/piece_form.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .upload-zone {
+        border: 2px dashed #dee2e6;
+        border-radius: 8px;
+        padding: 2rem;
+        text-align: center;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        background: #f8f9fa;
+    }
+    .upload-zone:hover, .upload-zone.dragover {
+        border-color: var(--bs-primary);
+        background: rgba(var(--bs-primary-rgb), 0.05);
+    }
+    .upload-zone i {
+        font-size: 3rem;
+        color: #adb5bd;
+    }
+    .upload-zone.dragover i {
+        color: var(--bs-primary);
+    }
+    .document-preview {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem;
+        background: #f8f9fa;
+        border-radius: 6px;
+        margin-bottom: 0.5rem;
+    }
+    .document-preview .doc-icon {
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--bs-primary);
+        color: white;
+        border-radius: 6px;
+        margin-right: 1rem;
+    }
+    .document-preview .doc-info {
+        flex: 1;
+    }
+    .document-preview .doc-name {
+        font-weight: 500;
+        margin-bottom: 0.25rem;
+    }
+    .document-preview .doc-size {
+        font-size: 0.75rem;
+        color: #6c757d;
+    }
+    .ocr-preview {
+        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+    .ocr-field {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid rgba(0,0,0,0.1);
+    }
+    .ocr-field:last-child {
+        border-bottom: none;
+    }
+    .ocr-field-label {
+        font-weight: 500;
+        color: #1565c0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{{ title }}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'comptabilite:piece-list' %}">
+                    <span>{% trans "Pieces comptables" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">
+                    {% if piece %}{% trans "Modifier" %}{% else %}{% trans "Nouvelle" %}{% endif %}
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<form method="post" enctype="multipart/form-data" class="app-form" id="pieceForm">
+    {% csrf_token %}
+
+    <div class="row">
+        <!-- Colonne gauche : Formulaire principal -->
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="ph ph-file-text me-2"></i>
+                        {% trans "Informations de la piece" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Erreurs generales -->
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {{ form.non_field_errors }}
+                    </div>
+                    {% endif %}
+
+                    <div class="row">
+                        <!-- Mandat -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.mandat.id_for_label }}" class="form-label">
+                                    {{ form.mandat.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.mandat }}
+                                {% if form.mandat.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.mandat.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Journal (optionnel) -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.journal.id_for_label }}" class="form-label">
+                                    {{ form.journal.label }}
+                                    <small class="text-muted">({% trans "optionnel" %})</small>
+                                </label>
+                                {{ form.journal }}
+                                {% if form.journal.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.journal.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Type de piece -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.type_piece.id_for_label }}" class="form-label">
+                                    {{ form.type_piece.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.type_piece }}
+                                {% if form.type_piece.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.type_piece.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Date -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.date_piece.id_for_label }}" class="form-label">
+                                    {{ form.date_piece.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.date_piece }}
+                                {% if form.date_piece.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.date_piece.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Numero de piece -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.numero_piece.id_for_label }}" class="form-label">
+                                    {{ form.numero_piece.label }}
+                                </label>
+                                {{ form.numero_piece }}
+                                <div class="form-check mt-2">
+                                    {{ form.generer_numero }}
+                                    <label class="form-check-label" for="{{ form.generer_numero.id_for_label }}">
+                                        {{ form.generer_numero.label }}
+                                    </label>
+                                </div>
+                                {% if form.numero_piece.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.numero_piece.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Reference externe -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.reference_externe.id_for_label }}" class="form-label">
+                                    {{ form.reference_externe.label }}
+                                </label>
+                                {{ form.reference_externe }}
+                                {% if form.reference_externe.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.reference_externe.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Libelle -->
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label for="{{ form.libelle.id_for_label }}" class="form-label">
+                                    {{ form.libelle.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.libelle }}
+                                {% if form.libelle.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.libelle.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section Tiers -->
+                    <h6 class="mt-4 mb-3 text-muted">
+                        <i class="ph ph-user me-2"></i>{% trans "Informations tiers" %}
+                    </h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.tiers_nom.id_for_label }}" class="form-label">
+                                    {{ form.tiers_nom.label }}
+                                </label>
+                                {{ form.tiers_nom }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.tiers_numero_tva.id_for_label }}" class="form-label">
+                                    {{ form.tiers_numero_tva.label }}
+                                </label>
+                                {{ form.tiers_numero_tva }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section Montants -->
+                    <h6 class="mt-4 mb-3 text-muted">
+                        <i class="ph ph-currency-circle-dollar me-2"></i>{% trans "Montants" %}
+                    </h6>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ form.montant_ht.id_for_label }}" class="form-label">
+                                    {{ form.montant_ht.label }}
+                                </label>
+                                <div class="input-group">
+                                    {{ form.montant_ht }}
+                                    <span class="input-group-text">{{ DEVISE_CODE }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ form.montant_tva.id_for_label }}" class="form-label">
+                                    {{ form.montant_tva.label }}
+                                </label>
+                                <div class="input-group">
+                                    {{ form.montant_tva }}
+                                    <span class="input-group-text">{{ DEVISE_CODE }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ form.montant_ttc.id_for_label }}" class="form-label">
+                                    {{ form.montant_ttc.label }}
+                                </label>
+                                <div class="input-group">
+                                    {{ form.montant_ttc }}
+                                    <span class="input-group-text">{{ DEVISE_CODE }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dossier de classement -->
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.dossier.id_for_label }}" class="form-label">
+                                    {{ form.dossier.label }}
+                                </label>
+                                {{ form.dossier }}
+                                <small class="text-muted">{% trans "Dossier ou seront classes les justificatifs" %}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Colonne droite : Upload documents -->
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="ph ph-paperclip me-2"></i>
+                        {% trans "Documents justificatifs" %}
+                    </h5>
+                    {% if piece and piece.pk %}
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="btnExtraireOCR">
+                        <i class="ph ph-magic-wand me-1"></i>{% trans "Extraire OCR" %}
+                    </button>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <!-- Zone d'upload -->
+                    <div class="upload-zone" id="uploadZone">
+                        <i class="ph ph-cloud-arrow-up mb-3"></i>
+                        <p class="mb-2">{% trans "Glissez vos fichiers ici" %}</p>
+                        <p class="text-muted f-s-12 mb-3">{% trans "ou cliquez pour selectionner" %}</p>
+                        <input type="file" name="fichiers" id="fichiers"
+                               multiple accept=".pdf,.jpg,.jpeg,.png,.tiff,.gif"
+                               class="d-none">
+                        <small class="text-muted">PDF, JPEG, PNG (max 10 Mo)</small>
+                    </div>
+
+                    <!-- Liste des fichiers selectionnes -->
+                    <div id="fileList" class="mt-3"></div>
+
+                    <!-- Documents existants (en mode edition) -->
+                    {% if documents %}
+                    <h6 class="mt-4 mb-3">{% trans "Documents attaches" %}</h6>
+                    {% for doc in documents %}
+                    <div class="document-preview">
+                        <div class="doc-icon">
+                            {% if 'pdf' in doc.type_mime %}
+                            <i class="ph ph-file-pdf"></i>
+                            {% elif 'image' in doc.type_mime %}
+                            <i class="ph ph-image"></i>
+                            {% else %}
+                            <i class="ph ph-file"></i>
+                            {% endif %}
+                        </div>
+                        <div class="doc-info">
+                            <div class="doc-name">{{ doc.nom_fichier }}</div>
+                            <div class="doc-size">
+                                {{ doc.taille|filesizeformat }}
+                                {% if doc.ocr_status == 'DONE' %}
+                                <span class="badge bg-success ms-2">OCR</span>
+                                {% elif doc.ocr_status == 'PROCESSING' %}
+                                <span class="badge bg-warning ms-2">{% trans "En cours" %}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <a href="{% url 'documents:document-detail' doc.pk %}"
+                           class="btn btn-sm btn-light" target="_blank">
+                            <i class="ph ph-eye"></i>
+                        </a>
+                    </div>
+                    {% endfor %}
+                    {% endif %}
+
+                    <!-- Zone de previsualisation OCR -->
+                    <div id="ocrPreview" class="ocr-preview d-none">
+                        <h6 class="mb-3">
+                            <i class="ph ph-scan me-2"></i>{% trans "Donnees extraites" %}
+                        </h6>
+                        <div id="ocrFields"></div>
+                        <div class="mt-3">
+                            <button type="button" class="btn btn-sm btn-primary" id="btnAppliquerOCR">
+                                <i class="ph ph-check me-1"></i>{% trans "Appliquer" %}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="card mt-3">
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="ph ph-check me-2"></i>{{ submit_text }}
+                        </button>
+                        <a href="{% if piece %}{% url 'comptabilite:piece-detail' piece.pk %}{% else %}{% url 'comptabilite:piece-list' %}{% endif %}"
+                           class="btn btn-outline-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadZone = document.getElementById('uploadZone');
+    const fileInput = document.getElementById('fichiers');
+    const fileList = document.getElementById('fileList');
+
+    // Click sur la zone d'upload
+    uploadZone.addEventListener('click', () => fileInput.click());
+
+    // Drag & Drop
+    uploadZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadZone.classList.add('dragover');
+    });
+
+    uploadZone.addEventListener('dragleave', () => {
+        uploadZone.classList.remove('dragover');
+    });
+
+    uploadZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadZone.classList.remove('dragover');
+        if (e.dataTransfer.files.length) {
+            fileInput.files = e.dataTransfer.files;
+            updateFileList();
+        }
+    });
+
+    // Changement de fichiers
+    fileInput.addEventListener('change', updateFileList);
+
+    function updateFileList() {
+        fileList.innerHTML = '';
+        const files = fileInput.files;
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const div = document.createElement('div');
+            div.className = 'document-preview';
+            div.innerHTML = '<div class="doc-icon"><i class="ph ' + (file.type.includes('pdf') ? 'ph-file-pdf' : 'ph-image') + '"></i></div>' +
+                '<div class="doc-info"><div class="doc-name">' + file.name + '</div><div class="doc-size">' + formatFileSize(file.size) + '</div></div>';
+            fileList.appendChild(div);
+        }
+    }
+
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    // Calcul automatique TTC
+    const montantHT = document.getElementById('id_montant_ht');
+    const montantTVA = document.getElementById('id_montant_tva');
+    const montantTTC = document.getElementById('id_montant_ttc');
+
+    function calculerTTC() {
+        const ht = parseFloat(montantHT.value) || 0;
+        const tva = parseFloat(montantTVA.value) || 0;
+        if (ht || tva) {
+            montantTTC.value = (ht + tva).toFixed(2);
+        }
+    }
+
+    if (montantHT && montantTVA && montantTTC) {
+        montantHT.addEventListener('change', calculerTTC);
+        montantTVA.addEventListener('change', calculerTTC);
+    }
+
+    // Toggle numero de piece
+    const genererNumero = document.getElementById('id_generer_numero');
+    const numeroPiece = document.getElementById('id_numero_piece');
+
+    if (genererNumero && numeroPiece) {
+        genererNumero.addEventListener('change', () => {
+            numeroPiece.disabled = genererNumero.checked;
+            if (genererNumero.checked) {
+                numeroPiece.value = '';
+                numeroPiece.placeholder = 'Genere automatiquement';
+            } else {
+                numeroPiece.placeholder = '';
+            }
+        });
+        // Initial state
+        if (genererNumero.checked) {
+            numeroPiece.disabled = true;
+        }
+    }
+
+    // ========================================
+    // Rechargement de la page au changement de mandat
+    // (le filtrage des journaux/dossiers est géré côté serveur par Django)
+    // ========================================
+    const mandatSelect = document.getElementById('id_mandat');
+    if (mandatSelect) {
+        // Fonction de rechargement
+        function rechargerAvecMandat() {
+            const mandatValue = mandatSelect.value;
+            if (mandatValue) {
+                // Recharger la page avec le mandat en paramètre
+                const url = new URL(window.location.href);
+                url.searchParams.set('mandat', mandatValue);
+                window.location.href = url.toString();
+            }
+        }
+
+        // Écouter l'événement change natif
+        mandatSelect.addEventListener('change', rechargerAvecMandat);
+
+        // Support Select2 - écouter aussi l'événement select2:select
+        if (typeof jQuery !== 'undefined') {
+            jQuery(mandatSelect).on('select2:select', rechargerAvecMandat);
+        }
+    }
+});
+</script>
+{% endblock %}

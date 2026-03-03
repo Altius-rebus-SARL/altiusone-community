@@ -1,0 +1,222 @@
+<!-- templates/includes/navbar.html -->
+{% load static %}
+{% load i18n %}
+
+<!-- Header Section starts -->
+<header class="header-main">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-8 col-sm-6 d-flex align-items-center header-left p-0">
+                <span class="header-toggle">
+                    <i class="ph ph-squares-four"></i>
+                </span>
+
+                <div class="header-searchbar w-100">
+                    <form action="{% url 'core:global-search' %}" class="mx-sm-3 app-form app-icon-form"
+                          id="omnibar-form" autocomplete="off">
+                        <div class="position-relative">
+                            <input aria-label="Search" class="form-control" placeholder="{% trans 'Rechercher...' %}"
+                                   type="search" name="q" id="omnibar-input"
+                                   data-search-url="{% url 'core:omnibar-search' %}"
+                                   data-full-url="{% url 'core:global-search' %}">
+                            <i class="ti ti-search text-dark" id="omnibar-icon"></i>
+                            <div class="spinner-border spinner-border-sm text-primary d-none"
+                                 id="omnibar-spinner" style="position:absolute; right:12px; top:12px;"></div>
+                        </div>
+                    </form>
+                    <div class="omnibar-dropdown d-none" id="omnibar-dropdown">
+                        <div id="omnibar-results"></div>
+                        <a href="#" class="omnibar-footer d-none" id="omnibar-footer">
+                            <i class="ti ti-search me-1"></i>
+                            <span>{% trans "Voir tous les résultats" %}</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-4 col-sm-6 d-flex align-items-center justify-content-end header-right p-0">
+                <ul class="d-flex align-items-center">
+
+                    {% if nextcloud_enabled %}
+                    <!-- External Services -->
+                    <li class="header-apps">
+                        <div class="flex-shrink-0 dropdown">
+                            <a aria-expanded="false" class="d-block head-icon bg-light-primary rounded-circle f-s-22 p-2" data-bs-toggle="dropdown" href="#">
+                                <i class="ph ph-squares-four"></i>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end header-card border-0 p-2" style="min-width: 200px;">
+                                <li class="dropdown-item p-2">
+                                    <a href="{{ nextcloud_url }}" target="_blank" rel="noopener" class="d-flex align-items-center text-decoration-none text-dark">
+                                        <span class="bg-light-info rounded-circle p-2 me-2">
+                                            <i class="ph ph-cloud f-s-18 text-info"></i>
+                                        </span>
+                                        <span>Nextcloud</span>
+                                    </a>
+                                </li>
+                                {% if is_superadmin %}
+                                <li class="dropdown-item p-2">
+                                    <a href="{{ minio_url }}" target="_blank" rel="noopener" class="d-flex align-items-center text-decoration-none text-dark">
+                                        <span class="bg-light-warning rounded-circle p-2 me-2">
+                                            <i class="ph ph-database f-s-18 text-warning"></i>
+                                        </span>
+                                        <span>MinIO Storage</span>
+                                    </a>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                    </li>
+                    {% endif %}
+
+                    <!-- Language Selector -->
+                    <li class="header-language">
+                        <div class="flex-shrink-0 dropdown" id="lang_selector">
+                            <a aria-expanded="false" class="d-block head-icon ps-0" data-bs-toggle="dropdown" href="#">
+                                <div class="lang-flag">
+                                    <span class="flag rounded-circle overflow-hidden">
+                                        {% if LANGUAGE_CODE == 'de' %}
+                                        <i class="flag-icon flag-icon-deu flag-icon-squared"></i>
+                                        {% elif LANGUAGE_CODE == 'it' %}
+                                        <i class="flag-icon flag-icon-ita flag-icon-squared"></i>
+                                        {% elif LANGUAGE_CODE == 'en' %}
+                                        <i class="flag-icon flag-icon-gbr flag-icon-squared"></i>
+                                        {% else %}
+                                        <i class="flag-icon flag-icon-fra flag-icon-squared"></i>
+                                        {% endif %}
+                                    </span>
+                                </div>
+                            </a>
+                            <ul class="dropdown-menu language-dropdown header-card border-0">
+                                <li class="dropdown-item p-2">
+                                    <form action="{% url 'set_language' %}" method="post">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="language" value="fr">
+                                        <input type="hidden" name="next" value="{{ request.path }}">
+                                        <button type="submit" class="btn btn-link p-0 d-flex align-items-center w-100 text-start">
+                                            <i class="flag-icon flag-icon-fra flag-icon-squared rounded-circle f-s-20"></i>
+                                            <span class="ps-2">Français</span>
+                                        </button>
+                                    </form>
+                                </li>
+                                <li class="dropdown-item p-2">
+                                    <form action="{% url 'set_language' %}" method="post">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="language" value="de">
+                                        <input type="hidden" name="next" value="{{ request.path }}">
+                                        <button type="submit" class="btn btn-link p-0 d-flex align-items-center w-100 text-start">
+                                            <i class="flag-icon flag-icon-deu flag-icon-squared rounded-circle f-s-20"></i>
+                                            <span class="ps-2">Deutsch</span>
+                                        </button>
+                                    </form>
+                                </li>
+                                <li class="dropdown-item p-2">
+                                    <form action="{% url 'set_language' %}" method="post">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="language" value="it">
+                                        <input type="hidden" name="next" value="{{ request.path }}">
+                                        <button type="submit" class="btn btn-link p-0 d-flex align-items-center w-100 text-start">
+                                            <i class="flag-icon flag-icon-ita flag-icon-squared rounded-circle f-s-20"></i>
+                                            <span class="ps-2">Italiano</span>
+                                        </button>
+                                    </form>
+                                </li>
+                                <li class="dropdown-item p-2">
+                                    <form action="{% url 'set_language' %}" method="post">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="language" value="en">
+                                        <input type="hidden" name="next" value="{{ request.path }}">
+                                        <button type="submit" class="btn btn-link p-0 d-flex align-items-center w-100 text-start">
+                                            <i class="flag-icon flag-icon-gbr flag-icon-squared rounded-circle f-s-20"></i>
+                                            <span class="ps-2">English</span>
+                                        </button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </div>
+                    </li>
+
+                    <!-- Currency Selector -->
+                    {% if DEVISES_ACTIVES|length > 1 %}
+                    <li class="header-currency">
+                        <div class="flex-shrink-0 dropdown">
+                            <a aria-expanded="false" class="d-block head-icon ps-0" data-bs-toggle="dropdown" href="#">
+                                <span class="badge bg-light-primary text-primary fw-bold f-s-14">{{ DEVISE_CODE }}</span>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end header-card border-0 p-2" style="min-width: 180px;">
+                                {% for d in DEVISES_ACTIVES %}
+                                <li class="dropdown-item p-2">
+                                    <form action="{% url 'core:set-devise' %}" method="post">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="devise_code" value="{{ d.code }}">
+                                        <input type="hidden" name="next" value="{{ request.path }}">
+                                        <button type="submit" class="btn btn-link p-0 d-flex align-items-center w-100 text-start text-decoration-none {% if d.code == DEVISE_CODE %}fw-bold text-primary{% else %}text-dark{% endif %}">
+                                            <span class="fw-bold me-2">{{ d.code }}</span>
+                                            <span>{{ d.nom }}</span>
+                                        </button>
+                                    </form>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </li>
+                    {% endif %}
+
+                    <!-- Dark Mode Toggle - Exactement comme le template -->
+                    <li class="header-dark">
+                        <div class="sun-logo head-icon bg-light-dark rounded-circle f-s-22 p-2">
+                            <i class="ph ph-moon-stars"></i>
+                        </div>
+                        <div class="moon-logo head-icon bg-light-dark rounded-circle f-s-22 p-2">
+                            <i class="ph ph-sun-dim"></i>
+                        </div>
+                    </li>
+
+                    <!-- Calendrier des tâches -->
+                    <li class="header-calendar">
+                        <a class="d-block head-icon bg-light-dark rounded-circle f-s-22 p-2"
+                           href="{% url 'core:tache-calendar' %}"
+                           title="{% trans 'Calendrier des tâches' %}">
+                            <i class="ph ph-calendar"></i>
+                        </a>
+                    </li>
+
+                    <!-- Notifications -->
+                    <li class="header-notification">
+                        <a aria-controls="notificationcanvasRight" 
+                           class="d-block head-icon position-relative bg-light-dark rounded-circle f-s-22 p-2" 
+                           data-bs-target="#notificationcanvasRight" data-bs-toggle="offcanvas" href="#" role="button">
+                            <i class="ph ph-bell"></i>
+                            {% if unread_notifications_count > 0 %}
+                            <span class="position-absolute translate-middle p-1 bg-primary border border-light rounded-circle animate__animated animate__fadeIn animate__infinite animate__slower"></span>
+                            {% endif %}
+                        </a>
+
+                        <!-- Notification Offcanvas -->
+                        <div aria-labelledby="notificationcanvasRightLabel" class="offcanvas offcanvas-end header-notification-canvas" 
+                             id="notificationcanvasRight" tabindex="-1">
+                            <div class="offcanvas-header">
+                                <h5 class="offcanvas-title" id="notificationcanvasRightLabel">{% trans "Notifications" %}</h5>
+                                <button aria-label="Close" class="btn-close" data-bs-dismiss="offcanvas" type="button"></button>
+                            </div>
+                            <div class="offcanvas-body app-scroll p-0">
+                                <div class="head-container">
+                                    <div class="hidden-massage py-4 px-3">
+                                        <div>
+                                            <i class="ph-duotone ph-bell-ringing f-s-50 text-primary"></i>
+                                        </div>
+                                        <div>
+                                            <h6 class="mb-0">{% trans "Aucune notification" %}</h6>
+                                            <p class="text-dark">{% trans "Aucune notification pour le moment" %}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </li>
+
+                </ul>
+            </div>
+        </div>
+    </div>
+</header>
+<!-- Header Section ends -->

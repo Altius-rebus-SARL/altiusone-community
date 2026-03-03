@@ -1,0 +1,247 @@
+<!-- comptabilite/ecriture_form.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}
+    {% if form.instance.pk %}{% trans "Modifier écriture" %}{% else %}{% trans "Nouvelle écriture" %}{% endif %}
+{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">
+            {% if form.instance.pk %}{% trans "Modifier écriture" %}{% else %}{% trans "Nouvelle écriture" %}{% endif %}
+        </h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'comptabilite:ecriture-list' %}">
+                    <span>{% trans "Écritures" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">
+                    {% if form.instance.pk %}{% trans "Modifier" %}{% else %}{% trans "Nouvelle" %}{% endif %}
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h4 class="text-primary mb-4">
+                    {% if form.instance.pk %}
+                        {% trans "Modifier l'écriture" %}
+                    {% else %}
+                        {% trans "Nouvelle écriture comptable" %}
+                    {% endif %}
+                </h4>
+
+                <form method="post" class="app-form">
+                    {% csrf_token %}
+
+                    <div class="row">
+                        <!-- Mandat -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.mandat.id_for_label }}" class="form-label">
+                                    {{ form.mandat.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.mandat }}
+                                {% if form.mandat.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.mandat.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Exercice -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.exercice.id_for_label }}" class="form-label">
+                                    {{ form.exercice.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.exercice }}
+                                {% if form.exercice.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.exercice.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Journal -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.journal.id_for_label }}" class="form-label">
+                                    {{ form.journal.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.journal }}
+                                {% if form.journal.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.journal.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Numéro de pièce -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.numero_piece.id_for_label }}" class="form-label">
+                                    {{ form.numero_piece.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.numero_piece }}
+                                {% if form.numero_piece.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.numero_piece.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Date écriture -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.date_ecriture.id_for_label }}" class="form-label">
+                                    {{ form.date_ecriture.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.date_ecriture }}
+                                {% if form.date_ecriture.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.date_ecriture.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Compte -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.compte.id_for_label }}" class="form-label">
+                                    {{ form.compte.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.compte }}
+                                {% if form.compte.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.compte.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Libellé -->
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label for="{{ form.libelle.id_for_label }}" class="form-label">
+                                    {{ form.libelle.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.libelle }}
+                                {% if form.libelle.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.libelle.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Montants -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.montant_debit.id_for_label }}" class="form-label">
+                                    {{ form.montant_debit.label }}
+                                </label>
+                                <div class="input-group">
+                                    {{ form.montant_debit }}
+                                    <span class="input-group-text">{{ DEVISE_CODE }}</span>
+                                </div>
+                                {% if form.montant_debit.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.montant_debit.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.montant_credit.id_for_label }}" class="form-label">
+                                    {{ form.montant_credit.label }}
+                                </label>
+                                <div class="input-group">
+                                    {{ form.montant_credit }}
+                                    <span class="input-group-text">{{ DEVISE_CODE }}</span>
+                                </div>
+                                {% if form.montant_credit.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.montant_credit.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Code TVA -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.code_tva.id_for_label }}" class="form-label">
+                                    {{ form.code_tva.label }}
+                                </label>
+                                {{ form.code_tva }}
+                                {% if form.code_tva.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.code_tva.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Montant TVA -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.montant_tva.id_for_label }}" class="form-label">
+                                    {{ form.montant_tva.label }}
+                                </label>
+                                <div class="input-group">
+                                    {{ form.montant_tva }}
+                                    <span class="input-group-text">{{ DEVISE_CODE }}</span>
+                                </div>
+                                {% if form.montant_tva.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.montant_tva.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <a href="{% if form.instance.pk %}{% url 'comptabilite:ecriture-detail' form.instance.pk %}{% else %}{% url 'comptabilite:ecriture-list' %}{% endif %}" 
+                           class="btn btn-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ph ph-check me-2"></i>{% trans "Enregistrer" %}
+                        </button>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,201 @@
+<!-- modelforms/form_builder.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load modelforms_tags %}
+
+{% block title %}{% trans "Constructeur" %} - {{ configuration.name }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Constructeur de formulaire" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'modelforms:configuration-list' %}">{% trans "Formulaires dynamiques" %}</a>
+            </li>
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'modelforms:configuration-detail' configuration.pk %}">{{ configuration.code }}</a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Constructeur" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<div class="row">
+    <!-- Panel gauche : Catalogue -->
+    <div class="col-lg-3">
+        <div class="card" style="position: sticky; top: 80px;">
+            <div class="card-header">
+                <h5><i class="ph-duotone ph-list-dashes me-2"></i>{% trans "Catalogue" %}</h5>
+                <small class="text-muted">
+                    <code>{{ configuration.target_model }}</code>
+                    {% for sm in configuration.source_models %}
+                    <br><code>{{ sm }}</code>
+                    {% endfor %}
+                </small>
+            </div>
+            <div class="card-body p-0" id="builder-catalogue"
+                 style="max-height: calc(100vh - 200px); overflow-y: auto;">
+                {% include 'modelforms/partials/builder_catalogue.html' %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel central : Sections & Champs -->
+    <div class="col-lg-5">
+        <div id="builder-sections-panel"
+             hx-get="{% url 'modelforms:builder-sections' configuration.pk %}"
+             hx-trigger="sectionsUpdated from:body">
+            {% include 'modelforms/partials/builder_sections.html' %}
+        </div>
+    </div>
+
+    <!-- Panel droit : Apercu live -->
+    <div class="col-lg-4">
+        <div class="card" style="position: sticky; top: 80px;">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="ph-duotone ph-eye me-2"></i>{% trans "Apercu" %}</h5>
+                <span class="badge bg-light text-muted">{% trans "Lecture seule" %}</span>
+            </div>
+            <div class="card-body" id="builder-preview"
+                 hx-get="{% url 'modelforms:builder-preview' configuration.pk %}"
+                 hx-trigger="load, previewUpdated from:body">
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary spinner-border-sm" role="status">
+                        <span class="visually-hidden">{% trans "Chargement..." %}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    initSortables();
+});
+
+// Re-init sortables after HTMX swaps
+document.body.addEventListener('htmx:afterSwap', function(evt) {
+    if (evt.detail.target.id === 'builder-sections-panel' ||
+        evt.detail.target.closest('#builder-sections-panel')) {
+        initSortables();
+    }
+    // After catalogue updated, re-render catalogue state
+    refreshCatalogueState();
+});
+
+function initSortables() {
+    // Sortable sections
+    var sectionsContainer = document.getElementById('sortable-sections');
+    if (sectionsContainer) {
+        // Destroy existing instance if any
+        if (sectionsContainer.sortable) {
+            sectionsContainer.sortable.destroy();
+        }
+        sectionsContainer.sortable = Sortable.create(sectionsContainer, {
+            handle: '.section-drag-handle',
+            animation: 150,
+            ghostClass: 'bg-light',
+            onEnd: function() {
+                var order = [];
+                sectionsContainer.querySelectorAll('.builder-section-card').forEach(function(el) {
+                    order.push(el.dataset.sectionId);
+                });
+                fetch("{% url 'modelforms:builder-reorder-sections' configuration.pk %}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({order: order})
+                });
+            }
+        });
+    }
+
+    // Sortable fields in each section
+    document.querySelectorAll('.sortable-fields').forEach(function(container) {
+        if (container.sortable) {
+            container.sortable.destroy();
+        }
+        container.sortable = Sortable.create(container, {
+            group: 'fields',
+            handle: '.field-drag-handle',
+            animation: 150,
+            ghostClass: 'bg-light',
+            onEnd: function() {
+                var items = [];
+                document.querySelectorAll('.sortable-fields').forEach(function(section) {
+                    var sectionId = section.dataset.sectionId || '';
+                    section.querySelectorAll('.builder-field-item').forEach(function(field, idx) {
+                        items.push({
+                            id: parseInt(field.dataset.mappingId),
+                            order: idx,
+                            section: sectionId
+                        });
+                    });
+                });
+                fetch("{% url 'modelforms:builder-reorder-fields' configuration.pk %}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({items: items})
+                });
+            }
+        });
+    });
+}
+
+function refreshCatalogueState() {
+    // Get list of configured field names from the sections panel
+    var configuredFields = new Set();
+    document.querySelectorAll('.builder-field-item').forEach(function(el) {
+        configuredFields.add(el.dataset.fieldName);
+    });
+    // Update catalogue items
+    document.querySelectorAll('.catalogue-field-item').forEach(function(el) {
+        var fieldName = el.dataset.fieldName;
+        var btn = el.querySelector('.btn-add-field');
+        var badge = el.querySelector('.badge-added');
+        if (configuredFields.has(fieldName)) {
+            if (btn) btn.style.display = 'none';
+            if (badge) badge.style.display = '';
+            el.classList.add('opacity-50');
+        } else {
+            if (btn) btn.style.display = '';
+            if (badge) badge.style.display = 'none';
+            el.classList.remove('opacity-50');
+        }
+    });
+}
+
+// Search filter for catalogue
+document.addEventListener('input', function(e) {
+    if (e.target.id === 'catalogue-search') {
+        var query = e.target.value.toLowerCase();
+        document.querySelectorAll('.catalogue-field-item').forEach(function(el) {
+            var text = el.textContent.toLowerCase();
+            el.style.display = text.includes(query) ? '' : 'none';
+        });
+    }
+});
+</script>
+{% endblock %}

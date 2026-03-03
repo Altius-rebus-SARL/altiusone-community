@@ -1,0 +1,187 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load widget_tweaks %}
+
+{% block title %}{% trans "Nouvelle optimisation fiscale" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Nouvelle optimisation fiscale" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'fiscalite:optimisation-list' %}">
+                    <span>{% trans "Optimisations" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Nouvelle" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<form method="post" class="app-form">
+    {% csrf_token %}
+    
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                {{ form.non_field_errors }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endif %}
+
+            <!-- Informations générales -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-info me-2"></i>{% trans "Informations générales" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Mandat" %} <span class="text-danger">*</span></label>
+                                {{ form.mandat|add_class:"form-select" }}
+                                {% if form.mandat.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.mandat.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Catégorie" %} <span class="text-danger">*</span></label>
+                                {{ form.categorie|add_class:"form-select" }}
+                                {% if form.categorie.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.categorie.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Titre" %} <span class="text-danger">*</span></label>
+                                {{ form.titre|add_class:"form-control" }}
+                                {% if form.titre.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.titre.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Description" %} <span class="text-danger">*</span></label>
+                                {{ form.description|add_class:"form-control" }}
+                                {% if form.description.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.description.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Impact financier -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-currency-circle-dollar me-2"></i>{% trans "Impact financier" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Économie estimée" %} ({{ DEVISE_CODE }}) <span class="text-danger">*</span></label>
+                                {{ form.economie_estimee|add_class:"form-control" }}
+                                {% if form.economie_estimee.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.economie_estimee.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Année d'application" %} <span class="text-danger">*</span></label>
+                                {{ form.annee_application|add_class:"form-control" }}
+                                {% if form.annee_application.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.annee_application.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Risque et conformité -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-shield me-2"></i>{% trans "Risque et conformité" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Niveau de risque" %} <span class="text-danger">*</span></label>
+                                {{ form.niveau_risque|add_class:"form-select" }}
+                                {% if form.niveau_risque.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.niveau_risque.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Référence légale" %}</label>
+                                {{ form.reference_legale|add_class:"form-control" }}
+                                <small class="text-muted">{% trans "Article de loi, circulaire, etc." %}</small>
+                                {% if form.reference_legale.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.reference_legale.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notes -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-note me-2"></i>{% trans "Notes" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Notes additionnelles" %}</label>
+                        {{ form.notes|add_class:"form-control" }}
+                        {% if form.notes.errors %}
+                        <div class="text-danger f-s-12 mt-1">{{ form.notes.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'fiscalite:optimisation-list' %}" class="btn btn-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ph ph-check me-2"></i>{% trans "Créer l'optimisation" %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}

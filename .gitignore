@@ -1,0 +1,80 @@
+# Environnements virtuels
+env/
+venv/
+ENV/
+.venv/
+
+# Fichiers de configuration d'environnement
+*.env
+.env.*
+!.env.example
+
+# Dépendances
+node_modules/
+dist/
+
+# IDE et outils
+.vscode/
+.idea/
+.claude/
+
+# Fichiers et dossiers générés par Django
+staticfiles/
+media/
+db.sqlite3
+*.sqlite3
+*.sqlite
+*.db
+
+# Fichiers de migration
+**/migrations/*.pyc
+**/migrations/*.pyo
+**/migrations/*.log
+**/migrations/__pycache__/
+**/migrations/*.sqlite3
+
+# Fichiers Python compilés
+*.pyc
+*.pyo
+__pycache__/
+
+# Fichiers de logs et de couverture
+*.log
+*.pot
+*.coverage
+.coverage.*
+
+# Fichiers spécifiques à Python
+*.egg-info/
+*.egg
+*.whl
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+
+
+# Autres fichiers à ignorer
+*.bak
+*.tmp
+
+# Seeds specifiques a une instance (donnees projet client)
+**/management/commands/seed_*.py
+
+
+
+# Fichiers Claude Code / prompts
+PROMPT_*.md
+
+# Celery
+celerybeat-schedule
+
+##
+notes.md
+oidc_rsa_key.pem
+docs-suite/
+docker-compose.override.yml
+
+# Nginx conf générée par Ansible (SSL) - ne pas écraser par git pull
+nginx/conf.d/altiusone.conf
+nginx/ssl/

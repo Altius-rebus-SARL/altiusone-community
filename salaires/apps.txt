@@ -1,0 +1,1340 @@
+# apps/salaires/models.py
+from django.db import models
+from core.models import BaseModel, Mandat, User, Adresse
+from decimal import Decimal
+from django.db.models import Q
+from django.core.validators import RegexValidator
+
+class Employe(BaseModel):
+    """Employé d'un mandat client"""
+    
+    SEXE_CHOICES = [
+        ('M', 'Masculin'),
+        ('F', 'Féminin'),
+        ('X', 'Autre'),
+    ]
+    
+    STATUT_CHOICES = [
+        ('ACTIF', 'Actif'),
+        ('SUSPENDU', 'Suspendu'),
+        ('CONGE', 'En congé'),
+        ('DEMISSION', 'Démission'),
+        ('LICENCIE', 'Licencié'),
+        ('RETRAITE', 'Retraité'),
+    ]
+    
+    TYPE_CONTRAT_CHOICES = [
+        ('CDI', 'Contrat durée indéterminée'),
+        ('CDD', 'Contrat durée déterminée'),
+        ('APPRENTI', 'Apprentissage'),
+        ('STAGE', 'Stage'),
+        ('TEMPORAIRE', 'Temporaire'),
+    ]
+    
+    # Identification
+    mandat = models.ForeignKey(Mandat, on_delete=models.CASCADE, 
+                               related_name='employes')
+    matricule = models.CharField(max_length=50, db_index=True)
+    
+    # Identité
+    nom = models.CharField(max_length=100, db_index=True)
+    prenom = models.CharField(max_length=100)
+    nom_naissance = models.CharField('Nom de naissance', max_length=100, blank=True)
+    date_naissance = models.DateField()
+    lieu_naissance = models.CharField(max_length=100, blank=True)
+    nationalite = models.CharField(max_length=3, default='CH')
+    sexe = models.CharField(max_length=1, choices=SEXE_CHOICES)
+    
+    # Numéros officiels
+    avs_number = models.CharField(
+        'Numéro AVS',
+        max_length=16,
+        unique=True,
+        validators=[RegexValidator(
+            r'^\d{3}\.\d{4}\.\d{4}\.\d{2}$',
+            'Format AVS invalide (756.1234.5678.90)'
+        )],
+        help_text='Format: 756.1234.5678.90'
+    )
+    numero_permis = models.CharField('Numéro permis', max_length=20, blank=True)
+    type_permis = models.CharField(max_length=2, blank=True, 
+                                    choices=[
+                                        ('B', 'Permis B'),
+                                        ('C', 'Permis C'),
+                                        ('L', 'Permis L'),
+                                        ('G', 'Permis G'),
+                                        ('F', 'Permis F'),
+                                    ])
+    
+    # Coordonnées
+    adresse = models.ForeignKey(Adresse, on_delete=models.PROTECT,
+                                 related_name='employes')
+    email = models.EmailField(blank=True)
+    telephone = models.CharField(max_length=20, blank=True)
+    mobile = models.CharField(max_length=20, blank=True)
+    
+    # Situation familiale
+    etat_civil = models.CharField(max_length=20, choices=[
+        ('CELIBATAIRE', 'Célibataire'),
+        ('MARIE', 'Marié(e)'),
+        ('DIVORCE', 'Divorcé(e)'),
+        ('VEUF', 'Veuf/Veuve'),
+        ('SEPARE', 'Séparé(e)'),
+        ('PARTENARIAT', 'Partenariat enregistré'),
+    ])
+    nombre_enfants = models.IntegerField(default=0)
+    
+    # Emploi
+    type_contrat = models.CharField(max_length=20, choices=TYPE_CONTRAT_CHOICES)
+    date_entree = models.DateField(db_index=True)
+    date_sortie = models.DateField(null=True, blank=True, db_index=True)
+    date_fin_periode_essai = models.DateField(null=True, blank=True)
+    
+    fonction = models.CharField(max_length=100)
+    departement = models.CharField(max_length=100, blank=True)
+    
+    taux_occupation = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=100,
+        help_text='Taux en % (100 = temps plein)'
+    )
+    
+    # Salaire
+    salaire_brut_mensuel = models.DecimalField(max_digits=10, decimal_places=2)
+    salaire_horaire = models.DecimalField(max_digits=10, decimal_places=2, 
+                                           null=True, blank=True)
+    
+    nombre_heures_semaine = models.DecimalField(max_digits=5, decimal_places=2, 
+                                                 default=42)
+    jours_vacances_annuel = models.IntegerField(default=20)
+    
+    # 13ème salaire
+    treizieme_salaire = models.BooleanField(default=True)
+    montant_13eme = models.DecimalField(max_digits=10, decimal_places=2, 
+                                         null=True, blank=True)
+    
+    # Paiement
+    iban = models.CharField('IBAN', max_length=34, blank=True)
+    banque = models.CharField(max_length=100, blank=True)
+    
+    # Statut
+    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, 
+                              default='ACTIF', db_index=True)
+    
+    # Impôt à la source
+    soumis_is = models.BooleanField('Soumis impôt à la source', default=False)
+    barreme_is = models.CharField('Barème IS', max_length=10, blank=True,
+                                   help_text='Ex: A, B, C, etc.')
+    taux_is = models.DecimalField('Taux IS', max_digits=5, decimal_places=2,
+                                   null=True, blank=True)
+    
+    # Configuration paie
+    config_cotisations = models.JSONField(default=dict, blank=True, help_text="""
+    {
+        "avs_actif": true,
+        "lpp_actif": true,
+        "laa_actif": true,
+        "ijm_actif": true,
+        "caisse_avs": "Caisse AVS Genève",
+        "institution_lpp": "Swiss Life",
+        "numero_lpp": "123456"
+    }
+    """)
+    
+    # Notes
+    remarques = models.TextField(blank=True)
+    
+    class Meta:
+        db_table = 'employes'
+        verbose_name = 'Employé'
+        unique_together = [['mandat', 'matricule']]
+        ordering = ['nom', 'prenom']
+        indexes = [
+            models.Index(fields=['mandat', 'statut']),
+            models.Index(fields=['avs_number']),
+        ]
+    
+    def __str__(self):
+        return f"{self.prenom} {self.nom} ({self.matricule})"
+    
+    @property
+    def age(self):
+        from datetime import date
+        today = date.today()
+        return today.year - self.date_naissance.year - (
+            (today.month, today.day) < (self.date_naissance.month, self.date_naissance.day)
+        )
+    
+    @property
+    def salaire_annuel_brut(self):
+        base = self.salaire_brut_mensuel * 12
+        if self.treizieme_salaire:
+            base += self.montant_13eme or self.salaire_brut_mensuel
+        return base
+
+
+class TauxCotisation(BaseModel):
+    """Taux de cotisations sociales"""
+    
+    TYPE_COTISATION_CHOICES = [
+        ('AVS', 'AVS/AI/APG'),
+        ('AC', 'Assurance chômage'),
+        ('AC_SUPP', 'AC supplément (>148\'200)'),
+        ('LPP', 'LPP (2e pilier)'),
+        ('LAA', 'LAA Accidents'),
+        ('LAAC', 'LAAC Accidents complémentaire'),
+        ('IJM', 'Indemnités journalières maladie'),
+        ('AF', 'Allocations familiales'),
+    ]
+    
+    REPARTITION_CHOICES = [
+        ('EMPLOYEUR', 'Employeur uniquement'),
+        ('EMPLOYE', 'Employé uniquement'),
+        ('PARTAGE', 'Partagé employeur/employé'),
+    ]
+    
+    type_cotisation = models.CharField(max_length=20, choices=TYPE_COTISATION_CHOICES,
+                                        unique=True)
+    libelle = models.CharField(max_length=100)
+    
+    # Taux
+    taux_total = models.DecimalField(max_digits=5, decimal_places=4,
+                                      help_text='Taux en % (ex: 5.35 pour AVS)')
+    taux_employeur = models.DecimalField(max_digits=5, decimal_places=4, default=0)
+    taux_employe = models.DecimalField(max_digits=5, decimal_places=4, default=0)
+    
+    repartition = models.CharField(max_length=20, choices=REPARTITION_CHOICES)
+    
+    # Limites
+    salaire_min = models.DecimalField(max_digits=10, decimal_places=2, 
+                                       null=True, blank=True,
+                                       help_text='Salaire minimum pour cotisation')
+    salaire_max = models.DecimalField(max_digits=10, decimal_places=2,
+                                       null=True, blank=True,
+                                       help_text='Salaire maximum (plafond)')
+    
+    # Validité
+    date_debut = models.DateField()
+    date_fin = models.DateField(null=True, blank=True)
+    
+    actif = models.BooleanField(default=True)
+    
+    class Meta:
+        db_table = 'taux_cotisations'
+        verbose_name = 'Taux de cotisation'
+        ordering = ['type_cotisation', '-date_debut']
+    
+    def __str__(self):
+        return f"{self.get_type_cotisation_display()} - {self.taux_total}%"
+    
+    @classmethod
+    def get_taux_actif(cls, type_cotisation, date):
+        """Récupère le taux applicable à une date"""
+        return cls.objects.filter(
+            type_cotisation=type_cotisation,
+            date_debut__lte=date,
+            actif=True
+        ).filter(
+            Q(date_fin__gte=date) | Q(date_fin__isnull=True)
+        ).first()
+
+
+class FicheSalaire(BaseModel):
+    """Fiche de salaire mensuelle"""
+    
+    STATUT_CHOICES = [
+        ('BROUILLON', 'Brouillon'),
+        ('VALIDE', 'Validée'),
+        ('PAYE', 'Payée'),
+        ('COMPTABILISE', 'Comptabilisée'),
+    ]
+    
+    # Identification
+    employe = models.ForeignKey(Employe, on_delete=models.CASCADE,
+                                 related_name='fiches_salaire')
+    numero_fiche = models.CharField(max_length=50, unique=True, db_index=True)
+    
+    # Période
+    periode = models.DateField(db_index=True, help_text='Premier jour du mois')
+    annee = models.IntegerField()
+    mois = models.IntegerField()
+    
+    # Présence
+    jours_travailles = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    heures_travaillees = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    heures_supplementaires = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    jours_absence = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    jours_vacances = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    jours_maladie = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    
+    # Salaire brut
+    salaire_base = models.DecimalField(max_digits=10, decimal_places=2)
+    heures_supp_montant = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    primes = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    indemnites = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    treizieme_mois = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    salaire_brut_total = models.DecimalField(max_digits=10, decimal_places=2)
+    
+    # Cotisations salariales (part employé)
+    avs_employe = models.DecimalField('AVS/AI/APG', max_digits=10, decimal_places=2, default=0)
+    ac_employe = models.DecimalField('AC', max_digits=10, decimal_places=2, default=0)
+    ac_supp_employe = models.DecimalField('AC supp.', max_digits=10, decimal_places=2, default=0)
+    lpp_employe = models.DecimalField('LPP', max_digits=10, decimal_places=2, default=0)
+    laa_employe = models.DecimalField('LAA', max_digits=10, decimal_places=2, default=0)
+    laac_employe = models.DecimalField('LAAC', max_digits=10, decimal_places=2, default=0)
+    ijm_employe = models.DecimalField('IJM', max_digits=10, decimal_places=2, default=0)
+    
+    total_cotisations_employe = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    # Impôt à la source
+    impot_source = models.DecimalField('Impôt à la source', max_digits=10, 
+                                        decimal_places=2, default=0)
+    
+    # Autres déductions
+    avance_salaire = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    saisie_salaire = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    autres_deductions = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    total_deductions = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    # Allocations
+    allocations_familiales = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    autres_allocations = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    # Salaire net
+    salaire_net = models.DecimalField(max_digits=10, decimal_places=2)
+    
+    # Charges patronales (pour info)
+    avs_employeur = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    ac_employeur = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    lpp_employeur = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    laa_employeur = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    af_employeur = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    total_charges_patronales = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    # Coût total employeur
+    cout_total_employeur = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    # Statut
+    statut = models.CharField(max_length=20, choices=STATUT_CHOICES,
+                              default='BROUILLON', db_index=True)
+    
+    date_validation = models.DateTimeField(null=True, blank=True)
+    valide_par = models.ForeignKey(User, on_delete=models.SET_NULL,
+                                     null=True, related_name='+')
+    
+    date_paiement = models.DateField(null=True, blank=True)
+    
+    # Fichier PDF
+    fichier_pdf = models.FileField(upload_to='salaires/fiches/', null=True, blank=True)
+    
+    # Lien comptabilité
+    ecriture_comptable = models.ForeignKey('comptabilite.PieceComptable',
+                                            on_delete=models.SET_NULL,
+                                            null=True, blank=True,
+                                            related_name='fiches_salaire')
+    
+    # Notes
+    remarques = models.TextField(blank=True)
+    
+    class Meta:
+        db_table = 'fiches_salaire'
+        verbose_name = 'Fiche de salaire'
+        unique_together = [['employe', 'periode']]
+        ordering = ['-periode', 'employe__nom']
+        indexes = [
+            models.Index(fields=['employe', 'periode']),
+            models.Index(fields=['periode', 'statut']),
+        ]
+    
+    def __str__(self):
+        return f"Fiche {self.employe} - {self.periode.strftime('%m/%Y')}"
+    
+    def save(self, *args, **kwargs):
+        # Extraction année/mois
+        self.annee = self.periode.year
+        self.mois = self.periode.month
+        
+        # Génération numéro
+        if not self.numero_fiche:
+            self.numero_fiche = f"SAL-{self.periode.strftime('%Y%m')}-{self.employe.matricule}"
+        
+        super().save(*args, **kwargs)
+    
+    def calculer(self):
+        """Calcule tous les montants de la fiche"""
+        # Salaire brut total
+        self.salaire_brut_total = (
+            self.salaire_base 
+            + self.heures_supp_montant 
+            + self.primes 
+            + self.indemnites
+            + self.treizieme_mois
+        )
+        
+        # Cotisations employé
+        self.avs_employe = self._calculer_cotisation('AVS', 'employe')
+        self.ac_employe = self._calculer_cotisation('AC', 'employe')
+        self.lpp_employe = self._calculer_cotisation('LPP', 'employe')
+        # ... autres cotisations
+        
+        self.total_cotisations_employe = (
+            self.avs_employe 
+            + self.ac_employe 
+            + self.ac_supp_employe
+            + self.lpp_employe 
+            + self.laa_employe 
+            + self.laac_employe
+            + self.ijm_employe
+        )
+        
+        # Déductions totales
+        self.total_deductions = (
+            self.total_cotisations_employe
+            + self.impot_source
+            + self.avance_salaire
+            + self.saisie_salaire
+            + self.autres_deductions
+        )
+        
+        # Salaire net
+        self.salaire_net = (
+            self.salaire_brut_total
+            - self.total_deductions
+            + self.allocations_familiales
+            + self.autres_allocations
+        )
+        
+        # Charges patronales
+        self.avs_employeur = self._calculer_cotisation('AVS', 'employeur')
+        self.ac_employeur = self._calculer_cotisation('AC', 'employeur')
+        # ... autres charges
+        
+        self.total_charges_patronales = (
+            self.avs_employeur
+            + self.ac_employeur
+            + self.lpp_employeur
+            + self.laa_employeur
+            + self.af_employeur
+        )
+        
+        # Coût total
+        self.cout_total_employeur = (
+            self.salaire_brut_total
+            + self.total_charges_patronales
+        )
+        
+        self.save()
+        return self.salaire_net
+    
+    def _calculer_cotisation(self, type_cot, part):
+        """Calcule une cotisation spécifique"""
+        taux_obj = TauxCotisation.get_taux_actif(type_cot, self.periode)
+        if not taux_obj:
+            return Decimal('0.00')
+        
+        base = self.salaire_brut_total
+        
+        # Appliquer plafonds si nécessaire
+        if taux_obj.salaire_max and base > taux_obj.salaire_max:
+            base = taux_obj.salaire_max
+        if taux_obj.salaire_min and base < taux_obj.salaire_min:
+            return Decimal('0.00')
+        
+        taux = taux_obj.taux_employe if part == 'employe' else taux_obj.taux_employeur
+        return (base * taux / 100).quantize(Decimal('0.01'))
+
+
+class CertificatSalaire(BaseModel):
+    """Certificat de salaire annuel"""
+    
+    employe = models.ForeignKey(Employe, on_delete=models.CASCADE,
+                                 related_name='certificats_salaire')
+    annee = models.IntegerField(db_index=True)
+    
+    # Périodes
+    date_debut = models.DateField()
+    date_fin = models.DateField()
+    
+    # Salaires bruts
+    salaire_brut_annuel = models.DecimalField(max_digits=12, decimal_places=2)
+    treizieme_salaire_annuel = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    primes_annuelles = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    # Cotisations annuelles
+    avs_annuel = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    ac_annuel = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    lpp_annuel = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    # Allocations
+    allocations_familiales_annuel = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    # Frais
+    frais_deplacement = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    frais_repas = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    # Impôt source
+    impot_source_annuel = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    # Fichier
+    fichier_pdf = models.FileField(upload_to='salaires/certificats/', null=True, blank=True)
+    
+    date_generation = models.DateTimeField(auto_now_add=True)
+    genere_par = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    
+    class Meta:
+        db_table = 'certificats_salaire'
+        verbose_name = 'Certificat de salaire'
+        unique_together = [['employe', 'annee']]
+        ordering = ['-annee']
+    
+    def __str__(self):
+        return f"Certificat {self.annee} - {self.employe}"
+
+
+class DeclarationCotisations(BaseModel):
+    """Déclaration des cotisations sociales (AVS, etc.)"""
+    
+    ORGANISME_CHOICES = [
+        ('AVS', 'Caisse AVS'),
+        ('LPP', 'Institution LPP'),
+        ('LAA', 'Assurance LAA'),
+        ('AF', 'Caisse allocations familiales'),
+    ]
+    
+    mandat = models.ForeignKey(Mandat, on_delete=models.CASCADE)
+    organisme = models.CharField(max_length=10, choices=ORGANISME_CHOICES)
+    
+    periode_debut = models.DateField()
+    periode_fin = models.DateField()
+    
+    masse_salariale = models.DecimalField(max_digits=15, decimal_places=2)
+    montant_cotisations = models.DecimalField(max_digits=12, decimal_places=2)
+    
+    date_declaration = models.DateField(auto_now_add=True)
+    date_echeance = models.DateField()
+    date_paiement = models.DateField(null=True, blank=True)
+    
+    numero_reference = models.CharField(max_length=50, blank=True)
+    
+    fichier_declaration = models.FileField(upload_to='salaires/declarations/', 
+                                           null=True, blank=True)
+    
+    class Meta:
+        db_table = 'declarations_cotisations'
+        verbose_name = 'Déclaration de cotisations'# salaires/filters.py
+import django_filters
+from django import forms
+from django.utils.translation import gettext_lazy as _
+from .models import Employe, FicheSalaire
+from core.models import Mandat
+
+
+class EmployeFilter(django_filters.FilterSet):
+    """Filtres pour les employés"""
+
+    nom = django_filters.CharFilter(
+        lookup_expr="icontains",
+        label=_("Nom"),
+        widget=forms.TextInput(
+            attrs={"class": "form-control", "placeholder": "Nom..."}
+        ),
+    )
+
+    prenom = django_filters.CharFilter(
+        lookup_expr="icontains",
+        label=_("Prénom"),
+        widget=forms.TextInput(
+            attrs={"class": "form-control", "placeholder": "Prénom..."}
+        ),
+    )
+
+    matricule = django_filters.CharFilter(
+        lookup_expr="icontains",
+        label=_("Matricule"),
+        widget=forms.TextInput(
+            attrs={"class": "form-control", "placeholder": "Matricule..."}
+        ),
+    )
+
+    mandat = django_filters.ModelChoiceFilter(
+        queryset=Mandat.objects.filter(statut="ACTIF"),
+        label=_("Mandat"),
+        empty_label="Tous les mandats",  # ⚠️ IMPORTANT
+        widget=forms.Select(attrs={"class": "form-control select2"}),
+    )
+
+    statut = django_filters.ChoiceFilter(
+        choices=Employe.STATUT_CHOICES,
+        label=_("Statut"),
+        empty_label="Tous les statuts",  # ⚠️ IMPORTANT
+        widget=forms.Select(attrs={"class": "form-control"}),
+    )
+
+    type_contrat = django_filters.ChoiceFilter(
+        choices=Employe.TYPE_CONTRAT_CHOICES,
+        label=_("Type de contrat"),
+        empty_label="Tous les types",  # ⚠️ IMPORTANT
+        widget=forms.Select(attrs={"class": "form-control"}),
+    )
+
+    fonction = django_filters.CharFilter(
+        lookup_expr="icontains",
+        label=_("Fonction"),
+        widget=forms.TextInput(attrs={"class": "form-control"}),
+    )
+
+    departement = django_filters.CharFilter(
+        lookup_expr="icontains",
+        label=_("Département"),
+        widget=forms.TextInput(attrs={"class": "form-control"}),
+    )
+
+    # Remplacer DateFromToRangeFilter par des champs simples
+    date_entree__gte = django_filters.DateFilter(
+        field_name="date_entree",
+        lookup_expr="gte",
+        label=_("Date entrée (depuis)"),
+        widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+    )
+
+    date_entree__lte = django_filters.DateFilter(
+        field_name="date_entree",
+        lookup_expr="lte",
+        label=_("Date entrée (jusqu'à)"),
+        widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+    )
+
+    class Meta:
+        model = Employe
+        fields = []  # ⚠️ VIDE pour ne pas auto-appliquer
+
+
+class FicheSalaireFilter(django_filters.FilterSet):
+    """Filtres pour les fiches de salaire"""
+
+    employe__nom = django_filters.CharFilter(
+        lookup_expr="icontains",
+        label=_("Nom employé"),
+        widget=forms.TextInput(
+            attrs={"class": "form-control", "placeholder": "Nom..."}
+        ),
+    )
+
+    employe__mandat = django_filters.ModelChoiceFilter(
+        queryset=Mandat.objects.filter(statut="ACTIF"),
+        label=_("Mandat"),
+        empty_label="Tous les mandats",  # ⚠️ IMPORTANT
+        widget=forms.Select(attrs={"class": "form-control select2"}),
+    )
+
+    numero_fiche = django_filters.CharFilter(
+        lookup_expr="icontains",
+        label=_("Numéro fiche"),
+        widget=forms.TextInput(attrs={"class": "form-control"}),
+    )
+
+    # Remplacer DateFromToRangeFilter par des champs simples
+    periode__gte = django_filters.DateFilter(
+        field_name="periode",
+        lookup_expr="gte",
+        label=_("Période (depuis)"),
+        widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+    )
+
+    periode__lte = django_filters.DateFilter(
+        field_name="periode",
+        lookup_expr="lte",
+        label=_("Période (jusqu'à)"),
+        widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+    )
+
+    annee = django_filters.NumberFilter(
+        label=_("Année"),
+        widget=forms.NumberInput(
+            attrs={"class": "form-control", "placeholder": "2024"}
+        ),
+    )
+
+    mois = django_filters.NumberFilter(
+        label=_("Mois"),
+        widget=forms.NumberInput(
+            attrs={
+                "class": "form-control",
+                "min": "1",
+                "max": "12",
+                "placeholder": "1-12",
+            }
+        ),
+    )
+
+    statut = django_filters.ChoiceFilter(
+        choices=FicheSalaire.STATUT_CHOICES,
+        label=_("Statut"),
+        empty_label="Tous les statuts",  # ⚠️ IMPORTANT
+        widget=forms.Select(attrs={"class": "form-control"}),
+    )
+
+    class Meta:
+        model = FicheSalaire
+        fields = []  # ⚠️ VIDE pour ne pas auto-appliquer
+# salaires/views.py
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_http_methods
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.views.generic import ListView, DetailView, CreateView, UpdateView
+from django.db.models import Q, Count, Sum, Avg, F, Max
+from django.urls import reverse_lazy
+from django.contrib import messages
+from django.http import JsonResponse, HttpResponse
+from django.utils.translation import gettext_lazy as _
+from datetime import datetime, timedelta
+from decimal import Decimal
+import json
+
+from .models import (
+    Employe,
+    TauxCotisation,
+    FicheSalaire,
+    CertificatSalaire,
+    DeclarationCotisations,
+)
+from .forms import EmployeForm, FicheSalaireForm, CertificatSalaireForm
+from .filters import EmployeFilter, FicheSalaireFilter
+from core.models import Mandat
+
+
+# ============ EMPLOYÉS ============
+
+
+class EmployeListView(LoginRequiredMixin, ListView):
+    """Liste des employés"""
+
+    model = Employe
+    template_name = "salaires/employe_list.html"
+    context_object_name = "employes"
+    paginate_by = 50
+
+    def get_queryset(self):
+        queryset = (
+            Employe.objects.select_related("mandat__client", "adresse")
+            .annotate(nb_fiches=Count("fiches_salaire"))
+            .filter(is_active=True)
+        )  # ⚠️ IMPORTANT
+
+        # Filtrer selon le rôle
+        user = self.request.user
+        if user.role not in ["ADMIN", "MANAGER"]:
+            queryset = queryset.filter(
+                Q(mandat__responsable=user) | Q(mandat__equipe=user)
+            ).distinct()
+
+        # Appliquer les filtres SEULEMENT s'il y a des paramètres
+        if self.request.GET:
+            self.filterset = EmployeFilter(self.request.GET, queryset=queryset)
+            return self.filterset.qs.order_by("nom", "prenom")
+        else:
+            self.filterset = EmployeFilter(queryset=queryset)  # Filterset vide
+            return queryset.order_by("nom", "prenom")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["filter"] = self.filterset
+
+        # Statistiques sur object_list (pas get_queryset)
+        queryset = self.object_list
+        context["stats"] = {
+            "total": queryset.count(),
+            "actifs": queryset.filter(statut="ACTIF").count(),
+            "cdi": queryset.filter(type_contrat="CDI").count(),
+            "masse_salariale": queryset.filter(statut="ACTIF").aggregate(
+                Sum("salaire_brut_mensuel")
+            )["salaire_brut_mensuel__sum"]
+            or 0,
+        }
+
+        return context
+
+
+class EmployeDetailView(LoginRequiredMixin, DetailView):
+    """Détail d'un employé"""
+
+    model = Employe
+    template_name = "salaires/employe_detail.html"
+    context_object_name = "employe"
+
+    def get_queryset(self):
+        return (
+            super()
+            .get_queryset()
+            .select_related("mandat__client", "adresse")
+            .prefetch_related("fiches_salaire", "certificats_salaire")
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        employe = self.object
+
+        # Fiches de salaire
+        context["fiches_recentes"] = employe.fiches_salaire.order_by("-periode")[:12]
+
+        # Certificats de salaire
+        context["certificats"] = employe.certificats_salaire.order_by("-annee")
+
+        # Statistiques annuelles
+        annee_courante = datetime.now().year
+        fiches_annee = employe.fiches_salaire.filter(
+            annee=annee_courante, statut__in=["VALIDE", "PAYE", "COMPTABILISE"]
+        )
+
+        context["stats_annee"] = {
+            "salaire_brut_total": fiches_annee.aggregate(Sum("salaire_brut_total"))[
+                "salaire_brut_total__sum"
+            ]
+            or 0,
+            "salaire_net_total": fiches_annee.aggregate(Sum("salaire_net"))[
+                "salaire_net__sum"
+            ]
+            or 0,
+            "cotisations_employe": fiches_annee.aggregate(
+                Sum("total_cotisations_employe")
+            )["total_cotisations_employe__sum"]
+            or 0,
+            "charges_patronales": fiches_annee.aggregate(
+                Sum("total_charges_patronales")
+            )["total_charges_patronales__sum"]
+            or 0,
+        }
+
+        # Évolution salaire brut
+        evolution = []
+        for fiche in context["fiches_recentes"]:
+            evolution.append(
+                {
+                    "periode": fiche.periode.strftime("%Y-%m"),
+                    "salaire_brut": float(fiche.salaire_brut_total),
+                    "salaire_net": float(fiche.salaire_net),
+                }
+            )
+        context["evolution_salaire"] = json.dumps(list(reversed(evolution)))
+
+        return context
+
+
+class EmployeCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    """Création d'un employé"""
+
+    model = Employe
+    form_class = EmployeForm
+    template_name = "salaires/employe_form.html"
+    permission_required = "salaires.add_employe"
+
+    def get_success_url(self):
+        return reverse_lazy("salaires:employe-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        messages.success(self.request, _("Employé créé avec succès"))
+        return super().form_valid(form)
+
+
+class EmployeUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+    """Modification d'un employé"""
+
+    model = Employe
+    form_class = EmployeForm
+    template_name = "salaires/employe_form.html"
+    permission_required = "salaires.change_employe"
+
+    def get_success_url(self):
+        return reverse_lazy("salaires:employe-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, _("Employé modifié avec succès"))
+        return super().form_valid(form)
+
+
+# ============ FICHES DE SALAIRE ============
+
+
+class FicheSalaireListView(LoginRequiredMixin, ListView):
+    """Liste des fiches de salaire"""
+
+    model = FicheSalaire
+    template_name = "salaires/fiche_list.html"
+    context_object_name = "fiches"
+    paginate_by = 50
+
+    def get_queryset(self):
+        queryset = FicheSalaire.objects.select_related(
+            "employe__mandat__client", "employe", "valide_par"
+        ).filter(is_active=True)  # ⚠️ IMPORTANT
+
+        # Filtrer selon le rôle
+        user = self.request.user
+        if user.role not in ["ADMIN", "MANAGER"]:
+            queryset = queryset.filter(
+                Q(employe__mandat__responsable=user) | Q(employe__mandat__equipe=user)
+            ).distinct()
+
+        # Appliquer les filtres SEULEMENT s'il y a des paramètres
+        if self.request.GET:
+            self.filterset = FicheSalaireFilter(self.request.GET, queryset=queryset)
+            return self.filterset.qs.order_by("-periode", "employe__nom")
+        else:
+            self.filterset = FicheSalaireFilter(queryset=queryset)  # Filterset vide
+            return queryset.order_by("-periode", "employe__nom")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["filter"] = self.filterset
+
+        # Statistiques sur object_list
+        queryset = self.object_list
+        context["stats"] = {
+            "total": queryset.count(),
+            "brouillon": queryset.filter(statut="BROUILLON").count(),
+            "valide": queryset.filter(statut="VALIDE").count(),
+            "paye": queryset.filter(statut="PAYE").count(),
+            "masse_salariale_mois": queryset.filter(
+                periode__year=datetime.now().year,
+                periode__month=datetime.now().month,
+                statut__in=["VALIDE", "PAYE", "COMPTABILISE"],
+            ).aggregate(Sum("salaire_brut_total"))["salaire_brut_total__sum"]
+            or 0,
+        }
+
+        return context
+
+class FicheSalaireDetailView(LoginRequiredMixin, DetailView):
+    """Détail d'une fiche de salaire"""
+
+    model = FicheSalaire
+    template_name = "salaires/fiche_detail.html"
+    context_object_name = "fiche"
+
+    def get_queryset(self):
+        return (
+            super()
+            .get_queryset()
+            .select_related(
+                "employe__mandat__client",
+                "employe__adresse",
+                "valide_par",
+                "ecriture_comptable",
+            )
+        )
+
+
+class FicheSalaireCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    """Création d'une fiche de salaire"""
+
+    model = FicheSalaire
+    form_class = FicheSalaireForm
+    template_name = "salaires/fiche_form.html"
+    permission_required = "salaires.add_fichesalaire"
+
+    def get_initial(self):
+        initial = super().get_initial()
+
+        # Préremplir avec l'employé si fourni
+        employe_id = self.request.GET.get("employe")
+        if employe_id:
+            employe = get_object_or_404(Employe, pk=employe_id)
+            initial["employe"] = employe
+
+            # Préremplir avec les infos de l'employé
+            initial["salaire_base"] = employe.salaire_brut_mensuel
+
+        # Période par défaut: mois précédent
+        today = datetime.now().date()
+        if today.month == 1:
+            initial["periode"] = today.replace(year=today.year - 1, month=12, day=1)
+        else:
+            initial["periode"] = today.replace(month=today.month - 1, day=1)
+
+        return initial
+
+    def get_success_url(self):
+        return reverse_lazy("salaires:fiche-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+
+        # Calculer automatiquement les montants
+        fiche = form.instance
+        fiche.calculer()
+
+        messages.success(self.request, _("Fiche de salaire créée avec succès"))
+        return super().form_valid(form)
+
+
+@login_required
+@require_http_methods(["POST"])
+def fiche_valider(request, pk):
+    """Valide une fiche de salaire"""
+    fiche = get_object_or_404(FicheSalaire, pk=pk, statut="BROUILLON")
+
+    # Recalculer
+    fiche.calculer()
+
+    # Valider
+    fiche.statut = "VALIDE"
+    fiche.valide_par = request.user
+    fiche.date_validation = datetime.now()
+    fiche.save()
+
+    messages.success(request, _("Fiche de salaire validée avec succès"))
+    return redirect("salaires:fiche-detail", pk=pk)
+
+
+@login_required
+def fiche_generer_pdf(request, pk):
+    """Génère le PDF d'une fiche de salaire"""
+    fiche = get_object_or_404(FicheSalaire, pk=pk)
+
+    # TODO: Générer le PDF
+
+    messages.info(request, _("Génération du PDF en cours..."))
+    return redirect("salaires:fiche-detail", pk=pk)
+
+
+@login_required
+def generer_fiches_masse(request):
+    """Génère les fiches de salaire pour tous les employés actifs d'un mandat"""
+
+    if request.method == "POST":
+        mandat_id = request.POST.get("mandat")
+        periode_str = request.POST.get("periode")
+
+        mandat = get_object_or_404(Mandat, pk=mandat_id)
+        periode = datetime.strptime(periode_str, "%Y-%m-%d").date()
+
+        # Récupérer les employés actifs
+        employes = Employe.objects.filter(mandat=mandat, statut="ACTIF")
+
+        fiches_creees = 0
+        for employe in employes:
+            # Vérifier si fiche existe déjà
+            if not FicheSalaire.objects.filter(
+                employe=employe, periode=periode
+            ).exists():
+                # Créer la fiche
+                fiche = FicheSalaire.objects.create(
+                    employe=employe,
+                    periode=periode,
+                    salaire_base=employe.salaire_brut_mensuel,
+                    created_by=request.user,
+                )
+
+                # Calculer
+                fiche.calculer()
+                fiches_creees += 1
+
+        messages.success(
+            request,
+            _("%(count)d fiches de salaire créées avec succès")
+            % {"count": fiches_creees},
+        )
+        return redirect("salaires:fiche-list")
+
+    # GET: afficher le formulaire
+    mandats = Mandat.objects.filter(
+        statut="ACTIF", type_mandat__in=["SALAIRES", "GLOBAL"]
+    )
+
+    return render(request, "salaires/generer_fiches_masse.html", {"mandats": mandats})
+
+
+# ============ CERTIFICATS DE SALAIRE ============
+
+
+class CertificatSalaireListView(LoginRequiredMixin, ListView):
+    """Liste des certificats de salaire"""
+
+    model = CertificatSalaire
+    template_name = "salaires/certificat_list.html"
+    context_object_name = "certificats"
+    paginate_by = 50
+
+    def get_queryset(self):
+        return CertificatSalaire.objects.select_related(
+            "employe__mandat", "genere_par"
+        ).order_by("-annee", "employe__nom")
+
+
+class CertificatSalaireDetailView(LoginRequiredMixin, DetailView):
+    """Détail d'un certificat de salaire"""
+
+    model = CertificatSalaire
+    template_name = "salaires/certificat_detail.html"
+    context_object_name = "certificat"
+
+
+@login_required
+def generer_certificat(request, employe_pk):
+    """Génère le certificat de salaire annuel pour un employé"""
+    employe = get_object_or_404(Employe, pk=employe_pk)
+
+    if request.method == "POST":
+        annee = int(request.POST.get("annee"))
+
+        # Vérifier si certificat existe déjà
+        certificat, created = CertificatSalaire.objects.get_or_create(
+            employe=employe,
+            annee=annee,
+            defaults={
+                "date_debut": datetime(annee, 1, 1).date(),
+                "date_fin": datetime(annee, 12, 31).date(),
+                "genere_par": request.user,
+            },
+        )
+
+        if not created:
+            messages.warning(request, _("Un certificat existe déjà pour cette année"))
+        else:
+            # Calculer les totaux depuis les fiches de salaire
+            fiches = FicheSalaire.objects.filter(
+                employe=employe,
+                annee=annee,
+                statut__in=["VALIDE", "PAYE", "COMPTABILISE"],
+            )
+
+            certificat.salaire_brut_annuel = (
+                fiches.aggregate(Sum("salaire_brut_total"))["salaire_brut_total__sum"]
+                or 0
+            )
+
+            certificat.treizieme_salaire_annuel = (
+                fiches.aggregate(Sum("treizieme_mois"))["treizieme_mois__sum"] or 0
+            )
+
+            certificat.primes_annuelles = (
+                fiches.aggregate(Sum("primes"))["primes__sum"] or 0
+            )
+
+            certificat.avs_annuel = (
+                fiches.aggregate(Sum("avs_employe"))["avs_employe__sum"] or 0
+            )
+
+            certificat.ac_annuel = (
+                fiches.aggregate(Sum("ac_employe"))["ac_employe__sum"] or 0
+            )
+
+            certificat.lpp_annuel = (
+                fiches.aggregate(Sum("lpp_employe"))["lpp_employe__sum"] or 0
+            )
+
+            certificat.allocations_familiales_annuel = (
+                fiches.aggregate(Sum("allocations_familiales"))[
+                    "allocations_familiales__sum"
+                ]
+                or 0
+            )
+
+            certificat.impot_source_annuel = (
+                fiches.aggregate(Sum("impot_source"))["impot_source__sum"] or 0
+            )
+
+            certificat.save()
+
+            messages.success(request, _("Certificat de salaire généré avec succès"))
+
+        return redirect("salaires:certificat-detail", pk=certificat.pk)
+
+    # GET: afficher le formulaire
+    return render(request, "salaires/generer_certificat.html", {"employe": employe})
+
+
+# ============ DÉCLARATIONS COTISATIONS ============
+
+
+class DeclarationCotisationsListView(LoginRequiredMixin, ListView):
+    """Liste des déclarations de cotisations"""
+
+    model = DeclarationCotisations
+    template_name = "salaires/declaration_cotisations_list.html"
+    context_object_name = "declarations"
+
+    def get_queryset(self):
+        return DeclarationCotisations.objects.select_related("mandat").order_by(
+            "-periode_fin"
+        )
+# salaires/urls.py
+from django.urls import path
+from django.views.decorators.http import require_http_methods
+from . import views
+
+app_name = "salaires"
+
+urlpatterns = [
+    # Employés
+    path("employes/", views.EmployeListView.as_view(), name="employe-list"),
+    path("employes/nouveau/", views.EmployeCreateView.as_view(), name="employe-create"),
+    path(
+        "employes/<uuid:pk>/", views.EmployeDetailView.as_view(), name="employe-detail"
+    ),
+    path(
+        "employes/<uuid:pk>/modifier/",
+        views.EmployeUpdateView.as_view(),
+        name="employe-update",
+    ),
+    # Fiches de salaire
+    path("fiches/", views.FicheSalaireListView.as_view(), name="fiche-list"),
+    path(
+        "fiches/nouvelle/", views.FicheSalaireCreateView.as_view(), name="fiche-create"
+    ),
+    path(
+        "fiches/<uuid:pk>/", views.FicheSalaireDetailView.as_view(), name="fiche-detail"
+    ),
+    path("fiches/<uuid:pk>/valider/", views.fiche_valider, name="fiche-valider"),
+    path("fiches/<uuid:pk>/pdf/", views.fiche_generer_pdf, name="fiche-pdf"),
+    path(
+        "fiches/generer-masse/", views.generer_fiches_masse, name="generer-fiches-masse"
+    ),
+    # Certificats de salaire
+    path(
+        "certificats/",
+        views.CertificatSalaireListView.as_view(),
+        name="certificat-list",
+    ),
+    path(
+        "certificats/<uuid:pk>/",
+        views.CertificatSalaireDetailView.as_view(),
+        name="certificat-detail",
+    ),
+    path(
+        "employes/<uuid:employe_pk>/certificat/",
+        views.generer_certificat,
+        name="generer-certificat",
+    ),
+    # Déclarations cotisations
+    path(
+        "declarations-cotisations/",
+        views.DeclarationCotisationsListView.as_view(),
+        name="declaration-cotisations-list",
+    ),
+]
+# apps/salaires/signals.py
+from django.db.models.signals import post_save, pre_save
+from django.dispatch import receiver
+from .models import FicheSalaire, Employe
+
+
+@receiver(post_save, sender=Employe)
+def notifier_nouvel_employe(sender, instance, created, **kwargs):
+    """Notifie le gestionnaire de salaires lors d'un nouvel employé"""
+    if created:
+        from core.models import Notification
+
+        # Trouver les users avec rôle gestionnaire salaires
+        gestionnaires = instance.mandat.equipe.filter(
+            role__in=['ADMIN', 'MANAGER']
+        )
+
+        for user in gestionnaires:
+            Notification.objects.create(
+                destinataire=user,
+                type_notification='INFO',
+                titre='Nouvel employé',
+                message=f"L'employé {instance.prenom} {instance.nom} a été ajouté.",
+                lien_action=f'/salaires/employes/{instance.id}/',
+                lien_texte='Voir l\'employé',
+                mandat=instance.mandat
+            )
+
+
+@receiver(pre_save, sender=FicheSalaire)
+def calculer_fiche_salaire(sender, instance, **kwargs):
+    """Calcule automatiquement tous les montants de la fiche de salaire"""
+    if not instance.statut == 'VALIDE':  # Ne recalcule pas si déjà validée
+        instance.calculer()
+
+
+@receiver(post_save, sender=FicheSalaire)
+def comptabiliser_salaire(sender, instance, **kwargs):
+    """Crée l'écriture comptable quand la fiche est validée"""
+    if instance.statut == 'VALIDE' and not instance.ecriture_comptable:
+        from comptabilite.models import EcritureComptable, Journal, Compte
+
+        journal = Journal.objects.filter(
+            mandat=instance.employe.mandat,
+            type_journal='OD'
+        ).first()
+
+        if journal:
+            numero_piece = journal.get_next_numero()
+
+            # Compte de charges salaires
+            compte_salaires = Compte.objects.filter(
+                plan_comptable__mandat=instance.employe.mandat,
+                numero='6000'  # Compte salaires
+            ).first()
+
+            # Compte charges sociales
+            compte_charges = Compte.objects.filter(
+                plan_comptable__mandat=instance.employe.mandat,
+                numero='6200'  # Charges sociales
+            ).first()
+
+            # Compte personnel (passif)
+            compte_personnel = Compte.objects.filter(
+                plan_comptable__mandat=instance.employe.mandat,
+                numero='2850'  # Compte personnel
+            ).first()
+
+            if all([compte_salaires, compte_charges, compte_personnel]):
+                # Débit: Charge de salaire brut
+                EcritureComptable.objects.create(
+                    mandat=instance.employe.mandat,
+                    exercice=instance.employe.mandat.exercices.filter(
+                        statut='OUVERT'
+                    ).first(),
+                    journal=journal,
+                    numero_piece=numero_piece,
+                    numero_ligne=1,
+                    date_ecriture=instance.periode,
+                    compte=compte_salaires,
+                    libelle=f"Salaire {instance.employe.prenom} {instance.employe.nom} - {instance.periode.strftime('%m/%Y')}",
+                    montant_debit=instance.salaire_brut_total,
+                    statut='VALIDE'
+                )
+
+                # Débit: Charges patronales
+                EcritureComptable.objects.create(
+                    mandat=instance.employe.mandat,
+                    exercice=instance.employe.mandat.exercices.filter(
+                        statut='OUVERT'
+                    ).first(),
+                    journal=journal,
+                    numero_piece=numero_piece,
+                    numero_ligne=2,
+                    date_ecriture=instance.periode,
+                    compte=compte_charges,
+                    libelle=f"Charges sociales {instance.employe.prenom} {instance.employe.nom}",
+                    montant_debit=instance.total_charges_patronales,
+                    statut='VALIDE'
+                )
+
+                # Crédit: Dette envers le personnel (net à payer)
+                EcritureComptable.objects.create(
+                    mandat=instance.employe.mandat,
+                    exercice=instance.employe.mandat.exercices.filter(
+                        statut='OUVERT'
+                    ).first(),
+                    journal=journal,
+                    numero_piece=numero_piece,
+                    numero_ligne=3,
+                    date_ecriture=instance.periode,
+                    compte=compte_personnel,
+                    libelle=f"Net à payer {instance.employe.prenom} {instance.employe.nom}",
+                    montant_credit=instance.salaire_net,
+                    statut='VALIDE'
+                )
+
+
+

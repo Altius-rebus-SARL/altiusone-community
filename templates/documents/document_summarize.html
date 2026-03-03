@@ -1,0 +1,192 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Résumé" %} - {{ document.nom_fichier }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Résumé du document" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'documents:document-list' %}">
+                    <span>{% trans "Documents" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'documents:document-detail' document.pk %}">
+                    <span>{{ document.nom_fichier|truncatechars:30 }}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Résumé" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-4">
+        <!-- Document info -->
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-file me-2"></i>{% trans "Document" %}</h5>
+            </div>
+            <div class="card-body">
+                <p class="f-w-600">{{ document.nom_fichier }}</p>
+                <p class="text-muted f-s-14">
+                    {{ document.taille|filesizeformat }} • {{ document.prediction_type|default:"Non classé" }}
+                </p>
+
+                <!-- Options de résumé -->
+                <div class="mt-4">
+                    <label class="form-label">{% trans "Longueur du résumé" %}</label>
+                    <select id="summaryLength" class="form-select">
+                        <option value="short">{% trans "Court (2-3 phrases)" %}</option>
+                        <option value="medium" selected>{% trans "Moyen (1 paragraphe)" %}</option>
+                        <option value="long">{% trans "Long (détaillé)" %}</option>
+                    </select>
+                </div>
+
+                <button id="generateBtn" class="btn btn-primary w-100 mt-3">
+                    <i class="ph ph-robot me-2"></i>{% trans "Générer le résumé" %}
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <!-- Résultat -->
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-text-align-justify me-2"></i>{% trans "Résumé" %}</h5>
+            </div>
+            <div class="card-body">
+                <div id="loadingState" class="text-center py-5" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">{% trans "Chargement..." %}</span>
+                    </div>
+                    <p class="text-muted mt-3">{% trans "Génération du résumé en cours..." %}</p>
+                </div>
+
+                <div id="initialState" class="text-center py-5">
+                    <i class="ph ph-robot text-muted" style="font-size: 60px;"></i>
+                    <p class="text-muted mt-3">{% trans "Cliquez sur 'Générer le résumé' pour commencer" %}</p>
+                </div>
+
+                <div id="resultState" style="display: none;">
+                    <div id="summaryContent" class="mb-4"></div>
+
+                    <div id="keyPoints" class="mb-4" style="display: none;">
+                        <h6 class="f-w-600"><i class="ph ph-list-bullets me-2"></i>{% trans "Points clés" %}</h6>
+                        <ul id="keyPointsList" class="list-unstyled"></ul>
+                    </div>
+
+                    <div id="entities" style="display: none;">
+                        <h6 class="f-w-600"><i class="ph ph-tag me-2"></i>{% trans "Entités identifiées" %}</h6>
+                        <div id="entitiesList" class="d-flex flex-wrap gap-2"></div>
+                    </div>
+                </div>
+
+                <div id="errorState" class="alert alert-danger" style="display: none;">
+                    <i class="ph ph-warning me-2"></i>
+                    <span id="errorMessage"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const generateBtn = document.getElementById('generateBtn');
+    const loadingState = document.getElementById('loadingState');
+    const initialState = document.getElementById('initialState');
+    const resultState = document.getElementById('resultState');
+    const errorState = document.getElementById('errorState');
+    const summaryLength = document.getElementById('summaryLength');
+
+    generateBtn.addEventListener('click', async function() {
+        // Show loading
+        initialState.style.display = 'none';
+        resultState.style.display = 'none';
+        errorState.style.display = 'none';
+        loadingState.style.display = 'block';
+        generateBtn.disabled = true;
+
+        try {
+            const formData = new FormData();
+            formData.append('max_length', summaryLength.value);
+            formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+            const response = await fetch('{% url "documents:document-summarize" document.pk %}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            const data = await response.json();
+
+            loadingState.style.display = 'none';
+
+            if (data.success) {
+                // Show summary
+                document.getElementById('summaryContent').innerHTML = `<p class="f-s-16">${data.summary}</p>`;
+
+                // Show key points
+                const keyPointsEl = document.getElementById('keyPoints');
+                const keyPointsList = document.getElementById('keyPointsList');
+                if (data.key_points && data.key_points.length > 0) {
+                    keyPointsList.innerHTML = data.key_points.map(p => `<li><i class="ph ph-check-circle text-success me-2"></i>${p}</li>`).join('');
+                    keyPointsEl.style.display = 'block';
+                } else {
+                    keyPointsEl.style.display = 'none';
+                }
+
+                // Show entities
+                const entitiesEl = document.getElementById('entities');
+                const entitiesList = document.getElementById('entitiesList');
+                if (data.entities && Object.keys(data.entities).length > 0) {
+                    let html = '';
+                    for (const [type, values] of Object.entries(data.entities)) {
+                        if (Array.isArray(values)) {
+                            values.forEach(v => {
+                                html += `<span class="badge text-light-primary">${type}: ${v}</span>`;
+                            });
+                        } else {
+                            html += `<span class="badge text-light-primary">${type}: ${values}</span>`;
+                        }
+                    }
+                    entitiesList.innerHTML = html;
+                    entitiesEl.style.display = 'block';
+                } else {
+                    entitiesEl.style.display = 'none';
+                }
+
+                resultState.style.display = 'block';
+            } else {
+                document.getElementById('errorMessage').textContent = data.error || '{% trans "Erreur lors de la génération" %}';
+                errorState.style.display = 'block';
+            }
+        } catch (error) {
+            loadingState.style.display = 'none';
+            document.getElementById('errorMessage').textContent = error.message;
+            errorState.style.display = 'block';
+        }
+
+        generateBtn.disabled = false;
+    });
+});
+</script>
+{% endblock %}

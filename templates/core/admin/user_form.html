@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{% if object %}{% trans "Modifier" %} {{ object.username }}{% else %}{% trans "Nouvel utilisateur" %}{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h3>{% if object %}{% trans "Modifier l'utilisateur" %}{% else %}{% trans "Nouvel utilisateur" %}{% endif %}</h3>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}"><i class="ti ti-home"></i></a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'core:admin-dashboard' %}">{% trans "Administration" %}</a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'core:admin-user-list' %}">{% trans "Utilisateurs" %}</a></li>
+                        <li class="breadcrumb-item active">{% if object %}{{ object.username }}{% else %}{% trans "Nouveau" %}{% endif %}</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-xl-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% if object %}{% trans "Modifier l'utilisateur" %}{% else %}{% trans "Creer un utilisateur" %}{% endif %}</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors }}
+                        </div>
+                        {% endif %}
+
+                        <div class="row">
+                            <!-- Username -->
+                            <div class="col-md-6 mb-3">
+                                <label for="id_username" class="form-label">{% trans "Nom d'utilisateur" %} *</label>
+                                {{ form.username }}
+                                {% if form.username.errors %}<div class="text-danger f-s-12">{{ form.username.errors|join:", " }}</div>{% endif %}
+                            </div>
+
+                            <!-- Email -->
+                            <div class="col-md-6 mb-3">
+                                <label for="id_email" class="form-label">{% trans "Email" %} *</label>
+                                {{ form.email }}
+                                {% if form.email.errors %}<div class="text-danger f-s-12">{{ form.email.errors|join:", " }}</div>{% endif %}
+                            </div>
+
+                            <!-- First Name -->
+                            <div class="col-md-6 mb-3">
+                                <label for="id_first_name" class="form-label">{% trans "Prenom" %}</label>
+                                {{ form.first_name }}
+                                {% if form.first_name.errors %}<div class="text-danger f-s-12">{{ form.first_name.errors|join:", " }}</div>{% endif %}
+                            </div>
+
+                            <!-- Last Name -->
+                            <div class="col-md-6 mb-3">
+                                <label for="id_last_name" class="form-label">{% trans "Nom" %}</label>
+                                {{ form.last_name }}
+                                {% if form.last_name.errors %}<div class="text-danger f-s-12">{{ form.last_name.errors|join:", " }}</div>{% endif %}
+                            </div>
+
+                            <!-- Type -->
+                            <div class="col-md-6 mb-3">
+                                <label for="id_type_utilisateur" class="form-label">{% trans "Type d'utilisateur" %} *</label>
+                                {{ form.type_utilisateur }}
+                                {% if form.type_utilisateur.errors %}<div class="text-danger f-s-12">{{ form.type_utilisateur.errors|join:", " }}</div>{% endif %}
+                            </div>
+
+                            <!-- Role -->
+                            <div class="col-md-6 mb-3">
+                                <label for="id_role" class="form-label">{% trans "Role" %}</label>
+                                {{ form.role }}
+                                {% if form.role.errors %}<div class="text-danger f-s-12">{{ form.role.errors|join:", " }}</div>{% endif %}
+                            </div>
+
+                            <!-- Phone -->
+                            <div class="col-md-6 mb-3">
+                                <label for="id_phone" class="form-label">{% trans "Telephone" %}</label>
+                                {{ form.phone }}
+                                {% if form.phone.errors %}<div class="text-danger f-s-12">{{ form.phone.errors|join:", " }}</div>{% endif %}
+                            </div>
+
+                            <!-- Mobile -->
+                            <div class="col-md-6 mb-3">
+                                <label for="id_mobile" class="form-label">{% trans "Mobile" %}</label>
+                                {{ form.mobile }}
+                                {% if form.mobile.errors %}<div class="text-danger f-s-12">{{ form.mobile.errors|join:", " }}</div>{% endif %}
+                            </div>
+
+                            {% if not object %}
+                            <!-- Password (only for creation) -->
+                            <div class="col-md-6 mb-3">
+                                <label for="id_password1" class="form-label">{% trans "Mot de passe" %} *</label>
+                                {{ form.password1 }}
+                                {% if form.password1.errors %}<div class="text-danger f-s-12">{{ form.password1.errors|join:", " }}</div>{% endif %}
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label for="id_password2" class="form-label">{% trans "Confirmer mot de passe" %} *</label>
+                                {{ form.password2 }}
+                                {% if form.password2.errors %}<div class="text-danger f-s-12">{{ form.password2.errors|join:", " }}</div>{% endif %}
+                            </div>
+
+                            <!-- Force Password Change -->
+                            <div class="col-12 mb-3">
+                                <div class="form-check">
+                                    {{ form.doit_changer_mot_de_passe }}
+                                    <label class="form-check-label" for="id_doit_changer_mot_de_passe">
+                                        {% trans "Forcer le changement de mot de passe a la premiere connexion" %}
+                                    </label>
+                                </div>
+                            </div>
+                            {% else %}
+                            <!-- Active Status (only for edit) -->
+                            <div class="col-12 mb-3">
+                                <div class="form-check">
+                                    {{ form.is_active }}
+                                    <label class="form-check-label" for="id_is_active">
+                                        {% trans "Utilisateur actif" %}
+                                    </label>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'core:admin-user-list' %}" class="btn btn-secondary">
+                                <i class="ti ti-arrow-left me-2"></i>{% trans "Retour" %}
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="ti ti-check me-2"></i>{% if object %}{% trans "Enregistrer" %}{% else %}{% trans "Creer" %}{% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Help Card -->
+        <div class="col-xl-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Aide" %}</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">
+                        <strong>{% trans "Types d'utilisateurs" %}:</strong>
+                    </p>
+                    <ul class="text-muted f-s-14">
+                        <li><strong>{% trans "Staff" %}</strong>: {% trans "Collaborateurs internes avec acces complet selon leur role" %}</li>
+                        <li><strong>{% trans "Client" %}</strong>: {% trans "Clients externes avec acces limite a leurs mandats" %}</li>
+                    </ul>
+
+                    <p class="text-muted mt-3">
+                        <strong>{% trans "Roles" %}:</strong>
+                    </p>
+                    <p class="text-muted f-s-14">
+                        {% trans "Le role determine les permissions de l'utilisateur. Les permissions sont heritees du role." %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

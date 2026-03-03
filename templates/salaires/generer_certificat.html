@@ -1,0 +1,130 @@
+<!-- salaires/generer_certificat.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Générer certificat" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Générer un certificat de salaire" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'salaires:employe-detail' employe.pk %}">
+                    <span>{{ employe.prenom }} {{ employe.nom }}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Générer certificat" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-6 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-certificate me-2"></i>{% trans "Formulaire 11 - Certificat de salaire" %}</h5>
+            </div>
+            <div class="card-body">
+                <!-- Info employé -->
+                <div class="mb-4">
+                    <h6 class="mb-3">{% trans "Employé" %}</h6>
+                    <div class="d-flex align-items-center">
+                        <div class="avatar bg-light-primary rounded me-3">
+                            <i class="ph-duotone ph-user text-primary f-s-30"></i>
+                        </div>
+                        <div>
+                            <p class="mb-0 f-w-600">{{ employe.prenom }} {{ employe.nom }}</p>
+                            <p class="text-muted f-s-12 mb-0">{% trans "Matricule" %}: {{ employe.matricule }}</p>
+                            <p class="text-muted f-s-12 mb-0">{% trans "AVS" %}: {{ employe.avs_number }}</p>
+                            <p class="text-muted f-s-12 mb-0">{% trans "Taux" %}: {{ employe.taux_occupation }}%</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="app-divider-v dashed my-4"></div>
+
+                <form method="post" class="app-form">
+                    {% csrf_token %}
+
+                    <div class="mb-4">
+                        <label class="form-label">{% trans "Année" %} <span class="text-danger">*</span></label>
+                        <input type="number"
+                               name="annee"
+                               class="form-control"
+                               min="2020"
+                               max="2099"
+                               value="{{ current_year }}"
+                               required>
+                        <small class="text-muted">
+                            {% trans "Année du certificat à générer" %}
+                        </small>
+                    </div>
+
+                    <!-- Option calcul automatique -->
+                    <div class="mb-4">
+                        <div class="form-check">
+                            <input type="checkbox" name="auto_calculer" id="auto_calculer" class="form-check-input" checked>
+                            <label class="form-check-label fw-bold" for="auto_calculer">
+                                {% trans "Calculer automatiquement depuis les fiches de salaire" %}
+                            </label>
+                        </div>
+                        <small class="text-muted ms-4">
+                            {% trans "Agrège les données des fiches de salaire validées pour l'année sélectionnée" %}
+                        </small>
+                    </div>
+
+                    <!-- Options avancées -->
+                    <div class="mb-4" id="options-manuelles" style="display: none;">
+                        <div class="alert alert-warning">
+                            <i class="ph ph-warning me-2"></i>
+                            {% trans "Mode manuel: vous devrez saisir tous les montants manuellement après création" %}
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <h6 class="mb-3"><i class="ph ph-info me-2"></i>{% trans "Information" %}</h6>
+                        <ul class="mb-0 f-s-14">
+                            <li class="mb-2">{% trans "Le certificat sera créé au format Formulaire 11 officiel" %}</li>
+                            <li class="mb-2">{% trans "Les montants des chiffres 8 (brut) et 11 (net) sont calculés automatiquement" %}</li>
+                            <li class="mb-2">{% trans "Vous pourrez modifier le certificat et générer le PDF ensuite" %}</li>
+                            <li>{% trans "Si un certificat existe déjà pour cette année, il ne sera pas recréé" %}</li>
+                        </ul>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'salaires:employe-detail' employe.pk %}" class="btn btn-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ph ph-certificate me-2"></i>{% trans "Générer le certificat" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const autoCalculer = document.getElementById('auto_calculer');
+    const optionsManuelles = document.getElementById('options-manuelles');
+
+    autoCalculer.addEventListener('change', function() {
+        optionsManuelles.style.display = this.checked ? 'none' : 'block';
+    });
+});
+</script>
+{% endblock %}

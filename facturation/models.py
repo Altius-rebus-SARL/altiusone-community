@@ -1,0 +1,1752 @@
+# apps/facturation/models.py
+from django.db import models
+from django.contrib.gis.db import models as gis_models
+from django.utils.translation import gettext_lazy as _
+from core.models import BaseModel, Devise, Mandat, Client, User
+from decimal import Decimal
+from datetime import datetime, date, timedelta
+from tva.utils import get_taux_tva_defaut
+import uuid
+
+
+class TypePrestation(models.Model):
+    """Type/catégorie de prestation (table de référence)."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    code = models.CharField(max_length=30, unique=True, verbose_name=_('Code'))
+    libelle = models.CharField(max_length=100, verbose_name=_('Libellé'))
+    description = models.TextField(blank=True, verbose_name=_('Description'))
+    icone = models.CharField(max_length=50, blank=True, default='ph-package', verbose_name=_('Icône'))
+    couleur = models.CharField(max_length=20, blank=True, default='primary', verbose_name=_('Couleur'))
+    ordre = models.PositiveSmallIntegerField(default=0, verbose_name=_('Ordre'))
+    is_active = models.BooleanField(default=True, verbose_name=_('Actif'))
+
+    class Meta:
+        db_table = 'types_prestations'
+        ordering = ['ordre', 'libelle']
+        verbose_name = _('Type de prestation')
+        verbose_name_plural = _('Types de prestations')
+
+    def __str__(self):
+        return self.libelle
+
+
+class Prestation(BaseModel):
+    """Prestation/Service fourni"""
+
+    # Identification
+    code = models.CharField(
+        max_length=50,
+        unique=True,
+        db_index=True,
+        verbose_name=_("Code"),
+        help_text=_("Code unique de la prestation")
+    )
+    libelle = models.CharField(
+        max_length=255,
+        verbose_name=_("Libellé"),
+        help_text=_("Libellé de la prestation")
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name=_("Description"),
+        help_text=_("Description détaillée de la prestation")
+    )
+
+    type_prestation = models.ForeignKey(
+        TypePrestation,
+        on_delete=models.PROTECT,
+        related_name='prestations',
+        verbose_name=_("Type de prestation"),
+        help_text=_("Catégorie de la prestation")
+    )
+
+    # Tarification par défaut
+    prix_unitaire_ht = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Prix unitaire HT"),
+        help_text=_("Prix unitaire hors taxes par défaut")
+    )
+    unite = models.CharField(
+        max_length=50,
+        default='heure',
+        verbose_name=_("Unité"),
+        help_text=_("Unité de facturation (heure, jour, forfait, unité)")
+    )
+
+    taux_horaire = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Taux horaire"),
+        help_text=_("Taux horaire de facturation")
+    )
+
+    # TVA
+    soumis_tva = models.BooleanField(
+        default=True,
+        verbose_name=_("Soumis à TVA"),
+        help_text=_("Indique si la prestation est soumise à TVA")
+    )
+    taux_tva_defaut = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Taux TVA par défaut"),
+        help_text=_("Taux de TVA appliqué par défaut (résolu depuis le régime fiscal si 0)")
+    )
+    taux_tva_ref = models.ForeignKey(
+        'tva.TauxTVA',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='prestations',
+        verbose_name=_("Taux TVA (référence)"),
+        help_text=_("Référence vers le taux TVA du régime fiscal")
+    )
+
+    # Compte comptable
+    compte_produit = models.ForeignKey(
+        'comptabilite.Compte',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='+',
+        verbose_name=_("Compte de produit"),
+        help_text=_("Compte comptable de produit associé")
+    )
+
+    actif = models.BooleanField(
+        default=True,
+        verbose_name=_("Actif"),
+        help_text=_("Indique si la prestation est active")
+    )
+
+    class Meta:
+        db_table = 'prestations'
+        verbose_name = _('Prestation')
+        verbose_name_plural = _('Prestations')
+        ordering = ['code']
+
+    def __str__(self):
+        return f"{self.code} - {self.libelle}"
+
+
+class ZoneGeographique(BaseModel):
+    """Zone géographique pour le suivi du temps"""
+
+    nom = models.CharField(
+        max_length=255,
+        verbose_name=_("Nom"),
+        help_text=_("Nom de la zone géographique")
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name=_("Description"),
+        help_text=_("Description de la zone")
+    )
+    geometrie = gis_models.PolygonField(
+        srid=4326,
+        verbose_name=_("Géométrie"),
+        help_text=_("Polygone délimitant la zone")
+    )
+    couleur = models.CharField(
+        max_length=7,
+        default='#3388ff',
+        verbose_name=_("Couleur"),
+        help_text=_("Couleur d'affichage (hex)")
+    )
+
+    class Meta:
+        db_table = 'zones_geographiques'
+        verbose_name = _('Zone géographique')
+        verbose_name_plural = _('Zones géographiques')
+        ordering = ['nom']
+
+    def __str__(self):
+        return self.nom
+
+
+class TarifMandat(BaseModel):
+    """Tarification spécifique par mandat et prestation"""
+
+    mandat = models.ForeignKey(
+        Mandat,
+        on_delete=models.CASCADE,
+        related_name='tarifs',
+        verbose_name=_("Mandat"),
+        help_text=_("Mandat concerné")
+    )
+    prestation = models.ForeignKey(
+        'Prestation',
+        on_delete=models.CASCADE,
+        related_name='tarifs_mandat',
+        verbose_name=_("Prestation"),
+        help_text=_("Prestation concernée")
+    )
+    taux_horaire = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        verbose_name=_("Taux horaire"),
+        help_text=_("Taux horaire spécifique pour ce mandat/prestation")
+    )
+    prix_forfaitaire = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Prix forfaitaire"),
+        help_text=_("Prix forfaitaire optionnel")
+    )
+    devise = models.ForeignKey(
+        Devise,
+        on_delete=models.PROTECT,
+        db_column='devise',
+        verbose_name=_("Devise"),
+        help_text=_("Devise du tarif")
+    )
+    date_debut = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("Date de début"),
+        help_text=_("Début de validité du tarif")
+    )
+    date_fin = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("Date de fin"),
+        help_text=_("Fin de validité du tarif")
+    )
+
+    class Meta:
+        db_table = 'tarifs_mandat'
+        verbose_name = _('Tarif mandat')
+        verbose_name_plural = _('Tarifs mandat')
+        unique_together = [('mandat', 'prestation')]
+        ordering = ['mandat', 'prestation']
+
+    def __str__(self):
+        return f"{self.mandat} - {self.prestation} : {self.taux_horaire} {self.devise_id}/h"
+
+    def save(self, *args, **kwargs):
+        # Auto-populate devise from mandat if not set
+        if not self.devise_id and self.mandat_id:
+            self.devise_id = self.mandat.devise_id
+        super().save(*args, **kwargs)
+
+    def est_valide(self, date_ref=None):
+        """Vérifie si le tarif est valide à une date donnée"""
+        if date_ref is None:
+            date_ref = date.today()
+        if self.date_debut and date_ref < self.date_debut:
+            return False
+        if self.date_fin and date_ref > self.date_fin:
+            return False
+        return True
+
+
+class TimeTracking(BaseModel):
+    """Suivi du temps de travail sur les prestations"""
+
+    # Rattachement
+    mandat = models.ForeignKey(
+        Mandat,
+        on_delete=models.CASCADE,
+        related_name='temps_travail',
+        verbose_name=_("Mandat"),
+        help_text=_("Mandat concerné par ce temps de travail")
+    )
+    utilisateur = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name='temps_travail',
+        verbose_name=_("Utilisateur"),
+        help_text=_("Collaborateur ayant effectué le travail")
+    )
+    prestation = models.ForeignKey(
+        Prestation,
+        on_delete=models.PROTECT,
+        related_name='temps_travail',
+        verbose_name=_("Prestation"),
+        help_text=_("Type de prestation effectuée")
+    )
+
+    # Temps
+    date_travail = models.DateField(
+        db_index=True,
+        verbose_name=_("Date du travail"),
+        help_text=_("Date à laquelle le travail a été effectué")
+    )
+    heure_debut = models.TimeField(
+        null=True,
+        blank=True,
+        verbose_name=_("Heure de début"),
+        help_text=_("Heure de début du travail")
+    )
+    heure_fin = models.TimeField(
+        null=True,
+        blank=True,
+        verbose_name=_("Heure de fin"),
+        help_text=_("Heure de fin du travail")
+    )
+    duree_minutes = models.IntegerField(
+        verbose_name=_("Durée (minutes)"),
+        help_text=_("Durée du travail en minutes")
+    )
+
+    # Description
+    description = models.TextField(
+        verbose_name=_("Description"),
+        help_text=_("Description du travail effectué")
+    )
+    notes_internes = models.TextField(
+        blank=True,
+        verbose_name=_("Notes internes"),
+        help_text=_("Notes internes non visibles sur la facture")
+    )
+
+    # Facturation
+    facturable = models.BooleanField(
+        default=True,
+        verbose_name=_("Facturable"),
+        help_text=_("Indique si ce temps est facturable au client")
+    )
+    taux_horaire = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        verbose_name=_("Taux horaire"),
+        help_text=_("Taux horaire appliqué pour ce travail")
+    )
+    montant_ht = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        verbose_name=_("Montant HT"),
+        help_text=_("Montant hors taxes calculé")
+    )
+    devise = models.ForeignKey(
+        'core.Devise',
+        on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name='temps_travail',
+        verbose_name=_("Devise"),
+        help_text=_("Devise du taux horaire et du montant")
+    )
+
+    facture = models.ForeignKey(
+        'Facture',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='temps_factures',
+        verbose_name=_("Facture"),
+        help_text=_("Facture associée si ce temps a été facturé")
+    )
+    date_facturation = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("Date de facturation"),
+        help_text=_("Date à laquelle ce temps a été facturé")
+    )
+
+    # Lien avec une tâche
+    tache = models.ForeignKey(
+        'core.Tache', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='temps_travail',
+        verbose_name=_('Tâche')
+    )
+
+    # Lien avec le module projets
+    position = models.ForeignKey(
+        "projets.Position",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="temps_passes",
+        verbose_name=_("Position"),
+        help_text=_("Position/lot lié dans le module projets"),
+    )
+    operation = models.ForeignKey(
+        "projets.Operation",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="temps_passes",
+        verbose_name=_("Opération"),
+        help_text=_("Opération liée dans le module projets"),
+    )
+
+    # Géolocalisation
+    coordonnees = gis_models.PointField(
+        srid=4326,
+        null=True,
+        blank=True,
+        geography=True,
+        verbose_name=_("Coordonnées"),
+        help_text=_("Position GPS lors de la saisie"),
+    )
+    zone_geographique = models.ForeignKey(
+        ZoneGeographique,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='temps_travail',
+        verbose_name=_("Zone géographique"),
+        help_text=_("Zone géographique associée"),
+    )
+
+    # Validation
+    valide = models.BooleanField(
+        default=False,
+        verbose_name=_("Validé"),
+        help_text=_("Indique si ce temps a été validé")
+    )
+    valide_par = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='+',
+        verbose_name=_("Validé par"),
+        help_text=_("Utilisateur ayant validé ce temps")
+    )
+
+    class Meta:
+        db_table = 'time_tracking'
+        verbose_name = _('Suivi du temps')
+        verbose_name_plural = _('Suivis du temps')
+        ordering = ['-date_travail', 'utilisateur']
+        indexes = [
+            models.Index(fields=['mandat', 'date_travail']),
+            models.Index(fields=['utilisateur', 'date_travail']),
+            models.Index(fields=['facturable', 'facture']),
+        ]
+
+    def __str__(self):
+        return f"{self.date_travail} - {self.utilisateur.username} - {self.duree_minutes}min"
+
+    @property
+    def duree_heures(self):
+        """Retourne la durée en heures décimales"""
+        return Decimal(self.duree_minutes) / Decimal('60')
+
+    def calculer_montant(self):
+        """Calcule le montant HT basé sur durée et taux"""
+        heures = Decimal(self.duree_minutes) / Decimal("60")
+        self.montant_ht = (heures * self.taux_horaire).quantize(Decimal("0.01"))
+        self.save(update_fields=["montant_ht"])
+        return self.montant_ht
+
+    def ajouter_a_facture(self, facture):
+        """Ajoute ce temps à une facture existante"""
+        # Trouver ou créer la ligne correspondante
+        ligne = facture.lignes.filter(prestation=self.prestation).first()
+
+        if ligne:
+            # Ajouter au temps existant
+            ligne.quantite += self.duree_heures
+            ligne.save()
+        else:
+            # Créer nouvelle ligne
+            ordre = facture.lignes.aggregate(models.Max("ordre"))["ordre__max"] or 0
+            ligne = LigneFacture.objects.create(
+                facture=facture,
+                ordre=ordre + 1,
+                prestation=self.prestation,
+                description=self.description,
+                quantite=self.duree_heures,
+                unite="heure",
+                prix_unitaire_ht=self.taux_horaire,
+                taux_tva=self.prestation.taux_tva_defaut
+                if self.prestation
+                else get_taux_tva_defaut(facture.mandat),
+            )
+
+        # Lier le temps à la ligne
+        ligne.temps_factures.add(self)
+
+        # Marquer comme facturé
+        self.facture = facture
+        self.date_facturation = date.today()
+        self.save()
+
+        # Recalculer la facture
+        facture.calculer_totaux()
+
+        return ligne
+
+
+class Facture(BaseModel):
+    """Facture client"""
+
+    STATUT_CHOICES = [
+        ('BROUILLON', _('Brouillon')),
+        ('PROFORMA', _('Pro forma')),
+        ('EMISE', _('Émise')),
+        ('ENVOYEE', _('Envoyée')),
+        ('RELANCEE', _('Relancée')),
+        ('PARTIELLEMENT_PAYEE', _('Partiellement payée')),
+        ('PAYEE', _('Payée')),
+        ('EN_RETARD', _('En retard')),
+        ('ANNULEE', _('Annulée')),
+        ('AVOIR', _('Avoir')),
+    ]
+
+    TYPE_CHOICES = [
+        ('FACTURE', _('Facture')),
+        ('AVOIR', _('Avoir')),
+        ('ACOMPTE', _("Facture d'acompte")),
+    ]
+
+    # Identification
+    numero_facture = models.CharField(
+        max_length=50,
+        unique=True,
+        db_index=True,
+        verbose_name=_("Numéro de facture"),
+        help_text=_("Numéro unique de la facture")
+    )
+    mandat = models.ForeignKey(
+        Mandat,
+        on_delete=models.CASCADE,
+        related_name='factures',
+        verbose_name=_("Mandat"),
+        help_text=_("Mandat concerné par cette facture")
+    )
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.PROTECT,
+        related_name='factures',
+        verbose_name=_("Client"),
+        help_text=_("Client facturé")
+    )
+
+    type_facture = models.CharField(
+        max_length=20,
+        choices=TYPE_CHOICES,
+        default='FACTURE',
+        verbose_name=_("Type de facture"),
+        help_text=_("Type de document (Facture, Avoir, Acompte)")
+    )
+
+    # Dates
+    date_emission = models.DateField(
+        db_index=True,
+        verbose_name=_("Date d'émission"),
+        help_text=_("Date d'émission de la facture")
+    )
+    date_echeance = models.DateField(
+        db_index=True,
+        verbose_name=_("Date d'échéance"),
+        help_text=_("Date limite de paiement")
+    )
+    date_service_debut = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("Début de période"),
+        help_text=_("Date de début de la période facturée")
+    )
+    date_service_fin = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("Fin de période"),
+        help_text=_("Date de fin de la période facturée")
+    )
+
+    # Montants
+    montant_ht = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Montant HT"),
+        help_text=_("Montant total hors taxes")
+    )
+    montant_tva = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Montant TVA"),
+        help_text=_("Montant total de la TVA")
+    )
+    montant_ttc = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Montant TTC"),
+        help_text=_("Montant total toutes taxes comprises")
+    )
+
+    # Remises
+    remise_pourcent = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Remise (%)"),
+        help_text=_("Pourcentage de remise globale")
+    )
+    remise_montant = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Montant remise"),
+        help_text=_("Montant de la remise calculée")
+    )
+
+    # Paiement
+    delai_paiement_jours = models.IntegerField(
+        default=30,
+        verbose_name=_("Délai de paiement (jours)"),
+        help_text=_("Nombre de jours accordés pour le paiement")
+    )
+    conditions_paiement = models.TextField(
+        blank=True,
+        verbose_name=_("Conditions de paiement"),
+        help_text=_("Conditions de paiement spécifiques")
+    )
+
+    # QR-Bill Suisse
+    qr_reference = models.CharField(
+        max_length=27,
+        blank=True,
+        null=True,
+        unique=True,
+        verbose_name=_("Référence QR"),
+        help_text=_("Référence QR structurée pour le paiement suisse")
+    )
+    qr_iban = models.CharField(
+        max_length=34,
+        blank=True,
+        verbose_name=_("IBAN QR"),
+        help_text=_("IBAN pour le QR-Bill")
+    )
+    qr_code_image = models.ImageField(
+        upload_to='factures/qr/',
+        null=True,
+        blank=True,
+        verbose_name=_("Image QR code"),
+        help_text=_("Image du QR code généré")
+    )
+
+    # Statut
+    statut = models.CharField(
+        max_length=30,
+        choices=STATUT_CHOICES,
+        default='BROUILLON',
+        db_index=True,
+        verbose_name=_("Statut"),
+        help_text=_("Statut actuel de la facture")
+    )
+
+    # Paiements
+    montant_paye = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Montant payé"),
+        help_text=_("Montant total déjà payé")
+    )
+    montant_restant = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Montant restant"),
+        help_text=_("Montant restant à payer")
+    )
+
+    date_paiement_complet = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("Date de paiement complet"),
+        help_text=_("Date à laquelle la facture a été entièrement payée")
+    )
+
+    # Relances
+    nombre_relances = models.IntegerField(
+        default=0,
+        verbose_name=_("Nombre de relances"),
+        help_text=_("Nombre de relances envoyées")
+    )
+    date_derniere_relance = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("Date dernière relance"),
+        help_text=_("Date de la dernière relance envoyée")
+    )
+
+    # Avoir / Annulation
+    facture_origine = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='avoirs',
+        verbose_name=_("Facture d'origine"),
+        help_text=_("Facture d'origine pour un avoir")
+    )
+    motif_annulation = models.TextField(
+        blank=True,
+        verbose_name=_("Motif d'annulation"),
+        help_text=_("Raison de l'annulation ou de l'avoir")
+    )
+
+    # Fichiers
+    fichier_pdf = models.FileField(
+        upload_to='factures/pdf/',
+        null=True,
+        blank=True,
+        verbose_name=_("Fichier PDF"),
+        help_text=_("Fichier PDF de la facture")
+    )
+
+    # Comptabilité
+    ecriture_comptable = models.ForeignKey(
+        'comptabilite.PieceComptable',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='factures',
+        verbose_name=_("Pièce comptable"),
+        help_text=_("Pièce comptable associée")
+    )
+
+    # Régime fiscal (support international)
+    regime_fiscal = models.ForeignKey(
+        'tva.RegimeFiscal',
+        on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name='factures',
+        verbose_name=_("Régime fiscal"),
+        help_text=_("Régime fiscal applicable à cette facture")
+    )
+    # Exercice comptable
+    exercice = models.ForeignKey(
+        'core.ExerciceComptable',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='factures',
+        verbose_name=_("Exercice comptable"),
+        help_text=_("Exercice comptable de rattachement")
+    )
+    # Devise (support international)
+    devise = models.ForeignKey(
+        'core.Devise',
+        on_delete=models.PROTECT,
+        related_name='factures',
+        verbose_name=_("Devise"),
+        help_text=_("Devise de facturation")
+    )
+
+    # Textes
+    introduction = models.TextField(
+        blank=True,
+        verbose_name=_("Introduction"),
+        help_text=_("Texte d'introduction de la facture")
+    )
+    conclusion = models.TextField(
+        blank=True,
+        verbose_name=_("Conclusion"),
+        help_text=_("Texte de conclusion/remerciements")
+    )
+    notes = models.TextField(
+        blank=True,
+        verbose_name=_("Notes internes"),
+        help_text=_("Notes internes non visibles sur la facture")
+    )
+
+    # Création/validation
+    creee_par = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name='factures_creees',
+        verbose_name=_("Créée par"),
+        help_text=_("Utilisateur ayant créé la facture")
+    )
+    date_validation = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_("Date de validation"),
+        help_text=_("Date et heure de validation")
+    )
+    validee_par = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='factures_validees',
+        verbose_name=_("Validée par"),
+        help_text=_("Utilisateur ayant validé la facture")
+    )
+
+    class Meta:
+        db_table = 'factures'
+        verbose_name = _('Facture')
+        verbose_name_plural = _('Factures')
+        ordering = ['-date_emission', 'numero_facture']
+        indexes = [
+            models.Index(fields=['client', 'statut']),
+            models.Index(fields=['date_emission']),
+            models.Index(fields=['date_echeance', 'statut']),
+            models.Index(fields=['numero_facture']),
+        ]
+
+    def __str__(self):
+        devise_code = self.devise_id or self.mandat.devise_id
+        return f"{self.numero_facture} - {self.client.raison_sociale} - {self.montant_ttc} {devise_code}"
+
+    @property
+    def est_simplifiee(self):
+        """Facture simplifiée (Art. 26 MWSTG) : montant TTC < CHF 400."""
+        from decimal import Decimal
+        return self.montant_ttc < Decimal('400')
+
+    def save(self, *args, **kwargs):
+        # Auto-populate regime_fiscal from mandat if not set
+        if not self.regime_fiscal_id and self.mandat_id:
+            self.regime_fiscal = getattr(self.mandat, 'regime_fiscal', None)
+
+        # Génération numéro facture
+        if not self.numero_facture:
+            year = self.date_emission.year
+            last = Facture.objects.filter(
+                numero_facture__startswith=f'FAC-{year}'
+            ).order_by('numero_facture').last()
+
+            if last:
+                last_num = int(last.numero_facture.split('-')[-1])
+                self.numero_facture = f'FAC-{year}-{last_num + 1:04d}'
+            else:
+                self.numero_facture = f'FAC-{year}-0001'
+
+        # Calcul montant restant
+        self.montant_restant = self.montant_ttc - self.montant_paye
+
+        # Mise à jour statut basé sur paiement
+        if self.montant_paye >= self.montant_ttc and self.statut != 'PAYEE':
+            self.statut = 'PAYEE'
+            if not self.date_paiement_complet:
+                self.date_paiement_complet = models.functions.Now()
+        elif self.montant_paye > 0 and self.statut == 'EMISE':
+            self.statut = 'PARTIELLEMENT_PAYEE'
+
+        super().save(*args, **kwargs)
+
+    def generer_qr_reference(self):
+        """Génère la référence QR structurée selon norme suisse"""
+        # Référence QR : 27 chiffres avec checksum
+        # Format: [ID Créancier 6 digits][ID Facture 20 digits][Checksum 1 digit]
+
+        # Convertir UUID en nombre (utiliser les chiffres du hash)
+        # Pour l'ID créancier: convertir UUID hex en int et prendre 6 chiffres
+        mandat_hash = int(str(self.mandat.id).replace('-', '')[:12], 16)
+        id_creancier = str(mandat_hash)[-6:].zfill(6)
+
+        # Pour l'ID facture: convertir UUID hex en int et prendre 20 chiffres
+        facture_hash = int(str(self.id).replace('-', ''), 16)
+        id_facture = str(facture_hash)[-20:].zfill(20)
+
+        # Référence de base (26 digits)
+        ref_base = id_creancier + id_facture
+
+        # Calcul checksum modulo 10 récursif
+        checksum = self._calcul_checksum_modulo10(ref_base)
+
+        # Référence complète (27 digits)
+        self.qr_reference = ref_base + str(checksum)
+        self.save(update_fields=["qr_reference"])
+
+        return self.qr_reference
+
+    def _calcul_checksum_modulo10(self, reference):
+        """Calcul checksum modulo 10 récursif (norme suisse)"""
+        table = [0, 9, 4, 6, 8, 2, 7, 1, 3, 5]
+        carry = 0
+        for char in reference:
+            carry = table[(carry + int(char)) % 10]
+        return (10 - carry) % 10
+
+    def generer_qr_bill(self):
+        """
+        Génère le QR code Swiss QR-Bill au format PNG.
+
+        Le QR code contient toutes les données de paiement selon la norme
+        Swiss Payment Standards (ISO 20022).
+        """
+        try:
+            import qrcode
+            from qrcode.image.pil import PilImage
+        except ImportError:
+            raise ImportError("Le package 'qrcode' et 'pillow' sont requis.")
+
+        from django.core.files.base import ContentFile
+        import io
+
+        # Générer la référence QR si pas encore fait
+        if not self.qr_reference:
+            self.generer_qr_reference()
+
+        # Récupérer les adresses
+        adresse_creancier = self.mandat.client.adresse_siege
+        adresse_debiteur = self.client.adresse_correspondance or self.client.adresse_siege
+
+        # IBAN du compte - Ordre de priorité:
+        # 1. qr_iban de la facture (si défini manuellement)
+        # 2. Compte bancaire associé au mandat
+        # 3. Compte bancaire principal de la fiduciaire
+        iban = None
+        compte_bancaire = None
+
+        if self.qr_iban:
+            iban = self.qr_iban
+        else:
+            from core.models import CompteBancaire
+            # Chercher un compte associé au mandat
+            compte_bancaire = CompteBancaire.objects.filter(
+                mandat=self.mandat, actif=True
+            ).first()
+
+            if not compte_bancaire:
+                # Chercher le compte principal de l'entreprise du client
+                entreprise = getattr(self.mandat.client, 'entreprise', None)
+                if entreprise:
+                    compte_bancaire = CompteBancaire.objects.filter(
+                        entreprise=entreprise, est_compte_principal=True, actif=True
+                    ).first()
+
+            if not compte_bancaire:
+                # Fallback: compte principal global
+                compte_bancaire = CompteBancaire.objects.filter(
+                    est_compte_principal=True, actif=True
+                ).first()
+
+            if compte_bancaire:
+                iban = compte_bancaire.iban
+
+        if not iban:
+            raise ValueError("Aucun IBAN configuré. Créez un compte bancaire principal ou associez-en un au mandat.")
+        iban = iban.replace(" ", "").upper()
+
+        # Construire le payload QR selon Swiss QR Bill standard
+        # Format: https://www.paymentstandards.ch/dam/downloads/ig-qr-bill-fr.pdf
+
+        # Déterminer si c'est un QR-IBAN (IID 30000-31999)
+        is_qr_iban = False
+        if iban.startswith('CH') and len(iban) >= 9:
+            try:
+                iid = int(iban[4:9])
+                is_qr_iban = 30000 <= iid <= 31999
+            except ValueError:
+                pass
+
+        qr_data_lines = [
+            "SPC",  # QR Type
+            "0200",  # Version
+            "1",  # Coding Type (UTF-8)
+            iban,  # IBAN
+            # Creditor (Address Type S = Structured)
+            "S",  # Address Type
+            self.mandat.client.raison_sociale[:70],  # Name
+            f"{adresse_creancier.rue} {adresse_creancier.numero}"[:70] if adresse_creancier else "",  # Street
+            "",  # Building number (included in street)
+            adresse_creancier.npa if adresse_creancier else "",  # Postal code
+            adresse_creancier.localite[:35] if adresse_creancier else "",  # City
+            "CH",  # Country
+            # Ultimate Creditor (empty)
+            "", "", "", "", "", "", "",
+            # Payment Amount
+            f"{float(self.montant_ttc):.2f}",  # Amount
+            self.devise_id if self.devise_id in ('CHF', 'EUR') else "CHF",  # Currency (QR-Bill: CHF/EUR only)
+            # Ultimate Debtor (Address Type S)
+            "S",
+            self.client.raison_sociale[:70],
+            f"{adresse_debiteur.rue} {adresse_debiteur.numero}"[:70] if adresse_debiteur else "",
+            "",
+            adresse_debiteur.npa if adresse_debiteur else "",
+            adresse_debiteur.localite[:35] if adresse_debiteur else "",
+            "CH",
+            # Reference Type and Reference
+            "QRR" if is_qr_iban else "NON",  # QRR only with QR-IBAN
+            self.qr_reference if is_qr_iban else "",  # Reference (only with QRR)
+            # Unstructured message
+            f"Facture {self.numero_facture}",
+            "EPD",  # Trailer
+            # Additional info (billing info) - optional
+            "",
+        ]
+
+        qr_payload = "\r\n".join(qr_data_lines)
+
+        # Créer le QR code
+        qr = qrcode.QRCode(
+            version=None,  # Auto-size
+            error_correction=qrcode.constants.ERROR_CORRECT_M,
+            box_size=10,
+            border=0,  # Pas de bordure, on la gère manuellement
+        )
+        qr.add_data(qr_payload)
+        qr.make(fit=True)
+
+        # Générer l'image PNG
+        img = qr.make_image(fill_color="black", back_color="white")
+
+        # Sauvegarder en PNG
+        buffer = io.BytesIO()
+        img.save(buffer, format='PNG')
+        buffer.seek(0)
+
+        # Sauvegarder comme fichier Django
+        self.qr_code_image.save(
+            f"qr_code_{self.numero_facture}.png",
+            ContentFile(buffer.read()),
+            save=True,
+        )
+
+        return self.qr_code_image
+
+    def generer_pdf(self, avec_qr_bill=False, style_config=None):
+        """
+        Génère le PDF complet de la facture.
+
+        Args:
+            avec_qr_bill: Si True, ajoute le QR-Bill suisse en bas de page.
+            style_config: Dict optionnel de personnalisation (couleurs, polices, marges, textes, blocs).
+        """
+        from facturation.services.pdf_facture import FacturePDF
+        from core.pdf import save_pdf_overwrite
+
+        service = FacturePDF(self, style_config=style_config, avec_qr_bill=avec_qr_bill)
+        pdf_bytes = service.generer()
+
+        suffix = "_qr" if avec_qr_bill else ""
+        filename = f"facture_{self.numero_facture}{suffix}.pdf"
+        return save_pdf_overwrite(self, 'fichier_pdf', pdf_bytes, filename)
+
+    def _wrap_text(self, text, max_chars):
+        """Découpe un texte en lignes de max_chars caractères"""
+        if not text:
+            return []
+        words = text.replace('\n', ' ').split()
+        lines = []
+        current_line = ""
+        for word in words:
+            if len(current_line) + len(word) + 1 <= max_chars:
+                current_line += (" " if current_line else "") + word
+            else:
+                if current_line:
+                    lines.append(current_line)
+                current_line = word
+        if current_line:
+            lines.append(current_line)
+        return lines
+
+    def _ajouter_qr_bill(self, canvas, page_width, page_height):
+        """Ajoute le QR-Bill suisse en bas de la facture"""
+        from reportlab.lib.units import mm
+        from reportlab.lib import colors
+
+        # Swiss QR-Bill spec only allows CHF and EUR
+        devise_qr = self.devise_id if self.devise_id in ('CHF', 'EUR') else 'CHF'
+
+        # Récupérer l'IBAN depuis CompteBancaire
+        iban = None
+        if self.qr_iban:
+            iban = self.qr_iban
+        else:
+            from core.models import CompteBancaire
+            compte = CompteBancaire.objects.filter(
+                mandat=self.mandat, actif=True
+            ).first()
+            if not compte:
+                compte = CompteBancaire.objects.filter(
+                    est_compte_principal=True, actif=True
+                ).first()
+            if compte:
+                iban = compte.iban_formate  # IBAN formaté avec espaces
+
+        if not iban:
+            iban = "IBAN NON CONFIGURÉ"
+
+        # Dimensions du QR-Bill suisse: 210mm x 105mm (bas de page A4)
+        qr_height = 105 * mm
+        qr_y = 0  # En bas de page
+
+        # Ligne de découpe perforée
+        canvas.setStrokeColor(colors.Color(0.7, 0.7, 0.7))
+        canvas.setDash(3, 3)
+        canvas.line(0, qr_height, page_width, qr_height)
+        canvas.setDash()
+
+        # Symbole ciseaux
+        canvas.setFont("Helvetica", 10)
+        canvas.drawString(5 * mm, qr_height + 2 * mm, "✂")
+
+        # Section Récépissé (gauche: 62mm)
+        receipt_width = 62 * mm
+
+        canvas.setFont("Helvetica-Bold", 11)
+        canvas.drawString(5 * mm, qr_height - 10 * mm, "Récépissé")
+
+        canvas.setFont("Helvetica-Bold", 6)
+        canvas.drawString(5 * mm, qr_height - 18 * mm, "Compte / Payable à")
+
+        canvas.setFont("Helvetica", 8)
+        y_receipt = qr_height - 23 * mm
+
+        # IBAN
+        canvas.drawString(5 * mm, y_receipt, iban)
+        y_receipt -= 4 * mm
+
+        # Créancier
+        canvas.drawString(5 * mm, y_receipt, self.mandat.client.raison_sociale[:30])
+        y_receipt -= 4 * mm
+        adresse = self.mandat.client.adresse_siege
+        if adresse:
+            canvas.drawString(5 * mm, y_receipt, f"{adresse.rue} {adresse.numero}"[:30])
+            y_receipt -= 4 * mm
+            canvas.drawString(5 * mm, y_receipt, f"{adresse.npa} {adresse.localite}"[:30])
+
+        # Référence
+        y_receipt -= 8 * mm
+        canvas.setFont("Helvetica-Bold", 6)
+        canvas.drawString(5 * mm, y_receipt, "Référence")
+        y_receipt -= 4 * mm
+        canvas.setFont("Helvetica", 8)
+        ref = self.qr_reference or self.numero_facture
+        canvas.drawString(5 * mm, y_receipt, ref)
+
+        # Payable par
+        y_receipt -= 8 * mm
+        canvas.setFont("Helvetica-Bold", 6)
+        canvas.drawString(5 * mm, y_receipt, "Payable par")
+        y_receipt -= 4 * mm
+        canvas.setFont("Helvetica", 8)
+        canvas.drawString(5 * mm, y_receipt, self.client.raison_sociale[:30])
+        y_receipt -= 4 * mm
+        adresse_client = self.client.adresse_correspondance or self.client.adresse_siege
+        if adresse_client:
+            canvas.drawString(5 * mm, y_receipt, f"{adresse_client.rue} {adresse_client.numero}"[:30])
+            y_receipt -= 4 * mm
+            canvas.drawString(5 * mm, y_receipt, f"{adresse_client.npa} {adresse_client.localite}"[:30])
+
+        # Montant
+        canvas.setFont("Helvetica-Bold", 6)
+        canvas.drawString(5 * mm, 15 * mm, "Monnaie")
+        canvas.drawString(20 * mm, 15 * mm, "Montant")
+        canvas.setFont("Helvetica", 8)
+        canvas.drawString(5 * mm, 10 * mm, devise_qr)
+        canvas.drawString(20 * mm, 10 * mm, f"{self.montant_ttc:.2f}")
+
+        # Point d'acceptation
+        canvas.setFont("Helvetica-Bold", 6)
+        canvas.drawString(35 * mm, 20 * mm, "Point de dépôt")
+
+        # Ligne séparatrice verticale
+        canvas.setStrokeColor(colors.black)
+        canvas.line(receipt_width, 0, receipt_width, qr_height)
+
+        # Section Bulletin de paiement (droite: 148mm)
+        payment_x = receipt_width + 5 * mm
+
+        canvas.setFont("Helvetica-Bold", 11)
+        canvas.drawString(payment_x, qr_height - 10 * mm, "Section paiement")
+
+        # Zone QR Code (46mm x 46mm) - norme Swiss QR Bill
+        qr_code_x = payment_x
+        qr_code_y = qr_height - 60 * mm
+        qr_code_size = 46 * mm
+
+        # Dessiner le QR code PNG si disponible
+        qr_drawn = False
+        if self.qr_code_image and self.qr_code_image.name:
+            try:
+                import os
+                qr_path = self.qr_code_image.path
+                if os.path.exists(qr_path):
+                    # Dessiner l'image PNG directement
+                    canvas.drawImage(
+                        qr_path,
+                        qr_code_x,
+                        qr_code_y,
+                        width=qr_code_size,
+                        height=qr_code_size,
+                        preserveAspectRatio=True,
+                        mask='auto'
+                    )
+                    qr_drawn = True
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f"Erreur dessin QR: {e}")
+
+        if not qr_drawn:
+            # Fallback: cadre vide avec texte
+            canvas.setStrokeColor(colors.black)
+            canvas.setLineWidth(0.5)
+            canvas.rect(qr_code_x, qr_code_y, qr_code_size, qr_code_size, stroke=1, fill=0)
+            canvas.setFont("Helvetica", 8)
+            canvas.drawCentredString(qr_code_x + qr_code_size/2, qr_code_y + qr_code_size/2, "QR Code")
+
+        # Informations à droite du QR code
+        info_x = qr_code_x + qr_code_size + 5 * mm
+
+        canvas.setFont("Helvetica-Bold", 8)
+        canvas.drawString(info_x, qr_height - 18 * mm, "Compte / Payable à")
+
+        canvas.setFont("Helvetica", 10)
+        y_info = qr_height - 25 * mm
+        canvas.drawString(info_x, y_info, iban)
+        y_info -= 5 * mm
+        canvas.drawString(info_x, y_info, self.mandat.client.raison_sociale[:40])
+        y_info -= 5 * mm
+        if adresse:
+            canvas.drawString(info_x, y_info, f"{adresse.rue} {adresse.numero}"[:40])
+            y_info -= 5 * mm
+            canvas.drawString(info_x, y_info, f"{adresse.npa} {adresse.localite}"[:40])
+
+        # Référence
+        y_info -= 10 * mm
+        canvas.setFont("Helvetica-Bold", 8)
+        canvas.drawString(info_x, y_info, "Référence")
+        y_info -= 5 * mm
+        canvas.setFont("Helvetica", 10)
+        canvas.drawString(info_x, y_info, ref)
+
+        # Informations supplémentaires
+        y_info -= 10 * mm
+        canvas.setFont("Helvetica-Bold", 8)
+        canvas.drawString(info_x, y_info, "Informations supplémentaires")
+        y_info -= 5 * mm
+        canvas.setFont("Helvetica", 9)
+        canvas.drawString(info_x, y_info, f"Facture {self.numero_facture}")
+
+        # Payable par
+        y_info -= 10 * mm
+        canvas.setFont("Helvetica-Bold", 8)
+        canvas.drawString(info_x, y_info, "Payable par")
+        y_info -= 5 * mm
+        canvas.setFont("Helvetica", 10)
+        canvas.drawString(info_x, y_info, self.client.raison_sociale[:40])
+        y_info -= 5 * mm
+        if adresse_client:
+            canvas.drawString(info_x, y_info, f"{adresse_client.rue} {adresse_client.numero}"[:40])
+            y_info -= 5 * mm
+            canvas.drawString(info_x, y_info, f"{adresse_client.npa} {adresse_client.localite}"[:40])
+
+        # Montant en bas
+        canvas.setFont("Helvetica-Bold", 8)
+        canvas.drawString(payment_x, 20 * mm, "Monnaie")
+        canvas.drawString(payment_x + 25 * mm, 20 * mm, "Montant")
+        canvas.setFont("Helvetica", 12)
+        canvas.drawString(payment_x, 12 * mm, devise_qr)
+        canvas.drawString(payment_x + 25 * mm, 12 * mm, f"{self.montant_ttc:.2f}")
+
+    def calculer_totaux(self):
+        """Recalcule tous les totaux à partir des lignes"""
+        from django.db.models import Sum
+
+        lignes = self.lignes.all()
+
+        # Total HT
+        self.montant_ht = lignes.aggregate(Sum("montant_ht"))[
+            "montant_ht__sum"
+        ] or Decimal("0")
+
+        # Application remise globale
+        if self.remise_pourcent:
+            self.remise_montant = (
+                self.montant_ht * self.remise_pourcent / 100
+            ).quantize(Decimal("0.01"))
+
+        montant_ht_net = self.montant_ht - self.remise_montant
+
+        # TVA
+        self.montant_tva = lignes.aggregate(Sum("montant_tva"))[
+            "montant_tva__sum"
+        ] or Decimal("0")
+
+        # TTC
+        self.montant_ttc = montant_ht_net + self.montant_tva
+
+        # Montant restant
+        self.montant_restant = self.montant_ttc - self.montant_paye
+
+        self.save(
+            update_fields=[
+                "montant_ht",
+                "montant_tva",
+                "montant_ttc",
+                "remise_montant",
+                "montant_restant",
+            ]
+        )
+
+        return self
+
+    def valider(self, user):
+        """Valide la facture"""
+        if not self.lignes.exists():
+            raise ValueError(_("La facture doit avoir au moins une ligne"))
+
+        # Recalculer les totaux
+        self.calculer_totaux()
+
+        # Générer QR-Bill
+        if not self.qr_reference:
+            self.generer_qr_reference()
+
+        # Changer le statut
+        self.statut = "EMISE"
+        self.validee_par = user
+        self.date_validation = datetime.now()
+        self.save()
+
+        return self
+
+    def enregistrer_paiement(
+        self, montant, date_paiement, mode_paiement, reference="", user=None
+    ):
+        """Enregistre un paiement pour cette facture"""
+        paiement = Paiement.objects.create(
+            facture=self,
+            montant=montant,
+            date_paiement=date_paiement,
+            mode_paiement=mode_paiement,
+            reference=reference,
+            valide=True,
+            valide_par=user,
+            date_validation=datetime.now() if user else None,
+        )
+
+        return paiement
+
+    def creer_avoir(self, montant=None, motif="", user=None):
+        """Crée un avoir pour cette facture"""
+        montant_avoir = montant or self.montant_ttc
+
+        avoir = Facture.objects.create(
+            mandat=self.mandat,
+            client=self.client,
+            type_facture="AVOIR",
+            facture_origine=self,
+            date_emission=date.today(),
+            date_echeance=date.today() + timedelta(days=30),
+            montant_ht=-abs(montant_avoir),
+            montant_ttc=-abs(montant_avoir),
+            statut="EMISE",
+            motif_annulation=motif,
+            creee_par=user or self.creee_par,
+        )
+
+        # Copier les lignes (en négatif)
+        for ligne in self.lignes.all():
+            LigneFacture.objects.create(
+                facture=avoir,
+                ordre=ligne.ordre,
+                prestation=ligne.prestation,
+                description=ligne.description,
+                quantite=-ligne.quantite,
+                unite=ligne.unite,
+                prix_unitaire_ht=ligne.prix_unitaire_ht,
+                taux_tva=ligne.taux_tva,
+            )
+
+        return avoir
+
+    def creer_relance(self, niveau=None, user=None):
+        """Crée une relance pour cette facture"""
+        niveau_relance = niveau or (self.nombre_relances + 1)
+
+        # Frais selon le niveau
+        frais = Decimal("0")
+        if niveau_relance == 2:
+            frais = Decimal("20.00")
+        elif niveau_relance >= 3:
+            frais = Decimal("40.00")
+
+        relance = Relance.objects.create(
+            facture=self,
+            niveau=niveau_relance,
+            date_echeance=date.today() + timedelta(days=15),
+            montant_frais=frais,
+        )
+
+        # Mettre à jour la facture
+        self.nombre_relances += 1
+        self.date_derniere_relance = date.today()
+        if self.statut not in ["EN_RETARD", "ANNULEE"]:
+            self.statut = "RELANCEE"
+        self.save()
+
+        return relance
+
+    def est_en_retard(self):
+        """Vérifie si la facture est en retard"""
+        return (
+            self.date_echeance < date.today()
+            and self.montant_restant > 0
+            and self.statut not in ["PAYEE", "ANNULEE", "AVOIR"]
+        )
+
+    def jours_retard(self):
+        """Retourne le nombre de jours de retard"""
+        if self.est_en_retard():
+            return (date.today() - self.date_echeance).days
+        return 0
+
+
+class LigneFacture(BaseModel):
+    """Ligne de facture"""
+
+    facture = models.ForeignKey(
+        Facture,
+        on_delete=models.CASCADE,
+        related_name='lignes',
+        verbose_name=_("Facture"),
+        help_text=_("Facture à laquelle appartient cette ligne")
+    )
+
+    # Ordre d'affichage
+    ordre = models.IntegerField(
+        default=0,
+        verbose_name=_("Ordre"),
+        help_text=_("Ordre d'affichage de la ligne")
+    )
+
+    # Prestation/Produit
+    prestation = models.ForeignKey(
+        Prestation,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name=_("Prestation"),
+        help_text=_("Prestation associée à cette ligne")
+    )
+
+    # Description
+    description = models.TextField(
+        verbose_name=_("Description"),
+        help_text=_("Description de la ligne")
+    )
+    description_detaillee = models.TextField(
+        blank=True,
+        verbose_name=_("Description détaillée"),
+        help_text=_("Description détaillée additionnelle")
+    )
+
+    # Quantité et prix
+    quantite = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=1,
+        verbose_name=_("Quantité"),
+        help_text=_("Quantité facturée")
+    )
+    unite = models.CharField(
+        max_length=50,
+        default='heure',
+        verbose_name=_("Unité"),
+        help_text=_("Unité de mesure")
+    )
+    prix_unitaire_ht = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        verbose_name=_("Prix unitaire HT"),
+        help_text=_("Prix unitaire hors taxes")
+    )
+
+    # Montants
+    montant_ht = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        verbose_name=_("Montant HT"),
+        help_text=_("Montant hors taxes de la ligne")
+    )
+
+    # TVA
+    taux_tva = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Taux TVA"),
+        help_text=_("Taux de TVA appliqué (résolu depuis le régime fiscal du mandat)")
+    )
+    taux_tva_ref = models.ForeignKey(
+        'tva.TauxTVA',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='lignes_facture',
+        verbose_name=_("Taux TVA (référence)"),
+        help_text=_("Référence vers le taux TVA du régime fiscal")
+    )
+    code_tva = models.ForeignKey(
+        'tva.CodeTVA',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='lignes_facture',
+        verbose_name=_("Code TVA"),
+        help_text=_("Code TVA applicable")
+    )
+    montant_tva = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        verbose_name=_("Montant TVA"),
+        help_text=_("Montant de TVA calculé")
+    )
+    montant_ttc = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        verbose_name=_("Montant TTC"),
+        help_text=_("Montant toutes taxes comprises")
+    )
+
+    # Remise spécifique ligne
+    remise_pourcent = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Remise (%)"),
+        help_text=_("Pourcentage de remise sur cette ligne")
+    )
+
+    # Lien time tracking
+    temps_factures = models.ManyToManyField(
+        TimeTracking,
+        blank=True,
+        related_name='lignes_facture',
+        verbose_name=_("Temps facturés"),
+        help_text=_("Temps de travail associés à cette ligne")
+    )
+
+    class Meta:
+        db_table = 'lignes_facture'
+        verbose_name = _('Ligne de facture')
+        verbose_name_plural = _('Lignes de facture')
+        ordering = ['facture', 'ordre']
+
+    def __str__(self):
+        return f"{self.facture.numero_facture} - {self.description[:50]}"
+
+    def save(self, *args, **kwargs):
+        # Resolve taux_tva from mandat regime if not explicitly set
+        if not self.taux_tva and self.facture_id:
+            self.taux_tva = get_taux_tva_defaut(self.facture.mandat)
+
+        # Calcul automatique des montants
+        montant_brut = self.quantite * self.prix_unitaire_ht
+
+        # Application remise ligne
+        if self.remise_pourcent:
+            montant_brut = montant_brut * (1 - self.remise_pourcent / 100)
+
+        self.montant_ht = montant_brut.quantize(Decimal('0.01'))
+        self.montant_tva = (self.montant_ht * self.taux_tva / 100).quantize(Decimal('0.01'))
+        self.montant_ttc = self.montant_ht + self.montant_tva
+
+        super().save(*args, **kwargs)
+
+
+class Paiement(BaseModel):
+    """Paiement d'une facture"""
+
+    MODE_PAIEMENT_CHOICES = [
+        ('VIREMENT', _('Virement bancaire')),
+        ('QR_BILL', _('QR-Bill')),
+        ('CARTE', _('Carte bancaire')),
+        ('ESPECES', _('Espèces')),
+        ('CHEQUE', _('Chèque')),
+        ('COMPENSATION', _('Compensation')),
+        ('AUTRE', _('Autre')),
+    ]
+
+    facture = models.ForeignKey(
+        Facture,
+        on_delete=models.CASCADE,
+        related_name='paiements',
+        verbose_name=_("Facture"),
+        help_text=_("Facture concernée par ce paiement")
+    )
+
+    # Montant
+    montant = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        verbose_name=_("Montant"),
+        help_text=_("Montant du paiement")
+    )
+    devise = models.ForeignKey(
+        'core.Devise',
+        on_delete=models.PROTECT,
+        db_column='devise',
+        verbose_name=_("Devise"),
+        help_text=_("Devise du paiement")
+    )
+
+    # Date et mode
+    date_paiement = models.DateField(
+        db_index=True,
+        verbose_name=_("Date de paiement"),
+        help_text=_("Date du paiement")
+    )
+    mode_paiement = models.CharField(
+        max_length=20,
+        choices=MODE_PAIEMENT_CHOICES,
+        verbose_name=_("Mode de paiement"),
+        help_text=_("Mode de paiement utilisé")
+    )
+
+    # Référence
+    reference = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name=_("Référence"),
+        help_text=_("Référence bancaire ou numéro de transaction")
+    )
+
+    # Validation
+    valide = models.BooleanField(
+        default=False,
+        verbose_name=_("Validé"),
+        help_text=_("Indique si le paiement est validé")
+    )
+    date_validation = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_("Date de validation"),
+        help_text=_("Date et heure de validation")
+    )
+    valide_par = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name=_("Validé par"),
+        help_text=_("Utilisateur ayant validé le paiement")
+    )
+
+    # Comptabilisation
+    ecriture_comptable = models.ForeignKey(
+        'comptabilite.EcritureComptable',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='paiements',
+        verbose_name=_("Écriture comptable"),
+        help_text=_("Écriture comptable associée")
+    )
+
+    notes = models.TextField(
+        blank=True,
+        verbose_name=_("Notes"),
+        help_text=_("Notes concernant ce paiement")
+    )
+
+    class Meta:
+        db_table = 'paiements'
+        verbose_name = _('Paiement')
+        verbose_name_plural = _('Paiements')
+        ordering = ['-date_paiement']
+        indexes = [
+            models.Index(fields=['facture', 'date_paiement']),
+            models.Index(fields=['date_paiement']),
+        ]
+
+    def __str__(self):
+        return f"Paiement {self.montant} {self.devise_id} - {self.facture.numero_facture}"
+
+    def save(self, *args, **kwargs):
+        # Auto-populate devise from facture if not set
+        if not self.devise_id and self.facture_id:
+            self.devise_id = self.facture.devise_id
+        super().save(*args, **kwargs)
+
+        # Mise à jour du montant payé sur la facture
+        self.facture.montant_paye = self.facture.paiements.filter(
+            valide=True
+        ).aggregate(
+            total=models.Sum('montant')
+        )['total'] or Decimal('0')
+
+        self.facture.save(update_fields=['montant_paye', 'montant_restant', 'statut'])
+
+
+class Relance(BaseModel):
+    """Relance de paiement"""
+
+    NIVEAU_CHOICES = [
+        (1, _('1ère relance')),
+        (2, _('2ème relance')),
+        (3, _('3ème relance')),
+        (4, _('Mise en demeure')),
+    ]
+
+    facture = models.ForeignKey(
+        Facture,
+        on_delete=models.CASCADE,
+        related_name='relances',
+        verbose_name=_("Facture"),
+        help_text=_("Facture concernée par cette relance")
+    )
+
+    niveau = models.IntegerField(
+        choices=NIVEAU_CHOICES,
+        verbose_name=_("Niveau"),
+        help_text=_("Niveau de la relance (1ère, 2ème, etc.)")
+    )
+    date_relance = models.DateField(
+        auto_now_add=True,
+        verbose_name=_("Date de relance"),
+        help_text=_("Date de création de la relance")
+    )
+    date_echeance = models.DateField(
+        verbose_name=_("Date d'échéance"),
+        help_text=_("Nouvelle date limite de paiement")
+    )
+
+    montant_frais = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Frais de relance"),
+        help_text=_("Montant des frais de relance")
+    )
+    montant_interets = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Intérêts de retard"),
+        help_text=_("Montant des intérêts de retard")
+    )
+
+    envoyee = models.BooleanField(
+        default=False,
+        verbose_name=_("Envoyée"),
+        help_text=_("Indique si la relance a été envoyée")
+    )
+    date_envoi = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("Date d'envoi"),
+        help_text=_("Date d'envoi de la relance")
+    )
+
+    fichier_pdf = models.FileField(
+        upload_to='factures/relances/',
+        null=True,
+        blank=True,
+        verbose_name=_("Fichier PDF"),
+        help_text=_("Fichier PDF de la relance")
+    )
+
+    notes = models.TextField(
+        blank=True,
+        verbose_name=_("Notes"),
+        help_text=_("Notes concernant cette relance")
+    )
+
+    class Meta:
+        db_table = 'relances'
+        verbose_name = _('Relance')
+        verbose_name_plural = _('Relances')
+        ordering = ['-date_relance']
+
+    def __str__(self):
+        return f"Relance niv.{self.niveau} - {self.facture.numero_facture}"

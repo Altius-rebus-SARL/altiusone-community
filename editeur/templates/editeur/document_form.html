@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% load i18n widget_tweaks %}
+
+{% block title %}{% trans "Nouveau document" %} - {% trans "Éditeur" %} - AltiusOne{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- En-tête -->
+            <div class="mb-4">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'editeur:dashboard' %}">{% trans "Éditeur" %}</a>
+                        </li>
+                        <li class="breadcrumb-item active">{% trans "Nouveau document" %}</li>
+                    </ol>
+                </nav>
+                <h1 class="h3">{% trans "Créer un document collaboratif" %}</h1>
+            </div>
+
+            <form method="post" class="needs-validation" novalidate>
+                {% csrf_token %}
+
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">{% trans "Informations générales" %}</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Titre -->
+                        <div class="mb-3">
+                            <label for="id_titre" class="form-label">{% trans "Titre" %} *</label>
+                            {% render_field form.titre class="form-control" %}
+                            {% if form.titre.errors %}
+                            <div class="invalid-feedback d-block">{{ form.titre.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Description -->
+                        <div class="mb-3">
+                            <label for="id_description" class="form-label">{% trans "Description" %}</label>
+                            {% render_field form.description class="form-control" %}
+                            <div class="form-text">{% trans "Une brève description du contenu du document" %}</div>
+                        </div>
+
+                        <!-- Type et Langue -->
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="id_type_document" class="form-label">{% trans "Type de document" %}</label>
+                                {% render_field form.type_document class="form-select" %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="id_langue" class="form-label">{% trans "Langue" %}</label>
+                                {% render_field form.langue class="form-select" %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Organisation -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">{% trans "Organisation" %}</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="id_mandat" class="form-label">{% trans "Mandat" %}</label>
+                                {% render_field form.mandat class="form-select" %}
+                                <div class="form-text">{% trans "Associer ce document à un mandat" %}</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="id_client" class="form-label">{% trans "Client" %}</label>
+                                {% render_field form.client class="form-select" %}
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="id_dossier" class="form-label">{% trans "Dossier GED" %}</label>
+                            {% render_field form.dossier class="form-select" %}
+                            <div class="form-text">{% trans "Dossier où archiver le document final" %}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modèle -->
+                {% if modeles %}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">{% trans "Démarrer depuis un modèle" %}</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <div class="form-check card h-100">
+                                    <div class="card-body">
+                                        <input class="form-check-input" type="radio" name="modele"
+                                               id="modele_vide" value="" checked>
+                                        <label class="form-check-label d-block" for="modele_vide">
+                                            <i class="bi bi-file-earmark display-6 text-muted"></i>
+                                            <span class="d-block fw-bold mt-2">{% trans "Document vide" %}</span>
+                                            <small class="text-muted">{% trans "Commencer de zéro" %}</small>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            {% for modele in modeles %}
+                            <div class="col-md-4">
+                                <div class="form-check card h-100">
+                                    <div class="card-body">
+                                        <input class="form-check-input" type="radio" name="modele"
+                                               id="modele_{{ modele.id }}" value="{{ modele.id }}">
+                                        <label class="form-check-label d-block" for="modele_{{ modele.id }}">
+                                            <i class="bi bi-file-earmark-text display-6 text-primary"></i>
+                                            <span class="d-block fw-bold mt-2">{{ modele.nom }}</span>
+                                            <small class="text-muted">{{ modele.get_categorie_display }}</small>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Accès -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">{% trans "Accès" %}</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-check">
+                            {% render_field form.est_public class="form-check-input" %}
+                            <label class="form-check-label" for="id_est_public">
+                                {% trans "Public dans le mandat" %}
+                            </label>
+                            <div class="form-text">
+                                {% trans "Si activé, tous les utilisateurs du mandat pourront voir ce document" %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="d-flex justify-content-between">
+                    <a href="{% url 'editeur:dashboard' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-lg me-1"></i>
+                        {% trans "Annuler" %}
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-plus-lg me-1"></i>
+                        {% trans "Créer et éditer" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.form-check.card {
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.form-check.card:hover {
+    border-color: #0d6efd;
+}
+.form-check.card .form-check-input {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+}
+.form-check.card .form-check-input:checked + .form-check-label {
+    color: #0d6efd;
+}
+.form-check.card:has(.form-check-input:checked) {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+</style>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% load i18n %}
+<div class="card chart-card h-100">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <div>
+            <h5 class="mb-0">{% trans "Décomposition Salaires" %}</h5>
+            <small class="text-muted">{% trans "Masse salariale par employé et composante" %}</small>
+        </div>
+        <select id="icicle-mois" class="form-select form-select-sm" style="width: auto;">
+            <option value="">{% trans "Année complète" %}</option>
+            <option value="1">{% trans "Janvier" %}</option>
+            <option value="2">{% trans "Février" %}</option>
+            <option value="3">{% trans "Mars" %}</option>
+            <option value="4">{% trans "Avril" %}</option>
+            <option value="5">{% trans "Mai" %}</option>
+            <option value="6">{% trans "Juin" %}</option>
+            <option value="7">{% trans "Juillet" %}</option>
+            <option value="8">{% trans "Août" %}</option>
+            <option value="9">{% trans "Septembre" %}</option>
+            <option value="10">{% trans "Octobre" %}</option>
+            <option value="11">{% trans "Novembre" %}</option>
+            <option value="12">{% trans "Décembre" %}</option>
+        </select>
+    </div>
+    <div class="card-body">
+        <div class="icicle-breadcrumb"></div>
+        <div id="icicle-container" class="d3-chart-container" style="height: 450px;"></div>
+    </div>
+</div>

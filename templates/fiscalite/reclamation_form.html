@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load widget_tweaks %}
+
+{% block title %}{% trans "Nouvelle réclamation fiscale" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Nouvelle réclamation fiscale" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'fiscalite:declaration-list' %}">
+                    <span>{% trans "Déclarations" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'fiscalite:declaration-detail' declaration.pk %}">
+                    <span>{{ declaration.numero_declaration }}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Nouvelle réclamation" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<form method="post" enctype="multipart/form-data" class="app-form">
+    {% csrf_token %}
+    
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                {{ form.non_field_errors }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endif %}
+
+            <!-- Info déclaration -->
+            <div class="card bg-light-warning">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <i class="ph ph-warning text-warning f-s-48 me-3"></i>
+                        <div>
+                            <h6 class="mb-1">{% trans "Réclamation pour" %}: {{ declaration.numero_declaration }}</h6>
+                            <p class="text-muted f-s-14 mb-0">
+                                {{ declaration.mandat.client.raison_sociale }} - 
+                                {{ declaration.get_type_impot_display }} {{ declaration.annee_fiscale }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Informations de la réclamation -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-warning me-2"></i>{% trans "Informations de la réclamation" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Date de réclamation" %} <span class="text-danger">*</span></label>
+                                {{ form.date_reclamation|add_class:"form-control" }}
+                                {% if form.date_reclamation.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.date_reclamation.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Motif de la réclamation" %} <span class="text-danger">*</span></label>
+                                {{ form.motif|add_class:"form-control" }}
+                                <small class="text-muted">{% trans "Expliquer en détail les raisons de la contestation" %}</small>
+                                {% if form.motif.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.motif.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Montants -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-currency-circle-dollar me-2"></i>{% trans "Montants contestés" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Montant contesté" %} <span class="text-danger">*</span></label>
+                                {{ form.montant_conteste|add_class:"form-control" }}
+                                <small class="text-muted">{% trans "Montant de l'impôt contesté" %}</small>
+                                {% if form.montant_conteste.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.montant_conteste.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Montant demandé" %} <span class="text-danger">*</span></label>
+                                {{ form.montant_demande|add_class:"form-control" }}
+                                <small class="text-muted">{% trans "Montant que vous estimez correct" %}</small>
+                                {% if form.montant_demande.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.montant_demande.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="alert alert-warning">
+                                <i class="ph ph-info me-2"></i>
+                                <strong>{% trans "Important" %}:</strong> {% trans "La différence entre le montant contesté et le montant demandé représente la réduction d'impôt souhaitée" %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fichier -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-file-pdf me-2"></i>{% trans "Document de réclamation" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Fichier de réclamation" %}</label>
+                        {{ form.fichier_reclamation|add_class:"form-control" }}
+                        <small class="text-muted">{% trans "Lettre de réclamation officielle (PDF)" %}</small>
+                        {% if form.fichier_reclamation.errors %}
+                        <div class="text-danger f-s-12 mt-1">{{ form.fichier_reclamation.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Informations légales -->
+            <div class="card bg-light-info">
+                <div class="card-body">
+                    <h6 class="text-info mb-3">
+                        <i class="ph ph-info me-2"></i>{% trans "Informations légales" %}
+                    </h6>
+                    <ul class="mb-0">
+                        <li class="mb-2">{% trans "Une réclamation doit être déposée dans les 30 jours suivant la réception de la taxation" %}</li>
+                        <li class="mb-2">{% trans "Elle doit être motivée et contenir toutes les pièces justificatives" %}</li>
+                        <li>{% trans "L'autorité fiscale doit statuer dans un délai raisonnable" %}</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'fiscalite:declaration-detail' declaration.pk %}" class="btn btn-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="ph ph-check me-2"></i>{% trans "Créer la réclamation" %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}

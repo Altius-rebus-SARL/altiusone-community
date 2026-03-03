@@ -1,0 +1,46 @@
+<!-- modelforms/partials/qr_code.html -->
+{% load i18n %}
+
+<div class="text-center">
+    {% if qr_code_data_uri %}
+    <img src="{{ qr_code_data_uri }}" alt="QR Code" class="img-fluid mb-3" style="max-width: 200px;">
+    {% endif %}
+
+    {% if public_url %}
+    <div class="mb-3">
+        <div class="input-group input-group-sm">
+            <input type="text" class="form-control" value="{{ public_url }}" id="public-url-input" readonly>
+            <button class="btn btn-outline-secondary" type="button" onclick="copyPublicUrl()" title="{% trans 'Copier le lien' %}">
+                <i class="ti ti-copy"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-center gap-2">
+        <button class="btn btn-sm btn-outline-primary" onclick="copyPublicUrl()">
+            <i class="ti ti-copy me-1"></i>{% trans "Copier le lien" %}
+        </button>
+        <a href="{% url 'modelforms:configuration-qrcode' configuration.pk %}" class="btn btn-sm btn-outline-secondary" download="qrcode-{{ configuration.code }}.png">
+            <i class="ti ti-download me-1"></i>{% trans "Télécharger QR" %}
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function copyPublicUrl() {
+    var input = document.getElementById('public-url-input');
+    navigator.clipboard.writeText(input.value).then(function() {
+        var btn = event.currentTarget;
+        var originalHTML = btn.innerHTML;
+        btn.innerHTML = '<i class="ti ti-check me-1"></i>{% trans "Copié !" %}';
+        btn.classList.add('btn-success');
+        btn.classList.remove('btn-outline-primary', 'btn-outline-secondary');
+        setTimeout(function() {
+            btn.innerHTML = originalHTML;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline-primary');
+        }, 2000);
+    });
+}
+</script>

@@ -1,0 +1,185 @@
+<!-- analytics/planification_form.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load widget_tweaks %}
+
+{% block title %}{% if object %}{% trans "Modifier la planification" %}{% else %}{% trans "Nouvelle planification" %}{% endif %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">
+            {% if object %}{% trans "Modifier la planification" %}{% else %}{% trans "Nouvelle planification" %}{% endif %}
+        </h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Accueil" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'analytics:planification-list' %}">{% trans "Planifications" %}</a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% if object %}{% trans "Modifier" %}{% else %}{% trans "Créer" %}{% endif %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>{% trans "Configuration de la planification" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label for="{{ form.nom.id_for_label }}" class="form-label">{% trans "Nom" %} *</label>
+                            {% render_field form.nom class="form-control" placeholder="Ex: Rapport TVA mensuel" %}
+                            {% if form.nom.errors %}
+                            <div class="text-danger small">{{ form.nom.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.type_rapport.id_for_label }}" class="form-label">{% trans "Type de rapport" %} *</label>
+                            {% render_field form.type_rapport class="form-select" %}
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.mandat.id_for_label }}" class="form-label">{% trans "Mandat" %}</label>
+                            {% render_field form.mandat class="form-select select-basic" %}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.format_fichier.id_for_label }}" class="form-label">{% trans "Format" %}</label>
+                            {% render_field form.format_fichier class="form-select" %}
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <h6 class="mb-3">{% trans "Fréquence d'exécution" %}</h6>
+
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.frequence.id_for_label }}" class="form-label">{% trans "Fréquence" %} *</label>
+                            {% render_field form.frequence class="form-select" id="frequence-select" %}
+                        </div>
+                        <div class="col-md-4 mb-3" id="jour-semaine-wrapper">
+                            <label for="{{ form.jour_semaine.id_for_label }}" class="form-label">{% trans "Jour de la semaine" %}</label>
+                            {% render_field form.jour_semaine class="form-select" %}
+                            <small class="text-muted">1 = {% trans "Lundi" %}, 7 = {% trans "Dimanche" %}</small>
+                        </div>
+                        <div class="col-md-4 mb-3" id="jour-mois-wrapper">
+                            <label for="{{ form.jour_mois.id_for_label }}" class="form-label">{% trans "Jour du mois" %}</label>
+                            {% render_field form.jour_mois class="form-control" type="number" min="1" max="31" %}
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.heure_generation.id_for_label }}" class="form-label">{% trans "Heure d'exécution" %}</label>
+                            {% render_field form.heure_generation class="form-control" type="time" %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Destinataires -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>{% trans "Destinataires" %}</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">
+                        {% trans "Les rapports générés seront envoyés automatiquement aux adresses email ci-dessous." %}
+                    </p>
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Adresses email" %}</label>
+                        <textarea name="destinataires" class="form-control" rows="3"
+                                  placeholder="email1@exemple.ch&#10;email2@exemple.ch">{% if form.destinataires.value %}{{ form.destinataires.value|join:"\n" }}{% endif %}</textarea>
+                        <small class="text-muted">{% trans "Une adresse par ligne" %}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>{% trans "Statut" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="form-check form-switch">
+                        {% render_field form.actif class="form-check-input" %}
+                        <label class="form-check-label" for="{{ form.actif.id_for_label }}">
+                            {% trans "Planification active" %}
+                        </label>
+                    </div>
+                    <p class="text-muted small mt-2">
+                        {% trans "Désactivez pour mettre en pause temporairement." %}
+                    </p>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>{% trans "Aide" %}</h5>
+                </div>
+                <div class="card-body">
+                    <h6>{% trans "Fréquences" %}</h6>
+                    <ul class="small text-muted">
+                        <li><strong>{% trans "Quotidien" %}</strong>: {% trans "Tous les jours à l'heure spécifiée" %}</li>
+                        <li><strong>{% trans "Hebdomadaire" %}</strong>: {% trans "Le jour de la semaine choisi" %}</li>
+                        <li><strong>{% trans "Mensuel" %}</strong>: {% trans "Le jour du mois choisi" %}</li>
+                        <li><strong>{% trans "Trimestriel" %}</strong>: {% trans "Le 1er jour de chaque trimestre" %}</li>
+                        <li><strong>{% trans "Annuel" %}</strong>: {% trans "Le 1er janvier de chaque année" %}</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <button type="submit" class="btn btn-primary w-100 mb-2">
+                        <i class="ph ph-check me-2"></i>
+                        {% if object %}{% trans "Enregistrer" %}{% else %}{% trans "Créer" %}{% endif %}
+                    </button>
+                    <a href="{% url 'analytics:planification-list' %}" class="btn btn-light-secondary w-100">
+                        {% trans "Annuler" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('frequence-select').addEventListener('change', function() {
+    const frequence = this.value;
+    const jourSemaineWrapper = document.getElementById('jour-semaine-wrapper');
+    const jourMoisWrapper = document.getElementById('jour-mois-wrapper');
+
+    jourSemaineWrapper.style.display = 'none';
+    jourMoisWrapper.style.display = 'none';
+
+    if (frequence === 'SEMAINE') {
+        jourSemaineWrapper.style.display = 'block';
+    } else if (frequence === 'MOIS' || frequence === 'TRIMESTRE') {
+        jourMoisWrapper.style.display = 'block';
+    }
+});
+
+// Initialisation
+document.getElementById('frequence-select').dispatchEvent(new Event('change'));
+</script>
+{% endblock %}

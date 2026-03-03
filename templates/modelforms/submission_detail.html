@@ -1,0 +1,314 @@
+<!-- modelforms/submission_detail.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Détail de la soumission" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Détail de la soumission" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'modelforms:configuration-list' %}">{% trans "Formulaires dynamiques" %}</a>
+            </li>
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'modelforms:submission-list' %}">{% trans "Soumissions" %}</a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{{ submission.submitted_at|date:"d/m/Y H:i" }}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<div class="row">
+    <!-- Main Content -->
+    <div class="col-lg-8">
+        <!-- Info Card -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>{% trans "Informations générales" %}</h5>
+                <div>
+                    {% if submission.status == 'COMPLETED' %}
+                        <span class="badge bg-success-subtle text-success">{{ submission.get_status_display }}</span>
+                    {% elif submission.status == 'PENDING' %}
+                        <span class="badge bg-warning-subtle text-warning">{{ submission.get_status_display }}</span>
+                    {% elif submission.status == 'PROCESSING' %}
+                        <span class="badge bg-info-subtle text-info">{{ submission.get_status_display }}</span>
+                    {% elif submission.status == 'FAILED' %}
+                        <span class="badge bg-danger-subtle text-danger">{{ submission.get_status_display }}</span>
+                    {% elif submission.status == 'REJECTED' %}
+                        <span class="badge bg-secondary-subtle text-secondary">{{ submission.get_status_display }}</span>
+                    {% else %}
+                        <span class="badge bg-light text-muted">{{ submission.get_status_display }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted">{% trans "Formulaire" %}</label>
+                        <p class="mb-0">
+                            <a href="{% url 'modelforms:configuration-detail' submission.form_config.pk %}">
+                                <span class="badge bg-light-secondary text-dark">
+                                    <i class="{{ submission.form_config.icon }} me-1"></i>
+                                    {{ submission.form_config.code }}
+                                </span>
+                                {{ submission.form_config.name }}
+                            </a>
+                        </p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted">{% trans "Date de soumission" %}</label>
+                        <p class="mb-0">{{ submission.submitted_at|date:"d/m/Y H:i:s" }}</p>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted">{% trans "Soumis par" %}</label>
+                        <p class="mb-0">{{ submission.submitted_by.get_full_name|default:submission.submitted_by.username }}</p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted">{% trans "Modèle cible" %}</label>
+                        <p class="mb-0"><code>{{ submission.form_config.target_model }}</code></p>
+                    </div>
+                </div>
+
+                {% if submission.validated_by %}
+                <hr>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted">{% trans "Validé par" %}</label>
+                        <p class="mb-0">{{ submission.validated_by.get_full_name|default:submission.validated_by.username }}</p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted">{% trans "Date de validation" %}</label>
+                        <p class="mb-0">{{ submission.validated_at|date:"d/m/Y H:i:s" }}</p>
+                    </div>
+                </div>
+
+                {% if submission.validation_notes %}
+                <div class="mb-3">
+                    <label class="form-label text-muted">{% trans "Notes de validation" %}</label>
+                    <p class="mb-0">{{ submission.validation_notes }}</p>
+                </div>
+                {% endif %}
+                {% endif %}
+
+                {% if submission.error_message %}
+                <div class="alert alert-danger mt-3">
+                    <h6><i class="ti ti-alert-triangle me-2"></i>{% trans "Erreur" %}</h6>
+                    <pre class="mb-0 small">{{ submission.error_message }}</pre>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Submitted Data Card -->
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Données soumises" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width: 30%;">{% trans "Champ" %}</th>
+                                <th>{% trans "Valeur" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for key, value in submitted_data.items %}
+                            <tr>
+                                <td><code>{{ key }}</code></td>
+                                <td>
+                                    {% if value is None %}
+                                        <span class="text-muted">{% trans "null" %}</span>
+                                    {% elif value == True %}
+                                        <span class="badge bg-success-subtle text-success">{% trans "Oui" %}</span>
+                                    {% elif value == False %}
+                                        <span class="badge bg-secondary-subtle text-secondary">{% trans "Non" %}</span>
+                                    {% elif value|length > 100 %}
+                                        <span title="{{ value }}">{{ value|truncatechars:100 }}</span>
+                                    {% else %}
+                                        {{ value }}
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="2" class="text-center text-muted">{% trans "Aucune donnée" %}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Created Records Card -->
+        {% if submission.created_records %}
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Enregistrements créés" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Modèle" %}</th>
+                                <th>{% trans "ID" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in submission.created_records %}
+                            <tr>
+                                <td><code>{{ record.model }}</code></td>
+                                <td><code>{{ record.id }}</code></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Actions Card -->
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Actions" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    {% if submission.status == 'PENDING' and submission.form_config.require_validation %}
+                    <form action="{% url 'modelforms:submission-validate' submission.pk %}" method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-success w-100">
+                            <i class="ti ti-check me-2"></i>{% trans "Valider et traiter" %}
+                        </button>
+                    </form>
+                    <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#reject-modal">
+                        <i class="ti ti-x me-2"></i>{% trans "Rejeter" %}
+                    </button>
+                    {% endif %}
+
+                    <a href="{% url 'modelforms:submission-list' %}" class="btn btn-outline-secondary">
+                        <i class="ti ti-arrow-left me-2"></i>{% trans "Retour à la liste" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Timeline Card -->
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Historique" %}</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0">
+                    <li class="d-flex mb-3">
+                        <div class="me-3">
+                            <span class="badge bg-primary rounded-circle p-2">
+                                <i class="ti ti-send"></i>
+                            </span>
+                        </div>
+                        <div>
+                            <p class="mb-0 f-w-500">{% trans "Soumission" %}</p>
+                            <small class="text-muted">{{ submission.submitted_at|date:"d/m/Y H:i" }}</small>
+                        </div>
+                    </li>
+                    {% if submission.validated_at %}
+                    <li class="d-flex mb-3">
+                        <div class="me-3">
+                            {% if submission.status == 'REJECTED' %}
+                            <span class="badge bg-danger rounded-circle p-2">
+                                <i class="ti ti-x"></i>
+                            </span>
+                            {% else %}
+                            <span class="badge bg-success rounded-circle p-2">
+                                <i class="ti ti-check"></i>
+                            </span>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <p class="mb-0 f-w-500">
+                                {% if submission.status == 'REJECTED' %}{% trans "Rejet" %}{% else %}{% trans "Validation" %}{% endif %}
+                            </p>
+                            <small class="text-muted">{{ submission.validated_at|date:"d/m/Y H:i" }}</small>
+                        </div>
+                    </li>
+                    {% endif %}
+                    {% if submission.status == 'COMPLETED' %}
+                    <li class="d-flex">
+                        <div class="me-3">
+                            <span class="badge bg-info rounded-circle p-2">
+                                <i class="ti ti-database"></i>
+                            </span>
+                        </div>
+                        <div>
+                            <p class="mb-0 f-w-500">{% trans "Enregistrement créé" %}</p>
+                            <small class="text-muted">{{ submission.created_records|length }} {% trans "objet(s)" %}</small>
+                        </div>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+
+        <!-- Raw JSON Card -->
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "JSON brut" %}</h5>
+            </div>
+            <div class="card-body">
+                <pre class="bg-light p-2 rounded small" style="max-height: 200px; overflow: auto;"><code>{{ raw_json }}</code></pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reject Modal -->
+{% if submission.status == 'PENDING' and submission.form_config.require_validation %}
+<div class="modal fade" id="reject-modal" tabindex="-1" aria-labelledby="reject-modal-label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="reject-modal-label">{% trans "Rejeter la soumission" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Fermer' %}"></button>
+            </div>
+            <form action="{% url 'modelforms:submission-reject' submission.pk %}" method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="validation_notes" class="form-label">{% trans "Motif du rejet" %}</label>
+                        <textarea name="validation_notes" id="validation_notes" class="form-control" rows="3" placeholder="{% trans 'Expliquez pourquoi cette soumission est rejetée...' %}"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Annuler" %}</button>
+                    <button type="submit" class="btn btn-danger">{% trans "Rejeter" %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

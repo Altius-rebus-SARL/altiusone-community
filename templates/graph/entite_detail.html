@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}AltiusOne | {{ entite.nom }}{% endblock %}
+
+{% block content %}
+<ul class="app-line-breadcrumbs mb-3">
+    <li>
+        <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+            <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Dashboard" %}</span>
+        </a>
+    </li>
+    <li>
+        <a class="f-s-14 f-w-500" href="{% url 'graph:explorer' %}">
+            <span><i class="ph-duotone ph-graph f-s-16"></i> {% trans "Graphe" %}</span>
+        </a>
+    </li>
+    <li>
+        <a class="f-s-14 f-w-500" href="{% url 'graph:entite-list' %}">{% trans "Entités" %}</a>
+    </li>
+    <li class="active">{{ entite.nom }}</li>
+</ul>
+
+{% if messages %}
+<div class="mb-3">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="row">
+    <!-- Main info -->
+    <div class="col-md-8">
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="badge me-2" style="background-color: {{ entite.type.couleur }}20; color: {{ entite.type.couleur }};">
+                        <i class="ph {{ entite.type.icone }} me-1"></i>{{ entite.type.nom }}
+                    </span>
+                    <h5 class="d-inline mb-0">{{ entite.nom }}</h5>
+                </div>
+                <div>
+                    <a href="{% url 'graph:explorer' %}?entite={{ entite.pk }}" class="btn btn-sm btn-primary me-1">
+                        <i class="ph ph-graph me-1"></i> {% trans "Explorer" %}
+                    </a>
+                    <a href="{% url 'graph:entite-update' entite.pk %}" class="btn btn-sm btn-outline-secondary">
+                        <i class="ph ph-pencil me-1"></i> {% trans "Modifier" %}
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if entite.description %}
+                <p>{{ entite.description }}</p>
+                {% endif %}
+
+                <!-- Attributs -->
+                {% if entite.attributs %}
+                <h6 class="mt-3"><i class="ph ph-sliders me-2"></i>{% trans "Attributs" %}</h6>
+                <table class="table table-sm">
+                    {% for key, val in entite.attributs.items %}
+                    <tr>
+                        <td class="text-muted f-w-600" style="width: 30%;">{{ key }}</td>
+                        <td>{{ val }}</td>
+                    </tr>
+                    {% endfor %}
+                </table>
+                {% endif %}
+
+                <!-- Tags -->
+                {% if entite.tags %}
+                <div class="mt-2">
+                    {% for tag in entite.tags %}
+                    <span class="badge bg-light text-dark me-1">{{ tag }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Relations sortantes -->
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between">
+                <h6 class="mb-0"><i class="ph-duotone ph-arrow-right me-2"></i>{% trans "Relations sortantes" %}</h6>
+                <a href="{% url 'graph:relation-create' %}?source={{ entite.pk }}" class="btn btn-sm btn-light">
+                    <i class="ph ph-plus"></i>
+                </a>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-bottom-border align-middle mb-0">
+                    <tbody>
+                        {% for rel in relations_sortantes %}
+                        <tr>
+                            <td>
+                                <span class="text-muted">{{ rel.type.verbe|default:rel.type.nom }}</span>
+                            </td>
+                            <td>
+                                <a href="{% url 'graph:entite-detail' rel.cible.pk %}">
+                                    <i class="ph {{ rel.cible.type.icone }} me-1" style="color: {{ rel.cible.type.couleur }};"></i>
+                                    {{ rel.cible.nom }}
+                                </a>
+                            </td>
+                            <td class="text-muted f-s-12">
+                                {% if rel.date_debut %}{{ rel.date_debut }}{% endif %}
+                                {% if rel.date_fin %} - {{ rel.date_fin }}{% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td class="text-center text-muted py-3">{% trans "Aucune relation sortante" %}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Relations entrantes -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="ph-duotone ph-arrow-left me-2"></i>{% trans "Relations entrantes" %}</h6>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-bottom-border align-middle mb-0">
+                    <tbody>
+                        {% for rel in relations_entrantes %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'graph:entite-detail' rel.source.pk %}">
+                                    <i class="ph {{ rel.source.type.icone }} me-1" style="color: {{ rel.source.type.couleur }};"></i>
+                                    {{ rel.source.nom }}
+                                </a>
+                            </td>
+                            <td>
+                                <span class="text-muted">{{ rel.type.verbe_inverse|default:rel.type.nom }}</span>
+                            </td>
+                            <td class="text-muted f-s-12">
+                                {% if rel.date_debut %}{{ rel.date_debut }}{% endif %}
+                                {% if rel.date_fin %} - {{ rel.date_fin }}{% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td class="text-center text-muted py-3">{% trans "Aucune relation entrante" %}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-md-4">
+        <!-- Metadata -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="ph ph-info me-2"></i>{% trans "Métadonnées" %}</h6>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm table-borderless mb-0">
+                    <tr>
+                        <td class="text-muted">{% trans "Source" %}</td>
+                        <td>{{ entite.get_source_display }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">{% trans "Confiance" %}</td>
+                        <td>
+                            <span class="badge {% if entite.confiance >= 0.8 %}bg-success{% elif entite.confiance >= 0.5 %}bg-warning{% else %}bg-danger{% endif %}">
+                                {{ entite.confiance|floatformat:2 }}
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">{% trans "Vérifié" %}</td>
+                        <td>
+                            {% if entite.verifie %}
+                            <i class="ph-fill ph-check-circle text-success"></i> {{ entite.verifie_par }}
+                            {% else %}
+                            <i class="ph ph-circle text-muted"></i> {% trans "Non" %}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">{% trans "Créé le" %}</td>
+                        <td>{{ entite.created_at|date:"d.m.Y H:i" }}</td>
+                    </tr>
+                    {% if entite.geom %}
+                    <tr>
+                        <td class="text-muted">{% trans "Position" %}</td>
+                        <td>{{ entite.geom.y|floatformat:4 }}, {{ entite.geom.x|floatformat:4 }}</td>
+                    </tr>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+
+        <!-- Anomalies -->
+        {% if anomalies %}
+        <div class="card mb-3 border-warning">
+            <div class="card-header bg-light-warning">
+                <h6 class="mb-0 text-warning">
+                    <i class="ph-duotone ph-warning me-2"></i>{% trans "Anomalies" %}
+                    <span class="badge bg-warning text-dark ms-1">{{ anomalies|length }}</span>
+                </h6>
+            </div>
+            <div class="card-body p-0">
+                {% for anom in anomalies %}
+                <div class="p-3 border-bottom">
+                    <a href="{% url 'graph:anomalie-detail' anom.pk %}" class="text-decoration-none">
+                        <div class="d-flex justify-content-between">
+                            <span class="f-w-600">{{ anom.titre|truncatewords:8 }}</span>
+                            <span class="badge bg-light-danger text-danger">{{ anom.score|floatformat:0 }}%</span>
+                        </div>
+                        <small class="text-muted">{{ anom.get_type_display }}</small>
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

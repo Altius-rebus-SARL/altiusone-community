@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Roles" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h3>{% trans "Gestion des roles" %}</h3>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}"><i class="ti ti-home"></i></a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'core:admin-dashboard' %}">{% trans "Administration" %}</a></li>
+                        <li class="breadcrumb-item active">{% trans "Roles" %}</li>
+                    </ol>
+                </div>
+                <div class="page-header-right">
+                    <a href="{% url 'core:admin-role-create' %}" class="btn btn-primary">
+                        <i class="ti ti-plus me-2"></i>{% trans "Nouveau role" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Liste des roles" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "Code" %}</th>
+                                    <th>{% trans "Nom" %}</th>
+                                    <th>{% trans "Niveau" %}</th>
+                                    <th>{% trans "Utilisateurs" %}</th>
+                                    <th>{% trans "Statut" %}</th>
+                                    <th>{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for role in roles %}
+                                <tr>
+                                    <td><code>{{ role.code }}</code></td>
+                                    <td>
+                                        <a href="{% url 'core:admin-role-detail' role.pk %}">{{ role.nom }}</a>
+                                        {% if role.est_role_defaut %}
+                                        <span class="badge bg-info ms-1">{% trans "Defaut" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="progress" style="width: 100px; height: 10px;">
+                                            <div class="progress-bar" role="progressbar" style="width: {{ role.niveau }}%;" aria-valuenow="{{ role.niveau }}" aria-valuemin="0" aria-valuemax="100"></div>
+                                        </div>
+                                        <small class="text-muted">{{ role.niveau }}/100</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ role.nb_utilisateurs }}</span>
+                                    </td>
+                                    <td>
+                                        {% if role.actif %}
+                                        <span class="badge bg-success">{% trans "Actif" %}</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">{% trans "Inactif" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'core:admin-role-detail' role.pk %}" class="btn btn-outline-primary" title="{% trans 'Voir' %}">
+                                                <i class="ti ti-eye"></i>
+                                            </a>
+                                            <a href="{% url 'core:admin-role-update' role.pk %}" class="btn btn-outline-secondary" title="{% trans 'Modifier' %}">
+                                                <i class="ti ti-edit"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted py-4">
+                                        {% trans "Aucun role defini" %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Role Hierarchy Explanation -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Hierarchie des roles" %}</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">
+                        {% trans "Le niveau de permission determine la hierarchie des roles. Un utilisateur peut uniquement assigner des roles avec un niveau inferieur au sien." %}
+                    </p>
+                    <ul class="text-muted f-s-14">
+                        <li><strong>100</strong> - {% trans "Superadmin (tous les droits)" %}</li>
+                        <li><strong>80-99</strong> - {% trans "Administrateur" %}</li>
+                        <li><strong>60-79</strong> - {% trans "Manager" %}</li>
+                        <li><strong>40-59</strong> - {% trans "Comptable senior" %}</li>
+                        <li><strong>20-39</strong> - {% trans "Comptable" %}</li>
+                        <li><strong>1-19</strong> - {% trans "Stagiaire/Assistant" %}</li>
+                        <li><strong>0</strong> - {% trans "Client externe (acces limite)" %}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

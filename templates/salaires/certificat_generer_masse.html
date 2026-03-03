@@ -1,0 +1,253 @@
+<!-- salaires/certificat_generer_masse.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Génération en masse" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Génération en masse des certificats de salaire" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'salaires:certificat-list' %}">
+                    <span>{% trans "Certificats" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Génération en masse" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-stack me-2"></i>{% trans "Formulaire 11 - Génération en masse" %}</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" class="app-form" id="formGeneration">
+                    {% csrf_token %}
+
+                    <!-- Année -->
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <label class="form-label">{% trans "Année" %} <span class="text-danger">*</span></label>
+                            <input type="number"
+                                   name="annee"
+                                   class="form-control form-control-lg"
+                                   min="2020"
+                                   max="2099"
+                                   value="{{ current_year }}"
+                                   required>
+                        </div>
+                        <div class="col-md-8 d-flex align-items-end">
+                            <div class="alert alert-info mb-0 flex-grow-1">
+                                <i class="ph ph-info me-2"></i>
+                                {% trans "Les certificats seront générés pour tous les employés actifs de l'année sélectionnée" %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Options -->
+                    <div class="mb-4">
+                        <h6 class="mb-3">{% trans "Options" %}</h6>
+
+                        <div class="form-check mb-2">
+                            <input type="checkbox" name="auto_calculer" id="auto_calculer" class="form-check-input" checked>
+                            <label class="form-check-label" for="auto_calculer">
+                                <strong>{% trans "Calcul automatique" %}</strong>
+                                <span class="text-muted">- {% trans "Agrège les fiches de salaire validées" %}</span>
+                            </label>
+                        </div>
+
+                        <div class="form-check mb-2">
+                            <input type="checkbox" name="generer_pdf" id="generer_pdf" class="form-check-input">
+                            <label class="form-check-label" for="generer_pdf">
+                                <strong>{% trans "Générer les PDF" %}</strong>
+                                <span class="text-muted">- {% trans "Crée immédiatement les fichiers PDF" %}</span>
+                            </label>
+                        </div>
+
+                        <div class="form-check">
+                            <input type="checkbox" name="ignorer_existants" id="ignorer_existants" class="form-check-input" checked>
+                            <label class="form-check-label" for="ignorer_existants">
+                                <strong>{% trans "Ignorer les existants" %}</strong>
+                                <span class="text-muted">- {% trans "Ne pas recréer les certificats existants" %}</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Sélection des employés -->
+                    <div class="mb-4">
+                        <h6 class="mb-3">{% trans "Employés" %}</h6>
+
+                        <div class="form-check mb-3">
+                            <input type="radio" name="selection" id="tous_employes" class="form-check-input" value="tous" checked>
+                            <label class="form-check-label" for="tous_employes">
+                                <strong>{% trans "Tous les employés actifs" %}</strong>
+                                <span class="badge bg-light-primary ms-2">{{ employes_count }} {% trans "employés" %}</span>
+                            </label>
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <input type="radio" name="selection" id="selection_mandat" class="form-check-input" value="mandat">
+                            <label class="form-check-label" for="selection_mandat">
+                                {% trans "Par mandat" %}
+                            </label>
+                            <select name="mandat" class="form-select mt-2" id="select_mandat" disabled>
+                                <option value="">{% trans "Sélectionner un mandat..." %}</option>
+                                {% for mandat in mandats %}
+                                <option value="{{ mandat.id }}">{{ mandat.numero }} - {{ mandat.client.raison_sociale }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="form-check">
+                            <input type="radio" name="selection" id="selection_employes" class="form-check-input" value="employes">
+                            <label class="form-check-label" for="selection_employes">
+                                {% trans "Sélection manuelle" %}
+                            </label>
+                            <div class="mt-2" id="liste_employes" style="display: none;">
+                                <div class="border rounded p-3" style="max-height: 300px; overflow-y: auto;">
+                                    {% for employe in employes %}
+                                    <div class="form-check">
+                                        <input type="checkbox" name="employes" value="{{ employe.id }}" id="emp_{{ employe.id }}" class="form-check-input">
+                                        <label class="form-check-label" for="emp_{{ employe.id }}">
+                                            {{ employe.nom }} {{ employe.prenom }}
+                                            <small class="text-muted">- {{ employe.matricule }}</small>
+                                        </label>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                <div class="mt-2">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="selectAll">{% trans "Tout sélectionner" %}</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="deselectAll">{% trans "Tout désélectionner" %}</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Résumé avant génération -->
+                    <div class="alert alert-warning mb-4">
+                        <h6 class="mb-2"><i class="ph ph-warning me-2"></i>{% trans "Résumé de l'opération" %}</h6>
+                        <ul class="mb-0">
+                            <li>{% trans "Année" %}: <strong id="resume_annee">{{ current_year }}</strong></li>
+                            <li>{% trans "Employés concernés" %}: <strong id="resume_count">{{ employes_count }}</strong></li>
+                            <li>{% trans "Certificats existants" %}: <strong id="resume_existants">{{ existants_count|default:0 }}</strong> ({% trans "seront ignorés" %})</li>
+                        </ul>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'salaires:certificat-list' %}" class="btn btn-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="ph ph-stack me-2"></i>{% trans "Générer les certificats" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Résultats (affiché après génération) -->
+        {% if resultats %}
+        <div class="card mt-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="ph ph-check-circle me-2"></i>{% trans "Résultats de la génération" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center mb-4">
+                    <div class="col-md-4">
+                        <div class="fs-2 text-success">{{ resultats.crees|length }}</div>
+                        <div class="text-muted">{% trans "Certificats créés" %}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="fs-2 text-warning">{{ resultats.existants|length }}</div>
+                        <div class="text-muted">{% trans "Déjà existants" %}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="fs-2 text-danger">{{ resultats.erreurs|length }}</div>
+                        <div class="text-muted">{% trans "Erreurs" %}</div>
+                    </div>
+                </div>
+
+                {% if resultats.crees %}
+                <h6>{% trans "Certificats créés" %}</h6>
+                <ul class="list-unstyled">
+                    {% for c in resultats.crees %}
+                    <li class="mb-1">
+                        <i class="ph ph-check text-success me-1"></i>
+                        {{ c.employe_nom }}
+                        <a href="{% url 'salaires:certificat-detail' c.certificat_id %}" class="ms-2">
+                            <i class="ph ph-arrow-right"></i>
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+
+                {% if resultats.erreurs %}
+                <h6 class="mt-3 text-danger">{% trans "Erreurs" %}</h6>
+                <ul class="list-unstyled">
+                    {% for e in resultats.erreurs %}
+                    <li class="mb-1 text-danger">
+                        <i class="ph ph-x me-1"></i>
+                        {{ e.employe_nom }}: {{ e.erreur }}
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const selectionRadios = document.querySelectorAll('input[name="selection"]');
+    const selectMandat = document.getElementById('select_mandat');
+    const listeEmployes = document.getElementById('liste_employes');
+    const anneeInput = document.querySelector('input[name="annee"]');
+    const resumeAnnee = document.getElementById('resume_annee');
+
+    // Gestion de la sélection
+    selectionRadios.forEach(function(radio) {
+        radio.addEventListener('change', function() {
+            selectMandat.disabled = this.value !== 'mandat';
+            listeEmployes.style.display = this.value === 'employes' ? 'block' : 'none';
+        });
+    });
+
+    // Mise à jour du résumé
+    anneeInput.addEventListener('change', function() {
+        resumeAnnee.textContent = this.value;
+    });
+
+    // Sélection tout/rien
+    document.getElementById('selectAll').addEventListener('click', function() {
+        document.querySelectorAll('#liste_employes input[type="checkbox"]').forEach(function(cb) {
+            cb.checked = true;
+        });
+    });
+
+    document.getElementById('deselectAll').addEventListener('click', function() {
+        document.querySelectorAll('#liste_employes input[type="checkbox"]').forEach(function(cb) {
+            cb.checked = false;
+        });
+    });
+});
+</script>
+{% endblock %}

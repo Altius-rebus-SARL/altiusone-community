@@ -1,0 +1,323 @@
+<!-- comptabilite/compte_form.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}
+    {% if form.instance.pk %}{% trans "Modifier compte" %}{% else %}{% trans "Nouveau compte" %}{% endif %}
+{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">
+            {% if form.instance.pk %}{% trans "Modifier compte" %}{% else %}{% trans "Nouveau compte" %}{% endif %}
+        </h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'comptabilite:compte-list' %}">
+                    <span>{% trans "Comptes" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">
+                    {% if form.instance.pk %}{% trans "Modifier" %}{% else %}{% trans "Nouveau" %}{% endif %}
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h4 class="text-primary mb-4">
+                    {% if form.instance.pk %}
+                        {% trans "Modifier le compte" %}
+                    {% else %}
+                        {% trans "Nouveau compte" %}
+                    {% endif %}
+                </h4>
+
+                <form method="post" class="app-form">
+                    {% csrf_token %}
+
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        {{ form.non_field_errors }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                    {% endif %}
+
+                    <div class="row">
+                        <!-- Plan comptable -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.plan_comptable.id_for_label }}" class="form-label">
+                                    {{ form.plan_comptable.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.plan_comptable }}
+                                {% if form.plan_comptable.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.plan_comptable.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Numéro -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.numero.id_for_label }}" class="form-label">
+                                    {{ form.numero.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.numero }}
+                                {% if form.numero.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.numero.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Libellé FR -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.libelle_fr.id_for_label }}" class="form-label">
+                                    {{ form.libelle_fr.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.libelle_fr }}
+                                {% if form.libelle_fr.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.libelle_fr.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Libellé DE -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.libelle_de.id_for_label }}" class="form-label">
+                                    {{ form.libelle_de.label }}
+                                </label>
+                                {{ form.libelle_de }}
+                            </div>
+                        </div>
+
+                        <!-- Libellé IT -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.libelle_it.id_for_label }}" class="form-label">
+                                    {{ form.libelle_it.label }}
+                                </label>
+                                {{ form.libelle_it }}
+                            </div>
+                        </div>
+
+                        <!-- Libellé EN -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.libelle_en.id_for_label }}" class="form-label">
+                                    {{ form.libelle_en.label }}
+                                </label>
+                                {{ form.libelle_en }}
+                            </div>
+                        </div>
+
+                        <!-- Libellé court FR -->
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label for="{{ form.libelle_court_fr.id_for_label }}" class="form-label">
+                                    {{ form.libelle_court_fr.label }}
+                                </label>
+                                {{ form.libelle_court_fr }}
+                            </div>
+                        </div>
+
+                        <!-- Libellé court DE -->
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label for="{{ form.libelle_court_de.id_for_label }}" class="form-label">
+                                    {{ form.libelle_court_de.label }}
+                                </label>
+                                {{ form.libelle_court_de }}
+                            </div>
+                        </div>
+
+                        <!-- Libellé court IT -->
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label for="{{ form.libelle_court_it.id_for_label }}" class="form-label">
+                                    {{ form.libelle_court_it.label }}
+                                </label>
+                                {{ form.libelle_court_it }}
+                            </div>
+                        </div>  
+
+                        <!-- Libellé court EN -->
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label for="{{ form.libelle_court_en.id_for_label }}" class="form-label">
+                                    {{ form.libelle_court_en.label }}
+                                </label>
+                                {{ form.libelle_court_en }}
+                            </div>
+                        </div>
+
+                        
+
+                        <!-- Type de compte -->
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ form.type_compte.id_for_label }}" class="form-label">
+                                    {{ form.type_compte.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.type_compte }}
+                                {% if form.type_compte.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.type_compte.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Classe -->
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ form.classe.id_for_label }}" class="form-label">
+                                    {{ form.classe.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.classe }}
+                                {% if form.classe.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.classe.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Compte parent -->
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ form.compte_parent.id_for_label }}" class="form-label">
+                                    {{ form.compte_parent.label }}
+                                </label>
+                                {{ form.compte_parent }}
+                                {% if form.compte_parent.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.compte_parent.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Propriétés -->
+                        <div class="col-12">
+                            <label class="form-label">{% trans "Propriétés" %}</label>
+                        </div>
+
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    {{ form.imputable }}
+                                    <label class="form-check-label" for="{{ form.imputable.id_for_label }}">
+                                        {{ form.imputable.label }}
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    {{ form.lettrable }}
+                                    <label class="form-check-label" for="{{ form.lettrable.id_for_label }}">
+                                        {{ form.lettrable.label }}
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    {{ form.est_collectif }}
+                                    <label class="form-check-label" for="{{ form.est_collectif.id_for_label }}">
+                                        {{ form.est_collectif.label }}
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    {{ form.soumis_tva }}
+                                    <label class="form-check-label" for="{{ form.soumis_tva.id_for_label }}">
+                                        {{ form.soumis_tva.label }}
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Code TVA -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.code_tva_defaut.id_for_label }}" class="form-label">
+                                    {{ form.code_tva_defaut.label }}
+                                </label>
+                                {{ form.code_tva_defaut }}
+                                {% if form.code_tva_defaut.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.code_tva_defaut.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Code TVA (référence FK) -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.code_tva_defaut_ref.id_for_label }}" class="form-label">
+                                    {% trans "Code TVA (référence)" %}
+                                </label>
+                                {{ form.code_tva_defaut_ref }}
+                                {% if form.code_tva_defaut_ref.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.code_tva_defaut_ref.errors }}
+                                </div>
+                                {% endif %}
+                                <div class="form-text">{% trans "Référence au code TVA du régime fiscal" %}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <a href="{% if form.instance.pk %}{% url 'comptabilite:compte-detail' form.instance.pk %}{% else %}{% url 'comptabilite:compte-list' %}{% endif %}" 
+                           class="btn btn-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ph ph-check me-2"></i>{% trans "Enregistrer" %}
+                        </button>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

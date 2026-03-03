@@ -1,0 +1,506 @@
+<!-- core/mandat_detail.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load devise_tags %}
+
+{% block title %}{{ mandat.numero }} - {{ mandat.client.raison_sociale }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <!-- Header -->
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h4 class="text-primary mb-1">{{ mandat.numero }}</h4>
+                        <p class="text-muted mb-0">
+                            <a href="{% url 'core:client-detail' mandat.client.pk %}">
+                                {{ mandat.client.raison_sociale }}
+                            </a>
+                        </p>
+                        <span class="badge bg-light-primary mt-2">{{ mandat.type_mandat_ref.libelle|default:mandat.get_type_mandat_display }}</span>
+                        <span class="badge bg-{{ mandat.statut|lower }} mt-2">{{ mandat.get_statut_display }}</span>
+                    </div>
+                    <div>
+                        <a href="{% url 'core:mandat-update' mandat.pk %}" class="btn btn-primary me-2">
+                            <i class="ti ti-edit me-2"></i>{% trans "Modifier" %}
+                        </a>
+                        <a href="{% url 'core:mandat-list' %}" class="btn btn-secondary">
+                            <i class="ti ti-arrow-left me-2"></i>{% trans "Retour" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Onglets -->
+        <ul class="nav nav-tabs mt-4" id="mandatTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="resume-tab" data-bs-toggle="tab"
+                        data-bs-target="#resume" type="button" role="tab"
+                        aria-controls="resume" aria-selected="true">
+                    <i class="ti ti-file-description me-1"></i> {% trans "Résumé" %}
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="positions-tab" data-bs-toggle="tab"
+                        data-bs-target="#positions" type="button" role="tab"
+                        aria-controls="positions" aria-selected="false"
+                        hx-get="{% url 'projets:position-list' mandat.pk %}"
+                        hx-trigger="click once"
+                        hx-target="#positions">
+                    <i class="ti ti-layout-list me-1"></i> {% trans "Positions" %}
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="timeline-tab" data-bs-toggle="tab"
+                        data-bs-target="#timeline" type="button" role="tab"
+                        aria-controls="timeline" aria-selected="false"
+                        hx-get="{% url 'projets:gantt-view' mandat.pk %}"
+                        hx-trigger="click once"
+                        hx-target="#timeline">
+                    <i class="ti ti-chart-gantt me-1"></i> {% trans "Timeline" %}
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="budget-tab" data-bs-toggle="tab"
+                        data-bs-target="#budget" type="button" role="tab"
+                        aria-controls="budget" aria-selected="false"
+                        hx-get="{% url 'projets:budget-summary' mandat.pk %}"
+                        hx-trigger="click once"
+                        hx-target="#budget">
+                    <i class="ti ti-currency-dollar me-1"></i> {% trans "Budget" %}
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="carte-tab" data-bs-toggle="tab"
+                        data-bs-target="#carte" type="button" role="tab"
+                        aria-controls="carte" aria-selected="false"
+                        hx-get="{% url 'projets:map-view' mandat.pk %}"
+                        hx-trigger="click once"
+                        hx-target="#carte">
+                    <i class="ti ti-map-pin me-1"></i> {% trans "Carte" %}
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="documents-tab" data-bs-toggle="tab"
+                        data-bs-target="#documents-pane" type="button" role="tab"
+                        aria-controls="documents-pane" aria-selected="false">
+                    <i class="ti ti-files me-1"></i> {% trans "Documents" %}
+                </button>
+            </li>
+        </ul>
+
+        <!-- Tab content -->
+        <div class="tab-content mt-3" id="mandatTabsContent">
+
+            <!-- ========== RESUME ========== -->
+            <div class="tab-pane fade show active" id="resume" role="tabpanel" aria-labelledby="resume-tab">
+                <div class="row">
+                    <!-- Informations générales -->
+                    <div class="col-lg-6">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="text-primary mb-3">{% trans "Informations générales" %}</h5>
+
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Type de mandat" %}</span>
+                                        <span class="f-w-500">{{ mandat.type_mandat_ref.libelle|default:mandat.get_type_mandat_display }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Responsable" %}</span>
+                                        <span class="f-w-500">{{ mandat.responsable.get_full_name|default:mandat.responsable.username }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Date début" %}</span>
+                                        <span class="f-w-500">{{ mandat.date_debut|date:"d.m.Y" }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Périodicité" %}</span>
+                                        <span class="f-w-500">{{ mandat.periodicite_ref.libelle|default:mandat.get_periodicite_display }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Type facturation" %}</span>
+                                        <span class="f-w-500">{{ mandat.type_facturation_ref.libelle|default:mandat.get_type_facturation_display }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Régime fiscal" %}</span>
+                                        <span class="f-w-500">{{ mandat.regime_fiscal.nom|default:"-" }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Devise" %}</span>
+                                        <span class="f-w-500">{{ mandat.devise_id|default:"-" }}</span>
+                                    </li>
+                                    {% if mandat.budget_prevu %}
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Budget prévu" %}</span>
+                                        <span class="f-w-500">{{ mandat.budget_prevu }} {{ DEVISE_CODE }}</span>
+                                    </li>
+                                    {% endif %}
+                                    {% if mandat.taux_horaire %}
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Taux horaire" %}</span>
+                                        <span class="f-w-500">{{ mandat.taux_horaire }} {{ DEVISE_CODE }}/h</span>
+                                    </li>
+                                    {% endif %}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Équipe -->
+                    <div class="col-lg-6">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="text-primary mb-3">{% trans "Équipe" %}</h5>
+
+                                <ul class="box-list">
+                                    <li class="d-flex align-items-center">
+                                        <div class="h-40 w-40 d-flex-center b-r-12 overflow-hidden flex-shrink-0 bg-primary text-white">
+                                            {{ mandat.responsable.first_name.0|default:mandat.responsable.username.0|upper }}
+                                        </div>
+                                        <div class="ms-3">
+                                            <h6 class="mb-0 f-w-500">{{ mandat.responsable.get_full_name|default:mandat.responsable.username }}</h6>
+                                            <p class="text-muted mb-0">{% trans "Responsable" %}</p>
+                                        </div>
+                                    </li>
+
+                                    {% for membre in mandat.equipe.all %}
+                                    <li class="d-flex align-items-center">
+                                        <div class="h-40 w-40 d-flex-center b-r-12 overflow-hidden flex-shrink-0 bg-secondary text-white">
+                                            {{ membre.first_name.0|default:membre.username.0|upper }}
+                                        </div>
+                                        <div class="ms-3">
+                                            <h6 class="mb-0 f-w-500">{{ membre.get_full_name|default:membre.username }}</h6>
+                                            <p class="text-muted mb-0">{% trans "Équipe" %}</p>
+                                        </div>
+                                    </li>
+                                    {% empty %}
+                                    <li class="text-center py-3 text-muted">
+                                        {% trans "Aucun membre d'équipe" %}
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Intelligence AI - Alertes -->
+                {% if insights %}
+                <div class="row mt-4">
+                    <div class="col-12">
+                        {% for insight in insights %}
+                        <div class="alert alert-{% if insight.severite == 'CRITICAL' %}danger{% elif insight.severite == 'WARNING' %}warning{% else %}info{% endif %} d-flex align-items-center mb-2">
+                            <i class="ti ti-{% if insight.type_insight == 'ANOMALIE' %}alert-triangle{% elif insight.type_insight == 'DOUBLON' %}copy{% elif insight.type_insight == 'MANQUANT' %}file-off{% elif insight.type_insight == 'TENDANCE' %}trending-up{% else %}bulb{% endif %} me-2 f-s-20"></i>
+                            <div class="flex-grow-1">
+                                <strong>{{ insight.titre }}</strong>
+                                <p class="mb-0 f-s-13">{{ insight.description|truncatewords:30 }}</p>
+                            </div>
+                            <button class="btn btn-sm btn-light ms-2" data-insight-id="{{ insight.pk }}" onclick="marquerTraite(this)">
+                                <i class="ti ti-check"></i>
+                            </button>
+                        </div>
+                        {% endfor %}
+                        {% if insights_count > 5 %}
+                        <a href="{% url 'documents:mandat-insights' mandat.pk %}" class="text-primary f-s-13">
+                            {% trans "Voir les" %} {{ insights_count }} {% trans "alertes..." %}
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Intelligence AI - Résumé et Relations -->
+                <div class="row mt-4">
+                    {% if dernier_digest %}
+                    <div class="col-lg-6">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between">
+                                <h5 class="text-primary mb-0">
+                                    <i class="ti ti-robot me-2"></i>{% trans "Résumé IA" %}
+                                    <span class="badge bg-light-info ms-2">{{ dernier_digest.get_type_digest_display }}</span>
+                                </h5>
+                                <small class="text-muted">{{ dernier_digest.periode_debut|date:"d.m.Y" }} - {{ dernier_digest.periode_fin|date:"d.m.Y" }}</small>
+                            </div>
+                            <div class="card-body">
+                                <p>{{ dernier_digest.resume|truncatewords:80 }}</p>
+                                {% if dernier_digest.points_cles %}
+                                <ul class="list-unstyled">
+                                    {% for point in dernier_digest.points_cles|slice:":3" %}
+                                    <li class="mb-1"><i class="ti ti-point-filled text-primary me-1"></i>{{ point }}</li>
+                                    {% endfor %}
+                                </ul>
+                                {% endif %}
+                                <a href="{% url 'documents:mandat-digests' mandat.pk %}" class="text-primary f-s-13">{% trans "Tous les résumés" %}</a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if relations_alertes %}
+                    <div class="col-lg-{% if dernier_digest %}6{% else %}12{% endif %}">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="text-primary mb-0"><i class="ti ti-link me-2"></i>{% trans "Relations détectées" %}</h5>
+                            </div>
+                            <div class="card-body p-0">
+                                <ul class="box-list">
+                                    {% for rel in relations_alertes %}
+                                    <li class="d-flex align-items-center">
+                                        <span class="badge bg-light-{% if rel.type_relation == 'DOUBLON' %}warning{% elif rel.type_relation == 'CONTRADICTION' %}danger{% else %}info{% endif %} me-2">{{ rel.get_type_relation_display }}</span>
+                                        <div class="flex-grow-1">
+                                            <span class="f-w-500">{{ rel.document_source.nom_fichier|truncatechars:30 }}</span>
+                                            <i class="ti ti-arrows-exchange mx-1"></i>
+                                            <span class="f-w-500">{{ rel.document_cible.nom_fichier|truncatechars:30 }}</span>
+                                        </div>
+                                        <span class="badge bg-light-secondary">{{ rel.score_similarite|floatformat:0 }}%</span>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Bouton Analyser ce mandat -->
+                <div class="text-end mt-2 mb-4">
+                    <button class="btn btn-light-primary btn-sm" id="btn-analyser" onclick="analyserMandat('{{ mandat.pk }}')">
+                        <i class="ti ti-brain me-2"></i>{% trans "Analyser ce mandat" %}
+                    </button>
+                </div>
+
+                <!-- Statistiques de facturation -->
+                {% if stats_facturation %}
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="text-primary mb-3">{% trans "Facturation" %}</h5>
+
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="alert alert-success text-center">
+                                            <h4 class="mb-0">{{ stats_facturation.ca_annee|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h4>
+                                            <small>{% trans "CA année courante" %}</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="alert alert-warning text-center">
+                                            <h4 class="mb-0">{{ stats_facturation.impaye|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h4>
+                                            <small>{% trans "Impayé" %}</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Tâches -->
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h5 class="text-primary mb-0">{% trans "Tâches récentes" %}</h5>
+                                    <a href="{% url 'core:tache-create' %}?mandat={{ mandat.pk }}" class="btn btn-sm btn-primary">
+                                        <i class="ti ti-plus me-2"></i>{% trans "Nouvelle tâche" %}
+                                    </a>
+                                </div>
+
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>{% trans "Titre" %}</th>
+                                                <th>{% trans "Assigné à" %}</th>
+                                                <th>{% trans "Échéance" %}</th>
+                                                <th>{% trans "Priorité" %}</th>
+                                                <th>{% trans "Statut" %}</th>
+                                                <th>{% trans "Actions" %}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for tache in taches %}
+                                            <tr>
+                                                <td>
+                                                    <a href="{% url 'core:tache-detail' tache.pk %}">
+                                                        {{ tache.titre }}
+                                                    </a>
+                                                </td>
+                                                <td>
+                                                    {% for user in tache.assignes.all %}
+                                                        <span class="badge bg-light-primary text-primary">{{ user.get_full_name|default:user.username }}</span>
+                                                    {% empty %}
+                                                        <span class="text-muted">-</span>
+                                                    {% endfor %}
+                                                </td>
+                                                <td>{{ tache.date_echeance|date:"d.m.Y"|default:"-" }}</td>
+                                                <td>
+                                                    <span class="badge bg-light-{{ tache.priorite|lower }}">
+                                                        {{ tache.get_priorite_display }}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-{{ tache.statut|lower }}">
+                                                        {{ tache.get_statut_display }}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <a href="{% url 'core:tache-detail' tache.pk %}"
+                                                       class="btn btn-sm btn-light-primary">
+                                                        <i class="ti ti-eye"></i>
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                            {% empty %}
+                                            <tr>
+                                                <td colspan="6" class="text-center py-3 text-muted">
+                                                    {% trans "Aucune tâche" %}
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========== POSITIONS ========== -->
+            <div class="tab-pane fade" id="positions" role="tabpanel" aria-labelledby="positions-tab">
+                <div class="text-center py-5 text-muted">
+                    <div class="spinner-border spinner-border-sm me-2"></div>
+                    {% trans "Chargement..." %}
+                </div>
+            </div>
+
+            <!-- ========== TIMELINE ========== -->
+            <div class="tab-pane fade" id="timeline" role="tabpanel" aria-labelledby="timeline-tab">
+                <div class="text-center py-5 text-muted">
+                    <div class="spinner-border spinner-border-sm me-2"></div>
+                    {% trans "Chargement..." %}
+                </div>
+            </div>
+
+            <!-- ========== BUDGET ========== -->
+            <div class="tab-pane fade" id="budget" role="tabpanel" aria-labelledby="budget-tab">
+                <div class="text-center py-5 text-muted">
+                    <div class="spinner-border spinner-border-sm me-2"></div>
+                    {% trans "Chargement..." %}
+                </div>
+            </div>
+
+            <!-- ========== CARTE ========== -->
+            <div class="tab-pane fade" id="carte" role="tabpanel" aria-labelledby="carte-tab">
+                <div class="text-center py-5 text-muted">
+                    <div class="spinner-border spinner-border-sm me-2"></div>
+                    {% trans "Chargement..." %}
+                </div>
+            </div>
+
+            <!-- ========== DOCUMENTS ========== -->
+            <div class="tab-pane fade" id="documents-pane" role="tabpanel" aria-labelledby="documents-tab">
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="text-primary mb-3">{% trans "Documents récents" %}</h5>
+
+                                <ul class="box-list">
+                                    {% for document in documents %}
+                                    <li class="d-flex align-items-center justify-content-between">
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-0 f-w-500">{{ document.nom_fichier }}</h6>
+                                            <p class="text-muted mb-0">{{ document.created_at|date:"d.m.Y H:i" }}</p>
+                                        </div>
+                                        <a href="{% url 'documents:document-detail' document.pk %}" class="btn btn-sm btn-light-primary">
+                                            <i class="ti ti-eye"></i>
+                                        </a>
+                                    </li>
+                                    {% empty %}
+                                    <li class="text-center py-3 text-muted">
+                                        {% trans "Aucun document" %}
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function analyserMandat(mandatPk) {
+    const btn = document.getElementById('btn-analyser');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="ti ti-loader me-2"></i>Analyse en cours...';
+
+    fetch('/documents/mandats/' + mandatPk + '/analyser/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            btn.innerHTML = '<i class="ti ti-check me-2"></i>Analyse lancée';
+            btn.classList.remove('btn-light-primary');
+            btn.classList.add('btn-light-success');
+        }
+    })
+    .catch(() => {
+        btn.innerHTML = '<i class="ti ti-brain me-2"></i>Analyser ce mandat';
+        btn.disabled = false;
+    });
+}
+
+function marquerTraite(el) {
+    const insightId = el.getAttribute('data-insight-id');
+    fetch('/documents/insights/' + insightId + '/traiter/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            el.closest('.alert').style.display = 'none';
+        }
+    });
+}
+</script>
+{% endblock %}

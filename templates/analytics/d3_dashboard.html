@@ -1,0 +1,167 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Visualisations D3.js" %}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'analytics/css/d3-charts.css' %}">
+<style>
+    .select2-sm-container { display: inline-block; }
+    .select2-sm-container .select2-container { width: 100% !important; }
+    .select2-sm-container .select2-container--default .select2-selection--single {
+        height: 31px; padding: 2px 8px; font-size: 0.875rem; border-radius: 0.25rem;
+    }
+    .select2-sm-container .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 25px; padding-left: 0;
+    }
+    .select2-sm-container .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 29px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Visualisations Avancées" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Accueil" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'analytics:dashboard-executif' %}">{% trans "Analytics" %}</a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Visualisations D3.js" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Filtres -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body py-2">
+                <form id="d3-filters" class="d-flex flex-wrap gap-3 align-items-center">
+                    <span class="text-muted"><i class="ph ph-funnel me-1"></i>{% trans "Filtres:" %}</span>
+
+                    <select name="annee" id="d3-annee" class="form-select form-select-sm" style="width: auto;">
+                        {% for a in annees %}
+                        <option value="{{ a }}" {% if a == annee_selectionnee %}selected{% endif %}>
+                            {{ a }}
+                        </option>
+                        {% endfor %}
+                    </select>
+
+                    <div class="select2-sm-container" style="width: 250px;">
+                        <select name="mandat" id="d3-mandat" class="form-select form-select-sm select2" data-minimum-results-for-search="0">
+                            <option value="">{% trans "Tous les mandats" %}</option>
+                            {% for m in mandats %}
+                            <option value="{{ m.pk }}" {% if m == mandat_selectionne %}selected{% endif %}>
+                                {{ m.client.raison_sociale|truncatechars:30 }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-sm btn-primary">
+                        <i class="ph ph-funnel-simple me-1"></i>{% trans "Appliquer" %}
+                    </button>
+
+                    <a href="{% url 'analytics:dashboard-executif' %}" class="btn btn-sm btn-light-secondary ms-auto">
+                        <i class="ph ph-chart-line me-1"></i>{% trans "Dashboard classique" %}
+                    </a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Row 1: Calendar Heatmap (full width) -->
+<div class="row mb-4">
+    <div class="col-12">
+        {% include 'analytics/components/d3_calendar.html' %}
+    </div>
+</div>
+
+<!-- Row 2: Sunburst + Sankey -->
+<div class="row mb-4">
+    <div class="col-xl-6 mb-4 mb-xl-0">
+        {% include 'analytics/components/d3_sunburst.html' %}
+    </div>
+    <div class="col-xl-6">
+        {% include 'analytics/components/d3_sankey.html' %}
+    </div>
+</div>
+
+<!-- Row 3: Network + Icicle -->
+<div class="row mb-4">
+    <div class="col-xl-6 mb-4 mb-xl-0">
+        {% include 'analytics/components/d3_network.html' %}
+    </div>
+    <div class="col-xl-6">
+        {% include 'analytics/components/d3_icicle.html' %}
+    </div>
+</div>
+
+<!-- Row 4: Timeline (full width) -->
+<div class="row mb-4">
+    <div class="col-12">
+        {% include 'analytics/components/d3_timeline.html' %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- D3.js Libraries -->
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12"></script>
+
+<!-- Configuration -->
+<script>
+    window.D3_CONFIG = {
+        annee: '{{ annee_selectionnee }}',
+        {% if mandat_selectionne %}mandat: '{{ mandat_selectionne.pk }}',{% endif %}
+    };
+</script>
+
+<!-- Common utilities -->
+<script src="{% static 'analytics/js/d3-common.js' %}"></script>
+
+<!-- Visualisations -->
+<script src="{% static 'analytics/js/d3-sunburst.js' %}"></script>
+<script src="{% static 'analytics/js/d3-sankey.js' %}"></script>
+<script src="{% static 'analytics/js/d3-calendar.js' %}"></script>
+<script src="{% static 'analytics/js/d3-network.js' %}"></script>
+<script src="{% static 'analytics/js/d3-icicle.js' %}"></script>
+<script src="{% static 'analytics/js/d3-timeline.js' %}"></script>
+
+<!-- Filter handling -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var form = document.getElementById('d3-filters');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var annee = document.getElementById('d3-annee').value;
+            var mandat = document.getElementById('d3-mandat').value;
+
+            // Update URL
+            var params = new URLSearchParams(window.location.search);
+            params.set('annee', annee);
+            if (mandat) {
+                params.set('mandat', mandat);
+            } else {
+                params.delete('mandat');
+            }
+            window.location.search = params.toString();
+        });
+    }
+});
+</script>
+{% endblock %}

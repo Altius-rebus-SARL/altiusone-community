@@ -1,0 +1,130 @@
+<!-- analytics/indicateur_list.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Indicateurs (KPI)" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Indicateurs de performance" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Accueil" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="#">{% trans "Analytics" %}</a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Indicateurs" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Filtres par catégorie -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body py-2">
+                <div class="d-flex gap-2 flex-wrap">
+                    <a href="{% url 'analytics:indicateur-list' %}"
+                       class="btn btn-sm {% if not request.GET.categorie %}btn-primary{% else %}btn-light-secondary{% endif %}">
+                        {% trans "Tous" %}
+                    </a>
+                    {% for cat in categories %}
+                    <a href="?categorie={{ cat.categorie }}"
+                       class="btn btn-sm {% if request.GET.categorie == cat.categorie %}btn-primary{% else %}btn-light-secondary{% endif %}">
+                        {% if cat.categorie == 'FINANCIER' %}
+                        <i class="ph ph-currency-circle-dollar me-1"></i>{% trans "Financier" %}
+                        {% elif cat.categorie == 'OPERATIONNEL' %}
+                        <i class="ph ph-gear me-1"></i>{% trans "Opérationnel" %}
+                        {% elif cat.categorie == 'CLIENT' %}
+                        <i class="ph ph-users me-1"></i>{% trans "Client" %}
+                        {% elif cat.categorie == 'QUALITE' %}
+                        <i class="ph ph-check-circle me-1"></i>{% trans "Qualité" %}
+                        {% elif cat.categorie == 'RH' %}
+                        <i class="ph ph-user-circle me-1"></i>{% trans "RH" %}
+                        {% else %}
+                        {{ cat.categorie }}
+                        {% endif %}
+                        <span class="badge bg-light-dark ms-1">{{ cat.count }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Liste des indicateurs -->
+<div class="row">
+    {% for indicateur in indicateurs %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="badge bg-light-primary mb-1">{{ indicateur.code }}</span>
+                    <h6 class="mb-0">{{ indicateur.nom }}</h6>
+                </div>
+                <span class="badge
+                    {% if indicateur.categorie == 'FINANCIER' %}bg-success
+                    {% elif indicateur.categorie == 'OPERATIONNEL' %}bg-primary
+                    {% elif indicateur.categorie == 'CLIENT' %}bg-info
+                    {% elif indicateur.categorie == 'QUALITE' %}bg-warning
+                    {% else %}bg-secondary{% endif %}">
+                    {{ indicateur.get_categorie_display }}
+                </span>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">{{ indicateur.description|truncatewords:15|default:"-" }}</p>
+
+                <div class="row text-center mb-3">
+                    <div class="col-4">
+                        <small class="text-muted d-block">{% trans "Objectif" %}</small>
+                        <strong>{{ indicateur.objectif_cible|default:"-" }} {{ indicateur.unite }}</strong>
+                    </div>
+                    <div class="col-4">
+                        <small class="text-muted d-block">{% trans "Seuil bas" %}</small>
+                        <span class="text-danger">{{ indicateur.seuil_alerte_bas|default:"-" }}</span>
+                    </div>
+                    <div class="col-4">
+                        <small class="text-muted d-block">{% trans "Seuil haut" %}</small>
+                        <span class="text-success">{{ indicateur.seuil_alerte_haut|default:"-" }}</span>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center small text-muted">
+                    <span>
+                        <i class="ph ph-chart-line me-1"></i>
+                        {{ indicateur.nb_valeurs }} {% trans "mesures" %}
+                    </span>
+                    <span>
+                        <i class="ph ph-clock me-1"></i>
+                        {{ indicateur.periodicite_ref.libelle|default:indicateur.get_periodicite_display }}
+                    </span>
+                </div>
+            </div>
+            <div class="card-footer bg-transparent">
+                <a href="{% url 'analytics:indicateur-detail' indicateur.pk %}" class="btn btn-light-primary btn-sm w-100">
+                    <i class="ph ph-chart-line-up me-1"></i>{% trans "Voir l'historique" %}
+                </a>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="ph ph-chart-pie f-s-50 text-muted"></i>
+                <p class="text-muted mt-3">{% trans "Aucun indicateur trouvé" %}</p>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

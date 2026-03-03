@@ -1,0 +1,346 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ document.titre }} - {% trans "Éditeur" %} - AltiusOne{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a href="{% url 'editeur:dashboard' %}">{% trans "Éditeur" %}</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{% url 'editeur:document_list' %}">{% trans "Documents" %}</a>
+            </li>
+            <li class="breadcrumb-item active">{{ document.titre|truncatechars:30 }}</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <!-- Colonne principale -->
+        <div class="col-lg-8">
+            <!-- En-tête du document -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h1 class="h3 mb-2">{{ document.titre }}</h1>
+                            <div class="d-flex align-items-center gap-2 mb-3">
+                                <span class="badge bg-{{ document.statut|lower }}">
+                                    {{ document.get_statut_display }}
+                                </span>
+                                <span class="badge bg-secondary">
+                                    {{ document.get_type_document_display }}
+                                </span>
+                                {% if document.est_public %}
+                                <span class="badge bg-info">
+                                    <i class="bi bi-globe me-1"></i>{% trans "Public" %}
+                                </span>
+                                {% endif %}
+                            </div>
+                            {% if document.description %}
+                            <p class="text-muted mb-0">{{ document.description }}</p>
+                            {% endif %}
+                        </div>
+                        <div class="d-flex gap-2">
+                            {% if can_edit %}
+                            <a href="{% url 'editeur:document_edit' pk=document.pk %}" class="btn btn-primary">
+                                <i class="bi bi-pencil me-1"></i>
+                                {% trans "Éditer" %}
+                            </a>
+                            {% endif %}
+                            <div class="dropdown">
+                                <button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                                    <i class="bi bi-three-dots-vertical"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'editeur:document_export' pk=document.pk format='pdf' %}">
+                                            <i class="bi bi-file-pdf me-2"></i>{% trans "Exporter PDF" %}
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'editeur:document_export' pk=document.pk format='docx' %}">
+                                            <i class="bi bi-file-word me-2"></i>{% trans "Exporter Word" %}
+                                        </a>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    {% if can_share %}
+                                    <li>
+                                        <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#shareModal">
+                                            <i class="bi bi-share me-2"></i>{% trans "Partager" %}
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                    {% if document.createur == request.user %}
+                                    <li>
+                                        <a class="dropdown-item text-danger" href="{% url 'editeur:document_delete' pk=document.pk %}">
+                                            <i class="bi bi-trash me-2"></i>{% trans "Supprimer" %}
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Aperçu du document -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-eye me-2"></i>
+                        {% trans "Aperçu" %}
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if docs_available %}
+                    <iframe src="{{ preview_url }}"
+                            style="width: 100%; height: 500px; border: none;"
+                            sandbox="allow-scripts allow-same-origin">
+                    </iframe>
+                    {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-exclamation-triangle display-4"></i>
+                        <p class="mt-2">{% trans "Aperçu non disponible" %}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Versions exportées -->
+            {% if exports %}
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-clock-history me-2"></i>
+                        {% trans "Versions exportées" %}
+                    </h5>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>{% trans "Version" %}</th>
+                                <th>{% trans "Format" %}</th>
+                                <th>{% trans "Taille" %}</th>
+                                <th>{% trans "Exporté par" %}</th>
+                                <th>{% trans "Date" %}</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for export in exports %}
+                            <tr>
+                                <td>v{{ export.numero_version }}</td>
+                                <td>
+                                    <span class="badge bg-light text-dark">
+                                        {{ export.format_export }}
+                                    </span>
+                                </td>
+                                <td>{{ export.taille|filesizeformat }}</td>
+                                <td>{{ export.exporte_par.get_full_name|default:export.exporte_par.email }}</td>
+                                <td>{{ export.date_export|date:"d/m/Y H:i" }}</td>
+                                <td>
+                                    <a href="{{ export.fichier.url }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-download"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Informations -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">{% trans "Informations" %}</h5>
+                </div>
+                <div class="card-body">
+                    <dl class="mb-0">
+                        <dt>{% trans "Créateur" %}</dt>
+                        <dd>{{ document.createur.get_full_name|default:document.createur.email }}</dd>
+
+                        <dt>{% trans "Créé le" %}</dt>
+                        <dd>{{ document.date_creation|date:"d/m/Y à H:i" }}</dd>
+
+                        <dt>{% trans "Dernière modification" %}</dt>
+                        <dd>{{ document.date_modification|date:"d/m/Y à H:i" }}</dd>
+
+                        {% if document.mandat %}
+                        <dt>{% trans "Mandat" %}</dt>
+                        <dd>{{ document.mandat.nom }}</dd>
+                        {% endif %}
+
+                        {% if document.client %}
+                        <dt>{% trans "Client" %}</dt>
+                        <dd>{{ document.client.nom }}</dd>
+                        {% endif %}
+
+                        {% if document.dossier %}
+                        <dt>{% trans "Dossier GED" %}</dt>
+                        <dd>
+                            <a href="{% url 'documents:dossier_detail' pk=document.dossier.pk %}">
+                                {{ document.dossier.nom }}
+                            </a>
+                        </dd>
+                        {% endif %}
+
+                        {% if document.document_exporte %}
+                        <dt>{% trans "Document archivé" %}</dt>
+                        <dd>
+                            <a href="{% url 'documents:document_detail' pk=document.document_exporte.pk %}">
+                                <i class="bi bi-file-earmark-pdf me-1"></i>
+                                {% trans "Voir dans la GED" %}
+                            </a>
+                        </dd>
+                        {% endif %}
+                    </dl>
+                </div>
+            </div>
+
+            <!-- Collaborateurs -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-people me-2"></i>
+                        {% trans "Collaborateurs" %}
+                    </h5>
+                    {% if can_share %}
+                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#shareModal">
+                        <i class="bi bi-plus"></i>
+                    </button>
+                    {% endif %}
+                </div>
+                <div class="list-group list-group-flush">
+                    <!-- Propriétaire -->
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>{{ document.createur.get_full_name|default:document.createur.email }}</strong>
+                            <br>
+                            <small class="text-muted">{% trans "Propriétaire" %}</small>
+                        </div>
+                        <span class="badge bg-primary">{% trans "Admin" %}</span>
+                    </div>
+
+                    <!-- Collaborateurs partagés -->
+                    {% for partage in partages %}
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>{{ partage.utilisateur.get_full_name|default:partage.utilisateur.email }}</strong>
+                            <br>
+                            <small class="text-muted">
+                                {% trans "Partagé par" %} {{ partage.partage_par.get_full_name|default:partage.partage_par.email }}
+                            </small>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-secondary">{{ partage.get_niveau_acces_display }}</span>
+                            {% if can_share %}
+                            <form action="{% url 'editeur:partage_delete' pk=document.pk partage_pk=partage.pk %}"
+                                  method="post" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-link text-danger p-0"
+                                        onclick="return confirm('{% trans "Retirer ce collaborateur ?" %}')">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="list-group-item text-center text-muted py-3">
+                        <small>{% trans "Aucun collaborateur" %}</small>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Actions rapides -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">{% trans "Actions" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        {% if can_edit and not document.document_exporte %}
+                        <form action="{% url 'editeur:document_archive' pk=document.pk %}" method="post">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-primary w-100"
+                                    onclick="return confirm('{% trans "Archiver ce document dans la GED ?" %}')">
+                                <i class="bi bi-archive me-2"></i>
+                                {% trans "Archiver dans la GED" %}
+                            </button>
+                        </form>
+                        {% endif %}
+
+                        {% if can_share %}
+                        <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#linkModal">
+                            <i class="bi bi-link-45deg me-2"></i>
+                            {% trans "Créer un lien public" %}
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Partage -->
+{% if can_share %}
+<div class="modal fade" id="shareModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="{% url 'editeur:partage_create' pk=document.pk %}" method="post">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">{% trans "Partager le document" %}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Email de l'utilisateur" %}</label>
+                        <input type="email" name="email_utilisateur" class="form-control"
+                               placeholder="email@example.com" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Niveau d'accès" %}</label>
+                        <select name="niveau_acces" class="form-select">
+                            <option value="LECTURE">{% trans "Lecture seule" %}</option>
+                            <option value="COMMENTAIRE">{% trans "Commentaire" %}</option>
+                            <option value="EDITION" selected>{% trans "Édition" %}</option>
+                            <option value="ADMIN">{% trans "Administration" %}</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        {% trans "Annuler" %}
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        {% trans "Partager" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<style>
+.badge.bg-brouillon { background-color: #6c757d !important; }
+.badge.bg-en_cours { background-color: #0d6efd !important; }
+.badge.bg-revision { background-color: #ffc107 !important; color: #000; }
+.badge.bg-valide { background-color: #198754 !important; }
+.badge.bg-archive { background-color: #6c757d !important; }
+</style>
+{% endblock %}

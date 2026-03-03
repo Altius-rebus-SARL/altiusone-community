@@ -1,0 +1,429 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{% trans "Dossiers" %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .folder-link {
+        cursor: pointer;
+        transition: transform 0.2s ease;
+    }
+    .folder-link:hover {
+        transform: scale(1.02);
+    }
+    .folder-link:hover i {
+        color: var(--bs-primary) !important;
+    }
+    .folder-card {
+        transition: box-shadow 0.2s ease, transform 0.2s ease;
+    }
+    .folder-card:hover {
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        transform: translateY(-2px);
+    }
+    .client-icon { color: #6366F1; }
+    .mandat-icon { color: #F59E0B; }
+    .folder-icon { color: #3B82F6; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">
+            {% if nav_level == 'clients' %}
+                {% trans "Dossiers" %}
+            {% elif nav_level == 'mandats' %}
+                {{ current_client.raison_sociale }}
+            {% elif nav_level == 'dossiers' %}
+                {{ current_mandat.numero }}
+            {% else %}
+                {{ current_parent.nom }}
+            {% endif %}
+        </h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li {% if nav_level == 'clients' %}class="active"{% endif %}>
+                <a class="f-s-14 f-w-500" href="{% url 'documents:dossier-list' %}">
+                    <span><i class="ph-duotone ph-folders f-s-16"></i> {% trans "Dossiers" %}</span>
+                </a>
+            </li>
+            {% if current_client %}
+            <li {% if nav_level == 'mandats' %}class="active"{% endif %}>
+                <a class="f-s-14 f-w-500" href="{% url 'documents:dossier-list' %}?client={{ current_client.id }}">
+                    <span><i class="ph-duotone ph-buildings f-s-16"></i> {{ current_client.raison_sociale|truncatechars:30 }}</span>
+                </a>
+            </li>
+            {% endif %}
+            {% if current_mandat %}
+            <li {% if nav_level == 'dossiers' %}class="active"{% endif %}>
+                <a class="f-s-14 f-w-500" href="{% url 'documents:dossier-list' %}?mandat={{ current_mandat.id }}">
+                    <span><i class="ph-duotone ph-briefcase f-s-16"></i> {{ current_mandat.numero }}</span>
+                </a>
+            </li>
+            {% endif %}
+            {% for item in breadcrumb_items %}
+            <li {% if forloop.last %}class="active"{% endif %}>
+                <a class="f-s-14 f-w-500" href="{% url 'documents:dossier-list' %}?parent={{ item.id }}">
+                    <span><i class="ph-duotone ph-folder f-s-16"></i> {{ item.nom|truncatechars:20 }}</span>
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="row">
+    <div class="col-md-4">
+        <div class="card bg-light-primary">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar bg-primary rounded me-3">
+                        <i class="ph-duotone ph-folders text-white f-s-30"></i>
+                    </div>
+                    <div>
+                        <p class="text-muted mb-1 f-s-12">{% trans "Total dossiers" %}</p>
+                        <h5 class="text-primary mb-0">{{ stats.total }}</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card bg-light-success">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar bg-success rounded me-3">
+                        <i class="ph-duotone ph-files text-white f-s-30"></i>
+                    </div>
+                    <div>
+                        <p class="text-muted mb-1 f-s-12">{% trans "Total documents" %}</p>
+                        <h5 class="text-success mb-0">{{ stats.total_documents }}</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card bg-light-info">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar bg-info rounded me-3">
+                        <i class="ph-duotone ph-hard-drives text-white f-s-30"></i>
+                    </div>
+                    <div>
+                        <p class="text-muted mb-1 f-s-12">{% trans "Taille totale" %}</p>
+                        <h5 class="text-info mb-0">{{ stats.total_taille|filesizeformat }}</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Contenu principal -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        {% if nav_level == 'clients' %}
+                            <i class="ph-duotone ph-buildings me-2"></i>{% trans "Clients" %}
+                        {% elif nav_level == 'mandats' %}
+                            <i class="ph-duotone ph-briefcase me-2"></i>{% trans "Mandats" %}
+                        {% else %}
+                            <i class="ph-duotone ph-folders me-2"></i>{% trans "Dossiers" %}
+                        {% endif %}
+                    </h5>
+                    <div class="d-flex gap-2">
+                        {% if nav_level == 'dossiers' or nav_level == 'subfolders' %}
+                        <a href="{% url 'documents:dossier-create' %}{% if current_mandat %}?mandat={{ current_mandat.id }}{% endif %}{% if current_parent %}&parent={{ current_parent.id }}{% endif %}" class="btn btn-primary">
+                            <i class="ph ph-folder-plus me-2"></i>{% trans "Nouveau dossier" %}
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-body">
+                <div class="row">
+                    {% if nav_level == 'clients' %}
+                        <!-- NIVEAU CLIENTS -->
+                        {% for client in clients %}
+                        <div class="col-sm-6 col-xl-4 col-xxl-3">
+                            <div class="card mb-3">
+                                <div class="card-body folder-card">
+                                    <a href="{% url 'documents:dossier-list' %}?client={{ client.id }}" class="text-decoration-none folder-link d-block">
+                                        <div class="text-center">
+                                            <i class="ph-duotone ph-buildings client-icon" style="font-size: 64px;"></i>
+                                            <p class="mb-1 f-s-16 mt-2 f-w-600 text-dark">{{ client.raison_sociale|truncatechars:25 }}</p>
+                                            <p class="text-muted f-s-12 mb-0">{{ client.numero_client }}</p>
+                                        </div>
+
+                                        <div class="app-divider-v dashed my-3"></div>
+
+                                        <div class="d-flex justify-content-between">
+                                            <div class="text-center">
+                                                <p class="text-muted f-s-12 mb-0">{% trans "Mandats" %}</p>
+                                                <p class="f-w-600 mb-0 text-primary">{{ client.nb_mandats }}</p>
+                                            </div>
+                                            <div class="text-center">
+                                                <p class="text-muted f-s-12 mb-0">{% trans "Dossiers" %}</p>
+                                                <p class="f-w-600 mb-0 text-info">{{ client.nb_dossiers }}</p>
+                                            </div>
+                                            <div class="text-center">
+                                                <p class="text-muted f-s-12 mb-0">{% trans "Documents" %}</p>
+                                                <p class="f-w-600 mb-0 text-success">{{ client.nb_documents }}</p>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="col-12">
+                            <div class="text-center py-5">
+                                <i class="ph ph-buildings f-s-48 text-muted d-block mb-3"></i>
+                                <p class="text-muted">{% trans "Aucun client avec des dossiers" %}</p>
+                            </div>
+                        </div>
+                        {% endfor %}
+
+                    {% elif nav_level == 'mandats' %}
+                        <!-- NIVEAU MANDATS -->
+                        {% for mandat in mandats %}
+                        <div class="col-sm-6 col-xl-4 col-xxl-3">
+                            <div class="card mb-3">
+                                <div class="card-body folder-card">
+                                    <a href="{% url 'documents:dossier-list' %}?mandat={{ mandat.id }}" class="text-decoration-none folder-link d-block">
+                                        <div class="text-center">
+                                            <i class="ph-duotone ph-briefcase mandat-icon" style="font-size: 64px;"></i>
+                                            <p class="mb-1 f-s-16 mt-2 f-w-600 text-dark">{{ mandat.numero }}</p>
+                                            <p class="text-muted f-s-12 mb-0">{{ mandat.get_type_mandat_display|default:"-" }}</p>
+                                        </div>
+
+                                        <div class="app-divider-v dashed my-3"></div>
+
+                                        <div class="d-flex justify-content-between">
+                                            <div class="text-center">
+                                                <p class="text-muted f-s-12 mb-0">{% trans "Dossiers" %}</p>
+                                                <p class="f-w-600 mb-0 text-info">{{ mandat.nb_dossiers }}</p>
+                                            </div>
+                                            <div class="text-center">
+                                                <p class="text-muted f-s-12 mb-0">{% trans "Documents" %}</p>
+                                                <p class="f-w-600 mb-0 text-success">{{ mandat.nb_documents }}</p>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="col-12">
+                            <div class="text-center py-5">
+                                <i class="ph ph-briefcase f-s-48 text-muted d-block mb-3"></i>
+                                <p class="text-muted">{% trans "Aucun mandat pour ce client" %}</p>
+                            </div>
+                        </div>
+                        {% endfor %}
+
+                    {% else %}
+                        <!-- NIVEAU DOSSIERS / SOUS-DOSSIERS -->
+                        {% for dossier in dossiers %}
+                        <div class="col-sm-6 col-xl-4 col-xxl-3">
+                            <div class="card mb-3">
+                                <div class="card-body folder-card">
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="badge text-light-primary f-s-10">
+                                            {{ dossier.get_type_dossier_display }}
+                                        </span>
+
+                                        <div class="dropdown">
+                                            <a data-bs-toggle="dropdown" role="button">
+                                                <i class="ph ph-dots-three-vertical"></i>
+                                            </a>
+                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                <li>
+                                                    <a class="dropdown-item" href="{% url 'documents:dossier-detail' dossier.pk %}">
+                                                        <i class="ph ph-eye text-primary me-2"></i>{% trans "Voir détails" %}
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <a class="dropdown-item" href="{% url 'documents:dossier-list' %}?parent={{ dossier.pk }}">
+                                                        <i class="ph ph-folder-open text-info me-2"></i>{% trans "Ouvrir" %}
+                                                    </a>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                    <a href="{% url 'documents:dossier-list' %}?parent={{ dossier.pk }}" class="text-decoration-none folder-link d-block">
+                                        <div class="text-center">
+                                            <i class="ph-duotone ph-folder folder-icon" style="font-size: 56px;"></i>
+                                            <p class="mb-0 f-s-15 mt-2 f-w-600 text-dark">{{ dossier.nom }}</p>
+                                        </div>
+
+                                        <div class="app-divider-v dashed my-2"></div>
+
+                                        <div class="d-flex justify-content-between">
+                                            <div class="text-center">
+                                                <p class="text-muted f-s-11 mb-0">{% trans "Sous-dossiers" %}</p>
+                                                <p class="f-w-600 mb-0 text-info f-s-13">{{ dossier.sous_dossiers.count }}</p>
+                                            </div>
+                                            <div class="text-center">
+                                                <p class="text-muted f-s-11 mb-0">{% trans "Documents" %}</p>
+                                                <p class="f-w-600 mb-0 text-success f-s-13">{{ dossier.get_total_documents_recursive }}</p>
+                                            </div>
+                                            <div class="text-center">
+                                                <p class="text-muted f-s-11 mb-0">{% trans "Taille" %}</p>
+                                                <p class="f-w-600 mb-0 text-secondary f-s-13">{{ dossier.get_total_size_recursive|filesizeformat }}</p>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        {% if not documents %}
+                        <div class="col-12">
+                            <div class="text-center py-5">
+                                <i class="ph ph-folder-open f-s-48 text-muted d-block mb-3"></i>
+                                <p class="text-muted">{% trans "Aucun dossier trouvé" %}</p>
+                                {% if current_mandat %}
+                                <a href="{% url 'documents:dossier-create' %}?mandat={{ current_mandat.id }}" class="btn btn-primary">
+                                    <i class="ph ph-folder-plus me-2"></i>{% trans "Créer un dossier" %}
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                </div>
+
+                <!-- Documents du dossier courant -->
+                {% if documents %}
+                <div class="mt-4">
+                    <h6 class="text-muted mb-3">
+                        <i class="ph-duotone ph-files me-2"></i>{% trans "Documents" %} ({{ documents|length }})
+                    </h6>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 40px;"></th>
+                                    <th>{% trans "Nom" %}</th>
+                                    <th>{% trans "Type" %}</th>
+                                    <th>{% trans "Taille" %}</th>
+                                    <th>{% trans "Date" %}</th>
+                                    <th>{% trans "Statut" %}</th>
+                                    <th style="width: 100px;">{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for doc in documents %}
+                                <tr>
+                                    <td>
+                                        {% if doc.extension == 'pdf' %}
+                                            <i class="ph-duotone ph-file-pdf text-danger f-s-24"></i>
+                                        {% elif doc.extension in 'jpg,jpeg,png,gif,webp' %}
+                                            <i class="ph-duotone ph-file-image text-info f-s-24"></i>
+                                        {% elif doc.extension in 'doc,docx' %}
+                                            <i class="ph-duotone ph-file-doc text-primary f-s-24"></i>
+                                        {% elif doc.extension in 'xls,xlsx' %}
+                                            <i class="ph-duotone ph-file-xls text-success f-s-24"></i>
+                                        {% else %}
+                                            <i class="ph-duotone ph-file text-secondary f-s-24"></i>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'documents:document-detail' doc.pk %}?{% if current_client %}client={{ current_client.id }}&{% endif %}{% if current_mandat %}mandat={{ current_mandat.id }}&{% endif %}{% if current_parent %}parent={{ current_parent.id }}{% endif %}" class="text-dark fw-medium">
+                                            {{ doc.nom_fichier|default:doc.nom_original|truncatechars:40 }}
+                                        </a>
+                                        {% if doc.dossier %}
+                                        <br><small class="text-muted"><i class="ph ph-folder me-1"></i>{{ doc.dossier.nom }}</small>
+                                        {% elif doc.description %}
+                                        <br><small class="text-muted">{{ doc.description|truncatechars:50 }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if doc.type_document %}
+                                            <span class="badge bg-light text-dark">{{ doc.type_document.libelle }}</span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ doc.taille|filesizeformat }}</td>
+                                    <td>{{ doc.date_upload|date:"d/m/Y H:i" }}</td>
+                                    <td>
+                                        {% if doc.statut_validation == 'VALIDE' %}
+                                            <span class="badge bg-success">{% trans "Validé" %}</span>
+                                        {% elif doc.statut_validation == 'REJETE' %}
+                                            <span class="badge bg-danger">{% trans "Rejeté" %}</span>
+                                        {% else %}
+                                            <span class="badge bg-warning text-dark">{% trans "En attente" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'documents:document-detail' doc.pk %}?{% if current_client %}client={{ current_client.id }}&{% endif %}{% if current_mandat %}mandat={{ current_mandat.id }}&{% endif %}{% if current_parent %}parent={{ current_parent.id }}{% endif %}" class="btn btn-outline-primary" title="{% trans 'Voir' %}">
+                                                <i class="ph ph-eye"></i>
+                                            </a>
+                                            <a href="{% url 'documents:document-telecharger' doc.pk %}" class="btn btn-outline-success" title="{% trans 'Télécharger' %}">
+                                                <i class="ph ph-download"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Pagination -->
+            {% if is_paginated %}
+            <div class="card-footer">
+                <div class="d-flex justify-content-between align-items-center">
+                    <p class="text-secondary mb-0">
+                        {% trans "Affichage de" %} {{ page_obj.start_index }} à {{ page_obj.end_index }}
+                        {% trans "sur" %} {{ page_obj.paginator.count }}
+                    </p>
+                    <ul class="pagination app-pagination mb-0">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if current_client %}&client={{ current_client.id }}{% endif %}{% if current_mandat %}&mandat={{ current_mandat.id }}{% endif %}{% if current_parent %}&parent={{ current_parent.id }}{% endif %}">{% trans "Précédent" %}</a>
+                        </li>
+                        {% endif %}
+
+                        <li class="page-item active">
+                            <a class="page-link" href="#">{{ page_obj.number }}</a>
+                        </li>
+
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if current_client %}&client={{ current_client.id }}{% endif %}{% if current_mandat %}&mandat={{ current_mandat.id }}{% endif %}{% if current_parent %}&parent={{ current_parent.id }}{% endif %}">{% trans "Suivant" %}</a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

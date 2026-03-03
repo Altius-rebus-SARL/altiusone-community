@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{% if object %}{% trans "Modifier l'affectation" %}{% else %}{% trans "Nouvelle affectation" %}{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h3>{% if object %}{% trans "Modifier l'affectation" %}{% else %}{% trans "Nouvelle affectation prestataire" %}{% endif %}</h3>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}"><i class="ti ti-home"></i></a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'core:admin-dashboard' %}">{% trans "Administration" %}</a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'core:admin-collaborateur-list' %}">{% trans "Prestataires" %}</a></li>
+                        <li class="breadcrumb-item active">{% if object %}{% trans "Modifier" %}{% else %}{% trans "Nouveau" %}{% endif %}</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-xl-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% if object %}{% trans "Modifier l'affectation" %}{% else %}{% trans "Affecter un prestataire a un mandat" %}{% endif %}</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors }}
+                        </div>
+                        {% endif %}
+
+                        <div class="row">
+                            <!-- Prestataire -->
+                            <div class="col-md-6 mb-3">
+                                <label for="id_utilisateur" class="form-label">{% trans "Prestataire" %} *</label>
+                                {{ form.utilisateur }}
+                                {% if form.utilisateur.errors %}<div class="text-danger f-s-12">{{ form.utilisateur.errors|join:", " }}</div>{% endif %}
+                                <small class="text-muted">{% trans "Utilisateurs STAFF de type PRESTATAIRE uniquement" %}</small>
+                            </div>
+
+                            <!-- Mandat -->
+                            <div class="col-md-6 mb-3">
+                                <label for="id_mandat" class="form-label">{% trans "Mandat" %} *</label>
+                                {{ form.mandat }}
+                                {% if form.mandat.errors %}<div class="text-danger f-s-12">{{ form.mandat.errors|join:", " }}</div>{% endif %}
+                            </div>
+
+                            <!-- Role sur mandat -->
+                            <div class="col-md-6 mb-3">
+                                <label for="id_role_sur_mandat" class="form-label">{% trans "Role sur ce mandat" %}</label>
+                                {{ form.role_sur_mandat }}
+                                {% if form.role_sur_mandat.errors %}<div class="text-danger f-s-12">{{ form.role_sur_mandat.errors|join:", " }}</div>{% endif %}
+                                <small class="text-muted">{% trans "Ex: Comptable externe, Reviseur, Conseiller fiscal" %}</small>
+                            </div>
+
+                            <!-- Taux horaire -->
+                            <div class="col-md-6 mb-3">
+                                <label for="id_taux_horaire" class="form-label">{% trans "Taux horaire specifique" %} ({{ DEVISE_CODE }})</label>
+                                {{ form.taux_horaire }}
+                                {% if form.taux_horaire.errors %}<div class="text-danger f-s-12">{{ form.taux_horaire.errors|join:", " }}</div>{% endif %}
+                                <small class="text-muted">{% trans "Laisser vide pour utiliser le taux global" %}</small>
+                            </div>
+
+                            <!-- Date debut -->
+                            <div class="col-md-6 mb-3">
+                                <label for="id_date_debut" class="form-label">{% trans "Date de debut" %} *</label>
+                                {{ form.date_debut }}
+                                {% if form.date_debut.errors %}<div class="text-danger f-s-12">{{ form.date_debut.errors|join:", " }}</div>{% endif %}
+                            </div>
+
+                            <!-- Date fin -->
+                            <div class="col-md-6 mb-3">
+                                <label for="id_date_fin" class="form-label">{% trans "Date de fin" %}</label>
+                                {{ form.date_fin }}
+                                {% if form.date_fin.errors %}<div class="text-danger f-s-12">{{ form.date_fin.errors|join:", " }}</div>{% endif %}
+                                <small class="text-muted">{% trans "Laisser vide pour une affectation permanente" %}</small>
+                            </div>
+
+                            <!-- Is Active -->
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check mt-4">
+                                    {{ form.is_active }}
+                                    <label class="form-check-label" for="id_is_active">
+                                        {% trans "Affectation active" %}
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Notes -->
+                            <div class="col-12 mb-3">
+                                <label for="id_notes" class="form-label">{% trans "Notes" %}</label>
+                                {{ form.notes }}
+                                {% if form.notes.errors %}<div class="text-danger f-s-12">{{ form.notes.errors|join:", " }}</div>{% endif %}
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'core:admin-collaborateur-list' %}" class="btn btn-secondary">
+                                <i class="ti ti-arrow-left me-2"></i>{% trans "Retour" %}
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="ti ti-check me-2"></i>{% if object %}{% trans "Enregistrer" %}{% else %}{% trans "Creer" %}{% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Help -->
+        <div class="col-xl-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Aide" %}</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted f-s-14">
+                        {% trans "Une affectation prestataire permet a un collaborateur externe (type PRESTATAIRE) d'acceder aux donnees d'un mandat specifique." %}
+                    </p>
+                    <p class="text-muted f-s-14 mt-3">
+                        <strong>{% trans "Prestataires eligibles" %}:</strong><br>
+                        {% trans "Seuls les utilisateurs STAFF avec type_collaborateur = PRESTATAIRE peuvent etre affectes." %}
+                    </p>
+                    <p class="text-muted f-s-14 mt-3">
+                        <strong>{% trans "Taux horaire" %}:</strong><br>
+                        {% trans "Si specifie, ce taux sera utilise pour ce mandat. Sinon, le taux global du prestataire s'applique." %}
+                    </p>
+                    <p class="text-muted f-s-14 mt-3">
+                        <strong>{% trans "Difference avec Acces Mandat" %}:</strong><br>
+                        {% trans "Acces Mandat gere les utilisateurs CLIENT. Cette fonctionnalite gere les prestataires externes cote fiduciaire." %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

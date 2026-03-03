@@ -1,0 +1,126 @@
+<!-- comptabilite/classe_list.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Classes comptables" %} - {{ type_plan.nom }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Classes comptables" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'comptabilite:type-plan-list' %}">
+                    {% trans "Types de plans" %}
+                </a>
+            </li>
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'comptabilite:type-plan-detail' type_plan.pk %}">
+                    {{ type_plan.code }}
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Classes" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<!-- Header -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        <div class="h-50 w-50 d-flex-center rounded-circle bg-light-primary me-3">
+                            <i class="ph ph-list-numbers f-s-24 text-primary"></i>
+                        </div>
+                        <div>
+                            <h5 class="mb-1">{% trans "Classes comptables" %} - {{ type_plan.nom }}</h5>
+                            <p class="text-muted mb-0">{{ type_plan.description|truncatewords:15 }}</p>
+                        </div>
+                    </div>
+                    <a href="{% url 'comptabilite:type-plan-detail' type_plan.pk %}" class="btn btn-outline-primary">
+                        <i class="ph ph-arrow-left me-2"></i>{% trans "Retour" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Classes -->
+<div class="row">
+    {% for classe in classes %}
+    <div class="col-lg-4 col-md-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div class="h-50 w-50 d-flex-center rounded-circle
+                        {% if classe.type_compte == 'ACTIF' %}bg-light-primary
+                        {% elif classe.type_compte == 'PASSIF' %}bg-light-info
+                        {% elif classe.type_compte == 'CHARGE' %}bg-light-danger
+                        {% elif classe.type_compte == 'PRODUIT' %}bg-light-success
+                        {% else %}bg-light-secondary{% endif %}">
+                        <span class="f-s-20 f-w-600
+                            {% if classe.type_compte == 'ACTIF' %}text-primary
+                            {% elif classe.type_compte == 'PASSIF' %}text-info
+                            {% elif classe.type_compte == 'CHARGE' %}text-danger
+                            {% elif classe.type_compte == 'PRODUIT' %}text-success
+                            {% else %}text-secondary{% endif %}">
+                            {{ classe.numero }}
+                        </span>
+                    </div>
+                    <span class="badge
+                        {% if classe.type_compte == 'ACTIF' %}bg-primary
+                        {% elif classe.type_compte == 'PASSIF' %}bg-info
+                        {% elif classe.type_compte == 'CHARGE' %}bg-danger
+                        {% elif classe.type_compte == 'PRODUIT' %}bg-success
+                        {% else %}bg-secondary{% endif %}">
+                        {{ classe.get_type_compte_display }}
+                    </span>
+                </div>
+
+                <h6 class="mb-2">{{ classe.libelle }}</h6>
+                {% if classe.description %}
+                <p class="text-muted small mb-3">{{ classe.description }}</p>
+                {% endif %}
+
+                <div class="d-flex justify-content-between text-muted small">
+                    {% if classe.numero_debut and classe.numero_fin %}
+                    <span>
+                        <i class="ph ph-hash me-1"></i>
+                        {{ classe.numero_debut }} - {{ classe.numero_fin }}
+                    </span>
+                    {% endif %}
+                    <span>
+                        <i class="ph ph-folder me-1"></i>
+                        {{ classe.nb_comptes|default:0 }} {% trans "comptes" %}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="ph ph-list-numbers f-s-50 text-muted"></i>
+                <p class="text-muted mt-2">{% trans "Aucune classe definie pour ce type de plan" %}</p>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

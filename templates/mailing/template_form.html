@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{% if object %}{% trans "Modifier le template" %}{% else %}{% trans "Nouveau template" %}{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h3>{% if object %}{% trans "Modifier le template" %}{% else %}{% trans "Nouveau template email" %}{% endif %}</h3>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}"><i class="ti ti-home"></i></a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'mailing:template-list' %}">{% trans "Templates" %}</a></li>
+                        <li class="breadcrumb-item active">{% if object %}{% trans "Modifier" %}{% else %}{% trans "Nouveau" %}{% endif %}</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        {{ form.variables_disponibles }}
+
+        <div class="row">
+            <!-- Informations generales -->
+            <div class="col-xl-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>{% trans "Informations" %}</h5>
+                    </div>
+                    <div class="card-body">
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors }}
+                        </div>
+                        {% endif %}
+
+                        <div class="mb-3">
+                            <label for="id_code" class="form-label">{% trans "Code unique" %} *</label>
+                            {{ form.code }}
+                            {% if form.code.errors %}<div class="text-danger f-s-12">{{ form.code.errors|join:", " }}</div>{% endif %}
+                            <small class="text-muted">{% trans "Ex: INVITATION_STAFF, RESET_PASSWORD" %}</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="id_nom" class="form-label">{% trans "Nom" %} *</label>
+                            {{ form.nom }}
+                            {% if form.nom.errors %}<div class="text-danger f-s-12">{{ form.nom.errors|join:", " }}</div>{% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="id_type_template" class="form-label">{% trans "Type" %} *</label>
+                            {{ form.type_template }}
+                            {% if form.type_template.errors %}<div class="text-danger f-s-12">{{ form.type_template.errors|join:", " }}</div>{% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="id_configuration" class="form-label">{% trans "Configuration SMTP" %}</label>
+                            {{ form.configuration }}
+                            {% if form.configuration.errors %}<div class="text-danger f-s-12">{{ form.configuration.errors|join:", " }}</div>{% endif %}
+                            <small class="text-muted">{% trans "Laisser vide pour utiliser la configuration par defaut" %}</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="form-check">
+                                {{ form.actif }}
+                                <label class="form-check-label" for="id_actif">
+                                    {% trans "Template actif" %}
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Variables -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="ti ti-variable me-2"></i>{% trans "Variables courantes" %}</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted f-s-12">{% trans "Utilisez ces variables dans votre template:" %}</p>
+                        <table class="table table-sm f-s-12">
+                            <tr>
+                                <td><code>{% templatetag openvariable %} nom {% templatetag closevariable %}</code></td>
+                                <td>{% trans "Nom du destinataire" %}</td>
+                            </tr>
+                            <tr>
+                                <td><code>{% templatetag openvariable %} prenom {% templatetag closevariable %}</code></td>
+                                <td>{% trans "Prenom" %}</td>
+                            </tr>
+                            <tr>
+                                <td><code>{% templatetag openvariable %} email {% templatetag closevariable %}</code></td>
+                                <td>{% trans "Email" %}</td>
+                            </tr>
+                            <tr>
+                                <td><code>{% templatetag openvariable %} lien {% templatetag closevariable %}</code></td>
+                                <td>{% trans "Lien d'action" %}</td>
+                            </tr>
+                            <tr>
+                                <td><code>{% templatetag openvariable %} entreprise {% templatetag closevariable %}</code></td>
+                                <td>{% trans "Nom entreprise" %}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contenu -->
+            <div class="col-xl-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>{% trans "Sujet de l'email" %}</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-0">
+                            {{ form.sujet }}
+                            {% if form.sujet.errors %}<div class="text-danger f-s-12">{{ form.sujet.errors|join:", " }}</div>{% endif %}
+                            <small class="text-muted">{% trans "Vous pouvez utiliser des variables: Ex: Bienvenue chez {{ entreprise }}" %}</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="ti ti-code me-2"></i>{% trans "Corps HTML" %}</h5>
+                    </div>
+                    <div class="card-body">
+                        {{ form.corps_html }}
+                        {% if form.corps_html.errors %}<div class="text-danger f-s-12">{{ form.corps_html.errors|join:", " }}</div>{% endif %}
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="ti ti-txt me-2"></i>{% trans "Corps Texte (fallback)" %}</h5>
+                    </div>
+                    <div class="card-body">
+                        {{ form.corps_texte }}
+                        {% if form.corps_texte.errors %}<div class="text-danger f-s-12">{{ form.corps_texte.errors|join:", " }}</div>{% endif %}
+                        <small class="text-muted">{% trans "Version texte brut pour les clients email qui ne supportent pas le HTML" %}</small>
+                    </div>
+                </div>
+
+                <!-- Boutons -->
+                <div class="card">
+                    <div class="card-body d-flex justify-content-between">
+                        <a href="{% url 'mailing:template-list' %}" class="btn btn-secondary">
+                            <i class="ti ti-arrow-left me-2"></i>{% trans "Retour" %}
+                        </a>
+                        <div>
+                            {% if object %}
+                            <a href="{% url 'mailing:template-preview' object.pk %}" class="btn btn-info me-2" target="_blank">
+                                <i class="ti ti-eye me-2"></i>{% trans "Preview" %}
+                            </a>
+                            {% endif %}
+                            <button type="submit" class="btn btn-primary">
+                                <i class="ti ti-check me-2"></i>{% if object %}{% trans "Enregistrer" %}{% else %}{% trans "Creer" %}{% endif %}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}

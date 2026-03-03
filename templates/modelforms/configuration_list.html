@@ -1,0 +1,264 @@
+<!-- modelforms/configuration_list.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Formulaires dynamiques" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Formulaires dynamiques" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Formulaires dynamiques" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<div class="row">
+    <!-- Statistics Cards -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-primary mb-0">{{ stats.total }}</h3>
+                        <p class="text-muted mb-0">{% trans "Total" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-primary">
+                        <i class="ph-duotone ph-file-text f-s-24 text-primary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-success mb-0">{{ stats.active }}</h3>
+                        <p class="text-muted mb-0">{% trans "Actifs" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-success">
+                        <i class="ph-duotone ph-check-circle f-s-24 text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-warning mb-0">{{ stats.draft }}</h3>
+                        <p class="text-muted mb-0">{% trans "Brouillons" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-warning">
+                        <i class="ph-duotone ph-pencil-simple f-s-24 text-warning"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>{% trans "Configurations de formulaires" %}</h5>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'modelforms:template-list' %}" class="btn btn-outline-primary">
+                        <i class="ph-duotone ph-layout me-2"></i>{% trans "Templates" %}
+                    </a>
+                    <a href="{% url 'modelforms:configuration-create' %}" class="btn btn-primary">
+                        <i class="ti ti-plus me-2"></i>{% trans "Nouvelle configuration" %}
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Filters Row -->
+                <form method="get" class="mb-3">
+                    <div class="row app-form">
+                        <div class="col-md-3">
+                            <select name="status" class="form-select select-basic" onchange="this.form.submit()">
+                                <option value="">{% trans "Tous les statuts" %}</option>
+                                {% for value, label in statuses %}
+                                <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select name="category" class="form-select select-basic" onchange="this.form.submit()">
+                                <option value="">{% trans "Toutes les catégories" %}</option>
+                                {% for value, label in categories %}
+                                <option value="{{ value }}" {% if request.GET.category == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="position-relative">
+                                <input type="search" name="q" class="form-control"
+                                       placeholder="{% trans 'Rechercher...' %}"
+                                       value="{{ request.GET.q }}">
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            {% if request.GET.status or request.GET.category or request.GET.q %}
+                            <a href="{% url 'modelforms:configuration-list' %}" class="btn btn-secondary w-100">
+                                <i class="ti ti-x me-2"></i>{% trans "Réinitialiser" %}
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </form>
+
+                <!-- Table -->
+                <div class="overflow-auto app-scroll">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr class="app-sort">
+                                <th scope="col">{% trans "Code" %}</th>
+                                <th scope="col">{% trans "Nom" %}</th>
+                                <th scope="col">{% trans "Modèle cible" %}</th>
+                                <th scope="col">{% trans "Catégorie" %}</th>
+                                <th scope="col">{% trans "Champs" %}</th>
+                                <th scope="col">{% trans "Soumissions" %}</th>
+                                <th scope="col">{% trans "Statut" %}</th>
+                                <th scope="col">{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody class="list">
+                            {% for config in configurations %}
+                            <tr>
+                                <td>
+                                    <span class="badge bg-light-secondary text-dark">
+                                        <i class="{{ config.icon }} me-1"></i>
+                                        {{ config.code }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <a href="{% url 'modelforms:configuration-detail' config.pk %}" class="f-w-500 text-dark">
+                                        {{ config.name }}
+                                    </a>
+                                </td>
+                                <td><code>{{ config.target_model }}</code></td>
+                                <td>
+                                    <span class="badge bg-light-info">
+                                        {{ config.get_category_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-light-primary">{{ config.field_count }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-light-secondary">{{ config.submission_count }}</span>
+                                </td>
+                                <td>
+                                    {% if config.status == 'ACTIVE' %}
+                                        <span class="badge bg-success-subtle text-success">{{ config.get_status_display }}</span>
+                                    {% elif config.status == 'DRAFT' %}
+                                        <span class="badge bg-warning-subtle text-warning">{{ config.get_status_display }}</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary-subtle text-secondary">{{ config.get_status_display }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{% url 'modelforms:configuration-detail' config.pk %}"
+                                       class="btn btn-sm btn-light-primary"
+                                       data-bs-toggle="tooltip"
+                                       title="{% trans 'Voir' %}">
+                                        <i class="ti ti-eye"></i>
+                                    </a>
+                                    <a href="{% url 'modelforms:configuration-update' config.pk %}"
+                                       class="btn btn-sm btn-success"
+                                       data-bs-toggle="tooltip"
+                                       title="{% trans 'Modifier' %}">
+                                        <i class="ti ti-edit"></i>
+                                    </a>
+                                    <form action="{% url 'modelforms:configuration-duplicate' config.pk %}"
+                                          method="post" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-info"
+                                                data-bs-toggle="tooltip"
+                                                title="{% trans 'Dupliquer' %}">
+                                            <i class="ti ti-copy"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="8" class="text-center py-5">
+                                    <i class="ph-duotone ph-folder-notch-open f-s-50 text-muted"></i>
+                                    <p class="text-muted mt-2">{% trans "Aucune configuration trouvée" %}</p>
+                                    <a href="{% url 'modelforms:configuration-create' %}" class="btn btn-primary mt-2">
+                                        <i class="ti ti-plus me-2"></i>{% trans "Créer une configuration" %}
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if is_paginated %}
+                <div class="list-pagination mt-3">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1">
+                                <i class="ti ti-chevrons-left"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                                <i class="ti ti-chevron-left"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                            <li class="page-item active"><a class="page-link">{{ num }}</a></li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                                <i class="ti ti-chevron-right"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">
+                                <i class="ti ti-chevrons-right"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+                {% endif %}
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

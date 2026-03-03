@@ -1,0 +1,222 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load devise_tags %}
+
+{% block title %}{{ journal.code }} - {{ journal.libelle }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{{ journal.code }} - {{ journal.libelle }}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'comptabilite:journal-list' %}">
+                    <span>{% trans "Journaux" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{{ journal.code }}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<!-- Action buttons -->
+<div class="row mb-3">
+    <div class="col-12 text-end">
+        <a href="{% url 'comptabilite:journal-update' journal.pk %}" class="btn btn-warning">
+            <i class="ph ph-pencil me-2"></i>{% trans "Modifier" %}
+        </a>
+        <a href="{% url 'comptabilite:ecriture-create' %}?journal={{ journal.pk }}" class="btn btn-primary">
+            <i class="ph ph-plus me-2"></i>{% trans "Nouvelle écriture" %}
+        </a>
+    </div>
+</div>
+
+<!-- Info Card -->
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Informations du journal" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Code" %}</label>
+                        <h6 class="mb-0">
+                            <span class="badge bg-light-dark f-w-600">{{ journal.code }}</span>
+                        </h6>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Libellé" %}</label>
+                        <h6 class="mb-0">{{ journal.libelle }}</h6>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Type de journal" %}</label>
+                        <h6 class="mb-0">
+                            <span class="badge bg-light-primary">{{ journal.get_type_journal_display }}</span>
+                        </h6>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Mandat" %}</label>
+                        <h6 class="mb-0">
+                            <a href="{% url 'core:mandat-detail' journal.mandat.pk %}">
+                                {{ journal.mandat.client.raison_sociale }}
+                            </a>
+                        </h6>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Préfixe pièce" %}</label>
+                        <h6 class="mb-0">{{ journal.prefixe_piece|default:"—" }}</h6>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Dernier numéro" %}</label>
+                        <h6 class="mb-0">{{ journal.dernier_numero }}</h6>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h3 class="text-primary mb-0">{{ stats.nb_ecritures }}</h3>
+                            <p class="text-muted f-s-12 mb-0">{% trans "Écritures" %}</p>
+                        </div>
+                        <div class="h-40 w-40 d-flex-center rounded-circle bg-light-primary">
+                            <i class="ph ph-list-numbers f-s-20 text-primary"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h3 class="text-success mb-0">{{ stats.total_debit|devise:DEVISE_TAUX|floatformat:0 }}</h3>
+                            <p class="text-muted f-s-12 mb-0">{% trans "Total débit" %}</p>
+                        </div>
+                        <div class="h-40 w-40 d-flex-center rounded-circle bg-light-success">
+                            <i class="ph ph-arrow-up f-s-20 text-success"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h3 class="text-danger mb-0">{{ stats.total_credit|devise:DEVISE_TAUX|floatformat:0 }}</h3>
+                            <p class="text-muted f-s-12 mb-0">{% trans "Total crédit" %}</p>
+                        </div>
+                        <div class="h-40 w-40 d-flex-center rounded-circle bg-light-danger">
+                            <i class="ph ph-arrow-down f-s-20 text-danger"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Écritures -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Écritures du journal" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="overflow-auto app-scroll">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Date" %}</th>
+                                <th>{% trans "Pièce" %}</th>
+                                <th>{% trans "Compte" %}</th>
+                                <th>{% trans "Libellé" %}</th>
+                                <th class="text-end">{% trans "Débit" %}</th>
+                                <th class="text-end">{% trans "Crédit" %}</th>
+                                <th>{% trans "Statut" %}</th>
+                                <th class="text-end">{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ecriture in ecritures %}
+                            <tr>
+                                <td>{{ ecriture.date_ecriture|date:"d.m.Y" }}</td>
+                                <td>
+                                    <span class="badge bg-light-dark">{{ ecriture.numero_piece }}</span>
+                                </td>
+                                <td>
+                                    <a href="{% url 'comptabilite:compte-detail' ecriture.compte.pk %}">
+                                        {{ ecriture.compte.numero }}
+                                    </a>
+                                </td>
+                                <td>{{ ecriture.libelle|truncatewords:8 }}</td>
+                                <td class="text-end">
+                                    {% if ecriture.montant_debit > 0 %}
+                                    <span class="text-success">{{ ecriture.montant_debit|devise:DEVISE_TAUX|floatformat:2 }}</span>
+                                    {% else %}
+                                    <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    {% if ecriture.montant_credit > 0 %}
+                                    <span class="text-danger">{{ ecriture.montant_credit|devise:DEVISE_TAUX|floatformat:2 }}</span>
+                                    {% else %}
+                                    <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if ecriture.statut == 'VALIDE' %}
+                                    <span class="badge bg-success-subtle text-success">{% trans "Validé" %}</span>
+                                    {% elif ecriture.statut == 'BROUILLON' %}
+                                    <span class="badge bg-secondary-subtle text-secondary">{% trans "Brouillon" %}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <a href="{% url 'comptabilite:ecriture-detail' ecriture.pk %}" 
+                                       class="btn btn-sm btn-light-primary"
+                                       data-bs-toggle="tooltip"
+                                       title="{% trans 'Voir' %}">
+                                        <i class="ph ph-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="8" class="text-center py-5">
+                                    <i class="ph ph-receipt f-s-50 text-muted"></i>
+                                    <p class="text-muted mt-2">{% trans "Aucune écriture" %}</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

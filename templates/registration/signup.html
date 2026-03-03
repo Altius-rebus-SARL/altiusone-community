@@ -1,0 +1,143 @@
+<!-- registration/signup.html -->
+{% extends 'auth_base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Créer un compte" %}{% endblock %}
+
+{% block content %}
+<form method="post" class="app-form">
+    {% csrf_token %}
+    
+    <div class="mb-3 text-center">
+        <h3>{% trans "Créer un compte" %}</h3>
+        <p class="f-s-12 text-secondary">
+            {% trans "Commencez gratuitement aujourd'hui" %}
+        </p>
+    </div>
+
+    <!-- Erreurs globales -->
+    {% if form.non_field_errors %}
+    <div class="alert alert-danger">
+        {{ form.non_field_errors }}
+    </div>
+    {% endif %}
+
+    <!-- Username -->
+    <div class="mb-3">
+        <label class="form-label" for="{{ form.username.id_for_label }}">
+            {% trans "Nom d'utilisateur" %}
+        </label>
+        <input class="form-control {% if form.username.errors %}is-invalid{% endif %}" 
+               type="text" 
+               name="username" 
+               id="{{ form.username.id_for_label }}"
+               placeholder="{% trans 'Entrez votre nom d\'utilisateur' %}"
+               value="{{ form.username.value|default:'' }}"
+               required>
+        {% if form.username.errors %}
+        <div class="invalid-feedback">
+            {{ form.username.errors }}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Email -->
+    <div class="mb-3">
+        <label class="form-label" for="{{ form.email.id_for_label }}">
+            {% trans "Email" %}
+        </label>
+        <input class="form-control {% if form.email.errors %}is-invalid{% endif %}" 
+               type="email" 
+               name="email" 
+               id="{{ form.email.id_for_label }}"
+               placeholder="{% trans 'Entrez votre email' %}"
+               value="{{ form.email.value|default:'' }}"
+               required>
+        {% if form.email.errors %}
+        <div class="invalid-feedback">
+            {{ form.email.errors }}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Password -->
+    <div class="mb-3">
+        <label class="form-label" for="{{ form.password1.id_for_label }}">
+            {% trans "Mot de passe" %}
+        </label>
+        <input class="form-control {% if form.password1.errors %}is-invalid{% endif %}" 
+               type="password" 
+               name="password1" 
+               id="{{ form.password1.id_for_label }}"
+               placeholder="{% trans 'Entrez votre mot de passe' %}"
+               required>
+        {% if form.password1.errors %}
+        <div class="invalid-feedback">
+            {{ form.password1.errors }}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Confirm Password -->
+    <div class="mb-3">
+        <label class="form-label" for="{{ form.password2.id_for_label }}">
+            {% trans "Confirmer le mot de passe" %}
+        </label>
+        <input class="form-control {% if form.password2.errors %}is-invalid{% endif %}" 
+               type="password" 
+               name="password2" 
+               id="{{ form.password2.id_for_label }}"
+               placeholder="{% trans 'Confirmez votre mot de passe' %}"
+               required>
+        {% if form.password2.errors %}
+        <div class="invalid-feedback">
+            {{ form.password2.errors }}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Terms acceptance -->
+    <div class="mb-3 form-check">
+        <input class="form-check-input" id="acceptTerms" type="checkbox" required>
+        <label class="form-check-label" for="acceptTerms">
+            {% trans "J'accepte les" %} 
+            <a href="{% url 'core:about' %}" class="text-primary">{% trans "conditions d'utilisation" %}</a>
+        </label>
+    </div>
+
+    <!-- Submit -->
+    <div class="mb-3">
+        <button class="btn btn-primary w-100" type="submit">
+            {% trans "Créer mon compte" %}
+        </button>
+    </div>
+
+    <!-- OR divider -->
+    <div class="app-divider-v justify-content-center">
+        <p>OU</p>
+    </div>
+
+    <!-- Social signup -->
+    <div class="mb-3">
+        <div class="text-center">
+            <button class="btn btn-primary icon-btn b-r-5 m-1" type="button" disabled>
+                <i class="ti ti-brand-microsoft text-white"></i>
+            </button>
+            <button class="btn btn-danger icon-btn b-r-5 m-1" type="button" disabled>
+                <i class="ti ti-brand-google text-white"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Login link -->
+    <div class="text-center">
+        <p class="text-muted">
+            {% trans "Déjà un compte ?" %}
+            <a class="text-primary text-decoration-underline" href="{% url 'core:login' %}">
+                {% trans "Se connecter" %}
+            </a>
+        </p>
+    </div>
+</form>
+{% endblock %}

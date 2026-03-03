@@ -1,0 +1,167 @@
+{% load i18n %}
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="text-primary mb-0">
+            <i class="ti ti-map-pin me-2"></i>{% trans "Carte" %}
+        </h5>
+        <div>
+            <span class="badge bg-light-primary me-1"><i class="ti ti-map-pin-filled f-s-10 me-1"></i>{% trans "Position" %}</span>
+            <span class="badge bg-light-secondary"><i class="ti ti-map-pin f-s-10 me-1"></i>{% trans "Opération" %}</span>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div id="projectMap" class="w-100" style="height:500px; border-radius:0 0 .5rem .5rem;"></div>
+        <div id="mapEmpty" class="text-center py-5 text-muted" style="display:none">
+            <i class="ti ti-map-pin-off f-s-40 mb-2 d-block"></i>
+            {% trans "Aucune position géolocalisée. Ajoutez des adresses aux positions et opérations pour les voir sur la carte." %}
+        </div>
+    </div>
+</div>
+
+<style>
+.map-pin-marker {
+    position: relative;
+    text-align: center;
+}
+.map-pin-marker .pin-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    border: 2px solid #fff;
+    box-shadow: 0 2px 6px rgba(0,0,0,.3);
+}
+.map-pin-marker .pin-icon i {
+    transform: rotate(45deg);
+    color: #fff;
+    line-height: 1;
+}
+.map-pin-marker.position .pin-icon {
+    width: 36px;
+    height: 36px;
+}
+.map-pin-marker.position .pin-icon i {
+    font-size: 16px;
+}
+.map-pin-marker.operation .pin-icon {
+    width: 28px;
+    height: 28px;
+}
+.map-pin-marker.operation .pin-icon i {
+    font-size: 12px;
+}
+</style>
+
+<script>
+(function() {
+    if (typeof L === 'undefined') {
+        document.getElementById('projectMap').innerHTML =
+            '<div class="text-center py-5 text-muted">Leaflet non chargé</div>';
+        return;
+    }
+
+    const dataUrl = '{% url "projets:map-data" mandat.pk %}';
+
+    const statutColors = {
+        'PLANIFIE': '#95a5a6',
+        'EN_COURS': '#2980b9',
+        'TERMINE': '#27ae60',
+        'ANNULE': '#c0392b',
+        'A_FAIRE': '#95a5a6',
+        'EN_ATTENTE': '#f39c12',
+        'TERMINEE': '#27ae60',
+        'ANNULEE': '#c0392b',
+    };
+
+    function createPinIcon(color, isPosition) {
+        const size = isPosition ? 36 : 28;
+        const iconClass = isPosition ? 'ti ti-map-pin-filled' : 'ti ti-point';
+        const cssClass = isPosition ? 'position' : 'operation';
+        return L.divIcon({
+            className: 'map-pin-marker ' + cssClass,
+            html: '<div class="pin-icon" style="background:' + color + '"><i class="' + iconClass + '"></i></div>',
+            iconSize: [size, size],
+            iconAnchor: [size / 2, size],
+            popupAnchor: [0, -size],
+        });
+    }
+
+    fetch(dataUrl, { headers: {'X-Requested-With': 'XMLHttpRequest'} })
+    .then(r => r.json())
+    .then(geojson => {
+        if (!geojson.features || geojson.features.length === 0) {
+            document.getElementById('projectMap').style.display = 'none';
+            document.getElementById('mapEmpty').style.display = '';
+            return;
+        }
+
+        const mapEl = document.getElementById('projectMap');
+        if (mapEl._leaflet_id) {
+            mapEl._leaflet_id = null;
+            mapEl.innerHTML = '';
+        }
+
+        const map = L.map('projectMap').setView([46.8, 8.2], 8);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors',
+            maxZoom: 19,
+        }).addTo(map);
+
+        const markers = L.markerClusterGroup();
+        const bounds = [];
+
+        geojson.features.forEach(function(feature) {
+            const coords = feature.geometry.coordinates;
+            const props = feature.properties;
+            const color = statutColors[props.statut] || '#95a5a6';
+            const isPosition = props.type === 'position';
+
+            const icon = createPinIcon(color, isPosition);
+            const marker = L.marker([coords[1], coords[0]], { icon: icon });
+
+            let popup = '<div style="min-width:180px">';
+            popup += '<div class="f-w-600 f-s-14">' + props.titre + '</div>';
+            popup += '<div class="text-muted f-s-12 mb-1">' + props.numero + '</div>';
+            popup += '<span class="badge f-s-11" style="background:' + color + ';color:#fff">' + props.statut + '</span>';
+            if (props.budget_prevu) {
+                popup += '<div class="f-s-12 mt-1"><i class="ti ti-currency-dollar f-s-12"></i> ' + Number(props.budget_prevu).toLocaleString('fr-CH') + ' {{ DEVISE_CODE }}</div>';
+            }
+            if (props.progression !== undefined) {
+                popup += '<div class="f-s-12"><i class="ti ti-chart-bar f-s-12"></i> ' + props.progression + '%</div>';
+            }
+            if (props.position_titre) {
+                popup += '<div class="f-s-12 text-muted"><i class="ti ti-layout-list f-s-12"></i> ' + props.position_titre + '</div>';
+            }
+            popup += '</div>';
+            marker.bindPopup(popup);
+
+            markers.addLayer(marker);
+            bounds.push([coords[1], coords[0]]);
+        });
+
+        map.addLayer(markers);
+
+        if (bounds.length > 0) {
+            map.fitBounds(bounds, { padding: [30, 30] });
+        }
+
+        map.invalidateSize();
+        setTimeout(function() { map.invalidateSize(); }, 300);
+
+        var tabTrigger = document.getElementById('carte-tab');
+        if (tabTrigger) {
+            tabTrigger.addEventListener('shown.bs.tab', function() {
+                map.invalidateSize();
+            });
+        }
+    })
+    .catch(function(err) {
+        console.error('Map data fetch error:', err);
+        document.getElementById('projectMap').innerHTML =
+            '<div class="text-center py-5 text-muted"><i class="ti ti-alert-triangle f-s-24 d-block mb-2"></i>Erreur de chargement</div>';
+    });
+})();
+</script>

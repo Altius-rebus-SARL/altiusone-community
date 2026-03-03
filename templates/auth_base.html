@@ -1,0 +1,197 @@
+{% load static %} {% load i18n %}
+<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE|default:'fr' }}">
+  <head>
+    <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+    <meta content="IE=edge" http-equiv="X-UA-Compatible" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <meta
+      content="AltiusOne - Plateforme de gestion d'entreprise tout-en-un"
+      name="description"
+    />
+    <meta
+      content="gestion entreprise, comptabilité, facturation, projets, ERP, multi-devises"
+      name="keywords"
+    />
+    <meta content="AltiusOne" name="author" />
+    <link
+      href="{% static 'assets/images/logo/favicon.png' %}"
+      rel="icon"
+      type="image/x-icon"
+    />
+    <link
+      href="{% static 'assets/images/logo/favicon.png' %}"
+      rel="shortcut icon"
+      type="image/x-icon"
+    />
+
+    <title>{% block title %}AltiusOne{% endblock %} | AltiusOne</title>
+
+    <!--font-awesome-css-->
+    <link
+      href="{% static 'assets/vendor/fontawesome/css/all.css' %}"
+      rel="stylesheet"
+    />
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin href="https://fonts.gstatic.com" rel="preconnect" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Rubik:ital,wght@0,300..900;1,300..900&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- tabler icons-->
+    <link
+      href="{% static 'assets/vendor/tabler-icons/tabler-icons.css' %}"
+      rel="stylesheet"
+      type="text/css"
+    />
+
+    <!-- Bootstrap css-->
+    <link
+      href="{% static 'assets/vendor/bootstrap/bootstrap.min.css' %}"
+      rel="stylesheet"
+      type="text/css"
+    />
+
+    <!-- App css-->
+    <link
+      href="{% static 'assets/css/style.css' %}"
+      rel="stylesheet"
+      type="text/css"
+    />
+
+    <!-- Responsive css-->
+    <link
+      href="{% static 'assets/css/responsive.css' %}"
+      rel="stylesheet"
+      type="text/css"
+    />
+
+    <!-- Flag icons -->
+    <link
+      href="{% static 'assets/vendor/flag-icons-master/flag-icon.css' %}"
+      rel="stylesheet"
+      type="text/css"
+    />
+
+    {% block extra_css %}{% endblock %}
+  </head>
+
+  <body>
+    <div class="app-wrapper d-block">
+      <div class="">
+        <!-- Body main section starts -->
+        <main class="w-100 p-0">
+          <div class="container-fluid">
+            <div class="row">
+              <div class="col-12 p-0">
+                <div class="login-form-container">
+                  <!-- Logo -->
+                  <div class="mb-4">
+                    <a class="logo" href="{% url 'core:dashboard' %}">
+                      <img
+                        alt="AltiusOne"
+                        src="{% static 'assets/images/logo/3.png' %}"
+                      />
+                    </a>
+                  </div>
+
+                  <!-- Messages Django -->
+                  {% if messages %} {% for message in messages %}
+                  <div
+                    class="alert alert-{{ message.tags }} alert-dismissible fade show"
+                    role="alert"
+                  >
+                    {{ message }}
+                    <button
+                      type="button"
+                      class="btn-close"
+                      data-bs-dismiss="alert"
+                      aria-label="Close"
+                    ></button>
+                  </div>
+                  {% endfor %} {% endif %}
+
+                  <!-- Contenu spécifique de chaque page -->
+                  <div class="form_container">
+                    {% block content %}{% endblock %}
+                  </div>
+
+                  <!-- Sélecteur de langue -->
+                  <div class="mt-4 text-center">
+                    <div class="d-inline-flex gap-2">
+                      {% for lang_code, lang_name, lang_flag in language_options %}
+                      <form action="{% url 'set_language' %}" method="post" class="d-inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="language" value="{{ lang_code }}">
+                        <input type="hidden" name="next" value="{{ request.path }}">
+                        <button type="submit"
+                                class="btn btn-sm {% if LANGUAGE_CODE == lang_code %}btn-primary{% else %}btn-outline-secondary{% endif %} px-2 py-1"
+                                title="{{ lang_name }}">
+                          <i class="flag-icon flag-icon-{{ lang_flag }} flag-icon-squared rounded-circle"></i>
+                          <span class="ms-1 f-s-12">{{ lang_name }}</span>
+                        </button>
+                      </form>
+                      {% empty %}
+                      <form action="{% url 'set_language' %}" method="post" class="d-inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="language" value="fr">
+                        <input type="hidden" name="next" value="{{ request.path }}">
+                        <button type="submit" class="btn btn-sm {% if LANGUAGE_CODE == 'fr' %}btn-primary{% else %}btn-outline-secondary{% endif %} px-2 py-1">
+                          <i class="flag-icon flag-icon-fra flag-icon-squared rounded-circle"></i>
+                          <span class="ms-1 f-s-12">FR</span>
+                        </button>
+                      </form>
+                      <form action="{% url 'set_language' %}" method="post" class="d-inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="language" value="de">
+                        <input type="hidden" name="next" value="{{ request.path }}">
+                        <button type="submit" class="btn btn-sm {% if LANGUAGE_CODE == 'de' %}btn-primary{% else %}btn-outline-secondary{% endif %} px-2 py-1">
+                          <i class="flag-icon flag-icon-deu flag-icon-squared rounded-circle"></i>
+                          <span class="ms-1 f-s-12">DE</span>
+                        </button>
+                      </form>
+                      <form action="{% url 'set_language' %}" method="post" class="d-inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="language" value="it">
+                        <input type="hidden" name="next" value="{{ request.path }}">
+                        <button type="submit" class="btn btn-sm {% if LANGUAGE_CODE == 'it' %}btn-primary{% else %}btn-outline-secondary{% endif %} px-2 py-1">
+                          <i class="flag-icon flag-icon-ita flag-icon-squared rounded-circle"></i>
+                          <span class="ms-1 f-s-12">IT</span>
+                        </button>
+                      </form>
+                      <form action="{% url 'set_language' %}" method="post" class="d-inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="language" value="en">
+                        <input type="hidden" name="next" value="{{ request.path }}">
+                        <button type="submit" class="btn btn-sm {% if LANGUAGE_CODE == 'en' %}btn-primary{% else %}btn-outline-secondary{% endif %} px-2 py-1">
+                          <i class="flag-icon flag-icon-gbr flag-icon-squared rounded-circle"></i>
+                          <span class="ms-1 f-s-12">EN</span>
+                        </button>
+                      </form>
+                      {% endfor %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+        <!-- Body main section ends -->
+      </div>
+    </div>
+
+    <!-- latest jquery-->
+    <script src="{% static 'assets/js/jquery-3.6.3.min.js' %}"></script>
+
+    <!-- Bootstrap js-->
+    <script src="{% static 'assets/vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
+
+    <!-- Password visibility toggle -->
+    <script src="{% static 'core/js/password-toggle.js' %}"></script>
+
+    {% block extra_js %}{% endblock %}
+  </body>
+</html>

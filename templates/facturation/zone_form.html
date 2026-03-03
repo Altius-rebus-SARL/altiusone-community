@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load widget_tweaks %}
+
+{% block title %}{% if form.instance.pk %}{% trans "Modifier la zone" %}{% else %}{% trans "Nouvelle zone" %}{% endif %}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+{% endblock %}
+
+{% block content %}
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% if form.instance.pk %}{% trans "Modifier la zone" %}{% else %}{% trans "Nouvelle zone" %}{% endif %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'facturation:zone-list' %}">
+                    <span>{% trans "Zones" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% if form.instance.pk %}{% trans "Modifier" %}{% else %}{% trans "Nouvelle" %}{% endif %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-10 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Zone géographique" %}</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" class="app-form" id="zone-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="geometrie_geojson" id="geometrie_geojson" value="{{ geometrie_geojson|default:'' }}">
+
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+                    {% endif %}
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Nom" %} *</label>
+                            {{ form.nom }}
+                            {% if form.nom.errors %}<div class="text-danger f-s-12">{{ form.nom.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Couleur" %}</label>
+                            {{ form.couleur }}
+                        </div>
+                        <div class="col-12 mb-3">
+                            <label class="form-label">{% trans "Description" %}</label>
+                            {{ form.description }}
+                        </div>
+                    </div>
+
+                    <!-- Carte pour dessiner le polygone -->
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Dessiner la zone sur la carte" %} *</label>
+                        <div id="zone-map" style="height:400px; border-radius:6px; border:1px solid #dee2e6"></div>
+                        <small class="text-muted f-s-12">{% trans "Utilisez les outils de dessin pour tracer le polygone de la zone" %}</small>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'facturation:zone-list' %}" class="btn btn-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ph ph-check me-2"></i>{% trans "Enregistrer" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+<script>
+(function() {
+    var map = L.map('zone-map').setView([46.8, 8.2], 8);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap', maxZoom: 19,
+    }).addTo(map);
+
+    var drawnItems = new L.FeatureGroup();
+    map.addLayer(drawnItems);
+
+    // Charger la géométrie existante
+    var existingGeojson = document.getElementById('geometrie_geojson').value;
+    if (existingGeojson) {
+        try {
+            var geom = JSON.parse(existingGeojson);
+            var layer = L.geoJSON(geom);
+            layer.eachLayer(function(l) {
+                drawnItems.addLayer(l);
+            });
+            map.fitBounds(drawnItems.getBounds(), { padding: [20, 20] });
+        } catch(e) {}
+    }
+
+    // Outils de dessin
+    var drawControl = new L.Control.Draw({
+        edit: { featureGroup: drawnItems },
+        draw: {
+            polygon: true,
+            rectangle: true,
+            circle: false,
+            circlemarker: false,
+            marker: false,
+            polyline: false,
+        }
+    });
+    map.addControl(drawControl);
+
+    // Quand un polygone est dessiné
+    map.on(L.Draw.Event.CREATED, function(e) {
+        drawnItems.clearLayers();
+        drawnItems.addLayer(e.layer);
+        updateGeojson();
+    });
+
+    map.on(L.Draw.Event.EDITED, function() { updateGeojson(); });
+    map.on(L.Draw.Event.DELETED, function() { updateGeojson(); });
+
+    function updateGeojson() {
+        var layers = drawnItems.getLayers();
+        if (layers.length > 0) {
+            var geojson = layers[0].toGeoJSON().geometry;
+            document.getElementById('geometrie_geojson').value = JSON.stringify(geojson);
+        } else {
+            document.getElementById('geometrie_geojson').value = '';
+        }
+    }
+
+    // Validation
+    document.getElementById('zone-form').addEventListener('submit', function(e) {
+        if (!document.getElementById('geometrie_geojson').value) {
+            e.preventDefault();
+            alert('{% trans "Veuillez dessiner une zone sur la carte" %}');
+        }
+    });
+
+    setTimeout(function() { map.invalidateSize(); }, 300);
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}AltiusOne | {% trans "Ontologie" %}{% endblock %}
+
+{% block content %}
+<ul class="app-line-breadcrumbs mb-3">
+    <li>
+        <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+            <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Dashboard" %}</span>
+        </a>
+    </li>
+    <li>
+        <a class="f-s-14 f-w-500" href="{% url 'graph:explorer' %}">
+            <span><i class="ph-duotone ph-graph f-s-16"></i> {% trans "Graphe" %}</span>
+        </a>
+    </li>
+    <li class="active">{% trans "Ontologie" %}</li>
+</ul>
+
+{% if messages %}
+<div class="mb-3">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="mb-0"><i class="ph-duotone ph-tree-structure me-2"></i>{% trans "Types d'ontologie" %}</h5>
+    <a href="{% url 'graph:ontologie-create' %}" class="btn btn-primary">
+        <i class="ph ph-plus me-1"></i> {% trans "Nouveau type" %}
+    </a>
+</div>
+
+<!-- Types d'entités -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h6 class="mb-0"><i class="ph-duotone ph-circles-three-plus me-2"></i>{% trans "Types d'entités" %}</h6>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-bottom-border align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>{% trans "Type" %}</th>
+                    <th>{% trans "Schéma" %}</th>
+                    <th class="text-center">{% trans "Entités" %}</th>
+                    <th class="text-end">{% trans "Actions" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in types_entity %}
+                <tr>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <div class="avatar rounded me-3" style="background-color: {{ t.couleur }}20;">
+                                <i class="ph-duotone {{ t.icone }} f-s-24" style="color: {{ t.couleur }};"></i>
+                            </div>
+                            <div>
+                                <p class="f-w-600 mb-0">{{ t.nom }}</p>
+                                {% if t.description %}
+                                <small class="text-muted">{{ t.description|truncatewords:10 }}</small>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        {% if t.schema_attributs %}
+                        <span class="badge bg-light-info text-info">
+                            {{ t.schema_attributs|length }} {% trans "champs" %}
+                        </span>
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-light-primary text-primary">{{ t.nb_entites }}</span>
+                    </td>
+                    <td class="text-end">
+                        <a href="{% url 'graph:ontologie-update' t.pk %}" class="btn btn-sm btn-light">
+                            <i class="ph ph-pencil"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="text-center text-muted py-4">
+                        {% trans "Aucun type d'entité défini" %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Types de relations -->
+<div class="card">
+    <div class="card-header">
+        <h6 class="mb-0"><i class="ph-duotone ph-arrows-left-right me-2"></i>{% trans "Types de relations" %}</h6>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-bottom-border align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>{% trans "Type" %}</th>
+                    <th>{% trans "Verbe" %}</th>
+                    <th class="text-center">{% trans "Relations" %}</th>
+                    <th class="text-end">{% trans "Actions" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in types_relation %}
+                <tr>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <div class="avatar rounded me-3" style="background-color: {{ t.couleur }}20;">
+                                <i class="ph-duotone {{ t.icone }} f-s-24" style="color: {{ t.couleur }};"></i>
+                            </div>
+                            <div>
+                                <p class="f-w-600 mb-0">{{ t.nom }}</p>
+                                {% if t.bidirectionnel %}
+                                <span class="badge bg-light-info text-info f-s-10">{% trans "Bidirectionnel" %}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span>{{ t.verbe|default:"-" }}</span>
+                        {% if t.verbe_inverse %}
+                        <br><small class="text-muted">{{ t.verbe_inverse }}</small>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-light-success text-success">{{ t.nb_relations }}</span>
+                    </td>
+                    <td class="text-end">
+                        <a href="{% url 'graph:ontologie-update' t.pk %}" class="btn btn-sm btn-light">
+                            <i class="ph ph-pencil"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="text-center text-muted py-4">
+                        {% trans "Aucun type de relation défini" %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

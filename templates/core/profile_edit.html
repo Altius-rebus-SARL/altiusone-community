@@ -1,0 +1,179 @@
+<!-- core/profile_edit.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Modifier mon profil" %}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card">
+            <div class="card-body">
+                <h4 class="text-primary mb-4">{% trans "Modifier mon profil" %}</h4>
+
+                <form method="post" class="app-form" enctype="multipart/form-data">
+                    {% csrf_token %}
+
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger f-s-13">{{ form.non_field_errors }}</div>
+                    {% endif %}
+
+                    <div class="row">
+                        <!-- Photo de profil -->
+                        <div class="col-12 mb-4">
+                            <div class="text-center">
+                                <div class="mx-auto position-relative" style="width:120px; height:120px;">
+                                    {% if user.avatar %}
+                                    <img src="{{ user.avatar.url }}" alt="{{ user.get_full_name }}"
+                                         class="rounded-circle w-100 h-100 object-fit-cover border"
+                                         id="avatarPreview">
+                                    {% else %}
+                                    <div class="w-100 h-100 d-flex align-items-center justify-content-center rounded-circle bg-primary text-white"
+                                         id="avatarPreview">
+                                        <h1 class="mb-0">{{ user.first_name.0|default:user.username.0|upper }}{{ user.last_name.0|default:''|upper }}</h1>
+                                    </div>
+                                    {% endif %}
+                                    <label for="id_avatar" class="position-absolute bottom-0 end-0 btn btn-sm btn-primary rounded-circle d-flex align-items-center justify-content-center" style="width:32px; height:32px; cursor:pointer;">
+                                        <i class="ti ti-camera f-s-14"></i>
+                                    </label>
+                                </div>
+                                <div class="mt-2" style="display:none;">
+                                    {{ form.avatar }}
+                                </div>
+                                {% if user.avatar %}
+                                <div class="mt-2">
+                                    <label class="form-check-label f-s-12 text-muted">
+                                        {{ form.supprimer_avatar }}
+                                        {% trans "Supprimer la photo" %}
+                                    </label>
+                                </div>
+                                {% endif %}
+                                {% if form.avatar.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.avatar.errors.0 }}</div>
+                                {% endif %}
+                                <p class="text-muted mt-1 mb-0 f-s-12">{{ user.email }}</p>
+                            </div>
+                        </div>
+
+                        <!-- Prénom -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="id_first_name" class="form-label">
+                                    {% trans "Prénom" %}
+                                </label>
+                                {{ form.first_name }}
+                                {% if form.first_name.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.first_name.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Nom -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="id_last_name" class="form-label">
+                                    {% trans "Nom" %}
+                                </label>
+                                {{ form.last_name }}
+                                {% if form.last_name.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.last_name.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Email -->
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label for="id_email" class="form-label">
+                                    {% trans "Email" %} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.email }}
+                                {% if form.email.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.email.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Téléphone -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="id_phone" class="form-label">
+                                    {% trans "Téléphone" %}
+                                </label>
+                                {{ form.phone }}
+                            </div>
+                        </div>
+
+                        <!-- Mobile -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="id_mobile" class="form-label">
+                                    {% trans "Mobile" %}
+                                </label>
+                                {{ form.mobile }}
+                            </div>
+                        </div>
+
+                        <!-- Informations en lecture seule -->
+                        <div class="col-12">
+                            <hr class="my-4">
+                            <h6 class="text-muted mb-3">{% trans "Informations du compte" %}</h6>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Nom d'utilisateur" %}</label>
+                                <input type="text" class="form-control" value="{{ user.username }}" disabled>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Rôle" %}</label>
+                                <input type="text" class="form-control" value="{{ user.get_role_display }}" disabled>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <a href="{% url 'core:profile' %}" class="btn btn-secondary">
+                            <i class="ti ti-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ti ti-check me-2"></i>{% trans "Enregistrer" %}
+                        </button>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Preview avatar before upload
+document.getElementById('id_avatar').addEventListener('change', function(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(evt) {
+        var preview = document.getElementById('avatarPreview');
+        if (preview.tagName === 'IMG') {
+            preview.src = evt.target.result;
+        } else {
+            // Replace initials div with img
+            var img = document.createElement('img');
+            img.src = evt.target.result;
+            img.alt = 'Avatar';
+            img.className = 'rounded-circle w-100 h-100 object-fit-cover border';
+            img.id = 'avatarPreview';
+            preview.parentNode.replaceChild(img, preview);
+        }
+    };
+    reader.readAsDataURL(file);
+});
+</script>
+{% endblock %}

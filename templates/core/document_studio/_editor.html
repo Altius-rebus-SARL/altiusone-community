@@ -1,0 +1,127 @@
+{% load static %}
+{% load i18n %}
+
+<style>
+    .studio-editor-container {
+        display: flex;
+        height: calc(100vh - 180px);
+        min-height: 600px;
+    }
+    .studio-config-panel {
+        width: 420px;
+        min-width: 380px;
+        max-width: 500px;
+        overflow-y: auto;
+        border-right: 1px solid var(--bs-border-color);
+        padding: 1rem;
+        background: var(--bs-body-bg);
+    }
+    .studio-preview-panel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background: #f5f5f5;
+        min-width: 0;
+    }
+    .studio-preview-header {
+        padding: 0.75rem 1rem;
+        background: var(--bs-body-bg);
+        border-bottom: 1px solid var(--bs-border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .studio-preview-content {
+        flex: 1;
+        overflow: auto;
+        padding: 1rem;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+    }
+    .studio-pdf-frame {
+        width: 100%;
+        max-width: 800px;
+        height: 100%;
+        border: 1px solid var(--bs-border-color);
+        background: white;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .studio-preview-loading,
+    .studio-preview-empty,
+    .studio-preview-error {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: var(--bs-secondary);
+    }
+    .studio-zoom-controls {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .studio-zoom-controls .btn {
+        padding: 0.25rem 0.5rem;
+    }
+    .studio-color-group {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .studio-color-group input[type="color"] {
+        width: 36px;
+        height: 36px;
+        padding: 2px;
+        border: 1px solid var(--bs-border-color);
+        border-radius: 0.375rem;
+        cursor: pointer;
+    }
+    .studio-color-group input[type="text"] {
+        width: 90px;
+        font-family: monospace;
+        font-size: 0.85rem;
+    }
+    .studio-compact .form-label {
+        margin-bottom: 0.25rem;
+        font-size: 0.875rem;
+    }
+    .studio-compact .form-control,
+    .studio-compact .form-select {
+        padding: 0.375rem 0.75rem;
+    }
+    [data-theme="dark"] .studio-preview-panel {
+        background: #1a1d21;
+    }
+    [data-theme="dark"] .studio-pdf-frame {
+        background: #2a2d31;
+    }
+</style>
+
+<div class="studio-editor-container">
+    <!-- PANNEAU GAUCHE: Configuration -->
+    <div class="studio-config-panel studio-compact">
+        {% include "core/document_studio/_config_identite.html" %}
+        {% include "core/document_studio/_config_couleurs.html" %}
+        {% include "core/document_studio/_config_police.html" %}
+        {% include "core/document_studio/_config_marges.html" %}
+        {% include "core/document_studio/_config_textes.html" %}
+        {% include "core/document_studio/_config_blocs.html" %}
+
+        {% if config_extra_template %}
+            {% include config_extra_template %}
+        {% endif %}
+
+        <!-- Bouton sauvegarder -->
+        <div class="d-grid mt-3">
+            <button type="button" class="btn btn-primary" id="studio-save-model">
+                <i class="ph-duotone ph-floppy-disk me-1"></i>
+                {% trans "Sauvegarder le modèle" %}
+            </button>
+        </div>
+    </div>
+
+    <!-- PANNEAU DROITE: Preview PDF -->
+    {% include "core/document_studio/_preview_panel.html" %}
+</div>

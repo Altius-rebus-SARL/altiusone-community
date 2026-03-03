@@ -1,0 +1,440 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{{ document.nom_fichier }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{{ document.nom_fichier|truncatechars:50 }}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            {% if has_context %}
+                <!-- Fil d'Ariane contextuel -->
+                <li>
+                    <a class="f-s-14 f-w-500" href="{% url 'documents:dossier-list' %}">
+                        <span><i class="ph-duotone ph-folders f-s-16"></i> {% trans "Dossiers" %}</span>
+                    </a>
+                </li>
+                {% for item in contextual_breadcrumb %}
+                <li>
+                    <a class="f-s-14 f-w-500" href="{% url 'documents:dossier-list' %}{{ item.url }}">
+                        <span><i class="ph-duotone ph-{{ item.icon }} f-s-16"></i> {{ item.label|truncatechars:25 }}</span>
+                    </a>
+                </li>
+                {% endfor %}
+            {% else %}
+                <!-- Fil d'Ariane simple (liste documents) -->
+                <li>
+                    <a class="f-s-14 f-w-500" href="{% url 'documents:document-list' %}">
+                        <span><i class="ph-duotone ph-files f-s-16"></i> {% trans "Documents" %}</span>
+                    </a>
+                </li>
+            {% endif %}
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">
+                    <span><i class="ph-duotone ph-file f-s-16"></i> {{ document.nom_fichier|truncatechars:25 }}</span>
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Colonne principale -->
+    <div class="col-lg-8">
+        <!-- Aperçu -->
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="ph ph-file me-2"></i>{% trans "Aperçu du document" %}</h5>
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'documents:document-telecharger' document.pk %}" class="btn btn-primary btn-sm">
+                            <i class="ph ph-download me-2"></i>{% trans "Télécharger" %}
+                        </a>
+                        {% if document.statut_validation == 'EN_ATTENTE' %}
+                        <a href="{% url 'documents:document-valider' document.pk %}" class="btn btn-success btn-sm">
+                            <i class="ph ph-check me-2"></i>{% trans "Valider" %}
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="card-body text-center py-4">
+                {% if document.fichier %}
+                    {% if document.extension == '.pdf' %}
+                    <!-- Aperçu PDF intégré -->
+                    <div class="ratio ratio-16x9 mb-3" style="max-height: 600px;">
+                        <iframe src="{% url 'documents:document-apercu' document.pk %}"
+                                type="application/pdf"
+                                style="border: 1px solid #dee2e6; border-radius: 8px;">
+                        </iframe>
+                    </div>
+                    {% elif document.extension in '.jpg,.jpeg,.png,.gif,.webp' %}
+                    <!-- Aperçu Image -->
+                    <a href="{% url 'documents:document-apercu' document.pk %}" target="_blank" title="{% trans 'Cliquez pour agrandir' %}">
+                        <img src="{% url 'documents:document-apercu' document.pk %}"
+                             alt="{{ document.nom_fichier }}"
+                             class="img-fluid rounded shadow-sm"
+                             style="max-height: 500px; cursor: zoom-in;"
+                             onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\'ph ph-image text-info\' style=\'font-size: 120px;\'></i><p class=\'text-muted mt-2\'>{% trans "Aperçu non disponible" %}</p>';">
+                    </a>
+                    {% elif document.extension in '.doc,.docx' %}
+                    <i class="ph ph-file-doc text-primary" style="font-size: 120px;"></i>
+                    {% elif document.extension in '.xls,.xlsx' %}
+                    <i class="ph ph-file-xls text-success" style="font-size: 120px;"></i>
+                    {% else %}
+                    <i class="ph ph-file text-secondary" style="font-size: 120px;"></i>
+                    {% endif %}
+                {% else %}
+                    <!-- Fichier non stocké - afficher icône selon type -->
+                    {% if document.extension == '.pdf' %}
+                    <i class="ph ph-file-pdf text-danger" style="font-size: 120px;"></i>
+                    {% elif document.extension in '.jpg,.jpeg,.png,.gif,.webp' %}
+                    <i class="ph ph-image text-info" style="font-size: 120px;"></i>
+                    {% elif document.extension in '.doc,.docx' %}
+                    <i class="ph ph-file-doc text-primary" style="font-size: 120px;"></i>
+                    {% elif document.extension in '.xls,.xlsx' %}
+                    <i class="ph ph-file-xls text-success" style="font-size: 120px;"></i>
+                    {% else %}
+                    <i class="ph ph-file text-secondary" style="font-size: 120px;"></i>
+                    {% endif %}
+                    <p class="text-muted mt-3"><i class="ph ph-warning me-1"></i>{% trans "Fichier non disponible sur le stockage" %}</p>
+                {% endif %}
+
+                <h5 class="mt-4">{{ document.nom_fichier }}</h5>
+                <p class="text-muted">{{ document.taille|filesizeformat }} • {{ document.mime_type }}</p>
+            </div>
+        </div>
+
+        <!-- Métadonnées extraites -->
+        {% if document.metadata_extraite %}
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-database me-2"></i>{% trans "Métadonnées extraites" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for meta in metadata_display %}
+                    <div class="col-md-6 mb-3">
+                        <p class="text-muted f-s-12 mb-1">{{ meta.label }}</p>
+                        <p class="f-w-600 mb-0">{{ meta.value }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Texte OCR -->
+        {% if document.ocr_text %}
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-text-aa me-2"></i>{% trans "Texte extrait (OCR)" %}</h5>
+            </div>
+            <div class="card-body">
+                <p class="f-s-14">{{ document.ocr_text|linebreaksbr|truncatewords:200 }}</p>
+                {% if document.ocr_confidence %}
+                <div class="mt-3">
+                    <small class="text-muted">
+                        {% trans "Confiance OCR" %}: {{ document.ocr_confidence }}%
+                    </small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Traitements -->
+        {% if traitements %}
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-gear me-2"></i>{% trans "Historique des traitements" %}</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-bottom-border mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Type" %}</th>
+                                <th>{% trans "Statut" %}</th>
+                                <th>{% trans "Date" %}</th>
+                                <th>{% trans "Durée" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for traitement in traitements %}
+                            <tr>
+                                <td>{{ traitement.get_type_traitement_display }}</td>
+                                <td>
+                                    {% if traitement.statut == 'TERMINE' %}
+                                    <span class="badge text-light-success">{% trans "Terminé" %}</span>
+                                    {% elif traitement.statut == 'EN_COURS' %}
+                                    <span class="badge text-light-warning">{% trans "En cours" %}</span>
+                                    {% else %}
+                                    <span class="badge text-light-danger">{% trans "Erreur" %}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ traitement.date_debut|date:"d/m/Y H:i" }}</td>
+                                <td>
+                                    {% if traitement.duree_secondes %}
+                                    {{ traitement.duree_secondes }}s
+                                    {% else %}
+                                    -
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Colonne sidebar -->
+    <div class="col-lg-4">
+        <!-- Informations -->
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-info me-2"></i>{% trans "Informations" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <p class="text-muted f-s-12 mb-1">{% trans "Mandat" %}</p>
+                    <p class="f-w-600 mb-0">{{ document.mandat.numero }}</p>
+                </div>
+
+                <div class="app-divider-v dashed my-3"></div>
+
+                <div class="mb-3">
+                    <p class="text-muted f-s-12 mb-1">{% trans "Dossier" %}</p>
+                    <p class="f-w-600 mb-0">{{ document.dossier.nom }}</p>
+                </div>
+
+                <div class="app-divider-v dashed my-3"></div>
+
+                <div class="mb-3">
+                    <p class="text-muted f-s-12 mb-1">{% trans "Type" %}</p>
+                    <p class="f-w-600 mb-0">
+                        {% if document.type_document %}
+                        {{ document.type_document.libelle }}
+                        {% else %}
+                        <span class="text-muted">{% trans "Non classé" %}</span>
+                        {% endif %}
+                    </p>
+                </div>
+
+                <div class="app-divider-v dashed my-3"></div>
+
+                <div class="mb-3">
+                    <p class="text-muted f-s-12 mb-1">{% trans "Catégorie" %}</p>
+                    <p class="f-w-600 mb-0">
+                        {% if document.categorie %}
+                        {{ document.categorie.nom }}
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </p>
+                </div>
+
+                <div class="app-divider-v dashed my-3"></div>
+
+                <div class="mb-3">
+                    <p class="text-muted f-s-12 mb-1">{% trans "Date document" %}</p>
+                    <p class="f-w-600 mb-0">
+                        {% if document.date_document %}
+                        {{ document.date_document|date:"d/m/Y" }}
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </p>
+                </div>
+
+                <div class="app-divider-v dashed my-3"></div>
+
+                <div class="mb-3">
+                    <p class="text-muted f-s-12 mb-1">{% trans "Date upload" %}</p>
+                    <p class="f-w-600 mb-0">{{ document.date_upload|date:"d/m/Y H:i" }}</p>
+                </div>
+
+                <div class="app-divider-v dashed my-3"></div>
+
+                <div class="mb-3">
+                    <p class="text-muted f-s-12 mb-1">{% trans "Statut traitement" %}</p>
+                    {% if document.statut_traitement == 'OCR_TERMINE' %}
+                    <span class="badge text-light-success">
+                        <i class="ph ph-check-circle me-1"></i>{% trans "OCR terminé" %}
+                    </span>
+                    {% elif document.statut_traitement == 'UPLOAD' %}
+                    <span class="badge text-light-info">
+                        <i class="ph ph-upload me-1"></i>{% trans "En attente OCR" %}
+                    </span>
+                    {% elif document.statut_traitement == 'OCR_EN_COURS' %}
+                    <span class="badge text-light-warning">
+                        <i class="ph ph-spinner me-1"></i>{% trans "OCR en cours" %}
+                    </span>
+                    {% elif document.statut_traitement == 'ERREUR' %}
+                    <span class="badge text-light-danger">
+                        <i class="ph ph-warning me-1"></i>{% trans "Erreur OCR" %}
+                    </span>
+                    {% else %}
+                    <span class="badge text-light-secondary">{{ document.statut_traitement }}</span>
+                    {% endif %}
+                </div>
+
+                <div class="app-divider-v dashed my-3"></div>
+
+                <div class="mb-3">
+                    <p class="text-muted f-s-12 mb-1">{% trans "Statut validation" %}</p>
+                    {% if document.statut_validation == 'VALIDE' %}
+                    <span class="badge text-light-success">
+                        <i class="ph ph-check-circle me-1"></i>{% trans "Validé" %}
+                    </span>
+                    {% elif document.statut_validation == 'EN_ATTENTE' %}
+                    <span class="badge text-light-warning">
+                        <i class="ph ph-clock me-1"></i>{% trans "En attente" %}
+                    </span>
+                    {% elif document.statut_validation == 'REJETE' %}
+                    <span class="badge text-light-danger">
+                        <i class="ph ph-x-circle me-1"></i>{% trans "Rejeté" %}
+                    </span>
+                    {% endif %}
+                </div>
+
+                {% if document.valide_par %}
+                <div class="app-divider-v dashed my-3"></div>
+                
+                <div class="mb-3">
+                    <p class="text-muted f-s-12 mb-1">{% trans "Validé par" %}</p>
+                    <p class="f-w-600 mb-0">{{ document.valide_par.get_full_name }}</p>
+                    <p class="text-muted f-s-12 mb-0">{{ document.date_validation|date:"d/m/Y H:i" }}</p>
+                </div>
+                {% endif %}
+
+                {% if document.confidentiel %}
+                <div class="app-divider-v dashed my-3"></div>
+                
+                <div class="alert alert-danger mb-0">
+                    <i class="ph ph-lock me-2"></i>{% trans "Document confidentiel" %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Tags -->
+        {% if document.tags %}
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-tag me-2"></i>{% trans "Tags" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-2">
+                    {% for tag in document.tags %}
+                    <span class="badge text-light-primary">{{ tag }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Documents liés (Intelligence AI) -->
+        {% if relations %}
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-link me-2"></i>{% trans "Documents liés" %}</h5>
+            </div>
+            <div class="card-body">
+                {% for rel in relations %}
+                {% if rel.document_cible.pk == document.pk %}
+                {% with other=rel.document_source %}
+                <div class="d-flex align-items-center mb-2">
+                    <span class="badge text-light-{% if rel.type_relation == 'DOUBLON' %}warning{% elif rel.type_relation == 'CONTRADICTION' %}danger{% else %}info{% endif %} me-2 f-s-11">
+                        {{ rel.get_type_relation_display }}
+                    </span>
+                    <a href="{% url 'documents:document-detail' other.pk %}" class="f-w-500 f-s-13">
+                        {{ other.nom_fichier|truncatechars:25 }}
+                    </a>
+                    <span class="ms-auto text-muted f-s-12">{{ rel.score_similarite|floatformat:0 }}%</span>
+                </div>
+                {% endwith %}
+                {% else %}
+                {% with other=rel.document_cible %}
+                <div class="d-flex align-items-center mb-2">
+                    <span class="badge text-light-{% if rel.type_relation == 'DOUBLON' %}warning{% elif rel.type_relation == 'CONTRADICTION' %}danger{% else %}info{% endif %} me-2 f-s-11">
+                        {{ rel.get_type_relation_display }}
+                    </span>
+                    <a href="{% url 'documents:document-detail' other.pk %}" class="f-w-500 f-s-13">
+                        {{ other.nom_fichier|truncatechars:25 }}
+                    </a>
+                    <span class="ms-auto text-muted f-s-12">{{ rel.score_similarite|floatformat:0 }}%</span>
+                </div>
+                {% endwith %}
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- AI Features -->
+        {% if document.ocr_text %}
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-robot me-2"></i>{% trans "Fonctionnalités AI" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{% url 'documents:document-summarize' document.pk %}" class="btn btn-light-info">
+                        <i class="ph ph-text-align-justify me-2"></i>{% trans "Résumer le document" %}
+                    </a>
+                    <a href="{% url 'documents:document-ask' document.pk %}" class="btn btn-light-primary">
+                        <i class="ph ph-chat-circle me-2"></i>{% trans "Poser une question" %}
+                    </a>
+                    <a href="{% url 'documents:document-similar' document.pk %}" class="btn btn-light-secondary">
+                        <i class="ph ph-stack me-2"></i>{% trans "Documents similaires" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Actions -->
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-lightning me-2"></i>{% trans "Actions" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    {% if document.statut_traitement == 'UPLOAD' %}
+                    <a href="{% url 'documents:document-ocr' document.pk %}" class="btn btn-light-primary">
+                        <i class="ph ph-scan me-2"></i>{% trans "Lancer OCR" %}
+                    </a>
+                    {% elif document.statut_traitement == 'ERREUR' %}
+                    <a href="{% url 'documents:document-ocr' document.pk %}" class="btn btn-warning">
+                        <i class="ph ph-arrow-clockwise me-2"></i>{% trans "Relancer OCR" %}
+                    </a>
+                    {% elif document.statut_traitement == 'OCR_TERMINE' %}
+                    <a href="{% url 'documents:document-ocr' document.pk %}" class="btn btn-light-secondary">
+                        <i class="ph ph-arrow-clockwise me-2"></i>{% trans "Relancer OCR" %}
+                    </a>
+                    {% endif %}
+                    <button class="btn btn-light-secondary" disabled>
+                        <i class="ph ph-pencil me-2"></i>{% trans "Modifier" %}
+                    </button>
+                    <button class="btn btn-light-danger" disabled>
+                        <i class="ph ph-trash me-2"></i>{% trans "Supprimer" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

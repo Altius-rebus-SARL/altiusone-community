@@ -1,0 +1,128 @@
+<!-- analytics/tableau_bord_form.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load widget_tweaks %}
+
+{% block title %}{% if object %}{% trans "Modifier le tableau de bord" %}{% else %}{% trans "Nouveau tableau de bord" %}{% endif %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">
+            {% if object %}{% trans "Modifier le tableau de bord" %}{% else %}{% trans "Nouveau tableau de bord" %}{% endif %}
+        </h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Accueil" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'analytics:tableau-bord-list' %}">{% trans "Tableaux de bord" %}</a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% if object %}{% trans "Modifier" %}{% else %}{% trans "Créer" %}{% endif %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Form -->
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Informations du tableau de bord" %}</h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label for="{{ form.nom.id_for_label }}" class="form-label">{% trans "Nom" %} *</label>
+                            {% render_field form.nom class="form-control" placeholder="Ex: Dashboard mensuel" %}
+                            {% if form.nom.errors %}
+                            <div class="text-danger small">{{ form.nom.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.visibilite.id_for_label }}" class="form-label">{% trans "Visibilité" %}</label>
+                            {% render_field form.visibilite class="form-select" %}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.description.id_for_label }}" class="form-label">{% trans "Description" %}</label>
+                        {% render_field form.description class="form-control" rows="3" placeholder="Description du tableau de bord..." %}
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="form-check form-switch">
+                                {% render_field form.auto_refresh class="form-check-input" %}
+                                <label class="form-check-label" for="{{ form.auto_refresh.id_for_label }}">
+                                    {% trans "Rafraîchissement automatique" %}
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.refresh_interval.id_for_label }}" class="form-label">
+                                {% trans "Intervalle (secondes)" %}
+                            </label>
+                            {% render_field form.refresh_interval class="form-control" type="number" min="30" max="3600" %}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            {% render_field form.favori class="form-check-input" %}
+                            <label class="form-check-label" for="{{ form.favori.id_for_label }}">
+                                <i class="ph ph-star text-warning me-1"></i>{% trans "Marquer comme favori" %}
+                            </label>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="d-flex gap-2 justify-content-end">
+                        <a href="{% url 'analytics:tableau-bord-list' %}" class="btn btn-light-secondary">
+                            {% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ph ph-check me-2"></i>
+                            {% if object %}{% trans "Enregistrer" %}{% else %}{% trans "Créer" %}{% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Aide -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-question me-2"></i>{% trans "Aide" %}</h5>
+            </div>
+            <div class="card-body">
+                <h6>{% trans "Visibilité" %}</h6>
+                <ul class="small text-muted mb-3">
+                    <li><strong>{% trans "Privé" %}</strong>: {% trans "Visible uniquement par vous" %}</li>
+                    <li><strong>{% trans "Équipe" %}</strong>: {% trans "Visible par votre équipe" %}</li>
+                    <li><strong>{% trans "Tous" %}</strong>: {% trans "Visible par tous les utilisateurs" %}</li>
+                </ul>
+
+                <h6>{% trans "Rafraîchissement" %}</h6>
+                <p class="small text-muted">
+                    {% trans "Activez le rafraîchissement automatique pour mettre à jour les données périodiquement. L'intervalle minimum est de 30 secondes." %}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

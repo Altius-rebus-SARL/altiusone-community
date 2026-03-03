@@ -1,0 +1,118 @@
+# =============================================================================
+# Docker Ignore - AltiusOne
+# Exclure les fichiers inutiles pour réduire le contexte de build
+# =============================================================================
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Python bytecode
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+.venv
+venv
+ENV
+env
+
+# IDE / Editor
+.idea
+.vscode
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Static files - staticfiles/ est généré par collectstatic
+# IMPORTANT: Ne PAS exclure static/ car il contient les assets source
+staticfiles/
+
+# Media files (uploads utilisateurs - montés en volume)
+media/
+uploads/
+
+# Logs
+*.log
+logs/
+
+# Database files
+*.sqlite3
+*.db
+celerybeat-schedule
+celerybeat-schedule.dir
+celerybeat-schedule.bak
+celerybeat.pid
+
+# Cache
+.cache
+*.cache
+.pytest_cache
+
+# Tests
+tests/
+test/
+*.test.py
+htmlcov/
+.coverage
+coverage.xml
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Node modules (si frontend)
+node_modules/
+npm-debug.log
+
+# Local settings
+*.local
+.env
+.env.*
+!.env.example
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+
+# Backup files
+*.backup
+*.sql
+*.dump
+
+# Thumbnails
+._*
+Thumbs.db
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Docker (ne pas inclure dans le contexte)
+Dockerfile*
+docker-compose*.yml
+.docker/
+
+# Nginx config (si besoin, monter en volume)
+nginx/
+
+# Makefile (pas besoin dans l'image)
+Makefile
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+Jenkinsfile

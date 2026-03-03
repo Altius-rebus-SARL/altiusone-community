@@ -1,0 +1,483 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load devise_tags %}
+
+{% block title %}{% trans "Déclaration TVA" %} {{ declaration.numero_declaration }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Déclaration TVA" %} {{ declaration.numero_declaration }}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'tva:declaration-list' %}">
+                    <span>{% trans "Déclarations TVA" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{{ declaration.numero_declaration }}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Action buttons -->
+<div class="row mb-3">
+    <div class="col-12 text-end">
+        {% if declaration.statut == 'BROUILLON' %}
+        <a href="{% url 'tva:declaration-update' declaration.pk %}" class="btn btn-outline-primary">
+            <i class="ph ph-pencil me-2"></i>{% trans "Modifier" %}
+        </a>
+        <form method="post" action="{% url 'tva:declaration-calculer' declaration.pk %}" class="d-inline" onsubmit="return confirm('{% trans "Recalculer la déclaration ? Les lignes manuelles seront préservées." %}')">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-info">
+                <i class="ph ph-calculator me-2"></i>{% trans "Calculer" %}
+            </button>
+        </form>
+        <form method="post" action="{% url 'tva:declaration-valider' declaration.pk %}" class="d-inline" onsubmit="return confirm('{% trans "Valider cette déclaration ?" %}')">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-success">
+                <i class="ph ph-check-circle me-2"></i>{% trans "Valider" %}
+            </button>
+        </form>
+        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#modalSupprimer">
+            <i class="ph ph-trash me-2"></i>{% trans "Supprimer" %}
+        </button>
+        {% endif %}
+
+        {% if declaration.statut == 'VALIDE' %}
+        <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#modalRouvrir">
+            <i class="ph ph-arrow-counter-clockwise me-2"></i>{% trans "Rouvrir" %}
+        </button>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalSoumettre">
+            <i class="ph ph-paper-plane-tilt me-2"></i>{% trans "Soumettre AFC" %}
+        </button>
+        {% endif %}
+
+        {% if declaration.statut in 'VALIDE,SOUMIS,ACCEPTE' %}
+        <a href="{% url 'tva:declaration-preview-pdf' declaration.pk %}" class="btn btn-outline-primary" target="_blank">
+            <i class="ph ph-eye me-2"></i>{% trans "Aperçu PDF" %}
+        </a>
+        <a href="{% url 'tva:declaration-xml' declaration.pk %}" class="btn btn-secondary">
+            <i class="ph ph-file-code me-2"></i>{% trans "Export XML" %}
+        </a>
+        <a href="{% url 'tva:declaration-pdf' declaration.pk %}" class="btn btn-warning">
+            <i class="ph ph-file-pdf me-2"></i>{% trans "Export PDF" %}
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Info Cards -->
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Informations générales" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Mandat" %}</label>
+                        <h6>
+                            <a href="{% url 'core:mandat-detail' declaration.mandat.pk %}">
+                                {{ declaration.mandat.client.raison_sociale }}
+                            </a>
+                        </h6>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Période" %}</label>
+                        <h6>
+                            {% if declaration.trimestre %}
+                            {{ declaration.annee }} - Trimestre {{ declaration.trimestre }}
+                            {% else %}
+                            {{ declaration.annee }} - Semestre {{ declaration.semestre }}
+                            {% endif %}
+                        </h6>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Du" %}</label>
+                        <h6>{{ declaration.periode_debut|date:"d.m.Y" }}</h6>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Au" %}</label>
+                        <h6>{{ declaration.periode_fin|date:"d.m.Y" }}</h6>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label class="text-muted f-s-12">{% trans "Méthode" %}</label>
+                        <h6><span class="badge bg-light-primary">{{ declaration.methode }}</span></h6>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="text-muted f-s-12">{% trans "Type" %}</label>
+                        <h6><span class="badge bg-light-secondary">{{ declaration.get_type_decompte_display }}</span></h6>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="text-muted f-s-12">{% trans "Régime fiscal" %}</label>
+                        <h6><span class="badge bg-light-info">{{ declaration.regime_fiscal.nom|default:"-" }}</span></h6>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Statut" %}</label>
+                        <h6>
+                            {% if declaration.statut == 'BROUILLON' %}
+                            <span class="badge bg-secondary">{% trans "Brouillon" %}</span>
+                            {% elif declaration.statut == 'VALIDE' %}
+                            <span class="badge bg-info">{% trans "Validé" %}</span>
+                            {% elif declaration.statut == 'SOUMIS' %}
+                            <span class="badge bg-warning">{% trans "Soumis" %}</span>
+                            {% elif declaration.statut == 'PAYE' %}
+                            <span class="badge bg-success">{% trans "Payé" %}</span>
+                            {% else %}
+                            <span class="badge bg-dark">{{ declaration.get_statut_display }}</span>
+                            {% endif %}
+                        </h6>
+                    </div>
+                    {% if declaration.numero_reference_afc %}
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Référence AFC" %}</label>
+                        <h6>{{ declaration.numero_reference_afc }}</h6>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">{% trans "Montants" %}</h6>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="text-muted f-s-12">{% trans "TVA due" %}</label>
+                    <h5 class="text-danger mb-0">{{ declaration.tva_due_total|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h5>
+                </div>
+
+                <div class="mb-3">
+                    <label class="text-muted f-s-12">{% trans "TVA préalable" %}</label>
+                    <h5 class="text-success mb-0">{{ declaration.tva_prealable_total|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h5>
+                </div>
+
+                <hr>
+
+                <div>
+                    <label class="text-muted f-s-12">{% trans "Solde à payer" %}</label>
+                    {% if declaration.solde_tva > 0 %}
+                    <h4 class="text-danger mb-0">{{ declaration.solde_tva|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h4>
+                    {% elif declaration.solde_tva < 0 %}
+                    <h4 class="text-success mb-0">{{ declaration.solde_tva|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h4>
+                    <small class="text-muted">{% trans "À rembourser" %}</small>
+                    {% else %}
+                    <h4 class="text-muted mb-0">0.00 {{ DEVISE_CODE }}</h4>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Lignes TVA -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">{% trans "Détail de la déclaration" %}</h5>
+                {% if declaration.statut == 'BROUILLON' %}
+                <a href="{% url 'tva:ligne-tva-create' declaration.pk %}" class="btn btn-sm btn-primary">
+                    <i class="ph ph-plus me-1"></i>{% trans "Ajouter une ligne" %}
+                </a>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% for categorie, lignes in lignes_par_categorie.items %}
+                <h6 class="mt-3 mb-2 text-primary">{{ categorie }}</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th>{% trans "Code" %}</th>
+                                <th>{% trans "Libellé" %}</th>
+                                <th class="text-end">{% trans "Base imposable" %}</th>
+                                <th class="text-end">{% trans "Taux" %}</th>
+                                <th class="text-end">{% trans "Montant TVA" %}</th>
+                                <th class="text-center">{% trans "Auto" %}</th>
+                                {% if declaration.statut == 'BROUILLON' %}
+                                <th class="text-center">{% trans "Actions" %}</th>
+                                {% endif %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ligne in lignes %}
+                            <tr>
+                                <td><span class="badge bg-light-dark">{{ ligne.code_tva.code }}</span></td>
+                                <td>{{ ligne.code_tva.libelle }}</td>
+                                <td class="text-end">{{ ligne.base_imposable|devise:DEVISE_TAUX|floatformat:2 }}</td>
+                                <td class="text-end">{{ ligne.taux_tva|floatformat:2 }}%</td>
+                                <td class="text-end f-w-600">{{ ligne.montant_tva|devise:DEVISE_TAUX|floatformat:2 }}</td>
+                                <td class="text-center">
+                                    {% if ligne.calcul_automatique %}
+                                    <span class="badge bg-light-info">Auto</span>
+                                    {% else %}
+                                    <span class="badge bg-light-warning">Manuel</span>
+                                    {% endif %}
+                                </td>
+                                {% if declaration.statut == 'BROUILLON' %}
+                                <td class="text-center">
+                                    <a href="{% url 'tva:ligne-tva-update' ligne.pk %}"
+                                       class="btn btn-sm btn-light-primary"
+                                       data-bs-toggle="tooltip" title="{% trans 'Modifier' %}">
+                                        <i class="ph ph-pencil"></i>
+                                    </a>
+                                    <form method="post" action="{% url 'tva:ligne-tva-delete' ligne.pk %}" class="d-inline"
+                                          onsubmit="return confirm('{% trans "Supprimer cette ligne ?" %}')">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-light-danger"
+                                                data-bs-toggle="tooltip" title="{% trans 'Supprimer' %}">
+                                            <i class="ph ph-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% empty %}
+                <div class="text-center py-4">
+                    <i class="ph ph-list-dashes f-s-50 text-muted"></i>
+                    <p class="text-muted mt-2">{% trans "Aucune ligne dans cette déclaration" %}</p>
+                    {% if declaration.statut == 'BROUILLON' %}
+                    <a href="{% url 'tva:ligne-tva-create' declaration.pk %}" class="btn btn-primary btn-sm me-2">
+                        <i class="ph ph-plus me-1"></i>{% trans "Ajouter une ligne" %}
+                    </a>
+                    <form method="post" action="{% url 'tva:declaration-calculer' declaration.pk %}" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-info btn-sm">
+                            <i class="ph ph-calculator me-2"></i>{% trans "Calculer la déclaration" %}
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Corrections -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">{% trans "Corrections" %}</h5>
+                {% if declaration.statut == 'BROUILLON' %}
+                <a href="{% url 'tva:correction-tva-create' declaration.pk %}" class="btn btn-sm btn-primary">
+                    <i class="ph ph-plus me-1"></i>{% trans "Ajouter une correction" %}
+                </a>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if corrections %}
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Type" %}</th>
+                                <th>{% trans "Code TVA" %}</th>
+                                <th>{% trans "Description" %}</th>
+                                <th class="text-end">{% trans "Base" %}</th>
+                                <th class="text-end">{% trans "Taux" %}</th>
+                                <th class="text-end">{% trans "Montant" %}</th>
+                                {% if declaration.statut == 'BROUILLON' %}
+                                <th class="text-center">{% trans "Actions" %}</th>
+                                {% endif %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for correction in corrections %}
+                            <tr>
+                                <td><span class="badge bg-light-warning">{{ correction.get_type_correction_display }}</span></td>
+                                <td><span class="badge bg-light-dark">{{ correction.code_tva.code }}</span></td>
+                                <td>{{ correction.description|truncatewords:15 }}</td>
+                                <td class="text-end">{{ correction.base_calcul|devise:DEVISE_TAUX|floatformat:2 }}</td>
+                                <td class="text-end">{{ correction.taux|floatformat:2 }}%</td>
+                                <td class="text-end f-w-600">{{ correction.montant_correction|devise:DEVISE_TAUX|floatformat:2 }}</td>
+                                {% if declaration.statut == 'BROUILLON' %}
+                                <td class="text-center">
+                                    <form method="post" action="{% url 'tva:correction-tva-delete' correction.pk %}" class="d-inline"
+                                          onsubmit="return confirm('{% trans "Supprimer cette correction ?" %}')">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-light-danger"
+                                                data-bs-toggle="tooltip" title="{% trans 'Supprimer' %}">
+                                            <i class="ph ph-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-3">
+                    <p class="text-muted mb-0">{% trans "Aucune correction" %}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Opérations TVA -->
+{% if operations %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Opérations TVA intégrées" %} ({{ operations|length }})</h5>
+            </div>
+            <div class="card-body">
+                <div class="overflow-auto app-scroll">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Date" %}</th>
+                                <th>{% trans "Type" %}</th>
+                                <th>{% trans "Libellé" %}</th>
+                                <th>{% trans "Code TVA" %}</th>
+                                <th class="text-end">{% trans "HT" %}</th>
+                                <th class="text-end">{% trans "TVA" %}</th>
+                                <th class="text-end">{% trans "TTC" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for op in operations %}
+                            <tr>
+                                <td>{{ op.date_operation|date:"d.m.Y" }}</td>
+                                <td><span class="badge bg-light-secondary">{{ op.get_type_operation_display }}</span></td>
+                                <td>{{ op.libelle|truncatewords:10 }}</td>
+                                <td><span class="badge bg-light-dark">{{ op.code_tva.code }}</span></td>
+                                <td class="text-end">{{ op.montant_ht|devise:DEVISE_TAUX|floatformat:2 }}</td>
+                                <td class="text-end">{{ op.montant_tva|devise:DEVISE_TAUX|floatformat:2 }}</td>
+                                <td class="text-end f-w-600">{{ op.montant_ttc|devise:DEVISE_TAUX|floatformat:2 }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Remarques -->
+{% if declaration.remarques_internes %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">{% trans "Remarques internes" %}</h6>
+            </div>
+            <div class="card-body">
+                <p class="mb-0">{{ declaration.remarques_internes }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Modal Supprimer déclaration -->
+{% if declaration.statut == 'BROUILLON' %}
+<div class="modal fade" id="modalSupprimer" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "Supprimer la déclaration" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "Voulez-vous vraiment supprimer cette déclaration ?" %}</p>
+                <p class="text-muted">{% trans "Les opérations intégrées seront déliées mais pas supprimées." %}</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Annuler" %}</button>
+                <form method="post" action="{% url 'tva:declaration-supprimer' declaration.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">{% trans "Supprimer" %}</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Modal Rouvrir -->
+{% if declaration.statut == 'VALIDE' %}
+<div class="modal fade" id="modalRouvrir" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "Rouvrir la déclaration" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans "Voulez-vous rouvrir cette déclaration ? Elle repassera en brouillon et pourra être modifiée." %}</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Annuler" %}</button>
+                <form method="post" action="{% url 'tva:declaration-rouvrir' declaration.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-warning">{% trans "Rouvrir" %}</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Soumettre AFC -->
+<div class="modal fade" id="modalSoumettre" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{% url 'tva:declaration-soumettre' declaration.pk %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">{% trans "Soumettre à l'AFC" %}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>{% trans "Confirmer la soumission de cette déclaration à l'AFC ?" %}</p>
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Numéro de référence AFC (optionnel)" %}</label>
+                        <input type="text" name="numero_reference" class="form-control" placeholder="{% trans 'Ex: AFC-2025-12345' %}">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Annuler" %}</button>
+                    <button type="submit" class="btn btn-primary">{% trans "Soumettre" %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

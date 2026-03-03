@@ -1,0 +1,330 @@
+<!-- modelforms/form_fill.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load modelforms_tags %}
+
+{% block title %}{{ form_config.name }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{{ form_config.name }}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'modelforms:available-forms' %}">{% trans "Formulaires" %}</a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{{ form_config.name }}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<form method="post" action="{% url 'modelforms:form-submit' form_config.pk %}" class="app-form" enctype="multipart/form-data" id="dynamic-form">
+    {% csrf_token %}
+
+    <div class="row">
+        <!-- Main Form -->
+        <div class="col-lg-8">
+            {% if form_config.description %}
+            <div class="alert alert-info mb-4">
+                <i class="ph-duotone ph-info me-2"></i>
+                {{ form_config.description }}
+            </div>
+            {% endif %}
+
+            {% if sections %}
+            <!-- Formulaire avec sections -->
+            {% for section in sections %}
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5>
+                        {% if section.icon %}<i class="{{ section.icon }} me-2"></i>{% endif %}
+                        {{ section.title }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% with section_fields=fields_by_section|default_if_none:'' %}
+                    {% for mapping in fields_by_section|get_item:section.id %}
+                    {% include 'modelforms/partials/form_field.html' with mapping=mapping default_values=default_values %}
+                    {% empty %}
+                    <p class="text-muted">{% trans "Aucun champ dans cette section" %}</p>
+                    {% endfor %}
+                    {% endwith %}
+                </div>
+            </div>
+            {% endfor %}
+
+            <!-- Champs sans section -->
+            {% if fields_by_section.other %}
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5>{% trans "Autres informations" %}</h5>
+                </div>
+                <div class="card-body">
+                    {% for mapping in fields_by_section.other %}
+                    {% include 'modelforms/partials/form_field.html' with mapping=mapping default_values=default_values %}
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% else %}
+            <!-- Formulaire sans sections (tous les champs ensemble) -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Informations" %}</h5>
+                </div>
+                <div class="card-body">
+                    {% for mapping in field_mappings %}
+                    {% include 'modelforms/partials/form_field.html' with mapping=mapping default_values=default_values %}
+                    {% empty %}
+                    <p class="text-muted">{% trans "Aucun champ configuré pour ce formulaire" %}</p>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Form Info Card -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5>{% trans "Informations" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="h-45 w-45 d-flex-center rounded-circle bg-light-primary me-3">
+                            <i class="{{ form_config.icon|default:'ph-duotone ph-file-text' }} f-s-20 text-primary"></i>
+                        </div>
+                        <div>
+                            <h6 class="mb-0">{{ form_config.name }}</h6>
+                            <small class="text-muted">{{ form_config.code }}</small>
+                        </div>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <span class="badge bg-light-info">{{ form_config.get_category_display }}</span>
+                        {% if form_config.is_multi_model %}
+                        <span class="badge bg-light-secondary">{% trans "Multi-modèles" %}</span>
+                        {% endif %}
+                        {% if form_config.require_validation %}
+                        <span class="badge bg-light-warning">{% trans "Validation requise" %}</span>
+                        {% endif %}
+                    </div>
+
+                    {% if form_config.require_validation %}
+                    <div class="alert alert-warning small mb-0">
+                        <i class="ph-duotone ph-warning me-2"></i>
+                        {% trans "Ce formulaire nécessite une validation. Votre soumission sera examinée avant traitement." %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Mandat Selector -->
+            {% if accessible_mandats %}
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5>{% trans "Mandat" %}</h5>
+                </div>
+                <div class="card-body">
+                    <select name="mandat" class="form-control select2" data-placeholder="{% trans 'Sélectionner un mandat...' %}">
+                        <option value="">-- {% trans "Aucun mandat" %} --</option>
+                        {% for mandat in accessible_mandats %}
+                        <option value="{{ mandat.pk }}">{{ mandat.numero }} – {{ mandat.client }}</option>
+                        {% endfor %}
+                    </select>
+                    <small class="text-muted mt-1 d-block">{% trans "Associer cette soumission à un mandat" %}</small>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Actions Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Actions" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="ti ti-send me-2"></i>{% trans "Soumettre" %}
+                        </button>
+                        <button type="reset" class="btn btn-outline-secondary">
+                            <i class="ti ti-refresh me-2"></i>{% trans "Réinitialiser" %}
+                        </button>
+                        <a href="{% url 'modelforms:available-forms' %}" class="btn btn-outline-secondary">
+                            <i class="ti ti-arrow-left me-2"></i>{% trans "Retour" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Help Card -->
+            <div class="card bg-light-primary mt-3">
+                <div class="card-body">
+                    <h6><i class="ph-duotone ph-question me-2"></i>{% trans "Aide" %}</h6>
+                    <p class="small mb-0">
+                        {% trans "Les champs marqués d'un astérisque (*) sont obligatoires." %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Select2 on all select2 fields
+    if (typeof $ !== 'undefined' && $.fn.select2) {
+        $('.select2').select2({
+            theme: 'bootstrap-5',
+            width: '100%'
+        });
+    }
+
+    // Form validation
+    const form = document.getElementById('dynamic-form');
+    form.addEventListener('submit', function(e) {
+        let valid = true;
+
+        // Check required fields
+        form.querySelectorAll('[required]').forEach(function(field) {
+            if (!field.value.trim()) {
+                field.classList.add('is-invalid');
+                valid = false;
+            } else {
+                field.classList.remove('is-invalid');
+            }
+        });
+
+        if (!valid) {
+            e.preventDefault();
+            // Scroll to first invalid field
+            const firstInvalid = form.querySelector('.is-invalid');
+            if (firstInvalid) {
+                firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                firstInvalid.focus();
+            }
+        }
+    });
+
+    // Clear validation on input
+    form.querySelectorAll('input, select, textarea').forEach(function(field) {
+        field.addEventListener('input', function() {
+            this.classList.remove('is-invalid');
+        });
+    });
+
+    // Conditional field visibility
+    (function() {
+        const wrappers = form.querySelectorAll('[data-conditions]');
+        if (!wrappers.length) return;
+
+        function getFieldValue(fieldName) {
+            // Field names in the form use source_model__field_name format
+            // Try to find by the field_name part (conditions reference the logical name)
+            const inputs = form.querySelectorAll('input, select, textarea');
+            for (const input of inputs) {
+                const name = input.name || '';
+                // Match field_name at the end after __ separator, or exact match
+                if (name === fieldName || name.endsWith('__' + fieldName)) {
+                    if (input.type === 'radio') {
+                        const checked = form.querySelector('input[name="' + name + '"]:checked');
+                        return checked ? checked.value : '';
+                    }
+                    if (input.type === 'checkbox') {
+                        return input.checked ? 'true' : 'false';
+                    }
+                    return input.value;
+                }
+            }
+            return '';
+        }
+
+        function evaluateCondition(condition) {
+            const value = getFieldValue(condition.field);
+            switch (condition.operator) {
+                case 'equals':
+                case 'eq':
+                    return value === String(condition.value);
+                case 'not_equals':
+                case 'neq':
+                    return value !== String(condition.value);
+                case 'contains':
+                    return value.includes(String(condition.value));
+                case 'not_empty':
+                    return value.trim() !== '';
+                case 'empty':
+                    return value.trim() === '';
+                case 'gt':
+                    return parseFloat(value) > parseFloat(condition.value);
+                case 'lt':
+                    return parseFloat(value) < parseFloat(condition.value);
+                case 'in':
+                    return Array.isArray(condition.value) && condition.value.map(String).includes(value);
+                default:
+                    return true;
+            }
+        }
+
+        function applyConditions() {
+            wrappers.forEach(function(wrapper) {
+                let conditions;
+                try {
+                    conditions = JSON.parse(wrapper.getAttribute('data-conditions'));
+                } catch(e) { return; }
+
+                // Support single condition object or array of conditions
+                const condList = Array.isArray(conditions) ? conditions : [conditions];
+                const visible = condList.every(evaluateCondition);
+
+                wrapper.style.display = visible ? '' : 'none';
+                // Disable hidden fields so they are not submitted
+                wrapper.querySelectorAll('input, select, textarea').forEach(function(el) {
+                    el.disabled = !visible;
+                });
+            });
+        }
+
+        // Collect all trigger field names from conditions
+        const triggerFields = new Set();
+        wrappers.forEach(function(wrapper) {
+            try {
+                const conditions = JSON.parse(wrapper.getAttribute('data-conditions'));
+                const condList = Array.isArray(conditions) ? conditions : [conditions];
+                condList.forEach(function(c) { if (c.field) triggerFields.add(c.field); });
+            } catch(e) {}
+        });
+
+        // Listen to changes on trigger fields
+        form.querySelectorAll('input, select, textarea').forEach(function(input) {
+            const name = input.name || '';
+            for (const trigger of triggerFields) {
+                if (name === trigger || name.endsWith('__' + trigger)) {
+                    input.addEventListener('change', applyConditions);
+                    input.addEventListener('input', applyConditions);
+                    break;
+                }
+            }
+        });
+
+        // Initial evaluation
+        applyConditions();
+    })();
+});
+</script>
+{% endblock %}

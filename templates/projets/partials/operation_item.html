@@ -1,0 +1,77 @@
+{% load i18n %}
+{% load devise_tags %}
+
+<div class="list-group-item list-group-item-action d-flex align-items-center py-2 px-3"
+     data-operation-id="{{ operation.pk }}" id="op-{{ operation.pk }}">
+    <!-- Drag handle -->
+    <i class="ti ti-grip-vertical text-muted me-2 drag-handle" style="cursor:grab"></i>
+
+    <!-- Statut dropdown -->
+    <div class="dropdown me-2">
+        <button class="btn btn-sm btn-{% if operation.statut == 'TERMINEE' %}success{% elif operation.statut == 'EN_COURS' %}primary{% elif operation.statut == 'EN_ATTENTE' %}warning{% elif operation.statut == 'ANNULEE' %}danger{% else %}secondary{% endif %} dropdown-toggle py-0 px-2 f-s-12"
+                data-bs-toggle="dropdown">
+            {{ operation.get_statut_display }}
+        </button>
+        <ul class="dropdown-menu">
+            {% for code, label in operation.STATUT_CHOICES %}
+            <li>
+                <form hx-post="{% url 'projets:operation-statut' operation.pk %}"
+                      hx-target="#op-{{ operation.pk }}"
+                      hx-swap="outerHTML">
+                    {% csrf_token %}
+                    <input type="hidden" name="statut" value="{{ code }}">
+                    <button type="submit" class="dropdown-item f-s-13">{{ label }}</button>
+                </form>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <!-- Titre et infos -->
+    <div class="flex-grow-1">
+        <span class="f-w-500 f-s-13">{{ operation.numero }}</span>
+        <span class="ms-1 f-s-13">{{ operation.titre }}</span>
+        {% for user in operation.assigne_a.all %}
+        <small class="text-muted ms-2"><i class="ti ti-user f-s-12"></i> {{ user.get_full_name|default:user.username }}</small>
+        {% endfor %}
+        {% for contact in operation.contacts_assignes.all %}
+        <small class="text-muted ms-2"><i class="ti ti-address-book f-s-12"></i> {{ contact }}</small>
+        {% endfor %}
+    </div>
+
+    <!-- Dates -->
+    {% if operation.date_debut or operation.date_fin %}
+    <small class="text-muted me-3 f-s-12">
+        {{ operation.date_debut|date:"d.m"|default:"" }}{% if operation.date_fin %} - {{ operation.date_fin|date:"d.m" }}{% endif %}
+    </small>
+    {% endif %}
+
+    <!-- Priorité -->
+    {% if operation.priorite != 'NORMALE' %}
+    <span class="badge bg-light-{% if operation.priorite == 'URGENTE' %}danger{% elif operation.priorite == 'HAUTE' %}warning{% else %}info{% endif %} me-2 f-s-11">
+        {{ operation.get_priorite_display }}
+    </span>
+    {% endif %}
+
+    <!-- Budget -->
+    {% if operation.budget_prevu %}
+    <small class="text-muted me-2 f-s-12">{{ operation.cout_reel|devise:DEVISE_TAUX|floatformat:0 }}/{{ operation.budget_prevu|devise:DEVISE_TAUX|floatformat:0 }}</small>
+    {% endif %}
+
+    <!-- Actions -->
+    <div class="btn-group btn-group-sm">
+        <button class="btn btn-light py-0 px-1"
+                hx-get="{% url 'projets:operation-update' operation.pk %}"
+                hx-target="#detail-{{ operation.position.pk }}"
+                hx-swap="innerHTML">
+            <i class="ti ti-edit f-s-14"></i>
+        </button>
+        <button class="btn btn-light py-0 px-1"
+                hx-post="{% url 'projets:operation-delete' operation.pk %}"
+                hx-target="#detail-{{ operation.position.pk }}"
+                hx-swap="innerHTML"
+                hx-confirm="{% trans 'Supprimer cette opération ?' %}">
+            <i class="ti ti-trash f-s-14 text-danger"></i>
+        </button>
+    </div>
+</div>

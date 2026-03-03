@@ -1,0 +1,482 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{{ type_document.libelle }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{{ type_document.libelle }}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'documents:document-list' %}">
+                    <span>{% trans "Documents" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'documents:type-list' %}">
+                    <span>{% trans "Types" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{{ type_document.code }}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="row">
+    <div class="col-md-3">
+        <div class="card bg-light-primary">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar bg-primary rounded me-3">
+                        <i class="ph-duotone ph-files text-white f-s-30"></i>
+                    </div>
+                    <div>
+                        <p class="text-muted mb-1 f-s-12">{% trans "Total documents" %}</p>
+                        <h5 class="text-primary mb-0">{{ stats.total }}</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card bg-light-warning">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar bg-warning rounded me-3">
+                        <i class="ph-duotone ph-clock text-white f-s-30"></i>
+                    </div>
+                    <div>
+                        <p class="text-muted mb-1 f-s-12">{% trans "En attente" %}</p>
+                        <h5 class="text-warning mb-0">{{ stats.en_attente }}</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card bg-light-success">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar bg-success rounded me-3">
+                        <i class="ph-duotone ph-check-circle text-white f-s-30"></i>
+                    </div>
+                    <div>
+                        <p class="text-muted mb-1 f-s-12">{% trans "Validés" %}</p>
+                        <h5 class="text-success mb-0">{{ stats.valide }}</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card bg-light-info">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar bg-info rounded me-3">
+                        <i class="ph-duotone ph-hard-drives text-white f-s-30"></i>
+                    </div>
+                    <div>
+                        <p class="text-muted mb-1 f-s-12">{% trans "Taille totale" %}</p>
+                        <h5 class="text-info mb-0">{{ stats.taille_totale|filesizeformat }}</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Colonne principale -->
+    <div class="col-lg-8">
+        <!-- Documents -->
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="ph ph-files me-2"></i>{% trans "Documents de ce type" %}</h5>
+                    <button class="btn btn-light-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse">
+                        <i class="ph ph-funnel me-2"></i>{% trans "Filtres" %}
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filtres -->
+            <div class="collapse" id="filterCollapse">
+                <div class="card-body border-top">
+                    <form method="get" class="app-form">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">{% trans "Nom fichier" %}</label>
+                                    {{ filter.form.nom_fichier }}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">{% trans "Mandat" %}</label>
+                                    {{ filter.form.mandat }}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">{% trans "Dossier" %}</label>
+                                    {{ filter.form.dossier }}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">{% trans "Statut validation" %}</label>
+                                    {{ filter.form.statut_validation }}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">{% trans "Date upload" %}</label>
+                                    {{ filter.form.date_upload }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="ph ph-magnifying-glass me-2"></i>{% trans "Rechercher" %}
+                            </button>
+                            <a href="{% url 'documents:type-detail' type_document.pk %}" class="btn btn-secondary">
+                                <i class="ph ph-x me-2"></i>{% trans "Réinitialiser" %}
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Fichier" %}</th>
+                                <th>{% trans "Mandat" %}</th>
+                                <th>{% trans "Dossier" %}</th>
+                                <th>{% trans "Taille" %}</th>
+                                <th>{% trans "Date" %}</th>
+                                <th>{% trans "Statut" %}</th>
+                                <th class="text-end">{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for doc in documents %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="me-3">
+                                            {% if doc.extension == '.pdf' %}
+                                            <i class="ph ph-file-pdf text-danger f-s-24"></i>
+                                            {% elif doc.extension in '.doc,.docx' %}
+                                            <i class="ph ph-file-doc text-primary f-s-24"></i>
+                                            {% elif doc.extension in '.xls,.xlsx' %}
+                                            <i class="ph ph-file-xls text-success f-s-24"></i>
+                                            {% elif doc.extension in '.jpg,.jpeg,.png,.gif' %}
+                                            <i class="ph ph-image text-info f-s-24"></i>
+                                            {% else %}
+                                            <i class="ph ph-file text-secondary f-s-24"></i>
+                                            {% endif %}
+                                        </div>
+                                        <div>
+                                            <a href="{% url 'documents:document-detail' doc.pk %}" class="text-dark f-w-600">
+                                                {{ doc.nom_fichier|truncatechars:40 }}
+                                            </a>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge text-light-primary">{{ doc.mandat.numero }}</span>
+                                </td>
+                                <td>
+                                    <span class="text-muted f-s-12">{{ doc.dossier.nom|truncatechars:20 }}</span>
+                                </td>
+                                <td>{{ doc.taille|filesizeformat }}</td>
+                                <td>
+                                    <span class="text-muted f-s-12">{{ doc.date_upload|date:"d/m/Y" }}</span>
+                                </td>
+                                <td>
+                                    {% if doc.statut_validation == 'VALIDE' %}
+                                    <span class="badge text-light-success">
+                                        <i class="ph ph-check-circle me-1"></i>{% trans "Validé" %}
+                                    </span>
+                                    {% elif doc.statut_validation == 'EN_ATTENTE' %}
+                                    <span class="badge text-light-warning">
+                                        <i class="ph ph-clock me-1"></i>{% trans "En attente" %}
+                                    </span>
+                                    {% elif doc.statut_validation == 'REJETE' %}
+                                    <span class="badge text-light-danger">
+                                        <i class="ph ph-x-circle me-1"></i>{% trans "Rejeté" %}
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <div class="dropdown">
+                                        <a class="text-muted" data-bs-toggle="dropdown" role="button">
+                                            <i class="ph ph-dots-three-vertical f-s-18"></i>
+                                        </a>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'documents:document-detail' doc.pk %}">
+                                                    <i class="ph ph-eye me-2"></i>{% trans "Voir" %}
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'documents:document-telecharger' doc.pk %}">
+                                                    <i class="ph ph-download me-2"></i>{% trans "Télécharger" %}
+                                                </a>
+                                            </li>
+                                            {% if doc.statut_validation == 'EN_ATTENTE' %}
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'documents:document-valider' doc.pk %}">
+                                                    <i class="ph ph-check me-2"></i>{% trans "Valider" %}
+                                                </a>
+                                            </li>
+                                            {% endif %}
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center py-5">
+                                    <i class="ph ph-file-x f-s-48 text-muted d-block mb-3"></i>
+                                    <p class="text-muted">{% trans "Aucun document de ce type" %}</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Répartition par mandat -->
+        {% if par_mandat %}
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-chart-pie me-2"></i>{% trans "Répartition par mandat" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bottom-border mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Mandat" %}</th>
+                                <th>{% trans "Client" %}</th>
+                                <th>{% trans "Documents" %}</th>
+                                <th>{% trans "Taille" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in par_mandat %}
+                            <tr>
+                                <td>
+                                    <span class="badge text-light-primary">{{ item.mandat__numero }}</span>
+                                </td>
+                                <td>{{ item.mandat__client__raison_sociale|truncatechars:40 }}</td>
+                                <td>
+                                    <span class="f-w-600">{{ item.nb_docs }}</span>
+                                </td>
+                                <td>{{ item.taille|filesizeformat }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Informations du type -->
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-info me-2"></i>{% trans "Informations" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <p class="text-muted f-s-12 mb-1">{% trans "Code" %}</p>
+                    <span class="badge text-light-primary f-w-600 f-s-14">{{ type_document.code }}</span>
+                </div>
+
+                <div class="app-divider-v dashed my-3"></div>
+
+                <div class="mb-3">
+                    <p class="text-muted f-s-12 mb-1">{% trans "Libellé" %}</p>
+                    <p class="f-w-600 mb-0">{{ type_document.libelle }}</p>
+                </div>
+
+                <div class="app-divider-v dashed my-3"></div>
+
+                <div class="mb-3">
+                    <p class="text-muted f-s-12 mb-1">{% trans "Catégorie" %}</p>
+                    <div class="d-flex align-items-center">
+                        {% if type_document.categorie.icone %}
+                        <i class="{{ type_document.categorie.icone }} me-2 f-s-18" 
+                           {% if type_document.categorie.couleur %}style="color: {{ type_document.categorie.couleur }};"{% endif %}>
+                        </i>
+                        {% endif %}
+                        <span class="f-w-600">{{ type_document.categorie.nom }}</span>
+                    </div>
+                </div>
+
+                <div class="app-divider-v dashed my-3"></div>
+
+                <div class="mb-3">
+                    <p class="text-muted f-s-12 mb-1">{% trans "Type système" %}</p>
+                    <span class="badge text-light-secondary">
+                        {{ type_document.get_type_document_display }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fonctionnalités -->
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-gear me-2"></i>{% trans "Fonctionnalités" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="text-muted f-s-14">{% trans "Validation requise" %}</span>
+                    {% if type_document.validation_requise %}
+                    <span class="badge text-light-success">
+                        <i class="ph ph-check-circle me-1"></i>{% trans "Oui" %}
+                    </span>
+                    {% else %}
+                    <span class="badge text-light-secondary">
+                        <i class="ph ph-x me-1"></i>{% trans "Non" %}
+                    </span>
+                    {% endif %}
+                </div>
+
+                <div class="app-divider-v dashed my-3"></div>
+
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="text-muted f-s-14">{% trans "Extraction auto" %}</span>
+                    {% if type_document.champs_extraire %}
+                    <span class="badge text-light-warning">
+                        <i class="ph ph-scan me-1"></i>{{ type_document.champs_extraire|length }} champs
+                    </span>
+                    {% else %}
+                    <span class="badge text-light-secondary">
+                        <i class="ph ph-x me-1"></i>{% trans "Non" %}
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Validateurs -->
+        {% if type_document.validation_requise and type_document.validateurs.exists %}
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-users me-2"></i>{% trans "Validateurs" %}</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0">
+                    {% for validateur in type_document.validateurs.all %}
+                    <li class="mb-2">
+                        <div class="d-flex align-items-center">
+                            <div class="avatar bg-light-primary rounded me-2">
+                                <i class="ph ph-user text-primary f-s-18"></i>
+                            </div>
+                            <div>
+                                <p class="f-w-600 mb-0 f-s-14">{{ validateur.get_full_name }}</p>
+                                <p class="text-muted f-s-12 mb-0">{{ validateur.email }}</p>
+                            </div>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Champs à extraire -->
+        {% if type_document.champs_extraire %}
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-database me-2"></i>{% trans "Champs à extraire" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-2">
+                    {% for champ in type_document.champs_extraire %}
+                    <span class="badge text-light-info">{{ champ }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Documents récents -->
+        {% if documents_recents %}
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-clock-clockwise me-2"></i>{% trans "Documents récents" %}</h5>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    {% for doc in documents_recents %}
+                    <li class="list-group-item">
+                        <div class="d-flex align-items-center">
+                            {% if doc.extension == '.pdf' %}
+                            <i class="ph ph-file-pdf text-danger f-s-20 me-2"></i>
+                            {% else %}
+                            <i class="ph ph-file text-secondary f-s-20 me-2"></i>
+                            {% endif %}
+                            <div class="flex-grow-1">
+                                <a href="{% url 'documents:document-detail' doc.pk %}" class="text-dark f-s-14">
+                                    {{ doc.nom_fichier|truncatechars:30 }}
+                                </a>
+                                <p class="text-muted f-s-12 mb-0">{{ doc.date_upload|date:"d/m/Y" }}</p>
+                            </div>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Actions -->
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-lightning me-2"></i>{% trans "Actions" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-light-primary" disabled>
+                        <i class="ph ph-pencil me-2"></i>{% trans "Modifier le type" %}
+                    </button>
+                    <a href="{% url 'documents:document-list' %}?type_document={{ type_document.pk }}" class="btn btn-light-secondary">
+                        <i class="ph ph-funnel me-2"></i>{% trans "Voir tous les documents" %}
+                    </a>
+                    <button class="btn btn-light-danger" disabled>
+                        <i class="ph ph-trash me-2"></i>{% trans "Supprimer" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

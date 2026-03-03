@@ -1,0 +1,102 @@
+<!-- modelforms/available_forms_list.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Formulaires disponibles" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Formulaires disponibles" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Remplir un formulaire" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Sélectionnez un formulaire" %}</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-4">
+                    {% trans "Choisissez un formulaire ci-dessous pour commencer la saisie." %}
+                </p>
+
+                {% for category_name, category_forms in forms_by_category.items %}
+                <div class="mb-4">
+                    <h6 class="text-muted text-uppercase mb-3">
+                        <i class="ph-duotone ph-folder me-2"></i>{{ category_name }}
+                    </h6>
+                    <div class="row">
+                        {% for form in category_forms %}
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card h-100 border hover-shadow">
+                                <div class="card-body">
+                                    <div class="d-flex align-items-start mb-3">
+                                        <div class="h-50 w-50 d-flex-center rounded-circle bg-light-primary me-3 flex-shrink-0">
+                                            <i class="{{ form.icon|default:'ph-duotone ph-file-text' }} f-s-24 text-primary"></i>
+                                        </div>
+                                        <div>
+                                            <h6 class="mb-1">{{ form.name }}</h6>
+                                            <small class="text-muted">{{ form.code }}</small>
+                                        </div>
+                                    </div>
+                                    {% if form.description %}
+                                    <p class="text-muted small mb-3">{{ form.description|truncatewords:20 }}</p>
+                                    {% endif %}
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        {% if form.is_multi_model %}
+                                        <span class="badge bg-light-info">
+                                            <i class="ph-duotone ph-stack me-1"></i>{% trans "Multi-modèles" %}
+                                        </span>
+                                        {% else %}
+                                        <span class="badge bg-light-secondary">
+                                            {{ form.target_model }}
+                                        </span>
+                                        {% endif %}
+                                        {% if form.require_validation %}
+                                        <span class="badge bg-light-warning">
+                                            <i class="ph-duotone ph-check-circle me-1"></i>{% trans "Validation" %}
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="card-footer bg-transparent">
+                                    <a href="{% url 'modelforms:form-fill' form.pk %}" class="btn btn-primary w-100">
+                                        <i class="ti ti-pencil me-2"></i>{% trans "Remplir" %}
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center py-5">
+                    <i class="ph-duotone ph-folder-notch-open f-s-50 text-muted"></i>
+                    <p class="text-muted mt-3">{% trans "Aucun formulaire disponible" %}</p>
+                    <p class="text-muted small">
+                        {% trans "Contactez votre administrateur pour activer des formulaires." %}
+                    </p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

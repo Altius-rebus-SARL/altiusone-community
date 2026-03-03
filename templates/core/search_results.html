@@ -1,0 +1,128 @@
+<!-- core/search_results.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Résultats de recherche" %}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <!-- Header -->
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h4 class="text-primary mb-0">
+                        {% trans "Résultats de recherche" %}
+                        {% if query %}
+                            <span class="text-muted f-s-16">{% trans "pour" %} "{{ query }}"</span>
+                        {% endif %}
+                    </h4>
+                    {% if total_results %}
+                    <span class="badge bg-primary f-s-14 px-3 py-2">{{ total_results }} {% trans "résultat(s)" %}</span>
+                    {% endif %}
+                </div>
+
+                <!-- Nouvelle recherche -->
+                <form method="get" action="{% url 'core:global-search' %}" class="mb-4">
+                    <div class="input-group">
+                        <input type="text"
+                               name="q"
+                               class="form-control"
+                               placeholder="{% trans 'Rechercher...' %}"
+                               value="{{ query }}"
+                               autofocus>
+                        <button class="btn btn-primary" type="submit">
+                            <i class="ti ti-search me-2"></i>{% trans "Rechercher" %}
+                        </button>
+                    </div>
+                </form>
+
+                {% if error %}
+                    <div class="alert alert-warning">
+                        <i class="ti ti-alert-triangle me-2"></i>{{ error }}
+                    </div>
+                {% elif not query %}
+                    <div class="alert alert-info">
+                        <i class="ti ti-info-circle me-2"></i>
+                        {% trans "Saisissez un terme de recherche pour commencer" %}
+                    </div>
+                {% elif total_results == 0 %}
+                    <div class="alert alert-warning">
+                        <i class="ti ti-search-off me-2"></i>
+                        {% trans "Aucun résultat trouvé pour votre recherche" %}
+                    </div>
+                {% else %}
+
+                    <!-- Résultats triés par pertinence -->
+                    <div class="search-results-list">
+                        {% for item in page_obj %}
+                        <a href="{{ item.result.url }}" class="search-result-row d-flex align-items-center gap-3 p-3 text-decoration-none border-bottom">
+                            <span class="bg-light-{{ item.group_color }} rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width:40px;height:40px;">
+                                <i class="{{ item.result.icon }} text-{{ item.group_color }} f-s-18"></i>
+                            </span>
+                            <div class="flex-grow-1" style="min-width:0;">
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <span class="f-w-600 f-s-14 text-dark text-truncate">{{ item.result.title }}</span>
+                                    <span class="badge bg-light-{{ item.group_color }} text-{{ item.group_color }} flex-shrink-0 f-s-11">{{ item.group_label }}</span>
+                                </div>
+                                <p class="text-muted mb-0 f-s-13 text-truncate">{{ item.result.subtitle }}</p>
+                            </div>
+                            <div class="flex-shrink-0 text-end" style="min-width:50px;">
+                                <span class="badge {% if item.score_pct >= 70 %}bg-success{% elif item.score_pct >= 40 %}bg-warning{% else %}bg-secondary{% endif %} f-s-12">
+                                    {{ item.score_pct }}%
+                                </span>
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if paginator.num_pages > 1 %}
+                    <nav class="mt-4">
+                        <ul class="pagination justify-content-center mb-0">
+                            {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?q={{ query }}&page={{ page_obj.previous_page_number }}">
+                                    <i class="ti ti-chevron-left"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+
+                            {% for num in paginator.page_range %}
+                                {% if num == page_obj.number %}
+                                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                                {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?q={{ query }}&page={{ num }}">{{ num }}</a>
+                                </li>
+                                {% elif num == 1 or num == paginator.num_pages %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?q={{ query }}&page={{ num }}">{{ num }}</a>
+                                </li>
+                                {% elif num == page_obj.number|add:"-3" or num == page_obj.number|add:"3" %}
+                                <li class="page-item disabled"><span class="page-link">...</span></li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?q={{ query }}&page={{ page_obj.next_page_number }}">
+                                    <i class="ti ti-chevron-right"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                        <p class="text-center text-muted f-s-13 mt-2">
+                            {% trans "Page" %} {{ page_obj.number }} {% trans "sur" %} {{ paginator.num_pages }}
+                        </p>
+                    </nav>
+                    {% endif %}
+
+                {% endif %}
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,358 @@
+<!-- comptabilite/plan_form.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}
+    {% if form.instance.pk %}{% trans "Modifier plan" %}{% else %}{% trans "Nouveau plan comptable" %}{% endif %}
+{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">
+            {% if form.instance.pk %}{% trans "Modifier plan" %}{% else %}{% trans "Nouveau plan comptable" %}{% endif %}
+        </h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'comptabilite:plan-list' %}">
+                    <span>{% trans "Plans comptables" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">
+                    {% if form.instance.pk %}{% trans "Modifier" %}{% else %}{% trans "Nouveau" %}{% endif %}
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-body">
+                <h4 class="text-primary mb-4">
+                    {% if form.instance.pk %}
+                        {% trans "Modifier le plan comptable" %}
+                    {% else %}
+                        {% trans "Nouveau plan comptable" %}
+                    {% endif %}
+                </h4>
+
+                <form method="post" class="app-form">
+                    {% csrf_token %}
+
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        {{ form.non_field_errors }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                    {% endif %}
+
+                    <div class="row">
+                        <!-- Nom FR -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.nom_fr.id_for_label }}" class="form-label">
+                                    {% trans "Nom" %} (FR) <span class="text-danger">*</span>
+                                </label>
+                                {{ form.nom_fr }}
+                                {% if form.nom_fr.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.nom_fr.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Nom DE -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.nom_de.id_for_label }}" class="form-label">
+                                    {% trans "Nom" %} (DE)
+                                </label>
+                                {{ form.nom_de }}
+                                {% if form.nom_de.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.nom_de.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Nom IT -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.nom_it.id_for_label }}" class="form-label">
+                                    {% trans "Nom" %} (IT)
+                                </label>
+                                {{ form.nom_it }}
+                                {% if form.nom_it.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.nom_it.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Nom EN -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.nom_en.id_for_label }}" class="form-label">
+                                    {% trans "Nom" %} (EN)
+                                </label>
+                                {{ form.nom_en }}
+                                {% if form.nom_en.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.nom_en.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Type de plan -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.type_plan.id_for_label }}" class="form-label">
+                                    {{ form.type_plan.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.type_plan }}
+                                {% if form.type_plan.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.type_plan.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Mandat -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.mandat.id_for_label }}" class="form-label">
+                                    {{ form.mandat.label }}
+                                </label>
+                                {{ form.mandat }}
+                                {% if form.mandat.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.mandat.errors }}
+                                </div>
+                                {% endif %}
+                                <div class="form-text">{% trans "Laisser vide pour créer un plan template" %}</div>
+                            </div>
+                        </div>
+
+                        <!-- Devise -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.devise.id_for_label }}" class="form-label">
+                                    {% trans "Devise" %}
+                                </label>
+                                {{ form.devise }}
+                                {% if form.devise.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.devise.errors }}
+                                </div>
+                                {% endif %}
+                                <div class="form-text">{% trans "Devise du plan comptable (héritée du mandat)" %}</div>
+                            </div>
+                        </div>
+
+                        <!-- Description FR -->
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label for="{{ form.description_fr.id_for_label }}" class="form-label">
+                                    {{ form.description_fr.label }}
+                                </label>
+                                {{ form.description_fr }}
+                                {% if form.description_fr.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.description_fr.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Description DE -->
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label for="{{ form.description_de.id_for_label }}" class="form-label">
+                                    {{ form.description_de.label }}
+                                </label>
+                                {{ form.description_de }}
+                                {% if form.description_de.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.description_de.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+
+                        <!-- Description IT -->
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label for="{{ form.description_it.id_for_label }}" class="form-label">
+                                    {{ form.description_it.label }}
+                                </label>
+                                {{ form.description_it }}
+                                {% if form.description_it.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.description_it.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Description EN -->
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label for="{{ form.description_en.id_for_label }}" class="form-label">
+                                    {{ form.description_en.label }}
+                                </label>
+                                {{ form.description_en }}
+                                {% if form.description_en.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.description_en.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Checkboxes --> 
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    {{ form.is_template }}
+                                    <label class="form-check-label" for="{{ form.is_template.id_for_label }}">
+                                        <i class="ph ph-star me-1"></i>{{ form.is_template.label }}
+                                    </label>
+                                    {% if form.is_template.errors %}
+                                    <div class="text-danger f-s-12 mt-1">
+                                        {{ form.is_template.errors }}
+                                    </div>
+                                    {% endif %}
+                                    <div class="form-text">{% trans "Peut être dupliqué pour d'autres mandats" %}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    {{ form.is_active }}
+                                    <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                        <i class="ph ph-check-circle me-1"></i>{{ form.is_active.label }}
+                                    </label>
+                                    {% if form.is_active.errors %}
+                                    <div class="text-danger f-s-12 mt-1">
+                                        {{ form.is_active.errors }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <a href="{% if form.instance.pk %}{% url 'comptabilite:plan-detail' form.instance.pk %}{% else %}{% url 'comptabilite:plan-list' %}{% endif %}" 
+                           class="btn btn-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ph ph-check me-2"></i>
+                            {% if form.instance.pk %}{% trans "Enregistrer les modifications" %}{% else %}{% trans "Créer le plan" %}{% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Aide -->
+    <div class="col-lg-4">
+        <div class="card bg-light-primary">
+            <div class="card-body">
+                <h6 class="text-primary mb-3">
+                    <i class="ph ph-info me-2"></i>{% trans "Aide" %}
+                </h6>
+                
+                <div class="mb-3">
+                    <h6 class="f-s-14 f-w-600">{% trans "Plan PME Suisse" %}</h6>
+                    <p class="f-s-12 text-muted mb-0">
+                        {% trans "Conforme au plan comptable PME selon les Swiss GAAP FER. Structure en classes principales." %}
+                    </p>
+                </div>
+
+                <div class="mb-3">
+                    <h6 class="f-s-14 f-w-600">{% trans "Plan Template" %}</h6>
+                    <p class="f-s-12 text-muted mb-0">
+                        {% trans "Un plan template peut être dupliqué pour créer rapidement de nouveaux plans pour d'autres mandats." %}
+                    </p>
+                </div>
+
+                <div>
+                    <h6 class="f-s-14 f-w-600">{% trans "Structure" %}</h6>
+                    <ul class="f-s-12 text-muted mb-0 ps-3">
+                        <li>{% trans "Classe 1 : Actifs circulants" %}</li>
+                        <li>{% trans "Classe 2 : Actifs immobilisés" %}</li>
+                        <li>{% trans "Classe 3 : Capitaux tiers CT" %}</li>
+                        <li>{% trans "Classe 4 : Capitaux tiers LT" %}</li>
+                        <li>{% trans "Classe 5 : Capitaux propres" %}</li>
+                        <li>{% trans "Classe 6 : Charges" %}</li>
+                        <li>{% trans "Classe 7 : Produits" %}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        {% if form.instance.pk %}
+        <div class="card bg-light-warning mt-3">
+            <div class="card-body">
+                <h6 class="text-warning mb-3">
+                    <i class="ph ph-warning me-2"></i>{% trans "Attention" %}
+                </h6>
+                <p class="f-s-12 mb-0">
+                    {% trans "La modification d'un plan comptable peut impacter tous les comptes et écritures associés. Procédez avec prudence." %}
+                </p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Gestion du champ mandat et template
+const isTemplateCheckbox = document.getElementById('{{ form.is_template.id_for_label }}');
+const mandatSelect = document.getElementById('{{ form.mandat.id_for_label }}');
+
+if (isTemplateCheckbox && mandatSelect) {
+    isTemplateCheckbox.addEventListener('change', function() {
+        if (this.checked) {
+            mandatSelect.value = '';
+            mandatSelect.disabled = true;
+        } else {
+            mandatSelect.disabled = false;
+        }
+    });
+    
+    // Initialisation
+    if (isTemplateCheckbox.checked) {
+        mandatSelect.disabled = true;
+    }
+}
+</script>
+{% endblock %}

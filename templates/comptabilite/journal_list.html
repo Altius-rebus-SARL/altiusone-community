@@ -1,0 +1,170 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Journaux" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Journaux comptables" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Journaux" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<!-- Main Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Liste des journaux" %}</h5>
+            </div>
+            <div class="card-body">
+                <div id="journauxTable">
+                    <!-- Header with Add button and Search -->
+                    <div class="list-table-header d-flex justify-content-between align-items-center mb-3">
+                        <a href="{% url 'comptabilite:journal-create' %}" class="btn btn-primary">
+                            <i class="ph ph-plus me-2"></i>{% trans "Nouveau journal" %}
+                        </a>
+
+                        <form method="get" class="app-form app-icon-form">
+                            <div class="position-relative">
+                                <input aria-label="Search" 
+                                       class="form-control search" 
+                                       placeholder="{% trans 'Rechercher...' %}"
+                                       type="search"
+                                       name="q"
+                                       value="{{ request.GET.q }}">
+                                <i class="ph ph-magnifying-glass text-dark"></i>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Filters Row -->
+                    <form method="get" class="mb-3">
+                        <div class="row app-form">
+                            <div class="col-md-4">
+                                <select name="mandat" class="form-select select-basic" onchange="this.form.submit()">
+                                    <option value="">{% trans "Tous les mandats" %}</option>
+                                    {% for mandat in mandats %}
+                                    <option value="{{ mandat.pk }}" {% if request.GET.mandat == mandat.pk|stringformat:"s" %}selected{% endif %}>
+                                        {{ mandat.client.raison_sociale }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <select name="type_journal" class="form-select select-basic" onchange="this.form.submit()">
+                                    <option value="">{% trans "Type de journal" %}</option>
+                                    <option value="VTE" {% if request.GET.type_journal == 'VTE' %}selected{% endif %}>{% trans "Ventes" %}</option>
+                                    <option value="ACH" {% if request.GET.type_journal == 'ACH' %}selected{% endif %}>{% trans "Achats" %}</option>
+                                    <option value="BNQ" {% if request.GET.type_journal == 'BNQ' %}selected{% endif %}>{% trans "Banque" %}</option>
+                                    <option value="CAS" {% if request.GET.type_journal == 'CAS' %}selected{% endif %}>{% trans "Caisse" %}</option>
+                                    <option value="OD" {% if request.GET.type_journal == 'OD' %}selected{% endif %}>{% trans "Op. diverses" %}</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                {% if request.GET.mandat or request.GET.type_journal or request.GET.q %}
+                                <a href="{% url 'comptabilite:journal-list' %}" class="btn btn-secondary">
+                                    <i class="ph ph-x me-2"></i>{% trans "Réinitialiser" %}
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </form>
+
+                    <!-- Table -->
+                    <div class="overflow-auto app-scroll">
+                        <table class="table table-bottom-border align-middle mb-0">
+                            <thead>
+                                <tr class="app-sort">
+                                    <th scope="col">{% trans "Code" %}</th>
+                                    <th scope="col">{% trans "Libellé" %}</th>
+                                    <th scope="col">{% trans "Type" %}</th>
+                                    <th scope="col">{% trans "Mandat" %}</th>
+                                    <th scope="col">{% trans "Écritures" %}</th>
+                                    <th scope="col">{% trans "Dernier n°" %}</th>
+                                    <th scope="col">{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="list">
+                                {% for journal in journaux %}
+                                <tr>
+                                    <td>
+                                        <span class="badge bg-light-dark f-w-600">{{ journal.code }}</span>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'comptabilite:journal-detail' journal.pk %}" class="f-w-500 text-dark">
+                                            {{ journal.libelle }}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        {% if journal.type_journal == 'VTE' %}
+                                        <span class="badge bg-light-success">{% trans "Ventes" %}</span>
+                                        {% elif journal.type_journal == 'ACH' %}
+                                        <span class="badge bg-light-danger">{% trans "Achats" %}</span>
+                                        {% elif journal.type_journal == 'BNQ' %}
+                                        <span class="badge bg-light-primary">{% trans "Banque" %}</span>
+                                        {% elif journal.type_journal == 'CAS' %}
+                                        <span class="badge bg-light-warning">{% trans "Caisse" %}</span>
+                                        {% elif journal.type_journal == 'OD' %}
+                                        <span class="badge bg-light-secondary">{% trans "OD" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'core:mandat-detail' journal.mandat.pk %}">
+                                            {{ journal.mandat.client.raison_sociale }}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light-info">{{ journal.nb_ecritures|default:0 }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="text-muted">{{ journal.prefixe_piece }}{{ journal.dernier_numero|stringformat:"05d" }}</span>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'comptabilite:journal-detail' journal.pk %}" 
+                                           class="btn btn-sm btn-light-primary"
+                                           data-bs-toggle="tooltip"
+                                           title="{% trans 'Voir' %}">
+                                            <i class="ph ph-eye"></i>
+                                        </a>
+                                        <a href="{% url 'comptabilite:journal-update' journal.pk %}" 
+                                           class="btn btn-sm btn-success"
+                                           data-bs-toggle="tooltip"
+                                           title="{% trans 'Modifier' %}">
+                                            <i class="ph ph-pencil"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center py-5">
+                                        <i class="ph ph-book-open f-s-50 text-muted"></i>
+                                        <p class="text-muted mt-2">{% trans "Aucun journal trouvé" %}</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,136 @@
+<!-- modelforms/partials/add_field_form.html -->
+{% load i18n %}
+
+<form method="post"
+      hx-post="{% url 'modelforms:add-field-mapping' configuration.pk %}"
+      hx-target="#field-mappings-list"
+      hx-swap="innerHTML"
+      class="app-form">
+    {% csrf_token %}
+
+    {% if form.instance.pk %}
+    <input type="hidden" name="mapping_id" value="{{ form.instance.pk }}">
+    {% endif %}
+
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <label class="form-label" for="id_field_name">{% trans "Nom du champ" %} <span class="text-danger">*</span></label>
+            {{ form.field_name }}
+            {% if form.field_name.errors %}
+            <div class="invalid-feedback d-block">{{ form.field_name.errors.0 }}</div>
+            {% endif %}
+            <small class="text-muted">{% trans "Nom du champ dans le modèle Django" %}</small>
+        </div>
+        <div class="col-md-6 mb-3">
+            <label class="form-label" for="id_model_path">{% trans "Chemin du modèle" %}</label>
+            {{ form.model_path }}
+            {% if form.model_path.errors %}
+            <div class="invalid-feedback d-block">{{ form.model_path.errors.0 }}</div>
+            {% endif %}
+            <small class="text-muted">{% trans "Pour les relations (ex: adresse_siege)" %}</small>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <label class="form-label" for="id_widget_type">{% trans "Type de widget" %}</label>
+            {{ form.widget_type }}
+            {% if form.widget_type.errors %}
+            <div class="invalid-feedback d-block">{{ form.widget_type.errors.0 }}</div>
+            {% endif %}
+        </div>
+        <div class="col-md-6 mb-3">
+            <label class="form-label" for="id_required">{% trans "Requis" %}</label>
+            {{ form.required }}
+            {% if form.required.errors %}
+            <div class="invalid-feedback d-block">{{ form.required.errors.0 }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <label class="form-label" for="id_label">{% trans "Label" %}</label>
+            {{ form.label }}
+            {% if form.label.errors %}
+            <div class="invalid-feedback d-block">{{ form.label.errors.0 }}</div>
+            {% endif %}
+            <small class="text-muted">{% trans "Label affiché à l'utilisateur" %}</small>
+        </div>
+        <div class="col-md-6 mb-3">
+            <label class="form-label" for="id_placeholder">{% trans "Placeholder" %}</label>
+            {{ form.placeholder }}
+            {% if form.placeholder.errors %}
+            <div class="invalid-feedback d-block">{{ form.placeholder.errors.0 }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label" for="id_help_text">{% trans "Texte d'aide" %}</label>
+        {{ form.help_text }}
+        {% if form.help_text.errors %}
+        <div class="invalid-feedback d-block">{{ form.help_text.errors.0 }}</div>
+        {% endif %}
+    </div>
+
+    <hr>
+    <h6>{% trans "Validation" %}</h6>
+
+    <div class="row">
+        <div class="col-md-3 mb-3">
+            <label class="form-label" for="id_min_value">{% trans "Valeur min" %}</label>
+            {{ form.min_value }}
+        </div>
+        <div class="col-md-3 mb-3">
+            <label class="form-label" for="id_max_value">{% trans "Valeur max" %}</label>
+            {{ form.max_value }}
+        </div>
+        <div class="col-md-3 mb-3">
+            <label class="form-label" for="id_min_length">{% trans "Longueur min" %}</label>
+            {{ form.min_length }}
+        </div>
+        <div class="col-md-3 mb-3">
+            <label class="form-label" for="id_max_length">{% trans "Longueur max" %}</label>
+            {{ form.max_length }}
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label" for="id_regex_pattern">{% trans "Pattern regex" %}</label>
+        {{ form.regex_pattern }}
+        {% if form.regex_pattern.errors %}
+        <div class="invalid-feedback d-block">{{ form.regex_pattern.errors.0 }}</div>
+        {% endif %}
+        <small class="text-muted">{% trans "Expression régulière pour la validation" %}</small>
+    </div>
+
+    <hr>
+    <h6>{% trans "Organisation" %}</h6>
+
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <label class="form-label" for="id_section">{% trans "Section" %}</label>
+            {{ form.section }}
+            {% if form.section.errors %}
+            <div class="invalid-feedback d-block">{{ form.section.errors.0 }}</div>
+            {% endif %}
+            <small class="text-muted">{% trans "Identifiant de section (ex: identity, contact)" %}</small>
+        </div>
+        <div class="col-md-6 mb-3">
+            <label class="form-label" for="id_order">{% trans "Ordre" %}</label>
+            {{ form.order }}
+            {% if form.order.errors %}
+            <div class="invalid-feedback d-block">{{ form.order.errors.0 }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2 mt-4">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Annuler" %}</button>
+        <button type="submit" class="btn btn-primary">
+            <i class="ti ti-device-floppy me-2"></i>
+            {% if form.instance.pk %}{% trans "Enregistrer" %}{% else %}{% trans "Ajouter" %}{% endif %}
+        </button>
+    </div>
+</form>

@@ -1,0 +1,152 @@
+<!--core/dashboard.html-->
+
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Tableau de bord" %}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h4 class="text-primary mb-4">{% trans "Tableau de bord" %}</h4>
+                
+                <!-- Statistics Cards -->
+                <div class="row eshop-cards-container">
+                    <div class="col-6 col-md-3">
+                        <div class="card">
+                            <span class="bg-primary h-50 w-50 d-flex-center rounded-circle m-auto eshop-icon-box">
+                                <i class="ph ph-users f-s-24"></i>
+                            </span>
+                            <div class="card-body eshop-cards">
+                                <span class="ripple-effect"></span>
+                                <div class="overflow-hidden">
+                                    <h3 class="text-primary mb-0">{{ stats.clients_actifs }}</h3>
+                                    <p class="mg-b-35 f-w-600 text-dark-800 txt-ellipsis-1">{% trans "Clients actifs" %}</p>
+                                    <a href="{% url 'core:client-list' %}" class="badge bg-light-primary">{% trans "Voir" %}</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-6 col-md-3">
+                        <div class="card">
+                            <span class="bg-success h-50 w-50 d-flex-center rounded-circle m-auto eshop-icon-box">
+                                <i class="ph ph-briefcase f-s-24"></i>
+                            </span>
+                            <div class="card-body eshop-cards">
+                                <span class="ripple-effect"></span>
+                                <h3 class="text-success mb-0">{{ stats.mandats_actifs }}</h3>
+                                <p class="mg-b-35 f-w-600 text-dark-800 txt-ellipsis-1">{% trans "Mandats actifs" %}</p>
+                                <a href="{% url 'core:mandat-list' %}" class="badge bg-light-success">{% trans "Voir" %}</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-6 col-md-3">
+                        <div class="card">
+                            <span class="bg-warning h-50 w-50 d-flex-center rounded-circle m-auto eshop-icon-box">
+                                <i class="ph ph-checklist f-s-24"></i>
+                            </span>
+                            <div class="card-body eshop-cards">
+                                <span class="ripple-effect"></span>
+                                <h3 class="text-warning mb-0">{{ stats.taches_en_cours }}</h3>
+                                <p class="mg-b-35 f-w-600 text-dark-800 txt-ellipsis-1">{% trans "Tâches en cours" %}</p>
+                                <a href="{% url 'core:tache-list' %}" class="badge bg-light-warning">{% trans "Voir" %}</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-6 col-md-3">
+                        <div class="card">
+                            <span class="bg-danger h-50 w-50 d-flex-center rounded-circle m-auto eshop-icon-box">
+                                <i class="ph ph-bell f-s-24"></i>
+                            </span>
+                            <div class="card-body eshop-cards">
+                                <span class="ripple-effect"></span>
+                                <h3 class="text-danger mb-0">{{ stats.notifications_non_lues }}</h3>
+                                <p class="mg-b-35 f-w-600 text-dark-800 txt-ellipsis-1">{% trans "Notifications" %}</p>
+                                <a href="{% url 'core:notifications-list' %}" class="badge bg-light-danger">{% trans "Voir" %}</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tâches urgentes -->
+                <div class="row mt-4">
+                    <div class="col-lg-6">
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h5 class="text-primary mb-0">{% trans "Tâches urgentes" %}</h5>
+                                    <a href="{% url 'core:tache-list' %}" class="badge bg-light-primary">{% trans "Tout voir" %}</a>
+                                </div>
+
+                                <ul class="box-list mb-0">
+                                    {% for tache in taches_urgentes %}
+                                    <li class="d-flex align-items-center justify-content-between gap-2">
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-0 text-dark-800 f-w-500 txt-ellipsis-1">
+                                                <a href="{% url 'core:tache-detail' tache.pk %}">{{ tache.titre }}</a>
+                                            </h6>
+                                            <p class="text-secondary-800 mb-0">{{ tache.mandat.client.raison_sociale }}</p>
+                                        </div>
+                                        <span class="badge bg-light-{{ tache.priorite|lower }}">
+                                            {{ tache.get_priorite_display }}
+                                        </span>
+                                    </li>
+                                    {% empty %}
+                                    <li class="text-center py-3 text-muted">
+                                        {% trans "Aucune tâche urgente" %}
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Activité récente -->
+                    <div class="col-lg-6">
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h5 class="text-primary mb-0">{% trans "Activité mandats" %}</h5>
+                                </div>
+
+                                <ul class="box-list mb-0">
+                                    {% for item in activite_mandats %}
+                                    <li class="d-flex align-items-center justify-content-between gap-2">
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-0 text-dark-800 f-w-500 txt-ellipsis-1">
+                                                <a href="{% url 'core:mandat-detail' item.mandat.pk %}">
+                                                    {{ item.mandat.client.raison_sociale }}
+                                                </a>
+                                            </h6>
+                                            <p class="text-secondary-800 mb-0">
+                                                {{ item.taches_terminees }}/{{ item.taches_count }} {% trans "tâches terminées" %}
+                                            </p>
+                                        </div>
+                                        <div class="progress" style="height: 8px; width: 100px;">
+                                            <div class="progress-bar bg-success" role="progressbar" 
+                                                 style="width: {% widthratio item.taches_terminees item.taches_count 100 %}%">
+                                            </div>
+                                        </div>
+                                    </li>
+                                    {% empty %}
+                                    <li class="text-center py-3 text-muted">
+                                        {% trans "Aucune activité récente" %}
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% load i18n %}
+
+<div class="card mb-3">
+    <div class="card-header py-2">
+        <h6 class="mb-0">
+            <i class="ph-duotone ph-identification-card me-1"></i>
+            {% trans "Identité visuelle" %}
+        </h6>
+    </div>
+    <div class="card-body py-2">
+        <div class="form-check mb-2">
+            <input type="checkbox" class="form-check-input"
+                   id="studio-logo-defaut"
+                   data-studio-field="utiliser_logo_defaut"
+                   {% if config.utiliser_logo_defaut|default:True %}checked{% endif %}>
+            <label class="form-check-label small" for="studio-logo-defaut">
+                {% trans "Utiliser le logo par défaut" %}
+            </label>
+        </div>
+        <div id="studio-logo-upload-zone" {% if config.utiliser_logo_defaut|default:True %}style="display:none"{% endif %}>
+            <label class="form-label">{% trans "Logo personnalisé" %}</label>
+            <input type="file" class="form-control form-control-sm" accept="image/*"
+                   id="studio-logo-file">
+        </div>
+    </div>
+</div>

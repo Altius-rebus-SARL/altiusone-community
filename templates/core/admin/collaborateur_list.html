@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Prestataires fiduciaire" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h3>{% trans "Gestion des prestataires fiduciaire" %}</h3>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}"><i class="ti ti-home"></i></a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'core:admin-dashboard' %}">{% trans "Administration" %}</a></li>
+                        <li class="breadcrumb-item active">{% trans "Prestataires" %}</li>
+                    </ol>
+                </div>
+                <div class="page-header-right">
+                    <a href="{% url 'core:admin-collaborateur-create' %}" class="btn btn-primary">
+                        <i class="ti ti-plus me-2"></i>{% trans "Nouvelle affectation" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Affectations prestataires sur mandats" %}</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Filters -->
+                    <form method="get" class="row g-3 mb-4">
+                        <div class="col-md-3">
+                            <select name="utilisateur" class="form-select">
+                                <option value="">{% trans "Tous les prestataires" %}</option>
+                                {% for p in prestataires %}
+                                <option value="{{ p.pk }}" {% if request.GET.utilisateur == p.pk|stringformat:'s' %}selected{% endif %}>{{ p.get_full_name|default:p.username }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select name="mandat" class="form-select">
+                                <option value="">{% trans "Tous les mandats" %}</option>
+                                {% for mandat in mandats %}
+                                <option value="{{ mandat.pk }}" {% if request.GET.mandat == mandat.pk|stringformat:'s' %}selected{% endif %}>{{ mandat.numero }} - {{ mandat.client.raison_sociale }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <select name="active" class="form-select">
+                                <option value="">{% trans "Tous statuts" %}</option>
+                                <option value="1" {% if request.GET.active == '1' %}selected{% endif %}>{% trans "Actifs" %}</option>
+                                <option value="0" {% if request.GET.active == '0' %}selected{% endif %}>{% trans "Inactifs" %}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">{% trans "Filtrer" %}</button>
+                        </div>
+                    </form>
+
+                    <!-- Table -->
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "Prestataire" %}</th>
+                                    <th>{% trans "Mandat" %}</th>
+                                    <th>{% trans "Client" %}</th>
+                                    <th>{% trans "Role" %}</th>
+                                    <th>{% trans "Periode" %}</th>
+                                    <th>{% trans "Taux horaire" %}</th>
+                                    <th>{% trans "Statut" %}</th>
+                                    <th>{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for collab in object_list %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'core:admin-user-detail' collab.utilisateur.pk %}">
+                                            {{ collab.utilisateur.get_full_name|default:collab.utilisateur.username }}
+                                        </a>
+                                        <br><small class="text-muted">{{ collab.utilisateur.email }}</small>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'core:mandat-detail' collab.mandat.pk %}">{{ collab.mandat.numero }}</a>
+                                    </td>
+                                    <td>{{ collab.mandat.client.raison_sociale }}</td>
+                                    <td>{{ collab.role_sur_mandat|default:"-" }}</td>
+                                    <td>
+                                        {{ collab.date_debut|date:"d/m/Y" }}
+                                        {% if collab.date_fin %} - {{ collab.date_fin|date:"d/m/Y" }}{% endif %}
+                                    </td>
+                                    <td>
+                                        {% if collab.taux_horaire %}
+                                        {{ DEVISE_CODE }} {{ collab.taux_horaire }}
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if collab.is_active %}
+                                        <span class="badge bg-success">{% trans "Actif" %}</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">{% trans "Inactif" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'core:admin-collaborateur-update' collab.pk %}" class="btn btn-outline-secondary" title="{% trans 'Modifier' %}">
+                                                <i class="ti ti-edit"></i>
+                                            </a>
+                                            <form method="post" action="{% url 'core:admin-collaborateur-toggle' collab.pk %}" class="d-inline">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-outline-{{ collab.is_active|yesno:'danger,success' }}" title="{{ collab.is_active|yesno:'Desactiver,Activer' }}">
+                                                    <i class="ti ti-{{ collab.is_active|yesno:'x,check' }}"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted py-4">
+                                        {% trans "Aucune affectation prestataire trouvee" %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if is_paginated %}
+                    <div class="list-pagination mt-3">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1{% if request.GET.utilisateur %}&utilisateur={{ request.GET.utilisateur }}{% endif %}{% if request.GET.mandat %}&mandat={{ request.GET.mandat }}{% endif %}{% if request.GET.active %}&active={{ request.GET.active }}{% endif %}">
+                                    <i class="ti ti-chevrons-left"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.utilisateur %}&utilisateur={{ request.GET.utilisateur }}{% endif %}{% if request.GET.mandat %}&mandat={{ request.GET.mandat }}{% endif %}{% if request.GET.active %}&active={{ request.GET.active }}{% endif %}">
+                                    <i class="ti ti-chevron-left"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+
+                            {% for num in page_obj.paginator.page_range %}
+                                {% if page_obj.number == num %}
+                                <li class="page-item active"><a class="page-link">{{ num }}</a></li>
+                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                <li class="page-item"><a class="page-link" href="?page={{ num }}{% if request.GET.utilisateur %}&utilisateur={{ request.GET.utilisateur }}{% endif %}{% if request.GET.mandat %}&mandat={{ request.GET.mandat }}{% endif %}{% if request.GET.active %}&active={{ request.GET.active }}{% endif %}">{{ num }}</a></li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.utilisateur %}&utilisateur={{ request.GET.utilisateur }}{% endif %}{% if request.GET.mandat %}&mandat={{ request.GET.mandat }}{% endif %}{% if request.GET.active %}&active={{ request.GET.active }}{% endif %}">
+                                    <i class="ti ti-chevron-right"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.utilisateur %}&utilisateur={{ request.GET.utilisateur }}{% endif %}{% if request.GET.mandat %}&mandat={{ request.GET.mandat }}{% endif %}{% if request.GET.active %}&active={{ request.GET.active }}{% endif %}">
+                                    <i class="ti ti-chevrons-right"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Templates Email" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h3>{% trans "Templates Email" %}</h3>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}"><i class="ti ti-home"></i></a></li>
+                        <li class="breadcrumb-item active">{% trans "Templates Email" %}</li>
+                    </ol>
+                </div>
+                <div class="page-header-right">
+                    <a href="{% url 'mailing:template-create' %}" class="btn btn-primary">
+                        <i class="ti ti-plus me-2"></i>{% trans "Nouveau template" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-4">
+                            <select name="type" class="form-select">
+                                <option value="">{% trans "Tous les types" %}</option>
+                                <option value="TRANSACTIONNEL" {% if request.GET.type == 'TRANSACTIONNEL' %}selected{% endif %}>{% trans "Transactionnel" %}</option>
+                                <option value="NOTIFICATION" {% if request.GET.type == 'NOTIFICATION' %}selected{% endif %}>{% trans "Notification" %}</option>
+                                <option value="MARKETING" {% if request.GET.type == 'MARKETING' %}selected{% endif %}>{% trans "Marketing" %}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select name="actif" class="form-select">
+                                <option value="">{% trans "Tous statuts" %}</option>
+                                <option value="1" {% if request.GET.actif == '1' %}selected{% endif %}>{% trans "Actifs" %}</option>
+                                <option value="0" {% if request.GET.actif == '0' %}selected{% endif %}>{% trans "Inactifs" %}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">{% trans "Filtrer" %}</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Templates Grid -->
+    <div class="row">
+        {% for template in templates %}
+        <div class="col-xl-4 col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-0">{{ template.nom }}</h6>
+                        <small class="text-muted">{{ template.code }}</small>
+                    </div>
+                    {% if template.actif %}
+                    <span class="badge bg-success">{% trans "Actif" %}</span>
+                    {% else %}
+                    <span class="badge bg-secondary">{% trans "Inactif" %}</span>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <span class="badge bg-{{ template.type_template|lower }}">
+                            {% if template.type_template == 'TRANSACTIONNEL' %}
+                            <i class="ti ti-mail me-1"></i>{% trans "Transactionnel" %}
+                            {% elif template.type_template == 'NOTIFICATION' %}
+                            <i class="ti ti-bell me-1"></i>{% trans "Notification" %}
+                            {% else %}
+                            <i class="ti ti-speakerphone me-1"></i>{% trans "Marketing" %}
+                            {% endif %}
+                        </span>
+                    </div>
+                    <p class="text-muted f-s-14 mb-3">
+                        <strong>{% trans "Sujet" %}:</strong><br>
+                        {{ template.sujet|truncatechars:60 }}
+                    </p>
+                    {% if template.configuration %}
+                    <p class="text-muted f-s-12 mb-0">
+                        <i class="ti ti-mail-cog me-1"></i>{{ template.configuration.nom }}
+                    </p>
+                    {% endif %}
+                </div>
+                <div class="card-footer bg-transparent">
+                    <div class="btn-group btn-group-sm w-100">
+                        <a href="{% url 'mailing:template-detail' template.pk %}" class="btn btn-outline-primary">
+                            <i class="ti ti-eye"></i> {% trans "Voir" %}
+                        </a>
+                        <a href="{% url 'mailing:template-preview' template.pk %}" class="btn btn-outline-info" target="_blank">
+                            <i class="ti ti-player-play"></i> {% trans "Preview" %}
+                        </a>
+                        <a href="{% url 'mailing:template-update' template.pk %}" class="btn btn-outline-secondary">
+                            <i class="ti ti-edit"></i> {% trans "Modifier" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="ti ti-template-off f-s-48 text-muted mb-3 d-block"></i>
+                    <h5 class="text-muted">{% trans "Aucun template email trouve" %}</h5>
+                    <p class="text-muted">{% trans "Creez votre premier template pour commencer a envoyer des emails." %}</p>
+                    <a href="{% url 'mailing:template-create' %}" class="btn btn-primary mt-3">
+                        <i class="ti ti-plus me-2"></i>{% trans "Creer un template" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <div class="list-pagination mt-3">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.actif %}&actif={{ request.GET.actif }}{% endif %}">
+                    <i class="ti ti-chevrons-left"></i>
+                </a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.actif %}&actif={{ request.GET.actif }}{% endif %}">
+                    <i class="ti ti-chevron-left"></i>
+                </a>
+            </li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <li class="page-item active"><a class="page-link">{{ num }}</a></li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li class="page-item"><a class="page-link" href="?page={{ num }}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.actif %}&actif={{ request.GET.actif }}{% endif %}">{{ num }}</a></li>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.actif %}&actif={{ request.GET.actif }}{% endif %}">
+                    <i class="ti ti-chevron-right"></i>
+                </a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.actif %}&actif={{ request.GET.actif }}{% endif %}">
+                    <i class="ti ti-chevrons-right"></i>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

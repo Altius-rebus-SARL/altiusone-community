@@ -1,0 +1,185 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load widget_tweaks %}
+
+{% block title %}{% trans "Nouvelle annexe fiscale" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Nouvelle annexe fiscale" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'fiscalite:declaration-list' %}">
+                    <span>{% trans "Déclarations" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'fiscalite:declaration-detail' declaration.pk %}">
+                    <span>{{ declaration.numero_declaration }}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Nouvelle annexe" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<form method="post" enctype="multipart/form-data" class="app-form">
+    {% csrf_token %}
+    
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                {{ form.non_field_errors }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endif %}
+
+            <!-- Info déclaration -->
+            <div class="card bg-light-primary">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <i class="ph ph-file-text text-primary f-s-48 me-3"></i>
+                        <div>
+                            <h6 class="mb-1">{{ declaration.numero_declaration }}</h6>
+                            <p class="text-muted f-s-14 mb-0">
+                                {{ declaration.mandat.client.raison_sociale }} - 
+                                {{ declaration.get_type_impot_display }} {{ declaration.annee_fiscale }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Informations de l'annexe -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-file-plus me-2"></i>{% trans "Informations de l'annexe" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Type d'annexe" %} <span class="text-danger">*</span></label>
+                                {{ form.type_annexe|add_class:"form-select" }}
+                                {% if form.type_annexe.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.type_annexe.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Titre" %} <span class="text-danger">*</span></label>
+                                {{ form.titre|add_class:"form-control" }}
+                                {% if form.titre.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.titre.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Données structurées (JSON)" %}</label>
+                                {{ form.donnees|add_class:"form-control" }}
+                                <small class="text-muted">{% trans "Format JSON pour données structurées" %}</small>
+                                {% if form.donnees.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.donnees.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Fichier" %}</label>
+                                {{ form.fichier|add_class:"form-control" }}
+                                <small class="text-muted">{% trans "PDF, Excel, Word..." %}</small>
+                                {% if form.fichier.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.fichier.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Exemples de données JSON -->
+            <div class="card bg-light-info">
+                <div class="card-body">
+                    <h6 class="text-info mb-3">
+                        <i class="ph ph-info me-2"></i>{% trans "Exemples de données JSON selon le type" %}
+                    </h6>
+                    <div class="accordion" id="accordionExamples">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#bilan">
+                                    {% trans "Bilan fiscal" %}
+                                </button>
+                            </h2>
+                            <div id="bilan" class="accordion-collapse collapse" data-bs-parent="#accordionExamples">
+                                <div class="accordion-body">
+                                    <pre class="bg-dark text-white p-3 rounded f-s-12"><code>{
+  "actif_circulant": 250000.00,
+  "actif_immobilise": 500000.00,
+  "passif_court_terme": 150000.00,
+  "passif_long_terme": 300000.00,
+  "capitaux_propres": 300000.00
+}</code></pre>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#amortissements">
+                                    {% trans "Tableau des amortissements" %}
+                                </button>
+                            </h2>
+                            <div id="amortissements" class="accordion-collapse collapse" data-bs-parent="#accordionExamples">
+                                <div class="accordion-body">
+                                    <pre class="bg-dark text-white p-3 rounded f-s-12"><code>{
+  "amortissements": [
+    {
+      "categorie": "Machines",
+      "valeur_acquisition": 100000.00,
+      "taux": 20,
+      "amortissement_annuel": 20000.00,
+      "valeur_residuelle": 60000.00
+    }
+  ]
+}</code></pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'fiscalite:declaration-detail' declaration.pk %}" class="btn btn-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ph ph-check me-2"></i>{% trans "Créer l'annexe" %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}

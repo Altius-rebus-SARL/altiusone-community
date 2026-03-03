@@ -1,0 +1,292 @@
+<!-- analytics/indicateur_detail.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ indicateur.nom }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{{ indicateur.nom }}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Accueil" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'analytics:indicateur-list' %}">{% trans "Indicateurs" %}</a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{{ indicateur.code }}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- KPI Header -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body text-center">
+                <p class="mb-1">{% trans "Dernière valeur" %}</p>
+                <h2 class="mb-0">
+                    {% if stats.derniere_valeur %}
+                    {{ stats.derniere_valeur|floatformat:indicateur.decimales }} {{ indicateur.unite }}
+                    {% else %}-{% endif %}
+                </h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body text-center">
+                <p class="text-muted mb-1">{% trans "Moyenne" %}</p>
+                <h3 class="mb-0">
+                    {% if stats.moyenne %}
+                    {{ stats.moyenne|floatformat:indicateur.decimales }} {{ indicateur.unite }}
+                    {% else %}-{% endif %}
+                </h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body text-center">
+                <p class="text-muted mb-1">{% trans "Minimum" %}</p>
+                <h3 class="mb-0 text-danger">
+                    {% if stats.min %}
+                    {{ stats.min|floatformat:indicateur.decimales }} {{ indicateur.unite }}
+                    {% else %}-{% endif %}
+                </h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body text-center">
+                <p class="text-muted mb-1">{% trans "Maximum" %}</p>
+                <h3 class="mb-0 text-success">
+                    {% if stats.max %}
+                    {{ stats.max|floatformat:indicateur.decimales }} {{ indicateur.unite }}
+                    {% else %}-{% endif %}
+                </h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Graphique d'évolution -->
+    <div class="col-lg-8 mb-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>{% trans "Évolution" %}</h5>
+                <div class="btn-group btn-group-sm">
+                    <button type="button" class="btn btn-light-primary active">{% trans "6 mois" %}</button>
+                    <button type="button" class="btn btn-light-secondary">{% trans "1 an" %}</button>
+                    <button type="button" class="btn btn-light-secondary">{% trans "Tout" %}</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <canvas id="evolutionChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Détails de l'indicateur -->
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Configuration" %}</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-borderless table-sm">
+                    <tr>
+                        <td class="text-muted">{% trans "Code" %}</td>
+                        <td class="text-end"><strong>{{ indicateur.code }}</strong></td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">{% trans "Catégorie" %}</td>
+                        <td class="text-end">
+                            <span class="badge bg-light-primary">{{ indicateur.get_categorie_display }}</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">{% trans "Type de calcul" %}</td>
+                        <td class="text-end">{{ indicateur.get_type_calcul_display }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">{% trans "Périodicité" %}</td>
+                        <td class="text-end">{{ indicateur.periodicite_ref.libelle|default:indicateur.get_periodicite_display }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">{% trans "Unité" %}</td>
+                        <td class="text-end">{{ indicateur.unite|default:"-" }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">{% trans "Décimales" %}</td>
+                        <td class="text-end">{{ indicateur.decimales }}</td>
+                    </tr>
+                </table>
+
+                <hr>
+
+                <h6>{% trans "Objectifs" %}</h6>
+                <table class="table table-borderless table-sm">
+                    <tr>
+                        <td class="text-muted">{% trans "Objectif minimum" %}</td>
+                        <td class="text-end">{{ indicateur.objectif_min|default:"-" }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">{% trans "Objectif cible" %}</td>
+                        <td class="text-end text-primary"><strong>{{ indicateur.objectif_cible|default:"-" }}</strong></td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">{% trans "Objectif maximum" %}</td>
+                        <td class="text-end">{{ indicateur.objectif_max|default:"-" }}</td>
+                    </tr>
+                </table>
+
+                <hr>
+
+                <h6>{% trans "Seuils d'alerte" %}</h6>
+                <table class="table table-borderless table-sm">
+                    <tr>
+                        <td class="text-muted">{% trans "Seuil bas" %}</td>
+                        <td class="text-end text-danger">{{ indicateur.seuil_alerte_bas|default:"-" }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">{% trans "Seuil haut" %}</td>
+                        <td class="text-end text-success">{{ indicateur.seuil_alerte_haut|default:"-" }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Historique des valeurs -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Historique des mesures" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bottom-border align-middle">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Date" %}</th>
+                                <th>{% trans "Période" %}</th>
+                                <th class="text-end">{% trans "Valeur" %}</th>
+                                <th class="text-end">{% trans "Variation" %}</th>
+                                <th class="text-center">{% trans "Objectif" %}</th>
+                                <th>{% trans "Mandat" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for valeur in valeurs %}
+                            <tr>
+                                <td>{{ valeur.date_mesure|date:"d.m.Y" }}</td>
+                                <td>
+                                    {% if valeur.periode_debut and valeur.periode_fin %}
+                                    {{ valeur.periode_debut|date:"d.m" }} - {{ valeur.periode_fin|date:"d.m.Y" }}
+                                    {% else %}-{% endif %}
+                                </td>
+                                <td class="text-end f-w-600">
+                                    {{ valeur.valeur|floatformat:indicateur.decimales }} {{ indicateur.unite }}
+                                </td>
+                                <td class="text-end">
+                                    {% if valeur.variation_pourcent %}
+                                    <span class="{% if valeur.variation_pourcent > 0 %}text-success{% elif valeur.variation_pourcent < 0 %}text-danger{% endif %}">
+                                        {% if valeur.variation_pourcent > 0 %}+{% endif %}{{ valeur.variation_pourcent|floatformat:1 }}%
+                                        {% if valeur.variation_pourcent > 0 %}
+                                        <i class="ph ph-trend-up"></i>
+                                        {% elif valeur.variation_pourcent < 0 %}
+                                        <i class="ph ph-trend-down"></i>
+                                        {% endif %}
+                                    </span>
+                                    {% else %}-{% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if valeur.atteint_objectif == True %}
+                                    <span class="badge bg-success"><i class="ph ph-check"></i></span>
+                                    {% elif valeur.atteint_objectif == False %}
+                                    <span class="badge bg-danger"><i class="ph ph-x"></i></span>
+                                    {% else %}-{% endif %}
+                                </td>
+                                <td>{{ valeur.mandat.numero|default:"-" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-muted">
+                                    {% trans "Aucune mesure enregistrée" %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const evolutionData = {{ evolution|safe }};
+
+const ctx = document.getElementById('evolutionChart').getContext('2d');
+new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: evolutionData.map(d => d.date),
+        datasets: [
+            {
+                label: '{{ indicateur.nom }}',
+                data: evolutionData.map(d => d.valeur),
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                fill: true,
+                tension: 0.4
+            },
+            {% if indicateur.objectif_cible %}
+            {
+                label: '{% trans "Objectif" %}',
+                data: evolutionData.map(d => d.objectif),
+                borderColor: '#10b981',
+                borderDash: [5, 5],
+                fill: false,
+                pointRadius: 0
+            }
+            {% endif %}
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: false,
+                ticks: {
+                    callback: function(value) {
+                        return value + ' {{ indicateur.unite }}';
+                    }
+                }
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

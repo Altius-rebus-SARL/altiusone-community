@@ -1,0 +1,579 @@
+<!-- core/client_form.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}
+    {% if form.instance.pk %}{% trans "Modifier client" %}{% else %}{% trans "Nouveau client" %}{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .autocomplete-container {
+        position: relative;
+    }
+    .autocomplete-results {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        z-index: 1050;
+        background: var(--bs-body-bg, #fff);
+        border: 1px solid var(--bs-border-color, #dee2e6);
+        border-top: none;
+        border-radius: 0 0 0.375rem 0.375rem;
+        max-height: 300px;
+        overflow-y: auto;
+        display: none;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .autocomplete-results.show {
+        display: block;
+    }
+    .autocomplete-item {
+        padding: 0.75rem 1rem;
+        cursor: pointer;
+        border-bottom: 1px solid var(--bs-border-color, #eee);
+    }
+    .autocomplete-item:last-child {
+        border-bottom: none;
+    }
+    .autocomplete-item:hover,
+    .autocomplete-item.active {
+        background-color: var(--bs-primary-bg-subtle, #e7f1ff);
+    }
+    .autocomplete-item .company-name {
+        font-weight: 600;
+        color: var(--bs-body-color);
+    }
+    .autocomplete-item .company-details {
+        font-size: 0.85rem;
+        color: var(--bs-secondary-color, #6c757d);
+    }
+    .autocomplete-item .company-ide {
+        font-family: monospace;
+        color: var(--bs-primary);
+    }
+    .autocomplete-loading {
+        padding: 1rem;
+        text-align: center;
+        color: var(--bs-secondary-color, #6c757d);
+    }
+    .autocomplete-no-results {
+        padding: 1rem;
+        text-align: center;
+        color: var(--bs-secondary-color, #6c757d);
+        font-style: italic;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h4 class="text-primary mb-4">
+                    {% if form.instance.pk %}
+                        {% trans "Modifier client" %}
+                    {% else %}
+                        {% trans "Nouveau client" %}
+                    {% endif %}
+                </h4>
+
+                {% if not form.instance.pk %}
+                <div class="alert alert-info mb-4">
+                    <i class="ti ti-info-circle me-2"></i>
+                    {% trans "Commencez à taper le nom de l'entreprise pour rechercher dans le registre suisse (Zefix)" %}
+                </div>
+                {% endif %}
+
+                <form method="post" enctype="multipart/form-data" class="app-form">
+                    {% csrf_token %}
+
+                    <div class="row">
+                        <!-- Raison sociale avec autocomplete -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.raison_sociale.id_for_label }}" class="form-label">
+                                    {{ form.raison_sociale.label }} <span class="text-danger">*</span>
+                                </label>
+                                <div class="autocomplete-container">
+                                    {{ form.raison_sociale }}
+                                    <div id="autocomplete-results" class="autocomplete-results"></div>
+                                </div>
+                                <small class="text-muted">{% trans "Tapez au moins 3 caractères pour rechercher" %}</small>
+                                {% if form.raison_sociale.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.raison_sociale.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Forme juridique -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.forme_juridique.id_for_label }}" class="form-label">
+                                    {{ form.forme_juridique.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.forme_juridique }}
+                                {% if form.forme_juridique.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.forme_juridique.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Entreprise -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.entreprise.id_for_label }}" class="form-label">
+                                    {{ form.entreprise.label }}
+                                </label>
+                                {{ form.entreprise }}
+                                {% if form.entreprise.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.entreprise.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- IDE Number -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.ide_number.id_for_label }}" class="form-label">
+                                    {{ form.ide_number.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.ide_number }}
+                                <small class="text-muted">Format: CHE-123.456.789</small>
+                                {% if form.ide_number.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.ide_number.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- CH-ID -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.ch_id.id_for_label }}" class="form-label">
+                                    {{ form.ch_id.label }}
+                                </label>
+                                {{ form.ch_id }}
+                                <small class="text-muted">Format: CH-XXX-XXXXXXX-X</small>
+                                {% if form.ch_id.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.ch_id.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- OFRC-ID -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.ofrc_id.id_for_label }}" class="form-label">
+                                    {{ form.ofrc_id.label }}
+                                </label>
+                                {{ form.ofrc_id }}
+                                {% if form.ofrc_id.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.ofrc_id.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Adresse du siège -->
+                    <h5 class="text-primary mt-4 mb-3">{% trans "Adresse du siège" %}</h5>
+                    {% include "includes/adresse_fields.html" with prefix="adresse" adresse_form=adresse_form %}
+
+                    <div class="row">
+                        <!-- Email -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.email.id_for_label }}" class="form-label">
+                                    {{ form.email.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.email }}
+                                {% if form.email.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.email.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Téléphone -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.telephone.id_for_label }}" class="form-label">
+                                    {{ form.telephone.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.telephone }}
+                                {% if form.telephone.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.telephone.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Logo -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.logo.id_for_label }}" class="form-label">
+                                    {{ form.logo.label }}
+                                </label>
+                                {% if form.instance.logo %}
+                                <div class="mb-2">
+                                    <img src="{{ form.instance.logo.url }}" alt="Logo" style="max-height: 50px;" class="border rounded p-1">
+                                </div>
+                                {% endif %}
+                                {{ form.logo }}
+                                {% if form.logo.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.logo.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Date création -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.date_creation.id_for_label }}" class="form-label">
+                                    {{ form.date_creation.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.date_creation }}
+                                {% if form.date_creation.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.date_creation.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Statut -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.statut.id_for_label }}" class="form-label">
+                                    {{ form.statut.label }}
+                                </label>
+                                {{ form.statut }}
+                                {% if form.statut.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.statut.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Description -->
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label for="{{ form.description.id_for_label }}" class="form-label">
+                                    {{ form.description.label }}
+                                </label>
+                                {{ form.description }}
+                                {% if form.description.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.description.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <a href="{% if form.instance.pk %}{% url 'core:client-detail' form.instance.pk %}{% else %}{% url 'core:client-list' %}{% endif %}" 
+                           class="btn btn-secondary">
+                            <i class="ti ti-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ti ti-check me-2"></i>{% trans "Enregistrer" %}
+                        </button>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const raisonSocialeInput = document.getElementById('{{ form.raison_sociale.id_for_label }}');
+    const ideInput = document.getElementById('{{ form.ide_number.id_for_label }}');
+    const chIdInput = document.getElementById('{{ form.ch_id.id_for_label }}');
+    const ofrcIdInput = document.getElementById('{{ form.ofrc_id.id_for_label }}');
+    const rueInput = document.getElementById('{{ adresse_form.rue.id_for_label }}');
+    const numeroInput = document.getElementById('{{ adresse_form.numero.id_for_label }}');
+    const cantonSelect = document.getElementById('{{ adresse_form.canton.id_for_label }}');
+    const npaInput = document.getElementById('{{ adresse_form.code_postal.id_for_label }}');
+    const localiteInput = document.getElementById('{{ adresse_form.localite.id_for_label }}');
+    const formeJuridiqueSelect = document.getElementById('{{ form.forme_juridique.id_for_label }}');
+    const resultsContainer = document.getElementById('autocomplete-results');
+
+    if (!raisonSocialeInput || !resultsContainer) return;
+
+    let debounceTimer = null;
+    let currentResults = [];
+    let selectedIndex = -1;
+
+    // Debounced search function
+    function searchCompanies(query) {
+        if (query.length < 3) {
+            hideResults();
+            return;
+        }
+
+        showLoading();
+
+        fetch(`/api/v1/clients/search_swiss/?q=${encodeURIComponent(query)}&limit=10`, {
+            headers: {
+                'Accept': 'application/json',
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Network error');
+            return response.json();
+        })
+        .then(data => {
+            currentResults = data.results || [];
+            renderResults(currentResults);
+        })
+        .catch(error => {
+            console.error('Autocomplete error:', error);
+            showNoResults("{% trans 'Erreur de recherche' %}");
+        });
+    }
+
+    function showLoading() {
+        resultsContainer.innerHTML = '<div class="autocomplete-loading"><i class="ti ti-loader ti-spin me-2"></i>{% trans "Recherche..." %}</div>';
+        resultsContainer.classList.add('show');
+    }
+
+    function showNoResults(message) {
+        resultsContainer.innerHTML = `<div class="autocomplete-no-results">${message || "{% trans 'Aucun résultat trouvé' %}"}</div>`;
+        resultsContainer.classList.add('show');
+    }
+
+    function hideResults() {
+        resultsContainer.classList.remove('show');
+        selectedIndex = -1;
+    }
+
+    function renderResults(companies) {
+        if (companies.length === 0) {
+            showNoResults();
+            return;
+        }
+
+        let html = '';
+        companies.forEach((company, index) => {
+            const address = company.address ?
+                `${company.address.street || ''} ${company.address.number || ''}, ${company.address.postal_code || ''} ${company.address.city || ''}`.trim() :
+                '';
+
+            html += `
+                <div class="autocomplete-item" data-index="${index}">
+                    <div class="company-name">${escapeHtml(company.name)}</div>
+                    <div class="company-details">
+                        <span class="company-ide">${escapeHtml(company.ide_number)}</span>
+                        ${company.legal_form ? ` - ${escapeHtml(company.legal_form)}` : ''}
+                        ${address ? `<br>${escapeHtml(address)}` : ''}
+                    </div>
+                </div>
+            `;
+        });
+
+        resultsContainer.innerHTML = html;
+        resultsContainer.classList.add('show');
+
+        // Add click handlers
+        resultsContainer.querySelectorAll('.autocomplete-item').forEach(item => {
+            item.addEventListener('click', () => selectCompany(parseInt(item.dataset.index)));
+        });
+    }
+
+    function selectCompany(index) {
+        const company = currentResults[index];
+        if (!company) return;
+
+        // Fill form fields
+        raisonSocialeInput.value = company.name;
+
+        if (ideInput) {
+            ideInput.value = company.ide_number;
+        }
+
+        // Fill CH-ID (format: CH62640200449 -> CH-626-4020044-9)
+        if (chIdInput && company.ch_id) {
+            let chid = company.ch_id.replace('CH', '');
+            if (chid.length >= 10) {
+                chIdInput.value = `CH-${chid.slice(0,3)}-${chid.slice(3,10)}-${chid.slice(10)}`;
+            } else {
+                chIdInput.value = company.ch_id;
+            }
+        }
+
+        // Fill OFRC-ID
+        if (ofrcIdInput && company.ofrc_id) {
+            ofrcIdInput.value = company.ofrc_id;
+        }
+
+        // Fill address fields from Zefix data
+        if (company.address) {
+            if (rueInput && company.address.street) {
+                rueInput.value = company.address.street;
+            }
+            if (numeroInput && company.address.number) {
+                numeroInput.value = company.address.number;
+            }
+            if (npaInput && company.address.postal_code) {
+                npaInput.value = company.address.postal_code;
+            }
+            if (localiteInput && company.address.city) {
+                localiteInput.value = company.address.city;
+            }
+        }
+
+        // Fill Canton
+        if (cantonSelect && company.canton) {
+            const option = cantonSelect.querySelector(`option[value="${company.canton}"]`);
+            if (option) {
+                cantonSelect.value = company.canton;
+            }
+        }
+
+        // Map legal form from Zefix code to our form values
+        if (formeJuridiqueSelect) {
+            // eCH-0097 legal form codes mapping
+            const legalFormCodeMap = {
+                '0101': 'EI',      // Entreprise individuelle
+                '0103': 'SNC',     // Société en nom collectif
+                '0104': 'SC',      // Société en commandite
+                '0105': 'SC',      // Société en commandite par actions
+                '0106': 'SA',      // Société anonyme
+                '0107': 'SARL',    // Société à responsabilité limitée
+                '0108': 'COOP',    // Société coopérative
+                '0109': 'ASSOC',   // Association
+                '0110': 'FOND',    // Fondation
+            };
+
+            // Try to match by code first
+            let matched = false;
+            if (company.legal_form_code) {
+                const formValue = legalFormCodeMap[company.legal_form_code];
+                if (formValue) {
+                    const option = formeJuridiqueSelect.querySelector(`option[value="${formValue}"]`);
+                    if (option) {
+                        formeJuridiqueSelect.value = formValue;
+                        matched = true;
+                    }
+                }
+            }
+
+            // Fallback: extract from company name
+            if (!matched) {
+                const name = company.name.toUpperCase();
+                const patterns = [
+                    { pattern: /\bSA\b/, value: 'SA' },
+                    { pattern: /\bAG\b/, value: 'SA' },
+                    { pattern: /\bSÀRL\b|\bSARL\b/, value: 'SARL' },
+                    { pattern: /\bGMBH\b/, value: 'SARL' },
+                    { pattern: /\bSNC\b/, value: 'SNC' },
+                ];
+                for (const { pattern, value } of patterns) {
+                    if (pattern.test(name)) {
+                        const option = formeJuridiqueSelect.querySelector(`option[value="${value}"]`);
+                        if (option) {
+                            formeJuridiqueSelect.value = value;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        hideResults();
+
+        // Visual feedback for all filled fields
+        const filledFields = [raisonSocialeInput, ideInput, chIdInput, ofrcIdInput, rueInput, numeroInput, npaInput, localiteInput].filter(f => f && f.value);
+        filledFields.forEach(field => field.classList.add('is-valid'));
+        setTimeout(() => {
+            filledFields.forEach(field => field.classList.remove('is-valid'));
+        }, 2000);
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Input event with debounce
+    raisonSocialeInput.addEventListener('input', function() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            searchCompanies(this.value.trim());
+        }, 300);
+    });
+
+    // Keyboard navigation
+    raisonSocialeInput.addEventListener('keydown', function(e) {
+        const items = resultsContainer.querySelectorAll('.autocomplete-item');
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+            updateSelection(items);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            selectedIndex = Math.max(selectedIndex - 1, 0);
+            updateSelection(items);
+        } else if (e.key === 'Enter' && selectedIndex >= 0) {
+            e.preventDefault();
+            selectCompany(selectedIndex);
+        } else if (e.key === 'Escape') {
+            hideResults();
+        }
+    });
+
+    function updateSelection(items) {
+        items.forEach((item, index) => {
+            item.classList.toggle('active', index === selectedIndex);
+            if (index === selectedIndex) {
+                item.scrollIntoView({ block: 'nearest' });
+            }
+        });
+    }
+
+    // Hide results when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!raisonSocialeInput.contains(e.target) && !resultsContainer.contains(e.target)) {
+            hideResults();
+        }
+    });
+
+    // Show results when focusing on input with existing value
+    raisonSocialeInput.addEventListener('focus', function() {
+        if (currentResults.length > 0 && this.value.length >= 3) {
+            resultsContainer.classList.add('show');
+        }
+    });
+});
+</script>
+{% endblock %}

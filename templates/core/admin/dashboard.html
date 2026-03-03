@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Administration" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h3>{% trans "Administration" %}</h3>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}"><i class="ti ti-home"></i></a></li>
+                        <li class="breadcrumb-item active">{% trans "Administration" %}</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row">
+        <div class="col-xl-3 col-sm-6">
+            <div class="card widget-1">
+                <div class="card-body">
+                    <div class="widget-content">
+                        <div class="widget-round primary">
+                            <i class="ti ti-users"></i>
+                        </div>
+                        <div>
+                            <h4>{{ user_stats.total }}</h4>
+                            <span>{% trans "Utilisateurs" %}</span>
+                        </div>
+                    </div>
+                    <div class="widget-icon">
+                        <span class="text-success f-w-600">{{ user_stats.actifs }}</span>
+                        <span class="text-muted f-s-12">{% trans "actifs" %}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-sm-6">
+            <div class="card widget-1">
+                <div class="card-body">
+                    <div class="widget-content">
+                        <div class="widget-round success">
+                            <i class="ti ti-user-shield"></i>
+                        </div>
+                        <div>
+                            <h4>{{ user_stats.staff }}</h4>
+                            <span>{% trans "Collaborateurs" %}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-sm-6">
+            <div class="card widget-1">
+                <div class="card-body">
+                    <div class="widget-content">
+                        <div class="widget-round warning">
+                            <i class="ti ti-user-check"></i>
+                        </div>
+                        <div>
+                            <h4>{{ user_stats.clients }}</h4>
+                            <span>{% trans "Clients externes" %}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-sm-6">
+            <div class="card widget-1">
+                <div class="card-body">
+                    <div class="widget-content">
+                        <div class="widget-round info">
+                            <i class="ti ti-mail"></i>
+                        </div>
+                        <div>
+                            <h4>{{ invitation_stats.en_attente }}</h4>
+                            <span>{% trans "Invitations en attente" %}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Actions rapides" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex flex-wrap gap-2">
+                        <a href="{% url 'core:admin-user-create' %}" class="btn btn-primary">
+                            <i class="ti ti-user-plus me-2"></i>{% trans "Nouvel utilisateur" %}
+                        </a>
+                        <a href="{% url 'core:admin-invitation-staff-create' %}" class="btn btn-success">
+                            <i class="ti ti-mail-forward me-2"></i>{% trans "Inviter collaborateur" %}
+                        </a>
+                        <a href="{% url 'core:admin-invitation-client-create' %}" class="btn btn-warning">
+                            <i class="ti ti-user-plus me-2"></i>{% trans "Inviter client" %}
+                        </a>
+                        <a href="{% url 'core:admin-role-list' %}" class="btn btn-secondary">
+                            <i class="ti ti-shield me-2"></i>{% trans "Gestion des roles" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Recent Users -->
+        <div class="col-xl-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Derniers utilisateurs" %}</h5>
+                    <a href="{% url 'core:admin-user-list' %}" class="btn btn-sm btn-outline-primary">
+                        {% trans "Voir tout" %}
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "Utilisateur" %}</th>
+                                    <th>{% trans "Type" %}</th>
+                                    <th>{% trans "Date inscription" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in derniers_utilisateurs %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'core:admin-user-detail' user.pk %}">
+                                            {{ user.get_full_name|default:user.username }}
+                                        </a>
+                                        <br><small class="text-muted">{{ user.email }}</small>
+                                    </td>
+                                    <td>
+                                        {% if user.type_utilisateur == 'STAFF' %}
+                                        <span class="badge bg-primary">{% trans "Staff" %}</span>
+                                        {% else %}
+                                        <span class="badge bg-warning">{% trans "Client" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ user.date_joined|date:"d/m/Y" }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="3" class="text-center text-muted">{% trans "Aucun utilisateur" %}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pending Invitations -->
+        <div class="col-xl-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Invitations en attente" %}</h5>
+                    <a href="{% url 'core:admin-invitation-list' %}" class="btn btn-sm btn-outline-primary">
+                        {% trans "Voir tout" %}
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "Email" %}</th>
+                                    <th>{% trans "Type" %}</th>
+                                    <th>{% trans "Expire" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for invitation in invitations_en_attente %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'core:admin-invitation-detail' invitation.pk %}">
+                                            {{ invitation.email }}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        {% if invitation.type_invitation == 'STAFF' %}
+                                        <span class="badge bg-primary">{% trans "Staff" %}</span>
+                                        {% else %}
+                                        <span class="badge bg-warning">{% trans "Client" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ invitation.date_expiration|date:"d/m/Y" }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="3" class="text-center text-muted">{% trans "Aucune invitation en attente" %}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,261 @@
+{% load i18n %}
+
+<!-- D3.js -->
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="text-primary mb-0">
+            <i class="ti ti-chart-gantt me-2"></i>{% trans "Timeline" %}
+        </h5>
+        <div class="btn-group btn-group-sm" id="ganttZoomGroup">
+            <button class="btn btn-light-primary" data-zoom="week">{% trans "Semaine" %}</button>
+            <button class="btn btn-light-primary active" data-zoom="month">{% trans "Mois" %}</button>
+            <button class="btn btn-light-primary" data-zoom="quarter">{% trans "Trimestre" %}</button>
+        </div>
+    </div>
+    <div class="card-body">
+        <div id="ganttChart" style="min-height:400px; overflow-x:auto"></div>
+        <div id="ganttEmpty" class="text-center py-5 text-muted" style="display:none">
+            <i class="ti ti-chart-gantt f-s-40 mb-2 d-block"></i>
+            {% trans "Aucune donnée de planning. Ajoutez des positions et opérations avec des dates pour voir la timeline." %}
+        </div>
+    </div>
+</div>
+
+<!-- Tooltip -->
+<div id="ganttTooltip" style="position:fixed;pointer-events:none;opacity:0;transition:opacity .15s;
+     background:#fff;border:1px solid #dee2e6;border-radius:6px;padding:8px 12px;
+     box-shadow:0 4px 12px rgba(0,0,0,.15);font-size:12px;z-index:9999;max-width:280px"></div>
+
+<script>
+(function() {
+    const dataUrl = '{% url "projets:gantt-data" mandat.pk %}';
+    const COLORS = ['#088178','#2c3e50','#27ae60','#c0392b','#8e44ad','#f39c12','#2980b9','#e74c3c'];
+    const LABEL_TODAY = "Aujourd'hui";
+    const LABEL_ASSIGNED = "Assigné";
+
+    fetch(dataUrl, { headers: {'X-Requested-With': 'XMLHttpRequest'} })
+    .then(r => r.json())
+    .then(data => {
+        if (!data.series || data.series.length === 0) {
+            document.getElementById('ganttEmpty').style.display = '';
+            return;
+        }
+
+        // Flatten data into rows
+        const rows = [];
+        data.series.forEach((serie, si) => {
+            const color = COLORS[si % COLORS.length];
+            serie.data.forEach(dp => {
+                rows.push({
+                    label: dp.x,
+                    start: new Date(dp.y[0]),
+                    end: new Date(dp.y[1]),
+                    color: dp.fillColor || color,
+                    group: serie.name,
+                    meta: dp.meta || {},
+                    isPosition: (dp.meta && dp.meta.type === 'position'),
+                });
+            });
+        });
+
+        const today = new Date(data.today);
+        let currentZoom = 'month';
+
+        function getZoomRange(zoom) {
+            const t = new Date(today);
+            let min, max;
+            switch(zoom) {
+                case 'week':
+                    min = new Date(t); min.setDate(min.getDate() - 7);
+                    max = new Date(t); max.setDate(max.getDate() + 21);
+                    break;
+                case 'month':
+                    min = new Date(t); min.setMonth(min.getMonth() - 1);
+                    max = new Date(t); max.setMonth(max.getMonth() + 2);
+                    break;
+                case 'quarter':
+                    min = new Date(t); min.setMonth(min.getMonth() - 3);
+                    max = new Date(t); max.setMonth(max.getMonth() + 6);
+                    break;
+            }
+            return [min, max];
+        }
+
+        function renderGantt(zoom) {
+            const container = document.getElementById('ganttChart');
+            container.innerHTML = '';
+
+            const margin = {top: 30, right: 30, bottom: 30, left: 220};
+            const barHeight = 26;
+            const barGap = 4;
+            const groupGap = 10;
+
+            // Group rows by serie name
+            const groups = [];
+            const groupMap = new Map();
+            rows.forEach(r => {
+                if (!groupMap.has(r.group)) {
+                    groupMap.set(r.group, []);
+                    groups.push(r.group);
+                }
+                groupMap.get(r.group).push(r);
+            });
+
+            // Calculate height
+            let totalRows = 0;
+            groups.forEach(g => { totalRows += groupMap.get(g).length; });
+            const height = margin.top + margin.bottom + totalRows * (barHeight + barGap) + groups.length * groupGap;
+            const width = Math.max(container.clientWidth, 600);
+
+            const [zoomMin, zoomMax] = getZoomRange(zoom);
+            const xScale = d3.scaleTime()
+                .domain([zoomMin, zoomMax])
+                .range([margin.left, width - margin.right]);
+
+            const svg = d3.select(container)
+                .append('svg')
+                .attr('width', width)
+                .attr('height', height)
+                .style('font-family', 'inherit');
+
+            // X axis
+            const tickFormat = zoom === 'quarter' ? d3.timeFormat('%b %Y') : d3.timeFormat('%d %b');
+            const tickCount = zoom === 'week' ? d3.timeDay.every(2) : zoom === 'month' ? d3.timeWeek.every(1) : d3.timeMonth.every(1);
+            svg.append('g')
+                .attr('transform', `translate(0,${margin.top})`)
+                .call(d3.axisTop(xScale).ticks(tickCount).tickFormat(tickFormat))
+                .selectAll('text')
+                .style('font-size', '11px');
+
+            // Grid lines
+            svg.append('g')
+                .attr('transform', `translate(0,${margin.top})`)
+                .call(d3.axisTop(xScale).ticks(tickCount).tickSize(-(height - margin.top - margin.bottom)).tickFormat(''))
+                .selectAll('line')
+                .style('stroke', '#f0f0f0')
+                .style('stroke-dasharray', '2,2');
+            svg.select('.domain').remove();
+
+            // Today line
+            const todayX = xScale(today);
+            if (todayX >= margin.left && todayX <= width - margin.right) {
+                svg.append('line')
+                    .attr('x1', todayX).attr('x2', todayX)
+                    .attr('y1', margin.top).attr('y2', height - margin.bottom)
+                    .style('stroke', '#c0392b').style('stroke-width', 2);
+                svg.append('text')
+                    .attr('x', todayX + 4).attr('y', margin.top + 14)
+                    .text(LABEL_TODAY)
+                    .style('fill', '#c0392b').style('font-size', '10px').style('font-weight', '600');
+            }
+
+            // Tooltip
+            const tooltip = document.getElementById('ganttTooltip');
+
+            // Draw bars
+            let yPos = margin.top + 12;
+            groups.forEach(groupName => {
+                const items = groupMap.get(groupName);
+
+                // Group separator label
+                svg.append('text')
+                    .attr('x', 8).attr('y', yPos + barHeight / 2 + 1)
+                    .text(groupName)
+                    .style('font-size', '10px').style('fill', '#999').style('font-weight', '600')
+                    .style('text-transform', 'uppercase');
+
+                yPos += groupGap;
+
+                items.forEach(row => {
+                    const x1 = xScale(row.start);
+                    const x2 = xScale(row.end);
+                    const barW = Math.max(x2 - x1, 2);
+                    const clampedX = Math.max(x1, margin.left);
+                    const clampedW = Math.min(barW - (clampedX - x1), width - margin.right - clampedX);
+
+                    if (clampedW > 0) {
+                        const bar = svg.append('rect')
+                            .attr('x', clampedX)
+                            .attr('y', yPos)
+                            .attr('width', clampedW)
+                            .attr('height', barHeight)
+                            .attr('rx', row.isPosition ? 4 : 3)
+                            .attr('fill', row.color)
+                            .attr('opacity', row.isPosition ? 0.9 : 0.75)
+                            .style('cursor', 'pointer');
+
+                        if (row.meta.overdue) {
+                            bar.attr('stroke', '#c0392b').attr('stroke-width', 2).attr('stroke-dasharray', '4,2');
+                        }
+
+                        bar.on('mouseenter', function(event) {
+                            d3.select(this).attr('opacity', 1);
+                            const fmtDate = d => d.toLocaleDateString('fr-CH');
+                            let html = '<strong>' + row.label + '</strong><br>';
+                            html += '<small>' + fmtDate(row.start) + ' – ' + fmtDate(row.end) + '</small>';
+                            if (row.meta.assigne) html += '<br><small>' + LABEL_ASSIGNED + ': ' + row.meta.assigne + '</small>';
+                            if (row.meta.statut) html += '<br><span style="display:inline-block;padding:1px 6px;border-radius:3px;background:#e9ecef;font-size:11px;margin-top:2px">' + row.meta.statut + '</span>';
+                            tooltip.innerHTML = html;
+                            tooltip.style.opacity = '1';
+                        })
+                        .on('mousemove', function(event) {
+                            tooltip.style.left = (event.clientX + 12) + 'px';
+                            tooltip.style.top = (event.clientY - 10) + 'px';
+                        })
+                        .on('mouseleave', function() {
+                            d3.select(this).attr('opacity', row.isPosition ? 0.9 : 0.75);
+                            tooltip.style.opacity = '0';
+                        });
+                    }
+
+                    // Label on the bar or to the left
+                    const labelX = Math.max(clampedX + 6, margin.left + 6);
+                    if (clampedW > 40) {
+                        svg.append('text')
+                            .attr('x', labelX)
+                            .attr('y', yPos + barHeight / 2 + 4)
+                            .text(row.label.length > 30 ? row.label.substring(0, 28) + '…' : row.label)
+                            .style('fill', '#fff').style('font-size', '11px').style('font-weight', row.isPosition ? '600' : '400')
+                            .style('pointer-events', 'none');
+                    } else {
+                        // Label to the left in the margin
+                        svg.append('text')
+                            .attr('x', margin.left - 6)
+                            .attr('y', yPos + barHeight / 2 + 4)
+                            .attr('text-anchor', 'end')
+                            .text(row.label.length > 25 ? row.label.substring(0, 23) + '…' : row.label)
+                            .style('fill', '#555').style('font-size', '11px').style('font-weight', row.isPosition ? '600' : '400')
+                            .style('pointer-events', 'none');
+                    }
+
+                    yPos += barHeight + barGap;
+                });
+            });
+
+            // Legend
+            const legend = svg.append('g').attr('transform', `translate(${margin.left}, ${height - 10})`);
+            data.series.forEach((serie, i) => {
+                const lx = i * 150;
+                legend.append('rect').attr('x', lx).attr('y', 0).attr('width', 12).attr('height', 12).attr('rx', 2)
+                    .attr('fill', COLORS[i % COLORS.length]);
+                legend.append('text').attr('x', lx + 16).attr('y', 10)
+                    .text(serie.name).style('font-size', '11px').style('fill', '#555');
+            });
+        }
+
+        renderGantt(currentZoom);
+
+        // Zoom buttons
+        document.querySelectorAll('#ganttZoomGroup button').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('#ganttZoomGroup button').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                currentZoom = this.dataset.zoom;
+                renderGantt(currentZoom);
+            });
+        });
+    });
+})();
+</script>

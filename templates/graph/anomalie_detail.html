@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}AltiusOne | {% trans "Anomalie" %}: {{ anomalie.titre|truncatewords:5 }}{% endblock %}
+
+{% block content %}
+<ul class="app-line-breadcrumbs mb-3">
+    <li>
+        <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+            <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Dashboard" %}</span>
+        </a>
+    </li>
+    <li>
+        <a class="f-s-14 f-w-500" href="{% url 'graph:explorer' %}">
+            <span><i class="ph-duotone ph-graph f-s-16"></i> {% trans "Graphe" %}</span>
+        </a>
+    </li>
+    <li>
+        <a class="f-s-14 f-w-500" href="{% url 'graph:anomalie-list' %}">{% trans "Anomalies" %}</a>
+    </li>
+    <li class="active">{{ anomalie.titre|truncatewords:5 }}</li>
+</ul>
+
+{% if messages %}
+<div class="mb-3">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-3">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="badge bg-light-danger text-danger me-2">{{ anomalie.get_type_display }}</span>
+                        <h5 class="d-inline mb-0">{{ anomalie.titre }}</h5>
+                    </div>
+                    <span class="badge {% if anomalie.statut == 'nouveau' %}bg-danger{% elif anomalie.statut == 'en_cours' %}bg-warning{% elif anomalie.statut == 'confirme' %}bg-info{% elif anomalie.statut == 'resolu' %}bg-success{% else %}bg-secondary{% endif %} f-s-14">
+                        {{ anomalie.get_statut_display }}
+                    </span>
+                </div>
+            </div>
+            <div class="card-body">
+                <p>{{ anomalie.description }}</p>
+
+                <!-- Entités concernées -->
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <div class="card bg-light border-0">
+                            <div class="card-body py-2">
+                                <small class="text-muted">{% trans "Entité principale" %}</small>
+                                <div>
+                                    <a href="{% url 'graph:entite-detail' anomalie.entite.pk %}" class="f-w-600">
+                                        <i class="ph {{ anomalie.entite.type.icone }} me-1" style="color: {{ anomalie.entite.type.couleur }};"></i>
+                                        {{ anomalie.entite.nom }}
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% if anomalie.entite_liee %}
+                    <div class="col-md-6">
+                        <div class="card bg-light border-0">
+                            <div class="card-body py-2">
+                                <small class="text-muted">{% trans "Entité liée" %}</small>
+                                <div>
+                                    <a href="{% url 'graph:entite-detail' anomalie.entite_liee.pk %}" class="f-w-600">
+                                        <i class="ph {{ anomalie.entite_liee.type.icone }} me-1" style="color: {{ anomalie.entite_liee.type.couleur }};"></i>
+                                        {{ anomalie.entite_liee.nom }}
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                {% if anomalie.details %}
+                <h6 class="mt-3">{% trans "Détails" %}</h6>
+                <pre class="bg-light p-3 rounded"><code>{{ anomalie.details|pprint }}</code></pre>
+                {% endif %}
+
+                {% if anomalie.commentaire_resolution %}
+                <h6 class="mt-3">{% trans "Commentaire de résolution" %}</h6>
+                <div class="bg-light-success p-3 rounded">{{ anomalie.commentaire_resolution }}</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <!-- Score -->
+        <div class="card mb-3">
+            <div class="card-body text-center">
+                <h6 class="text-muted">{% trans "Score de confiance" %}</h6>
+                <h2 class="{% if anomalie.score >= 0.8 %}text-danger{% elif anomalie.score >= 0.5 %}text-warning{% else %}text-secondary{% endif %}">
+                    {{ anomalie.score|floatformat:0 }}%
+                </h2>
+            </div>
+        </div>
+
+        <!-- Traiter -->
+        {% if anomalie.statut != 'resolu' and anomalie.statut != 'rejete' %}
+        <div class="card mb-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="ph ph-gear me-2"></i>{% trans "Traiter l'anomalie" %}</h6>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Statut" %}</label>
+                        {{ form.statut }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Commentaire" %}</label>
+                        {{ form.commentaire }}
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="ph ph-check me-1"></i> {% trans "Mettre à jour" %}
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Info -->
+        <div class="card">
+            <div class="card-body">
+                <table class="table table-sm table-borderless mb-0">
+                    <tr>
+                        <td class="text-muted">{% trans "Créée le" %}</td>
+                        <td>{{ anomalie.created_at|date:"d.m.Y H:i" }}</td>
+                    </tr>
+                    {% if anomalie.traite_par %}
+                    <tr>
+                        <td class="text-muted">{% trans "Traitée par" %}</td>
+                        <td>{{ anomalie.traite_par }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">{% trans "Traitée le" %}</td>
+                        <td>{{ anomalie.traite_at|date:"d.m.Y H:i" }}</td>
+                    </tr>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

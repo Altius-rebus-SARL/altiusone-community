@@ -1,0 +1,1629 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Communication" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb start -->
+    <div class="row m-1">
+        <div class="col-12">
+            <h4 class="main-title">{% trans "Communication" %}</h4>
+            <ul class="app-line-breadcrumbs mb-3">
+                <li>
+                    <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                        <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                    </a>
+                </li>
+                <li class="active">
+                    <a class="f-s-14 f-w-500" href="#">{% trans "Communication" %}</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+    <!-- Breadcrumb end -->
+
+    <!-- Tabs navigation -->
+    <div class="row m-1 mb-0">
+        <div class="col-12">
+            <ul class="nav nav-tabs" id="chatTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="tab-ai-btn" data-bs-toggle="tab" data-bs-target="#tab-ai" type="button" role="tab">
+                        <i class="ph-duotone ph-robot me-2"></i>{% trans "Assistant IA" %}
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-messaging-btn" data-bs-toggle="tab" data-bs-target="#tab-messaging" type="button" role="tab">
+                        <i class="ph-duotone ph-chat-circle-text me-2"></i>{% trans "Messagerie" %}
+                        <span class="badge bg-danger ms-1 d-none" id="msgUnreadBadge">0</span>
+                    </button>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Tab content -->
+    <div class="tab-content" id="chatTabContent">
+
+        <!-- ==================== TAB: ASSISTANT IA ==================== -->
+        <div class="tab-pane fade show active" id="tab-ai" role="tabpanel">
+
+            {% if not ai_enabled %}
+            <div class="row mt-3">
+                <div class="col-12">
+                    <div class="alert alert-warning">
+                        <i class="ti ti-alert-triangle me-2"></i>
+                        {% trans "Le service AI n'est pas configure. Contactez l'administrateur." %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Chat start -->
+            <div class="row position-relative chat-container-box mt-3">
+                <!-- Sidebar conversations -->
+                <div class="col-lg-4 col-xxl-3 box-col-5">
+                    <div class="chat-div">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="d-flex align-items-center">
+                                    <span class="chatdp h-45 w-45 d-flex-center b-r-50 position-relative bg-primary">
+                                        <i class="ph-duotone ph-robot f-s-24 text-white"></i>
+                                    </span>
+                                    <div class="flex-grow-1 ps-2">
+                                        <div class="fs-6">{% trans "Assistant IA" %}</div>
+                                        <div class="text-muted f-s-12">{% trans "Recherche universelle" %}</div>
+                                    </div>
+                                    <div class="close-togglebtn">
+                                        <a class="ms-2 close-toggle" role="button"><i class="ti ti-align-justified fs-5"></i></a>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <!-- Bouton nouvelle conversation -->
+                                <button class="btn btn-primary w-100 mb-3" id="btnNewConversation">
+                                    <i class="ti ti-plus me-2"></i>{% trans "Nouvelle conversation" %}
+                                </button>
+
+                                <!-- Filtres de recherche -->
+                                <div class="mb-3">
+                                    <label class="form-label f-s-12 text-muted mb-1">
+                                        <i class="ph ph-briefcase me-1"></i>{% trans "Contexte mandat (optionnel)" %}
+                                    </label>
+                                    <select class="form-control select2" id="selectMandat" data-placeholder="{% trans 'Tous les documents...' %}">
+                                        <option value="">{% trans "Tous les documents" %}</option>
+                                        {% for mandat in mandats %}
+                                        <option value="{{ mandat.id }}">{{ mandat.numero }} - {{ mandat.client.raison_sociale|truncatechars:25 }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <small class="text-muted f-s-11">{% trans "Sans selection = recherche globale" %}</small>
+                                </div>
+
+                                <!-- Filtres par type (collapses) -->
+                                <div class="mb-3">
+                                    <a class="f-s-12 text-muted" data-bs-toggle="collapse" href="#filterTypes" role="button">
+                                        <i class="ti ti-filter me-1"></i>{% trans "Filtrer par type" %} <i class="ti ti-chevron-down"></i>
+                                    </a>
+                                    <div class="collapse mt-2" id="filterTypes">
+                                        <div class="d-flex flex-wrap gap-2">
+                                            <label class="badge bg-light-primary cursor-pointer">
+                                                <input type="checkbox" class="entity-filter" value="document" checked> {% trans "Documents" %}
+                                            </label>
+                                            <label class="badge bg-light-info cursor-pointer">
+                                                <input type="checkbox" class="entity-filter" value="client" checked> {% trans "Clients" %}
+                                            </label>
+                                            <label class="badge bg-light-success cursor-pointer">
+                                                <input type="checkbox" class="entity-filter" value="mandat" checked> {% trans "Mandats" %}
+                                            </label>
+                                            <label class="badge bg-light-warning cursor-pointer">
+                                                <input type="checkbox" class="entity-filter" value="employe" checked> {% trans "Employes" %}
+                                            </label>
+                                            <label class="badge bg-light-secondary cursor-pointer">
+                                                <input type="checkbox" class="entity-filter" value="contact"> {% trans "Contacts" %}
+                                            </label>
+                                            <label class="badge bg-light-danger cursor-pointer">
+                                                <input type="checkbox" class="entity-filter" value="facture"> {% trans "Factures" %}
+                                            </label>
+                                            <label class="badge bg-light-success cursor-pointer">
+                                                <input type="checkbox" class="entity-filter" value="plan_comptable" checked> {% trans "Plans comptables" %}
+                                            </label>
+                                            <label class="badge bg-light-info cursor-pointer">
+                                                <input type="checkbox" class="entity-filter" value="journal" checked> {% trans "Journaux" %}
+                                            </label>
+                                            <label class="badge bg-light-secondary cursor-pointer">
+                                                <input type="checkbox" class="entity-filter" value="compte" checked> {% trans "Comptes" %}
+                                            </label>
+                                            <label class="badge bg-light-dark cursor-pointer">
+                                                <input type="checkbox" class="entity-filter" value="ecriture"> {% trans "Ecritures" %}
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Liste des conversations -->
+                                <div class="chat-contact" id="conversationList">
+                                    {% for conv in conversations %}
+                                    <div class="chat-contactbox {% if current_conversation.id == conv.id %}active{% endif %}" data-id="{{ conv.id }}">
+                                        <div class="position-absolute">
+                                            <span class="h-45 w-45 d-flex-center b-r-50 position-relative {% if conv.mandat %}bg-primary{% else %}bg-secondary{% endif %}">
+                                                <i class="ph-duotone ph-chat-circle-text f-s-20 text-white"></i>
+                                            </span>
+                                        </div>
+                                        <div class="flex-grow-1 text-start mg-s-50">
+                                            <p class="mb-0 f-w-500 text-dark txt-ellipsis-1">{{ conv.titre|default:"Nouvelle conversation" }}</p>
+                                            <p class="text-secondary mb-0 f-s-12 chat-message">
+                                                {% if conv.mandat %}
+                                                <i class="ph ph-briefcase"></i> {{ conv.mandat.numero }}
+                                                {% else %}
+                                                <i class="ph ph-chat-dots"></i> {% trans "Recherche globale" %}
+                                                {% endif %}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <p class="f-s-12 chat-time">{{ conv.updated_at|date:"d/m H:i" }}</p>
+                                        </div>
+                                    </div>
+                                    {% empty %}
+                                    <div class="text-center py-4">
+                                        <i class="ph-duotone ph-chat-circle-dots f-s-40 text-secondary mb-2"></i>
+                                        <p class="text-muted mb-0">{% trans "Aucune conversation" %}</p>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Zone de chat principale -->
+                <div class="col-lg-8 col-xxl-9 box-col-7">
+                    <div class="card chat-container-content-box">
+                        <div class="card-header">
+                            <div class="chat-header d-flex align-items-center">
+                                <div class="d-lg-none">
+                                    <a class="me-3 toggle-btn" role="button"><i class="ti ti-align-justified"></i></a>
+                                </div>
+                                <span class="profileimg h-45 w-45 d-flex-center b-r-50 position-relative bg-primary">
+                                    <i class="ph-duotone ph-robot f-s-22 text-white"></i>
+                                    <span class="position-absolute top-0 end-0 p-1 bg-success border border-light rounded-circle" id="statusIndicator"></span>
+                                </span>
+                                <div class="flex-grow-1 ps-2 pe-2">
+                                    <div class="fs-6" id="chatTitle">{% trans "Nouvelle conversation" %}</div>
+                                    <div class="text-muted f-s-12 text-success" id="chatStatus">{% trans "Pret - Recherche dans toutes les donnees" %}</div>
+                                </div>
+
+                                <!-- Actions -->
+                                <div class="btn-group dropdown-icon-none">
+                                    <button aria-expanded="false" class="btn btn-light-secondary h-45 w-45 icon-btn b-r-22" data-bs-auto-close="true" data-bs-toggle="dropdown">
+                                        <i class="ti ti-dots-vertical f-s-20"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li><a class="dropdown-item" href="#" id="btnArchive"><i class="ti ti-archive me-2"></i>{% trans "Archiver" %}</a></li>
+                                        <li><a class="dropdown-item text-danger" href="#" id="btnDelete"><i class="ti ti-trash me-2"></i>{% trans "Supprimer" %}</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Zone des messages -->
+                        <div class="card-body chat-body">
+                            <div class="chat-container" id="chatMessages">
+                                <!-- Empty state -->
+                                <div class="text-center py-5" id="chatEmpty">
+                                    <i class="ph-duotone ph-robot f-s-60 text-primary mb-3"></i>
+                                    <h5>{% trans "Recherche intelligente dans vos donnees" %}</h5>
+                                    <p class="text-secondary mb-3">{% trans "Posez une question pour rechercher dans:" %}</p>
+                                    <div class="d-flex flex-wrap justify-content-center gap-2 mb-3">
+                                        <span class="badge bg-light-primary"><i class="ph ph-file-text me-1"></i>{% trans "Documents" %}</span>
+                                        <span class="badge bg-light-info"><i class="ph ph-buildings me-1"></i>{% trans "Clients" %}</span>
+                                        <span class="badge bg-light-success"><i class="ph ph-briefcase me-1"></i>{% trans "Mandats" %}</span>
+                                        <span class="badge bg-light-warning"><i class="ph ph-user me-1"></i>{% trans "Employes" %}</span>
+                                        <span class="badge bg-light-danger"><i class="ph ph-receipt me-1"></i>{% trans "Factures" %}</span>
+                                    </div>
+                                    <p class="text-muted f-s-12">{% trans "Exemple: 'Qui est Jean Dupont?' ou 'Factures du client Migros'" %}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Zone de saisie -->
+                        <div class="card-footer">
+                            <div class="chat-footer d-flex">
+                                <div class="app-form flex-grow-1">
+                                    <div class="input-group">
+                                        <textarea class="form-control b-r-6"
+                                                  id="messageInput"
+                                                  rows="1"
+                                                  placeholder="{% trans 'Recherchez dans vos donnees...' %}"
+                                                  {% if not ai_enabled %}disabled{% endif %}
+                                                  style="resize: none; min-height: 50px; max-height: 150px;"></textarea>
+                                        <button class="btn btn-primary ms-2 me-2 b-r-4"
+                                                type="button"
+                                                id="btnSend"
+                                                {% if not ai_enabled %}disabled{% endif %}>
+                                            <i class="ti ti-send"></i> <span>{% trans "Envoyer" %}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Chat end -->
+
+        </div><!-- /tab-ai -->
+
+        <!-- ==================== TAB: MESSAGERIE ==================== -->
+        <div class="tab-pane fade" id="tab-messaging" role="tabpanel">
+
+            <div class="row position-relative chat-container-box mt-3">
+                <!-- Sidebar conversations messagerie -->
+                <div class="col-lg-4 col-xxl-3 box-col-5">
+                    <div class="chat-div" id="msgSidebar">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="d-flex align-items-center">
+                                    <span class="chatdp h-45 w-45 d-flex-center b-r-50 position-relative bg-info">
+                                        <i class="ph-duotone ph-chat-circle-text f-s-24 text-white"></i>
+                                    </span>
+                                    <div class="flex-grow-1 ps-2">
+                                        <div class="fs-6">{% trans "Messagerie" %}</div>
+                                        <div class="text-muted f-s-12">{% trans "Conversations d'equipe" %}</div>
+                                    </div>
+                                    <div class="close-togglebtn">
+                                        <a class="ms-2 msg-close-toggle" role="button"><i class="ti ti-align-justified fs-5"></i></a>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <!-- Bouton nouvelle conversation -->
+                                <button class="btn btn-info w-100 mb-3" id="btnNewMsgConversation" data-bs-toggle="modal" data-bs-target="#modalNewConversation">
+                                    <i class="ti ti-plus me-2"></i>{% trans "Nouvelle conversation" %}
+                                </button>
+
+                                <!-- Recherche -->
+                                <div class="mb-3">
+                                    <input type="text" class="form-control" id="msgSearchConv" placeholder="{% trans 'Rechercher...' %}">
+                                </div>
+
+                                <!-- Liste des conversations messagerie -->
+                                <div class="chat-contact" id="msgConversationList">
+                                    <div class="text-center py-4" id="msgConvEmpty">
+                                        <i class="ph-duotone ph-chat-circle-dots f-s-40 text-secondary mb-2"></i>
+                                        <p class="text-muted mb-0">{% trans "Aucune conversation" %}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Zone de messages messagerie -->
+                <div class="col-lg-8 col-xxl-9 box-col-7">
+                    <div class="card chat-container-content-box">
+                        <div class="card-header">
+                            <div class="chat-header d-flex align-items-center">
+                                <div class="d-lg-none">
+                                    <a class="me-3 msg-toggle-btn" role="button"><i class="ti ti-align-justified"></i></a>
+                                </div>
+                                <span class="profileimg h-45 w-45 d-flex-center b-r-50 position-relative bg-info" id="msgContactAvatar">
+                                    <i class="ph-duotone ph-user f-s-22 text-white"></i>
+                                </span>
+                                <div class="flex-grow-1 ps-2 pe-2">
+                                    <div class="fs-6" id="msgContactName">{% trans "Selectionnez une conversation" %}</div>
+                                    <div class="text-muted f-s-12" id="msgContactStatus"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Zone des messages messagerie -->
+                        <div class="card-body chat-body">
+                            <div class="chat-container" id="msgMessages">
+                                <!-- Empty state -->
+                                <div class="text-center py-5" id="msgEmpty">
+                                    <i class="ph-duotone ph-chat-circle-text f-s-60 text-info mb-3"></i>
+                                    <h5>{% trans "Messagerie d'equipe" %}</h5>
+                                    <p class="text-secondary mb-3">{% trans "Selectionnez une conversation ou creez-en une nouvelle pour commencer." %}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Zone de saisie messagerie -->
+                        <div class="card-footer">
+                            <div class="chat-footer d-flex">
+                                <div class="app-form flex-grow-1">
+                                    <div class="input-group">
+                                        <textarea class="form-control b-r-6"
+                                                  id="msgInput"
+                                                  rows="1"
+                                                  placeholder="{% trans 'Ecrivez votre message...' %}"
+                                                  disabled
+                                                  style="resize: none; min-height: 50px; max-height: 150px;"></textarea>
+                                        <button class="btn btn-info ms-2 me-2 b-r-4"
+                                                type="button"
+                                                id="btnMsgSend"
+                                                disabled>
+                                            <i class="ti ti-send"></i> <span>{% trans "Envoyer" %}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /tab-messaging -->
+
+    </div><!-- /tab-content -->
+</div>
+
+<!-- Modal: Nouvelle conversation messagerie -->
+<div class="modal fade" id="modalNewConversation" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="ph-duotone ph-chat-circle-text me-2"></i>{% trans "Nouvelle conversation" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">{% trans "Titre (optionnel)" %}</label>
+                    <input type="text" class="form-control" id="newConvTitle" placeholder="{% trans 'Ex: Projet client ABC' %}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">{% trans "Participants" %}</label>
+                    <input type="text" class="form-control mb-2" id="newConvSearchUser" placeholder="{% trans 'Rechercher un utilisateur...' %}">
+                    <div class="list-group" id="newConvUserList" style="max-height: 250px; overflow-y: auto;">
+                        {% for u in users %}
+                        <label class="list-group-item d-flex align-items-center gap-2">
+                            <input type="checkbox" class="form-check-input new-conv-user" value="{{ u.id }}" data-name="{{ u.first_name }} {{ u.last_name }}">
+                            <span class="h-30 w-30 d-flex-center b-r-50 bg-light-info flex-shrink-0">
+                                {% if u.avatar %}
+                                <img src="{{ u.avatar.url }}" class="h-30 w-30 b-r-50 object-fit-cover" alt="">
+                                {% else %}
+                                <i class="ph-duotone ph-user f-s-14"></i>
+                                {% endif %}
+                            </span>
+                            <div>
+                                <div class="f-w-500">{{ u.first_name }} {{ u.last_name }}</div>
+                                <small class="text-muted">{{ u.role.nom|default:"Utilisateur" }}</small>
+                            </div>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">{% trans "Annuler" %}</button>
+                <button type="button" class="btn btn-info" id="btnCreateMsgConv">
+                    <i class="ti ti-plus me-1"></i>{% trans "Creer" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- ==================== JS: ASSISTANT IA (inchange) ==================== -->
+<script>
+$(function() {
+    // Variables globales
+    let currentConversationId = {% if current_conversation %}'{{ current_conversation.id }}'{% else %}null{% endif %};
+    let isLoading = false;
+
+    // API URLs
+    const API_BASE = '/api/v1/chat';
+
+    // CSRF Token pour les requetes AJAX
+    const csrfToken = '{{ csrf_token }}';
+
+    // Configuration AJAX globale pour inclure le CSRF token
+    $.ajaxSetup({
+        headers: {
+            'X-CSRFToken': csrfToken
+        }
+    });
+
+    // Elements
+    const $messages = $('#chatMessages');
+    const $input = $('#messageInput');
+    const $sendBtn = $('#btnSend');
+    const $chatEmpty = $('#chatEmpty');
+    const $chatTitle = $('#chatTitle');
+    const $chatStatus = $('#chatStatus');
+
+    // Configuration des icones et couleurs par type d'entite
+    const ENTITY_CONFIG = {
+        'document': { icon: 'ph-file-text', color: 'primary', label: 'Document' },
+        'client': { icon: 'ph-buildings', color: 'info', label: 'Client' },
+        'mandat': { icon: 'ph-briefcase', color: 'success', label: 'Mandat' },
+        'employe': { icon: 'ph-user', color: 'warning', label: 'Employe' },
+        'contact': { icon: 'ph-address-book', color: 'secondary', label: 'Contact' },
+        'facture': { icon: 'ph-receipt', color: 'danger', label: 'Facture' },
+        'ecriture': { icon: 'ph-calculator', color: 'dark', label: 'Ecriture' },
+        'declaration_tva': { icon: 'ph-percent', color: 'info', label: 'TVA' },
+        'declaration_fiscale': { icon: 'ph-bank', color: 'warning', label: 'Fiscal' },
+        'tache': { icon: 'ph-check-square', color: 'primary', label: 'Tache' },
+        'compte': { icon: 'ph-list-numbers', color: 'secondary', label: 'Compte' },
+        'dossier': { icon: 'ph-folder', color: 'warning', label: 'Dossier' },
+        'plan_comptable': { icon: 'ph-tree-structure', color: 'success', label: 'Plan comptable' },
+        'journal': { icon: 'ph-book-open', color: 'info', label: 'Journal' },
+        'utilisateur': { icon: 'ph-user-circle', color: 'info', label: 'Utilisateur' }
+    };
+
+    // Creer nouvelle conversation
+    $('#btnNewConversation').on('click', function() {
+        const mandatId = $('#selectMandat').val();
+        createConversation(mandatId);
+    });
+
+    // Selectionner conversation
+    $(document).on('click', '#conversationList .chat-contactbox', function() {
+        const id = $(this).data('id');
+        loadConversation(id);
+        $('#conversationList .chat-contactbox').removeClass('active');
+        $(this).addClass('active');
+    });
+
+    // Envoyer message
+    $sendBtn.on('click', sendMessage);
+    $input.on('keypress', function(e) {
+        if (e.which === 13 && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+
+    // Auto-resize textarea
+    $input.on('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 150) + 'px';
+    });
+
+    // Toggle sidebar mobile
+    $('.toggle-btn, .close-toggle').on('click', function() {
+        $('#tab-ai .chat-div').toggleClass('show');
+    });
+
+    // Obtenir les types d'entites selectionnes
+    function getSelectedEntityTypes() {
+        const types = [];
+        $('.entity-filter:checked').each(function() {
+            types.push($(this).val());
+        });
+        return types;
+    }
+
+    // Creer une conversation
+    function createConversation(mandatId) {
+        $.ajax({
+            url: `${API_BASE}/conversations/`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                mandat: mandatId || null,
+                titre: ''
+            }),
+            success: function(data) {
+                console.log('Conversation created:', data);
+                if (data && data.id) {
+                    currentConversationId = data.id;
+                    $chatTitle.text("{% trans 'Nouvelle conversation' %}");
+                    $messages.html($chatEmpty.show());
+                    addConversationToList(data);
+                } else {
+                    console.error('No ID in response:', data);
+                    showError("{% trans 'Erreur: ID de conversation manquant' %}", null);
+                }
+            },
+            error: function(xhr) {
+                showError("{% trans 'Erreur lors de la creation de la conversation' %}", xhr);
+            }
+        });
+    }
+
+    // Charger une conversation
+    function loadConversation(id) {
+        if (!id) {
+            console.error('loadConversation called with no id');
+            return;
+        }
+
+        $chatStatus.text("{% trans 'Chargement...' %}");
+
+        $.ajax({
+            url: `${API_BASE}/conversations/${id}/`,
+            method: 'GET',
+            success: function(data) {
+                console.log('Conversation loaded:', data);
+                currentConversationId = data.id;
+                $chatTitle.text(data.titre || "{% trans 'Conversation' %}");
+                $chatStatus.text("{% trans 'Pret' %}");
+                renderMessages(data.messages);
+            },
+            error: function(xhr) {
+                $chatStatus.text("{% trans 'Erreur' %}");
+                showError("{% trans 'Erreur lors du chargement' %}", xhr);
+            }
+        });
+    }
+
+    // Envoyer un message
+    function sendMessage() {
+        const message = $input.val().trim();
+        if (!message || isLoading) return;
+
+        // Si pas de conversation, en creer une
+        if (!currentConversationId) {
+            const mandatId = $('#selectMandat').val();
+            $.ajax({
+                url: `${API_BASE}/conversations/`,
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ mandat: mandatId || null }),
+                success: function(data) {
+                    console.log('Conversation created for message:', data);
+                    if (data && data.id) {
+                        currentConversationId = data.id;
+                        addConversationToList(data);
+                        doSendMessage(message);
+                    } else {
+                        console.error('No ID in response:', data);
+                        showError("{% trans 'Erreur: ID de conversation manquant' %}", null);
+                    }
+                },
+                error: function(xhr) {
+                    showError("{% trans 'Erreur lors de la creation de la conversation' %}", xhr);
+                }
+            });
+        } else {
+            doSendMessage(message);
+        }
+    }
+
+    function doSendMessage(message) {
+        if (!currentConversationId) {
+            console.error('doSendMessage: No conversation ID');
+            showError("{% trans 'Erreur: Pas de conversation active' %}", null);
+            return;
+        }
+
+        isLoading = true;
+        $input.val('').prop('disabled', true);
+        $sendBtn.prop('disabled', true);
+        $chatEmpty.hide();
+        $chatStatus.text("{% trans 'Recherche dans les donnees...' %}").removeClass('text-success').addClass('text-warning');
+        console.log('Sending message to conversation:', currentConversationId);
+
+        // Afficher message utilisateur
+        appendMessage({
+            role: 'USER',
+            contenu: message,
+            created_at: new Date().toISOString()
+        });
+
+        // Afficher indicateur de frappe
+        const $typing = $(`
+            <div class="position-relative" id="typingIndicator">
+                <span class="chatdp h-45 w-45 b-r-50 position-absolute start-0 bg-primary">
+                    <i class="ph-duotone ph-robot f-s-20 text-white d-flex h-100 align-items-center justify-content-center"></i>
+                </span>
+                <div class="chat-box">
+                    <div>
+                        <p class="chat-text text-muted">
+                            <span class="typing-dots">
+                                <span>.</span><span>.</span><span>.</span>
+                            </span>
+                            {% trans "Recherche en cours..." %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        `);
+        $messages.append($typing);
+        scrollToBottom();
+
+        // Use streaming if ReadableStream is available
+        if (window.ReadableStream) {
+            doSendMessageStream(message);
+        } else {
+            doSendMessageFallback(message);
+        }
+    }
+
+    function doSendMessageStream(message) {
+        let streamSources = [];
+        let $assistantBubble = null;
+        let fullContent = '';
+
+        fetch(`${API_BASE}/conversations/${currentConversationId}/stream_message/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                message: message,
+                use_semantic_search: true,
+                max_context_docs: 10
+            })
+        }).then(function(response) {
+            if (!response.ok) {
+                throw response;
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            function processStream() {
+                return reader.read().then(function(result) {
+                    if (result.done) {
+                        finishStream();
+                        return;
+                    }
+
+                    buffer += decoder.decode(result.value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop(); // Keep incomplete line in buffer
+
+                    lines.forEach(function(line) {
+                        line = line.trim();
+                        if (!line) return;
+                        if (line.startsWith('data: ')) line = line.substring(6);
+                        if (!line) return;
+
+                        try {
+                            const event = JSON.parse(line);
+                            handleStreamEvent(event);
+                        } catch (e) {
+                            // Ignore parse errors for incomplete chunks
+                        }
+                    });
+
+                    return processStream();
+                });
+            }
+
+            function handleStreamEvent(event) {
+                switch (event.type) {
+                    case 'sources':
+                        streamSources = [
+                            ...(event.sources || []),
+                            ...(event.entities || [])
+                        ];
+                        // Remove typing indicator, create empty assistant bubble
+                        $('#typingIndicator').remove();
+                        $chatStatus.text("{% trans 'Generation en cours...' %}");
+                        $assistantBubble = createStreamingBubble();
+                        $messages.append($assistantBubble);
+                        scrollToBottom();
+                        break;
+
+                    case 'token':
+                        if (event.token) {
+                            fullContent += event.token;
+                            if ($assistantBubble) {
+                                $assistantBubble.find('.chat-text').html(formatMarkdown(fullContent) + '<span class="streaming-cursor">|</span>');
+                                scrollToBottom();
+                            }
+                        }
+                        break;
+
+                    case 'done':
+                        // Remove cursor, finalize content
+                        if ($assistantBubble) {
+                            $assistantBubble.find('.streaming-cursor').remove();
+                            $assistantBubble.find('.chat-text').html(formatMarkdown(fullContent));
+                        }
+                        break;
+
+                    case 'message_saved':
+                        // Add sources and time to the bubble
+                        if ($assistantBubble && streamSources.length > 0) {
+                            const sourcesHtml = buildSourcesHtml(streamSources);
+                            $assistantBubble.find('.chat-box > div').append(sourcesHtml);
+                        }
+                        if ($assistantBubble) {
+                            const time = new Date().toLocaleTimeString('fr-CH', {hour: '2-digit', minute: '2-digit'});
+                            $assistantBubble.find('.chat-box > div').append(
+                                `<p class="text-muted mt-2"><i class="ti ti-checks text-primary"></i> ${time}</p>`
+                            );
+                        }
+                        scrollToBottom();
+                        break;
+
+                    case 'error':
+                        $('#typingIndicator').remove();
+                        if ($assistantBubble) {
+                            $assistantBubble.find('.streaming-cursor').remove();
+                        }
+                        showError(event.error || "{% trans 'Erreur du service IA' %}", null);
+                        break;
+                }
+            }
+
+            function finishStream() {
+                $chatStatus.text("{% trans 'Pret' %}").removeClass('text-warning').addClass('text-success');
+                isLoading = false;
+                $input.prop('disabled', false).focus();
+                $sendBtn.prop('disabled', false);
+            }
+
+            return processStream();
+        }).catch(function(err) {
+            $('#typingIndicator').remove();
+            $chatStatus.text("{% trans 'Erreur' %}").removeClass('text-warning').addClass('text-danger');
+            if (err && err.status) {
+                showError("{% trans "Erreur lors de l'envoi du message" %}", { status: err.status });
+            } else {
+                showError("{% trans "Erreur lors de l'envoi du message" %}", null);
+            }
+            isLoading = false;
+            $input.prop('disabled', false).focus();
+            $sendBtn.prop('disabled', false);
+        });
+    }
+
+    function createStreamingBubble() {
+        const time = new Date().toLocaleTimeString('fr-CH', {hour: '2-digit', minute: '2-digit'});
+        return $(`
+            <div class="position-relative">
+                <span class="chatdp h-45 w-45 b-r-50 position-absolute start-0 bg-primary">
+                    <i class="ph-duotone ph-robot f-s-20 text-white d-flex h-100 align-items-center justify-content-center"></i>
+                </span>
+                <div class="chat-box">
+                    <div>
+                        <div class="chat-text"><span class="streaming-cursor">|</span></div>
+                    </div>
+                </div>
+            </div>
+        `);
+    }
+
+    function buildSourcesHtml(sources) {
+        if (!sources || sources.length === 0) return '';
+
+        let html = '<div class="mt-3 pt-2 border-top">';
+        html += '<small class="text-muted d-block mb-2"><i class="ti ti-search me-1"></i>{% trans "Sources trouvees" %}:</small>';
+        html += '<div class="sources-grid">';
+
+        sources.forEach(function(s) {
+            const config = ENTITY_CONFIG[s.entity_type] || { icon: 'ph-file', color: 'secondary', label: s.entity_type };
+            const scorePercent = Math.round((s.score || 0) * 100);
+
+            html += `
+                <a href="${s.url}" class="source-card bg-light-${config.color}" target="_blank" title="${escapeHtml(s.subtitle || '')}">
+                    <div class="source-icon bg-${config.color}">
+                        <i class="ph-duotone ${config.icon} text-white"></i>
+                    </div>
+                    <div class="source-content">
+                        <span class="source-type badge bg-${config.color} f-s-10 mb-1">${config.label}</span>
+                        <span class="source-title">${escapeHtml(s.title)}</span>
+                        ${s.subtitle ? `<span class="source-subtitle">${escapeHtml(s.subtitle)}</span>` : ''}
+                    </div>
+                    <div class="source-score">
+                        <span class="badge bg-light-secondary f-s-10">${scorePercent}%</span>
+                    </div>
+                </a>
+            `;
+        });
+
+        html += '</div></div>';
+        return html;
+    }
+
+    function doSendMessageFallback(message) {
+        // Fallback: non-streaming send_message (for browsers without ReadableStream)
+        $.ajax({
+            url: `${API_BASE}/conversations/${currentConversationId}/send_message/`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                message: message,
+                use_semantic_search: true,
+                max_context_docs: 10
+            }),
+            success: function(data) {
+                $('#typingIndicator').remove();
+
+                const allSources = [
+                    ...(data.sources || []),
+                    ...(data.entities || [])
+                ];
+                data.message.sources = allSources;
+
+                appendMessage(data.message);
+                scrollToBottom();
+                $chatStatus.text("{% trans 'Pret' %}").removeClass('text-warning').addClass('text-success');
+            },
+            error: function(xhr) {
+                $('#typingIndicator').remove();
+                $chatStatus.text("{% trans 'Erreur' %}").removeClass('text-warning').addClass('text-danger');
+                showError("{% trans "Erreur lors de l'envoi du message" %}", xhr);
+            },
+            complete: function() {
+                isLoading = false;
+                $input.prop('disabled', false).focus();
+                $sendBtn.prop('disabled', false);
+            }
+        });
+    }
+
+    // Afficher les messages
+    function renderMessages(messages) {
+        $messages.empty();
+        if (messages && messages.length > 0) {
+            $chatEmpty.hide();
+            $messages.append('<div class="text-center"><span class="badge text-light-secondary">{% trans "Conversation" %}</span></div>');
+            messages.forEach(function(msg) {
+                appendMessage(msg);
+            });
+            scrollToBottom();
+        } else {
+            $messages.html($chatEmpty.show());
+        }
+    }
+
+    function appendMessage(msg) {
+        const isUser = msg.role === 'USER';
+        const time = new Date(msg.created_at).toLocaleTimeString('fr-CH', {hour: '2-digit', minute: '2-digit'});
+
+        // Construire l'affichage des sources/entites
+        let sourcesHtml = '';
+        if (msg.sources && msg.sources.length > 0) {
+            sourcesHtml = '<div class="mt-3 pt-2 border-top">';
+            sourcesHtml += '<small class="text-muted d-block mb-2"><i class="ti ti-search me-1"></i>{% trans "Sources trouvees" %}:</small>';
+            sourcesHtml += '<div class="sources-grid">';
+
+            msg.sources.forEach(function(s) {
+                const config = ENTITY_CONFIG[s.entity_type] || { icon: 'ph-file', color: 'secondary', label: s.entity_type };
+                const scorePercent = Math.round((s.score || 0) * 100);
+
+                sourcesHtml += `
+                    <a href="${s.url}" class="source-card bg-light-${config.color}" target="_blank" title="${escapeHtml(s.subtitle || '')}">
+                        <div class="source-icon bg-${config.color}">
+                            <i class="ph-duotone ${config.icon} text-white"></i>
+                        </div>
+                        <div class="source-content">
+                            <span class="source-type badge bg-${config.color} f-s-10 mb-1">${config.label}</span>
+                            <span class="source-title">${escapeHtml(s.title)}</span>
+                            ${s.subtitle ? `<span class="source-subtitle">${escapeHtml(s.subtitle)}</span>` : ''}
+                        </div>
+                        <div class="source-score">
+                            <span class="badge bg-light-secondary f-s-10">${scorePercent}%</span>
+                        </div>
+                    </a>
+                `;
+            });
+
+            sourcesHtml += '</div></div>';
+        }
+
+        let $msgHtml;
+        if (isUser) {
+            // Message utilisateur (droite)
+            $msgHtml = $(`
+                <div class="position-relative">
+                    <div class="chat-box-right">
+                        <div>
+                            <p class="chat-text">${escapeHtml(msg.contenu)}</p>
+                            <p class="text-muted"><i class="ti ti-checks text-primary"></i> ${time}</p>
+                        </div>
+                    </div>
+                    <span class="chatdp h-45 w-45 b-r-50 position-absolute top-0 end-0 bg-secondary">
+                        <i class="ph-duotone ph-user f-s-20 text-white d-flex h-100 align-items-center justify-content-center"></i>
+                    </span>
+                </div>
+            `);
+        } else {
+            // Message assistant (gauche) avec formatage Markdown simplifie
+            const formattedContent = formatMarkdown(msg.contenu);
+
+            $msgHtml = $(`
+                <div class="position-relative">
+                    <span class="chatdp h-45 w-45 b-r-50 position-absolute start-0 bg-primary">
+                        <i class="ph-duotone ph-robot f-s-20 text-white d-flex h-100 align-items-center justify-content-center"></i>
+                    </span>
+                    <div class="chat-box">
+                        <div>
+                            <div class="chat-text">${formattedContent}</div>
+                            ${sourcesHtml}
+                            <p class="text-muted mt-2"><i class="ti ti-checks text-primary"></i> ${time}</p>
+                        </div>
+                    </div>
+                </div>
+            `);
+        }
+        $messages.append($msgHtml);
+    }
+
+    // Formatage Markdown simplifie
+    function formatMarkdown(text) {
+        if (!text) return '';
+
+        // Echapper HTML d'abord
+        let html = escapeHtml(text);
+
+        // Gras **text** ou __text__
+        html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
+
+        // Italique *text* ou _text_
+        html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+        html = html.replace(/_(.+?)_/g, '<em>$1</em>');
+
+        // Code `text`
+        html = html.replace(/`(.+?)`/g, '<code>$1</code>');
+
+        // Liens [text](url)
+        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" class="text-primary">$1</a>');
+
+        // References [Document: nom] -> cliquable
+        html = html.replace(/\[(Document|Client|Employe|Utilisateur|Facture|Mandat|Contact): ([^\]]+)\]/g,
+            '<span class="badge bg-light-primary cursor-pointer" onclick="searchAndOpen(\'$1\', \'$2\')"><i class="ph ph-link me-1"></i>$1: $2</span>');
+
+        // Retours a la ligne
+        html = html.replace(/\n/g, '<br>');
+
+        return html;
+    }
+
+    // Rechercher et ouvrir une entite
+    window.searchAndOpen = function(type, name) {
+        // Recherche rapide pour trouver l'entite
+        $.ajax({
+            url: `${API_BASE}/entities/`,
+            method: 'GET',
+            data: {
+                q: name,
+                types: type.toLowerCase(),
+                limit: 1
+            },
+            success: function(data) {
+                if (data.results && data.results.length > 0) {
+                    window.open(data.results[0].url, '_blank');
+                } else {
+                    alert("{% trans 'Entite non trouvee' %}");
+                }
+            }
+        });
+    };
+
+    function addConversationToList(conv) {
+        const html = `
+            <div class="chat-contactbox active" data-id="${conv.id}">
+                <div class="position-absolute">
+                    <span class="h-45 w-45 d-flex-center b-r-50 position-relative ${conv.mandat ? 'bg-primary' : 'bg-secondary'}">
+                        <i class="ph-duotone ph-chat-circle-text f-s-20 text-white"></i>
+                    </span>
+                </div>
+                <div class="flex-grow-1 text-start mg-s-50">
+                    <p class="mb-0 f-w-500 text-dark txt-ellipsis-1">${conv.titre || "{% trans 'Nouvelle conversation' %}"}</p>
+                    <p class="text-secondary mb-0 f-s-12 chat-message">
+                        <i class="ph ph-chat-dots"></i> {% trans "Maintenant" %}
+                    </p>
+                </div>
+                <div>
+                    <p class="f-s-12 chat-time">${new Date().toLocaleTimeString('fr-CH', {hour: '2-digit', minute: '2-digit'})}</p>
+                </div>
+            </div>
+        `;
+        $('#conversationList .chat-contactbox').removeClass('active');
+        $('#conversationList').prepend(html);
+    }
+
+    function scrollToBottom() {
+        const chatBody = $('#tab-ai .chat-body')[0];
+        if (chatBody) {
+            chatBody.scrollTop = chatBody.scrollHeight;
+        }
+    }
+
+    function showError(message, xhr) {
+        let errorDetails = message;
+        if (xhr && xhr.responseJSON && xhr.responseJSON.detail) {
+            errorDetails += ': ' + xhr.responseJSON.detail;
+        } else if (xhr && xhr.responseJSON && xhr.responseJSON.error) {
+            errorDetails += ': ' + xhr.responseJSON.error;
+        } else if (xhr && xhr.status) {
+            // Cloudflare-specific error codes
+            const cfErrors = {
+                520: "Le serveur a retourne une erreur inattendue",
+                521: "Le serveur est arrete",
+                522: "Le serveur est injoignable",
+                523: "Le serveur est introuvable",
+                524: "Le serveur met trop de temps a repondre. Reessayez."
+            };
+            if (cfErrors[xhr.status]) {
+                errorDetails = cfErrors[xhr.status];
+            } else if (xhr.responseText && (xhr.responseText.startsWith('<!') || xhr.responseText.startsWith('<html'))) {
+                // HTML error page (Cloudflare, nginx, etc.) - don't show raw HTML
+                errorDetails += ' (HTTP ' + xhr.status + ')';
+            } else {
+                errorDetails += ' (HTTP ' + xhr.status + ')';
+            }
+        }
+        console.error('Chat Error:', xhr);
+
+        const $error = $(`
+            <div class="position-relative">
+                <span class="chatdp h-45 w-45 b-r-50 position-absolute start-0 bg-danger">
+                    <i class="ti ti-alert-triangle f-s-20 text-white d-flex h-100 align-items-center justify-content-center"></i>
+                </span>
+                <div class="chat-box">
+                    <div>
+                        <p class="chat-text text-danger">${escapeHtml(errorDetails)}</p>
+                    </div>
+                </div>
+            </div>
+        `);
+        $messages.append($error);
+        scrollToBottom();
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Charger conversation initiale si specifiee
+    {% if current_conversation %}
+    loadConversation('{{ current_conversation.id }}');
+    {% endif %}
+});
+</script>
+
+<!-- ==================== JS: MESSAGERIE ==================== -->
+<script>
+$(function() {
+    const MSG_API = '/api/v1/messaging';
+    const csrfToken = '{{ csrf_token }}';
+    const currentUserId = '{{ request.user.id }}';
+
+    let msgCurrentConvId = null;
+    let msgPollingInterval = null;
+    let msgLastMessageId = null;
+
+    // Elements
+    const $msgList = $('#msgConversationList');
+    const $msgMessages = $('#msgMessages');
+    const $msgInput = $('#msgInput');
+    const $msgSendBtn = $('#btnMsgSend');
+    const $msgEmpty = $('#msgEmpty');
+    const $msgConvEmpty = $('#msgConvEmpty');
+    const $msgContactName = $('#msgContactName');
+    const $msgContactStatus = $('#msgContactStatus');
+    const $unreadBadge = $('#msgUnreadBadge');
+
+    // Toggle sidebar mobile (messagerie)
+    $('.msg-toggle-btn, .msg-close-toggle').on('click', function() {
+        $('#msgSidebar').toggleClass('show');
+    });
+
+    // Charger les conversations quand on arrive sur l'onglet
+    $('#tab-messaging-btn').on('shown.bs.tab', function() {
+        loadMsgConversations();
+        startUnreadPolling();
+    });
+
+    // Arreter le polling quand on quitte l'onglet
+    $('#tab-ai-btn').on('shown.bs.tab', function() {
+        stopMsgPolling();
+    });
+
+    // Recherche dans la liste des conversations
+    $('#msgSearchConv').on('input', function() {
+        const q = $(this).val().toLowerCase();
+        $msgList.find('.msg-conv-item').each(function() {
+            const text = $(this).text().toLowerCase();
+            $(this).toggle(text.indexOf(q) !== -1);
+        });
+    });
+
+    // Recherche utilisateurs dans le modal
+    $('#newConvSearchUser').on('input', function() {
+        const q = $(this).val().toLowerCase();
+        $('#newConvUserList .list-group-item').each(function() {
+            const text = $(this).text().toLowerCase();
+            $(this).toggle(text.indexOf(q) !== -1);
+        });
+    });
+
+    // Creer conversation
+    $('#btnCreateMsgConv').on('click', function() {
+        const title = $('#newConvTitle').val().trim();
+        const participants = [];
+        $('.new-conv-user:checked').each(function() {
+            participants.push($(this).val());
+        });
+
+        if (participants.length === 0) {
+            alert("{% trans 'Selectionnez au moins un participant.' %}");
+            return;
+        }
+
+        $.ajax({
+            url: `${MSG_API}/conversations/`,
+            method: 'POST',
+            contentType: 'application/json',
+            headers: { 'X-CSRFToken': csrfToken },
+            data: JSON.stringify({
+                title: title,
+                participants: participants
+            }),
+            success: function(data) {
+                $('#modalNewConversation').modal('hide');
+                $('#newConvTitle').val('');
+                $('.new-conv-user').prop('checked', false);
+                loadMsgConversations();
+                selectMsgConversation(data.id);
+            },
+            error: function(xhr) {
+                console.error('Error creating conversation:', xhr);
+                alert("{% trans 'Erreur lors de la creation.' %}");
+            }
+        });
+    });
+
+    // Envoyer message messagerie
+    $msgSendBtn.on('click', sendMsgMessage);
+    $msgInput.on('keypress', function(e) {
+        if (e.which === 13 && !e.shiftKey) {
+            e.preventDefault();
+            sendMsgMessage();
+        }
+    });
+
+    // Auto-resize
+    $msgInput.on('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 150) + 'px';
+    });
+
+    // Charger conversations messagerie
+    function loadMsgConversations() {
+        $.ajax({
+            url: `${MSG_API}/conversations/`,
+            method: 'GET',
+            headers: { 'X-CSRFToken': csrfToken },
+            success: function(data) {
+                const conversations = data.results || data;
+                renderMsgConversations(conversations);
+                updateUnreadBadge();
+            }
+        });
+    }
+
+    function renderMsgConversations(conversations) {
+        $msgList.empty();
+        if (!conversations || conversations.length === 0) {
+            $msgList.append($msgConvEmpty.clone().show());
+            return;
+        }
+
+        conversations.forEach(function(conv) {
+            const otherParticipants = (conv.participants || []).filter(function(p) {
+                return String(p.id) !== String(currentUserId);
+            });
+            const displayName = conv.title || otherParticipants.map(function(p) {
+                return (p.first_name + ' ' + p.last_name).trim() || p.username;
+            }).join(', ') || "{% trans 'Conversation' %}";
+
+            const lastMsg = conv.last_message ? conv.last_message : '';
+            const lastTime = conv.last_message_at ? new Date(conv.last_message_at).toLocaleTimeString('fr-CH', {hour: '2-digit', minute: '2-digit'}) : '';
+            const unread = conv.unread_count || 0;
+            const isActive = msgCurrentConvId === conv.id;
+
+            // Avatar: first other participant
+            let avatarHtml;
+            if (otherParticipants.length > 0 && otherParticipants[0].avatar_url) {
+                avatarHtml = `<img src="${otherParticipants[0].avatar_url}" class="h-45 w-45 b-r-50 object-fit-cover" alt="">`;
+            } else {
+                avatarHtml = `<span class="h-45 w-45 d-flex-center b-r-50 position-relative bg-info"><i class="ph-duotone ph-user f-s-20 text-white"></i></span>`;
+            }
+
+            const html = `
+                <div class="chat-contactbox msg-conv-item ${isActive ? 'active' : ''}" data-id="${conv.id}">
+                    <div class="position-absolute">
+                        ${avatarHtml}
+                    </div>
+                    <div class="flex-grow-1 text-start mg-s-50">
+                        <p class="mb-0 f-w-500 text-dark txt-ellipsis-1">${escapeHtml(displayName)}</p>
+                        <p class="text-secondary mb-0 f-s-12 chat-message txt-ellipsis-1">${escapeHtml(lastMsg)}</p>
+                    </div>
+                    <div class="text-end">
+                        <p class="f-s-12 chat-time mb-1">${lastTime}</p>
+                        ${unread > 0 ? `<span class="badge bg-danger b-r-50 f-s-10">${unread}</span>` : ''}
+                    </div>
+                </div>
+            `;
+            $msgList.append(html);
+        });
+    }
+
+    // Selectionner conversation messagerie
+    $(document).on('click', '#msgConversationList .msg-conv-item', function() {
+        const id = $(this).data('id');
+        $('#msgConversationList .msg-conv-item').removeClass('active');
+        $(this).addClass('active');
+        $(this).find('.badge.bg-danger').remove();
+        selectMsgConversation(id);
+    });
+
+    function selectMsgConversation(id) {
+        msgCurrentConvId = id;
+        $msgInput.prop('disabled', false);
+        $msgSendBtn.prop('disabled', false);
+
+        $.ajax({
+            url: `${MSG_API}/conversations/${id}/`,
+            method: 'GET',
+            headers: { 'X-CSRFToken': csrfToken },
+            success: function(data) {
+                // Update header
+                const otherParticipants = (data.participants || []).filter(function(p) {
+                    return String(p.id) !== String(currentUserId);
+                });
+                const displayName = data.title || otherParticipants.map(function(p) {
+                    return (p.first_name + ' ' + p.last_name).trim() || p.username;
+                }).join(', ');
+
+                $msgContactName.text(displayName);
+                $msgContactStatus.text(
+                    (data.participants || []).length + " {% trans 'participants' %}"
+                );
+
+                // Render messages
+                renderMsgMessages(data.messages || []);
+
+                // Mark as read
+                $.ajax({
+                    url: `${MSG_API}/conversations/${id}/mark_read/`,
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken }
+                });
+
+                // Start polling for this conversation
+                startMsgPolling(id);
+            }
+        });
+    }
+
+    function renderMsgMessages(messages) {
+        $msgMessages.empty();
+        if (!messages || messages.length === 0) {
+            $msgMessages.html($msgEmpty.clone().show());
+            return;
+        }
+
+        $msgEmpty.hide();
+        messages.forEach(function(msg) {
+            appendMsgMessage(msg);
+        });
+
+        if (messages.length > 0) {
+            msgLastMessageId = messages[messages.length - 1].id;
+        }
+
+        msgScrollToBottom();
+    }
+
+    function appendMsgMessage(msg) {
+        const isMine = String(msg.sender) === String(currentUserId);
+        const time = new Date(msg.created_at).toLocaleTimeString('fr-CH', {hour: '2-digit', minute: '2-digit'});
+        const senderName = msg.sender_name || '';
+
+        let $html;
+        if (isMine) {
+            $html = $(`
+                <div class="position-relative">
+                    <div class="chat-box-right">
+                        <div>
+                            <p class="chat-text">${escapeHtml(msg.content)}</p>
+                            <p class="text-muted"><i class="ti ti-checks text-primary"></i> ${time}</p>
+                        </div>
+                    </div>
+                    <span class="chatdp h-45 w-45 b-r-50 position-absolute top-0 end-0 bg-info">
+                        <i class="ph-duotone ph-user f-s-20 text-white d-flex h-100 align-items-center justify-content-center"></i>
+                    </span>
+                </div>
+            `);
+        } else {
+            $html = $(`
+                <div class="position-relative">
+                    <span class="chatdp h-45 w-45 b-r-50 position-absolute start-0 bg-secondary">
+                        <i class="ph-duotone ph-user f-s-20 text-white d-flex h-100 align-items-center justify-content-center"></i>
+                    </span>
+                    <div class="chat-box">
+                        <div>
+                            <p class="mb-1 f-w-500 f-s-12 text-info">${escapeHtml(senderName)}</p>
+                            <p class="chat-text">${escapeHtml(msg.content)}</p>
+                            <p class="text-muted">${time}</p>
+                        </div>
+                    </div>
+                </div>
+            `);
+        }
+        $msgMessages.append($html);
+    }
+
+    // Envoyer message
+    function sendMsgMessage() {
+        const content = $msgInput.val().trim();
+        if (!content || !msgCurrentConvId) return;
+
+        $msgInput.val('').prop('disabled', true);
+        $msgSendBtn.prop('disabled', true);
+
+        $.ajax({
+            url: `${MSG_API}/conversations/${msgCurrentConvId}/send_message/`,
+            method: 'POST',
+            contentType: 'application/json',
+            headers: { 'X-CSRFToken': csrfToken },
+            data: JSON.stringify({ content: content }),
+            success: function(data) {
+                $msgEmpty.hide();
+                appendMsgMessage(data);
+                msgLastMessageId = data.id;
+                msgScrollToBottom();
+                // Refresh sidebar
+                loadMsgConversations();
+            },
+            error: function(xhr) {
+                console.error('Error sending message:', xhr);
+            },
+            complete: function() {
+                $msgInput.prop('disabled', false).focus();
+                $msgSendBtn.prop('disabled', false);
+            }
+        });
+    }
+
+    // Polling pour nouveaux messages
+    function startMsgPolling(convId) {
+        stopMsgPolling();
+        msgPollingInterval = setInterval(function() {
+            if (msgCurrentConvId !== convId) return;
+            $.ajax({
+                url: `${MSG_API}/conversations/${convId}/`,
+                method: 'GET',
+                headers: { 'X-CSRFToken': csrfToken },
+                success: function(data) {
+                    const messages = data.messages || [];
+                    if (messages.length > 0) {
+                        const lastId = messages[messages.length - 1].id;
+                        if (lastId !== msgLastMessageId) {
+                            // New messages arrived
+                            renderMsgMessages(messages);
+                            // Mark as read
+                            $.ajax({
+                                url: `${MSG_API}/conversations/${convId}/mark_read/`,
+                                method: 'POST',
+                                headers: { 'X-CSRFToken': csrfToken }
+                            });
+                        }
+                    }
+                }
+            });
+        }, 5000);
+    }
+
+    function stopMsgPolling() {
+        if (msgPollingInterval) {
+            clearInterval(msgPollingInterval);
+            msgPollingInterval = null;
+        }
+    }
+
+    // Badge non lus
+    function startUnreadPolling() {
+        updateUnreadBadge();
+        // Also poll unread count every 15s
+        if (!window._unreadInterval) {
+            window._unreadInterval = setInterval(updateUnreadBadge, 15000);
+        }
+    }
+
+    function updateUnreadBadge() {
+        $.ajax({
+            url: `${MSG_API}/conversations/unread_count/`,
+            method: 'GET',
+            headers: { 'X-CSRFToken': csrfToken },
+            success: function(data) {
+                const count = data.count || 0;
+                if (count > 0) {
+                    $unreadBadge.text(count).removeClass('d-none');
+                } else {
+                    $unreadBadge.addClass('d-none');
+                }
+            }
+        });
+    }
+
+    function msgScrollToBottom() {
+        const chatBody = $('#tab-messaging .chat-body')[0];
+        if (chatBody) {
+            chatBody.scrollTop = chatBody.scrollHeight;
+        }
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Initial unread badge load
+    updateUnreadBadge();
+});
+</script>
+
+<style>
+/* Animation des points de frappe */
+.typing-dots span {
+    animation: typing 1.4s infinite;
+    display: inline-block;
+}
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typing {
+    0%, 60%, 100% { opacity: 0.3; }
+    30% { opacity: 1; }
+}
+
+/* Ajustements pour le chat */
+.chat-body {
+    height: calc(100vh - 400px);
+    min-height: 400px;
+    overflow-y: auto;
+}
+
+.chat-contactbox {
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.chat-contactbox:hover,
+.chat-contactbox.active {
+    background: var(--bs-primary-bg-subtle);
+}
+
+#messageInput, #msgInput {
+    overflow-y: auto;
+}
+
+/* Grille des sources */
+.sources-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 8px;
+}
+
+/* Carte source cliquable */
+.source-card {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    border-radius: 8px;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+}
+
+.source-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border-color: var(--bs-primary);
+    color: inherit;
+    text-decoration: none;
+}
+
+.source-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.source-icon i {
+    font-size: 18px;
+}
+
+.source-content {
+    flex-grow: 1;
+    padding: 0 10px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.source-title {
+    font-weight: 500;
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.source-subtitle {
+    font-size: 11px;
+    color: #6c757d;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.source-score {
+    flex-shrink: 0;
+}
+
+/* Chat text avec formatage */
+.chat-text code {
+    background: rgba(0,0,0,0.05);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.chat-text a {
+    text-decoration: underline;
+}
+
+/* Cursor pointer pour les checkboxes */
+.cursor-pointer {
+    cursor: pointer;
+}
+
+.cursor-pointer input {
+    cursor: pointer;
+}
+
+/* Fix pour le badge source type */
+.source-type {
+    display: inline-block;
+    width: fit-content;
+}
+
+/* Streaming cursor */
+.streaming-cursor {
+    animation: blink 0.8s infinite;
+    color: var(--bs-primary);
+    font-weight: bold;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+
+/* Tabs styling */
+#chatTabs .nav-link {
+    font-weight: 500;
+}
+
+#chatTabs .nav-link.active {
+    border-bottom: 2px solid var(--bs-primary);
+}
+
+/* Messagerie specific */
+#tab-messaging .chat-contactbox.active {
+    background: var(--bs-info-bg-subtle);
+}
+
+#tab-messaging .chat-contactbox:hover {
+    background: var(--bs-info-bg-subtle);
+}
+</style>
+{% endblock %}

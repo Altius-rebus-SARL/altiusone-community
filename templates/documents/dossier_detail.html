@@ -1,0 +1,394 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{{ dossier.nom }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .folder-link {
+        cursor: pointer;
+        transition: transform 0.2s ease;
+    }
+    .folder-link:hover {
+        transform: scale(1.05);
+    }
+    .folder-link:hover i {
+        color: var(--bs-primary) !important;
+    }
+    .folder-card {
+        transition: box-shadow 0.2s ease;
+    }
+    .folder-card:hover {
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{{ dossier.nom }}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'documents:dossier-list' %}">
+                    <span>{% trans "Dossiers" %}</span>
+                </a>
+            </li>
+            {% for item in arborescence %}
+            <li {% if forloop.last %}class="active"{% endif %}>
+                <a class="f-s-14 f-w-500" href="{% url 'documents:dossier-detail' item.pk %}">
+                    {{ item.nom }}
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Colonne principale -->
+    <div class="col-lg-8">
+        <!-- Sous-dossiers -->
+        {% if sous_dossiers %}
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-folders me-2"></i>{% trans "Sous-dossiers" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for sous_dossier in sous_dossiers %}
+                    <div class="col-sm-6 col-xl-4">
+                        <div class="card">
+                            <div class="card-body folder-card">
+                                <div class="d-flex justify-content-between mb-3">
+                                    <span class="badge text-light-primary">
+                                        {{ sous_dossier.get_type_dossier_display }}
+                                    </span>
+                                    
+                                    <div class="dropdown folder-dropdown">
+                                        <a aria-expanded="true" data-bs-toggle="dropdown" role="button">
+                                            <i class="ph ph-dots-three-vertical"></i>
+                                        </a>
+                                        <ul class="dropdown-menu">
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'documents:dossier-detail' sous_dossier.pk %}">
+                                                    <i class="ph ph-eye text-primary me-2"></i>{% trans "Ouvrir" %}
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+
+                                <a href="{% url 'documents:dossier-detail' sous_dossier.pk %}" class="fileimage text-center d-block text-decoration-none folder-link">
+                                    <i class="ph-duotone ph-folder text-primary" style="font-size: 48px;"></i>
+                                    <p class="mb-0 f-s-14 mt-2 f-w-600 text-dark">{{ sous_dossier.nom }}</p>
+                                </a>
+
+                                <div class="app-divider-v dashed my-2"></div>
+
+                                <div class="d-flex justify-content-between">
+                                    <small class="text-muted">{{ sous_dossier.nb_documents }} docs</small>
+                                    <small class="text-muted">{{ sous_dossier.taille_totale|filesizeformat }}</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Documents -->
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="ph ph-files me-2"></i>{% trans "Documents" %}
+                        <span class="badge bg-primary ms-2">{{ documents_count }}</span>
+                    </h5>
+                    <a href="{% url 'documents:document-upload' %}?dossier={{ dossier.pk }}" class="btn btn-primary btn-sm">
+                        <i class="ph ph-upload me-2"></i>{% trans "Uploader" %}
+                    </a>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Fichier" %}</th>
+                                <th>{% trans "Type" %}</th>
+                                <th>{% trans "Taille" %}</th>
+                                <th>{% trans "Date" %}</th>
+                                <th class="text-end">{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for doc in documents %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="me-3">
+                                            {% if doc.extension in '.jpg,.jpeg,.png,.gif,.webp' %}
+                                                {% if doc.fichier %}
+                                                <!-- Vignette pour les images -->
+                                                <a href="{% url 'documents:document-detail' doc.pk %}" title="{{ doc.nom_fichier }}">
+                                                    <img src="{% url 'documents:document-apercu' doc.pk %}"
+                                                         alt="{{ doc.nom_fichier }}"
+                                                         class="rounded"
+                                                         style="width: 40px; height: 40px; object-fit: cover;"
+                                                         onerror="this.onerror=null; this.outerHTML='<i class=\'ph ph-image text-info f-s-24\'></i>';">
+                                                </a>
+                                                {% else %}
+                                                <i class="ph ph-image text-info f-s-24"></i>
+                                                {% endif %}
+                                            {% elif doc.extension == '.pdf' %}
+                                            <i class="ph ph-file-pdf text-danger f-s-24"></i>
+                                            {% elif doc.extension in '.doc,.docx' %}
+                                            <i class="ph ph-file-doc text-primary f-s-24"></i>
+                                            {% elif doc.extension in '.xls,.xlsx' %}
+                                            <i class="ph ph-file-xls text-success f-s-24"></i>
+                                            {% else %}
+                                            <i class="ph ph-file text-secondary f-s-24"></i>
+                                            {% endif %}
+                                        </div>
+                                        <div>
+                                            <a href="{% url 'documents:document-detail' doc.pk %}" class="text-dark f-w-600">
+                                                {{ doc.nom_fichier|truncatechars:40 }}
+                                            </a>
+                                            {% if doc.prediction_type %}
+                                            <br><small class="text-muted">{{ doc.prediction_type }}</small>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if doc.type_document %}
+                                    <span class="badge text-light-secondary">{{ doc.type_document.libelle }}</span>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ doc.taille|filesizeformat }}</td>
+                                <td>
+                                    <span class="text-muted f-s-12">{{ doc.date_upload|date:"d/m/Y" }}</span>
+                                </td>
+                                <td class="text-end">
+                                    <div class="dropdown">
+                                        <a class="text-muted" data-bs-toggle="dropdown" role="button">
+                                            <i class="ph ph-dots-three-vertical f-s-18"></i>
+                                        </a>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'documents:document-detail' doc.pk %}">
+                                                    <i class="ph ph-eye me-2"></i>{% trans "Voir" %}
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'documents:document-telecharger' doc.pk %}">
+                                                    <i class="ph ph-download me-2"></i>{% trans "Télécharger" %}
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center py-4">
+                                    <i class="ph ph-file-x f-s-36 text-muted d-block mb-2"></i>
+                                    <p class="text-muted mb-0">{% trans "Aucun document dans ce dossier" %}</p>
+                                    <a href="{% url 'documents:document-upload' %}?dossier={{ dossier.pk }}" class="btn btn-sm btn-primary mt-2">
+                                        <i class="ph ph-upload me-2"></i>{% trans "Uploader un document" %}
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            {% if documents.has_other_pages %}
+            <div class="card-footer">
+                <div class="d-flex justify-content-between align-items-center">
+                    <p class="text-secondary mb-0">
+                        {% trans "Affichage de" %} {{ documents.start_index }} à {{ documents.end_index }}
+                        {% trans "sur" %} {{ documents.paginator.count }}
+                    </p>
+                    <ul class="pagination app-pagination mb-0">
+                        {% if documents.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ documents.previous_page_number }}">{% trans "Précédent" %}</a>
+                        </li>
+                        {% endif %}
+
+                        {% for num in documents.paginator.page_range %}
+                            {% if documents.number == num %}
+                            <li class="page-item active">
+                                <a class="page-link" href="#">{{ num }}</a>
+                            </li>
+                            {% elif num > documents.number|add:'-3' and num < documents.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                            </li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if documents.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ documents.next_page_number }}">{% trans "Suivant" %}</a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Colonne sidebar -->
+    <div class="col-lg-4">
+        <!-- Informations -->
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-info me-2"></i>{% trans "Informations" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <p class="text-muted f-s-12 mb-1">{% trans "Type" %}</p>
+                    <p class="f-w-600 mb-0">{{ dossier.get_type_dossier_display }}</p>
+                </div>
+
+                <div class="app-divider-v dashed my-3"></div>
+
+                {% if dossier.client %}
+                <div class="mb-3">
+                    <p class="text-muted f-s-12 mb-1">{% trans "Client" %}</p>
+                    <p class="f-w-600 mb-0">{{ dossier.client.raison_sociale }}</p>
+                </div>
+
+                <div class="app-divider-v dashed my-3"></div>
+                {% endif %}
+
+                {% if dossier.mandat %}
+                <div class="mb-3">
+                    <p class="text-muted f-s-12 mb-1">{% trans "Mandat" %}</p>
+                    <p class="f-w-600 mb-0">{{ dossier.mandat.numero }}</p>
+                </div>
+
+                <div class="app-divider-v dashed my-3"></div>
+                {% endif %}
+
+                <div class="mb-3">
+                    <p class="text-muted f-s-12 mb-1">{% trans "Propriétaire" %}</p>
+                    <p class="f-w-600 mb-0">{{ dossier.proprietaire.get_full_name }}</p>
+                </div>
+
+                <div class="app-divider-v dashed my-3"></div>
+
+                <div class="mb-3">
+                    <p class="text-muted f-s-12 mb-1">{% trans "Créé le" %}</p>
+                    <p class="f-w-600 mb-0">{{ dossier.created_at|date:"d/m/Y H:i" }}</p>
+                </div>
+
+                {% if dossier.description %}
+                <div class="app-divider-v dashed my-3"></div>
+
+                <div class="mb-3">
+                    <p class="text-muted f-s-12 mb-1">{% trans "Description" %}</p>
+                    <p class="mb-0">{{ dossier.description }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Statistiques -->
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-chart-bar me-2"></i>{% trans "Statistiques" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted f-s-12">{% trans "Documents" %}</span>
+                        <span class="f-w-600">{{ stats.total_documents }}</span>
+                    </div>
+                    <div class="progress h-5">
+                        <div class="progress-bar bg-primary" style="width: {% widthratio stats.total_documents 100 100 %}%"></div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted f-s-12">{% trans "Taille totale" %}</span>
+                        <span class="f-w-600">{{ stats.total_taille|filesizeformat }}</span>
+                    </div>
+                    <div class="progress h-5">
+                        <div class="progress-bar bg-success" style="width: 45%"></div>
+                    </div>
+                </div>
+
+                <div class="mb-0">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted f-s-12">{% trans "Sous-dossiers" %}</span>
+                        <span class="f-w-600">{{ stats.sous_dossiers }}</span>
+                    </div>
+                    <div class="progress h-5">
+                        <div class="progress-bar bg-info" style="width: {% widthratio stats.sous_dossiers 10 100 %}%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tags -->
+        {% if dossier.tags %}
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-tag me-2"></i>{% trans "Tags" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-2">
+                    {% for tag in dossier.tags %}
+                    <span class="badge text-light-primary">{{ tag }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Actions -->
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-lightning me-2"></i>{% trans "Actions" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{% url 'documents:document-upload' %}?dossier={{ dossier.pk }}" class="btn btn-light-primary">
+                        <i class="ph ph-upload me-2"></i>{% trans "Uploader un document" %}
+                    </a>
+                    <button class="btn btn-light-secondary" disabled>
+                        <i class="ph ph-folder-plus me-2"></i>{% trans "Créer un sous-dossier" %}
+                    </button>
+                    <button class="btn btn-light-warning" disabled>
+                        <i class="ph ph-pencil me-2"></i>{% trans "Modifier" %}
+                    </button>
+                    <button class="btn btn-light-danger" disabled>
+                        <i class="ph ph-trash me-2"></i>{% trans "Supprimer" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

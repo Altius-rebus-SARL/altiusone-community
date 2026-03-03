@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Éditeur Collaboratif" %} - AltiusOne{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- En-tête -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">
+                <i class="bi bi-pencil-square me-2"></i>
+                {% trans "Éditeur Collaboratif" %}
+            </h1>
+            <p class="text-muted mb-0">
+                {% trans "Créez et collaborez sur des documents en temps réel" %}
+            </p>
+        </div>
+        <div>
+            <a href="{% url 'editeur:document_create' %}" class="btn btn-primary">
+                <i class="bi bi-plus-lg me-1"></i>
+                {% trans "Nouveau document" %}
+            </a>
+        </div>
+    </div>
+
+    <!-- État du service Docs -->
+    {% if docs_status.status != 'healthy' %}
+    <div class="alert alert-warning d-flex align-items-center mb-4" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        <div>
+            {% trans "Le service d'édition collaborative est temporairement indisponible." %}
+            <small class="d-block text-muted">{{ docs_status.error }}</small>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <!-- Documents récents -->
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-clock-history me-2"></i>
+                        {% trans "Documents récents" %}
+                    </h5>
+                    <a href="{% url 'editeur:document_list' %}" class="btn btn-sm btn-outline-primary">
+                        {% trans "Voir tout" %}
+                    </a>
+                </div>
+                <div class="card-body p-0">
+                    {% if documents_recents %}
+                    <div class="list-group list-group-flush">
+                        {% for doc in documents_recents %}
+                        <a href="{% url 'editeur:document_detail' pk=doc.pk %}"
+                           class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="d-flex align-items-center">
+                                    <span class="badge bg-{{ doc.type_document|lower }} me-2">
+                                        {{ doc.get_type_document_display }}
+                                    </span>
+                                    <strong>{{ doc.titre }}</strong>
+                                </div>
+                                <small class="text-muted">
+                                    {% if doc.mandat %}{{ doc.mandat.nom }} &middot; {% endif %}
+                                    {{ doc.date_modification|timesince }} {% trans "ago" %}
+                                </small>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge bg-{{ doc.statut|lower }}">
+                                    {{ doc.get_statut_display }}
+                                </span>
+                                {% if doc.nombre_collaborateurs > 1 %}
+                                <br>
+                                <small class="text-muted">
+                                    <i class="bi bi-people me-1"></i>
+                                    {{ doc.nombre_collaborateurs }}
+                                </small>
+                                {% endif %}
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-file-earmark-text display-4"></i>
+                        <p class="mt-2">{% trans "Aucun document récent" %}</p>
+                        <a href="{% url 'editeur:document_create' %}" class="btn btn-primary">
+                            {% trans "Créer votre premier document" %}
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Documents partagés avec moi -->
+            {% if documents_partages %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-share me-2"></i>
+                        {% trans "Partagés avec moi" %}
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        {% for doc in documents_partages %}
+                        <a href="{% url 'editeur:document_detail' pk=doc.pk %}"
+                           class="list-group-item list-group-item-action">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <strong>{{ doc.titre }}</strong>
+                                    <br>
+                                    <small class="text-muted">
+                                        {% trans "Par" %} {{ doc.createur.get_full_name|default:doc.createur.email }}
+                                    </small>
+                                </div>
+                                <small class="text-muted">
+                                    {{ doc.date_modification|timesince }}
+                                </small>
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Sessions actives -->
+            {% if sessions_actives %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-broadcast me-2 text-success"></i>
+                        {% trans "En cours d'édition" %}
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        {% for session in sessions_actives %}
+                        <div class="list-group-item">
+                            <div class="d-flex align-items-center">
+                                <span class="status-indicator bg-success me-2"></span>
+                                <div>
+                                    <strong>{{ session.utilisateur.get_full_name|default:session.utilisateur.email }}</strong>
+                                    <br>
+                                    <small class="text-muted">
+                                        {% trans "sur" %} {{ session.document.titre|truncatechars:25 }}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Modèles rapides -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-file-earmark-plus me-2"></i>
+                        {% trans "Modèles" %}
+                    </h5>
+                    <a href="{% url 'editeur:modele_list' %}" class="btn btn-sm btn-link">
+                        {% trans "Tous" %}
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if modeles %}
+                    <div class="row g-2">
+                        {% for modele in modeles %}
+                        <div class="col-6">
+                            <a href="{% url 'editeur:document_create' %}?modele={{ modele.id }}"
+                               class="btn btn-outline-secondary w-100 text-start py-2">
+                                <small class="d-block fw-bold">{{ modele.nom|truncatechars:20 }}</small>
+                                <span class="badge bg-light text-dark">
+                                    {{ modele.get_categorie_display }}
+                                </span>
+                            </a>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center mb-0">
+                        {% trans "Aucun modèle disponible" %}
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Statistiques -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-bar-chart me-2"></i>
+                        {% trans "Statistiques" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>{% trans "Mes documents" %}</span>
+                        <strong>{{ documents_recents|length }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>{% trans "Partagés avec moi" %}</span>
+                        <strong>{{ documents_partages|length }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span>{% trans "Sessions actives" %}</span>
+                        <strong>{{ sessions_actives|length }}</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+.badge.bg-brouillon { background-color: #6c757d !important; }
+.badge.bg-en_cours { background-color: #0d6efd !important; }
+.badge.bg-revision { background-color: #ffc107 !important; color: #000; }
+.badge.bg-valide { background-color: #198754 !important; }
+.badge.bg-archive { background-color: #6c757d !important; }
+
+.badge.bg-note { background-color: #17a2b8 !important; }
+.badge.bg-rapport { background-color: #6610f2 !important; }
+.badge.bg-pv { background-color: #fd7e14 !important; }
+.badge.bg-courrier { background-color: #20c997 !important; }
+.badge.bg-contrat { background-color: #dc3545 !important; }
+.badge.bg-memo { background-color: #6c757d !important; }
+</style>
+{% endblock %}

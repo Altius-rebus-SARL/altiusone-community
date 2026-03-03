@@ -1,0 +1,315 @@
+<!-- salaires/fiche_form.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load widget_tweaks %}
+
+{% block title %}{% trans "Nouvelle fiche de salaire" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Nouvelle fiche de salaire" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'salaires:fiche-list' %}">
+                    <span>{% trans "Fiches de salaire" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Nouvelle" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<form method="post" id="fiche-form" class="app-form">
+    {% csrf_token %}
+    
+    <div class="row">
+        <div class="col-xl-10 mx-auto">
+            
+            <!-- Messages d'erreur globaux -->
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                {{ form.non_field_errors }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endif %}
+
+            <!-- Informations générales -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-file-text me-2"></i>{% trans "Informations générales" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Employé" %} <span class="text-danger">*</span></label>
+                                {{ form.employe|add_class:"form-select" }}
+                                {% if form.employe.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.employe.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Période (1er jour du mois)" %} <span class="text-danger">*</span></label>
+                                {{ form.periode|add_class:"form-control" }}
+                                <small class="text-muted">{% trans "Sélectionner le premier jour du mois" %}</small>
+                                {% if form.periode.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.periode.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Devise" %}</label>
+                                {{ form.devise|add_class:"form-select" }}
+                                <small class="text-muted">{% trans "Auto-rempli depuis l'employé" %}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Présence -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-calendar-check me-2"></i>{% trans "Présence et temps de travail" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Jours travaillés" %}</label>
+                                {{ form.jours_travailles|add_class:"form-control" }}
+                                {% if form.jours_travailles.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.jours_travailles.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Heures travaillées" %}</label>
+                                {{ form.heures_travaillees|add_class:"form-control" }}
+                                {% if form.heures_travaillees.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.heures_travaillees.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Heures supplémentaires" %}</label>
+                                {{ form.heures_supplementaires|add_class:"form-control" }}
+                                {% if form.heures_supplementaires.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.heures_supplementaires.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Jours absence" %}</label>
+                                {{ form.jours_absence|add_class:"form-control" }}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Jours vacances" %}</label>
+                                {{ form.jours_vacances|add_class:"form-control" }}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Jours maladie" %}</label>
+                                {{ form.jours_maladie|add_class:"form-control" }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Éléments de salaire -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-currency-circle-dollar me-2"></i>{% trans "Éléments de salaire" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Salaire de base" %} ({{ DEVISE_CODE }}) <span class="text-danger">*</span></label>
+                                {{ form.salaire_base|add_class:"form-control" }}
+                                {% if form.salaire_base.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.salaire_base.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Montant heures sup." %} ({{ DEVISE_CODE }})</label>
+                                {{ form.heures_supp_montant|add_class:"form-control" }}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Primes" %} ({{ DEVISE_CODE }})</label>
+                                {{ form.primes|add_class:"form-control" }}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Indemnités" %} ({{ DEVISE_CODE }})</label>
+                                {{ form.indemnites|add_class:"form-control" }}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "13ème salaire" %} ({{ DEVISE_CODE }})</label>
+                                {{ form.treizieme_mois|add_class:"form-control" }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Allocations -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-hand-coins me-2"></i>{% trans "Allocations" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Allocations familiales" %} ({{ DEVISE_CODE }})</label>
+                                {{ form.allocations_familiales|add_class:"form-control" }}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Autres allocations" %} ({{ DEVISE_CODE }})</label>
+                                {{ form.autres_allocations|add_class:"form-control" }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Déductions supplémentaires -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-minus-circle me-2"></i>{% trans "Déductions supplémentaires" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Avance sur salaire" %} ({{ DEVISE_CODE }})</label>
+                                {{ form.avance_salaire|add_class:"form-control" }}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Saisie salaire" %} ({{ DEVISE_CODE }})</label>
+                                {{ form.saisie_salaire|add_class:"form-control" }}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Autres déductions" %} ({{ DEVISE_CODE }})</label>
+                                {{ form.autres_deductions|add_class:"form-control" }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Remarques -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-note me-2"></i>{% trans "Remarques" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-12">
+                            {{ form.remarques|add_class:"form-control" }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Aide -->
+            <div class="card bg-light-info">
+                <div class="card-body">
+                    <h6 class="text-primary mb-3">
+                        <i class="ph ph-info me-2"></i>{% trans "Informations" %}
+                    </h6>
+                    <ul class="mb-0 f-s-14">
+                        <li class="mb-2">
+                            {% trans "Les cotisations sociales (AVS, AC, LPP, etc.) seront calculées automatiquement" %}
+                        </li>
+                        <li class="mb-2">
+                            {% trans "Le salaire net sera calculé en déduisant toutes les cotisations et déductions" %}
+                        </li>
+                        <li>
+                            {% trans "Vous pourrez valider la fiche après l'avoir vérifiée" %}
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'salaires:fiche-list' %}" class="btn btn-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ph ph-check me-2"></i>{% trans "Créer et calculer" %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Charger les infos de l'employé quand il est sélectionné
+    $('#id_employe').on('change', function() {
+        var employeId = $(this).val();
+        if (employeId) {
+            // Ici tu peux faire un appel AJAX pour récupérer les infos de l'employé
+            // et préremplir le salaire de base
+            console.log('Employé sélectionné:', employeId);
+        }
+    });
+});
+</script>
+{% endblock %}

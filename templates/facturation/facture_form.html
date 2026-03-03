@@ -1,0 +1,371 @@
+<!-- facturation/facture_form.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load widget_tweaks %}
+
+{% block title %}
+{% if object %}{% trans "Modifier la facture" %}{% else %}{% trans "Nouvelle facture" %}{% endif %}
+{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">
+            {% if object %}{% trans "Modifier la facture" %}{% else %}{% trans "Nouvelle facture" %}{% endif %}
+        </h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'facturation:facture-list' %}">
+                    <span>{% trans "Factures" %}</span>
+                </a>
+            </li>
+            {% if object %}
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'facturation:facture-detail' object.pk %}">
+                    <span>{{ object.numero_facture }}</span>
+                </a>
+            </li>
+            {% endif %}
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">
+                    {% if object %}{% trans "Modifier" %}{% else %}{% trans "Nouvelle" %}{% endif %}
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Form -->
+<form method="post" id="facture-form">
+    {% csrf_token %}
+    
+    <div class="row">
+        <div class="col-12">
+            <!-- Informations générales -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5>{% trans "Informations générales" %}</h5>
+                </div>
+                <div class="card-body">
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {{ form.non_field_errors }}
+                    </div>
+                    {% endif %}
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Mandat" %} *</label>
+                            {{ form.mandat }}
+                            {% if form.mandat.errors %}
+                            <div class="text-danger f-s-12">{{ form.mandat.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Client" %} *</label>
+                            {{ form.client }}
+                            {% if form.client.errors %}
+                            <div class="text-danger f-s-12">{{ form.client.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Type" %}</label>
+                            {{ form.type_facture }}
+                            {% if form.type_facture.errors %}
+                            <div class="text-danger f-s-12">{{ form.type_facture.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Date d'émission" %} *</label>
+                            {{ form.date_emission }}
+                            {% if form.date_emission.errors %}
+                            <div class="text-danger f-s-12">{{ form.date_emission.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Délai (jours)" %} *</label>
+                            {{ form.delai_paiement_jours }}
+                            <small class="text-muted d-block" id="echeance-info"></small>
+                            {% if form.delai_paiement_jours.errors %}
+                            <div class="text-danger f-s-12">{{ form.delai_paiement_jours.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Période début" %}</label>
+                            {{ form.date_service_debut }}
+                            {% if form.date_service_debut.errors %}
+                            <div class="text-danger f-s-12">{{ form.date_service_debut.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% trans "Période fin" %}</label>
+                            {{ form.date_service_fin }}
+                            {% if form.date_service_fin.errors %}
+                            <div class="text-danger f-s-12">{{ form.date_service_fin.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Régime fiscal" %}</label>
+                            {{ form.regime_fiscal }}
+                            {% if form.regime_fiscal.errors %}
+                            <div class="text-danger f-s-12">{{ form.regime_fiscal.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Exercice comptable" %}</label>
+                            {{ form.exercice }}
+                            {% if form.exercice.errors %}
+                            <div class="text-danger f-s-12">{{ form.exercice.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Remise globale (%)" %}</label>
+                            {{ form.remise_pourcent }}
+                            {% if form.remise_pourcent.errors %}
+                            <div class="text-danger f-s-12">{{ form.remise_pourcent.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lignes de facturation -->
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">{% trans "Lignes de facturation" %}</h5>
+                    <button type="button" 
+                            class="btn btn-sm btn-primary" 
+                            id="add-ligne"
+                            hx-get="{% url 'facturation:ligne-form-row' %}"
+                            hx-target="#lignes-container"
+                            hx-swap="beforeend"
+                            hx-vals="js:{index: getNextIndex()}">
+                        <i class="ph ph-plus me-1"></i>{% trans "Ajouter une ligne" %}
+                    </button>
+                </div>
+                <div class="card-body">
+                    {{ formset.management_form }}
+                    
+                    <div class="table-responsive">
+                        <table class="table table-sm" id="lignes-table">
+                            <thead>
+                                <tr>
+                                    <th width="25%">{% trans "Prestation" %}</th>
+                                    <th width="20%">{% trans "Description" %}</th>
+                                    <th width="10%">{% trans "Qté" %}</th>
+                                    <th width="10%">{% trans "Unité" %}</th>
+                                    <th width="12%">{% trans "Prix unit. HT" %}</th>
+                                    <th width="8%">{% trans "TVA %" %}</th>
+                                    <th width="12%" class="text-end">{% trans "Total HT" %}</th>
+                                    <th width="3%"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="lignes-container">
+                                {% for ligne_form in formset %}
+                                {% include 'facturation/partials/ligne_facture_row.html' with ligne_form=ligne_form index=forloop.counter0 %}
+                                {% endfor %}
+                            </tbody>
+                            
+                            <tfoot>
+                                <tr class="table-light">
+                                    <td colspan="6" class="text-end"><strong>{% trans "Total HT" %}:</strong></td>
+                                    <td class="text-end"><strong><span id="total-ht">0.00</span> {{ DEVISE_CODE }}</strong></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td colspan="6" class="text-end">{% trans "Total TVA" %}:</td>
+                                    <td class="text-end"><span id="total-tva">0.00</span> {{ DEVISE_CODE }}</td>
+                                    <td></td>
+                                </tr>
+                                <tr class="table-primary">
+                                    <td colspan="6" class="text-end"><strong class="fs-5">{% trans "TOTAL TTC" %}:</strong></td>
+                                    <td class="text-end"><strong class="fs-5"><span id="total-ttc">0.00</span> {{ DEVISE_CODE }}</strong></td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    {% if formset.non_form_errors %}
+                    <div class="alert alert-danger mt-3">
+                        {{ formset.non_form_errors }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Textes additionnels -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5>{% trans "Textes additionnels" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label">{% trans "Introduction" %}</label>
+                            {{ form.introduction }}
+                        </div>
+
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label">{% trans "Conclusion" %}</label>
+                            {{ form.conclusion }}
+                        </div>
+
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label">{% trans "Conditions de paiement" %}</label>
+                            {{ form.conditions_paiement }}
+                        </div>
+
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label">{% trans "Notes internes" %}</label>
+                            {{ form.notes }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'facturation:facture-list' %}" class="btn btn-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ph ph-check me-2"></i>
+                            {% if object %}{% trans "Enregistrer" %}{% else %}{% trans "Créer la facture" %}{% endif %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Index counter pour les nouvelles lignes
+let ligneIndex = parseInt($('#id_lignes-TOTAL_FORMS').val()) || 0;
+
+function getNextIndex() {
+    return ligneIndex++;
+}
+
+// Mettre à jour le formset total
+function updateFormsetTotal() {
+    $('#id_lignes-TOTAL_FORMS').val(ligneIndex);
+}
+
+$(document).ready(function() {
+    // Calculer date d'échéance
+    function calculerEcheance() {
+        var dateEmission = $('#id_date_emission').val();
+        var delai = parseInt($('#id_delai_paiement_jours').val()) || 30;
+        
+        if (dateEmission) {
+            var emission = new Date(dateEmission);
+            var echeance = new Date(emission);
+            echeance.setDate(echeance.getDate() + delai);
+            
+            $('#echeance-info').text('Échéance: ' + echeance.toLocaleDateString('fr-CH'));
+        }
+    }
+
+    $('#id_date_emission, #id_delai_paiement_jours').on('change', calculerEcheance);
+    calculerEcheance();
+
+    // Calculer les totaux
+    function calculerTotaux() {
+        let totalHT = 0;
+        let totalTVA = 0;
+
+        $('.ligne-row:visible').each(function() {
+            const $row = $(this);
+            
+            // Ignorer les lignes marquées pour suppression
+            if ($row.find('input[name*="DELETE"]').is(':checked')) {
+                return;
+            }
+
+            const qte = parseFloat($row.find('.quantite-input').val()) || 0;
+            const prix = parseFloat($row.find('.prix-input').val()) || 0;
+            const tauxTVA = parseFloat($row.find('.tva-input').val()) || 0;
+            
+            const montantHT = qte * prix;
+            const montantTVA = montantHT * tauxTVA / 100;
+            
+            // Mettre à jour le total de la ligne
+            $row.find('.ligne-total').text(montantHT.toFixed(2));
+            
+            totalHT += montantHT;
+            totalTVA += montantTVA;
+        });
+
+        const remise = parseFloat($('#id_remise_pourcent').val()) || 0;
+        const montantRemise = totalHT * remise / 100;
+        const totalHTNet = totalHT - montantRemise;
+        const totalTTC = totalHTNet + totalTVA;
+
+        $('#total-ht').text(totalHT.toFixed(2));
+        $('#total-tva').text(totalTVA.toFixed(2));
+        $('#total-ttc').text(totalTTC.toFixed(2));
+    }
+
+    // Événements sur les inputs (délégué pour les nouvelles lignes)
+    $(document).on('input change', '.quantite-input, .prix-input, .tva-input, #id_remise_pourcent', calculerTotaux);
+
+    // Sélection de prestation (délégué)
+    $(document).on('change', '.prestation-select', function() {
+        const $select = $(this);
+        const $row = $select.closest('.ligne-row');
+        const $option = $select.find('option:selected');
+        
+        if ($option.val()) {
+            $row.find('.description-input').val($option.data('libelle'));
+            $row.find('.prix-input').val($option.data('prix') || 0);
+            $row.find('.unite-input').val($option.data('unite') || 'heure');
+            $row.find('.tva-input').val($option.data('tva') || {{ taux_tva_defaut|default:'0' }});
+            
+            calculerTotaux();
+        }
+    });
+
+    // Après l'ajout HTMX d'une ligne
+    document.body.addEventListener('htmx:afterSwap', function(evt) {
+        if (evt.detail.target.id === 'lignes-container') {
+            // Initialiser select2 sur la nouvelle ligne
+            const $newRow = $(evt.detail.target).find('.ligne-row:last');
+            $newRow.find('.select2').select2({
+                theme: 'bootstrap-5',
+                placeholder: "{% trans 'Sélectionner...' %}",
+                allowClear: true
+            });
+            
+            updateFormsetTotal();
+            calculerTotaux();
+        }
+    });
+
+    // Calcul initial
+    calculerTotaux();
+});
+</script>
+{% endblock %}

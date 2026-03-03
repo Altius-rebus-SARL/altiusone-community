@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{{ role.nom }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h3>{{ role.nom }}</h3>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}"><i class="ti ti-home"></i></a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'core:admin-dashboard' %}">{% trans "Administration" %}</a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'core:admin-role-list' %}">{% trans "Roles" %}</a></li>
+                        <li class="breadcrumb-item active">{{ role.code }}</li>
+                    </ol>
+                </div>
+                <div class="page-header-right">
+                    <a href="{% url 'core:admin-role-update' role.pk %}" class="btn btn-primary">
+                        <i class="ti ti-edit me-2"></i>{% trans "Modifier" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Role Info -->
+        <div class="col-xl-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <div class="avatar avatar-xl mx-auto bg-primary">
+                            <span class="avatar-text f-s-24"><i class="ti ti-shield"></i></span>
+                        </div>
+                    </div>
+                    <h4>{{ role.nom }}</h4>
+                    <p class="text-muted"><code>{{ role.code }}</code></p>
+
+                    <div class="mb-3">
+                        {% if role.actif %}
+                        <span class="badge bg-success">{% trans "Actif" %}</span>
+                        {% else %}
+                        <span class="badge bg-danger">{% trans "Inactif" %}</span>
+                        {% endif %}
+
+                        {% if role.est_role_defaut %}
+                        <span class="badge bg-info">{% trans "Role par defaut" %}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Niveau" %}</span>
+                            <strong>{{ role.niveau }}/100</strong>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Utilisateurs" %}</span>
+                            <strong>{{ utilisateurs.count }}</strong>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Peut etre assigne" %}</span>
+                            {% if role.peut_etre_assigne %}
+                            <span class="badge bg-success"><i class="ti ti-check"></i></span>
+                            {% else %}
+                            <span class="badge bg-danger"><i class="ti ti-x"></i></span>
+                            {% endif %}
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            {% if role.description %}
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Description" %}</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">{{ role.description }}</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Permissions & Users -->
+        <div class="col-xl-8">
+            <!-- Permissions -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Permissions" %}</h5>
+                </div>
+                <div class="card-body">
+                    {% if permissions_by_app %}
+                    <div class="accordion" id="permissionsAccordion">
+                        {% for app, perms in permissions_by_app.items %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#perm_{{ app }}">
+                                    <strong>{{ app|title }}</strong>
+                                    <span class="badge bg-secondary ms-2">{{ perms|length }}</span>
+                                </button>
+                            </h2>
+                            <div id="perm_{{ app }}" class="accordion-collapse collapse" data-bs-parent="#permissionsAccordion">
+                                <div class="accordion-body">
+                                    <ul class="list-unstyled mb-0">
+                                        {% for perm in perms %}
+                                        <li class="py-1">
+                                            <code>{{ perm.codename }}</code>
+                                            <span class="text-muted f-s-12"> - {{ perm.name }}</span>
+                                        </li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted">{% trans "Aucune permission assignee" %}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Users -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Utilisateurs avec ce role" %}</h5>
+                </div>
+                <div class="card-body">
+                    {% if utilisateurs %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "Utilisateur" %}</th>
+                                    <th>{% trans "Email" %}</th>
+                                    <th>{% trans "Type" %}</th>
+                                    <th>{% trans "Statut" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in utilisateurs %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'core:admin-user-detail' user.pk %}">{{ user.get_full_name|default:user.username }}</a>
+                                    </td>
+                                    <td>{{ user.email }}</td>
+                                    <td>
+                                        {% if user.type_utilisateur == 'STAFF' %}
+                                        <span class="badge bg-primary">{% trans "Staff" %}</span>
+                                        {% else %}
+                                        <span class="badge bg-warning">{% trans "Client" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if user.is_active %}
+                                        <span class="badge bg-success">{% trans "Actif" %}</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">{% trans "Inactif" %}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">{% trans "Aucun utilisateur avec ce role" %}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

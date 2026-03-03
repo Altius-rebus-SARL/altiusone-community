@@ -1,0 +1,175 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load widget_tweaks %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{{ title }}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'documents:document-list' %}">
+                    <span>{% trans "Documents" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'documents:categorie-list' %}">
+                    <span>{% trans "Catégories" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">
+                    {% if is_update %}{% trans "Modifier" %}{% else %}{% trans "Nouvelle" %}{% endif %}
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<form method="post" class="app-form">
+    {% csrf_token %}
+    
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                {{ form.non_field_errors }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endif %}
+
+            <!-- Informations de base -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-info me-2"></i>{% trans "Informations de base" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Nom" %} <span class="text-danger">*</span></label>
+                                {{ form.nom|add_class:"form-control" }}
+                                {% if form.nom.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.nom.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Ordre" %}</label>
+                                {{ form.ordre|add_class:"form-control" }}
+                                {% if form.ordre.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.ordre.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Description" %}</label>
+                                {{ form.description|add_class:"form-control" }}
+                                {% if form.description.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.description.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Catégorie parente" %}</label>
+                                {{ form.parent|add_class:"form-select" }}
+                                {% if form.parent.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.parent.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Apparence -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-palette me-2"></i>{% trans "Apparence" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Icône" %}</label>
+                                {{ form.icone|add_class:"form-control" }}
+                                <small class="text-muted">Ex: ph ph-folder</small>
+                                {% if form.icone.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.icone.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Couleur" %}</label>
+                                {{ form.couleur|add_class:"form-control" }}
+                                {% if form.couleur.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.couleur.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Classification -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-scan me-2"></i>{% trans "Classification automatique" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Mots-clés" %}</label>
+                        {{ form.mots_cles|add_class:"form-control" }}
+                        <small class="text-muted">{% trans "Format JSON" %}: ["facture", "comptabilité"]</small>
+                        {% if form.mots_cles.errors %}
+                        <div class="text-danger f-s-12 mt-1">{{ form.mots_cles.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Patterns regex" %}</label>
+                        {{ form.patterns_regex|add_class:"form-control" }}
+                        <small class="text-muted">{% trans "Format JSON" %}: ["^FAC-\\d+"]</small>
+                        {% if form.patterns_regex.errors %}
+                        <div class="text-danger f-s-12 mt-1">{{ form.patterns_regex.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'documents:categorie-list' %}" class="btn btn-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ph ph-check me-2"></i>
+                            {% if is_update %}{% trans "Enregistrer" %}{% else %}{% trans "Créer" %}{% endif %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}

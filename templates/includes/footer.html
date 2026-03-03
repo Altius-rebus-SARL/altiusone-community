@@ -1,0 +1,20 @@
+<!-- includes/footer.html -->
+{% load static %}
+{% load i18n %}
+
+<!-- Footer Section starts-->
+<footer>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-9 col-12">
+                <p class="footer-text f-w-600 mb-0">{% trans "Copyright" %} © {% now "Y" %} AltiusOne. {% trans "Tous droits réservés" %} 💖 V1.0.0</p>
+            </div>
+            <div class="col-md-3">
+                <div class="footer-text text-end">
+                    <a class="f-w-500 text-primary" href="{% url 'core:support' %}">{% trans "Besoin d'aide" %} <i class="ti ti-help"></i></a>
+                </div>
+            </div>
+        </div>
+    </div>
+</footer>
+<!-- Footer Section ends-->

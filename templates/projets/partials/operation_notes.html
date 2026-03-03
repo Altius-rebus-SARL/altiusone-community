@@ -1,0 +1,35 @@
+{% load i18n %}
+
+<div class="mt-3">
+    <h6 class="mb-2"><i class="ti ti-notes me-1"></i>{% trans "Notes" %}</h6>
+
+    <!-- Formulaire d'ajout -->
+    <form hx-post="{% url 'projets:operation-note' operation.pk %}"
+          hx-target="closest div"
+          hx-swap="innerHTML"
+          class="mb-3">
+        {% csrf_token %}
+        {{ note_form.contenu }}
+        <button type="submit" class="btn btn-sm btn-primary mt-2">
+            <i class="ti ti-send me-1"></i>{% trans "Ajouter" %}
+        </button>
+    </form>
+
+    <!-- Liste des notes -->
+    {% for note in notes %}
+    <div class="d-flex mb-2">
+        <div class="h-30 w-30 d-flex-center b-r-8 flex-shrink-0 bg-light-primary text-primary f-s-12 f-w-600">
+            {{ note.auteur.first_name.0|default:note.auteur.username.0|upper }}
+        </div>
+        <div class="ms-2">
+            <div class="f-s-12">
+                <span class="f-w-500">{{ note.auteur.get_full_name|default:note.auteur.username }}</span>
+                <span class="text-muted ms-2">{{ note.created_at|date:"d.m.Y H:i" }}</span>
+            </div>
+            <p class="mb-0 f-s-13">{{ note.contenu|linebreaksbr }}</p>
+        </div>
+    </div>
+    {% empty %}
+    <p class="text-muted f-s-13">{% trans "Aucune note" %}</p>
+    {% endfor %}
+</div>

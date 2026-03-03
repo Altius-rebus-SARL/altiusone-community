@@ -1,0 +1,152 @@
+{% load i18n %}
+{% load humanize %}
+
+<!-- Résumé pays -->
+<div class="alert alert-light-primary mb-3">
+    <div class="d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center">
+            <i class="ph ph-flag f-s-24 me-3 text-primary"></i>
+            <div>
+                <h6 class="mb-1">{{ regime.nom }}</h6>
+                <small class="text-muted">
+                    {% trans "Types d'impôts disponibles" %} :
+                    {% for t in taux %}
+                        <span class="badge text-light-primary me-1">{{ t.get_type_impot_display }}</span>
+                    {% endfor %}
+                </small>
+            </div>
+        </div>
+        <a href="{% url 'fiscalite:taux-imposition-create' %}?regime={{ regime.pk }}" class="btn btn-sm btn-primary">
+            <i class="ph ph-plus me-1"></i>{% trans "Ajouter un taux" %}
+        </a>
+    </div>
+</div>
+
+<!-- Table taux OHADA -->
+<div class="table-responsive">
+    <table class="table table-bottom-border align-middle mb-0">
+        <thead>
+            <tr>
+                <th>{% trans "Subdivision" %}</th>
+                <th>{% trans "Type d'impôt" %}</th>
+                <th>{% trans "Année" %}</th>
+                <th>{% trans "Taux fixe / Barème" %}</th>
+                <th>{% trans "Statut" %}</th>
+                <th class="text-end">{% trans "Actions" %}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for taux_item in taux %}
+            <tr>
+                <td>
+                    {% if taux_item.subdivision %}
+                    <span>{{ taux_item.subdivision }}</span>
+                    {% else %}
+                    <span class="text-muted">{% trans "National" %}</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <span class="badge text-light-primary">{{ taux_item.get_type_impot_display }}</span>
+                </td>
+                <td>
+                    <span class="f-w-600">{{ taux_item.annee }}</span>
+                </td>
+                <td>
+                    {% if taux_item.taux_fixe %}
+                    <span class="f-w-600 text-success">{{ taux_item.taux_fixe }}%</span>
+                    {% elif taux_item.bareme and taux_item.bareme.tranches %}
+                    <span class="text-info">
+                        <i class="ph ph-chart-bar me-1"></i>{% trans "Barème progressif" %}
+                        <button type="button" class="btn btn-sm btn-outline-info ms-2"
+                                data-bs-toggle="collapse"
+                                data-bs-target="#bareme-{{ taux_item.pk }}">
+                            <i class="ph ph-eye me-1"></i>{% trans "Voir" %}
+                        </button>
+                    </span>
+                    <div class="collapse mt-2" id="bareme-{{ taux_item.pk }}">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "Tranche min" %}</th>
+                                    <th>{% trans "Tranche max" %}</th>
+                                    <th>{% trans "Taux" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for tranche in taux_item.bareme.tranches %}
+                                <tr>
+                                    <td>{{ tranche.min|intcomma }}</td>
+                                    <td>{{ tranche.max|intcomma }}</td>
+                                    <td>{{ tranche.taux }}%</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <span class="text-muted">{% trans "Variable (par subdivision)" %}</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if taux_item.actif %}
+                    <span class="badge text-light-success">{% trans "Actif" %}</span>
+                    {% else %}
+                    <span class="badge text-light-secondary">{% trans "Inactif" %}</span>
+                    {% endif %}
+                </td>
+                <td class="text-end">
+                    <div class="dropdown">
+                        <a class="text-muted" data-bs-toggle="dropdown" role="button">
+                            <i class="ph ph-dots-three-vertical f-s-18"></i>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <a class="dropdown-item" href="{% url 'fiscalite:taux-imposition-update' taux_item.pk %}">
+                                    <i class="ph ph-pencil me-2"></i>{% trans "Modifier" %}
+                                </a>
+                            </li>
+                            <li>
+                                <form method="post" action="{% url 'fiscalite:taux-imposition-delete' taux_item.pk %}"
+                                      onsubmit="return confirm('{% trans "Supprimer ce taux ?" %}')">
+                                    {% csrf_token %}
+                                    <button type="submit" class="dropdown-item text-danger">
+                                        <i class="ph ph-trash me-2"></i>{% trans "Supprimer" %}
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+
+            {% if not taux %}
+            <tr>
+                <td colspan="6" class="text-center py-5">
+                    <i class="ph ph-percent f-s-48 text-muted d-block mb-3"></i>
+                    <p class="text-muted">{% trans "Aucun taux trouvé pour ce régime fiscal." %}</p>
+                    <a href="{% url 'fiscalite:taux-imposition-create' %}?regime={{ regime.pk }}" class="btn btn-primary">
+                        <i class="ph ph-plus me-2"></i>{% trans "Ajouter un taux" %}
+                    </a>
+                </td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Légende OHADA -->
+<div class="card bg-light-info mt-3">
+    <div class="card-body">
+        <h6 class="text-info mb-3">
+            <i class="ph ph-info me-2"></i>{% trans "Informations sur les impôts" %}
+        </h6>
+        <ul class="mb-0">
+            <li class="mb-2"><strong>{% trans "IS" %} :</strong> {% trans "Impôt sur les sociétés — taux fixe national" %}</li>
+            <li class="mb-2"><strong>{% trans "IRPP / IR" %} :</strong> {% trans "Impôt sur le revenu — barème progressif par tranches" %}</li>
+            <li class="mb-2"><strong>{% trans "Patente" %} :</strong> {% trans "Taxe professionnelle — varie selon le chiffre d'affaires" %}</li>
+            <li class="mb-2"><strong>{% trans "TPF" %} :</strong> {% trans "Taxe sur la propriété foncière" %}</li>
+            <li><strong>{% trans "CFE" %} :</strong> {% trans "Contribution foncière des entreprises — varie par commune" %}</li>
+        </ul>
+    </div>
+</div>

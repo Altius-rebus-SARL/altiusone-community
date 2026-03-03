@@ -1,0 +1,277 @@
+<!-- modelforms/submission_list.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Soumissions de formulaires" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Soumissions de formulaires" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'modelforms:configuration-list' %}">{% trans "Formulaires dynamiques" %}</a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Soumissions" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<!-- Statistics Cards -->
+<div class="row">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-primary mb-0">{{ stats.total }}</h3>
+                        <p class="text-muted mb-0">{% trans "Total" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-primary">
+                        <i class="ph-duotone ph-file-text f-s-24 text-primary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-warning mb-0">{{ stats.pending }}</h3>
+                        <p class="text-muted mb-0">{% trans "En attente" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-warning">
+                        <i class="ph-duotone ph-clock f-s-24 text-warning"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-success mb-0">{{ stats.completed }}</h3>
+                        <p class="text-muted mb-0">{% trans "Complétées" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-success">
+                        <i class="ph-duotone ph-check-circle f-s-24 text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-danger mb-0">{{ stats.failed }}</h3>
+                        <p class="text-muted mb-0">{% trans "Échouées" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-danger">
+                        <i class="ph-duotone ph-x-circle f-s-24 text-danger"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>{% trans "Liste des soumissions" %}</h5>
+            </div>
+            <div class="card-body">
+                <!-- Filters Row -->
+                <form method="get" class="mb-3">
+                    <div class="row app-form">
+                        <div class="col-md-3">
+                            <select name="status" class="form-select select-basic" onchange="this.form.submit()">
+                                <option value="">{% trans "Tous les statuts" %}</option>
+                                {% for value, label in statuses %}
+                                <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select name="form_config" class="form-select select-basic" onchange="this.form.submit()">
+                                <option value="">{% trans "Tous les formulaires" %}</option>
+                                {% for config in configurations %}
+                                <option value="{{ config.pk }}" {% if request.GET.form_config == config.pk|stringformat:'s' %}selected{% endif %}>{{ config.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="position-relative">
+                                <input type="search" name="q" class="form-control"
+                                       placeholder="{% trans 'Rechercher...' %}"
+                                       value="{{ request.GET.q }}">
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            {% if request.GET.status or request.GET.form_config or request.GET.q %}
+                            <a href="{% url 'modelforms:submission-list' %}" class="btn btn-secondary w-100">
+                                <i class="ti ti-x me-2"></i>{% trans "Réinitialiser" %}
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </form>
+
+                <!-- Table -->
+                <div class="overflow-auto app-scroll">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr class="app-sort">
+                                <th scope="col">{% trans "Date" %}</th>
+                                <th scope="col">{% trans "Formulaire" %}</th>
+                                <th scope="col">{% trans "Soumis par" %}</th>
+                                <th scope="col">{% trans "Statut" %}</th>
+                                <th scope="col">{% trans "Validé par" %}</th>
+                                <th scope="col">{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for submission in submissions %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'modelforms:submission-detail' submission.pk %}" class="text-dark">
+                                        {{ submission.submitted_at|date:"d/m/Y H:i" }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <span class="badge bg-light-secondary text-dark">
+                                        <i class="{{ submission.form_config.icon }} me-1"></i>
+                                        {{ submission.form_config.code }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {{ submission.submitted_by.get_full_name|default:submission.submitted_by.username }}
+                                </td>
+                                <td>
+                                    {% if submission.status == 'COMPLETED' %}
+                                        <span class="badge bg-success-subtle text-success">{{ submission.get_status_display }}</span>
+                                    {% elif submission.status == 'PENDING' %}
+                                        <span class="badge bg-warning-subtle text-warning">{{ submission.get_status_display }}</span>
+                                    {% elif submission.status == 'PROCESSING' %}
+                                        <span class="badge bg-info-subtle text-info">{{ submission.get_status_display }}</span>
+                                    {% elif submission.status == 'FAILED' %}
+                                        <span class="badge bg-danger-subtle text-danger">{{ submission.get_status_display }}</span>
+                                    {% elif submission.status == 'REJECTED' %}
+                                        <span class="badge bg-secondary-subtle text-secondary">{{ submission.get_status_display }}</span>
+                                    {% else %}
+                                        <span class="badge bg-light text-muted">{{ submission.get_status_display }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if submission.validated_by %}
+                                        {{ submission.validated_by.get_full_name|default:submission.validated_by.username }}
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{% url 'modelforms:submission-detail' submission.pk %}"
+                                       class="btn btn-sm btn-light-primary"
+                                       data-bs-toggle="tooltip"
+                                       title="{% trans 'Voir' %}">
+                                        <i class="ti ti-eye"></i>
+                                    </a>
+                                    {% if submission.status == 'PENDING' and submission.form_config.require_validation %}
+                                    <form action="{% url 'modelforms:submission-validate' submission.pk %}"
+                                          method="post" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-success"
+                                                data-bs-toggle="tooltip"
+                                                title="{% trans 'Valider' %}">
+                                            <i class="ti ti-check"></i>
+                                        </button>
+                                    </form>
+                                    <form action="{% url 'modelforms:submission-reject' submission.pk %}"
+                                          method="post" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-danger"
+                                                data-bs-toggle="tooltip"
+                                                title="{% trans 'Rejeter' %}">
+                                            <i class="ti ti-x"></i>
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center py-5">
+                                    <i class="ph-duotone ph-folder-notch-open f-s-50 text-muted"></i>
+                                    <p class="text-muted mt-2">{% trans "Aucune soumission trouvée" %}</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if is_paginated %}
+                <div class="list-pagination mt-3">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.form_config %}&form_config={{ request.GET.form_config }}{% endif %}">
+                                <i class="ti ti-chevrons-left"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.form_config %}&form_config={{ request.GET.form_config }}{% endif %}">
+                                <i class="ti ti-chevron-left"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                            <li class="page-item active"><a class="page-link">{{ num }}</a></li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item"><a class="page-link" href="?page={{ num }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.form_config %}&form_config={{ request.GET.form_config }}{% endif %}">{{ num }}</a></li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.form_config %}&form_config={{ request.GET.form_config }}{% endif %}">
+                                <i class="ti ti-chevron-right"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.form_config %}&form_config={{ request.GET.form_config }}{% endif %}">
+                                <i class="ti ti-chevrons-right"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

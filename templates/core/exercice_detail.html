@@ -1,0 +1,334 @@
+<!-- core/exercice_detail.html -->
+
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load devise_tags %}
+
+{% block title %}{% trans "Exercice" %} {{ exercice.annee }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Exercice" %} {{ exercice.annee }}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:exercice-list' %}">
+                    {% trans "Exercices" %}
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{{ exercice.annee }}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<div class="row">
+    <div class="col-12">
+        <!-- Header -->
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h4 class="text-primary mb-2">{% trans "Exercice" %} {{ exercice.annee }}</h4>
+                        <p class="text-muted mb-0">
+                            <a href="{% url 'core:mandat-detail' exercice.mandat.pk %}">
+                                {{ exercice.mandat.numero }}
+                            </a> - 
+                            <a href="{% url 'core:client-detail' exercice.mandat.client.pk %}">
+                                {{ exercice.mandat.client.raison_sociale }}
+                            </a>
+                        </p>
+                        <div class="mt-2">
+                            {% if exercice.statut == 'OUVERT' %}
+                                <span class="badge bg-success-subtle text-success">{{ exercice.get_statut_display }}</span>
+                            {% elif exercice.statut == 'CLOTURE_PROVISOIRE' %}
+                                <span class="badge bg-warning-subtle text-warning">{{ exercice.get_statut_display }}</span>
+                            {% else %}
+                                <span class="badge bg-info-subtle text-info">{{ exercice.get_statut_display }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div>
+                        {% if exercice.statut == 'OUVERT' %}
+                        <a href="{% url 'core:exercice-update' exercice.pk %}" class="btn btn-primary me-2">
+                            <i class="ti ti-edit me-2"></i>{% trans "Modifier" %}
+                        </a>
+                        {% endif %}
+                        <a href="{% url 'core:exercice-list' %}" class="btn btn-secondary">
+                            <i class="ti ti-arrow-left me-2"></i>{% trans "Retour" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <!-- Détails de l'exercice -->
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="text-primary mb-3">{% trans "Informations" %}</h5>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Année" %}</span>
+                                        <span class="f-w-500">{{ exercice.annee }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Date début" %}</span>
+                                        <span class="f-w-500">{{ exercice.date_debut|date:"d.m.Y" }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Date fin" %}</span>
+                                        <span class="f-w-500">{{ exercice.date_fin|date:"d.m.Y" }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Durée" %}</span>
+                                        <span class="f-w-500">
+                                            {{ exercice.date_debut|timesince:exercice.date_fin }}
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <div class="col-md-6">
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Statut" %}</span>
+                                        <span class="f-w-500">{{ exercice.get_statut_display }}</span>
+                                    </li>
+                                    {% if exercice.resultat_exercice %}
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Résultat" %}</span>
+                                        <span class="f-w-500 {% if exercice.resultat_exercice >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                            {{ exercice.resultat_exercice|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}
+                                        </span>
+                                    </li>
+                                    {% endif %}
+                                    {% if exercice.date_cloture %}
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Date clôture" %}</span>
+                                        <span class="f-w-500">{{ exercice.date_cloture|date:"d.m.Y H:i" }}</span>
+                                    </li>
+                                    {% endif %}
+                                    {% if exercice.cloture_par %}
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Clôturé par" %}</span>
+                                        <span class="f-w-500">{{ exercice.cloture_par.get_full_name|default:exercice.cloture_par.username }}</span>
+                                    </li>
+                                    {% endif %}
+                                </ul>
+                            </div>
+                        </div>
+
+                        {% if stats_compta %}
+                        <hr class="my-4">
+                        <h6 class="text-muted mb-3">{% trans "Statistiques comptables" %}</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="alert alert-light-primary">
+                                    <h4 class="mb-1">{{ stats_compta.nb_ecritures }}</h4>
+                                    <small>{% trans "Écritures comptables" %}</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="alert alert-light-success">
+                                    <h4 class="mb-1">{{ stats_compta.nb_pieces }}</h4>
+                                    <small>{% trans "Pièces comptables" %}</small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Déclarations TVA -->
+                {% if declarations_tva %}
+                <div class="card mt-4">
+                    <div class="card-body">
+                        <h5 class="text-primary mb-3">
+                            <i class="ti ti-file-invoice me-2"></i>{% trans "Déclarations TVA" %}
+                        </h5>
+                        
+                        <div class="overflow-auto app-scroll">
+                            <table class="table table-bottom-border align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>{% trans "Période" %}</th>
+                                        <th>{% trans "Chiffre d'affaires" %}</th>
+                                        <th>{% trans "TVA due" %}</th>
+                                        <th>{% trans "Statut" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for declaration in declarations_tva %}
+                                    <tr>
+                                        <td>T{{ declaration.trimestre }} {{ declaration.annee }}</td>
+                                        <td>{{ declaration.chiffre_affaires_imposable|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</td>
+                                        <td class="f-w-500">{{ declaration.tva_nette_due|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</td>
+                                        <td>
+                                            <span class="badge bg-light-{{ declaration.statut|lower }}">
+                                                {{ declaration.get_statut_display }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Actions et informations complémentaires -->
+            <div class="col-lg-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="text-primary mb-3">{% trans "Actions" %}</h5>
+                        
+                        {% if exercice.statut == 'OUVERT' %}
+                        <div class="alert alert-info mb-3">
+                            <i class="ti ti-info-circle me-2"></i>
+                            {% trans "Cet exercice est ouvert et peut être modifié." %}
+                        </div>
+
+                        <!-- Clôture provisoire -->
+                        <form method="post" action="{% url 'core:exercice-cloturer' exercice.pk %}" class="mb-2">
+                            {% csrf_token %}
+                            <input type="hidden" name="type_cloture" value="provisoire">
+                            <button type="submit" class="btn btn-warning w-100" 
+                                    onclick="return confirm('{% trans "Voulez-vous vraiment clôturer cet exercice de manière provisoire ?" %}')">
+                                <i class="ti ti-lock me-2"></i>{% trans "Clôture provisoire" %}
+                            </button>
+                        </form>
+
+                        <!-- Clôture définitive -->
+                        <form method="post" action="{% url 'core:exercice-cloturer' exercice.pk %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="type_cloture" value="definitif">
+                            <button type="submit" class="btn btn-danger w-100" 
+                                    onclick="return confirm('{% trans "ATTENTION : La clôture définitive est irréversible. Voulez-vous continuer ?" %}')">
+                                <i class="ti ti-lock-check me-2"></i>{% trans "Clôture définitive" %}
+                            </button>
+                        </form>
+
+                        {% elif exercice.statut == 'CLOTURE_PROVISOIRE' %}
+                        <div class="alert alert-warning mb-3">
+                            <i class="ti ti-lock me-2"></i>
+                            {% trans "Cet exercice est clôturé provisoirement." %}
+                        </div>
+
+                        <!-- Rouvrir -->
+                        <form method="post" action="{% url 'core:exercice-update' exercice.pk %}" class="mb-2">
+                            {% csrf_token %}
+                            <input type="hidden" name="statut" value="OUVERT">
+                            <button type="submit" class="btn btn-success w-100">
+                                <i class="ti ti-lock-open me-2"></i>{% trans "Rouvrir l'exercice" %}
+                            </button>
+                        </form>
+
+                        <!-- Clôture définitive -->
+                        <form method="post" action="{% url 'core:exercice-cloturer' exercice.pk %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="type_cloture" value="definitif">
+                            <button type="submit" class="btn btn-danger w-100" 
+                                    onclick="return confirm('{% trans "ATTENTION : La clôture définitive est irréversible. Voulez-vous continuer ?" %}')">
+                                <i class="ti ti-lock-check me-2"></i>{% trans "Clôture définitive" %}
+                            </button>
+                        </form>
+
+                        {% else %}
+                        <div class="alert alert-info mb-3">
+                            <i class="ti ti-lock-check me-2"></i>
+                            {% trans "Cet exercice est clôturé définitivement." %}
+                        </div>
+                        {% endif %}
+
+                        <hr class="my-4">
+
+                        <h6 class="text-muted mb-3">{% trans "Exports" %}</h6>
+
+                        <a href="{% url 'comptabilite:balance-generale' exercice.mandat.pk %}?exercice={{ exercice.pk }}" class="btn btn-outline-primary w-100 mb-2">
+                            <i class="ti ti-file-text me-2"></i>{% trans "Balance comptable" %}
+                        </a>
+                        <a href="{% url 'comptabilite:compte-list' %}?plan={{ exercice.mandat.plan_comptable.pk|default:'' }}" class="btn btn-outline-primary w-100 mb-2">
+                            <i class="ti ti-file-text me-2"></i>{% trans "Grand livre" %}
+                        </a>
+                        <a href="{% url 'comptabilite:balance-generale' exercice.mandat.pk %}?exercice={{ exercice.pk }}&format=pdf" class="btn btn-outline-primary w-100 mb-2">
+                            <i class="ti ti-file-text me-2"></i>{% trans "Compte de résultat" %}
+                        </a>
+                        <a href="{% url 'comptabilite:balance-generale' exercice.mandat.pk %}?exercice={{ exercice.pk }}&format=pdf" class="btn btn-outline-primary w-100">
+                            <i class="ti ti-file-text me-2"></i>{% trans "Bilan" %}
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Mandat associé -->
+                <div class="card mt-4">
+                    <div class="card-body">
+                        <h5 class="text-primary mb-3">{% trans "Mandat" %}</h5>
+                        
+                        <ul class="box-list">
+                            <li class="d-flex align-items-center">
+                                <div class="h-40 w-40 d-flex-center b-r-12 overflow-hidden flex-shrink-0 bg-primary text-white">
+                                    <i class="ti ti-briefcase"></i>
+                                </div>
+                                <div class="ms-3">
+                                    <h6 class="mb-0 f-w-500">
+                                        <a href="{% url 'core:mandat-detail' exercice.mandat.pk %}">
+                                            {{ exercice.mandat.numero }}
+                                        </a>
+                                    </h6>
+                                    <p class="text-muted mb-0">{{ exercice.mandat.type_mandat_ref.libelle|default:exercice.mandat.get_type_mandat_display }}</p>
+                                </div>
+                            </li>
+
+                            <li class="d-flex align-items-center">
+                                <div class="h-40 w-40 d-flex-center b-r-12 overflow-hidden flex-shrink-0 bg-success text-white">
+                                    <i class="ti ti-building"></i>
+                                </div>
+                                <div class="ms-3">
+                                    <h6 class="mb-0 f-w-500">
+                                        <a href="{% url 'core:client-detail' exercice.mandat.client.pk %}">
+                                            {{ exercice.mandat.client.raison_sociale }}
+                                        </a>
+                                    </h6>
+                                    <p class="text-muted mb-0">{{ exercice.mandat.client.forme_juridique }}</p>
+                                </div>
+                            </li>
+                        </ul>
+
+                        <hr class="my-3">
+
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">{% trans "Responsable" %}</span>
+                                <span class="f-w-500">{{ exercice.mandat.responsable.get_full_name|default:exercice.mandat.responsable.username }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">{% trans "Statut mandat" %}</span>
+                                <span class="badge bg-light-primary">{{ exercice.mandat.get_statut_display }}</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

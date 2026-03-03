@@ -1,0 +1,248 @@
+<!-- salaires/declaration_cotisations_form.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% if object %}{% trans "Modifier déclaration" %}{% else %}{% trans "Nouvelle déclaration" %}{% endif %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% if object %}{% trans "Modifier la déclaration" %}{% else %}{% trans "Nouvelle déclaration de cotisations" %}{% endif %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'salaires:declaration-cotisations-list' %}">
+                    <span>{% trans "Déclarations cotisations" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% if object %}{% trans "Modifier" %}{% else %}{% trans "Nouvelle" %}{% endif %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h5>
+                    <i class="ph ph-file-text me-2"></i>
+                    {% if object %}{{ object.get_organisme_display }} - {{ object.get_periode_display }}{% else %}{% trans "Créer une déclaration" %}{% endif %}
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="post" class="app-form">
+                    {% csrf_token %}
+
+                    {% if not object %}
+                    <!-- Création: sélection mandat et organisme -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label">{% trans "Mandat" %} <span class="text-danger">*</span></label>
+                            <select name="mandat" class="form-select" required>
+                                <option value="">{% trans "Sélectionner un mandat..." %}</option>
+                                {% for m in mandats %}
+                                <option value="{{ m.id }}">{{ m.client.raison_sociale }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{% trans "Organisme" %} <span class="text-danger">*</span></label>
+                            <select name="organisme" class="form-select" required>
+                                <option value="">{% trans "Sélectionner..." %}</option>
+                                {% for code, label in organismes %}
+                                <option value="{{ code }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    {% if form.regime_fiscal or form.devise %}
+                    <div class="row mb-4">
+                        {% if form.regime_fiscal %}
+                        <div class="col-md-6">
+                            <label class="form-label">{% trans "Régime fiscal" %}</label>
+                            {{ form.regime_fiscal }}
+                        </div>
+                        {% endif %}
+                        {% if form.devise %}
+                        <div class="col-md-6">
+                            <label class="form-label">{% trans "Devise" %}</label>
+                            {{ form.devise }}
+                            <small class="text-muted">{% trans "Auto-rempli depuis le mandat" %}</small>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <label class="form-label">{% trans "Type de période" %} <span class="text-danger">*</span></label>
+                            <select name="periode_type" id="periode_type" class="form-select" required>
+                                <option value="MENSUEL">{% trans "Mensuelle" %}</option>
+                                <option value="TRIMESTRIEL">{% trans "Trimestrielle" %}</option>
+                                <option value="ANNUEL">{% trans "Annuelle" %}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">{% trans "Année" %} <span class="text-danger">*</span></label>
+                            <input type="number" name="annee" class="form-control" value="{{ current_year }}" min="2020" max="2099" required>
+                        </div>
+                        <div class="col-md-4" id="mois_container">
+                            <label class="form-label">{% trans "Mois" %}</label>
+                            <select name="mois" id="mois" class="form-select">
+                                <option value="1" {% if current_month == 1 %}selected{% endif %}>{% trans "Janvier" %}</option>
+                                <option value="2" {% if current_month == 2 %}selected{% endif %}>{% trans "Février" %}</option>
+                                <option value="3" {% if current_month == 3 %}selected{% endif %}>{% trans "Mars" %}</option>
+                                <option value="4" {% if current_month == 4 %}selected{% endif %}>{% trans "Avril" %}</option>
+                                <option value="5" {% if current_month == 5 %}selected{% endif %}>{% trans "Mai" %}</option>
+                                <option value="6" {% if current_month == 6 %}selected{% endif %}>{% trans "Juin" %}</option>
+                                <option value="7" {% if current_month == 7 %}selected{% endif %}>{% trans "Juillet" %}</option>
+                                <option value="8" {% if current_month == 8 %}selected{% endif %}>{% trans "Août" %}</option>
+                                <option value="9" {% if current_month == 9 %}selected{% endif %}>{% trans "Septembre" %}</option>
+                                <option value="10" {% if current_month == 10 %}selected{% endif %}>{% trans "Octobre" %}</option>
+                                <option value="11" {% if current_month == 11 %}selected{% endif %}>{% trans "Novembre" %}</option>
+                                <option value="12" {% if current_month == 12 %}selected{% endif %}>{% trans "Décembre" %}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4" id="trimestre_container" style="display: none;">
+                            <label class="form-label">{% trans "Trimestre" %}</label>
+                            <select name="trimestre" id="trimestre" class="form-select">
+                                <option value="1">T1 ({% trans "Jan-Mar" %})</option>
+                                <option value="2">T2 ({% trans "Avr-Jun" %})</option>
+                                <option value="3">T3 ({% trans "Jul-Sep" %})</option>
+                                <option value="4">T4 ({% trans "Oct-Déc" %})</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <hr>
+                    {% endif %}
+
+                    <!-- Informations caisse -->
+                    <h6 class="mb-3">{% trans "Informations de la caisse" %}</h6>
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label">{% trans "Nom de la caisse" %}</label>
+                            <input type="text" name="nom_caisse" class="form-control"
+                                   value="{{ object.nom_caisse|default:'' }}"
+                                   placeholder="{% trans 'Ex: Caisse AVS du canton de Vaud' %}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{% trans "N° d'affilié" %}</label>
+                            <input type="text" name="numero_affilie" class="form-control"
+                                   value="{{ object.numero_affilie|default:'' }}"
+                                   placeholder="{% trans 'Ex: 123.456.789' %}">
+                        </div>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label">{% trans "N° de contrat/police" %}</label>
+                            <input type="text" name="numero_contrat" class="form-control"
+                                   value="{{ object.numero_contrat|default:'' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{% trans "Référence" %}</label>
+                            <input type="text" name="numero_reference" class="form-control"
+                                   value="{{ object.numero_reference|default:'' }}">
+                        </div>
+                    </div>
+
+                    <!-- Informations de paiement -->
+                    <h6 class="mb-3">{% trans "Informations de paiement" %}</h6>
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label">{% trans "IBAN de la caisse" %}</label>
+                            <input type="text" name="iban_caisse" class="form-control"
+                                   value="{{ object.iban_caisse|default:'' }}"
+                                   placeholder="{% trans 'CH00 0000 0000 0000 0000 0' %}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{% trans "Référence BVR/QR" %}</label>
+                            <input type="text" name="numero_bvr" class="form-control"
+                                   value="{{ object.numero_bvr|default:'' }}">
+                        </div>
+                    </div>
+
+                    {% if object %}
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label">{% trans "Frais d'administration" %}</label>
+                            <div class="input-group">
+                                <input type="number" name="frais_administration" class="form-control"
+                                       value="{{ object.frais_administration|default:'0' }}"
+                                       step="0.01" min="0">
+                                <span class="input-group-text">{{ DEVISE_CODE }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Remarques -->
+                    <div class="mb-4">
+                        <label class="form-label">{% trans "Remarques" %}</label>
+                        <textarea name="remarques" class="form-control" rows="3">{{ object.remarques|default:'' }}</textarea>
+                    </div>
+
+                    {% if not object %}
+                    <!-- Option calcul automatique -->
+                    <div class="alert alert-info">
+                        <div class="form-check">
+                            <input type="checkbox" name="auto_calculer" id="auto_calculer" class="form-check-input" checked>
+                            <label class="form-check-label fw-bold" for="auto_calculer">
+                                {% trans "Calculer automatiquement depuis les fiches de salaire" %}
+                            </label>
+                        </div>
+                        <small class="text-muted ms-4">
+                            {% trans "Agrège les données des fiches de salaire validées pour la période sélectionnée" %}
+                        </small>
+                    </div>
+                    {% endif %}
+
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% if object %}{% url 'salaires:declaration-cotisations-detail' object.pk %}{% else %}{% url 'salaires:declaration-cotisations-list' %}{% endif %}" class="btn btn-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ph ph-check me-2"></i>{% if object %}{% trans "Enregistrer" %}{% else %}{% trans "Créer la déclaration" %}{% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const periodeType = document.getElementById('periode_type');
+    const moisContainer = document.getElementById('mois_container');
+    const trimestreContainer = document.getElementById('trimestre_container');
+
+    if (periodeType) {
+        periodeType.addEventListener('change', function() {
+            if (this.value === 'MENSUEL') {
+                moisContainer.style.display = 'block';
+                trimestreContainer.style.display = 'none';
+            } else if (this.value === 'TRIMESTRIEL') {
+                moisContainer.style.display = 'none';
+                trimestreContainer.style.display = 'block';
+            } else {
+                moisContainer.style.display = 'none';
+                trimestreContainer.style.display = 'none';
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

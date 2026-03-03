@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{{ user_obj.get_full_name|default:user_obj.username }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h3>{{ user_obj.get_full_name|default:user_obj.username }}</h3>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}"><i class="ti ti-home"></i></a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'core:admin-dashboard' %}">{% trans "Administration" %}</a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'core:admin-user-list' %}">{% trans "Utilisateurs" %}</a></li>
+                        <li class="breadcrumb-item active">{{ user_obj.username }}</li>
+                    </ol>
+                </div>
+                <div class="page-header-right">
+                    <a href="{% url 'core:admin-user-update' user_obj.pk %}" class="btn btn-primary">
+                        <i class="ti ti-edit me-2"></i>{% trans "Modifier" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- User Info Card -->
+        <div class="col-xl-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        {% if user_obj.avatar %}
+                        <img src="{{ user_obj.avatar.url }}" alt="{{ user_obj.username }}" class="rounded-circle" style="width: 100px; height: 100px;">
+                        {% else %}
+                        <div class="avatar avatar-xl mx-auto">
+                            <span class="avatar-text rounded-circle bg-primary f-s-24">{{ user_obj.get_initials }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <h4>{{ user_obj.get_full_name|default:user_obj.username }}</h4>
+                    <p class="text-muted">{{ user_obj.email }}</p>
+
+                    <!-- Type & Role Badges -->
+                    <div class="mb-3">
+                        {% if user_obj.type_utilisateur == 'STAFF' %}
+                        <span class="badge bg-primary me-1">{% trans "Staff" %}</span>
+                        {% else %}
+                        <span class="badge bg-warning me-1">{% trans "Client" %}</span>
+                        {% endif %}
+
+                        {% if user_obj.role %}
+                        <span class="badge bg-secondary">{{ user_obj.role.nom }}</span>
+                        {% endif %}
+
+                        {% if user_obj.is_superuser %}
+                        <span class="badge bg-danger">{% trans "Superuser" %}</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Status -->
+                    <div class="mb-3">
+                        {% if user_obj.is_active %}
+                        <span class="badge bg-success"><i class="ti ti-check me-1"></i>{% trans "Actif" %}</span>
+                        {% else %}
+                        <span class="badge bg-danger"><i class="ti ti-x me-1"></i>{% trans "Inactif" %}</span>
+                        {% endif %}
+
+                        {% if user_obj.doit_changer_mot_de_passe %}
+                        <span class="badge bg-warning"><i class="ti ti-key me-1"></i>{% trans "Doit changer MDP" %}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <div class="d-flex justify-content-between">
+                        <form method="post" action="{% url 'core:admin-user-toggle-active' user_obj.pk %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-{{ user_obj.is_active|yesno:'danger,success' }}">
+                                <i class="ti ti-{{ user_obj.is_active|yesno:'user-off,user-check' }} me-1"></i>
+                                {{ user_obj.is_active|yesno:'Desactiver,Activer' }}
+                            </button>
+                        </form>
+                        <form method="post" action="{% url 'core:admin-user-reset-password' user_obj.pk %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-warning">
+                                <i class="ti ti-key me-1"></i>{% trans "Reset MDP" %}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contact Info -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Informations de contact" %}</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Email" %}</span>
+                            <span>{{ user_obj.email }}</span>
+                        </li>
+                        {% if user_obj.phone %}
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Telephone" %}</span>
+                            <span>{{ user_obj.phone }}</span>
+                        </li>
+                        {% endif %}
+                        {% if user_obj.mobile %}
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Mobile" %}</span>
+                            <span>{{ user_obj.mobile }}</span>
+                        </li>
+                        {% endif %}
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Inscription" %}</span>
+                            <span>{{ user_obj.date_joined|date:"d/m/Y" }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Derniere connexion" %}</span>
+                            <span>{{ user_obj.last_login|date:"d/m/Y H:i"|default:"-" }}</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column -->
+        <div class="col-xl-8">
+            <!-- Access to Mandats (for CLIENT users) -->
+            {% if user_obj.type_utilisateur == 'CLIENT' %}
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Acces aux mandats" %}</h5>
+                    <a href="{% url 'core:admin-acces-mandat-create' %}?utilisateur={{ user_obj.pk }}" class="btn btn-sm btn-primary">
+                        <i class="ti ti-plus me-1"></i>{% trans "Ajouter acces" %}
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "Mandat" %}</th>
+                                    <th>{% trans "Client" %}</th>
+                                    <th>{% trans "Responsable" %}</th>
+                                    <th>{% trans "Invitations" %}</th>
+                                    <th>{% trans "Statut" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for acces in acces_mandats %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'core:mandat-detail' acces.mandat.pk %}">{{ acces.mandat.numero }}</a>
+                                    </td>
+                                    <td>{{ acces.mandat.client.raison_sociale }}</td>
+                                    <td>
+                                        {% if acces.est_responsable %}
+                                        <span class="badge bg-success"><i class="ti ti-check"></i></span>
+                                        {% else %}
+                                        <span class="badge bg-secondary"><i class="ti ti-x"></i></span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if acces.est_responsable %}
+                                        {{ acces.invitations_restantes }} / {{ acces.limite_invitations }}
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if acces.is_active %}
+                                        <span class="badge bg-success">{% trans "Actif" %}</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">{% trans "Inactif" %}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted">{% trans "Aucun acces" %}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Invitations Sent -->
+            {% if invitations_envoyees %}
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Invitations envoyees par cet utilisateur" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "Email" %}</th>
+                                    <th>{% trans "Type" %}</th>
+                                    <th>{% trans "Statut" %}</th>
+                                    <th>{% trans "Date" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for invitation in invitations_envoyees %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'core:admin-invitation-detail' invitation.pk %}">{{ invitation.email }}</a>
+                                    </td>
+                                    <td>
+                                        {% if invitation.type_invitation == 'STAFF' %}
+                                        <span class="badge bg-primary">{% trans "Staff" %}</span>
+                                        {% else %}
+                                        <span class="badge bg-warning">{% trans "Client" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if invitation.statut == 'EN_ATTENTE' %}
+                                        <span class="badge bg-info">{% trans "En attente" %}</span>
+                                        {% elif invitation.statut == 'ACCEPTEE' %}
+                                        <span class="badge bg-success">{% trans "Acceptee" %}</span>
+                                        {% elif invitation.statut == 'EXPIREE' %}
+                                        <span class="badge bg-secondary">{% trans "Expiree" %}</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">{% trans "Annulee" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ invitation.created_at|date:"d/m/Y" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Permissions (if role exists) -->
+            {% if user_obj.role %}
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Permissions via le role" %} "{{ user_obj.role.nom }}"</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-2">{% trans "Niveau de permission" %}: <strong>{{ user_obj.role.niveau }}</strong></p>
+                    {% if user_obj.role.description %}
+                    <p class="text-muted">{{ user_obj.role.description }}</p>
+                    {% endif %}
+                    <a href="{% url 'core:admin-role-detail' user_obj.role.pk %}" class="btn btn-sm btn-outline-primary">
+                        <i class="ti ti-eye me-1"></i>{% trans "Voir les details du role" %}
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

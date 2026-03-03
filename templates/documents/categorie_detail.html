@@ -1,0 +1,256 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ categorie.nom }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{{ categorie.nom }}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'documents:document-list' %}">
+                    <span>{% trans "Documents" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'documents:categorie-list' %}">
+                    <span>{% trans "Catégories" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{{ categorie.nom }}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Colonne principale -->
+    <div class="col-lg-8">
+        <!-- Informations -->
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex align-items-center">
+                    {% if categorie.icone %}
+                    <i class="{{ categorie.icone }} me-3 f-s-36" 
+                       {% if categorie.couleur %}style="color: {{ categorie.couleur }};"{% endif %}>
+                    </i>
+                    {% endif %}
+                    <div>
+                        <h5 class="mb-0">{{ categorie.nom }}</h5>
+                        {% if categorie.parent %}
+                        <p class="text-muted f-s-12 mb-0">
+                            <i class="ph ph-folder-open me-1"></i>{{ categorie.parent.nom }}
+                        </p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if categorie.description %}
+                <div class="mb-4">
+                    <h6 class="f-w-600 mb-2">{% trans "Description" %}</h6>
+                    <p class="text-muted">{{ categorie.description }}</p>
+                </div>
+                {% endif %}
+
+                <div class="app-divider-v dashed my-3"></div>
+
+                <!-- Mots-clés -->
+                {% if categorie.mots_cles %}
+                <div class="mb-4">
+                    <h6 class="f-w-600 mb-3">{% trans "Mots-clés pour classification" %}</h6>
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for mot in categorie.mots_cles %}
+                        <span class="badge text-light-primary">{{ mot }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Patterns regex -->
+                {% if categorie.patterns_regex %}
+                <div class="app-divider-v dashed my-3"></div>
+                
+                <div class="mb-0">
+                    <h6 class="f-w-600 mb-3">{% trans "Patterns de détection" %}</h6>
+                    <div class="bg-light p-3 rounded">
+                        <code class="f-s-12">
+                            {% for pattern in categorie.patterns_regex %}
+                            {{ pattern }}<br>
+                            {% endfor %}
+                        </code>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Types de documents -->
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Types de documents" %}</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Code" %}</th>
+                                <th>{% trans "Libellé" %}</th>
+                                <th>{% trans "Type système" %}</th>
+                                <th class="text-end">{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for type in categorie.types_document.all %}
+                            <tr>
+                                <td>
+                                    <span class="badge text-light-primary">{{ type.code }}</span>
+                                </td>
+                                <td>{{ type.libelle }}</td>
+                                <td>
+                                    <span class="badge text-light-secondary">
+                                        {{ type.get_type_document_display }}
+                                    </span>
+                                </td>
+                                <td class="text-end">
+                                    <a href="#" class="btn btn-light-primary btn-sm">
+                                        <i class="ph ph-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center py-4">
+                                    <p class="text-muted mb-0">{% trans "Aucun type de document" %}</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sous-catégories -->
+        {% if categorie.sous_categories.exists %}
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Sous-catégories" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for sous_cat in categorie.sous_categories.all %}
+                    <div class="col-md-6">
+                        <div class="card bg-light-primary">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center">
+                                    {% if sous_cat.icone %}
+                                    <i class="{{ sous_cat.icone }} me-3 f-s-24"></i>
+                                    {% endif %}
+                                    <div>
+                                        <h6 class="mb-0">{{ sous_cat.nom }}</h6>
+                                        <small class="text-muted">{{ sous_cat.types_document.count }} types</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Statistiques -->
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-chart-bar me-2"></i>{% trans "Statistiques" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <p class="text-muted f-s-12 mb-1">{% trans "Types de documents" %}</p>
+                    <h5 class="text-primary mb-0">{{ categorie.types_document.count }}</h5>
+                </div>
+
+                <div class="app-divider-v dashed my-3"></div>
+
+                <div class="mb-3">
+                    <p class="text-muted f-s-12 mb-1">{% trans "Ordre d'affichage" %}</p>
+                    <h5 class="text-secondary mb-0">{{ categorie.ordre }}</h5>
+                </div>
+
+                <div class="app-divider-v dashed my-3"></div>
+
+                <div class="mb-0">
+                    <p class="text-muted f-s-12 mb-1">{% trans "Créé le" %}</p>
+                    <p class="f-w-600 mb-0">{{ categorie.created_at|date:"d/m/Y" }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Couleur et icône -->
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-palette me-2"></i>{% trans "Apparence" %}</h5>
+            </div>
+            <div class="card-body">
+                {% if categorie.icone %}
+                <div class="mb-3">
+                    <p class="text-muted f-s-12 mb-2">{% trans "Icône" %}</p>
+                    <div class="d-flex align-items-center">
+                        <i class="{{ categorie.icone }} f-s-36 me-3" 
+                           {% if categorie.couleur %}style="color: {{ categorie.couleur }};"{% endif %}>
+                        </i>
+                        <code class="f-s-12">{{ categorie.icone }}</code>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if categorie.couleur %}
+                <div class="app-divider-v dashed my-3"></div>
+                
+                <div class="mb-0">
+                    <p class="text-muted f-s-12 mb-2">{% trans "Couleur" %}</p>
+                    <div class="d-flex align-items-center">
+                        <div class="rounded" 
+                             style="width: 40px; height: 40px; background-color: {{ categorie.couleur }};">
+                        </div>
+                        <code class="f-s-12 ms-3">{{ categorie.couleur }}</code>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-lightning me-2"></i>{% trans "Actions" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-light-primary" disabled>
+                        <i class="ph ph-pencil me-2"></i>{% trans "Modifier" %}
+                    </button>
+                    <button class="btn btn-light-danger" disabled>
+                        <i class="ph ph-trash me-2"></i>{% trans "Supprimer" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

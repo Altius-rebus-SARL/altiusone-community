@@ -1,0 +1,215 @@
+{% load i18n %}
+{#
+    Composant de boutons d'import/export
+
+    Usage:
+    {% include 'components/import_export_buttons.html' with
+        import_url=import_url
+        export_url=export_url
+        template_url=template_url
+        can_import=can_import
+        can_export=can_export
+    %}
+
+    Paramètres:
+    - import_url: URL pour l'import (optionnel)
+    - export_url: URL de base pour l'export (optionnel)
+    - template_url: URL pour télécharger le template (optionnel)
+    - can_import: Boolean - l'utilisateur peut-il importer? (défaut: False)
+    - can_export: Boolean - l'utilisateur peut-il exporter? (défaut: True)
+    - btn_size: 'sm', 'md', 'lg' (défaut: 'sm')
+    - show_import_modal: Boolean - afficher le modal d'import? (défaut: True)
+#}
+
+{% if can_import or can_export %}
+<div class="btn-group" role="group" aria-label="{% trans 'Import/Export' %}">
+
+    {# Bouton Export #}
+    {% if can_export and export_url %}
+    <div class="btn-group" role="group">
+        <button type="button"
+                class="btn btn-{{ btn_size|default:'sm' }} btn-outline-secondary dropdown-toggle"
+                data-bs-toggle="dropdown"
+                aria-expanded="false">
+            <i class="ph ph-download-simple me-1"></i> {% trans "Exporter" %}
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+            <li>
+                <a class="dropdown-item"
+                   href="{{ export_url }}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}&{% else %}?{% endif %}format=xlsx">
+                    <i class="ph ph-file-xls me-2 text-success"></i> {% trans "Excel (.xlsx)" %}
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item"
+                   href="{{ export_url }}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}&{% else %}?{% endif %}format=csv">
+                    <i class="ph ph-file-csv me-2 text-primary"></i> {% trans "CSV" %}
+                </a>
+            </li>
+            {% if template_url %}
+            <li><hr class="dropdown-divider"></li>
+            <li>
+                <a class="dropdown-item" href="{{ template_url }}?format=xlsx">
+                    <i class="ph ph-file-arrow-down me-2 text-muted"></i> {% trans "Template vide (Excel)" %}
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" href="{{ template_url }}?format=csv">
+                    <i class="ph ph-file-arrow-down me-2 text-muted"></i> {% trans "Template vide (CSV)" %}
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {# Bouton Import #}
+    {% if can_import and import_url %}
+    <button type="button"
+            class="btn btn-{{ btn_size|default:'sm' }} btn-outline-primary"
+            {% if show_import_modal|default:True %}
+            data-bs-toggle="modal"
+            data-bs-target="#importModal"
+            {% else %}
+            onclick="window.location.href='{{ import_url }}'"
+            {% endif %}>
+        <i class="ph ph-upload-simple me-1"></i> {% trans "Importer" %}
+    </button>
+    {% endif %}
+
+</div>
+
+{# Modal d'import (si show_import_modal=True) #}
+{% if can_import and import_url and show_import_modal|default:True %}
+<div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="importModalLabel">
+                    <i class="ph ph-upload-simple me-2"></i>{% trans "Importer des données" %}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Fermer' %}"></button>
+            </div>
+
+            <form method="post" action="{{ import_url }}" enctype="multipart/form-data" id="importForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    {# Instructions #}
+                    <div class="alert alert-info mb-4">
+                        <h6 class="alert-heading">
+                            <i class="ph ph-info me-1"></i>{% trans "Instructions" %}
+                        </h6>
+                        <ul class="mb-0 small">
+                            <li>{% trans "Formats acceptés: Excel (.xlsx) ou CSV" %}</li>
+                            <li>{% trans "La première ligne doit contenir les en-têtes de colonnes" %}</li>
+                            <li>{% trans "Utilisez le template vide pour vous assurer du bon format" %}</li>
+                        </ul>
+                    </div>
+
+                    {# Zone de téléchargement du template #}
+                    {% if template_url %}
+                    <div class="mb-4 p-3 bg-light rounded">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div>
+                                <strong>{% trans "Besoin d'un modèle?" %}</strong>
+                                <p class="text-muted small mb-0">
+                                    {% trans "Téléchargez le template avec les colonnes pré-remplies" %}
+                                </p>
+                            </div>
+                            <div class="btn-group">
+                                <a href="{{ template_url }}?format=xlsx" class="btn btn-sm btn-outline-secondary">
+                                    <i class="ph ph-file-xls me-1"></i> Excel
+                                </a>
+                                <a href="{{ template_url }}?format=csv" class="btn btn-sm btn-outline-secondary">
+                                    <i class="ph ph-file-csv me-1"></i> CSV
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {# Champ de fichier #}
+                    <div class="mb-3">
+                        <label for="importFile" class="form-label">
+                            <strong>{% trans "Fichier à importer" %}</strong> <span class="text-danger">*</span>
+                        </label>
+                        <input type="file"
+                               class="form-control"
+                               id="importFile"
+                               name="import_file"
+                               accept=".csv,.xlsx,.xls"
+                               required>
+                        <div class="form-text">
+                            {% trans "Taille maximale: 10 MB" %}
+                        </div>
+                    </div>
+
+                    {# Option dry-run #}
+                    <div class="form-check mb-3">
+                        <input class="form-check-input"
+                               type="checkbox"
+                               id="dryRun"
+                               name="dry_run"
+                               value="true"
+                               checked>
+                        <label class="form-check-label" for="dryRun">
+                            {% trans "Simulation uniquement" %}
+                            <small class="text-muted d-block">
+                                {% trans "Vérifie les données sans les importer. Recommandé pour un premier essai." %}
+                            </small>
+                        </label>
+                    </div>
+
+                    {# Zone de résultats (cachée par défaut) #}
+                    <div id="importResults" class="d-none">
+                        <hr>
+                        <h6>{% trans "Résultats de la simulation" %}</h6>
+                        <div id="importResultsContent"></div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        {% trans "Annuler" %}
+                    </button>
+                    <button type="submit" class="btn btn-primary" id="importSubmitBtn">
+                        <i class="ph ph-check me-1"></i>
+                        <span id="importBtnText">{% trans "Vérifier" %}</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{# JavaScript pour le modal d'import #}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('importForm');
+    const dryRunCheckbox = document.getElementById('dryRun');
+    const submitBtn = document.getElementById('importSubmitBtn');
+    const btnText = document.getElementById('importBtnText');
+
+    // Mettre à jour le texte du bouton selon l'option dry-run
+    function updateButtonText() {
+        if (dryRunCheckbox.checked) {
+            btnText.textContent = '{% trans "Vérifier" %}';
+            submitBtn.classList.remove('btn-success');
+            submitBtn.classList.add('btn-primary');
+        } else {
+            btnText.textContent = '{% trans "Importer" %}';
+            submitBtn.classList.remove('btn-primary');
+            submitBtn.classList.add('btn-success');
+        }
+    }
+
+    dryRunCheckbox.addEventListener('change', updateButtonText);
+    updateButtonText();
+});
+</script>
+{% endif %}
+
+{% else %}
+{# Aucune action disponible #}
+<span class="text-muted small">{% trans "Import/Export non disponible" %}</span>
+{% endif %}

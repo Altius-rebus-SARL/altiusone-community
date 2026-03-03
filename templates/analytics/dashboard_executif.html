@@ -1,0 +1,631 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+{% load devise_tags %}
+
+{% block title %}{% trans "Dashboard Exécutif" %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* KPI Cards */
+    .kpi-card {
+        border-radius: 12px;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+    .kpi-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+    .kpi-label {
+        font-size: 0.85rem;
+        color: var(--bs-secondary);
+        margin-bottom: 0.25rem;
+    }
+    .kpi-trend {
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+    .kpi-trend.up { color: var(--bs-success); }
+    .kpi-trend.down { color: var(--bs-danger); }
+    .kpi-trend.stable { color: var(--bs-secondary); }
+    .kpi-sparkline {
+        height: 40px;
+        margin-top: 0.5rem;
+    }
+
+    /* Chart containers */
+    .chart-card {
+        border-radius: 12px;
+    }
+    .chart-container {
+        min-height: 300px;
+    }
+
+    /* Alertes */
+    .alert-item {
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    /* Select2 compact pour filtres */
+    .select2-sm-container {
+        display: inline-block;
+    }
+    .select2-sm-container .select2-container {
+        width: 100% !important;
+    }
+    .select2-sm-container .select2-container--default .select2-selection--single {
+        height: 31px;
+        padding: 2px 8px;
+        font-size: 0.875rem;
+        border-radius: 0.25rem;
+    }
+    .select2-sm-container .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 25px;
+        padding-left: 0;
+    }
+    .select2-sm-container .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 29px;
+    }
+
+    .alert-item.danger {
+        background: rgba(239, 68, 68, 0.1);
+        border-left: 4px solid var(--bs-danger);
+    }
+    .alert-item.warning {
+        background: rgba(245, 158, 11, 0.1);
+        border-left: 4px solid var(--bs-warning);
+    }
+    .alert-item.info {
+        background: rgba(59, 130, 246, 0.1);
+        border-left: 4px solid var(--bs-info);
+    }
+    .alert-icon {
+        font-size: 1.5rem;
+    }
+    .alert-item.danger .alert-icon { color: var(--bs-danger); }
+    .alert-item.warning .alert-icon { color: var(--bs-warning); }
+    .alert-item.info .alert-icon { color: var(--bs-info); }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .kpi-value { font-size: 1.5rem; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Dashboard Exécutif" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Accueil" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'analytics:tableau-bord-list' %}">{% trans "Analytics" %}</a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Dashboard Exécutif" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Filtres -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body py-2">
+                <form method="get" class="d-flex flex-wrap gap-3 align-items-center">
+                    <span class="text-muted"><i class="ph ph-funnel me-1"></i>{% trans "Filtres:" %}</span>
+
+                    <select name="annee" class="form-select form-select-sm" style="width: auto;">
+                        {% for annee in annees %}
+                        <option value="{{ annee }}" {% if annee == annee_selectionnee %}selected{% endif %}>
+                            {{ annee }}
+                        </option>
+                        {% endfor %}
+                    </select>
+
+                    <div class="select2-sm-container" style="width: 250px;">
+                        <select name="mandat" class="form-select form-select-sm select2" data-minimum-results-for-search="0">
+                            <option value="">{% trans "Tous les mandats" %}</option>
+                            {% for m in mandats %}
+                            <option value="{{ m.pk }}" {% if m == mandat_selectionne %}selected{% endif %}>
+                                {{ m.client.raison_sociale|truncatechars:30 }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-sm btn-primary">
+                        <i class="ph ph-funnel-simple me-1"></i>{% trans "Appliquer" %}
+                    </button>
+
+                    <button type="button" class="btn btn-sm btn-light-secondary ms-auto" onclick="refreshDashboard()">
+                        <i class="ph ph-arrow-clockwise me-1"></i>{% trans "Actualiser" %}
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Alertes -->
+{% if alertes %}
+<div class="row mb-4">
+    <div class="col-12">
+        {% for alerte in alertes %}
+        <div class="alert-item {{ alerte.type }}">
+            <i class="{{ alerte.icon }} alert-icon"></i>
+            <div class="flex-grow-1">
+                <span class="f-w-500">{{ alerte.message }}</span>
+                {% if alerte.montant %}
+                <span class="ms-2 badge bg-{{ alerte.type }}">{{ DEVISE_CODE }} {{ alerte.montant|devise:DEVISE_TAUX|floatformat:0|intcomma }}</span>
+                {% endif %}
+            </div>
+            {% if alerte.action_url %}
+            <a href="{{ alerte.action_url }}" class="btn btn-sm btn-light-{{ alerte.type }}">
+                {% trans "Voir" %} <i class="ph ph-arrow-right ms-1"></i>
+            </a>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- KPIs Principaux -->
+<div class="row mb-4">
+    <!-- CA Mensuel -->
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="card kpi-card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="kpi-label mb-1">{% trans "CA Mensuel" %}</p>
+                        <h3 class="kpi-value text-primary mb-0">
+                            {{ DEVISE_CODE }} {{ kpis.ca_mensuel.valeur|devise:DEVISE_TAUX|floatformat:0|intcomma }}
+                        </h3>
+                    </div>
+                    <span class="badge bg-light-primary p-2 rounded-circle">
+                        <i class="ti ti-currency-dollar f-s-20"></i>
+                    </span>
+                </div>
+                <div class="kpi-trend {% if kpis.ca_mensuel.evolution >= 0 %}up{% else %}down{% endif %} mt-2">
+                    <i class="ti ti-trending-{% if kpis.ca_mensuel.evolution >= 0 %}up{% else %}down{% endif %}"></i>
+                    {{ kpis.ca_mensuel.evolution|floatformat:1 }}% {% trans "vs mois précédent" %}
+                </div>
+                <div id="sparkline-ca" class="kpi-sparkline"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Taux de Recouvrement -->
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="card kpi-card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="kpi-label mb-1">{% trans "Taux de Recouvrement" %}</p>
+                        <h3 class="kpi-value {% if kpis.taux_recouvrement.valeur >= 90 %}text-success{% elif kpis.taux_recouvrement.valeur >= 80 %}text-warning{% else %}text-danger{% endif %} mb-0">
+                            {{ kpis.taux_recouvrement.valeur }}%
+                        </h3>
+                    </div>
+                    <span class="badge bg-light-success p-2 rounded-circle">
+                        <i class="ti ti-percentage f-s-20"></i>
+                    </span>
+                </div>
+                <div class="kpi-trend {% if kpis.taux_recouvrement.valeur >= kpis.taux_recouvrement.objectif %}up{% else %}down{% endif %} mt-2">
+                    {% if kpis.taux_recouvrement.valeur >= kpis.taux_recouvrement.objectif %}
+                    <i class="ti ti-check"></i> {% trans "Objectif atteint" %} ({{ kpis.taux_recouvrement.objectif }}%)
+                    {% else %}
+                    <i class="ti ti-target"></i> {% trans "Objectif:" %} {{ kpis.taux_recouvrement.objectif }}%
+                    {% endif %}
+                </div>
+                <div id="gauge-recouvrement" style="height: 80px; margin-top: 0.5rem;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Encours Clients -->
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="card kpi-card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="kpi-label mb-1">{% trans "Encours Clients" %}</p>
+                        <h3 class="kpi-value text-warning mb-0">
+                            {{ DEVISE_CODE }} {{ kpis.encours_clients.valeur|devise:DEVISE_TAUX|floatformat:0|intcomma }}
+                        </h3>
+                    </div>
+                    <span class="badge bg-light-warning p-2 rounded-circle">
+                        <i class="ti ti-file-invoice f-s-20"></i>
+                    </span>
+                </div>
+                <div class="kpi-trend stable mt-2">
+                    <i class="ti ti-files"></i> {{ kpis.encours_clients.nb_factures }} {% trans "facture(s) ouverte(s)" %}
+                </div>
+                {% if kpis.factures_impayees.valeur > 0 %}
+                <div class="mt-2">
+                    <span class="badge bg-light-danger">
+                        <i class="ti ti-alert-triangle me-1"></i>
+                        {{ kpis.factures_impayees.valeur }} {% trans "en retard" %}
+                    </span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- DSO -->
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="card kpi-card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="kpi-label mb-1">{% trans "Délai Paiement Moyen" %}</p>
+                        <h3 class="kpi-value {% if kpis.dso.valeur <= 30 %}text-success{% elif kpis.dso.valeur <= 45 %}text-warning{% else %}text-danger{% endif %} mb-0">
+                            {{ kpis.dso.valeur|floatformat:0 }} {% trans "jours" %}
+                        </h3>
+                    </div>
+                    <span class="badge bg-light-info p-2 rounded-circle">
+                        <i class="ti ti-clock f-s-20"></i>
+                    </span>
+                </div>
+                <div class="kpi-trend {% if kpis.dso.evolution <= 0 %}up{% else %}down{% endif %} mt-2">
+                    <i class="ti ti-trending-{% if kpis.dso.evolution <= 0 %}down{% else %}up{% endif %}"></i>
+                    {{ kpis.dso.evolution|floatformat:1 }}% {% trans "vs période précédente" %}
+                </div>
+                <p class="text-muted f-s-12 mt-2 mb-0">
+                    <i class="ti ti-info-circle me-1"></i>{% trans "DSO < 30j = Excellent" %}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- KPIs Secondaires -->
+<div class="row mb-4">
+    <!-- CA Annuel -->
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="card kpi-card h-100 bg-light-primary">
+            <div class="card-body py-3">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="badge bg-primary p-2 rounded-circle">
+                        <i class="ti ti-chart-line f-s-18"></i>
+                    </span>
+                    <div>
+                        <p class="kpi-label mb-0">{% trans "CA Annuel" %} {{ annee_selectionnee }}</p>
+                        <h5 class="mb-0 f-w-700">{{ DEVISE_CODE }} {{ kpis.ca_annuel.valeur|devise:DEVISE_TAUX|floatformat:0|intcomma }}</h5>
+                        <small class="{% if kpis.ca_annuel.evolution >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {% if kpis.ca_annuel.evolution >= 0 %}+{% endif %}{{ kpis.ca_annuel.evolution|floatformat:1 }}% vs N-1
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Heures Facturées -->
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="card kpi-card h-100 bg-light-success">
+            <div class="card-body py-3">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="badge bg-success p-2 rounded-circle">
+                        <i class="ti ti-clock-hour-4 f-s-18"></i>
+                    </span>
+                    <div>
+                        <p class="kpi-label mb-0">{% trans "Heures Facturées" %}</p>
+                        <h5 class="mb-0 f-w-700">{{ kpis.heures_facturees.valeur|floatformat:0 }}h</h5>
+                        <small class="{% if kpis.heures_facturees.evolution >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {% if kpis.heures_facturees.evolution >= 0 %}+{% endif %}{{ kpis.heures_facturees.evolution|floatformat:1 }}% ce mois
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Clients Actifs -->
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="card kpi-card h-100 bg-light-info">
+            <div class="card-body py-3">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="badge bg-info p-2 rounded-circle">
+                        <i class="ti ti-users f-s-18"></i>
+                    </span>
+                    <div>
+                        <p class="kpi-label mb-0">{% trans "Clients Actifs" %}</p>
+                        <h5 class="mb-0 f-w-700">{{ kpis.nb_clients_actifs.valeur }}</h5>
+                        <small class="text-muted">{% trans "cette année" %}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Montant Impayé -->
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="card kpi-card h-100 {% if kpis.factures_impayees.montant > 0 %}bg-light-danger{% else %}bg-light-success{% endif %}">
+            <div class="card-body py-3">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="badge {% if kpis.factures_impayees.montant > 0 %}bg-danger{% else %}bg-success{% endif %} p-2 rounded-circle">
+                        <i class="ti ti-alert-triangle f-s-18"></i>
+                    </span>
+                    <div>
+                        <p class="kpi-label mb-0">{% trans "Impayés en Retard" %}</p>
+                        <h5 class="mb-0 f-w-700">{{ DEVISE_CODE }} {{ kpis.factures_impayees.montant|devise:DEVISE_TAUX|floatformat:0|intcomma }}</h5>
+                        <small class="text-muted">{{ kpis.factures_impayees.valeur }} {% trans "facture(s)" %}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Graphiques Principaux -->
+<div class="row mb-4">
+    <!-- Évolution CA -->
+    <div class="col-xl-8 mb-4">
+        <div class="card chart-card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">{% trans "Évolution du Chiffre d'Affaires" %}</h5>
+                <div class="d-flex gap-2">
+                    <span class="badge bg-primary">{{ annee_selectionnee }}</span>
+                    <span class="badge bg-secondary">{{ annee_selectionnee|add:"-1" }}</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="chart-evolution-ca" class="chart-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Répartition par Prestation -->
+    <div class="col-xl-4 mb-4">
+        <div class="card chart-card h-100">
+            <div class="card-header">
+                <h5 class="mb-0">{% trans "Répartition par Type" %}</h5>
+            </div>
+            <div class="card-body">
+                <div id="chart-repartition" class="chart-container"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Graphiques Secondaires -->
+<div class="row mb-4">
+    <!-- Top Clients -->
+    <div class="col-xl-6 mb-4">
+        <div class="card chart-card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">{% trans "Top 10 Clients" %}</h5>
+                <a href="{% url 'core:client-list' %}" class="btn btn-sm btn-light-primary">
+                    {% trans "Voir tous" %}
+                </a>
+            </div>
+            <div class="card-body">
+                <div id="chart-top-clients" style="height: 350px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Aging Analysis -->
+    <div class="col-xl-6 mb-4">
+        <div class="card chart-card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">{% trans "Analyse des Créances" %}</h5>
+                <a href="{% url 'facturation:facture-list' %}?statut=EN_RETARD" class="btn btn-sm btn-light-warning">
+                    {% trans "Factures en retard" %}
+                </a>
+            </div>
+            <div class="card-body">
+                <div id="chart-aging" style="height: 350px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Analyses Avancées -->
+<div class="row mb-4">
+    <!-- Pareto -->
+    <div class="col-xl-6 mb-4">
+        <div class="card chart-card h-100">
+            <div class="card-header">
+                <h5 class="mb-0">{% trans "Analyse Pareto (80/20)" %}</h5>
+                <small class="text-muted">{% trans "Concentration du CA par client" %}</small>
+            </div>
+            <div class="card-body">
+                <div id="chart-pareto" style="height: 350px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Treemap Mandats -->
+    <div class="col-xl-6 mb-4">
+        <div class="card chart-card h-100">
+            <div class="card-header">
+                <h5 class="mb-0">{% trans "CA par Type de Mandat" %}</h5>
+                <small class="text-muted">{% trans "Répartition visuelle" %}</small>
+            </div>
+            <div class="card-body">
+                <div id="chart-treemap" style="height: 350px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Actions Rapides -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">{% trans "Actions Rapides" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="{% url 'analytics:visualisations' %}{% if annee_selectionnee %}?annee={{ annee_selectionnee }}{% endif %}{% if mandat_selectionne %}&mandat={{ mandat_selectionne.pk }}{% endif %}" class="btn btn-primary">
+                        <i class="ti ti-chart-dots-3 me-2"></i>{% trans "Visualisations" %}
+                    </a>
+                    <a href="{% url 'analytics:rapport-generer' %}" class="btn btn-light-primary">
+                        <i class="ti ti-file-analytics me-2"></i>{% trans "Générer un rapport" %}
+                    </a>
+                    <a href="{% url 'analytics:export-create' %}" class="btn btn-light-success">
+                        <i class="ti ti-file-export me-2"></i>{% trans "Exporter les données" %}
+                    </a>
+                    <a href="{% url 'analytics:alerte-list' %}" class="btn btn-light-warning">
+                        <i class="ti ti-bell me-2"></i>{% trans "Voir les alertes" %}
+                    </a>
+                    <a href="{% url 'analytics:tableau-bord-create' %}" class="btn btn-light-info">
+                        <i class="ti ti-layout-dashboard me-2"></i>{% trans "Créer un tableau de bord" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% include 'analytics/components/charts.html' %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Données depuis Django
+    const evolutionData = {{ chart_evolution_ca|safe }};
+    const repartitionData = {{ chart_repartition|safe }};
+    const topClientsData = {{ chart_top_clients|safe }};
+    const agingData = {{ chart_aging|safe }};
+    const paretoData = {{ chart_pareto|safe }};
+    const treemapData = {{ chart_treemap|safe }};
+    const sparklineData = {{ kpis.ca_mensuel.tendance|safe }};
+
+    // 1. Sparkline CA
+    if (sparklineData && sparklineData.length > 0) {
+        AltiusCharts.sparkline('sparkline-ca', { series: sparklineData });
+    }
+
+    // 2. Gauge Recouvrement
+    AltiusCharts.radialBar('gauge-recouvrement', {
+        value: {{ kpis.taux_recouvrement.valeur }},
+        label: '{% trans "Recouvrement" %}'
+    }, {
+        height: 120,
+        thresholds: { danger: 70, warning: 85, success: 95 }
+    });
+
+    // 3. Évolution CA (Area Chart comparatif)
+    AltiusCharts.area('chart-evolution-ca', evolutionData, {
+        height: 350,
+        colors: ['#3b82f6', '#94a3b8'],
+        legend: { position: 'top' }
+    });
+
+    // 4. Répartition par Type (Donut)
+    if (repartitionData.labels && repartitionData.labels.length > 0) {
+        AltiusCharts.donut('chart-repartition', repartitionData, {
+            height: 350,
+            totalLabel: '{% trans "Total" %}'
+        });
+    } else {
+        document.getElementById('chart-repartition').innerHTML = `
+            <div class="d-flex align-items-center justify-content-center h-100 text-muted">
+                <div class="text-center">
+                    <i class="ti ti-chart-pie f-s-50 mb-2"></i>
+                    <p>{% trans "Aucune donnée disponible" %}</p>
+                </div>
+            </div>
+        `;
+    }
+
+    // 5. Top Clients (Horizontal Bar)
+    if (topClientsData.categories && topClientsData.categories.length > 0) {
+        AltiusCharts.horizontalBar('chart-top-clients', topClientsData, {
+            height: 350,
+            colors: ['#3b82f6'],
+            distributed: false
+        });
+    } else {
+        document.getElementById('chart-top-clients').innerHTML = `
+            <div class="d-flex align-items-center justify-content-center h-100 text-muted">
+                <div class="text-center">
+                    <i class="ti ti-users f-s-50 mb-2"></i>
+                    <p>{% trans "Aucun client facturé" %}</p>
+                </div>
+            </div>
+        `;
+    }
+
+    // 6. Aging Analysis (Stacked Bar)
+    AltiusCharts.bar('chart-aging', agingData, {
+        height: 350,
+        colors: ['#10b981', '#f59e0b', '#f97316', '#ef4444'],
+        plotOptions: {
+            bar: {
+                distributed: true,
+                borderRadius: 6,
+                columnWidth: '50%'
+            }
+        },
+        legend: { show: false }
+    });
+
+    // 7. Pareto (Mixed Chart)
+    if (paretoData.categories && paretoData.categories.length > 0) {
+        AltiusCharts.mixed('chart-pareto', paretoData, {
+            height: 350,
+            stroke: { width: [0, 3] },
+            colors: ['#3b82f6', '#ef4444'],
+            yaxis: [
+                {
+                    title: { text: '{% trans "CA" %}' },
+                    labels: { formatter: (val) => AltiusCharts.formatCurrency(val) }
+                },
+                {
+                    opposite: true,
+                    title: { text: '{% trans "% Cumulé" %}' },
+                    max: 100,
+                    labels: { formatter: (val) => val + '%' }
+                }
+            ]
+        });
+    }
+
+    // 8. Treemap
+    if (treemapData.series && treemapData.series[0] && treemapData.series[0].data.length > 0) {
+        AltiusCharts.treemap('chart-treemap', treemapData, {
+            height: 350
+        });
+    } else {
+        document.getElementById('chart-treemap').innerHTML = `
+            <div class="d-flex align-items-center justify-content-center h-100 text-muted">
+                <div class="text-center">
+                    <i class="ti ti-chart-treemap f-s-50 mb-2"></i>
+                    <p>{% trans "Aucune donnée disponible" %}</p>
+                </div>
+            </div>
+        `;
+    }
+});
+
+// Fonction de rafraîchissement
+function refreshDashboard() {
+    window.location.reload();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,162 @@
+<!-- facturation/prestation_detail.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load devise_tags %}
+
+{% block title %}{% trans "Prestation" %} {{ prestation.code }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Prestation" %} {{ prestation.code }}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'facturation:prestation-list' %}">
+                    <span>{% trans "Prestations" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{{ prestation.code }}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Action Buttons -->
+<div class="row mb-3">
+    <div class="col-12 text-end">
+        <a href="{% url 'facturation:prestation-update' prestation.pk %}" class="btn btn-warning">
+            <i class="ph ph-pencil me-2"></i>{% trans "Modifier" %}
+        </a>
+    </div>
+</div>
+
+<!-- Info Card -->
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Informations de la prestation" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Code" %}</label>
+                        <h6>{{ prestation.code }}</h6>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Type" %}</label>
+                        <h6><span class="badge bg-light-{{ prestation.type_prestation.couleur }}"><i class="ph {{ prestation.type_prestation.icone }} me-1"></i>{{ prestation.type_prestation.libelle }}</span></h6>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <label class="text-muted f-s-12">{% trans "Libellé" %}</label>
+                        <h6>{{ prestation.libelle }}</h6>
+                    </div>
+                </div>
+
+                {% if prestation.description %}
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <label class="text-muted f-s-12">{% trans "Description" %}</label>
+                        <p class="mb-0">{{ prestation.description }}</p>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label class="text-muted f-s-12">{% trans "Unité" %}</label>
+                        <h6>{{ prestation.unite }}</h6>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="text-muted f-s-12">{% trans "Prix unitaire HT" %}</label>
+                        <h6>
+                            {% if prestation.prix_unitaire_ht %}
+                            {{ prestation.prix_unitaire_ht|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </h6>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="text-muted f-s-12">{% trans "Taux horaire" %}</label>
+                        <h6>
+                            {% if prestation.taux_horaire %}
+                            {{ prestation.taux_horaire|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}/h
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </h6>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Soumis à TVA" %}</label>
+                        <h6>
+                            {% if prestation.soumis_tva %}
+                            <i class="ph ph-check-circle text-success f-s-18"></i>
+                            {% trans "Oui" %} ({{ prestation.taux_tva_defaut }}%)
+                            {% else %}
+                            <i class="ph ph-x-circle text-danger f-s-18"></i>
+                            {% trans "Non" %}
+                            {% endif %}
+                        </h6>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="text-muted f-s-12">{% trans "Statut" %}</label>
+                        <h6>
+                            {% if prestation.actif %}
+                            <span class="badge bg-success">{% trans "Active" %}</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{% trans "Inactive" %}</span>
+                            {% endif %}
+                        </h6>
+                    </div>
+                </div>
+
+                {% if prestation.compte_produit %}
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <label class="text-muted f-s-12">{% trans "Compte produit" %}</label>
+                        <h6>
+                            <a href="{% url 'comptabilite:compte-detail' prestation.compte_produit.pk %}">
+                                {{ prestation.compte_produit.numero }} - {{ prestation.compte_produit.libelle }}
+                            </a>
+                        </h6>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Statistiques" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="text-muted f-s-12">{% trans "Utilisée dans" %}</label>
+                    <h6>{{ prestation.lignefacture_set.count }} {% trans "facture(s)" %}</h6>
+                </div>
+                <div class="mb-3">
+                    <label class="text-muted f-s-12">{% trans "Temps enregistrés" %}</label>
+                    <h6>{{ prestation.temps_travail.count }} {% trans "entrée(s)" %}</h6>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

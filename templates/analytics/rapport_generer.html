@@ -1,0 +1,949 @@
+<!-- analytics/rapport_generer.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load widget_tweaks %}
+
+{% block title %}{% trans "Générer un rapport" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Générer un rapport" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Accueil" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'analytics:rapport-list' %}">{% trans "Rapports" %}</a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Générer" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+
+    <!-- Affichage global des erreurs -->
+    {% if form.errors %}
+    <div class="alert alert-danger mb-4">
+        <i class="ph-duotone ph-warning-circle me-2"></i>
+        <strong>{% trans "Veuillez corriger les erreurs suivantes:" %}</strong>
+        <ul class="mb-0 mt-2">
+            {% for field in form %}
+                {% for error in field.errors %}
+                <li>{{ field.label }}: {{ error }}</li>
+                {% endfor %}
+            {% endfor %}
+            {% for error in form.non_field_errors %}
+            <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Type de rapport -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>{% trans "Type de rapport" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for value, label in form.type_rapport.field.choices %}
+                        {% if value %}
+                        <div class="col-md-4 mb-3">
+                            <div class="form-check card-radio">
+                                <input type="radio" name="type_rapport" id="type_{{ value }}"
+                                       value="{{ value }}" class="form-check-input"
+                                       {% if form.type_rapport.value == value %}checked{% endif %}>
+                                <label class="form-check-label w-100" for="type_{{ value }}">
+                                    <div class="card mb-0 border {% if form.type_rapport.value == value %}border-primary{% endif %}">
+                                        <div class="card-body text-center py-3">
+                                            {% if value == 'BILAN' %}
+                                            <i class="ph-duotone ph-scales f-s-30 text-primary mb-2 d-block"></i>
+                                            {% elif value == 'COMPTE_RESULTATS' %}
+                                            <i class="ph-duotone ph-chart-bar f-s-30 text-success mb-2 d-block"></i>
+                                            {% elif value == 'BALANCE' %}
+                                            <i class="ph-duotone ph-list-numbers f-s-30 text-info mb-2 d-block"></i>
+                                            {% elif value == 'TRESORERIE' %}
+                                            <i class="ph-duotone ph-bank f-s-30 text-warning mb-2 d-block"></i>
+                                            {% elif value == 'TVA' %}
+                                            <i class="ph-duotone ph-receipt f-s-30 text-danger mb-2 d-block"></i>
+                                            {% elif value == 'SALAIRES' %}
+                                            <i class="ph-duotone ph-users f-s-30 text-purple mb-2 d-block"></i>
+                                            {% elif value == 'EVOLUTION_CA' %}
+                                            <i class="ph-duotone ph-trend-up f-s-30 text-success mb-2 d-block"></i>
+                                            {% elif value == 'RENTABILITE' %}
+                                            <i class="ph-duotone ph-chart-pie f-s-30 text-warning mb-2 d-block"></i>
+                                            {% else %}
+                                            <i class="ph-duotone ph-file-text f-s-30 text-secondary mb-2 d-block"></i>
+                                            {% endif %}
+                                            <p class="mb-0 f-w-600">{{ label }}</p>
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% if form.type_rapport.errors %}
+                    <div class="text-danger small">{{ form.type_rapport.errors.0 }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Paramètres -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>{% trans "Paramètres" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label for="{{ form.nom.id_for_label }}" class="form-label">{% trans "Nom du rapport" %} *</label>
+                            {% render_field form.nom class="form-control" placeholder="Ex: Bilan annuel 2025" %}
+                            {% if form.nom.errors %}
+                            <div class="text-danger small">{{ form.nom.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.mandat.id_for_label }}" class="form-label">{% trans "Mandat" %}</label>
+                            {% render_field form.mandat %}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.format_fichier.id_for_label }}" class="form-label">{% trans "Format" %}</label>
+                            {% render_field form.format_fichier class="form-select" %}
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.date_debut.id_for_label }}" class="form-label">{% trans "Date de début" %} *</label>
+                            {% render_field form.date_debut class="form-control" type="date" %}
+                            {% if form.date_debut.errors %}
+                            <div class="text-danger small">{{ form.date_debut.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.date_fin.id_for_label }}" class="form-label">{% trans "Date de fin" %} *</label>
+                            {% render_field form.date_fin class="form-control" type="date" %}
+                            {% if form.date_fin.errors %}
+                            <div class="text-danger small">{{ form.date_fin.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Raccourcis de période -->
+                    <div class="mb-3">
+                        <small class="text-muted">{% trans "Raccourcis:" %}</small>
+                        <div class="btn-group btn-group-sm ms-2">
+                            <button type="button" class="btn btn-light-secondary" onclick="setPeriod('month')">
+                                {% trans "Ce mois" %}
+                            </button>
+                            <button type="button" class="btn btn-light-secondary" onclick="setPeriod('quarter')">
+                                {% trans "Ce trimestre" %}
+                            </button>
+                            <button type="button" class="btn btn-light-secondary" onclick="setPeriod('year')">
+                                {% trans "Cette année" %}
+                            </button>
+                            <button type="button" class="btn btn-light-secondary" onclick="setPeriod('lastyear')">
+                                {% trans "Année précédente" %}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PREVIEW DU RAPPORT -->
+            <div class="card mb-4" id="preview-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5><i class="ph-duotone ph-eye me-2"></i>{% trans "Aperçu des données" %}</h5>
+                    <button type="button" class="btn btn-sm btn-light-primary" onclick="forceRefreshPreview()">
+                        <i class="ph-duotone ph-arrow-clockwise me-1"></i>{% trans "Actualiser" %}
+                    </button>
+                </div>
+                <div class="card-body">
+                    <!-- Loading state -->
+                    <div id="preview-loading" class="text-center py-4" style="display: none;">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="text-muted mt-2">{% trans "Chargement de l'aperçu..." %}</p>
+                    </div>
+
+                    <!-- No data state -->
+                    <div id="preview-empty" class="text-center py-4">
+                        <i class="ph-duotone ph-chart-bar f-s-50 text-muted"></i>
+                        <p class="text-muted mt-2">{% trans "Sélectionnez un type de rapport et une période pour voir l'aperçu" %}</p>
+                    </div>
+
+                    <!-- Preview content -->
+                    <div id="preview-content" style="display: none;">
+                        <!-- Warnings -->
+                        <div id="preview-warnings" class="mb-3"></div>
+
+                        <!-- Summary KPIs -->
+                        <div id="preview-summary" class="row mb-4"></div>
+
+                        <!-- Chart -->
+                        <div id="preview-chart" style="min-height: 250px;"></div>
+
+                        <!-- Table preview (pour tous les rapports avec données tabulaires) -->
+                        <div id="preview-table" class="mt-4" style="display: none;">
+                            <h6 class="text-muted mb-2">
+                                <i class="ph-duotone ph-table me-1"></i>
+                                {% trans "Détail des données" %}
+                            </h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-striped table-hover" id="preview-table-content">
+                                </table>
+                            </div>
+                            <small class="text-muted">{% trans "Aperçu limité aux 10 premières lignes" %}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Options avancées -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>{% trans "Options" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="form-check mb-3">
+                        <input type="checkbox" name="inclure_comparatif" id="inclure_comparatif" class="form-check-input">
+                        <label class="form-check-label" for="inclure_comparatif">
+                            {% trans "Inclure comparatif N-1" %}
+                        </label>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input type="checkbox" name="inclure_budget" id="inclure_budget" class="form-check-input">
+                        <label class="form-check-label" for="inclure_budget">
+                            {% trans "Inclure budget" %}
+                        </label>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input type="checkbox" name="detail_comptes" id="detail_comptes" class="form-check-input" checked>
+                        <label class="form-check-label" for="detail_comptes">
+                            {% trans "Détail par compte" %}
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Envoi par email -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>{% trans "Envoi par email" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="form-check mb-3">
+                        <input type="checkbox" name="envoi_email" id="envoi_email" class="form-check-input">
+                        <label class="form-check-label" for="envoi_email">
+                            {% trans "Envoyer par email après génération" %}
+                        </label>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Destinataires" %}</label>
+                        <input type="text" name="destinataires" class="form-control"
+                               placeholder="email1@exemple.ch, email2@exemple.ch">
+                        <small class="text-muted">{% trans "Séparez les adresses par des virgules" %}</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="card">
+                <div class="card-body">
+                    <button type="submit" class="btn btn-primary w-100 mb-2" id="btn-generer">
+                        <i class="ph-duotone ph-file-text me-2" id="icon-generer"></i>
+                        <span id="text-generer">{% trans "Générer le rapport" %}</span>
+                        <span id="spinner-generer" class="spinner-border spinner-border-sm ms-2" style="display: none;"></span>
+                    </button>
+                    <a href="{% url 'analytics:rapport-list' %}" class="btn btn-light-secondary w-100">
+                        {% trans "Annuler" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<!-- ApexCharts - avec fallback CDN si le fichier local ne charge pas -->
+<script src="{% static 'assets/vendor/apexcharts/apexcharts.min.js' %}"></script>
+<script>
+if (typeof ApexCharts === 'undefined') {
+    console.warn('ApexCharts local non chargé, chargement depuis CDN...');
+    var script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/apexcharts';
+    document.head.appendChild(script);
+}
+</script>
+<script>
+// Variables globales
+let previewChart = null;
+let previewTimeout = null;
+let currentRequestId = 0; // Pour annuler les requêtes obsolètes
+
+function setPeriod(type) {
+    const today = new Date();
+    let start, end;
+
+    switch(type) {
+        case 'month':
+            start = new Date(today.getFullYear(), today.getMonth(), 1);
+            end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            break;
+        case 'quarter':
+            const quarter = Math.floor(today.getMonth() / 3);
+            start = new Date(today.getFullYear(), quarter * 3, 1);
+            end = new Date(today.getFullYear(), quarter * 3 + 3, 0);
+            break;
+        case 'year':
+            start = new Date(today.getFullYear(), 0, 1);
+            end = new Date(today.getFullYear(), 11, 31);
+            break;
+        case 'lastyear':
+            start = new Date(today.getFullYear() - 1, 0, 1);
+            end = new Date(today.getFullYear() - 1, 11, 31);
+            break;
+    }
+
+    document.getElementById('id_date_debut').value = start.toISOString().split('T')[0];
+    document.getElementById('id_date_fin').value = end.toISOString().split('T')[0];
+
+    // Charger la preview automatiquement après changement de période
+    schedulePreviewLoad();
+}
+
+// Fonction pour charger la preview avec délai (debounce)
+function schedulePreviewLoad() {
+    // Annuler le timeout précédent
+    if (previewTimeout) {
+        clearTimeout(previewTimeout);
+        previewTimeout = null;
+    }
+    // Planifier un nouveau chargement (ne pas réinitialiser isLoadingPreview ici)
+    previewTimeout = setTimeout(loadPreview, 500);
+}
+
+// Fonction pour forcer le rafraîchissement (bouton manuel)
+function forceRefreshPreview() {
+    // Annuler tout timeout en cours
+    if (previewTimeout) {
+        clearTimeout(previewTimeout);
+        previewTimeout = null;
+    }
+    // Charger immédiatement
+    loadPreview();
+}
+
+// Fonction principale pour charger la preview
+function loadPreview() {
+    const typeRapport = document.querySelector('input[name="type_rapport"]:checked');
+    const dateDebut = document.getElementById('id_date_debut').value;
+    const dateFin = document.getElementById('id_date_fin').value;
+    const mandatSelect = document.getElementById('id_mandat');
+    const mandatId = mandatSelect ? mandatSelect.value : '';
+
+    // Debug: afficher les valeurs
+    console.log('=== DEBUG PREVIEW ===');
+    console.log('Mandat select element:', mandatSelect);
+    console.log('Mandat ID value:', mandatId);
+    console.log('Mandat selected text:', mandatSelect ? mandatSelect.options[mandatSelect.selectedIndex]?.text : 'N/A');
+
+    // Vérifier les champs requis
+    if (!typeRapport || !dateDebut || !dateFin) {
+        showEmptyState();
+        return;
+    }
+
+    // Incrémenter l'ID de requête pour invalider les anciennes
+    currentRequestId++;
+    const thisRequestId = currentRequestId;
+
+    // Afficher le loading (mais ne pas bloquer une nouvelle requête)
+    showLoadingState();
+
+    // Construire l'URL avec les paramètres
+    const params = new URLSearchParams({
+        type_rapport: typeRapport.value,
+        date_debut: dateDebut,
+        date_fin: dateFin,
+    });
+    if (mandatId) {
+        params.append('mandat_id', mandatId);
+    }
+
+    console.log('Chargement preview #' + thisRequestId + ' pour:', typeRapport.value, dateDebut, dateFin, 'mandat:', mandatId);
+
+    // Appeler l'API
+    fetch(`{% url 'analytics:rapport-preview-api' %}?${params.toString()}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Ignorer si une requête plus récente a été lancée
+            if (thisRequestId !== currentRequestId) {
+                console.log('Requête #' + thisRequestId + ' ignorée (obsolète)');
+                return;
+            }
+            if (data.error) {
+                showErrorState(data.error);
+            } else {
+                renderPreview(data);
+            }
+        })
+        .catch(error => {
+            // Ignorer si une requête plus récente a été lancée
+            if (thisRequestId !== currentRequestId) {
+                return;
+            }
+            console.error('Erreur lors du chargement de la preview:', error);
+            showErrorState("{% trans "Erreur lors du chargement" %}: " + error.message);
+        });
+}
+
+function showLoadingState() {
+    // Détruire le graphique précédent pour éviter les conflits
+    if (previewChart) {
+        try {
+            previewChart.destroy();
+        } catch (e) {
+            console.warn('Erreur lors de la destruction du graphique:', e);
+        }
+        previewChart = null;
+    }
+    document.getElementById('preview-loading').style.display = 'block';
+    document.getElementById('preview-empty').style.display = 'none';
+    document.getElementById('preview-content').style.display = 'none';
+}
+
+function showEmptyState() {
+    document.getElementById('preview-loading').style.display = 'none';
+    document.getElementById('preview-empty').style.display = 'block';
+    document.getElementById('preview-content').style.display = 'none';
+}
+
+function showErrorState(message) {
+    document.getElementById('preview-loading').style.display = 'none';
+    document.getElementById('preview-empty').style.display = 'none';
+    document.getElementById('preview-content').style.display = 'block';
+
+    document.getElementById('preview-warnings').innerHTML = `
+        <div class="alert alert-warning">
+            <i class="ph-duotone ph-warning me-2"></i>${message}
+        </div>
+    `;
+    document.getElementById('preview-summary').innerHTML = '';
+    document.getElementById('preview-chart').innerHTML = '';
+    document.getElementById('preview-table').style.display = 'none';
+}
+
+function renderPreview(data) {
+    console.log('Données preview reçues:', JSON.stringify(data, null, 2));
+
+    document.getElementById('preview-loading').style.display = 'none';
+    document.getElementById('preview-empty').style.display = 'none';
+    document.getElementById('preview-content').style.display = 'block';
+
+    // Afficher les warnings
+    const warningsContainer = document.getElementById('preview-warnings');
+    if (data.warnings && data.warnings.length > 0) {
+        warningsContainer.innerHTML = data.warnings.map(w => `
+            <div class="alert alert-warning py-2">
+                <i class="ph-duotone ph-warning me-2"></i>${w}
+            </div>
+        `).join('');
+    } else {
+        warningsContainer.innerHTML = '';
+    }
+
+    // Afficher les KPIs de résumé
+    renderSummary(data.summary);
+
+    // Afficher le graphique
+    const chartContainer = document.getElementById('preview-chart');
+
+    // Vérifier si chart_data existe et contient des données non vides
+    let hasValidChartData = false;
+    if (data.chart_data) {
+        // Pour les graphiques donut/pie: vérifier series avec des valeurs > 0
+        if (data.chart_data.series && Array.isArray(data.chart_data.series)) {
+            // Cas 1: series est un tableau de nombres (donut, radialBar)
+            if (typeof data.chart_data.series[0] === 'number') {
+                hasValidChartData = data.chart_data.series.some(v => v > 0);
+            }
+            // Cas 2: series est un tableau d'objets avec data (bar, area, line)
+            else if (data.chart_data.series[0] && data.chart_data.series[0].data) {
+                hasValidChartData = data.chart_data.series.some(s =>
+                    s.data && s.data.some(v => v !== 0)
+                );
+            }
+        }
+        console.log('Chart data validation:', {
+            chart_type: data.chart_type,
+            series: data.chart_data.series,
+            hasValidChartData: hasValidChartData
+        });
+    }
+
+    if (hasValidChartData) {
+        console.log('Rendu du graphique:', data.chart_type, data.chart_data);
+        renderChart(data.chart_type, data.chart_data);
+    } else {
+        chartContainer.innerHTML = `
+            <div class="text-center text-muted py-4">
+                <i class="ph-duotone ph-chart-bar f-s-40"></i>
+                <p class="mt-2">{% trans "Aucune donnée à afficher pour cette période" %}</p>
+                <small class="text-muted">{% trans "Sélectionnez une autre période ou vérifiez que des données existent." %}</small>
+            </div>
+        `;
+    }
+
+    // Afficher la table preview si disponible
+    if (data.table_preview && data.table_preview.length > 0) {
+        console.log('Rendu de la table:', data.table_preview);
+        renderTablePreview(data.table_preview);
+    } else {
+        document.getElementById('preview-table').style.display = 'none';
+    }
+}
+
+function renderSummary(summary) {
+    const container = document.getElementById('preview-summary');
+    if (!summary || Object.keys(summary).length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+
+    const items = Object.entries(summary).map(([key, value]) => {
+        // Déterminer l'icône et la couleur selon le type
+        let icon = 'ph-chart-bar';
+        let color = 'primary';
+        const keyLower = key.toLowerCase();
+
+        if (keyLower.includes('actif')) {
+            icon = 'ph-bank'; color = 'success';
+        } else if (keyLower.includes('passif')) {
+            icon = 'ph-wallet'; color = 'warning';
+        } else if (keyLower.includes('produit') || keyLower.includes('revenu') || keyLower.includes('ca ')) {
+            icon = 'ph-trend-up'; color = 'success';
+        } else if (keyLower.includes('charge') || keyLower.includes('dépense')) {
+            icon = 'ph-trend-down'; color = 'danger';
+        } else if (keyLower.includes('résultat') || keyLower.includes('bénéfice') || keyLower.includes('marge')) {
+            icon = 'ph-scales'; color = 'info';
+        } else if (keyLower.includes('tva')) {
+            icon = 'ph-receipt'; color = 'purple';
+        } else if (keyLower.includes('compte') || keyLower.includes('nombre') || keyLower.includes('fiches')) {
+            icon = 'ph-list-numbers'; color = 'secondary';
+        } else if (keyLower.includes('brut')) {
+            icon = 'ph-money'; color = 'primary';
+        } else if (keyLower.includes('net')) {
+            icon = 'ph-wallet'; color = 'success';
+        } else if (keyLower.includes('écart')) {
+            icon = 'ph-arrows-out-line-horizontal'; color = value < 0 ? 'danger' : 'info';
+        } else if (keyLower.includes('tendance') || keyLower.includes('évolution')) {
+            icon = 'ph-arrow-up-right'; color = 'info';
+        } else if (keyLower.includes('meilleur') || keyLower.includes('max')) {
+            icon = 'ph-trophy'; color = 'warning';
+        } else if (keyLower.includes('moyen')) {
+            icon = 'ph-chart-line'; color = 'secondary';
+        } else if (keyLower.includes('taux')) {
+            icon = 'ph-percent'; color = 'info';
+        } else if (keyLower.includes('heure')) {
+            icon = 'ph-clock'; color = 'secondary';
+        } else if (keyLower.includes('salaire')) {
+            icon = 'ph-users'; color = 'purple';
+        }
+
+        // Formatter la valeur
+        let displayValue = value;
+        if (typeof value === 'number') {
+            // Déterminer si c'est un montant (CHF) ou un simple nombre
+            const isCount = keyLower.includes('nombre') ||
+                           keyLower.includes('fiches') ||
+                           keyLower.includes('factures') ||
+                           keyLower.includes('employés') ||
+                           keyLower.includes('comptes') ||
+                           keyLower.includes('écritures') ||
+                           keyLower.includes('heures') ||
+                           keyLower.includes('jours') ||
+                           keyLower.includes('mois') ||
+                           keyLower.includes('délai');
+            const isPercentage = keyLower.includes('taux') || keyLower.includes('%') || keyLower.includes('marge');
+
+            if (isPercentage) {
+                displayValue = value.toFixed(1) + '%';
+            } else if (isCount) {
+                displayValue = new Intl.NumberFormat('fr-CH').format(value);
+            } else {
+                displayValue = formatCurrency(value);
+            }
+        }
+
+        return `
+            <div class="col-md-4 col-6 mb-3">
+                <div class="card bg-light-${color} mb-0">
+                    <div class="card-body py-2 px-3">
+                        <div class="d-flex align-items-center">
+                            <div class="avtar avtar-s bg-${color} text-white me-2">
+                                <i class="ph-duotone ${icon} f-s-18"></i>
+                            </div>
+                            <div>
+                                <p class="mb-0 text-muted small">${key}</p>
+                                <h6 class="mb-0 f-w-600">${displayValue}</h6>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = items.join('');
+}
+
+function renderChart(chartType, chartData) {
+    const container = document.getElementById('preview-chart');
+    container.innerHTML = '';
+
+    // Détruire le graphique précédent s'il existe
+    if (previewChart) {
+        try {
+            previewChart.destroy();
+        } catch (e) {
+            console.warn('Erreur destruction graphique:', e);
+        }
+        previewChart = null;
+    }
+
+    // Vérifier que ApexCharts est disponible
+    if (typeof ApexCharts === 'undefined') {
+        console.error('ApexCharts non disponible');
+        container.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="ph-duotone ph-warning me-2"></i>
+                Erreur: ApexCharts non chargé
+            </div>
+        `;
+        return;
+    }
+
+    console.log('Création graphique ApexCharts:', chartType, chartData);
+
+    // Configuration de base
+    const baseOptions = {
+        chart: {
+            height: 280,
+            toolbar: { show: false },
+            fontFamily: 'inherit',
+        },
+        colors: ['#4680FF', '#2CA87F', '#DC2626', '#E58A00', '#673AB7', '#00BCD4'],
+        legend: {
+            position: 'bottom',
+            horizontalAlign: 'center',
+        },
+        tooltip: {
+            y: {
+                formatter: function(val) {
+                    return formatCurrency(val);
+                }
+            }
+        },
+    };
+
+    let options = {...baseOptions};
+
+    switch(chartType) {
+        case 'donut':
+            options.chart.type = 'donut';
+            options.series = chartData.series || [];
+            options.labels = chartData.labels || [];
+            options.plotOptions = {
+                pie: {
+                    donut: {
+                        size: '60%',
+                        labels: {
+                            show: true,
+                            total: {
+                                show: true,
+                                label: '{% trans "Total" %}',
+                                formatter: function(w) {
+                                    return formatCurrency(w.globals.seriesTotals.reduce((a, b) => a + b, 0));
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+            break;
+
+        case 'bar':
+            options.chart.type = 'bar';
+            options.series = chartData.series || [];
+            options.xaxis = { categories: chartData.categories || [] };
+            options.plotOptions = {
+                bar: {
+                    horizontal: false,
+                    columnWidth: '60%',
+                    borderRadius: 4,
+                }
+            };
+            options.dataLabels = { enabled: false };
+            break;
+
+        case 'horizontal_bar':
+            options.chart.type = 'bar';
+            options.series = chartData.series || [];
+            options.xaxis = { categories: chartData.categories || [] };
+            options.plotOptions = {
+                bar: {
+                    horizontal: true,
+                    barHeight: '50%',
+                    borderRadius: 4,
+                }
+            };
+            options.dataLabels = { enabled: false };
+            break;
+
+        case 'area':
+            options.chart.type = 'area';
+            options.series = chartData.series || [];
+            options.xaxis = { categories: chartData.categories || [] };
+            options.stroke = { curve: 'smooth', width: 2 };
+            options.fill = {
+                type: 'gradient',
+                gradient: {
+                    shadeIntensity: 1,
+                    opacityFrom: 0.4,
+                    opacityTo: 0.1,
+                }
+            };
+            options.dataLabels = { enabled: false };
+            break;
+
+        case 'line':
+            options.chart.type = 'line';
+            options.series = chartData.series || [];
+            options.xaxis = { categories: chartData.categories || [] };
+            options.stroke = { curve: 'smooth', width: 3 };
+            options.markers = { size: 4 };
+            options.dataLabels = { enabled: false };
+            break;
+
+        case 'radialBar':
+            options.chart.type = 'radialBar';
+            options.series = chartData.series || [];
+            options.labels = chartData.labels || [];
+            options.plotOptions = {
+                radialBar: {
+                    dataLabels: {
+                        name: { fontSize: '14px' },
+                        value: { fontSize: '16px' },
+                        total: {
+                            show: true,
+                            label: '{% trans "Moyenne" %}',
+                            formatter: function(w) {
+                                const avg = w.globals.seriesTotals.reduce((a, b) => a + b, 0) / w.globals.seriesTotals.length;
+                                return avg.toFixed(1) + '%';
+                            }
+                        }
+                    }
+                }
+            };
+            break;
+
+        default:
+            container.innerHTML = `
+                <div class="text-center text-muted py-4">
+                    <p>{% trans "Type de graphique non supporté" %}: ${chartType}</p>
+                </div>
+            `;
+            return;
+    }
+
+    try {
+        previewChart = new ApexCharts(container, options);
+        previewChart.render();
+        console.log('Graphique rendu avec succès');
+    } catch (e) {
+        console.error('Erreur lors du rendu du graphique:', e);
+        container.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="ph-duotone ph-warning me-2"></i>
+                Erreur lors du rendu du graphique: ${e.message}
+            </div>
+        `;
+    }
+}
+
+function renderTablePreview(tableData) {
+    const container = document.getElementById('preview-table');
+    const tableContent = document.getElementById('preview-table-content');
+
+    if (!tableData || tableData.length === 0) {
+        container.style.display = 'none';
+        return;
+    }
+
+    container.style.display = 'block';
+
+    // Obtenir les headers depuis le premier élément
+    const headers = Object.keys(tableData[0]);
+
+    let html = `
+        <thead>
+            <tr>
+                ${headers.map(h => `<th class="text-nowrap">${h}</th>`).join('')}
+            </tr>
+        </thead>
+        <tbody>
+    `;
+
+    tableData.forEach(row => {
+        html += '<tr>';
+        headers.forEach(h => {
+            let value = row[h];
+            // Formatter les nombres
+            if (typeof value === 'number') {
+                value = formatCurrency(value);
+            }
+            html += `<td>${value !== null && value !== undefined ? value : '-'}</td>`;
+        });
+        html += '</tr>';
+    });
+
+    html += '</tbody>';
+    tableContent.innerHTML = html;
+}
+
+function formatCurrency(value) {
+    if (value === null || value === undefined) return '-';
+    const d = window.ALTIUSONE_DEVISE || { code: '{{ DEVISE_CODE }}', taux: 1 };
+    return new Intl.NumberFormat('fr-CH', {
+        style: 'currency',
+        currency: d.code,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(value * d.taux);
+}
+
+// Mettre à jour le style visuel des cartes de type de rapport
+function updateTypeRapportVisuals() {
+    document.querySelectorAll('input[name="type_rapport"]').forEach(radio => {
+        const card = radio.closest('.form-check').querySelector('.card');
+        if (card) {
+            if (radio.checked) {
+                card.classList.add('border-primary');
+            } else {
+                card.classList.remove('border-primary');
+            }
+        }
+    });
+}
+
+// Écouter les changements sur les champs pour mettre à jour la preview
+document.addEventListener('DOMContentLoaded', function() {
+    // Écouter les changements de type de rapport
+    document.querySelectorAll('input[name="type_rapport"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            updateTypeRapportVisuals();
+            schedulePreviewLoad();
+        });
+    });
+
+    // Écouter les changements de dates
+    const dateDebut = document.getElementById('id_date_debut');
+    const dateFin = document.getElementById('id_date_fin');
+    if (dateDebut) dateDebut.addEventListener('change', schedulePreviewLoad);
+    if (dateFin) dateFin.addEventListener('change', schedulePreviewLoad);
+
+    // Écouter les changements de mandat
+    const mandatSelect = document.getElementById('id_mandat');
+    if (mandatSelect) mandatSelect.addEventListener('change', schedulePreviewLoad);
+
+    // Charger la preview initiale si des valeurs sont déjà présentes
+    const typeRapport = document.querySelector('input[name="type_rapport"]:checked');
+    if (typeRapport && dateDebut && dateDebut.value && dateFin && dateFin.value) {
+        loadPreview();
+    }
+
+    // Gérer la soumission du formulaire avec loading (soumission classique avec overlay)
+    const form = document.querySelector('form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const btnGenerer = document.getElementById('btn-generer');
+            const iconGenerer = document.getElementById('icon-generer');
+            const textGenerer = document.getElementById('text-generer');
+            const spinnerGenerer = document.getElementById('spinner-generer');
+
+            // Vérifier que le formulaire est valide
+            if (!form.checkValidity()) {
+                return; // Laisser le navigateur gérer la validation
+            }
+
+            // Afficher le loading
+            btnGenerer.disabled = true;
+            iconGenerer.style.display = 'none';
+            spinnerGenerer.style.display = 'inline-block';
+            textGenerer.textContent = "{% trans 'Génération en cours...' %}";
+
+            // Ajouter un overlay sur la page
+            const overlay = document.createElement('div');
+            overlay.id = 'generation-overlay';
+            overlay.innerHTML = `
+                <div class="generation-modal">
+                    <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;"></div>
+                    <h5>{% trans "Génération du rapport en cours..." %}</h5>
+                    <p class="text-muted mb-0">{% trans "Veuillez patienter, le téléchargement démarrera automatiquement." %}</p>
+                </div>
+            `;
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 9999;
+            `;
+            overlay.querySelector('.generation-modal').style.cssText = `
+                background: white;
+                padding: 40px;
+                border-radius: 12px;
+                text-align: center;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            `;
+            document.body.appendChild(overlay);
+
+            // Laisser le formulaire se soumettre normalement
+            // L'overlay sera masqué quand la page se recharge ou le fichier est téléchargé
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Acces mandats" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h3>{% trans "Gestion des acces mandats" %}</h3>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}"><i class="ti ti-home"></i></a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'core:admin-dashboard' %}">{% trans "Administration" %}</a></li>
+                        <li class="breadcrumb-item active">{% trans "Acces mandats" %}</li>
+                    </ol>
+                </div>
+                <div class="page-header-right">
+                    <a href="{% url 'core:admin-acces-mandat-create' %}" class="btn btn-primary">
+                        <i class="ti ti-plus me-2"></i>{% trans "Nouvel acces" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Liste des acces clients aux mandats" %}</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Filters -->
+                    <form method="get" class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <select name="mandat" class="form-select">
+                                <option value="">{% trans "Tous les mandats" %}</option>
+                                {% for mandat in mandats %}
+                                <option value="{{ mandat.pk }}" {% if request.GET.mandat == mandat.pk|stringformat:'s' %}selected{% endif %}>{{ mandat.numero }} - {{ mandat.client.raison_sociale }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select name="active" class="form-select">
+                                <option value="">{% trans "Tous statuts" %}</option>
+                                <option value="1" {% if request.GET.active == '1' %}selected{% endif %}>{% trans "Actifs" %}</option>
+                                <option value="0" {% if request.GET.active == '0' %}selected{% endif %}>{% trans "Inactifs" %}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">{% trans "Filtrer" %}</button>
+                        </div>
+                    </form>
+
+                    <!-- Table -->
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "Utilisateur" %}</th>
+                                    <th>{% trans "Mandat" %}</th>
+                                    <th>{% trans "Client" %}</th>
+                                    <th>{% trans "Responsable" %}</th>
+                                    <th>{% trans "Invitations" %}</th>
+                                    <th>{% trans "Statut" %}</th>
+                                    <th>{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for acces in acces_list %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'core:admin-user-detail' acces.utilisateur.pk %}">
+                                            {{ acces.utilisateur.get_full_name|default:acces.utilisateur.username }}
+                                        </a>
+                                        <br><small class="text-muted">{{ acces.utilisateur.email }}</small>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'core:mandat-detail' acces.mandat.pk %}">{{ acces.mandat.numero }}</a>
+                                    </td>
+                                    <td>{{ acces.mandat.client.raison_sociale }}</td>
+                                    <td>
+                                        {% if acces.est_responsable %}
+                                        <span class="badge bg-success"><i class="ti ti-check"></i> {% trans "Oui" %}</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">{% trans "Non" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if acces.est_responsable %}
+                                        {{ acces.invitations_restantes }} / {{ acces.limite_invitations }}
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if acces.is_active %}
+                                        <span class="badge bg-success">{% trans "Actif" %}</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">{% trans "Inactif" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'core:admin-acces-mandat-update' acces.pk %}" class="btn btn-outline-secondary" title="{% trans 'Modifier' %}">
+                                                <i class="ti ti-edit"></i>
+                                            </a>
+                                            <form method="post" action="{% url 'core:admin-acces-mandat-toggle' acces.pk %}" class="d-inline">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-outline-{{ acces.is_active|yesno:'danger,success' }}" title="{{ acces.is_active|yesno:'Desactiver,Activer' }}">
+                                                    <i class="ti ti-{{ acces.is_active|yesno:'x,check' }}"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted py-4">
+                                        {% trans "Aucun acces trouve" %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if page_obj %}
+                    <nav aria-label="Page navigation" class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.mandat %}&mandat={{ request.GET.mandat }}{% endif %}">
+                                    <i class="ti ti-chevron-left"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                            </li>
+                            {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.mandat %}&mandat={{ request.GET.mandat }}{% endif %}">
+                                    <i class="ti ti-chevron-right"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,65 @@
+<!-- modelforms/partials/model_schema.html -->
+{% load i18n %}
+
+{% if schema %}
+<div class="alert alert-success mb-3">
+    <i class="ti ti-check me-2"></i>
+    <strong>{{ schema.model_name }}</strong> - {{ schema.fields|length }} {% trans "champs disponibles" %}
+</div>
+
+<div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+    <table class="table table-sm table-hover mb-0">
+        <thead class="sticky-top bg-white">
+            <tr>
+                <th>{% trans "Champ" %}</th>
+                <th>{% trans "Type" %}</th>
+                <th>{% trans "Requis" %}</th>
+                <th>{% trans "Description" %}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for field in schema.fields %}
+            <tr>
+                <td>
+                    <code class="text-primary">{{ field.name }}</code>
+                </td>
+                <td>
+                    <span class="badge bg-light text-dark">{{ field.type }}</span>
+                    {% if field.choices %}
+                    <i class="ti ti-list text-muted ms-1" title="{% trans 'Avec choix' %}"></i>
+                    {% endif %}
+                    {% if field.is_relation %}
+                    <i class="ti ti-link text-info ms-1" title="{% trans 'Relation' %}"></i>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if field.required %}
+                        <span class="badge bg-danger-subtle text-danger">{% trans "requis" %}</span>
+                    {% else %}
+                        <span class="badge bg-light text-muted">{% trans "optionnel" %}</span>
+                    {% endif %}
+                </td>
+                <td class="small text-muted">{{ field.help_text|default:"-" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if schema.suggested_groups %}
+<div class="mt-3">
+    <h6 class="text-muted">{% trans "Groupes suggérés" %}</h6>
+    <div class="d-flex flex-wrap gap-2">
+        {% for group_id, group_name in schema.suggested_groups.items %}
+        <span class="badge bg-light-info">{{ group_name }}</span>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% else %}
+<div class="alert alert-info">
+    <i class="ph-duotone ph-info me-2"></i>
+    {% trans "Sélectionnez un modèle pour voir sa structure" %}
+</div>
+{% endif %}

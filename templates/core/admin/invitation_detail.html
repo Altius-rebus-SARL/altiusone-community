@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Invitation" %} - {{ invitation.email }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h3>{% trans "Detail de l'invitation" %}</h3>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}"><i class="ti ti-home"></i></a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'core:admin-dashboard' %}">{% trans "Administration" %}</a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'core:admin-invitation-list' %}">{% trans "Invitations" %}</a></li>
+                        <li class="breadcrumb-item active">{{ invitation.email }}</li>
+                    </ol>
+                </div>
+                <div class="page-header-right">
+                    {% if invitation.statut == 'EN_ATTENTE' %}
+                    <form method="post" action="{% url 'core:admin-invitation-resend' invitation.pk %}" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-success me-2">
+                            <i class="ti ti-send me-2"></i>{% trans "Renvoyer" %}
+                        </button>
+                    </form>
+                    <form method="post" action="{% url 'core:admin-invitation-cancel' invitation.pk %}" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger">
+                            <i class="ti ti-x me-2"></i>{% trans "Annuler" %}
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Invitation Info -->
+        <div class="col-xl-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Informations de l'invitation" %}</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Email" %}</span>
+                            <span>{{ invitation.email }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Type" %}</span>
+                            {% if invitation.type_invitation == 'STAFF' %}
+                            <span class="badge bg-primary">{% trans "Collaborateur" %}</span>
+                            {% else %}
+                            <span class="badge bg-warning">{% trans "Client externe" %}</span>
+                            {% endif %}
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Statut" %}</span>
+                            {% if invitation.statut == 'EN_ATTENTE' %}
+                            <span class="badge bg-info">{% trans "En attente" %}</span>
+                            {% elif invitation.statut == 'ACCEPTEE' %}
+                            <span class="badge bg-success">{% trans "Acceptee" %}</span>
+                            {% elif invitation.statut == 'EXPIREE' %}
+                            <span class="badge bg-secondary">{% trans "Expiree" %}</span>
+                            {% else %}
+                            <span class="badge bg-danger">{% trans "Annulee" %}</span>
+                            {% endif %}
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Invite par" %}</span>
+                            <a href="{% url 'core:admin-user-detail' invitation.invite_par.pk %}">
+                                {{ invitation.invite_par.get_full_name|default:invitation.invite_par.username }}
+                            </a>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Date de creation" %}</span>
+                            <span>{{ invitation.created_at|date:"d/m/Y H:i" }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Date d'expiration" %}</span>
+                            <span>{{ invitation.date_expiration|date:"d/m/Y H:i" }}</span>
+                        </li>
+                        {% if invitation.date_acceptation %}
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Date d'acceptation" %}</span>
+                            <span>{{ invitation.date_acceptation|date:"d/m/Y H:i" }}</span>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+
+            {% if invitation.message_personnalise %}
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Message personnalise" %}</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">{{ invitation.message_personnalise }}</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Details -->
+        <div class="col-xl-6">
+            <!-- Role/Permissions -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Configuration" %}</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        {% if invitation.role_preassigne %}
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Role preassigne" %}</span>
+                            <a href="{% url 'core:admin-role-detail' invitation.role_preassigne.pk %}">
+                                {{ invitation.role_preassigne.nom }}
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% if invitation.mandat %}
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Mandat" %}</span>
+                            <a href="{% url 'core:mandat-detail' invitation.mandat.pk %}">
+                                {{ invitation.mandat.numero }}
+                            </a>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Client" %}</span>
+                            <span>{{ invitation.mandat.client.raison_sociale }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Responsable prevu" %}</span>
+                            {% if invitation.est_responsable_prevu %}
+                            <span class="badge bg-success"><i class="ti ti-check"></i></span>
+                            {% else %}
+                            <span class="badge bg-secondary"><i class="ti ti-x"></i></span>
+                            {% endif %}
+                        </li>
+                        {% if invitation.est_responsable_prevu %}
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Limite invitations" %}</span>
+                            <span>{{ invitation.limite_invitations_prevue }}</span>
+                        </li>
+                        {% endif %}
+                        {% endif %}
+
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">{% trans "Changement MDP requis" %}</span>
+                            {% if invitation.forcer_changement_mdp %}
+                            <span class="badge bg-warning"><i class="ti ti-check"></i></span>
+                            {% else %}
+                            <span class="badge bg-secondary"><i class="ti ti-x"></i></span>
+                            {% endif %}
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Created User -->
+            {% if invitation.utilisateur_cree %}
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Utilisateur cree" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="avatar avatar-md me-3">
+                            <span class="avatar-text rounded-circle bg-success">
+                                {{ invitation.utilisateur_cree.get_initials }}
+                            </span>
+                        </div>
+                        <div>
+                            <h6 class="mb-0">
+                                <a href="{% url 'core:admin-user-detail' invitation.utilisateur_cree.pk %}">
+                                    {{ invitation.utilisateur_cree.get_full_name|default:invitation.utilisateur_cree.username }}
+                                </a>
+                            </h6>
+                            <small class="text-muted">{{ invitation.utilisateur_cree.email }}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Link -->
+            {% if invitation.statut == 'EN_ATTENTE' %}
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Lien d'invitation" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="invitationLink" value="{{ request.scheme }}://{{ request.get_host }}{% url 'core:invitation-accept' invitation.token %}" readonly>
+                        <button class="btn btn-outline-secondary" type="button" onclick="navigator.clipboard.writeText(document.getElementById('invitationLink').value); alert('{% trans "Lien copie!" %}');">
+                            <i class="ti ti-copy"></i>
+                        </button>
+                    </div>
+                    <small class="text-muted">{% trans "Ce lien permet d'accepter l'invitation" %}</small>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

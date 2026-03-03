@@ -1,0 +1,221 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Import relevé bancaire" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Import relevé bancaire (camt.053)" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Import relevé" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Step 1: Upload + Preview -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-upload me-2"></i>{% trans "Étape 1 : Upload du fichier camt.053" %}</h5>
+            </div>
+            <div class="card-body">
+                <form id="form-preview" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="row align-items-end">
+                        <div class="col-md-8">
+                            <label class="form-label">{% trans "Fichier XML camt.053" %}</label>
+                            <input type="file" class="form-control" name="file" id="camt-file" accept=".xml" required>
+                        </div>
+                        <div class="col-md-4">
+                            <button type="submit" class="btn btn-outline-primary w-100">
+                                <i class="ph ph-eye me-1"></i>{% trans "Preview" %}
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Preview zone -->
+<div class="row" id="preview-zone" style="display:none;">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="ph ph-file-text me-2"></i>{% trans "Preview du relevé" %}</h5>
+                <span class="badge text-light-info" id="preview-info"></span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm table-bottom-border mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Date" %}</th>
+                                <th>{% trans "D/C" %}</th>
+                                <th class="text-end">{% trans "Montant" %}</th>
+                                <th>{% trans "Contrepartie" %}</th>
+                                <th>{% trans "Communication" %}</th>
+                                <th>{% trans "Référence" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody id="preview-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Step 2: Import -->
+<div class="row" id="import-zone" style="display:none;">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="ph ph-database me-2"></i>{% trans "Étape 2 : Paramètres d'import" %}</h5>
+            </div>
+            <div class="card-body">
+                <form id="form-import">
+                    {% csrf_token %}
+                    <div class="row">
+                        <div class="col-md-3">
+                            <label class="form-label">{% trans "Mandat" %}</label>
+                            <select class="form-select" name="mandat_id" required>
+                                <option value="">{% trans "Sélectionner..." %}</option>
+                                {% for mandat in mandats %}
+                                <option value="{{ mandat.id }}">{{ mandat }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">{% trans "Journal" %}</label>
+                            <select class="form-select" name="journal_id" required>
+                                <option value="">{% trans "Sélectionner..." %}</option>
+                                {% for journal in journaux %}
+                                <option value="{{ journal.id }}">{{ journal.code }} - {{ journal.libelle }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">{% trans "Compte banque" %}</label>
+                            <select class="form-select" name="compte_banque_id" required>
+                                <option value="">{% trans "Sélectionner..." %}</option>
+                                {% for compte in comptes_banque %}
+                                <option value="{{ compte.id }}">{{ compte.numero }} - {{ compte.libelle }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">{% trans "Exercice" %}</label>
+                            <select class="form-select" name="exercice_id" required>
+                                <option value="">{% trans "Sélectionner..." %}</option>
+                                {% for exercice in exercices %}
+                                <option value="{{ exercice.id }}">{{ exercice }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <button type="submit" class="btn btn-success">
+                            <i class="ph ph-check me-1"></i>{% trans "Importer les écritures (brouillon)" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Result -->
+<div class="row" id="result-zone" style="display:none;">
+    <div class="col-12">
+        <div class="alert alert-success" id="result-message"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const csrfToken = '{{ csrf_token }}';
+
+document.getElementById('form-preview').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+
+    fetch('/api/v1/releves-bancaires/preview/', {
+        method: 'POST',
+        headers: {'X-CSRFToken': csrfToken},
+        body: formData,
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+        document.getElementById('preview-info').textContent =
+            'IBAN: ' + data.iban + ' | ' + data.currency + ' | ' +
+            data.entries_count + ' {% trans "mouvements" %} | ' +
+            '{% trans "Solde:" %} ' + data.opening_balance + ' → ' + data.closing_balance;
+
+        const tbody = document.getElementById('preview-tbody');
+        tbody.innerHTML = '';
+        data.entries.forEach(e => {
+            const cls = e.credit_debit === 'CRDT' ? 'text-success' : 'text-danger';
+            const sign = e.credit_debit === 'CRDT' ? '+' : '-';
+            const row = document.createElement('tr');
+            row.innerHTML =
+                '<td>' + (e.booking_date || '-') + '</td>' +
+                '<td><span class="badge ' + (e.credit_debit === 'CRDT' ? 'text-light-success' : 'text-light-danger') + '">' + e.credit_debit + '</span></td>' +
+                '<td class="text-end f-w-600 ' + cls + '">' + sign + e.amount + ' ' + e.currency + '</td>' +
+                '<td>' + (e.counterparty_name || '-') + '</td>' +
+                '<td class="text-muted">' + (e.remittance_info || '-') + '</td>' +
+                '<td class="text-muted">' + (e.reference || '-') + '</td>';
+            tbody.appendChild(row);
+        });
+
+        document.getElementById('preview-zone').style.display = 'block';
+        document.getElementById('import-zone').style.display = 'block';
+    })
+    .catch(err => alert(err));
+});
+
+document.getElementById('form-import').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    // Ajouter le fichier XML du premier formulaire
+    const fileInput = document.getElementById('camt-file');
+    formData.append('file', fileInput.files[0]);
+
+    fetch('/api/v1/releves-bancaires/importer/', {
+        method: 'POST',
+        headers: {'X-CSRFToken': csrfToken},
+        body: formData,
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+        document.getElementById('result-message').innerHTML =
+            '<i class="ph ph-check-circle me-2"></i>' +
+            '{% trans "Import réussi!" %} {% trans "Pièce:" %} ' + data.numero_piece +
+            ' | {% trans "Écritures:" %} ' + data.ecritures_count;
+        document.getElementById('result-zone').style.display = 'block';
+    })
+    .catch(err => alert(err));
+});
+</script>
+{% endblock %}

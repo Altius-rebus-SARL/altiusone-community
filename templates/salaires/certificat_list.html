@@ -1,0 +1,215 @@
+<!-- salaires/certificat_list.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+{% load devise_tags %}
+
+{% block title %}{% trans "Certificats de salaire" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Certificats de salaire" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Certificats de salaire" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Filtres -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body py-2">
+                <form method="get" class="row g-2 align-items-center">
+                    <div class="col-auto">
+                        <select name="annee" class="form-select form-select-sm">
+                            <option value="">{% trans "Toutes les années" %}</option>
+                            {% for y in annees_disponibles %}
+                            <option value="{{ y }}" {% if request.GET.annee == y|stringformat:"d" %}selected{% endif %}>{{ y }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <select name="statut" class="form-select form-select-sm">
+                            <option value="">{% trans "Tous les statuts" %}</option>
+                            <option value="BROUILLON" {% if request.GET.statut == "BROUILLON" %}selected{% endif %}>{% trans "Brouillon" %}</option>
+                            <option value="CALCULE" {% if request.GET.statut == "CALCULE" %}selected{% endif %}>{% trans "Calculé" %}</option>
+                            <option value="VERIFIE" {% if request.GET.statut == "VERIFIE" %}selected{% endif %}>{% trans "Vérifié" %}</option>
+                            <option value="SIGNE" {% if request.GET.statut == "SIGNE" %}selected{% endif %}>{% trans "Signé" %}</option>
+                            <option value="ENVOYE" {% if request.GET.statut == "ENVOYE" %}selected{% endif %}>{% trans "Envoyé" %}</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <input type="text" name="q" class="form-control form-control-sm" placeholder="{% trans 'Rechercher...' %}" value="{{ request.GET.q }}">
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-sm btn-primary">
+                            <i class="ph ph-magnifying-glass"></i>
+                        </button>
+                        <a href="{% url 'salaires:certificat-list' %}" class="btn btn-sm btn-secondary">
+                            <i class="ph ph-x"></i>
+                        </a>
+                    </div>
+                    <div class="col-auto ms-auto">
+                        <a href="{% url 'salaires:certificat-generer-masse' %}" class="btn btn-sm btn-success">
+                            <i class="ph ph-plus-circle me-1"></i>{% trans "Génération en masse" %}
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Liste -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>{% trans "Formulaire 11 - Certificats de salaire" %}</h5>
+                <span class="badge bg-light-primary">{{ certificats.count }} {% trans "certificat(s)" %}</span>
+            </div>
+            <div class="card-body p-0">
+                {% if certificats %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Employé" %}</th>
+                                <th class="text-center">{% trans "Année" %}</th>
+                                <th>{% trans "Période" %}</th>
+                                <th>{% trans "Occupation" %}</th>
+                                <th class="text-end">{% trans "Brut (8)" %}</th>
+                                <th class="text-end">{% trans "Net (11)" %}</th>
+                                <th class="text-center">{% trans "Statut" %}</th>
+                                <th class="text-center">{% trans "PDF" %}</th>
+                                <th class="text-end">{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cert in certificats %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'salaires:employe-detail' cert.employe.pk %}">
+                                        <strong>{{ cert.employe.nom }}</strong> {{ cert.employe.prenom }}
+                                    </a>
+                                    <br><small class="text-muted">{{ cert.employe.avs_number }}</small>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-light-primary fs-6">{{ cert.annee }}</span>
+                                </td>
+                                <td>
+                                    <small>{{ cert.date_debut|date:"d.m" }} - {{ cert.date_fin|date:"d.m.Y" }}</small>
+                                </td>
+                                <td>
+                                    <small>{{ cert.get_type_occupation_display }}</small>
+                                    <br><small class="text-muted">{{ cert.taux_occupation }}%</small>
+                                </td>
+                                <td class="text-end">
+                                    <strong>{{ cert.chiffre_8_total_brut|devise:DEVISE_TAUX|floatformat:0|intcomma }}</strong>
+                                </td>
+                                <td class="text-end">
+                                    {{ cert.chiffre_11_net|devise:DEVISE_TAUX|floatformat:0|intcomma }}
+                                </td>
+                                <td class="text-center">
+                                    {% if cert.statut == 'BROUILLON' %}
+                                    <span class="badge bg-light-secondary">{% trans "Brouillon" %}</span>
+                                    {% elif cert.statut == 'CALCULE' %}
+                                    <span class="badge bg-light-info">{% trans "Calculé" %}</span>
+                                    {% elif cert.statut == 'VERIFIE' %}
+                                    <span class="badge bg-light-warning">{% trans "Vérifié" %}</span>
+                                    {% elif cert.statut == 'SIGNE' %}
+                                    <span class="badge bg-light-success">{% trans "Signé" %}</span>
+                                    {% elif cert.statut == 'ENVOYE' %}
+                                    <span class="badge bg-success">{% trans "Envoyé" %}</span>
+                                    {% endif %}
+                                    {% if cert.est_signe %}
+                                    <i class="ph ph-check-circle text-success" title="{% trans 'Signé' %}"></i>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if cert.fichier_pdf %}
+                                    <a href="{{ cert.fichier_pdf.url }}" class="text-danger" target="_blank" title="{% trans 'Télécharger PDF' %}">
+                                        <i class="ph ph-file-pdf fs-5"></i>
+                                    </a>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{% url 'salaires:certificat-detail' cert.pk %}"
+                                           class="btn btn-outline-primary"
+                                           title="{% trans 'Voir' %}">
+                                            <i class="ph ph-eye"></i>
+                                        </a>
+                                        {% if cert.statut == 'BROUILLON' or cert.statut == 'CALCULE' %}
+                                        <a href="{% url 'salaires:certificat-edit' cert.pk %}"
+                                           class="btn btn-outline-secondary"
+                                           title="{% trans 'Modifier' %}">
+                                            <i class="ph ph-pencil"></i>
+                                        </a>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if is_paginated %}
+                <div class="card-footer">
+                    <nav>
+                        <ul class="pagination justify-content-center mb-0">
+                            {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1"><i class="ph ph-caret-double-left"></i></a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}"><i class="ph ph-caret-left"></i></a>
+                            </li>
+                            {% endif %}
+
+                            <li class="page-item active">
+                                <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                            </li>
+
+                            {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}"><i class="ph ph-caret-right"></i></a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}"><i class="ph ph-caret-double-right"></i></a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+                {% endif %}
+
+                {% else %}
+                <div class="p-5 text-center text-muted">
+                    <i class="ph ph-certificate fs-1"></i>
+                    <p class="mt-3">{% trans "Aucun certificat de salaire trouvé" %}</p>
+                    <a href="{% url 'salaires:certificat-generer-masse' %}" class="btn btn-primary mt-2">
+                        <i class="ph ph-plus-circle me-2"></i>{% trans "Générer des certificats" %}
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

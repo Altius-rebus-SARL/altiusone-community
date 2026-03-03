@@ -1,0 +1,248 @@
+<!-- analytics/alerte_list.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Alertes" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Alertes métriques" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Accueil" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="#">{% trans "Analytics" %}</a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Alertes" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="row mb-4">
+    <div class="col-md-6 col-lg-3">
+        <div class="card border-danger">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-danger mb-0">{{ stats.critiques }}</h3>
+                        <p class="text-muted mb-0">{% trans "Critiques" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-danger">
+                        <i class="ph ph-warning-octagon f-s-24 text-danger"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-warning mb-0">{{ stats.actives }}</h3>
+                        <p class="text-muted mb-0">{% trans "Actives" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-warning">
+                        <i class="ph ph-bell-ringing f-s-24 text-warning"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtres -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body py-2">
+                <form method="get" class="d-flex gap-2 flex-wrap">
+                    <select name="statut" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
+                        <option value="ACTIVE" {% if request.GET.statut == 'ACTIVE' or not request.GET.statut %}selected{% endif %}>
+                            {% trans "Actives" %}
+                        </option>
+                        <option value="ACQUITTEE" {% if request.GET.statut == 'ACQUITTEE' %}selected{% endif %}>
+                            {% trans "Acquittées" %}
+                        </option>
+                        <option value="RESOLUE" {% if request.GET.statut == 'RESOLUE' %}selected{% endif %}>
+                            {% trans "Résolues" %}
+                        </option>
+                        <option value="" {% if request.GET.statut == '' %}selected{% endif %}>
+                            {% trans "Toutes" %}
+                        </option>
+                    </select>
+                    <select name="niveau" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
+                        <option value="">{% trans "Tous les niveaux" %}</option>
+                        <option value="CRITIQUE" {% if request.GET.niveau == 'CRITIQUE' %}selected{% endif %}>
+                            {% trans "Critique" %}
+                        </option>
+                        <option value="ATTENTION" {% if request.GET.niveau == 'ATTENTION' %}selected{% endif %}>
+                            {% trans "Attention" %}
+                        </option>
+                        <option value="INFO" {% if request.GET.niveau == 'INFO' %}selected{% endif %}>
+                            {% trans "Information" %}
+                        </option>
+                    </select>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Liste des alertes -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                {% for alerte in alertes %}
+                <div class="alert
+                    {% if alerte.niveau == 'CRITIQUE' %}alert-danger
+                    {% elif alerte.niveau == 'ATTENTION' %}alert-warning
+                    {% else %}alert-info{% endif %}
+                    d-flex justify-content-between align-items-start mb-3">
+                    <div class="d-flex">
+                        <div class="me-3">
+                            {% if alerte.niveau == 'CRITIQUE' %}
+                            <i class="ph ph-warning-octagon f-s-30"></i>
+                            {% elif alerte.niveau == 'ATTENTION' %}
+                            <i class="ph ph-warning-circle f-s-30"></i>
+                            {% else %}
+                            <i class="ph ph-info f-s-30"></i>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <h6 class="mb-1">{{ alerte.indicateur.nom }}</h6>
+                            <p class="mb-2">{{ alerte.message }}</p>
+                            <div class="d-flex gap-3 small">
+                                <span>
+                                    <i class="ph ph-chart-line me-1"></i>
+                                    {% trans "Valeur:" %} <strong>{{ alerte.valeur_detectee }}</strong>
+                                    ({% trans "Seuil:" %} {{ alerte.seuil_depasse }})
+                                </span>
+                                {% if alerte.mandat %}
+                                <span>
+                                    <i class="ph ph-folder me-1"></i>
+                                    {{ alerte.mandat.client.raison_sociale|truncatewords:3 }}
+                                </span>
+                                {% endif %}
+                                <span>
+                                    <i class="ph ph-clock me-1"></i>
+                                    {{ alerte.date_detection|date:"d.m.Y H:i" }}
+                                </span>
+                            </div>
+
+                            {% if alerte.commentaire %}
+                            <div class="mt-2 p-2 bg-light rounded small">
+                                <strong>{% trans "Commentaire:" %}</strong> {{ alerte.commentaire }}
+                            </div>
+                            {% endif %}
+
+                            {% if alerte.acquittee_par %}
+                            <div class="mt-2 small text-muted">
+                                <i class="ph ph-check-circle me-1"></i>
+                                {% trans "Acquittée par" %} {{ alerte.acquittee_par.get_full_name|default:alerte.acquittee_par.username }}
+                                {% trans "le" %} {{ alerte.date_acquittement|date:"d.m.Y H:i" }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        {% if alerte.statut == 'ACTIVE' and user_permissions.analytics.acquitter_alerte or is_superadmin %}
+                        <button type="button" class="btn btn-sm btn-light" data-bs-toggle="modal"
+                                data-bs-target="#acquitterModal{{ alerte.pk }}">
+                            <i class="ph ph-check me-1"></i>{% trans "Acquitter" %}
+                        </button>
+                        {% endif %}
+                        <a href="{% url 'analytics:indicateur-detail' alerte.indicateur.pk %}"
+                           class="btn btn-sm btn-light-primary">
+                            <i class="ph ph-chart-line"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Modal acquitter -->
+                {% if alerte.statut == 'ACTIVE' %}
+                <div class="modal fade" id="acquitterModal{{ alerte.pk }}" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <form method="post" action="{% url 'analytics:alerte-acquitter' alerte.pk %}">
+                                {% csrf_token %}
+                                <div class="modal-header">
+                                    <h5 class="modal-title">{% trans "Acquitter l'alerte" %}</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p>{{ alerte.message }}</p>
+                                    <div class="mb-3">
+                                        <label class="form-label">{% trans "Commentaire" %}</label>
+                                        <textarea name="commentaire" class="form-control" rows="3"
+                                                  placeholder="{% trans 'Raison de l\'acquittement...' %}"></textarea>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                        {% trans "Annuler" %}
+                                    </button>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="ph ph-check me-1"></i>{% trans "Acquitter" %}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% empty %}
+                <div class="text-center py-5">
+                    <i class="ph ph-check-circle f-s-50 text-success"></i>
+                    <p class="text-muted mt-3">{% trans "Aucune alerte active" %}</p>
+                </div>
+                {% endfor %}
+
+                <!-- Pagination -->
+                {% if is_paginated %}
+                <div class="list-pagination mt-3">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}{% if request.GET.niveau %}&niveau={{ request.GET.niveau }}{% endif %}">
+                                <i class="ph ph-caret-left"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}{% if request.GET.niveau %}&niveau={{ request.GET.niveau }}{% endif %}">{{ num }}</a>
+                            </li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}{% if request.GET.niveau %}&niveau={{ request.GET.niveau }}{% endif %}">
+                                <i class="ph ph-caret-right"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
