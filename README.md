@@ -1,301 +1,97 @@
-# AltiusOne - Plateforme de Gestion Suisse
+# AltiusOne Community Edition
 
-AltiusOne est une application SaaS complète de gestion spécialement conçue pour le marché suisse, offrant une architecture multi-tenant avec provisionnement automatique d'instances VPS dédiées.
+Open-source business management platform for SMEs, accounting firms, and enterprises.
 
-## 🎯 Caractéristiques Principales
+Built with Django 6, PostgreSQL, Bootstrap 5 + HTMX.
 
-### Architecture Multi-Tenant
+## Features
 
-- Instances VPS dédiées par client (Hetzner Cloud)
-- Base de données PostgreSQL isolée par tenant
-- Storage suisse conforme (S3/MinIO)
-- Provisionnement automatique via Terraform
-- Orchestration Docker
+- **Accounting** — Swiss & OHADA charts of accounts, journal entries, trial balance, financial statements
+- **Invoicing** — Quotes, invoices, Swiss QR-bills, time tracking, payment management
+- **Payroll** — Employee management, salary slips, Swiss social contributions, certificates
+- **VAT** — VAT declarations, rates, reconciliation (Swiss-compliant)
+- **Tax** — Tax declarations, corrections, multi-regime support
+- **Documents** — Document management (GED), OCR, full-text + semantic search
+- **Analytics** — Dashboards, KPIs, custom reports, data export
+- **Projects** — Project management, task tracking, Gantt charts
+- **Graph** — Relational knowledge graph, anomaly detection, ontology management
+- **Email** — Campaign management, SMTP configuration, templates
+- **MCP Server** — Model Context Protocol endpoint for connecting any LLM
+- **API** — Full REST API with JWT authentication, OpenAPI documentation
+- **Multi-language** — French, German, Italian, English
 
-### Modules Fonctionnels
-
-#### 1. Core & Gestion
-
-- Gestion multi-sociétés et multi-mandats
-- Utilisateurs avec permissions granulaires
-- Exercices comptables
-- Multi-langue (FR, DE, IT, EN)
-
-#### 2. Comptabilité
-
-- Plans comptables personnalisables (Swiss GAAP, PCG)
-- Saisie d'écritures avec validation
-- Grand livre, balance, journaux
-- Lettrage automatique
-- Import/export comptable
-
-#### 3. TVA
-
-- Déclarations TVA trimestrielles/semestrielles
-- Méthodes: effective, taux forfaitaire, taux de la dette fiscale nette
-- Génération XML format AFC
-- Suivi des opérations soumises à TVA
-- Codes TVA Suisse (200, 205, 220, 230, 280, 289, 400, etc.)
-
-#### 4. Facturation & Time Tracking
-
-- Gestion des prestations
-- Suivi du temps facturable
-- Génération de factures
-- QR-factures (Swiss QR-Bill)
-- Relances automatiques
-- Paiements et rapprochements
-
-#### 5. Salaires & RH
-
-- Fiches de salaire suisses
-- Cotisations sociales (AVS, AC, LPP, etc.)
-- Impôt à la source
-- Certificats de salaire (formulaire 11)
-- Déclarations aux caisses de compensation
-
-#### 6. Documents & GED
-
-- Stockage sécurisé Swiss-compliant
-- OCR et extraction de données
-- Classification automatique
-- Versionning
-- Recherche full-text
-- Watermarking
-
-#### 7. Fiscalité
-
-- Déclarations fiscales entreprises
-- Optimisations fiscales
-- Reports de pertes
-- Réclamations
-- Taux d'imposition cantonaux
-
-#### 8. Analytics & Reporting
-
-- Tableaux de bord personnalisables
-- KPIs financiers
-- Rapports programmés
-- Comparaisons de périodes
-- Alertes intelligentes
-- Exports de données
-
-## 🏗️ Architecture Technique
-
-### Stack Technologique
-
-- **Backend**: Django 4.2 + PostgreSQL 15
-- **API**: Django REST Framework
-- **Task Queue**: Celery + Redis
-- **Storage**: S3-compatible (MinIO)
-- **Containerization**: Docker
-- **IaC**: Terraform (Hetzner Cloud)
-- **Frontend**: Bootstrap 5, Chart.js
-
-### Structure du Projet
-
-```
-altiusone/
-├── core/                   # Utilisateurs, mandats, clients
-├── comptabilite/          # Comptabilité générale
-├── tva/                   # Gestion TVA
-├── facturation/           # Facturation et time tracking
-├── salaires/              # Paie et RH
-├── documents/             # GED
-├── fiscalite/             # Déclarations fiscales
-├── analytics/             # Reporting et analytics
-├── templates/             # Templates Django
-├── static/                # Assets statiques
-├── locale/                # Traductions
-└── terraform/             # Infrastructure as Code
-```
-
-## 🚀 Installation
-
-### Prérequis
-
-- Python 3.11+
-- PostgreSQL 15+
-- Redis 7+
-- Docker & Docker Compose (optionnel)
-
-### Installation locale
-
-1. **Cloner le repository**
+## Quick Start
 
 ```bash
-git clone https://github.com/altius/altiusone.git
-cd altiusone
-```
+# Clone the repository
+git clone https://github.com/Altius-rebus-SARL/altiusone-community.git
+cd altiusone-community
 
-2. **Créer un environnement virtuel**
-
-```bash
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# ou
-venv\Scripts\activate  # Windows
-```
-
-3. **Installer les dépendances**
-
-```bash
-pip install -r requirements.txt
-```
-
-4. **Configuration**
-
-```bash
+# Copy environment config
 cp .env.example .env
-# Éditer .env avec vos paramètres
+# Edit .env — change passwords!
+
+# Start all services
+docker compose up -d
+
+# Run migrations and create admin user
+docker compose exec django python manage.py migrate
+docker compose exec django python manage.py createsuperuser
+
+# Access the app
+open http://localhost:8011
 ```
 
-5. **Créer la base de données**
+## Architecture
+
+```
+Services (Docker Compose):
+  django        Django 6 + Gunicorn (port 8011)
+  postgres      PostgreSQL 15 + PostGIS + pgvector
+  redis         Cache + Celery broker
+  celery        Background task worker
+  celery-beat   Scheduled tasks
+  minio         S3-compatible object storage
+  nginx         Reverse proxy
+```
+
+## AI Integration (Optional)
+
+AltiusOne works fully without AI. To add AI capabilities:
+
+1. **MCP Server** — The built-in MCP endpoint (`/mcp/`) lets you connect any LLM (Claude, GPT, Ollama, etc.) to your business data
+2. **OpenAI-compatible API** — Set `AI_API_URL` and `AI_API_KEY` in `.env` to enable OCR, embeddings, and AI chat via any compatible API (Ollama, vLLM, LiteLLM)
+
+## Community vs Cloud
+
+| | Community (this repo) | Cloud |
+|---|---|---|
+| Core business apps | All 15 modules | All 15 modules |
+| Self-hosted | Docker Compose | Managed hosting |
+| AI | BYO via MCP / API | Integrated AI service |
+| Collaboration | - | Nextcloud + OnlyOffice |
+| Provisioning | Manual | Automated (Terraform) |
+| Support | Community (GitHub Issues) | Professional support |
+| License | AGPL-3.0 | Proprietary |
+
+## Development
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, code conventions, and how to submit pull requests.
 
 ```bash
-createdb altiusone
+# Install dependencies (without Docker)
+pip install -r requirements_community.txt
+
+# Run with community settings
+DJANGO_SETTINGS_MODULE=AltiusOne.settings_community python manage.py runserver
 ```
 
-6. **Migrations**
+## License
 
-```bash
-python manage.py makemigrations
-python manage.py migrate
-```
+[AGPL-3.0](LICENSE) — Free to use, modify, and distribute. If you modify and deploy AltiusOne as a service, you must share your changes under the same license.
 
-7. **Créer un superutilisateur**
+## Links
 
-```bash
-python manage.py createsuperuser
-```
-
-8. **Charger les données initiales**
-
-```bash
-python manage.py loaddata fixtures/initial_data.json
-```
-
-9. **Compiler les traductions**
-
-```bash
-python manage.py compilemessages
-```
-
-10. **Lancer le serveur**
-
-```bash
-python manage.py runserver
-```
-
-### Installation avec Docker
-
-```bash
-docker-compose up -d
-```
-
-## 📊 Utilisation
-
-### Accès à l'application
-
-- Application: http://localhost:8000
-- Admin Django: http://localhost:8000/admin
-- API: http://localhost:8000/api/
-
-### Créer un premier mandat
-
-1. Se connecter en tant qu'admin
-2. Créer un client
-3. Créer un mandat pour ce client
-4. Configurer le plan comptable
-5. Commencer la saisie
-
-## 🧪 Tests
-
-```bash
-# Lancer tous les tests
-pytest
-
-# Avec coverage
-pytest --cov=. --cov-report=html
-
-# Tests spécifiques
-pytest core/tests/
-pytest comptabilite/tests/
-```
-
-## 📝 API Documentation
-
-L'API REST est accessible à `/api/` avec les endpoints suivants:
-
-- `/api/clients/` - Gestion des clients
-- `/api/mandats/` - Gestion des mandats
-- `/api/comptes/` - Plan comptable
-- `/api/ecritures/` - Écritures comptables
-- `/api/factures/` - Facturation
-- `/api/documents/` - Documents
-- etc.
-
-Documentation complète: http://localhost:8000/api/docs/
-
-## 🔒 Sécurité
-
-- Authentification multi-facteurs (2FA)
-- Chiffrement des données sensibles
-- Isolation des tenants
-- Audit logs complets
-- Conformité RGPD
-- Stockage en Suisse
-
-## 🌍 Internationalisation
-
-L'application supporte 4 langues:
-
-- Français (par défaut)
-- Allemand
-- Italien
-- Anglais
-
-## 📦 Déploiement
-
-### Provisionnement automatique
-
-Le système crée automatiquement:
-
-1. VPS Hetzner Cloud
-2. Base PostgreSQL dédiée
-3. Storage S3 (MinIO)
-4. Configuration DNS
-5. Certificats SSL
-
-```bash
-cd terraform/
-terraform init
-terraform plan
-terraform apply
-```
-
-## 🤝 Contribution
-
-Les contributions sont les bienvenues! Merci de:
-
-1. Fork le projet
-2. Créer une branche feature (`git checkout -b feature/AmazingFeature`)
-3. Commit vos changements (`git commit -m 'Add AmazingFeature'`)
-4. Push vers la branche (`git push origin feature/AmazingFeature`)
-5. Ouvrir une Pull Request
-
-## 📄 License
-
-Copyright (c) 2024 Altius Academy SNC. Tous droits réservés.
-
-## 👥 Contact
-
-- **Email**: support@altiusone.ch
-- **Website**: https://altiusone.ch
-- **Documentation**: https://docs.altiusone.ch
-
-## 🙏 Remerciements
-
-- Administration Fédérale des Contributions (AFC) pour la documentation TVA
-- Swissmedic pour l'API pharmaceutique
-- Communauté Django
+- **Cloud Edition**: [altiusone.ch](https://altiusone.ch)
+- **Issues**: [GitHub Issues](https://github.com/Altius-rebus-SARL/altiusone-community/issues)
+- **Contributing**: [CONTRIBUTING.md](CONTRIBUTING.md)
