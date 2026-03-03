@@ -154,9 +154,6 @@ python manage.py load_ohada_chart_of_accounts || echo "Warning: OHADA chart of a
 echo "Load modelforms default templates"
 python manage.py create_default_templates || echo "Warning: Default templates loading failed, continuing..."
 
-echo "Setup OIDC clients (Nextcloud, MinIO)"
-python manage.py setup_oidc_clients || echo "Warning: OIDC clients setup failed, continuing..."
-
 echo "Load graph ontology types"
 python manage.py init_ontologie || echo "Warning: Graph ontology loading failed, continuing..."
 
