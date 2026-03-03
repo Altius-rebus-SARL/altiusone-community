@@ -15,7 +15,6 @@ services:
       POSTGRES_HOST_AUTH_METHOD: trust
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init-extensions.sql:/docker-entrypoint-initdb.d/init-extensions.sql
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:
