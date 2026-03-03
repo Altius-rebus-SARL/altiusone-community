@@ -618,7 +618,7 @@ USE_S3 = os.environ.get('USE_S3', 'False').lower() in ('true', '1', 'yes')
 if USE_S3:
     # Configuration AWS/S3 pour MinIO
     AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID', os.environ.get('MINIO_ROOT_USER', 'minio'))
-    AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY', os.environ.get('MINIO_ROOT_PASSWORD', 'minio123'))
+    AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY', os.environ.get('MINIO_ROOT_PASSWORD', ''))
     AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME', 'altiusone-media')
     AWS_S3_ENDPOINT_URL = os.environ.get('AWS_S3_ENDPOINT_URL', 'http://minio:9000')
     AWS_S3_REGION_NAME = os.environ.get('AWS_S3_REGION_NAME', 'us-east-1')
@@ -824,7 +824,7 @@ DOCS_WEBHOOK_SECRET = os.environ.get('DOCS_WEBHOOK_SECRET', '')
 DOCS_S3_BUCKET = os.environ.get('DOCS_S3_BUCKET', 'altiusone-docs')
 DOCS_S3_ENDPOINT = os.environ.get('DOCS_S3_ENDPOINT', 'http://minio:9000')
 DOCS_S3_ACCESS_KEY = os.environ.get('DOCS_S3_ACCESS_KEY', 'minio')
-DOCS_S3_SECRET_KEY = os.environ.get('DOCS_S3_SECRET_KEY', 'minio123')
+DOCS_S3_SECRET_KEY = os.environ.get('DOCS_S3_SECRET_KEY', '')
 
 
 # ============================================================================
