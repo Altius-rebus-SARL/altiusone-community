@@ -195,8 +195,8 @@ MODELTRANSLATION_LANGUAGES = ("fr", "de", "it", "en")
 MODELTRANSLATION_FALLBACK_LANGUAGES = ("fr", "en")
 
 # Application specific settings
-ALTIUSFIDU_VERSION = "1.0.0"
-ALTIUSFIDU_SUPPORT_EMAIL = "support@altiusone.ch"
+ALTIUSONE_VERSION = "1.0.0"
+ALTIUSONE_SUPPORT_EMAIL = "support@altiusone.ch"
  
 LOCALE_PATHS = (
     os.path.join(
