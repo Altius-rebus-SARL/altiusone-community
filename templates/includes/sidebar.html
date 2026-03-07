@@ -476,10 +476,10 @@
 
       <!-- ADMINISTRATION Module -->
       <li
-        data-active="{% if ns == 'core' and 'admin' in is_active %}true{% endif %}"
+        data-active="{% if ns == 'core' and 'admin' in is_active or is_active == 'configuration' %}true{% endif %}"
       >
         <a
-          data-expanded="{% if ns == 'core' and 'admin' in is_active %}true{% else %}false{% endif %}"
+          data-expanded="{% if ns == 'core' and 'admin' in is_active or is_active == 'configuration' %}true{% else %}false{% endif %}"
           data-bs-toggle="collapse"
           href="#adminMenu"
         >
@@ -488,7 +488,7 @@
         </a>
         <ul
           class="collapse"
-          data-show="{% if ns == 'core' and 'admin' in is_active %}true{% endif %}"
+          data-show="{% if ns == 'core' and 'admin' in is_active or is_active == 'configuration' %}true{% endif %}"
           id="adminMenu"
         >
           <li
@@ -529,6 +529,13 @@
           >
             <a href="{% url 'core:admin-collaborateur-list' %}"
               >{% trans "Collaborateurs" %}</a
+            >
+          </li>
+          <li
+            data-active="{% if ns == 'core' and is_active == 'configuration' %}true{% endif %}"
+          >
+            <a href="{% url 'core:configuration' %}"
+              >{% trans "Configuration métier" %}</a
             >
           </li>
         </ul>

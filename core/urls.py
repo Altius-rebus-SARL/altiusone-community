@@ -216,6 +216,40 @@ urlpatterns = [
     path("admin/collaborateurs/<uuid:pk>/modifier/", views.CollaborateurFiduciaireUpdateView.as_view(), name="admin-collaborateur-update"),
     path("admin/collaborateurs/<uuid:pk>/toggle/", views.collaborateur_fiduciaire_toggle, name="admin-collaborateur-toggle"),
     # ============================================================================
+    # CONFIGURATION METIER (Paramètres configurables)
+    # ============================================================================
+    path("configuration/", views.configuration_index, name="configuration"),
+    path(
+        "configuration/<str:module>/<str:categorie>/",
+        views.configuration_list_partial,
+        name="configuration-list",
+    ),
+    path(
+        "configuration/<str:module>/<str:categorie>/nouveau/",
+        views.configuration_create,
+        name="configuration-create",
+    ),
+    path(
+        "configuration/<str:module>/<str:categorie>/reorder/",
+        views.configuration_reorder,
+        name="configuration-reorder",
+    ),
+    path(
+        "configuration/param/<uuid:pk>/modifier/",
+        views.configuration_update,
+        name="configuration-update",
+    ),
+    path(
+        "configuration/param/<uuid:pk>/supprimer/",
+        views.configuration_delete,
+        name="configuration-delete",
+    ),
+    path(
+        "configuration/param/<uuid:pk>/toggle/",
+        views.configuration_toggle,
+        name="configuration-toggle",
+    ),
+    # ============================================================================
     # ACCEPTATION INVITATION (PUBLIQUE)
     # ============================================================================
     path("invitation/<str:token>/", views.AcceptInvitationView.as_view(), name="invitation-accept"),

@@ -316,7 +316,19 @@ class Employe(BaseModel):
     
     def __str__(self):
         return f"{self.prenom} {self.nom} ({self.matricule})"
-    
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        errors = {}
+        if self.date_sortie and self.date_entree and self.date_sortie < self.date_entree:
+            errors['date_sortie'] = _("La date de sortie ne peut pas être antérieure à la date d'entrée.")
+        if self.date_fin_periode_essai and self.date_entree and self.date_fin_periode_essai < self.date_entree:
+            errors['date_fin_periode_essai'] = _("La fin de période d'essai ne peut pas être antérieure à la date d'entrée.")
+        if self.salaire_brut_mensuel and self.salaire_brut_mensuel < 0:
+            errors['salaire_brut_mensuel'] = _("Le salaire ne peut pas être négatif.")
+        if errors:
+            raise ValidationError(errors)
+
     @property
     def age(self):
         from datetime import date
@@ -932,29 +944,36 @@ class FicheSalaire(BaseModel):
         """Calcule tous les montants de la fiche"""
         # Salaire brut total
         self.salaire_brut_total = (
-            self.salaire_base 
-            + self.heures_supp_montant 
-            + self.primes 
+            self.salaire_base
+            + self.heures_supp_montant
+            + self.primes
             + self.indemnites
             + self.treizieme_mois
         )
-        
+
         # Cotisations employé
         self.avs_employe = self._calculer_cotisation('AVS', 'employe')
         self.ac_employe = self._calculer_cotisation('AC', 'employe')
+        self.ac_supp_employe = self._calculer_cotisation('AC_SUPP', 'employe')
         self.lpp_employe = self._calculer_cotisation('LPP', 'employe')
-        # ... autres cotisations
-        
+        self.laa_employe = self._calculer_cotisation('LAA', 'employe')
+        self.laac_employe = self._calculer_cotisation('LAAC', 'employe')
+        self.ijm_employe = self._calculer_cotisation('IJM', 'employe')
+
         self.total_cotisations_employe = (
-            self.avs_employe 
-            + self.ac_employe 
+            self.avs_employe
+            + self.ac_employe
             + self.ac_supp_employe
-            + self.lpp_employe 
-            + self.laa_employe 
+            + self.lpp_employe
+            + self.laa_employe
             + self.laac_employe
             + self.ijm_employe
         )
-        
+
+        # Allocations familiales auto-calculées si non renseignées manuellement
+        if self.allocations_familiales == Decimal('0') and self.employe_id:
+            self.allocations_familiales = self._calculer_allocations_familiales()
+
         # Déductions totales
         self.total_deductions = (
             self.total_cotisations_employe
@@ -963,7 +982,7 @@ class FicheSalaire(BaseModel):
             + self.saisie_salaire
             + self.autres_deductions
         )
-        
+
         # Salaire net
         self.salaire_net = (
             self.salaire_brut_total
@@ -971,12 +990,14 @@ class FicheSalaire(BaseModel):
             + self.allocations_familiales
             + self.autres_allocations
         )
-        
+
         # Charges patronales
         self.avs_employeur = self._calculer_cotisation('AVS', 'employeur')
         self.ac_employeur = self._calculer_cotisation('AC', 'employeur')
-        # ... autres charges
-        
+        self.lpp_employeur = self._calculer_cotisation('LPP', 'employeur')
+        self.laa_employeur = self._calculer_cotisation('LAA', 'employeur')
+        self.af_employeur = self._calculer_cotisation('AF', 'employeur')
+
         self.total_charges_patronales = (
             self.avs_employeur
             + self.ac_employeur
@@ -984,33 +1005,63 @@ class FicheSalaire(BaseModel):
             + self.laa_employeur
             + self.af_employeur
         )
-        
+
         # Coût total
         self.cout_total_employeur = (
             self.salaire_brut_total
             + self.total_charges_patronales
         )
-        
-        self.save()
+
         return self.salaire_net
-    
+
     def _calculer_cotisation(self, type_cot, part):
         """Calcule une cotisation spécifique"""
+        import logging
+        logger = logging.getLogger('salaires')
         regime = getattr(self.employe, 'regime_fiscal', None)
         taux_obj = TauxCotisation.get_taux_actif(type_cot, self.periode, regime_fiscal=regime)
         if not taux_obj:
+            logger.warning(
+                "Taux %s introuvable pour période %s, régime %s (employé %s) — cotisation mise à 0",
+                type_cot, self.periode, regime, self.employe
+            )
             return Decimal('0.00')
-        
+
         base = self.salaire_brut_total
-        
-        # Appliquer plafonds si nécessaire
-        if taux_obj.salaire_max and base > taux_obj.salaire_max:
-            base = taux_obj.salaire_max
-        if taux_obj.salaire_min and base < taux_obj.salaire_min:
-            return Decimal('0.00')
-        
+
+        if type_cot == 'AC_SUPP':
+            # AC supplément: s'applique uniquement sur la part du salaire
+            # au-dessus du seuil (148'200 CHF/an = 12'350 CHF/mois)
+            seuil_mensuel = taux_obj.salaire_min or Decimal('12350.00')
+            if base <= seuil_mensuel:
+                return Decimal('0.00')
+            base = base - seuil_mensuel
+        else:
+            # Appliquer plafonds si nécessaire
+            if taux_obj.salaire_max and base > taux_obj.salaire_max:
+                base = taux_obj.salaire_max
+            if taux_obj.salaire_min and base < taux_obj.salaire_min:
+                return Decimal('0.00')
+
         taux = taux_obj.taux_employe if part == 'employe' else taux_obj.taux_employeur
         return (base * taux / 100).quantize(Decimal('0.01'))
+
+    def _calculer_allocations_familiales(self):
+        """Calcule les allocations familiales basées sur les enfants de l'employé"""
+        total = Decimal('0')
+        canton = 'GE'
+        if hasattr(self.employe, 'adresse') and self.employe.adresse_id:
+            canton = getattr(self.employe.adresse, 'canton', 'GE') or 'GE'
+        for enfant in self.employe.enfants.all():
+            if enfant.autre_parent_recoit_allocation:
+                continue
+            montant = enfant.montant_allocation
+            if not montant:
+                montant = Decimal(str(enfant.get_montant_allocation_standard(canton)))
+            if enfant.garde_partagee and enfant.pourcentage_garde < 100:
+                montant = (montant * Decimal(str(enfant.pourcentage_garde)) / 100).quantize(Decimal('0.01'))
+            total += montant
+        return total
 
     def generer_pdf(self):
         """

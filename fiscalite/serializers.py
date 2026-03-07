@@ -19,17 +19,24 @@ class DeclarationFiscaleListSerializer(serializers.ModelSerializer):
         source="get_type_impot_display", read_only=True
     )
 
+    regime_fiscal_display = serializers.StringRelatedField(
+        source="regime_fiscal", read_only=True
+    )
+
     class Meta:
         model = DeclarationFiscale
         fields = [
             "id",
             "numero_declaration",
             "annee_fiscale",
+            "regime_fiscal",
+            "regime_fiscal_display",
             "type_impot",
             "type_impot_display",
             "statut",
             "statut_display",
             "impot_total",
+            "devise",
         ]
 
 

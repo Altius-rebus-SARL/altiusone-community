@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Configuration" %}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h4 class="text-primary mb-1"><i class="ti ti-adjustments me-2"></i>{% trans "Configuration" %}</h4>
+                        <p class="text-muted mb-0">{% trans "Paramètres métier configurables par module. Ajoutez, modifiez ou désactivez les types et catégories." %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-3">
+            <!-- Sidebar Modules -->
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="ti ti-layout-grid me-2"></i>{% trans "Modules" %}</h6>
+                    </div>
+                    <div class="list-group list-group-flush">
+                        {% for mod in modules %}
+                        <a href="?module={{ mod.code }}"
+                           class="list-group-item list-group-item-action d-flex justify-content-between align-items-center {% if active_module == mod.code %}active{% endif %}">
+                            <span><i class="{{ mod.icon }} me-2"></i>{{ mod.label }}</span>
+                            <span class="badge {% if active_module == mod.code %}bg-white text-primary{% else %}bg-light-primary{% endif %} rounded-pill">{{ mod.count }}</span>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="col-md-9">
+                <div class="card">
+                    <div class="card-body">
+                        <!-- Category Tabs -->
+                        {% if categories %}
+                        <ul class="nav nav-pills mb-3" role="tablist">
+                            {% for cat_code, cat_label in categories.items %}
+                            <li class="nav-item" role="presentation">
+                                <a class="nav-link {% if active_categorie == cat_code %}active{% endif %}"
+                                   href="?module={{ active_module }}&categorie={{ cat_code }}">
+                                    {{ cat_label }}
+                                </a>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% endif %}
+
+                        <!-- Parameter List (HTMX target) -->
+                        <div id="parametre-list"
+                             hx-get="{% url 'core:configuration-list' active_module active_categorie %}"
+                             hx-trigger="load"
+                             hx-target="#parametre-list">
+                            <div class="text-center py-4">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">{% trans "Chargement..." %}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

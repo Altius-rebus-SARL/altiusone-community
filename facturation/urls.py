@@ -45,6 +45,11 @@ urlpatterns = [
     ),
     path("factures/<uuid:pk>/valider/", views.facture_valider, name="facture-valider"),
     path(
+        "factures/<uuid:pk>/convertir-devis/",
+        views.devis_convertir,
+        name="devis-convertir",
+    ),
+    path(
         "factures/<uuid:pk>/pdf/", views.facture_generer_pdf, name="facture-generer-pdf"
     ),
     path(

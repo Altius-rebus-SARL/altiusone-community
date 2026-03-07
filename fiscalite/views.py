@@ -178,7 +178,7 @@ class DeclarationFiscaleCreateView(
         return super().form_valid(form)
 
 
-@login_required
+@permission_required_business('fiscalite.change_declaration_fiscale')
 @require_http_methods(["POST"])
 def declaration_valider(request, pk):
     """Valide une déclaration fiscale"""
@@ -193,7 +193,7 @@ def declaration_valider(request, pk):
     return redirect("fiscalite:declaration-detail", pk=pk)
 
 
-@login_required
+@permission_required_business('fiscalite.change_declaration_fiscale')
 @require_http_methods(["POST"])
 def declaration_populate_comptabilite(request, pk):
     """Pré-remplit les montants depuis la comptabilité"""
@@ -214,7 +214,7 @@ def declaration_populate_comptabilite(request, pk):
     return redirect("fiscalite:declaration-detail", pk=pk)
 
 
-@login_required
+@permission_required_business('fiscalite.change_declaration_fiscale')
 @require_http_methods(["POST"])
 def declaration_deposer(request, pk):
     """Marque une déclaration comme déposée"""
@@ -237,7 +237,7 @@ def declaration_deposer(request, pk):
 # ============ ANNEXES FISCALES ============
 
 
-@login_required
+@permission_required_business('fiscalite.add_declaration_fiscale')
 def annexe_create(request, declaration_pk):
     """Crée une annexe fiscale"""
     declaration = get_object_or_404(DeclarationFiscale, pk=declaration_pk)
@@ -271,7 +271,7 @@ def annexe_create(request, declaration_pk):
 # ============ CORRECTIONS FISCALES ============
 
 
-@login_required
+@permission_required_business('fiscalite.change_declaration_fiscale')
 def correction_create(request, declaration_pk):
     """Crée une correction fiscale"""
     declaration = get_object_or_404(DeclarationFiscale, pk=declaration_pk)
@@ -371,7 +371,7 @@ class ReclamationFiscaleListView(LoginRequiredMixin, BusinessPermissionMixin, Li
         ).order_by("-date_reclamation")
 
 
-@login_required
+@permission_required_business('fiscalite.change_declaration_fiscale')
 def reclamation_create(request, declaration_pk):
     """Crée une réclamation fiscale"""
     declaration = get_object_or_404(DeclarationFiscale, pk=declaration_pk)
@@ -471,7 +471,7 @@ class OptimisationFiscaleCreateView(
         return super().form_valid(form)
 
 
-@login_required
+@permission_required_business('fiscalite.change_declaration_fiscale')
 @require_http_methods(["POST"])
 def optimisation_changer_statut(request, pk):
     """Change le statut d'une optimisation fiscale"""
@@ -583,7 +583,7 @@ class TauxImpositionUpdateView(LoginRequiredMixin, BusinessPermissionMixin, Upda
         return super().form_valid(form)
 
 
-@login_required
+@permission_required_business('fiscalite.change_declaration_fiscale')
 @require_http_methods(["POST"])
 def taux_imposition_delete(request, pk):
     """Suppression d'un taux d'imposition"""
@@ -596,7 +596,7 @@ def taux_imposition_delete(request, pk):
 # ============ RAPPORTS FISCAUX ============
 
 
-@login_required
+@permission_required_business('fiscalite.view_declarations_fiscales')
 def rapport_fiscal_annuel(request, mandat_pk):
     """Génère un rapport fiscal annuel pour un mandat"""
     mandat = get_object_or_404(Mandat, pk=mandat_pk)

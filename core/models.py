@@ -2709,3 +2709,124 @@ class ModeleDocumentPDF(BaseModel):
             'utiliser_logo_defaut': self.utiliser_logo_defaut,
             'logo': self.logo if self.logo and not self.utiliser_logo_defaut else None,
         }
+
+
+# =============================================================================
+# PARAMETRES METIER (Choix configurables par l'utilisateur)
+# =============================================================================
+
+class ParametreMetier(BaseModel):
+    """
+    Stocke les types/choix métier configurables par l'utilisateur.
+    Remplace les CHOICES hardcodées en permettant aux clients de les modifier.
+
+    Chaque entrée représente une valeur possible dans une liste de choix.
+    Groupée par module + categorie. Le champ 'code' est la valeur technique
+    stockée dans les modèles existants (compatible avec les CharField choices).
+    """
+
+    MODULE_CHOICES = [
+        ('core', _('Général')),
+        ('salaires', _('Salaires')),
+        ('facturation', _('Facturation')),
+        ('comptabilite', _('Comptabilité')),
+        ('fiscalite', _('Fiscalité')),
+        ('tva', _('TVA')),
+        ('projets', _('Projets')),
+        ('documents', _('Documents')),
+        ('analytics', _('Analytics')),
+    ]
+
+    module = models.CharField(
+        max_length=30,
+        choices=MODULE_CHOICES,
+        db_index=True,
+        verbose_name=_('Module'),
+        help_text=_('Module auquel appartient ce paramètre')
+    )
+    categorie = models.CharField(
+        max_length=60,
+        db_index=True,
+        verbose_name=_('Catégorie'),
+        help_text=_('Ex: type_contrat, type_facture, mode_paiement, type_journal...')
+    )
+    code = models.CharField(
+        max_length=50,
+        verbose_name=_('Code technique'),
+        help_text=_('Valeur technique (ex: CDI, VIREMENT, SA). Ne pas modifier après création.')
+    )
+    libelle = models.CharField(
+        max_length=200,
+        verbose_name=_('Libellé'),
+        help_text=_('Texte affiché à l\'utilisateur')
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name=_('Description'),
+        help_text=_('Description ou aide contextuelle')
+    )
+    ordre = models.PositiveIntegerField(
+        default=0,
+        verbose_name=_('Ordre d\'affichage')
+    )
+    regime_fiscal = models.ForeignKey(
+        'tva.RegimeFiscal',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='parametres_metier',
+        verbose_name=_('Régime fiscal'),
+        help_text=_('Si renseigné, ce choix n\'apparaît que pour ce régime fiscal')
+    )
+    systeme = models.BooleanField(
+        default=False,
+        verbose_name=_('Paramètre système'),
+        help_text=_('Si vrai, ne peut pas être supprimé par l\'utilisateur')
+    )
+    metadata = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name=_('Métadonnées'),
+        help_text=_('Données supplémentaires (couleur, icône, config spécifique...)')
+    )
+
+    class Meta:
+        db_table = 'parametres_metier'
+        verbose_name = _('Paramètre métier')
+        verbose_name_plural = _('Paramètres métier')
+        unique_together = ['module', 'categorie', 'code']
+        ordering = ['module', 'categorie', 'ordre', 'libelle']
+        indexes = [
+            models.Index(fields=['module', 'categorie']),
+            models.Index(fields=['module', 'categorie', 'is_active']),
+        ]
+
+    def __str__(self):
+        return f"{self.libelle} ({self.code})"
+
+    @classmethod
+    def get_choices(cls, module, categorie, regime_fiscal=None, include_inactive=False):
+        """
+        Retourne les choix pour un module/catégorie, compatibles avec Django choices.
+        Filtre optionnellement par régime fiscal.
+        Falls back sur une liste vide si rien en DB.
+        """
+        qs = cls.objects.filter(module=module, categorie=categorie)
+        if not include_inactive:
+            qs = qs.filter(is_active=True)
+        if regime_fiscal:
+            qs = qs.filter(
+                models.Q(regime_fiscal=regime_fiscal) |
+                models.Q(regime_fiscal__isnull=True)
+            )
+        return [(p.code, p.libelle) for p in qs]
+
+    @classmethod
+    def get_choices_with_default(cls, module, categorie, default_choices,
+                                  regime_fiscal=None):
+        """
+        Retourne les choix DB si disponibles, sinon les choix par défaut hardcodés.
+        Permet une migration progressive sans casser l'existant.
+        """
+        db_choices = cls.get_choices(module, categorie, regime_fiscal)
+        return db_choices if db_choices else default_choices

@@ -29,83 +29,113 @@
             </div>
         </div>
 
-        <div class="row mt-4">
-            <!-- Informations générales -->
-            <div class="col-lg-6">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="text-primary mb-3">{% trans "Informations générales" %}</h5>
-                        
-                        <ul class="list-group list-group-flush">
-                            <li class="list-group-item d-flex justify-content-between">
-                                <span class="text-muted">{% trans "Forme juridique" %}</span>
-                                <span class="f-w-500">{{ client.get_forme_juridique_display }}</span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between">
-                                <span class="text-muted">{% trans "Statut" %}</span>
-                                <span class="badge bg-{{ client.statut|lower }}">{{ client.get_statut_display }}</span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between">
-                                <span class="text-muted">{% trans "Date création" %}</span>
-                                <span class="f-w-500">{{ client.date_creation }}</span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between">
-                                <span class="text-muted">{% trans "Email" %}</span>
-                                <span class="f-w-500">{{ client.email }}</span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between">
-                                <span class="text-muted">{% trans "Téléphone" %}</span>
-                                <span class="f-w-500">{{ client.telephone }}</span>
-                            </li>
-                            {% if client.adresse_siege %}
-                            <li class="list-group-item d-flex justify-content-between">
-                                <span class="text-muted">{% trans "Adresse" %}</span>
-                                <span class="f-w-500 text-end">
-                                    {% if client.adresse_siege.rue %}{{ client.adresse_siege.rue }} {{ client.adresse_siege.numero }}<br>{% endif %}
-                                    {{ client.adresse_siege.code_postal }} {{ client.adresse_siege.localite }}
-                                    {% if client.adresse_siege.canton %}<br>{{ client.adresse_siege.get_canton_display }}{% endif %}
-                                </span>
-                            </li>
-                            {% endif %}
-                        </ul>
-                    </div>
-                </div>
-            </div>
+        <!-- Onglets -->
+        <ul class="nav nav-tabs mt-4" id="clientTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="resume-tab" data-bs-toggle="tab"
+                        data-bs-target="#resume" type="button" role="tab"
+                        aria-controls="resume" aria-selected="true">
+                    <i class="ti ti-file-description me-1"></i> {% trans "Résumé" %}
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="mandats-tab" data-bs-toggle="tab"
+                        data-bs-target="#mandats" type="button" role="tab"
+                        aria-controls="mandats" aria-selected="false">
+                    <i class="ti ti-briefcase me-1"></i> {% trans "Mandats" %}
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="contacts-tab" data-bs-toggle="tab"
+                        data-bs-target="#contacts" type="button" role="tab"
+                        aria-controls="contacts" aria-selected="false">
+                    <i class="ti ti-address-book me-1"></i> {% trans "Contacts" %}
+                </button>
+            </li>
+        </ul>
 
-            <!-- Statistiques financières -->
-            <div class="col-lg-6">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="text-primary mb-3">{% trans "Statistiques financières" %}</h5>
-                        
-                        <div class="row">
-                            <div class="col-6">
-                                <div class="alert alert-primary text-center">
-                                    <h4 class="mb-0">{{ stats_financieres.ca_total|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h4>
-                                    <small>{% trans "CA total" %}</small>
-                                </div>
+        <!-- Tab content -->
+        <div class="tab-content mt-3" id="clientTabsContent">
+
+            <!-- ========== RESUME ========== -->
+            <div class="tab-pane fade show active" id="resume" role="tabpanel" aria-labelledby="resume-tab">
+                <div class="row">
+                    <!-- Informations générales -->
+                    <div class="col-lg-6">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="text-primary mb-3">{% trans "Informations générales" %}</h5>
+
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Forme juridique" %}</span>
+                                        <span class="f-w-500">{{ client.get_forme_juridique_display }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Statut" %}</span>
+                                        <span class="badge bg-{{ client.statut|lower }}">{{ client.get_statut_display }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Date création" %}</span>
+                                        <span class="f-w-500">{{ client.date_creation }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Email" %}</span>
+                                        <span class="f-w-500">{{ client.email }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Téléphone" %}</span>
+                                        <span class="f-w-500">{{ client.telephone }}</span>
+                                    </li>
+                                    {% if client.adresse_siege %}
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Adresse" %}</span>
+                                        <span class="f-w-500 text-end">
+                                            {% if client.adresse_siege.rue %}{{ client.adresse_siege.rue }} {{ client.adresse_siege.numero }}<br>{% endif %}
+                                            {{ client.adresse_siege.code_postal }} {{ client.adresse_siege.localite }}
+                                            {% if client.adresse_siege.canton %}<br>{{ client.adresse_siege.get_canton_display }}{% endif %}
+                                        </span>
+                                    </li>
+                                    {% endif %}
+                                </ul>
                             </div>
-                            <div class="col-6">
-                                <div class="alert alert-success text-center">
-                                    <h4 class="mb-0">{{ stats_financieres.ca_annee_courante|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h4>
-                                    <small>{% trans "CA année courante" %}</small>
-                                </div>
-                            </div>
-                            <div class="col-12">
-                                <div class="alert alert-warning text-center">
-                                    <h4 class="mb-0">{{ stats_financieres.impaye|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h4>
-                                    <small>{% trans "Impayé" %}</small>
+                        </div>
+                    </div>
+
+                    <!-- Statistiques financières -->
+                    <div class="col-lg-6">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="text-primary mb-3">{% trans "Statistiques financières" %}</h5>
+
+                                <div class="row">
+                                    <div class="col-6">
+                                        <div class="alert alert-primary text-center">
+                                            <h4 class="mb-0">{{ stats_financieres.ca_total|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h4>
+                                            <small>{% trans "CA total" %}</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="alert alert-success text-center">
+                                            <h4 class="mb-0">{{ stats_financieres.ca_annee_courante|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h4>
+                                            <small>{% trans "CA année courante" %}</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-12">
+                                        <div class="alert alert-warning text-center">
+                                            <h4 class="mb-0">{{ stats_financieres.impaye|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h4>
+                                            <small>{% trans "Impayé" %}</small>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Mandats -->
-        <div class="row mt-4">
-            <div class="col-12">
+            <!-- ========== MANDATS ========== -->
+            <div class="tab-pane fade" id="mandats" role="tabpanel" aria-labelledby="mandats-tab">
                 <div class="card">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -142,7 +172,7 @@
                                             </span>
                                         </td>
                                         <td>
-                                            <a href="{% url 'core:mandat-detail' mandat.pk %}" 
+                                            <a href="{% url 'core:mandat-detail' mandat.pk %}"
                                                class="btn btn-sm btn-light-primary">
                                                 <i class="ti ti-eye"></i>
                                             </a>
@@ -161,15 +191,13 @@
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Contacts -->
-        <div class="row mt-4">
-            <div class="col-12">
+            <!-- ========== CONTACTS ========== -->
+            <div class="tab-pane fade" id="contacts" role="tabpanel" aria-labelledby="contacts-tab">
                 <div class="card">
                     <div class="card-body">
                         <h5 class="text-primary mb-3">{% trans "Contacts" %}</h5>
-                        
+
                         <ul class="box-list">
                             {% for contact in contacts %}
                             <li class="d-flex align-items-center justify-content-between">
@@ -191,8 +219,8 @@
                     </div>
                 </div>
             </div>
-        </div>
 
+        </div>
     </div>
 </div>
 {% endblock %}

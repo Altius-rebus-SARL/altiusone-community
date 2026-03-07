@@ -1,0 +1,132 @@
+{% load i18n %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h6 class="mb-0">{{ categorie_label|default:categorie }}</h6>
+    <button class="btn btn-sm btn-primary"
+            data-bs-toggle="collapse"
+            data-bs-target="#addForm">
+        <i class="ti ti-plus me-1"></i>{% trans "Ajouter" %}
+    </button>
+</div>
+
+<!-- Inline Add Form -->
+<div class="collapse mb-3" id="addForm">
+    <div class="card card-body bg-light border">
+        <form hx-post="{% url 'core:configuration-create' module categorie %}"
+              hx-target="#parametre-list"
+              hx-swap="innerHTML">
+            {% csrf_token %}
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label f-s-12">{% trans "Code technique" %}</label>
+                    <input type="text" name="code" class="form-control form-control-sm"
+                           placeholder="EX: MON_CODE" required
+                           pattern="[A-Z0-9_]+" title="{% trans 'Majuscules, chiffres et underscores uniquement' %}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label f-s-12">{% trans "Libellé" %}</label>
+                    <input type="text" name="libelle" class="form-control form-control-sm"
+                           placeholder="{% trans 'Libellé affiché' %}" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label f-s-12">{% trans "Description" %}</label>
+                    <input type="text" name="description" class="form-control form-control-sm"
+                           placeholder="{% trans 'Optionnel' %}">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                        <i class="ti ti-check me-1"></i>{% trans "Créer" %}
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Parameter Table -->
+{% if parametres %}
+<div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+        <thead class="bg-light">
+            <tr>
+                <th class="f-s-12" style="width:15%">{% trans "Code" %}</th>
+                <th class="f-s-12" style="width:30%">{% trans "Libellé" %}</th>
+                <th class="f-s-12" style="width:25%">{% trans "Description" %}</th>
+                <th class="f-s-12 text-center" style="width:10%">{% trans "Statut" %}</th>
+                <th class="f-s-12 text-center" style="width:10%">{% trans "Système" %}</th>
+                <th class="f-s-12 text-end" style="width:10%">{% trans "Actions" %}</th>
+            </tr>
+        </thead>
+        <tbody id="sortable-params">
+            {% for param in parametres %}
+            <tr class="{% if not param.is_active %}opacity-50{% endif %}" data-id="{{ param.pk }}">
+                <td>
+                    <code class="f-s-12 {% if not param.is_active %}text-decoration-line-through{% endif %}">{{ param.code }}</code>
+                </td>
+                <td>
+                    <!-- Inline editable libelle -->
+                    <form hx-post="{% url 'core:configuration-update' param.pk %}"
+                          hx-target="#parametre-list"
+                          hx-swap="innerHTML"
+                          class="d-inline">
+                        {% csrf_token %}
+                        <input type="text" name="libelle" value="{{ param.libelle }}"
+                               class="form-control form-control-sm border-0 bg-transparent p-0"
+                               style="min-width:150px"
+                               onchange="this.form.requestSubmit()">
+                        <input type="hidden" name="description" value="{{ param.description }}">
+                        {% if param.is_active %}<input type="hidden" name="is_active" value="on">{% endif %}
+                    </form>
+                </td>
+                <td>
+                    <span class="text-muted f-s-12">{{ param.description|default:"-" }}</span>
+                </td>
+                <td class="text-center">
+                    {% if param.is_active %}
+                    <span class="badge bg-light-success">{% trans "Actif" %}</span>
+                    {% else %}
+                    <span class="badge bg-light-danger">{% trans "Inactif" %}</span>
+                    {% endif %}
+                </td>
+                <td class="text-center">
+                    {% if param.systeme %}
+                    <i class="ti ti-lock f-s-16 text-muted" title="{% trans 'Paramètre système' %}"></i>
+                    {% else %}
+                    <i class="ti ti-lock-open f-s-16 text-muted" title="{% trans 'Personnalisé' %}"></i>
+                    {% endif %}
+                </td>
+                <td class="text-end">
+                    <div class="btn-group btn-group-sm">
+                        <!-- Toggle active/inactive -->
+                        <button class="btn btn-sm {% if param.is_active %}btn-outline-warning{% else %}btn-outline-success{% endif %}"
+                                hx-post="{% url 'core:configuration-toggle' param.pk %}"
+                                hx-target="#parametre-list"
+                                hx-swap="innerHTML"
+                                hx-confirm="{% if param.is_active %}{% trans 'Désactiver ce paramètre ?' %}{% else %}{% trans 'Réactiver ce paramètre ?' %}{% endif %}"
+                                title="{% if param.is_active %}{% trans 'Désactiver' %}{% else %}{% trans 'Activer' %}{% endif %}">
+                            <i class="ti {% if param.is_active %}ti-eye-off{% else %}ti-eye{% endif %}"></i>
+                        </button>
+                        {% if not param.systeme %}
+                        <!-- Delete -->
+                        <button class="btn btn-sm btn-outline-danger"
+                                hx-post="{% url 'core:configuration-delete' param.pk %}"
+                                hx-target="#parametre-list"
+                                hx-swap="innerHTML"
+                                hx-confirm="{% trans 'Supprimer définitivement ce paramètre ?' %}"
+                                title="{% trans 'Supprimer' %}">
+                            <i class="ti ti-trash"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="text-center py-5 text-muted">
+    <i class="ti ti-database-off f-s-40 d-block mb-2"></i>
+    <p>{% trans "Aucun paramètre dans cette catégorie." %}</p>
+</div>
+{% endif %}

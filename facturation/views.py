@@ -395,6 +395,11 @@ class FactureDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView)
         # Relances
         context["relances"] = facture.relances.all().order_by("-date_relance")
 
+        # Business rules
+        context["peut_emettre"], _ = facture.peut_emettre()
+        context["peut_supprimer"], context["raison_no_delete"] = facture.peut_supprimer()
+        context["peut_relancer"], _ = facture.peut_relancer()
+
         # Temps facturés
         temps_factures = TimeTracking.objects.none()
         for ligne in facture.lignes.all():
@@ -579,9 +584,32 @@ def ligne_facture_delete_row(request, index):
 
 @login_required
 @require_http_methods(["POST"])
+def devis_convertir(request, pk):
+    """Convertit un devis en facture"""
+    devis = get_object_or_404(Facture, pk=pk, type_facture='DEVIS')
+
+    try:
+        facture = devis.convertir_en_facture()
+        messages.success(
+            request,
+            _("Devis converti en facture %(numero)s") % {"numero": facture.numero_facture}
+        )
+        return redirect("facturation:facture-detail", pk=facture.pk)
+    except ValueError as e:
+        messages.error(request, str(e))
+        return redirect("facturation:facture-detail", pk=pk)
+
+
+@login_required
+@require_http_methods(["POST"])
 def facture_valider(request, pk):
-    """Valide une facture"""
-    facture = get_object_or_404(Facture, pk=pk, statut="BROUILLON")
+    """Valide une facture (avec vérification des règles métier)"""
+    facture = get_object_or_404(Facture, pk=pk)
+
+    peut, raison = facture.peut_emettre()
+    if not peut:
+        messages.error(request, raison)
+        return redirect("facturation:facture-detail", pk=pk)
 
     try:
         facture.valider(request.user)
@@ -905,12 +933,22 @@ def paiement_valider(request, pk):
 
 @login_required
 def relance_create(request, facture_pk):
-    """Crée une relance pour une facture"""
+    """Crée une relance pour une facture (système suisse 3 niveaux + mise en demeure)"""
     facture = get_object_or_404(Facture, pk=facture_pk)
+
+    peut, raison = facture.peut_relancer()
+    if not peut:
+        messages.error(request, raison)
+        return redirect("facturation:facture-detail", pk=facture.pk)
 
     try:
         relance = facture.creer_relance(user=request.user)
-        messages.success(request, _("Relance créée avec succès"))
+        info = facture.niveau_relance_suivant()
+        messages.success(
+            request,
+            _("%(label)s créée. Nouvelle échéance: %(jours)s jours, frais: %(frais)s CHF")
+            % {'label': relance.get_niveau_display(), 'jours': 10, 'frais': relance.montant_frais}
+        )
         return redirect("facturation:facture-detail", pk=facture.pk)
     except Exception as e:
         messages.error(request, str(e))

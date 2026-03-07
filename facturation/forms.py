@@ -10,7 +10,7 @@ from .models import (
     ZoneGeographique, TarifMandat,
 )
 from django.db.models import Q
-from core.models import Mandat, Client, User
+from core.models import Mandat, Client, User, ParametreMetier
 from projets.forms import CoordonneesMixin
 
 
@@ -318,6 +318,10 @@ class FactureForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.mandat = kwargs.pop('mandat', None)
         super().__init__(*args, **kwargs)
+        # Charger les types de facture depuis ParametreMetier
+        self.fields['type_facture'].choices = ParametreMetier.get_choices_with_default(
+            'facturation', 'type_facture', Facture.TYPE_CHOICES
+        )
         # Forcer le format de date
         self.fields["date_emission"].input_formats = ["%Y-%m-%d"]
         self.fields["date_service_debut"].input_formats = ["%Y-%m-%d"]
@@ -407,6 +411,12 @@ class PaiementForm(forms.ModelForm):
             "reference": forms.TextInput(attrs={"class": "form-control"}),
             "notes": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['mode_paiement'].choices = ParametreMetier.get_choices_with_default(
+            'facturation', 'mode_paiement', Paiement.MODE_PAIEMENT_CHOICES
+        )
 
 
 class RelanceForm(forms.ModelForm):

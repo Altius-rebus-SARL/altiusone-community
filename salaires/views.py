@@ -46,25 +46,19 @@ class EmployeListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
             .annotate(nb_fiches=Count("fiches_salaire"))
             .filter(is_active=True)
         )
-        
-        print(f"🔵 Queryset initial: {queryset.count()} employés")
-        print(f"🔵 GET params: {self.request.GET}")
-        
+
         user = self.request.user
         if not user.is_manager():
             queryset = queryset.filter(
                 Q(mandat__responsable=user) | Q(mandat__equipe=user)
             ).distinct()
-            print(f"🔵 Après filtre role: {queryset.count()} employés")
 
         if self.request.GET:
             self.filterset = EmployeFilter(self.request.GET, queryset=queryset)
             if self.filterset.is_valid():
-                print(f"🔵 Après filtre: {self.filterset.qs.count()} employés")
                 return self.filterset.qs.order_by("nom", "prenom")
-        
+
         self.filterset = EmployeFilter(queryset=queryset)
-        print(f"🔵 Final queryset: {queryset.count()} employés")
         return queryset.order_by("nom", "prenom")
 
     def get_context_data(self, **kwargs):

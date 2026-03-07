@@ -138,6 +138,16 @@ from .admin_views import (
     ForcePasswordChangeView,
 )
 
+from .config_views import (
+    configuration_index,
+    configuration_list_partial,
+    configuration_create,
+    configuration_update,
+    configuration_delete,
+    configuration_toggle,
+    configuration_reorder,
+)
+
 __all__ = [
     # Error handlers
     'error_400',

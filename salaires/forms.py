@@ -5,7 +5,7 @@ from decimal import Decimal
 from datetime import datetime
 
 from .models import Employe, FicheSalaire, CertificatSalaire, CertificatTravail
-from core.models import Mandat, Adresse
+from core.models import Mandat, Adresse, ParametreMetier
 
 
 class AdresseInlineForm(forms.ModelForm):
@@ -62,6 +62,7 @@ class EmployeForm(forms.ModelForm):
             "jours_vacances_annuel",
             "treizieme_salaire",
             "montant_13eme",
+            "devise_salaire",
             "iban",
             "banque",
             "statut",
@@ -125,6 +126,7 @@ class EmployeForm(forms.ModelForm):
             "montant_13eme": forms.NumberInput(
                 attrs={"class": "form-control", "step": "0.01"}
             ),
+            "devise_salaire": forms.Select(attrs={"class": "form-control select2"}),
             "iban": forms.TextInput(attrs={"class": "form-control"}),
             "banque": forms.TextInput(attrs={"class": "form-control"}),
             "statut": forms.Select(attrs={"class": "form-control"}),
@@ -138,6 +140,13 @@ class EmployeForm(forms.ModelForm):
             ),
             "remarques": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Charger les choix depuis ParametreMetier (DB) avec fallback sur les CHOICES du modèle
+        self.fields['type_contrat'].choices = ParametreMetier.get_choices_with_default(
+            'salaires', 'type_contrat', Employe.TYPE_CONTRAT_CHOICES
+        )
 
     def clean(self):
         cleaned_data = super().clean()
@@ -529,6 +538,13 @@ class CertificatTravailForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Charger les choix depuis ParametreMetier
+        self.fields['type_certificat'].choices = ParametreMetier.get_choices_with_default(
+            'salaires', 'type_certificat_travail', CertificatTravail.TYPE_CERTIFICAT_CHOICES
+        )
+        self.fields['motif_depart'].choices = [('', '---------')] + ParametreMetier.get_choices_with_default(
+            'salaires', 'motif_depart', CertificatTravail.MOTIF_DEPART_CHOICES
+        )
         # Ajouter des choices vides pour les évaluations
         for field_name in [
             'evaluation_qualite_travail',

@@ -495,6 +495,7 @@ class Facture(BaseModel):
 
     TYPE_CHOICES = [
         ('FACTURE', _('Facture')),
+        ('DEVIS', _('Devis')),
         ('AVOIR', _('Avoir')),
         ('ACOMPTE', _("Facture d'acompte")),
     ]
@@ -805,18 +806,28 @@ class Facture(BaseModel):
         if not self.regime_fiscal_id and self.mandat_id:
             self.regime_fiscal = getattr(self.mandat, 'regime_fiscal', None)
 
-        # Génération numéro facture
+        # Auto-calculer date_echeance si absente
+        if not self.date_echeance and self.date_emission:
+            from datetime import timedelta
+            jours = self.delai_paiement_jours or 30
+            self.date_echeance = self.date_emission + timedelta(days=jours)
+
+        # Génération numéro facture/devis
         if not self.numero_facture:
             year = self.date_emission.year
+            if self.type_facture == 'DEVIS':
+                prefix = 'DEV'
+            else:
+                prefix = 'FAC'
             last = Facture.objects.filter(
-                numero_facture__startswith=f'FAC-{year}'
+                numero_facture__startswith=f'{prefix}-{year}'
             ).order_by('numero_facture').last()
 
             if last:
                 last_num = int(last.numero_facture.split('-')[-1])
-                self.numero_facture = f'FAC-{year}-{last_num + 1:04d}'
+                self.numero_facture = f'{prefix}-{year}-{last_num + 1:04d}'
             else:
-                self.numero_facture = f'FAC-{year}-0001'
+                self.numero_facture = f'{prefix}-{year}-0001'
 
         # Calcul montant restant
         self.montant_restant = self.montant_ttc - self.montant_paye
@@ -830,6 +841,53 @@ class Facture(BaseModel):
             self.statut = 'PARTIELLEMENT_PAYEE'
 
         super().save(*args, **kwargs)
+
+    def convertir_en_facture(self):
+        """Convertit un devis en facture. Crée une nouvelle facture depuis ce devis."""
+        if self.type_facture != 'DEVIS':
+            raise ValueError("Seul un devis peut être converti en facture.")
+
+        facture = Facture(
+            mandat=self.mandat,
+            client=self.client,
+            type_facture='FACTURE',
+            regime_fiscal=self.regime_fiscal,
+            exercice=self.exercice,
+            devise=self.devise,
+            date_emission=date.today(),
+            delai_paiement_jours=self.delai_paiement_jours,
+            conditions_paiement=self.conditions_paiement,
+            remise_pourcent=self.remise_pourcent,
+            introduction=self.introduction,
+            conclusion=self.conclusion,
+            notes=f"Converti depuis devis {self.numero_facture}",
+            date_service_debut=self.date_service_debut,
+            date_service_fin=self.date_service_fin,
+            statut='BROUILLON',
+        )
+        facture.save()
+
+        # Copier les lignes
+        for ligne in self.lignes.all():
+            LigneFacture.objects.create(
+                facture=facture,
+                prestation=ligne.prestation,
+                description=ligne.description,
+                quantite=ligne.quantite,
+                unite=ligne.unite,
+                prix_unitaire_ht=ligne.prix_unitaire_ht,
+                taux_tva=ligne.taux_tva,
+                remise_ligne_pourcent=ligne.remise_ligne_pourcent,
+            )
+
+        facture.calculer_totaux()
+
+        # Marquer le devis comme converti
+        self.statut = 'EMISE'
+        self.notes = (self.notes or '') + f"\nConverti en facture {facture.numero_facture}"
+        self.save(update_fields=['statut', 'notes'])
+
+        return facture
 
     def generer_qr_reference(self):
         """Génère la référence QR structurée selon norme suisse"""
@@ -1378,19 +1436,79 @@ class Facture(BaseModel):
 
         return relance
 
+    # =========================================================================
+    # Règles métier
+    # =========================================================================
+
+    def peut_emettre(self):
+        """Vérifie si la facture peut être émise/validée."""
+        if self.statut != 'BROUILLON':
+            return False, _("Seule une facture en brouillon peut être émise.")
+        if not self.lignes.exists():
+            return False, _("La facture doit avoir au moins une ligne.")
+        if self.montant_ttc <= 0 and self.type_facture != 'AVOIR':
+            return False, _("Le montant TTC doit être positif.")
+        if not self.client_id:
+            return False, _("Un client doit être renseigné.")
+        return True, ""
+
+    def peut_supprimer(self):
+        """Vérifie si la facture peut être supprimée."""
+        if self.statut == 'BROUILLON':
+            return True, ""
+        if self.statut == 'EMISE' and not self.paiements.filter(valide=True).exists():
+            return True, ""
+        if self.paiements.filter(valide=True).exists():
+            return False, _("Impossible de supprimer une facture avec des paiements validés. Créez un avoir.")
+        if self.statut in ['PAYEE', 'PARTIELLEMENT_PAYEE']:
+            return False, _("Impossible de supprimer une facture payée. Créez un avoir.")
+        return False, _("Cette facture ne peut pas être supprimée dans son statut actuel.")
+
+    def peut_relancer(self):
+        """Vérifie si la facture peut faire l'objet d'une relance."""
+        if self.type_facture in ['DEVIS', 'AVOIR']:
+            return False, _("Seules les factures peuvent être relancées.")
+        if self.statut in ['BROUILLON', 'PAYEE', 'ANNULEE']:
+            return False, _("Cette facture ne peut pas être relancée.")
+        if self.montant_restant <= 0:
+            return False, _("Aucun solde restant à relancer.")
+        if self.nombre_relances >= 4:
+            return False, _("Nombre maximum de relances atteint (mise en demeure déjà envoyée).")
+        return True, ""
+
+    def peut_annuler(self):
+        """Vérifie si la facture peut être annulée."""
+        if self.statut in ['ANNULEE', 'AVOIR']:
+            return False, _("Cette facture est déjà annulée.")
+        if self.paiements.filter(valide=True).exists():
+            return False, _("Créez un avoir plutôt qu'annuler une facture avec des paiements.")
+        return True, ""
+
     def est_en_retard(self):
-        """Vérifie si la facture est en retard"""
+        """Vérifie si la facture est en retard."""
         return (
-            self.date_echeance < date.today()
+            self.date_echeance
+            and self.date_echeance < date.today()
             and self.montant_restant > 0
             and self.statut not in ["PAYEE", "ANNULEE", "AVOIR"]
         )
 
     def jours_retard(self):
-        """Retourne le nombre de jours de retard"""
+        """Retourne le nombre de jours de retard."""
         if self.est_en_retard():
             return (date.today() - self.date_echeance).days
         return 0
+
+    def niveau_relance_suivant(self):
+        """Retourne le prochain niveau de relance et ses paramètres (système suisse)."""
+        niveau = self.nombre_relances + 1
+        NIVEAUX = {
+            1: {'label': _('1ère relance'), 'delai_jours': 15, 'frais': Decimal('0'), 'interets': False},
+            2: {'label': _('2ème relance'), 'delai_jours': 10, 'frais': Decimal('20.00'), 'interets': False},
+            3: {'label': _('3ème relance'), 'delai_jours': 10, 'frais': Decimal('40.00'), 'interets': True},
+            4: {'label': _('Mise en demeure'), 'delai_jours': 10, 'frais': Decimal('50.00'), 'interets': True},
+        }
+        return NIVEAUX.get(niveau, NIVEAUX[4])
 
 
 class LigneFacture(BaseModel):

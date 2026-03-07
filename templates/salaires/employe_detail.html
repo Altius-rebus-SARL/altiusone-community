@@ -51,315 +51,353 @@
     </div>
 </div>
 
-<!-- Informations principales -->
-<div class="row">
-    <div class="col-xl-8">
-        <div class="card">
-            <div class="card-header">
-                <h5>{% trans "Informations personnelles" %}</h5>
-            </div>
-            <div class="card-body">
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <p class="text-muted mb-1 f-s-12">{% trans "Matricule" %}</p>
-                        <p class="f-w-600">{{ employe.matricule }}</p>
-                    </div>
-                    <div class="col-md-6">
-                        <p class="text-muted mb-1 f-s-12">{% trans "Numéro AVS" %}</p>
-                        <p class="f-w-600">{{ employe.avs_number }}</p>
-                    </div>
-                </div>
+<!-- Onglets -->
+<ul class="nav nav-tabs mt-3" id="employeTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="resume-tab" data-bs-toggle="tab"
+                data-bs-target="#resume" type="button" role="tab"
+                aria-controls="resume" aria-selected="true">
+            <i class="ti ti-file-description me-1"></i> {% trans "Résumé" %}
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="fiches-tab" data-bs-toggle="tab"
+                data-bs-target="#fiches" type="button" role="tab"
+                aria-controls="fiches" aria-selected="false">
+            <i class="ti ti-file-text me-1"></i> {% trans "Fiches de salaire" %}
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="certificats-tab" data-bs-toggle="tab"
+                data-bs-target="#certificats" type="button" role="tab"
+                aria-controls="certificats" aria-selected="false">
+            <i class="ti ti-certificate me-1"></i> {% trans "Certificats" %}
+        </button>
+    </li>
+</ul>
 
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <p class="text-muted mb-1 f-s-12">{% trans "Date de naissance" %}</p>
-                        <p>{{ employe.date_naissance|date:"d.m.Y" }} <span class="text-muted f-s-12">({{ employe.age }} {% trans "ans" %})</span></p>
-                    </div>
-                    <div class="col-md-6">
-                        <p class="text-muted mb-1 f-s-12">{% trans "Nationalité" %}</p>
-                        <p>{{ employe.nationalite }}</p>
-                    </div>
-                </div>
+<div class="tab-content mt-3" id="employeTabsContent">
 
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <p class="text-muted mb-1 f-s-12">{% trans "État civil" %}</p>
-                        <p>{{ employe.get_etat_civil_display }}</p>
-                    </div>
-                    <div class="col-md-6">
-                        <p class="text-muted mb-1 f-s-12">{% trans "Nombre d'enfants" %}</p>
-                        <p>{{ employe.nombre_enfants }}</p>
-                    </div>
-                </div>
+    <!-- ========== RESUME ========== -->
+    <div class="tab-pane fade show active" id="resume" role="tabpanel" aria-labelledby="resume-tab">
 
-                <div class="app-divider-v dashed my-3"></div>
-
-                <h6 class="mb-3">{% trans "Coordonnées" %}</h6>
-                <div class="row mb-3">
-                    <div class="col-12">
-                        <p class="text-muted mb-1 f-s-12">{% trans "Adresse" %}</p>
-                        <p>
-                            {{ employe.adresse.rue }} {{ employe.adresse.numero }}<br>
-                            {% if employe.adresse.complement %}{{ employe.adresse.complement }}<br>{% endif %}
-                            {{ employe.adresse.code_postal }} {{ employe.adresse.localite }}
-                        </p>
+        <!-- Informations principales -->
+        <div class="row">
+            <div class="col-xl-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>{% trans "Informations personnelles" %}</h5>
                     </div>
-                </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <p class="text-muted mb-1 f-s-12">{% trans "Matricule" %}</p>
+                                <p class="f-w-600">{{ employe.matricule }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p class="text-muted mb-1 f-s-12">{% trans "Numéro AVS" %}</p>
+                                <p class="f-w-600">{{ employe.avs_number }}</p>
+                            </div>
+                        </div>
 
-                <div class="row">
-                    <div class="col-md-4">
-                        <p class="text-muted mb-1 f-s-12">{% trans "Email" %}</p>
-                        <p>{% if employe.email %}<a href="mailto:{{ employe.email }}" class="text-primary">{{ employe.email }}</a>{% else %}—{% endif %}</p>
-                    </div>
-                    <div class="col-md-4">
-                        <p class="text-muted mb-1 f-s-12">{% trans "Téléphone" %}</p>
-                        <p>{{ employe.telephone|default:"—" }}</p>
-                    </div>
-                    <div class="col-md-4">
-                        <p class="text-muted mb-1 f-s-12">{% trans "Mobile" %}</p>
-                        <p>{{ employe.mobile|default:"—" }}</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <p class="text-muted mb-1 f-s-12">{% trans "Date de naissance" %}</p>
+                                <p>{{ employe.date_naissance|date:"d.m.Y" }} <span class="text-muted f-s-12">({{ employe.age }} {% trans "ans" %})</span></p>
+                            </div>
+                            <div class="col-md-6">
+                                <p class="text-muted mb-1 f-s-12">{% trans "Nationalité" %}</p>
+                                <p>{{ employe.nationalite }}</p>
+                            </div>
+                        </div>
 
-    <div class="col-xl-4">
-        <!-- Statut -->
-        <div class="card">
-            <div class="card-body">
-                <h6 class="mb-3">{% trans "Statut" %}</h6>
-                {% if employe.statut == 'ACTIF' %}
-                <span class="badge text-light-success f-s-16">
-                    <i class="ph ph-check-circle me-1"></i>{{ employe.get_statut_display }}
-                </span>
-                {% else %}
-                <span class="badge text-light-secondary f-s-16">
-                    {{ employe.get_statut_display }}
-                </span>
-                {% endif %}
-            </div>
-        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <p class="text-muted mb-1 f-s-12">{% trans "État civil" %}</p>
+                                <p>{{ employe.get_etat_civil_display }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p class="text-muted mb-1 f-s-12">{% trans "Nombre d'enfants" %}</p>
+                                <p>{{ employe.nombre_enfants }}</p>
+                            </div>
+                        </div>
 
-        <!-- Stats année -->
-        <div class="card">
-            <div class="card-header">
-                <h6 class="mb-0">{% trans "Année en cours" %}</h6>
-            </div>
-            <div class="card-body">
-                <div class="mb-3">
-                    <p class="text-muted mb-1 f-s-12">{% trans "Salaire brut total" %}</p>
-                    <h5 class="text-primary mb-0">{{ stats_annee.salaire_brut_total|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</h5>
-                </div>
-                <div class="mb-3">
-                    <p class="text-muted mb-1 f-s-12">{% trans "Salaire net total" %}</p>
-                    <h5 class="text-success mb-0">{{ stats_annee.salaire_net_total|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</h5>
-                </div>
-                <div class="mb-3">
-                    <p class="text-muted mb-1 f-s-12">{% trans "Cotisations employé" %}</p>
-                    <p class="f-w-600 mb-0">{{ stats_annee.cotisations_employe|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</p>
-                </div>
-                <div>
-                    <p class="text-muted mb-1 f-s-12">{% trans "Charges patronales" %}</p>
-                    <p class="f-w-600 mb-0">{{ stats_annee.charges_patronales|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</p>
+                        <div class="app-divider-v dashed my-3"></div>
+
+                        <h6 class="mb-3">{% trans "Coordonnées" %}</h6>
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <p class="text-muted mb-1 f-s-12">{% trans "Adresse" %}</p>
+                                <p>
+                                    {{ employe.adresse.rue }} {{ employe.adresse.numero }}<br>
+                                    {% if employe.adresse.complement %}{{ employe.adresse.complement }}<br>{% endif %}
+                                    {{ employe.adresse.code_postal }} {{ employe.adresse.localite }}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <p class="text-muted mb-1 f-s-12">{% trans "Email" %}</p>
+                                <p>{% if employe.email %}<a href="mailto:{{ employe.email }}" class="text-primary">{{ employe.email }}</a>{% else %}—{% endif %}</p>
+                            </div>
+                            <div class="col-md-4">
+                                <p class="text-muted mb-1 f-s-12">{% trans "Téléphone" %}</p>
+                                <p>{{ employe.telephone|default:"—" }}</p>
+                            </div>
+                            <div class="col-md-4">
+                                <p class="text-muted mb-1 f-s-12">{% trans "Mobile" %}</p>
+                                <p>{{ employe.mobile|default:"—" }}</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
-    </div>
-</div>
 
-<!-- Informations emploi -->
-<div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <h5>{% trans "Informations emploi" %}</h5>
-            </div>
-            <div class="card-body">
-                <div class="row mb-3">
-                    <div class="col-md-3">
-                        <p class="text-muted mb-1 f-s-12">{% trans "Mandat" %}</p>
-                        <p class="f-w-600">{{ employe.mandat.client.raison_sociale }}</p>
-                    </div>
-                    <div class="col-md-3">
-                        <p class="text-muted mb-1 f-s-12">{% trans "Fonction" %}</p>
-                        <p>{{ employe.fonction }}</p>
-                    </div>
-                    <div class="col-md-3">
-                        <p class="text-muted mb-1 f-s-12">{% trans "Département" %}</p>
-                        <p>{{ employe.departement|default:"—" }}</p>
-                    </div>
-                    <div class="col-md-3">
-                        <p class="text-muted mb-1 f-s-12">{% trans "Type contrat" %}</p>
-                        <p><span class="badge text-light-secondary">{{ employe.get_type_contrat_display }}</span></p>
+            <div class="col-xl-4">
+                <!-- Statut -->
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="mb-3">{% trans "Statut" %}</h6>
+                        {% if employe.statut == 'ACTIF' %}
+                        <span class="badge text-light-success f-s-16">
+                            <i class="ph ph-check-circle me-1"></i>{{ employe.get_statut_display }}
+                        </span>
+                        {% else %}
+                        <span class="badge text-light-secondary f-s-16">
+                            {{ employe.get_statut_display }}
+                        </span>
+                        {% endif %}
                     </div>
                 </div>
 
-                <div class="row mb-3">
-                    <div class="col-md-3">
-                        <p class="text-muted mb-1 f-s-12">{% trans "Date d'entrée" %}</p>
-                        <p>{{ employe.date_entree|date:"d.m.Y" }}</p>
+                <!-- Stats année -->
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">{% trans "Année en cours" %}</h6>
                     </div>
-                    <div class="col-md-3">
-                        <p class="text-muted mb-1 f-s-12">{% trans "Date de sortie" %}</p>
-                        <p>{{ employe.date_sortie|date:"d.m.Y"|default:"—" }}</p>
-                    </div>
-                    <div class="col-md-3">
-                        <p class="text-muted mb-1 f-s-12">{% trans "Taux d'occupation" %}</p>
-                        <p>{{ employe.taux_occupation }}%</p>
-                    </div>
-                    <div class="col-md-3">
-                        <p class="text-muted mb-1 f-s-12">{% trans "Heures/semaine" %}</p>
-                        <p>{{ employe.nombre_heures_semaine }}h</p>
-                    </div>
-                </div>
-
-                <div class="app-divider-v dashed my-3"></div>
-
-                <div class="row">
-                    <div class="col-md-3">
-                        <p class="text-muted mb-1 f-s-12">{% trans "Salaire brut mensuel" %}</p>
-                        <h5 class="text-primary mb-0">{{ employe.salaire_brut_mensuel|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</h5>
-                    </div>
-                    <div class="col-md-3">
-                        <p class="text-muted mb-1 f-s-12">{% trans "13ème salaire" %}</p>
-                        <p>
-                            {% if employe.treizieme_salaire %}
-                            <i class="ph ph-check-circle text-success"></i> {{ employe.montant_13eme|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}
-                            {% else %}
-                            <i class="ph ph-x-circle text-danger"></i> {% trans "Non" %}
-                            {% endif %}
-                        </p>
-                    </div>
-                    <div class="col-md-3">
-                        <p class="text-muted mb-1 f-s-12">{% trans "Jours vacances" %}</p>
-                        <p>{{ employe.jours_vacances_annuel }} {% trans "jours/an" %}</p>
-                    </div>
-                    <div class="col-md-3">
-                        <p class="text-muted mb-1 f-s-12">{% trans "Salaire annuel brut" %}</p>
-                        <h5 class="text-info mb-0">{{ employe.salaire_annuel_brut|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</h5>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <p class="text-muted mb-1 f-s-12">{% trans "Salaire brut total" %}</p>
+                            <h5 class="text-primary mb-0">{{ stats_annee.salaire_brut_total|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</h5>
+                        </div>
+                        <div class="mb-3">
+                            <p class="text-muted mb-1 f-s-12">{% trans "Salaire net total" %}</p>
+                            <h5 class="text-success mb-0">{{ stats_annee.salaire_net_total|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</h5>
+                        </div>
+                        <div class="mb-3">
+                            <p class="text-muted mb-1 f-s-12">{% trans "Cotisations employé" %}</p>
+                            <p class="f-w-600 mb-0">{{ stats_annee.cotisations_employe|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</p>
+                        </div>
+                        <div>
+                            <p class="text-muted mb-1 f-s-12">{% trans "Charges patronales" %}</p>
+                            <p class="f-w-600 mb-0">{{ stats_annee.charges_patronales|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</p>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-</div>
 
-<!-- Fiches de salaire récentes -->
-<div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">{% trans "Fiches de salaire récentes" %}</h5>
-                    <a href="{% url 'salaires:fiche-create' %}?employe={{ employe.pk }}" class="btn btn-sm btn-primary">
-                        <i class="ph ph-plus me-1"></i>{% trans "Nouvelle fiche" %}
-                    </a>
-                </div>
-            </div>
-            <div class="card-body p-0">
-                {% if fiches_recentes %}
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                        <thead>
-                            <tr>
-                                <th>{% trans "Période" %}</th>
-                                <th class="text-end">{% trans "Salaire brut" %}</th>
-                                <th class="text-end">{% trans "Cotisations" %}</th>
-                                <th class="text-end">{% trans "Salaire net" %}</th>
-                                <th>{% trans "Statut" %}</th>
-                                <th class="text-end">{% trans "Actions" %}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for fiche in fiches_recentes %}
-                            <tr>
-                                <td>{{ fiche.periode|date:"F Y" }}</td>
-                                <td class="text-end">{{ fiche.salaire_brut_total|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</td>
-                                <td class="text-end text-danger">-{{ fiche.total_cotisations_employe|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</td>
-                                <td class="text-end"><strong class="text-success">{{ fiche.salaire_net|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</strong></td>
-                                <td>
-                                    {% if fiche.statut == 'BROUILLON' %}
-                                    <span class="badge text-light-secondary">{% trans "Brouillon" %}</span>
-                                    {% elif fiche.statut == 'VALIDE' %}
-                                    <span class="badge text-light-primary">{% trans "Validée" %}</span>
-                                    {% elif fiche.statut == 'PAYE' %}
-                                    <span class="badge text-light-success">{% trans "Payée" %}</span>
+        <!-- Informations emploi -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>{% trans "Informations emploi" %}</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-3">
+                                <p class="text-muted mb-1 f-s-12">{% trans "Mandat" %}</p>
+                                <p class="f-w-600">{{ employe.mandat.client.raison_sociale }}</p>
+                            </div>
+                            <div class="col-md-3">
+                                <p class="text-muted mb-1 f-s-12">{% trans "Fonction" %}</p>
+                                <p>{{ employe.fonction }}</p>
+                            </div>
+                            <div class="col-md-3">
+                                <p class="text-muted mb-1 f-s-12">{% trans "Département" %}</p>
+                                <p>{{ employe.departement|default:"—" }}</p>
+                            </div>
+                            <div class="col-md-3">
+                                <p class="text-muted mb-1 f-s-12">{% trans "Type contrat" %}</p>
+                                <p><span class="badge text-light-secondary">{{ employe.get_type_contrat_display }}</span></p>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-3">
+                                <p class="text-muted mb-1 f-s-12">{% trans "Date d'entrée" %}</p>
+                                <p>{{ employe.date_entree|date:"d.m.Y" }}</p>
+                            </div>
+                            <div class="col-md-3">
+                                <p class="text-muted mb-1 f-s-12">{% trans "Date de sortie" %}</p>
+                                <p>{{ employe.date_sortie|date:"d.m.Y"|default:"—" }}</p>
+                            </div>
+                            <div class="col-md-3">
+                                <p class="text-muted mb-1 f-s-12">{% trans "Taux d'occupation" %}</p>
+                                <p>{{ employe.taux_occupation }}%</p>
+                            </div>
+                            <div class="col-md-3">
+                                <p class="text-muted mb-1 f-s-12">{% trans "Heures/semaine" %}</p>
+                                <p>{{ employe.nombre_heures_semaine }}h</p>
+                            </div>
+                        </div>
+
+                        <div class="app-divider-v dashed my-3"></div>
+
+                        <div class="row">
+                            <div class="col-md-3">
+                                <p class="text-muted mb-1 f-s-12">{% trans "Salaire brut mensuel" %}</p>
+                                <h5 class="text-primary mb-0">{{ employe.salaire_brut_mensuel|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</h5>
+                            </div>
+                            <div class="col-md-3">
+                                <p class="text-muted mb-1 f-s-12">{% trans "13ème salaire" %}</p>
+                                <p>
+                                    {% if employe.treizieme_salaire %}
+                                    <i class="ph ph-check-circle text-success"></i> {{ employe.montant_13eme|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}
                                     {% else %}
-                                    <span class="badge text-light-info">{{ fiche.get_statut_display }}</span>
+                                    <i class="ph ph-x-circle text-danger"></i> {% trans "Non" %}
                                     {% endif %}
-                                </td>
-                                <td class="text-end">
-                                    <a href="{% url 'salaires:fiche-detail' fiche.pk %}" class="btn btn-sm btn-primary">
-                                        <i class="ph ph-eye"></i>
-                                    </a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                                </p>
+                            </div>
+                            <div class="col-md-3">
+                                <p class="text-muted mb-1 f-s-12">{% trans "Jours vacances" %}</p>
+                                <p>{{ employe.jours_vacances_annuel }} {% trans "jours/an" %}</p>
+                            </div>
+                            <div class="col-md-3">
+                                <p class="text-muted mb-1 f-s-12">{% trans "Salaire annuel brut" %}</p>
+                                <h5 class="text-info mb-0">{{ employe.salaire_annuel_brut|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</h5>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                {% else %}
-                <div class="p-4 text-center">
-                    <i class="ph-duotone ph-file-text f-s-40 text-muted"></i>
-                    <p class="mt-2 text-muted">{% trans "Aucune fiche de salaire" %}</p>
-                </div>
-                {% endif %}
             </div>
         </div>
-    </div>
-</div>
 
-<!-- Certificats de salaire -->
-<div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">{% trans "Certificats de salaire" %}</h5>
-                    <a href="{% url 'salaires:generer-certificat' employe.pk %}" class="btn btn-sm btn-info">
-                        <i class="ph ph-plus me-1"></i>{% trans "Générer certificat" %}
-                    </a>
+    </div>
+
+    <!-- ========== FICHES DE SALAIRE ========== -->
+    <div class="tab-pane fade" id="fiches" role="tabpanel" aria-labelledby="fiches-tab">
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">{% trans "Fiches de salaire récentes" %}</h5>
+                            <a href="{% url 'salaires:fiche-create' %}?employe={{ employe.pk }}" class="btn btn-sm btn-primary">
+                                <i class="ph ph-plus me-1"></i>{% trans "Nouvelle fiche" %}
+                            </a>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        {% if fiches_recentes %}
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>{% trans "Période" %}</th>
+                                        <th class="text-end">{% trans "Salaire brut" %}</th>
+                                        <th class="text-end">{% trans "Cotisations" %}</th>
+                                        <th class="text-end">{% trans "Salaire net" %}</th>
+                                        <th>{% trans "Statut" %}</th>
+                                        <th class="text-end">{% trans "Actions" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for fiche in fiches_recentes %}
+                                    <tr>
+                                        <td>{{ fiche.periode|date:"F Y" }}</td>
+                                        <td class="text-end">{{ fiche.salaire_brut_total|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</td>
+                                        <td class="text-end text-danger">-{{ fiche.total_cotisations_employe|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</td>
+                                        <td class="text-end"><strong class="text-success">{{ fiche.salaire_net|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</strong></td>
+                                        <td>
+                                            {% if fiche.statut == 'BROUILLON' %}
+                                            <span class="badge text-light-secondary">{% trans "Brouillon" %}</span>
+                                            {% elif fiche.statut == 'VALIDE' %}
+                                            <span class="badge text-light-primary">{% trans "Validée" %}</span>
+                                            {% elif fiche.statut == 'PAYE' %}
+                                            <span class="badge text-light-success">{% trans "Payée" %}</span>
+                                            {% else %}
+                                            <span class="badge text-light-info">{{ fiche.get_statut_display }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end">
+                                            <a href="{% url 'salaires:fiche-detail' fiche.pk %}" class="btn btn-sm btn-primary">
+                                                <i class="ph ph-eye"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="p-4 text-center">
+                            <i class="ph-duotone ph-file-text f-s-40 text-muted"></i>
+                            <p class="mt-2 text-muted">{% trans "Aucune fiche de salaire" %}</p>
+                        </div>
+                        {% endif %}
+                    </div>
                 </div>
-            </div>
-            <div class="card-body p-0">
-                {% if certificats %}
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                        <thead>
-                            <tr>
-                                <th>{% trans "Année" %}</th>
-                                <th>{% trans "Période" %}</th>
-                                <th class="text-end">{% trans "Salaire brut annuel" %}</th>
-                                <th>{% trans "Date génération" %}</th>
-                                <th class="text-end">{% trans "Actions" %}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for cert in certificats %}
-                            <tr>
-                                <td><strong>{{ cert.annee }}</strong></td>
-                                <td>{{ cert.date_debut|date:"d.m.Y" }} - {{ cert.date_fin|date:"d.m.Y" }}</td>
-                                <td class="text-end">{{ cert.salaire_brut_annuel|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</td>
-                                <td>{{ cert.date_generation|date:"d.m.Y H:i" }}</td>
-                                <td class="text-end">
-                                    <a href="{% url 'salaires:certificat-detail' cert.pk %}" class="btn btn-sm btn-primary">
-                                        <i class="ph ph-eye"></i>
-                                    </a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                {% else %}
-                <div class="p-4 text-center">
-                    <i class="ph-duotone ph-certificate f-s-40 text-muted"></i>
-                    <p class="mt-2 text-muted">{% trans "Aucun certificat de salaire" %}</p>
-                </div>
-                {% endif %}
             </div>
         </div>
     </div>
+
+    <!-- ========== CERTIFICATS ========== -->
+    <div class="tab-pane fade" id="certificats" role="tabpanel" aria-labelledby="certificats-tab">
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">{% trans "Certificats de salaire" %}</h5>
+                            <a href="{% url 'salaires:generer-certificat' employe.pk %}" class="btn btn-sm btn-info">
+                                <i class="ph ph-plus me-1"></i>{% trans "Générer certificat" %}
+                            </a>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        {% if certificats %}
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>{% trans "Année" %}</th>
+                                        <th>{% trans "Période" %}</th>
+                                        <th class="text-end">{% trans "Salaire brut annuel" %}</th>
+                                        <th>{% trans "Date génération" %}</th>
+                                        <th class="text-end">{% trans "Actions" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for cert in certificats %}
+                                    <tr>
+                                        <td><strong>{{ cert.annee }}</strong></td>
+                                        <td>{{ cert.date_debut|date:"d.m.Y" }} - {{ cert.date_fin|date:"d.m.Y" }}</td>
+                                        <td class="text-end">{{ cert.salaire_brut_annuel|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</td>
+                                        <td>{{ cert.date_generation|date:"d.m.Y H:i" }}</td>
+                                        <td class="text-end">
+                                            <a href="{% url 'salaires:certificat-detail' cert.pk %}" class="btn btn-sm btn-primary">
+                                                <i class="ph ph-eye"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="p-4 text-center">
+                            <i class="ph-duotone ph-certificate f-s-40 text-muted"></i>
+                            <p class="mt-2 text-muted">{% trans "Aucun certificat de salaire" %}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </div>
 {% endblock %}

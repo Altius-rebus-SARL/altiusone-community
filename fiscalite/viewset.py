@@ -73,14 +73,15 @@ class DeclarationFiscaleViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def populate_comptabilite(self, request, pk=None):
         """Peupler la déclaration depuis les données comptables"""
+        from .services.auto_populate import populate_from_comptabilite
         declaration = self.get_object()
-        if hasattr(declaration, "populate_from_comptabilite"):
-            declaration.populate_from_comptabilite()
+        success = populate_from_comptabilite(declaration)
+        if success:
             serializer = self.get_serializer(declaration)
             return Response(serializer.data)
         return Response(
-            {"error": "Méthode populate_from_comptabilite non disponible"},
-            status=status.HTTP_501_NOT_IMPLEMENTED,
+            {"error": "Impossible de pré-remplir : vérifiez l'exercice comptable lié"},
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
     @action(detail=True, methods=["get"])

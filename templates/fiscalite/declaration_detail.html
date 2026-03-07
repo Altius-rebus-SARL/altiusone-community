@@ -32,280 +32,347 @@
 <div class="row">
     <!-- Colonne principale -->
     <div class="col-lg-8">
-        <!-- Informations principales -->
-        <div class="card">
-            <div class="card-header">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h5><i class="ph ph-file-text me-2"></i>{% trans "Informations de la déclaration" %}</h5>
-                    {% if declaration.statut == 'BROUILLON' %}
-                    <span class="badge text-light-secondary">
-                        <i class="ph ph-pencil me-1"></i>{% trans "Brouillon" %}
-                    </span>
-                    {% elif declaration.statut == 'DEPOSEE' %}
-                    <span class="badge text-light-info">
-                        <i class="ph ph-paper-plane-tilt me-1"></i>{% trans "Déposée" %}
-                    </span>
-                    {% elif declaration.statut == 'ACCEPTE' %}
-                    <span class="badge text-light-success">
-                        <i class="ph ph-check-circle me-1"></i>{% trans "Acceptée" %}
-                    </span>
+        <!-- Tabs navigation -->
+        <ul class="nav nav-tabs" id="declarationTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="resume-tab" data-bs-toggle="tab"
+                        data-bs-target="#resume" type="button" role="tab"
+                        aria-controls="resume" aria-selected="true">
+                    <i class="ti ti-file-description me-1"></i> {% trans "Résumé" %}
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="corrections-tab" data-bs-toggle="tab"
+                        data-bs-target="#corrections" type="button" role="tab"
+                        aria-controls="corrections" aria-selected="false">
+                    <i class="ti ti-calculator me-1"></i> {% trans "Corrections" %}
+                    {% if corrections %}
+                    <span class="badge bg-primary ms-1">{{ corrections|length }}</span>
                     {% endif %}
-                </div>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <p class="text-muted f-s-12 mb-1">{% trans "Mandat" %}</p>
-                        <p class="f-w-600 mb-0">{{ declaration.mandat.numero }}</p>
-                        <p class="text-muted f-s-12 mb-0">{{ declaration.mandat.client.raison_sociale }}</p>
-                    </div>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="annexes-tab" data-bs-toggle="tab"
+                        data-bs-target="#annexes" type="button" role="tab"
+                        aria-controls="annexes" aria-selected="false">
+                    <i class="ti ti-files me-1"></i> {% trans "Annexes" %}
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="reclamations-tab" data-bs-toggle="tab"
+                        data-bs-target="#reclamations" type="button" role="tab"
+                        aria-controls="reclamations" aria-selected="false">
+                    <i class="ti ti-alert-triangle me-1"></i> {% trans "Réclamations" %}
+                    {% if reclamations %}
+                    <span class="badge bg-warning ms-1">{{ reclamations|length }}</span>
+                    {% endif %}
+                </button>
+            </li>
+        </ul>
 
-                    <div class="col-md-3 mb-3">
-                        <p class="text-muted f-s-12 mb-1">{% trans "Année fiscale" %}</p>
-                        <p class="f-w-600 mb-0">{{ declaration.annee_fiscale }}</p>
-                    </div>
+        <!-- Tabs content -->
+        <div class="tab-content" id="declarationTabsContent">
 
-                    <div class="col-md-3 mb-3">
-                        <p class="text-muted f-s-12 mb-1">{% trans "Canton" %}</p>
-                        <span class="badge text-light-primary">{{ declaration.canton }}</span>
-                    </div>
-
-                    <div class="col-md-3 mb-3">
-                        <p class="text-muted f-s-12 mb-1">{% trans "Régime fiscal" %}</p>
-                        <span class="badge text-light-info">{{ declaration.regime_fiscal.nom|default:"-" }}</span>
-                    </div>
-                    <div class="col-md-3 mb-3">
-                        <p class="text-muted f-s-12 mb-1">{% trans "Devise" %}</p>
-                        <span class="f-w-600">{{ declaration.devise_id|default:"-" }}</span>
-                    </div>
-
-                    <div class="col-md-6 mb-3">
-                        <p class="text-muted f-s-12 mb-1">{% trans "Type de déclaration" %}</p>
-                        <p class="f-w-600 mb-0">{{ declaration.get_type_declaration_display }}</p>
-                    </div>
-
-                    <div class="col-md-6 mb-3">
-                        <p class="text-muted f-s-12 mb-1">{% trans "Type d'impôt" %}</p>
-                        <span class="badge text-light-secondary">{{ declaration.get_type_impot_display }}</span>
-                    </div>
-
-                    <div class="col-md-6 mb-3">
-                        <p class="text-muted f-s-12 mb-1">{% trans "Période" %}</p>
-                        <p class="mb-0">{{ declaration.periode_debut|date:"d/m/Y" }} - {{ declaration.periode_fin|date:"d/m/Y" }}</p>
-                    </div>
-
-                    <div class="col-md-6 mb-3">
-                        <p class="text-muted f-s-12 mb-1">{% trans "Numéro contribuable" %}</p>
-                        <p class="f-w-600 mb-0">{{ declaration.numero_contribuable|default:"-" }}</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Montants -->
-        <div class="card">
-            <div class="card-header">
-                <h5><i class="ph ph-currency-circle-dollar me-2"></i>{% trans "Montants" %}</h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6 mb-4">
-                        <div class="card bg-light-primary">
-                            <div class="card-body">
-                                <p class="text-muted f-s-12 mb-1">{% trans "Bénéfice avant impôts" %}</p>
-                                <h5 class="text-primary mb-0">{{ declaration.benefice_avant_impots|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h5>
-                            </div>
+            <!-- Tab Résumé -->
+            <div class="tab-pane fade show active" id="resume" role="tabpanel" aria-labelledby="resume-tab">
+                <!-- Informations principales -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5><i class="ph ph-file-text me-2"></i>{% trans "Informations de la déclaration" %}</h5>
+                            {% if declaration.statut == 'BROUILLON' %}
+                            <span class="badge text-light-secondary">
+                                <i class="ph ph-pencil me-1"></i>{% trans "Brouillon" %}
+                            </span>
+                            {% elif declaration.statut == 'DEPOSEE' %}
+                            <span class="badge text-light-info">
+                                <i class="ph ph-paper-plane-tilt me-1"></i>{% trans "Déposée" %}
+                            </span>
+                            {% elif declaration.statut == 'ACCEPTE' %}
+                            <span class="badge text-light-success">
+                                <i class="ph ph-check-circle me-1"></i>{% trans "Acceptée" %}
+                            </span>
+                            {% endif %}
                         </div>
                     </div>
-
-                    <div class="col-md-6 mb-4">
-                        <div class="card bg-light-success">
-                            <div class="card-body">
-                                <p class="text-muted f-s-12 mb-1">{% trans "Bénéfice imposable" %}</p>
-                                <h5 class="text-success mb-0">{{ declaration.benefice_imposable|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h5>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-md-6 mb-4">
-                        <div class="card bg-light-info">
-                            <div class="card-body">
-                                <p class="text-muted f-s-12 mb-1">{% trans "Capital propre" %}</p>
-                                <h5 class="text-info mb-0">{{ declaration.capital_propre|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h5>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-md-6 mb-4">
-                        <div class="card bg-light-warning">
-                            <div class="card-body">
-                                <p class="text-muted f-s-12 mb-1">{% trans "Capital imposable" %}</p>
-                                <h5 class="text-warning mb-0">{{ declaration.capital_imposable|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h5>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="app-divider-v dashed my-3"></div>
-
-                <h6 class="mb-3">{% trans "Répartition de l'impôt" %}</h6>
-                <div class="row">
-                    <div class="col-md-4">
-                        <div class="text-center p-3 bg-light-danger rounded">
-                            <p class="text-muted f-s-12 mb-1">{% trans "Impôt fédéral" %}</p>
-                            <h6 class="text-danger mb-0">{{ declaration.impot_federal|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h6>
-                        </div>
-                    </div>
-
-                    <div class="col-md-4">
-                        <div class="text-center p-3 bg-light-warning rounded">
-                            <p class="text-muted f-s-12 mb-1">{% trans "Impôt cantonal" %}</p>
-                            <h6 class="text-warning mb-0">{{ declaration.impot_cantonal|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h6>
-                        </div>
-                    </div>
-
-                    <div class="col-md-4">
-                        <div class="text-center p-3 bg-light-info rounded">
-                            <p class="text-muted f-s-12 mb-1">{% trans "Impôt communal" %}</p>
-                            <h6 class="text-info mb-0">{{ declaration.impot_communal|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h6>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="app-divider-v dashed my-3"></div>
-
-                <div class="text-center p-4 bg-light-primary rounded">
-                    <p class="text-muted f-s-14 mb-1">{% trans "IMPÔT TOTAL" %}</p>
-                    <h4 class="text-primary mb-0">{{ declaration.impot_total|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h4>
-                </div>
-            </div>
-        </div>
-
-        <!-- Corrections fiscales -->
-        {% if corrections %}
-        <div class="card">
-            <div class="card-header">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h5><i class="ph ph-calculator me-2"></i>{% trans "Corrections fiscales" %}</h5>
-                    <a href="{% url 'fiscalite:correction-create' declaration.pk %}" class="btn btn-primary btn-sm">
-                        <i class="ph ph-plus me-2"></i>{% trans "Ajouter" %}
-                    </a>
-                </div>
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-bottom-border mb-0">
-                        <thead>
-                            <tr>
-                                <th>{% trans "Type" %}</th>
-                                <th>{% trans "Description" %}</th>
-                                <th>{% trans "Montant comptable" %}</th>
-                                <th>{% trans "Correction" %}</th>
-                                <th>{% trans "Montant fiscal" %}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for correction in corrections %}
-                            <tr>
-                                <td>
-                                    <span class="badge text-light-secondary">{{ correction.get_type_correction_display }}</span>
-                                </td>
-                                <td>{{ correction.description|truncatewords:10 }}</td>
-                                <td>{{ correction.montant_comptable|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</td>
-                                <td>
-                                    {% if correction.montant_correction > 0 %}
-                                    <span class="text-danger">+{{ correction.montant_correction|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</span>
-                                    {% else %}
-                                    <span class="text-success">{{ correction.montant_correction|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</span>
-                                    {% endif %}
-                                </td>
-                                <td class="f-w-600">{{ correction.montant_fiscal|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- Annexes -->
-        <div class="card">
-            <div class="card-header">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h5><i class="ph ph-files me-2"></i>{% trans "Annexes fiscales" %}</h5>
-                    <a href="{% url 'fiscalite:annexe-create' declaration.pk %}" class="btn btn-primary btn-sm">
-                        <i class="ph ph-plus me-2"></i>{% trans "Ajouter" %}
-                    </a>
-                </div>
-            </div>
-            <div class="card-body">
-                {% if annexes_par_type %}
-                    {% for type, annexes_list in annexes_par_type.items %}
-                    <div class="mb-4">
-                        <h6 class="f-w-600 mb-3">{{ type }}</h6>
+                    <div class="card-body">
                         <div class="row">
-                            {% for annexe in annexes_list %}
-                            <div class="col-md-6">
-                                <div class="d-flex align-items-center p-3 bg-light rounded mb-2">
-                                    <i class="ph ph-file-text text-primary f-s-24 me-3"></i>
-                                    <div class="flex-grow-1">
-                                        <p class="f-w-600 mb-0 f-s-14">{{ annexe.titre }}</p>
+                            <div class="col-md-6 mb-3">
+                                <p class="text-muted f-s-12 mb-1">{% trans "Mandat" %}</p>
+                                <p class="f-w-600 mb-0">{{ declaration.mandat.numero }}</p>
+                                <p class="text-muted f-s-12 mb-0">{{ declaration.mandat.client.raison_sociale }}</p>
+                            </div>
+
+                            <div class="col-md-3 mb-3">
+                                <p class="text-muted f-s-12 mb-1">{% trans "Année fiscale" %}</p>
+                                <p class="f-w-600 mb-0">{{ declaration.annee_fiscale }}</p>
+                            </div>
+
+                            <div class="col-md-3 mb-3">
+                                <p class="text-muted f-s-12 mb-1">{% trans "Canton" %}</p>
+                                <span class="badge text-light-primary">{{ declaration.canton }}</span>
+                            </div>
+
+                            <div class="col-md-3 mb-3">
+                                <p class="text-muted f-s-12 mb-1">{% trans "Régime fiscal" %}</p>
+                                <span class="badge text-light-info">{{ declaration.regime_fiscal.nom|default:"-" }}</span>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <p class="text-muted f-s-12 mb-1">{% trans "Devise" %}</p>
+                                <span class="f-w-600">{{ declaration.devise_id|default:"-" }}</span>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <p class="text-muted f-s-12 mb-1">{% trans "Type de déclaration" %}</p>
+                                <p class="f-w-600 mb-0">{{ declaration.get_type_declaration_display }}</p>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <p class="text-muted f-s-12 mb-1">{% trans "Type d'impôt" %}</p>
+                                <span class="badge text-light-secondary">{{ declaration.get_type_impot_display }}</span>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <p class="text-muted f-s-12 mb-1">{% trans "Période" %}</p>
+                                <p class="mb-0">{{ declaration.periode_debut|date:"d/m/Y" }} - {{ declaration.periode_fin|date:"d/m/Y" }}</p>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <p class="text-muted f-s-12 mb-1">{% trans "Numéro contribuable" %}</p>
+                                <p class="f-w-600 mb-0">{{ declaration.numero_contribuable|default:"-" }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Montants -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="ph ph-currency-circle-dollar me-2"></i>{% trans "Montants" %}</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-4">
+                                <div class="card bg-light-primary">
+                                    <div class="card-body">
+                                        <p class="text-muted f-s-12 mb-1">{% trans "Bénéfice avant impôts" %}</p>
+                                        <h5 class="text-primary mb-0">{{ declaration.benefice_avant_impots|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h5>
                                     </div>
-                                    {% if annexe.fichier %}
-                                    <a href="{{ annexe.fichier.url }}" class="btn btn-light-primary btn-sm">
-                                        <i class="ph ph-download"></i>
-                                    </a>
-                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="col-md-6 mb-4">
+                                <div class="card bg-light-success">
+                                    <div class="card-body">
+                                        <p class="text-muted f-s-12 mb-1">{% trans "Bénéfice imposable" %}</p>
+                                        <h5 class="text-success mb-0">{{ declaration.benefice_imposable|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h5>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6 mb-4">
+                                <div class="card bg-light-info">
+                                    <div class="card-body">
+                                        <p class="text-muted f-s-12 mb-1">{% trans "Capital propre" %}</p>
+                                        <h5 class="text-info mb-0">{{ declaration.capital_propre|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h5>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6 mb-4">
+                                <div class="card bg-light-warning">
+                                    <div class="card-body">
+                                        <p class="text-muted f-s-12 mb-1">{% trans "Capital imposable" %}</p>
+                                        <h5 class="text-warning mb-0">{{ declaration.capital_imposable|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h5>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="app-divider-v dashed my-3"></div>
+
+                        <h6 class="mb-3">{% trans "Répartition de l'impôt" %}</h6>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="text-center p-3 bg-light-danger rounded">
+                                    <p class="text-muted f-s-12 mb-1">{% trans "Impôt fédéral" %}</p>
+                                    <h6 class="text-danger mb-0">{{ declaration.impot_federal|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h6>
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="text-center p-3 bg-light-warning rounded">
+                                    <p class="text-muted f-s-12 mb-1">{% trans "Impôt cantonal" %}</p>
+                                    <h6 class="text-warning mb-0">{{ declaration.impot_cantonal|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h6>
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="text-center p-3 bg-light-info rounded">
+                                    <p class="text-muted f-s-12 mb-1">{% trans "Impôt communal" %}</p>
+                                    <h6 class="text-info mb-0">{{ declaration.impot_communal|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h6>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="app-divider-v dashed my-3"></div>
+
+                        <div class="text-center p-4 bg-light-primary rounded">
+                            <p class="text-muted f-s-14 mb-1">{% trans "IMPÔT TOTAL" %}</p>
+                            <h4 class="text-primary mb-0">{{ declaration.impot_total|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Corrections -->
+            <div class="tab-pane fade" id="corrections" role="tabpanel" aria-labelledby="corrections-tab">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5><i class="ph ph-calculator me-2"></i>{% trans "Corrections fiscales" %}</h5>
+                            <a href="{% url 'fiscalite:correction-create' declaration.pk %}" class="btn btn-primary btn-sm">
+                                <i class="ph ph-plus me-2"></i>{% trans "Ajouter" %}
+                            </a>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        {% if corrections %}
+                        <div class="table-responsive">
+                            <table class="table table-bottom-border mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>{% trans "Type" %}</th>
+                                        <th>{% trans "Description" %}</th>
+                                        <th>{% trans "Montant comptable" %}</th>
+                                        <th>{% trans "Correction" %}</th>
+                                        <th>{% trans "Montant fiscal" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for correction in corrections %}
+                                    <tr>
+                                        <td>
+                                            <span class="badge text-light-secondary">{{ correction.get_type_correction_display }}</span>
+                                        </td>
+                                        <td>{{ correction.description|truncatewords:10 }}</td>
+                                        <td>{{ correction.montant_comptable|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</td>
+                                        <td>
+                                            {% if correction.montant_correction > 0 %}
+                                            <span class="text-danger">+{{ correction.montant_correction|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</span>
+                                            {% else %}
+                                            <span class="text-success">{{ correction.montant_correction|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="f-w-600">{{ correction.montant_fiscal|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="text-center py-4">
+                            <i class="ph ph-calculator f-s-48 text-muted d-block mb-2"></i>
+                            <p class="text-muted mb-0">{% trans "Aucune correction fiscale" %}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Annexes -->
+            <div class="tab-pane fade" id="annexes" role="tabpanel" aria-labelledby="annexes-tab">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5><i class="ph ph-files me-2"></i>{% trans "Annexes fiscales" %}</h5>
+                            <a href="{% url 'fiscalite:annexe-create' declaration.pk %}" class="btn btn-primary btn-sm">
+                                <i class="ph ph-plus me-2"></i>{% trans "Ajouter" %}
+                            </a>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        {% if annexes_par_type %}
+                            {% for type, annexes_list in annexes_par_type.items %}
+                            <div class="mb-4">
+                                <h6 class="f-w-600 mb-3">{{ type }}</h6>
+                                <div class="row">
+                                    {% for annexe in annexes_list %}
+                                    <div class="col-md-6">
+                                        <div class="d-flex align-items-center p-3 bg-light rounded mb-2">
+                                            <i class="ph ph-file-text text-primary f-s-24 me-3"></i>
+                                            <div class="flex-grow-1">
+                                                <p class="f-w-600 mb-0 f-s-14">{{ annexe.titre }}</p>
+                                            </div>
+                                            {% if annexe.fichier %}
+                                            <a href="{{ annexe.fichier.url }}" class="btn btn-light-primary btn-sm">
+                                                <i class="ph ph-download"></i>
+                                            </a>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% endfor %}
                                 </div>
                             </div>
                             {% endfor %}
+                        {% else %}
+                        <div class="text-center py-4">
+                            <i class="ph ph-files f-s-48 text-muted d-block mb-2"></i>
+                            <p class="text-muted mb-0">{% trans "Aucune annexe" %}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Réclamations -->
+            <div class="tab-pane fade" id="reclamations" role="tabpanel" aria-labelledby="reclamations-tab">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5><i class="ph ph-warning me-2"></i>{% trans "Réclamations" %}</h5>
+                            <a href="{% url 'fiscalite:reclamation-create' declaration.pk %}" class="btn btn-primary btn-sm">
+                                <i class="ph ph-plus me-2"></i>{% trans "Ajouter" %}
+                            </a>
                         </div>
                     </div>
-                    {% endfor %}
-                {% else %}
-                <div class="text-center py-4">
-                    <i class="ph ph-files f-s-48 text-muted d-block mb-2"></i>
-                    <p class="text-muted mb-0">{% trans "Aucune annexe" %}</p>
+                    <div class="card-body p-0">
+                        {% if reclamations %}
+                        <div class="table-responsive">
+                            <table class="table table-bottom-border mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>{% trans "Date" %}</th>
+                                        <th>{% trans "Motif" %}</th>
+                                        <th>{% trans "Montant contesté" %}</th>
+                                        <th>{% trans "Statut" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for reclamation in reclamations %}
+                                    <tr>
+                                        <td>{{ reclamation.date_reclamation|date:"d/m/Y" }}</td>
+                                        <td>{{ reclamation.motif|truncatewords:10 }}</td>
+                                        <td class="f-w-600 text-danger">{{ reclamation.montant_conteste|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</td>
+                                        <td>
+                                            <span class="badge text-light-warning">{{ reclamation.get_statut_display }}</span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="text-center py-4">
+                            <i class="ph ph-warning f-s-48 text-muted d-block mb-2"></i>
+                            <p class="text-muted mb-0">{% trans "Aucune réclamation" %}</p>
+                        </div>
+                        {% endif %}
+                    </div>
                 </div>
-                {% endif %}
             </div>
-        </div>
 
-        <!-- Réclamations -->
-        {% if reclamations %}
-        <div class="card">
-            <div class="card-header">
-                <h5><i class="ph ph-warning me-2"></i>{% trans "Réclamations" %}</h5>
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-bottom-border mb-0">
-                        <thead>
-                            <tr>
-                                <th>{% trans "Date" %}</th>
-                                <th>{% trans "Motif" %}</th>
-                                <th>{% trans "Montant contesté" %}</th>
-                                <th>{% trans "Statut" %}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for reclamation in reclamations %}
-                            <tr>
-                                <td>{{ reclamation.date_reclamation|date:"d/m/Y" }}</td>
-                                <td>{{ reclamation.motif|truncatewords:10 }}</td>
-                                <td class="f-w-600 text-danger">{{ reclamation.montant_conteste|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</td>
-                                <td>
-                                    <span class="badge text-light-warning">{{ reclamation.get_statut_display }}</span>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
         </div>
-        {% endif %}
     </div>
 
     <!-- Sidebar -->

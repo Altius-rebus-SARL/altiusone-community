@@ -99,11 +99,12 @@
 
         const mapEl = document.getElementById('projectMap');
         if (mapEl._leaflet_id) {
-            mapEl._leaflet_id = null;
-            mapEl.innerHTML = '';
+            // Properly remove existing Leaflet map instance
+            mapEl._leaflet_map.remove();
         }
 
         const map = L.map('projectMap').setView([46.8, 8.2], 8);
+        mapEl._leaflet_map = map;
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors',
@@ -148,14 +149,21 @@
             map.fitBounds(bounds, { padding: [30, 30] });
         }
 
+        // Invalidate size after Bootstrap tab transition completes
         map.invalidateSize();
-        setTimeout(function() { map.invalidateSize(); }, 300);
+        setTimeout(function() { map.invalidateSize(); }, 100);
+        setTimeout(function() { map.invalidateSize(); }, 400);
 
         var tabTrigger = document.getElementById('carte-tab');
         if (tabTrigger) {
-            tabTrigger.addEventListener('shown.bs.tab', function() {
+            tabTrigger.removeEventListener('shown.bs.tab', tabTrigger._mapInvalidate);
+            tabTrigger._mapInvalidate = function() {
                 map.invalidateSize();
-            });
+                if (bounds.length > 0) {
+                    map.fitBounds(bounds, { padding: [30, 30] });
+                }
+            };
+            tabTrigger.addEventListener('shown.bs.tab', tabTrigger._mapInvalidate);
         }
     })
     .catch(function(err) {

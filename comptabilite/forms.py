@@ -12,7 +12,7 @@ from .models import (
     Lettrage,
     TypePieceComptable,
 )
-from core.models import Mandat, ExerciceComptable
+from core.models import Mandat, ExerciceComptable, ParametreMetier
 
 
 class PlanComptableForm(forms.ModelForm):
@@ -188,6 +188,10 @@ class JournalForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Charger les types de journal depuis ParametreMetier
+        self.fields['type_journal'].choices = ParametreMetier.get_choices_with_default(
+            'comptabilite', 'type_journal', Journal.TYPE_CHOICES
+        )
         # Limiter les comptes au plan du mandat
         if self.instance and self.instance.mandat:
             plan = self.instance.mandat.plans_comptables.first()
