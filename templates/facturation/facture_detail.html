@@ -8,136 +8,129 @@
 {% block title %}{% trans "Facture" %} {{ facture.numero_facture }}{% endblock %}
 
 {% block content %}
-<!-- Breadcrumb -->
-<div class="row m-1">
+<div class="row">
     <div class="col-12">
-        <h4 class="main-title">{% trans "Facture" %} {{ facture.numero_facture }}</h4>
-        <ul class="app-line-breadcrumbs mb-3">
-            <li>
-                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
-                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
-                </a>
-            </li>
-            <li>
-                <a class="f-s-14 f-w-500" href="{% url 'facturation:facture-list' %}">
-                    <span>{% trans "Factures" %}</span>
-                </a>
-            </li>
-            <li class="active">
-                <a class="f-s-14 f-w-500" href="#">{{ facture.numero_facture }}</a>
-            </li>
-        </ul>
-    </div>
-</div>
+        <!-- Header -->
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h4 class="text-primary mb-1">{{ facture.numero_facture }}</h4>
+                        <p class="text-muted mb-0">
+                            <a href="{% url 'core:mandat-detail' facture.mandat.pk %}">{{ facture.mandat.numero }}</a>
+                            — {{ facture.mandat.client.raison_sociale }}
+                        </p>
+                        <span class="badge bg-light-primary mt-2">{{ facture.get_type_facture_display }}</span>
+                        {% if facture.statut == 'BROUILLON' %}
+                        <span class="badge bg-secondary mt-2">{% trans "Brouillon" %}</span>
+                        {% elif facture.statut == 'EMISE' %}
+                        <span class="badge bg-primary mt-2">{% trans "Émise" %}</span>
+                        {% elif facture.statut == 'PAYEE' %}
+                        <span class="badge bg-success mt-2">{% trans "Payée" %}</span>
+                        {% elif facture.statut == 'EN_RETARD' %}
+                        <span class="badge bg-danger mt-2">{% trans "En retard" %}</span>
+                        {% elif facture.statut == 'ANNULEE' %}
+                        <span class="badge bg-dark mt-2">{% trans "Annulée" %}</span>
+                        {% endif %}
+                    </div>
+                    <div class="d-flex gap-2">
+                        {% if facture.statut == 'BROUILLON' %}
+                        <form method="post" action="{% url 'facturation:facture-valider' facture.pk %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-success">
+                                <i class="ph ph-check-circle me-2"></i>{% trans "Valider" %}
+                            </button>
+                        </form>
+                        <a href="{% url 'facturation:facture-update' facture.pk %}" class="btn btn-primary">
+                            <i class="ti ti-edit me-2"></i>{% trans "Modifier" %}
+                        </a>
+                        {% endif %}
 
-<!-- Action Buttons -->
-<div class="row mb-3">
-    <div class="col-12 text-end">
-        {% if facture.statut == 'BROUILLON' %}
-        <form method="post" action="{% url 'facturation:facture-valider' facture.pk %}" class="d-inline">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-success">
-                <i class="ph ph-check-circle me-2"></i>{% trans "Valider" %}
-            </button>
-        </form>
-        <a href="{% url 'facturation:facture-update' facture.pk %}" class="btn btn-warning">
-            <i class="ph ph-pencil me-2"></i>{% trans "Modifier" %}
-        </a>
-        {% endif %}
+                        {% if facture.type_facture == 'DEVIS' and facture.statut != 'ANNULEE' %}
+                        <form method="post" action="{% url 'facturation:devis-convertir' facture.pk %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-info"
+                                    onclick="return confirm('{% trans "Convertir ce devis en facture ?" %}')">
+                                <i class="ph ph-arrows-clockwise me-2"></i>{% trans "Convertir en facture" %}
+                            </button>
+                        </form>
+                        {% endif %}
 
-        {% if facture.type_facture == 'DEVIS' and facture.statut != 'ANNULEE' %}
-        <form method="post" action="{% url 'facturation:devis-convertir' facture.pk %}" class="d-inline">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-info"
-                    onclick="return confirm('{% trans "Convertir ce devis en facture ?" %}')">
-                <i class="ph ph-arrows-clockwise me-2"></i>{% trans "Convertir en facture" %}
-            </button>
-        </form>
-        {% endif %}
+                        {% if facture.type_facture == 'FACTURE' and facture.statut not in 'BROUILLON,PAYEE,ANNULEE' %}
+                        <form method="post" action="{% url 'facturation:relance-create' facture.pk %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-warning">
+                                <i class="ph ph-bell-ringing me-2"></i>{% trans "Relancer" %}
+                                {% if facture.nombre_relances > 0 %}
+                                <span class="badge bg-warning text-dark">{{ facture.nombre_relances }}</span>
+                                {% endif %}
+                            </button>
+                        </form>
+                        {% endif %}
 
-        {% if facture.type_facture == 'FACTURE' and facture.statut not in 'BROUILLON,PAYEE,ANNULEE' %}
-        <form method="post" action="{% url 'facturation:relance-create' facture.pk %}" class="d-inline">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-outline-warning">
-                <i class="ph ph-bell-ringing me-2"></i>{% trans "Relancer" %}
-                {% if facture.nombre_relances > 0 %}
-                <span class="badge bg-warning text-dark">{{ facture.nombre_relances }}</span>
-                {% endif %}
-            </button>
-        </form>
-        {% endif %}
-
-        <a href="{% url 'facturation:facture-preview-pdf' facture.pk %}" class="btn btn-outline-primary" target="_blank">
-            <i class="ph ph-eye me-2"></i>{% trans "Aperçu PDF" %}
-        </a>
-        <!-- Dropdown pour PDF -->
-        <div class="btn-group">
-            <a href="{% url 'facturation:facture-generer-pdf' facture.pk %}" class="btn btn-primary">
-                <i class="ph ph-file-pdf me-2"></i>{% trans "PDF Standard" %}
-            </a>
-            <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
-                <span class="visually-hidden">Toggle Dropdown</span>
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end">
-                <li>
-                    <a class="dropdown-item" href="{% url 'facturation:facture-generer-pdf' facture.pk %}">
-                        <i class="ph ph-file-pdf me-2"></i>{% trans "PDF Standard" %}
-                    </a>
-                </li>
-                <li>
-                    <a class="dropdown-item" href="{% url 'facturation:facture-generer-pdf' facture.pk %}?qr_bill=1">
-                        <i class="ph ph-qr-code me-2"></i>{% trans "PDF avec QR-Bill (Suisse)" %}
-                    </a>
-                </li>
-                <li><hr class="dropdown-divider"></li>
-                <li>
-                    <span class="dropdown-item-text text-muted small">
-                        <i class="ph ph-info me-1"></i>{% trans "QR-Bill = bulletin de versement suisse" %}
-                    </span>
-                </li>
-            </ul>
+                        <a href="{% url 'facturation:facture-preview-pdf' facture.pk %}" class="btn btn-outline-primary" target="_blank">
+                            <i class="ph ph-eye me-2"></i>{% trans "Aperçu" %}
+                        </a>
+                        <div class="btn-group">
+                            <a href="{% url 'facturation:facture-generer-pdf' facture.pk %}" class="btn btn-primary">
+                                <i class="ph ph-file-pdf me-2"></i>{% trans "PDF" %}
+                            </a>
+                            <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                                <span class="visually-hidden">Toggle Dropdown</span>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'facturation:facture-generer-pdf' facture.pk %}">
+                                        <i class="ph ph-file-pdf me-2"></i>{% trans "PDF Standard" %}
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'facturation:facture-generer-pdf' facture.pk %}?qr_bill=1">
+                                        <i class="ph ph-qr-code me-2"></i>{% trans "PDF avec QR-Bill" %}
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                        <a href="{% url 'facturation:facture-studio' facture.pk %}" class="btn btn-info">
+                            <i class="ph ph-paint-brush me-2"></i>{% trans "Studio" %}
+                        </a>
+                        <button class="btn btn-secondary" onclick="window.print()">
+                            <i class="ph ph-printer me-2"></i>{% trans "Imprimer" %}
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <a href="{% url 'facturation:facture-studio' facture.pk %}" class="btn btn-info">
-            <i class="ph ph-paint-brush me-2"></i>{% trans "Studio PDF" %}
-        </a>
-        <button class="btn btn-secondary" onclick="window.print()">
-            <i class="ph ph-printer me-2"></i>{% trans "Imprimer" %}
-        </button>
-    </div>
-</div>
+        <!-- Onglets -->
+        <ul class="nav nav-tabs mt-4" id="factureTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="facture-tab" data-bs-toggle="tab"
+                        data-bs-target="#facture-pane" type="button" role="tab">
+                    <i class="ti ti-file-invoice me-1"></i> {% trans "Facture" %}
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="paiements-tab" data-bs-toggle="tab"
+                        data-bs-target="#paiements-pane" type="button" role="tab">
+                    <i class="ti ti-credit-card me-1"></i> {% trans "Paiements" %}
+                    {% if paiements %}
+                    <span class="badge bg-primary ms-1">{{ paiements|length }}</span>
+                    {% endif %}
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="historique-tab" data-bs-toggle="tab"
+                        data-bs-target="#historique-pane" type="button" role="tab">
+                    <i class="ti ti-history me-1"></i> {% trans "Historique" %}
+                </button>
+            </li>
+        </ul>
 
-<!-- Tabs -->
-<ul class="nav nav-tabs mt-3" id="factureTabs" role="tablist">
-    <li class="nav-item" role="presentation">
-        <button class="nav-link active" id="facture-tab" data-bs-toggle="tab"
-                data-bs-target="#facture-pane" type="button" role="tab">
-            <i class="ti ti-file-invoice me-1"></i> {% trans "Facture" %}
-        </button>
-    </li>
-    <li class="nav-item" role="presentation">
-        <button class="nav-link" id="paiements-tab" data-bs-toggle="tab"
-                data-bs-target="#paiements-pane" type="button" role="tab">
-            <i class="ti ti-credit-card me-1"></i> {% trans "Paiements" %}
-            {% if paiements %}
-            <span class="badge bg-primary ms-1">{{ paiements|length }}</span>
-            {% endif %}
-        </button>
-    </li>
-    <li class="nav-item" role="presentation">
-        <button class="nav-link" id="historique-tab" data-bs-toggle="tab"
-                data-bs-target="#historique-pane" type="button" role="tab">
-            <i class="ti ti-history me-1"></i> {% trans "Historique" %}
-        </button>
-    </li>
-</ul>
-
-<div class="tab-content" id="factureTabsContent">
-    <!-- Tab Facture -->
-    <div class="tab-pane fade show active" id="facture-pane" role="tabpanel" aria-labelledby="facture-tab">
-        <div class="container invoice-container">
-            <div class="row">
-                <div class="col-12">
+        <div class="tab-content mt-3" id="factureTabsContent">
+            <!-- Tab Facture -->
+            <div class="tab-pane fade show active" id="facture-pane" role="tabpanel" aria-labelledby="facture-tab">
+                <div class="container invoice-container">
                     <div class="card">
                         <div class="card-body">
                             <div class="table-responsive">
@@ -186,17 +179,6 @@
                                                             <p>{% trans "Facture" %} <strong>{{ facture.numero_facture }}</strong></p>
                                                             <p>{% trans "Date d'émission" %} <strong>{{ facture.date_emission|date:"d.m.Y" }}</strong></p>
                                                             <p>{% trans "Date d'échéance" %} <strong>{{ facture.date_echeance|date:"d.m.Y" }}</strong></p>
-                                                            <p>
-                                                                {% if facture.statut == 'BROUILLON' %}
-                                                                <span class="badge bg-secondary">{% trans "Brouillon" %}</span>
-                                                                {% elif facture.statut == 'EMISE' %}
-                                                                <span class="badge bg-primary">{% trans "Émise" %}</span>
-                                                                {% elif facture.statut == 'PAYEE' %}
-                                                                <span class="badge bg-success">{% trans "Payée" %}</span>
-                                                                {% elif facture.statut == 'EN_RETARD' %}
-                                                                <span class="badge bg-danger">{% trans "En retard" %}</span>
-                                                                {% endif %}
-                                                            </p>
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -371,62 +353,63 @@
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <!-- Tab Paiements -->
-    <div class="tab-pane fade" id="paiements-pane" role="tabpanel" aria-labelledby="paiements-tab">
-        <div class="card mt-3">
-            <div class="card-header">
-                <h5>{% trans "Paiements" %}</h5>
-            </div>
-            <div class="card-body">
-                {% if paiements %}
-                <table class="table table-bottom-border">
-                    <thead>
-                        <tr>
-                            <th>{% trans "Date" %}</th>
-                            <th>{% trans "Mode" %}</th>
-                            <th>{% trans "Référence" %}</th>
-                            <th class="text-end">{% trans "Montant" %}</th>
-                            <th>{% trans "Statut" %}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for paiement in paiements %}
-                        <tr>
-                            <td>{{ paiement.date_paiement|date:"d.m.Y" }}</td>
-                            <td>{{ paiement.get_mode_paiement_display }}</td>
-                            <td>{{ paiement.reference|default:"—" }}</td>
-                            <td class="text-end">{{ paiement.montant|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</td>
-                            <td>
-                                {% if paiement.valide %}
-                                <span class="badge bg-success">{% trans "Validé" %}</span>
-                                {% else %}
-                                <span class="badge bg-warning">{% trans "En attente" %}</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                {% else %}
-                <div class="text-center text-muted py-4">
-                    <i class="ph ph-credit-card f-s-32 mb-2 d-block"></i>
-                    <p class="mb-0">{% trans "Aucun paiement enregistré pour cette facture." %}</p>
+            <!-- Tab Paiements -->
+            <div class="tab-pane fade" id="paiements-pane" role="tabpanel" aria-labelledby="paiements-tab">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="text-primary mb-3">{% trans "Paiements" %}</h5>
+
+                        {% if paiements %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>{% trans "Date" %}</th>
+                                        <th>{% trans "Mode" %}</th>
+                                        <th>{% trans "Référence" %}</th>
+                                        <th class="text-end">{% trans "Montant" %}</th>
+                                        <th>{% trans "Statut" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for paiement in paiements %}
+                                    <tr>
+                                        <td>{{ paiement.date_paiement|date:"d.m.Y" }}</td>
+                                        <td>{{ paiement.get_mode_paiement_display }}</td>
+                                        <td>{{ paiement.reference|default:"—" }}</td>
+                                        <td class="text-end">{{ paiement.montant|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</td>
+                                        <td>
+                                            {% if paiement.valide %}
+                                            <span class="badge bg-success">{% trans "Validé" %}</span>
+                                            {% else %}
+                                            <span class="badge bg-warning">{% trans "En attente" %}</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="ph ph-credit-card f-s-32 mb-2 d-block"></i>
+                            <p class="mb-0">{% trans "Aucun paiement enregistré pour cette facture." %}</p>
+                        </div>
+                        {% endif %}
+                    </div>
                 </div>
-                {% endif %}
             </div>
-        </div>
-    </div>
 
-    <!-- Tab Historique -->
-    <div class="tab-pane fade" id="historique-pane" role="tabpanel" aria-labelledby="historique-tab">
-        <div class="card mt-3">
-            <div class="card-body">
-                <div class="text-center text-muted py-4">
-                    <i class="ph ph-clock-counter-clockwise f-s-32 mb-2 d-block"></i>
-                    <p class="mb-0">{% trans "Historique des modifications à venir" %}</p>
+            <!-- Tab Historique -->
+            <div class="tab-pane fade" id="historique-pane" role="tabpanel" aria-labelledby="historique-tab">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="text-center text-muted py-4">
+                            <i class="ph ph-clock-counter-clockwise f-s-32 mb-2 d-block"></i>
+                            <p class="mb-0">{% trans "Historique des modifications à venir" %}</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
