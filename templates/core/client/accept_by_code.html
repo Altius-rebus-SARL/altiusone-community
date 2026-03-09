@@ -1,0 +1,48 @@
+{% extends "base_auth.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Code d'invitation" %}{% endblock %}
+
+{% block auth_content %}
+<div class="card-body">
+    <div class="text-center mb-4">
+        <div class="avatar avatar-xl mx-auto bg-primary mb-3">
+            <span class="avatar-text f-s-24"><i class="ti ti-ticket"></i></span>
+        </div>
+        <h4>{% trans "Rejoindre AltiusOne" %}</h4>
+        <p class="text-muted">{% trans "Saisissez le code d'invitation que vous avez recu" %}</p>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger">
+            {{ form.non_field_errors }}
+        </div>
+        {% endif %}
+
+        <div class="mb-4">
+            <label for="id_code" class="form-label">{% trans "Code d'invitation" %}</label>
+            {{ code_form.code }}
+            {% if code_form.code.errors %}<div class="text-danger f-s-12 mt-1">{{ code_form.code.errors|join:", " }}</div>{% endif %}
+            <small class="text-muted d-block mt-1">{% trans "Ex: AB3K7X — 6 caracteres, lettres et chiffres" %}</small>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100">
+            <i class="ti ti-arrow-right me-2"></i>{% trans "Valider le code" %}
+        </button>
+    </form>
+
+    <div class="text-center mt-4">
+        <p class="text-muted f-s-13">
+            {% trans "Vous avez recu un lien par email ?" %}
+            <br>
+            {% trans "Cliquez directement sur le lien dans l'email, c'est plus simple." %}
+        </p>
+        <a href="{% url 'core:login' %}" class="text-primary f-s-13">
+            <i class="ti ti-arrow-left me-1"></i>{% trans "Retour a la connexion" %}
+        </a>
+    </div>
+</div>
+{% endblock %}

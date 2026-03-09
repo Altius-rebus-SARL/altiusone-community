@@ -42,7 +42,7 @@
                     <div class="card-body">
                         <!-- Category Tabs -->
                         {% if categories %}
-                        <ul class="nav nav-pills mb-3" role="tablist">
+                        <ul class="nav nav-tabs app-tabs-primary mb-3" role="tablist">
                             {% for cat_code, cat_label in categories.items %}
                             <li class="nav-item" role="presentation">
                                 <a class="nav-link {% if active_categorie == cat_code %}active{% endif %}"

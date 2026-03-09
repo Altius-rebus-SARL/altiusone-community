@@ -1,0 +1,24 @@
+{% load i18n %}
+{% if mandat and mandat.regime_fiscal %}
+<div class="regime-banner d-flex align-items-center gap-2 px-3 py-2 mb-3 rounded"
+     style="background: rgba(var(--primary), 0.08); border-left: 4px solid rgba(var(--primary), 1);">
+    <i class="flag-icon flag-icon-{{ mandat.regime_fiscal.pays|lower }} flag-icon-squared rounded-circle" style="font-size: 1.2rem;"></i>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        <span class="badge bg-primary fw-bold">{{ mandat.regime_fiscal.code }}</span>
+        <span class="fw-600 text-dark f-s-14">{{ mandat.regime_fiscal.nom }}</span>
+        <span class="text-muted f-s-12">
+            <i class="ti ti-building-bank me-1"></i>{{ mandat.regime_fiscal.nom_taxe }} {{ mandat.regime_fiscal.taux_normal }}%
+        </span>
+        {% if mandat.devise %}
+        <span class="text-muted f-s-12">
+            <i class="ti ti-coin me-1"></i>{{ mandat.devise.code }} ({{ mandat.devise.nom }})
+        </span>
+        {% endif %}
+        {% if mandat.config_tva %}
+        <span class="text-muted f-s-12">
+            <i class="ti ti-calculator me-1"></i>{{ mandat.config_tva.get_methode_calcul_display }}
+        </span>
+        {% endif %}
+    </div>
+</div>
+{% endif %}

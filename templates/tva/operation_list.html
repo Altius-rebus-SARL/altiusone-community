@@ -183,7 +183,7 @@
                                         <i class="ph ph-pencil"></i>
                                     </a>
                                     <form method="post" action="{% url 'tva:operation-tva-delete' operation.pk %}" class="d-inline"
-                                          onsubmit="return confirm('{% trans "Supprimer cette opération ?" %}')">
+                                          data-confirm="{% trans 'Supprimer cette opération ?' %}">
                                         {% csrf_token %}
                                         <button type="submit" class="btn btn-sm btn-light-danger"
                                                 data-bs-toggle="tooltip" title="{% trans 'Supprimer' %}">

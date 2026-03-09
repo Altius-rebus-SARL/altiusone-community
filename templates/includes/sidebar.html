@@ -471,6 +471,17 @@
         </ul>
       </li>
 
+      {% if user.is_client_user %}
+      <li
+        data-active="{% if ns == 'core' and 'mes-invitation' in is_active or 'client-invitation' in is_active %}true{% endif %}"
+      >
+        <a href="{% url 'core:mes-invitations' %}">
+          <i class="ti ti-user-plus f-s-30"></i>
+          {% trans "Mes invitations" %}
+        </a>
+      </li>
+      {% endif %}
+
       {% if user.is_superuser or user.is_manager %}
       <li class="menu-title"><span>{% trans "Administration" %}</span></li>
 

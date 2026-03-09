@@ -1337,18 +1337,44 @@ class SupportView(LoginRequiredMixin, TemplateView):
 @login_required
 @require_http_methods(["POST"])
 def submit_support_request(request):
-    """
-    Soumettre une demande de support
-    """
-    subject = request.POST.get("subject")
-    message = request.POST.get("message")
+    """Soumettre une demande de support — envoie un email + notification."""
+    from django.conf import settings
+    from django.core.mail import send_mail
 
-    # Ici, vous pourriez envoyer un email ou créer un ticket
-    # Pour l'instant, on crée juste une notification
+    subject = request.POST.get("subject", "").strip()
+    message_body = request.POST.get("message", "").strip()
+
+    if not subject or not message_body:
+        messages.error(request, _("Veuillez remplir le sujet et le message."))
+        return redirect("core:support")
+
+    user = request.user
+    support_email = getattr(settings, "ALTIUSONE_SUPPORT_EMAIL", "support@altiusone.ch")
+
+    # Envoyer l'email au support
+    email_body = (
+        f"Demande de support\n"
+        f"{'=' * 40}\n\n"
+        f"De : {user.get_full_name() or user.username} ({user.email})\n"
+        f"Sujet : {subject}\n\n"
+        f"Message :\n{message_body}\n"
+    )
+    try:
+        send_mail(
+            subject=f"[Support] {subject}",
+            message=email_body,
+            from_email=None,  # utilise DEFAULT_FROM_EMAIL
+            recipient_list=[support_email],
+            fail_silently=False,
+        )
+    except Exception:
+        logger.exception("Erreur envoi email support")
+
+    # Notification interne pour l'utilisateur
     Notification.objects.create(
-        utilisateur=request.user,
+        utilisateur=user,
         titre=f"Support: {subject}",
-        message=f"Votre demande a été enregistrée: {message}",
+        message=_("Votre demande a été enregistrée et envoyée à notre équipe."),
         niveau="INFO",
         type_notification="SYSTEME",
     )

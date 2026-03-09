@@ -971,6 +971,30 @@ class AcceptInvitationForm(forms.Form):
         return cleaned_data
 
 
+class InvitationCodeForm(forms.Form):
+    """Formulaire pour saisir un code d'invitation court"""
+
+    code = forms.CharField(
+        max_length=8,
+        min_length=6,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control form-control-lg text-center',
+            'placeholder': 'AB3K7X',
+            'style': 'letter-spacing: 0.3em; font-weight: bold; text-transform: uppercase;',
+            'autocomplete': 'off',
+            'maxlength': '8',
+        }),
+        label=_('Code d\'invitation'),
+        help_text=_('Saisissez le code à 6 caractères reçu de votre contact')
+    )
+
+    def clean_code(self):
+        code = self.cleaned_data.get('code', '').strip().upper()
+        if not code.isalnum():
+            raise forms.ValidationError(_("Le code ne doit contenir que des lettres et chiffres."))
+        return code
+
+
 # =============================================================================
 # FORMULAIRES ACCES MANDAT
 # =============================================================================

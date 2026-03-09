@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Inviter un collaborateur" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h3>{% trans "Inviter un collaborateur" %}</h3>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}"><i class="ti ti-home"></i></a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'core:mes-invitations' %}">{% trans "Invitations" %}</a></li>
+                        <li class="breadcrumb-item active">{% trans "Nouvelle invitation" %}</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-xl-8">
+            <form method="post">
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {{ form.non_field_errors }}
+                </div>
+                {% endif %}
+
+                <!-- Mandat info -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="ti ti-building me-2"></i>{% trans "Mandat" %}</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="avatar avatar-lg bg-primary">
+                                <span class="avatar-text"><i class="ti ti-briefcase"></i></span>
+                            </div>
+                            <div>
+                                <h5 class="mb-0">{{ mandat.client.nom }}</h5>
+                                <span class="text-muted">{{ mandat.numero }}</span>
+                            </div>
+                        </div>
+                        {% if acces %}
+                        <div class="mt-3 d-flex align-items-center gap-2">
+                            <span class="text-muted f-s-13">{% trans "Invitations restantes:" %}</span>
+                            <span class="badge bg-primary">{{ acces.invitations_restantes }}/{{ acces.limite_invitations }}</span>
+                        </div>
+                        {% endif %}
+                        <!-- Hidden mandat field -->
+                        <input type="hidden" name="mandat" value="{{ mandat.pk }}">
+                    </div>
+                </div>
+
+                <!-- Invitation details -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="ti ti-user-plus me-2"></i>{% trans "Informations de l'invite" %}</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="id_email" class="form-label">{% trans "Email" %} *</label>
+                            {{ form.email }}
+                            {% if form.email.errors %}<div class="text-danger f-s-12">{{ form.email.errors|join:", " }}</div>{% endif %}
+                            <small class="text-muted">{% trans "Un email d'invitation sera envoye a cette adresse" %}</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="id_message" class="form-label">{% trans "Message personnalise" %}</label>
+                            {{ form.message }}
+                            {% if form.message.errors %}<div class="text-danger f-s-12">{{ form.message.errors|join:", " }}</div>{% endif %}
+                        </div>
+
+                        <div class="form-check mb-3">
+                            {{ form.forcer_changement_mdp }}
+                            <label class="form-check-label" for="id_forcer_changement_mdp">
+                                {% trans "Forcer le changement de mot de passe a la premiere connexion" %}
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between">
+                    <a href="{% url 'core:mes-invitations' %}" class="btn btn-secondary">
+                        <i class="ti ti-arrow-left me-2"></i>{% trans "Retour" %}
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="ti ti-send me-2"></i>{% trans "Envoyer l'invitation" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Help -->
+        <div class="col-xl-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Comment ca marche" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex flex-column gap-3">
+                        <div class="d-flex gap-3">
+                            <div class="avatar avatar-sm bg-primary flex-shrink-0">
+                                <span class="avatar-text f-s-12">1</span>
+                            </div>
+                            <div>
+                                <p class="mb-0 f-s-14">{% trans "Saisissez l'email de votre collaborateur et envoyez l'invitation." %}</p>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-3">
+                            <div class="avatar avatar-sm bg-primary flex-shrink-0">
+                                <span class="avatar-text f-s-12">2</span>
+                            </div>
+                            <div>
+                                <p class="mb-0 f-s-14">{% trans "Un email contenant un lien et un code sera envoye." %}</p>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-3">
+                            <div class="avatar avatar-sm bg-primary flex-shrink-0">
+                                <span class="avatar-text f-s-12">3</span>
+                            </div>
+                            <div>
+                                <p class="mb-0 f-s-14">{% trans "Votre collaborateur cree son compte et accede directement au mandat." %}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h5>{% trans "Code d'invitation" %}</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted f-s-14">
+                        {% trans "Apres l'envoi, un code court (ex: AB3K7X) sera genere. Vous pouvez le communiquer par telephone ou SMS. Le collaborateur peut l'utiliser pour rejoindre le mandat." %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

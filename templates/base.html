@@ -346,6 +346,9 @@
       });
     </script>
 
+    <!-- SweetAlert2 -->
+    <script src="{% static 'assets/vendor/sweetalert/sweetalert.js' %}"></script>
+
     <!-- HTMX -->
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
 
@@ -355,6 +358,23 @@
           document.querySelector("[name=csrfmiddlewaretoken]")?.value ||
           getCookie("csrftoken");
         if (csrfToken) evt.detail.headers["X-CSRFToken"] = csrfToken;
+      });
+
+      // SweetAlert2 pour les confirmations HTMX (remplace window.confirm)
+      document.body.addEventListener("htmx:confirm", function (evt) {
+        if (!evt.detail.question) return;
+        evt.preventDefault();
+        Swal.fire({
+          title: "{% trans 'Confirmation' %}",
+          text: evt.detail.question,
+          icon: "warning",
+          showCancelButton: true,
+          confirmButtonText: "{% trans 'Confirmer' %}",
+          cancelButtonText: "{% trans 'Annuler' %}",
+          reverseButtons: true,
+        }).then(function (result) {
+          if (result.isConfirmed) evt.detail.issueRequest();
+        });
       });
 
       function getCookie(name) {
@@ -373,6 +393,28 @@
         }
         return cookieValue;
       }
+
+      // SweetAlert2 pour les formulaires avec data-confirm
+      document.addEventListener("submit", function (e) {
+        var form = e.target;
+        var msg = form.getAttribute("data-confirm");
+        if (!msg) return;
+        e.preventDefault();
+        Swal.fire({
+          title: "{% trans 'Confirmation' %}",
+          text: msg,
+          icon: "warning",
+          showCancelButton: true,
+          confirmButtonText: "{% trans 'Confirmer' %}",
+          cancelButtonText: "{% trans 'Annuler' %}",
+          reverseButtons: true,
+        }).then(function (result) {
+          if (result.isConfirmed) {
+            form.removeAttribute("data-confirm");
+            form.submit();
+          }
+        });
+      });
     </script>
 
     <!-- ApexCharts -->

@@ -124,6 +124,11 @@ from .admin_views import (
     invitation_resend,
     invitation_cancel,
     AcceptInvitationView,
+    # Invitations Client
+    MesInvitationsView,
+    ClientInvitationCreateView,
+    client_invitation_cancel,
+    AcceptInvitationByCodeView,
     # Accès Mandats
     AccesMandatListView,
     AccesMandatCreateView,
@@ -251,6 +256,10 @@ __all__ = [
     'invitation_resend',
     'invitation_cancel',
     'AcceptInvitationView',
+    'MesInvitationsView',
+    'ClientInvitationCreateView',
+    'client_invitation_cancel',
+    'AcceptInvitationByCodeView',
     'AccesMandatListView',
     'AccesMandatCreateView',
     'AccesMandatUpdateView',

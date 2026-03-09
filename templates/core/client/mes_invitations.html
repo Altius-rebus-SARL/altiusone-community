@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Mes invitations" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <div class="page-header-left">
+                    <h3>{% trans "Mes invitations" %}</h3>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}"><i class="ti ti-home"></i></a></li>
+                        <li class="breadcrumb-item active">{% trans "Invitations" %}</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mandats avec droit d'invitation -->
+    {% if mandats_responsable %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ti ti-building me-2"></i>{% trans "Mes mandats" %}</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">
+                        {% trans "En tant que responsable, vous pouvez inviter des collaborateurs sur les mandats suivants." %}
+                    </p>
+                    <div class="row g-3">
+                        {% for acces in mandats_responsable %}
+                        <div class="col-xl-4 col-md-6">
+                            <div class="card border h-100">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <div>
+                                            <h6 class="mb-1">{{ acces.mandat.client.nom }}</h6>
+                                            <small class="text-muted">{{ acces.mandat.numero }}</small>
+                                        </div>
+                                        <span class="badge bg-primary">{% trans "Responsable" %}</span>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2 mb-3">
+                                        <div class="progress flex-grow-1" style="height: 6px;">
+                                            {% widthratio acces.invitations_restantes acces.limite_invitations 100 as pct %}
+                                            <div class="progress-bar" style="width: {{ pct }}%"></div>
+                                        </div>
+                                        <small class="text-muted text-nowrap">
+                                            {{ acces.invitations_restantes }}/{{ acces.limite_invitations }} {% trans "restantes" %}
+                                        </small>
+                                    </div>
+                                    {% if acces.peut_inviter %}
+                                    <a href="{% url 'core:client-invitation-create' acces.mandat.pk %}" class="btn btn-primary btn-sm w-100">
+                                        <i class="ti ti-user-plus me-1"></i>{% trans "Inviter un collaborateur" %}
+                                    </a>
+                                    {% else %}
+                                    <button class="btn btn-secondary btn-sm w-100" disabled>
+                                        <i class="ti ti-lock me-1"></i>{% trans "Quota atteint" %}
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Liste des invitations envoyées -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ti ti-mail me-2"></i>{% trans "Invitations envoyees" %}</h5>
+                </div>
+                <div class="card-body">
+                    {% if invitations %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "Email" %}</th>
+                                    <th>{% trans "Mandat" %}</th>
+                                    <th>{% trans "Code" %}</th>
+                                    <th>{% trans "Statut" %}</th>
+                                    <th>{% trans "Expiration" %}</th>
+                                    <th>{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for invitation in invitations %}
+                                <tr>
+                                    <td>{{ invitation.email }}</td>
+                                    <td>
+                                        {% if invitation.mandat %}
+                                        <small>{{ invitation.mandat.client.nom }} — {{ invitation.mandat.numero }}</small>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if invitation.statut == 'EN_ATTENTE' and invitation.code_court %}
+                                        <code class="user-select-all fw-bold" style="letter-spacing: 0.1em;">{{ invitation.code_court }}</code>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if invitation.statut == 'EN_ATTENTE' %}
+                                        <span class="badge bg-info">{% trans "En attente" %}</span>
+                                        {% elif invitation.statut == 'ACCEPTEE' %}
+                                        <span class="badge bg-success">{% trans "Acceptee" %}</span>
+                                        {% elif invitation.statut == 'EXPIREE' %}
+                                        <span class="badge bg-secondary">{% trans "Expiree" %}</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">{% trans "Annulee" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ invitation.date_expiration|date:"d/m/Y" }}</td>
+                                    <td>
+                                        {% if invitation.statut == 'EN_ATTENTE' %}
+                                        <form method="post" action="{% url 'core:client-invitation-cancel' invitation.pk %}" class="d-inline" data-confirm="{% trans 'Annuler cette invitation ?' %}">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-outline-danger btn-sm" title="{% trans 'Annuler' %}">
+                                                <i class="ti ti-x"></i>
+                                            </button>
+                                        </form>
+                                        {% elif invitation.statut == 'ACCEPTEE' and invitation.utilisateur_cree %}
+                                        <small class="text-success">
+                                            <i class="ti ti-check me-1"></i>{{ invitation.utilisateur_cree.get_full_name }}
+                                        </small>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if page_obj and page_obj.paginator.num_pages > 1 %}
+                    <nav aria-label="Page navigation" class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                                    <i class="ti ti-chevron-left"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                            </li>
+                            {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                                    <i class="ti ti-chevron-right"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+
+                    {% else %}
+                    <div class="text-center text-muted py-5">
+                        <i class="ti ti-mail-off" style="font-size: 3rem;"></i>
+                        <p class="mt-3">{% trans "Aucune invitation envoyee" %}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

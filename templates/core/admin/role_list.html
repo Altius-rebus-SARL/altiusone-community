@@ -106,18 +106,46 @@
                     <h5>{% trans "Hierarchie des roles" %}</h5>
                 </div>
                 <div class="card-body">
-                    <p class="text-muted">
-                        {% trans "Le niveau de permission determine la hierarchie des roles. Un utilisateur peut uniquement assigner des roles avec un niveau inferieur au sien." %}
+                    <p class="text-muted mb-3">
+                        {% trans "Le niveau détermine la hiérarchie des rôles. Un utilisateur peut uniquement assigner des rôles avec un niveau inférieur au sien." %}
                     </p>
-                    <ul class="text-muted f-s-14">
-                        <li><strong>100</strong> - {% trans "Superadmin (tous les droits)" %}</li>
-                        <li><strong>80-99</strong> - {% trans "Administrateur" %}</li>
-                        <li><strong>60-79</strong> - {% trans "Manager" %}</li>
-                        <li><strong>40-59</strong> - {% trans "Comptable senior" %}</li>
-                        <li><strong>20-39</strong> - {% trans "Comptable" %}</li>
-                        <li><strong>1-19</strong> - {% trans "Stagiaire/Assistant" %}</li>
-                        <li><strong>0</strong> - {% trans "Client externe (acces limite)" %}</li>
-                    </ul>
+                    <div class="d-flex flex-column gap-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-danger" style="min-width: 50px;">100</span>
+                            <span class="fw-600">{% trans "Superadmin" %}</span>
+                            <span class="text-muted f-s-12">— {% trans "Accès complet, tous les modules" %}</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-warning" style="min-width: 50px;">80-99</span>
+                            <span class="fw-600">{% trans "Administrateur" %}</span>
+                            <span class="text-muted f-s-12">— {% trans "Gestion des utilisateurs, rôles, configuration" %}</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-primary" style="min-width: 50px;">60-79</span>
+                            <span class="fw-600">{% trans "Manager" %}</span>
+                            <span class="text-muted f-s-12">— {% trans "Supervision des mandats, validation, rapports" %}</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-info" style="min-width: 50px;">40-59</span>
+                            <span class="fw-600">{% trans "Comptable senior" %}</span>
+                            <span class="text-muted f-s-12">— {% trans "Comptabilité, TVA, salaires, fiscalité" %}</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-success" style="min-width: 50px;">20-39</span>
+                            <span class="fw-600">{% trans "Comptable" %}</span>
+                            <span class="text-muted f-s-12">— {% trans "Saisie comptable, factures, documents" %}</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-secondary" style="min-width: 50px;">1-19</span>
+                            <span class="fw-600">{% trans "Stagiaire / Assistant" %}</span>
+                            <span class="text-muted f-s-12">— {% trans "Consultation, saisie limitée" %}</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-light text-dark" style="min-width: 50px;">0</span>
+                            <span class="fw-600">{% trans "Client externe" %}</span>
+                            <span class="text-muted f-s-12">— {% trans "Accès limité aux mandats assignés uniquement" %}</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
