@@ -815,7 +815,7 @@ class CompteBancaire(models.Model):
     est_compte_principal = models.BooleanField(
         default=False,
         verbose_name=_('Compte principal'),
-        help_text=_('Compte principal de la fiduciaire pour les factures')
+        help_text=_('Compte principal de l\'entreprise pour les factures')
     )
 
     # QR-Bill spécifique
@@ -2368,7 +2368,7 @@ class Invitation(BaseModel):
 
     class TypeInvitation(models.TextChoices):
         STAFF = 'STAFF', _('Collaborateur interne')
-        STAFF_PRESTATAIRE = 'STAFF_PRESTATAIRE', _('Prestataire fiduciaire')
+        STAFF_PRESTATAIRE = 'STAFF_PRESTATAIRE', _('Prestataire externe')
         CLIENT = 'CLIENT', _('Client externe')
         CLIENT_PRESTATAIRE = 'CLIENT_PRESTATAIRE', _('Prestataire client')
 

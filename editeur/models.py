@@ -606,7 +606,7 @@ class ModeleDocument(models.Model):
     """
 
     class Categorie(models.TextChoices):
-        FIDUCIAIRE = 'FIDUCIAIRE', _('Fiduciaire')
+        FIDUCIAIRE = 'FIDUCIAIRE', _('Entreprise')
         COMPTABLE = 'COMPTABLE', _('Comptabilité')
         FISCAL = 'FISCAL', _('Fiscalité')
         RH = 'RH', _('Ressources Humaines')

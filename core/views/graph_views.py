@@ -4,7 +4,7 @@ Visualiseur de graphe relationnel pour AltiusOne.
 Layout circulaire par type inspiré de l'Epstein Visualizer.
 
 Structure:
-- Centre: AltiusOne (la fiduciaire)
+- Centre: AltiusOne (l'entreprise)
 - 1er cercle: Clients
 - 2e cercle: Mandats, Contacts, Users (staff)
 - 3e cercle: Factures, Documents, Tâches, Exercices
@@ -24,7 +24,7 @@ from django.views import View
 # =============================================================================
 
 NODE_TYPES = {
-    'Fiduciaire': {
+    'Entreprise': {
         'color': '#818cf8',  # Indigo (centre)
         'icon': 'fa-building-columns',
         'size': 30,
@@ -152,7 +152,7 @@ def circular_layout(nodes_by_type, center_x=0, center_y=0):
 
     # Rayon de base par niveau
     level_radii = {
-        0: 0,      # Centre (Fiduciaire)
+        0: 0,      # Centre (Entreprise)
         1: 200,    # Clients
         2: 450,    # Mandats, Users, Contacts
         3: 750,    # Factures, Documents, etc.
@@ -163,7 +163,7 @@ def circular_layout(nodes_by_type, center_x=0, center_y=0):
         radius = level_radii.get(level, 500 + level * 200)
 
         if level == 0:
-            # Le centre (Fiduciaire)
+            # Le centre (Entreprise)
             for node_type, nodes in type_list:
                 for node_id in nodes:
                     positions[node_id] = (center_x, center_y)
@@ -271,12 +271,12 @@ class GraphDataMixin:
                 connection_count[target_id] = connection_count.get(target_id, 0) + 1
 
         # ==============================================
-        # 1. NŒUD CENTRAL: Entreprise (la fiduciaire)
+        # 1. NŒUD CENTRAL: Entreprise
         # ==============================================
         from core.models import Entreprise
         entreprise = Entreprise.get_default()
         if entreprise:
-            fiduciaire_id = add_node('Fiduciaire', entreprise.pk, entreprise.raison_sociale, {
+            entreprise_id = add_node('Entreprise', entreprise.pk, entreprise.raison_sociale, {
                 'description': entreprise.but[:100] if entreprise.but else '',
                 'ide': entreprise.ide_number,
                 'forme_juridique': entreprise.get_forme_juridique_display(),
@@ -284,8 +284,8 @@ class GraphDataMixin:
             })
         else:
             # Fallback si pas d'entreprise configurée
-            fiduciaire_id = add_node('Fiduciaire', 'main', 'AltiusOne', {
-                'description': 'Fiduciaire principale'
+            entreprise_id = add_node('Entreprise', 'main', 'AltiusOne', {
+                'description': 'Entreprise principale'
             })
 
         # ==============================================
@@ -301,8 +301,8 @@ class GraphDataMixin:
                 'email': user.email,
                 'role': user.role.nom if user.role else 'N/A',
             })
-            # Tous les users staff sont liés à la fiduciaire
-            add_edge(fiduciaire_id, user_id, 'gere')
+            # Tous les users staff sont liés à l'entreprise
+            add_edge(entreprise_id, user_id, 'gere')
 
         # ==============================================
         # 3. CLIENTS
@@ -318,8 +318,8 @@ class GraphDataMixin:
                 'statut': client.get_statut_display(),
                 'ide': client.ide_number,
             })
-            # Client lié à la fiduciaire
-            add_edge(fiduciaire_id, client_id, 'client_de')
+            # Client lié à l'entreprise
+            add_edge(entreprise_id, client_id, 'client_de')
 
             # Lien avec le responsable
             if client.responsable_id:
@@ -605,6 +605,6 @@ class GraphStatsAPIView(LoginRequiredMixin, View):
         stats['Document']['count'] = Document.objects.filter(is_active=True).count()
         stats['Dossier']['count'] = Dossier.objects.filter(is_active=True).count()
         stats['Facture']['count'] = Facture.objects.exclude(statut__in=['BROUILLON', 'ANNULEE']).count()
-        stats['Fiduciaire']['count'] = 1
+        stats['Entreprise']['count'] = 1
 
         return JsonResponse({'stats': stats})
