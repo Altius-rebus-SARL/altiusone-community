@@ -4,7 +4,7 @@
 {% load i18n %}
 
 {% block title %}
-    {% if form.instance.pk %}{% trans "Modifier plan" %}{% else %}{% trans "Nouveau plan comptable" %}{% endif %}
+    {% if object %}{% trans "Modifier plan" %}{% else %}{% trans "Nouveau plan comptable" %}{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -12,7 +12,7 @@
 <div class="row m-1">
     <div class="col-12">
         <h4 class="main-title">
-            {% if form.instance.pk %}{% trans "Modifier plan" %}{% else %}{% trans "Nouveau plan comptable" %}{% endif %}
+            {% if object %}{% trans "Modifier plan" %}{% else %}{% trans "Nouveau plan comptable" %}{% endif %}
         </h4>
         <ul class="app-line-breadcrumbs mb-3">
             <li class="">
@@ -29,7 +29,7 @@
             </li>
             <li class="active">
                 <a class="f-s-14 f-w-500" href="#">
-                    {% if form.instance.pk %}{% trans "Modifier" %}{% else %}{% trans "Nouveau" %}{% endif %}
+                    {% if object %}{% trans "Modifier" %}{% else %}{% trans "Nouveau" %}{% endif %}
                 </a>
             </li>
         </ul>
@@ -42,7 +42,7 @@
         <div class="card">
             <div class="card-body">
                 <h4 class="text-primary mb-4">
-                    {% if form.instance.pk %}
+                    {% if object %}
                         {% trans "Modifier le plan comptable" %}
                     {% else %}
                         {% trans "Nouveau plan comptable" %}
@@ -265,13 +265,13 @@
 
                     <!-- Actions -->
                     <div class="d-flex justify-content-end gap-2 mt-4">
-                        <a href="{% if form.instance.pk %}{% url 'comptabilite:plan-detail' form.instance.pk %}{% else %}{% url 'comptabilite:plan-list' %}{% endif %}" 
+                        <a href="{% if object %}{% url 'comptabilite:plan-detail' object.pk %}{% else %}{% url 'comptabilite:plan-list' %}{% endif %}" 
                            class="btn btn-secondary">
                             <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
                         </a>
                         <button type="submit" class="btn btn-primary">
                             <i class="ph ph-check me-2"></i>
-                            {% if form.instance.pk %}{% trans "Enregistrer les modifications" %}{% else %}{% trans "Créer le plan" %}{% endif %}
+                            {% if object %}{% trans "Enregistrer les modifications" %}{% else %}{% trans "Créer le plan" %}{% endif %}
                         </button>
                     </div>
                 </form>
@@ -316,7 +316,7 @@
             </div>
         </div>
 
-        {% if form.instance.pk %}
+        {% if object %}
         <div class="card bg-light-warning mt-3">
             <div class="card-body">
                 <h6 class="text-warning mb-3">

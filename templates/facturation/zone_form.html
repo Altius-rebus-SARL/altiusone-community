@@ -3,7 +3,7 @@
 {% load i18n %}
 {% load widget_tweaks %}
 
-{% block title %}{% if form.instance.pk %}{% trans "Modifier la zone" %}{% else %}{% trans "Nouvelle zone" %}{% endif %}{% endblock %}
+{% block title %}{% if object %}{% trans "Modifier la zone" %}{% else %}{% trans "Nouvelle zone" %}{% endif %}{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -13,7 +13,7 @@
 {% block content %}
 <div class="row m-1">
     <div class="col-12">
-        <h4 class="main-title">{% if form.instance.pk %}{% trans "Modifier la zone" %}{% else %}{% trans "Nouvelle zone" %}{% endif %}</h4>
+        <h4 class="main-title">{% if object %}{% trans "Modifier la zone" %}{% else %}{% trans "Nouvelle zone" %}{% endif %}</h4>
         <ul class="app-line-breadcrumbs mb-3">
             <li>
                 <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
@@ -26,7 +26,7 @@
                 </a>
             </li>
             <li class="active">
-                <a class="f-s-14 f-w-500" href="#">{% if form.instance.pk %}{% trans "Modifier" %}{% else %}{% trans "Nouvelle" %}{% endif %}</a>
+                <a class="f-s-14 f-w-500" href="#">{% if object %}{% trans "Modifier" %}{% else %}{% trans "Nouvelle" %}{% endif %}</a>
             </li>
         </ul>
     </div>

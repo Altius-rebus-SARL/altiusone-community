@@ -151,6 +151,7 @@ from .config_views import (
     configuration_delete,
     configuration_toggle,
     configuration_reorder,
+    quick_create_reference,
 )
 
 from .mcp_views import (

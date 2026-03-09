@@ -6,7 +6,7 @@
 {% load devise_tags %}
 
 {% block title %}
-{% if form.instance.pk %}{% trans "Modifier certificat" %}{% else %}{% trans "Nouveau certificat" %}{% endif %}
+{% if object %}{% trans "Modifier certificat" %}{% else %}{% trans "Nouveau certificat" %}{% endif %}
 {% endblock %}
 
 {% block extra_css %}
@@ -37,7 +37,7 @@
 <div class="row m-1">
     <div class="col-12">
         <h4 class="main-title">
-            {% if form.instance.pk %}
+            {% if object %}
             {% trans "Modifier le certificat" %} {{ form.instance.annee }}
             {% else %}
             {% trans "Nouveau certificat de salaire" %}
@@ -56,7 +56,7 @@
             </li>
             <li class="active">
                 <a class="f-s-14 f-w-500" href="#">
-                    {% if form.instance.pk %}{{ form.instance.employe }}{% else %}{% trans "Nouveau" %}{% endif %}
+                    {% if object %}{{ form.instance.employe }}{% else %}{% trans "Nouveau" %}{% endif %}
                 </a>
             </li>
         </ul>
@@ -423,7 +423,7 @@
                     <h5 class="mb-0"><i class="ph ph-calculator me-2"></i>{% trans "Résumé" %}</h5>
                 </div>
                 <div class="card-body">
-                    {% if form.instance.pk %}
+                    {% if object %}
                     <!-- Totaux calculés -->
                     <div class="mb-3">
                         <label class="form-label text-muted small">8. {% trans "Salaire brut total" %}</label>
@@ -473,10 +473,10 @@
                     <div class="d-grid gap-2">
                         <button type="submit" class="btn btn-primary">
                             <i class="ph ph-floppy-disk me-2"></i>
-                            {% if form.instance.pk %}{% trans "Enregistrer" %}{% else %}{% trans "Créer" %}{% endif %}
+                            {% if object %}{% trans "Enregistrer" %}{% else %}{% trans "Créer" %}{% endif %}
                         </button>
-                        {% if form.instance.pk %}
-                        <a href="{% url 'salaires:certificat-detail' form.instance.pk %}" class="btn btn-outline-secondary">
+                        {% if object %}
+                        <a href="{% url 'salaires:certificat-detail' object.pk %}" class="btn btn-outline-secondary">
                             <i class="ph ph-eye me-2"></i>{% trans "Voir le certificat" %}
                         </a>
                         {% endif %}

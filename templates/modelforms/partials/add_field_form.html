@@ -8,8 +8,8 @@
       class="app-form">
     {% csrf_token %}
 
-    {% if form.instance.pk %}
-    <input type="hidden" name="mapping_id" value="{{ form.instance.pk }}">
+    {% if object %}
+    <input type="hidden" name="mapping_id" value="{{ object }}">
     {% endif %}
 
     <div class="row">
@@ -130,7 +130,7 @@
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Annuler" %}</button>
         <button type="submit" class="btn btn-primary">
             <i class="ti ti-device-floppy me-2"></i>
-            {% if form.instance.pk %}{% trans "Enregistrer" %}{% else %}{% trans "Ajouter" %}{% endif %}
+            {% if object %}{% trans "Enregistrer" %}{% else %}{% trans "Ajouter" %}{% endif %}
         </button>
     </div>
 </form>

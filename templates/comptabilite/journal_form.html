@@ -4,7 +4,7 @@
 {% load i18n %}
 
 {% block title %}
-    {% if form.instance.pk %}{% trans "Modifier journal" %}{% else %}{% trans "Nouveau journal" %}{% endif %}
+    {% if object %}{% trans "Modifier journal" %}{% else %}{% trans "Nouveau journal" %}{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -12,7 +12,7 @@
 <div class="row m-1">
     <div class="col-12">
         <h4 class="main-title">
-            {% if form.instance.pk %}{% trans "Modifier journal" %}{% else %}{% trans "Nouveau journal" %}{% endif %}
+            {% if object %}{% trans "Modifier journal" %}{% else %}{% trans "Nouveau journal" %}{% endif %}
         </h4>
         <ul class="app-line-breadcrumbs mb-3">
             <li class="">
@@ -29,7 +29,7 @@
             </li>
             <li class="active">
                 <a class="f-s-14 f-w-500" href="#">
-                    {% if form.instance.pk %}{% trans "Modifier" %}{% else %}{% trans "Nouveau" %}{% endif %}
+                    {% if object %}{% trans "Modifier" %}{% else %}{% trans "Nouveau" %}{% endif %}
                 </a>
             </li>
         </ul>
@@ -42,7 +42,7 @@
         <div class="card">
             <div class="card-body">
                 <h4 class="text-primary mb-4">
-                    {% if form.instance.pk %}
+                    {% if object %}
                         {% trans "Modifier le journal" %}
                     {% else %}
                         {% trans "Nouveau journal" %}
@@ -174,7 +174,7 @@
 
                     <!-- Actions -->
                     <div class="d-flex justify-content-end gap-2 mt-4">
-                        <a href="{% if form.instance.pk %}{% url 'comptabilite:journal-detail' form.instance.pk %}{% else %}{% url 'comptabilite:journal-list' %}{% endif %}" 
+                        <a href="{% if object %}{% url 'comptabilite:journal-detail' object.pk %}{% else %}{% url 'comptabilite:journal-list' %}{% endif %}" 
                            class="btn btn-secondary">
                             <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
                         </a>

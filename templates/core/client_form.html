@@ -4,7 +4,7 @@
 {% load i18n %}
 
 {% block title %}
-    {% if form.instance.pk %}{% trans "Modifier client" %}{% else %}{% trans "Nouveau client" %}{% endif %}
+    {% if object %}{% trans "Modifier client" %}{% else %}{% trans "Nouveau client" %}{% endif %}
 {% endblock %}
 
 {% block extra_css %}
@@ -74,17 +74,17 @@
         <div class="card">
             <div class="card-body">
                 <h4 class="text-primary mb-4">
-                    {% if form.instance.pk %}
+                    {% if object %}
                         {% trans "Modifier client" %}
                     {% else %}
                         {% trans "Nouveau client" %}
                     {% endif %}
                 </h4>
 
-                {% if not form.instance.pk %}
+                {% if not object %}
                 <div class="alert alert-info mb-4">
                     <i class="ti ti-info-circle me-2"></i>
-                    {% trans "Commencez à taper le nom de l'entreprise pour rechercher dans le registre suisse (Zefix)" %}
+                    {% trans "Commencez à taper le nom de l'entreprise pour rechercher dans le registre suisse" %}
                 </div>
                 {% endif %}
 
@@ -293,7 +293,7 @@
 
                     <!-- Actions -->
                     <div class="d-flex justify-content-end gap-2 mt-4">
-                        <a href="{% if form.instance.pk %}{% url 'core:client-detail' form.instance.pk %}{% else %}{% url 'core:client-list' %}{% endif %}" 
+                        <a href="{% if object %}{% url 'core:client-detail' object.pk %}{% else %}{% url 'core:client-list' %}{% endif %}" 
                            class="btn btn-secondary">
                             <i class="ti ti-x me-2"></i>{% trans "Annuler" %}
                         </a>

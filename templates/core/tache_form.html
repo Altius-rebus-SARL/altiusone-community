@@ -4,7 +4,7 @@
 {% load i18n %}
 
 {% block title %}
-    {% if form.instance.pk %}{% trans "Modifier tâche" %}{% else %}{% trans "Nouvelle tâche" %}{% endif %}
+    {% if object %}{% trans "Modifier tâche" %}{% else %}{% trans "Nouvelle tâche" %}{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -13,7 +13,7 @@
         <div class="card">
             <div class="card-body">
                 <h4 class="text-primary mb-4">
-                    {% if form.instance.pk %}
+                    {% if object %}
                         {% trans "Modifier tâche" %}
                     {% else %}
                         {% trans "Nouvelle tâche" %}
@@ -179,7 +179,7 @@
 
                     <!-- Actions -->
                     <div class="d-flex justify-content-end gap-2 mt-4">
-                        <a href="{% if form.instance.pk %}{% url 'core:tache-detail' form.instance.pk %}{% else %}{% url 'core:tache-list' %}{% endif %}" 
+                        <a href="{% if object %}{% url 'core:tache-detail' object.pk %}{% else %}{% url 'core:tache-list' %}{% endif %}" 
                            class="btn btn-secondary">
                             <i class="ti ti-x me-2"></i>{% trans "Annuler" %}
                         </a>
