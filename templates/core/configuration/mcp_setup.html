@@ -1,0 +1,332 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Intégration IA (MCP)" %}{% endblock %}
+
+{% block content %}
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Intégration IA" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:configuration' %}">{% trans "Configuration" %}</a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Intégration IA (MCP)" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <!-- Header -->
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="rounded-circle bg-light-primary d-flex align-items-center justify-content-center me-3" style="width:48px;height:48px">
+                        <i class="ti ti-brand-openai f-s-24 text-primary"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-primary mb-1">{% trans "Connectez votre IA à AltiusOne" %}</h4>
+                        <p class="text-muted mb-0">{% trans "Utilisez Claude, ChatGPT ou tout client MCP pour interagir avec vos données métier en langage naturel." %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 1: Token -->
+        <div class="card mt-3">
+            <div class="card-header d-flex align-items-center">
+                <span class="badge bg-primary rounded-circle me-2" style="width:28px;height:28px;line-height:28px;padding:0;font-size:14px">1</span>
+                <h5 class="mb-0">{% trans "Générer votre token API" %}</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted f-s-14">{% trans "Ce token permet à votre assistant IA de s'authentifier auprès d'AltiusOne. Il est personnel et ne doit pas être partagé." %}</p>
+
+                <div id="token-section">
+                    {% if token %}
+                    <div class="alert alert-success d-flex align-items-center py-2">
+                        <i class="ti ti-check me-2"></i>
+                        <span>{% trans "Token actif" %} — {% trans "créé le" %} {{ token.created|date:"d/m/Y H:i" }}</span>
+                    </div>
+                    <div class="input-group mb-3">
+                        <input type="text" class="form-control font-monospace f-s-13 bg-light" id="token-value" value="{{ token.key }}" readonly>
+                        <button class="btn btn-outline-primary" onclick="copyToken()" title="{% trans 'Copier' %}">
+                            <i class="ti ti-copy"></i>
+                        </button>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-warning btn-sm" onclick="regenerateToken()">
+                            <i class="ti ti-refresh me-1"></i>{% trans "Régénérer" %}
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm" onclick="revokeToken()">
+                            <i class="ti ti-trash me-1"></i>{% trans "Révoquer" %}
+                        </button>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning d-flex align-items-center py-2">
+                        <i class="ti ti-alert-triangle me-2"></i>
+                        <span>{% trans "Aucun token actif. Générez-en un pour commencer." %}</span>
+                    </div>
+                    <button class="btn btn-primary" onclick="generateToken()">
+                        <i class="ti ti-key me-2"></i>{% trans "Générer un token" %}
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: Install Claude -->
+        <div class="card mt-3">
+            <div class="card-header d-flex align-items-center">
+                <span class="badge bg-primary rounded-circle me-2" style="width:28px;height:28px;line-height:28px;padding:0;font-size:14px">2</span>
+                <h5 class="mb-0">{% trans "Installer un client IA" %}</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted f-s-14">{% trans "Installez l'un des clients compatibles MCP :" %}</p>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <a href="https://claude.ai/download" target="_blank" rel="noopener" class="card border h-100 text-decoration-none">
+                            <div class="card-body d-flex align-items-center">
+                                <div class="rounded-circle bg-light-primary d-flex align-items-center justify-content-center me-3" style="width:40px;height:40px">
+                                    <i class="ti ti-message-chatbot f-s-20 text-primary"></i>
+                                </div>
+                                <div>
+                                    <h6 class="mb-0 text-dark">Claude Desktop</h6>
+                                    <small class="text-muted">{% trans "Application de bureau" %}</small>
+                                </div>
+                                <i class="ti ti-external-link ms-auto text-muted"></i>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-md-6">
+                        <a href="https://docs.anthropic.com/en/docs/claude-code/overview" target="_blank" rel="noopener" class="card border h-100 text-decoration-none">
+                            <div class="card-body d-flex align-items-center">
+                                <div class="rounded-circle bg-light-success d-flex align-items-center justify-content-center me-3" style="width:40px;height:40px">
+                                    <i class="ti ti-terminal f-s-20 text-success"></i>
+                                </div>
+                                <div>
+                                    <h6 class="mb-0 text-dark">Claude Code</h6>
+                                    <small class="text-muted">{% trans "Terminal / ligne de commande" %}</small>
+                                </div>
+                                <i class="ti ti-external-link ms-auto text-muted"></i>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3: Configuration -->
+        <div class="card mt-3">
+            <div class="card-header d-flex align-items-center">
+                <span class="badge bg-primary rounded-circle me-2" style="width:28px;height:28px;line-height:28px;padding:0;font-size:14px">3</span>
+                <h5 class="mb-0">{% trans "Configurer la connexion" %}</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted f-s-14">{% trans "Copiez cette configuration dans votre client MCP." %}</p>
+
+                <!-- Claude Desktop config -->
+                <h6 class="mb-2"><i class="ti ti-message-chatbot me-1"></i> Claude Desktop</h6>
+                <p class="text-muted f-s-13">
+                    {% trans "Ouvrez" %} <code>Settings → Developer → Edit Config</code> {% trans "et ajoutez :" %}
+                </p>
+                <div class="position-relative">
+                    <pre class="bg-dark text-light p-3 rounded f-s-13" id="config-claude-desktop" style="white-space:pre-wrap">{
+  "mcpServers": {
+    "altiusone": {
+      "url": "{{ mcp_sse_url }}",
+      "headers": {
+        "Authorization": "Token {% if token %}{{ token.key }}{% else %}VOTRE_TOKEN_ICI{% endif %}"
+      }
+    }
+  }
+}</pre>
+                    <button class="btn btn-sm btn-outline-light position-absolute" style="top:8px;right:8px" onclick="copyConfig('config-claude-desktop')">
+                        <i class="ti ti-copy"></i>
+                    </button>
+                </div>
+
+                <!-- Claude Code config -->
+                <h6 class="mt-4 mb-2"><i class="ti ti-terminal me-1"></i> Claude Code</h6>
+                <p class="text-muted f-s-13">
+                    {% trans "Exécutez cette commande dans votre terminal :" %}
+                </p>
+                <div class="position-relative">
+                    <pre class="bg-dark text-light p-3 rounded f-s-13" id="config-claude-code" style="white-space:pre-wrap">claude mcp add altiusone \
+  --transport sse \
+  --url "{{ mcp_sse_url }}" \
+  --header "Authorization: Token {% if token %}{{ token.key }}{% else %}VOTRE_TOKEN_ICI{% endif %}"</pre>
+                    <button class="btn btn-sm btn-outline-light position-absolute" style="top:8px;right:8px" onclick="copyConfig('config-claude-code')">
+                        <i class="ti ti-copy"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 4: Test -->
+        <div class="card mt-3">
+            <div class="card-header d-flex align-items-center">
+                <span class="badge bg-primary rounded-circle me-2" style="width:28px;height:28px;line-height:28px;padding:0;font-size:14px">4</span>
+                <h5 class="mb-0">{% trans "Tester la connexion" %}</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted f-s-14">{% trans "Une fois configuré, essayez ces exemples dans votre assistant IA :" %}</p>
+                <div class="list-group list-group-flush">
+                    <div class="list-group-item px-0 border-0">
+                        <i class="ti ti-message-dots text-primary me-2"></i>
+                        <code class="f-s-13">"Montre-moi les factures impayées de plus de 30 jours"</code>
+                    </div>
+                    <div class="list-group-item px-0 border-0">
+                        <i class="ti ti-message-dots text-primary me-2"></i>
+                        <code class="f-s-13">"Quel est le chiffre d'affaires de ce mois ?"</code>
+                    </div>
+                    <div class="list-group-item px-0 border-0">
+                        <i class="ti ti-message-dots text-primary me-2"></i>
+                        <code class="f-s-13">"Liste les tâches en retard"</code>
+                    </div>
+                    <div class="list-group-item px-0 border-0">
+                        <i class="ti ti-message-dots text-primary me-2"></i>
+                        <code class="f-s-13">"Crée une tâche pour Paul : préparer le bilan annuel"</code>
+                    </div>
+                    <div class="list-group-item px-0 border-0">
+                        <i class="ti ti-message-dots text-primary me-2"></i>
+                        <code class="f-s-13">"Log 2 heures sur le mandat M-2025-001"</code>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Available tools -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="ti ti-tools me-2"></i>{% trans "Outils disponibles" %} <span class="badge bg-light-primary ms-1">26</span></h6>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush f-s-13">
+                    <div class="list-group-item">
+                        <div class="f-w-600 text-primary mb-1"><i class="ti ti-users me-1"></i> {% trans "Clients & Mandats" %}</div>
+                        <span class="text-muted">search_clients, get_client, search_mandats, get_mandat</span>
+                    </div>
+                    <div class="list-group-item">
+                        <div class="f-w-600 text-primary mb-1"><i class="ti ti-file-invoice me-1"></i> {% trans "Facturation" %}</div>
+                        <span class="text-muted">search_factures, get_facture, factures_impayees, chiffre_affaires</span>
+                    </div>
+                    <div class="list-group-item">
+                        <div class="f-w-600 text-primary mb-1"><i class="ti ti-clock me-1"></i> {% trans "Temps" %}</div>
+                        <span class="text-muted">search_time_entries, create_time_entry</span>
+                    </div>
+                    <div class="list-group-item">
+                        <div class="f-w-600 text-primary mb-1"><i class="ti ti-calculator me-1"></i> {% trans "Comptabilité" %}</div>
+                        <span class="text-muted">search_comptes, search_ecritures, balance_generale</span>
+                    </div>
+                    <div class="list-group-item">
+                        <div class="f-w-600 text-primary mb-1"><i class="ti ti-wallet me-1"></i> {% trans "Salaires" %}</div>
+                        <span class="text-muted">list_employes, get_employe, list_fiches_salaire</span>
+                    </div>
+                    <div class="list-group-item">
+                        <div class="f-w-600 text-primary mb-1"><i class="ti ti-folders me-1"></i> {% trans "Documents & Projets" %}</div>
+                        <span class="text-muted">search_documents, list_positions, list_operations</span>
+                    </div>
+                    <div class="list-group-item">
+                        <div class="f-w-600 text-primary mb-1"><i class="ti ti-checkbox me-1"></i> {% trans "Tâches" %}</div>
+                        <span class="text-muted">list_taches, create_tache</span>
+                    </div>
+                    <div class="list-group-item">
+                        <div class="f-w-600 text-primary mb-1"><i class="ti ti-chart-bar me-1"></i> {% trans "Analytics" %}</div>
+                        <span class="text-muted">dashboard</span>
+                    </div>
+                    <div class="list-group-item">
+                        <div class="f-w-600 text-primary mb-1"><i class="ti ti-topology-star me-1"></i> {% trans "Graphe" %}</div>
+                        <span class="text-muted">graph_search, graph_explore, graph_semantic_search, graph_stats</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Security info -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="ti ti-shield-lock me-2"></i>{% trans "Sécurité" %}</h6>
+            </div>
+            <div class="card-body f-s-13">
+                <ul class="mb-0 ps-3">
+                    <li class="mb-2">{% trans "Le token est personnel — ne le partagez pas" %}</li>
+                    <li class="mb-2">{% trans "Chaque requête est authentifiée et tracée" %}</li>
+                    <li class="mb-2">{% trans "L'IA accède aux mêmes données que votre compte" %}</li>
+                    <li>{% trans "Vous pouvez révoquer le token à tout moment" %}</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function copyToken() {
+    var el = document.getElementById('token-value');
+    navigator.clipboard.writeText(el.value).then(function() {
+        Swal.fire({icon:'success', title:'{% filter escapejs %}{% trans "Copié !" %}{% endfilter %}', timer:1200, showConfirmButton:false});
+    });
+}
+
+function copyConfig(id) {
+    var el = document.getElementById(id);
+    navigator.clipboard.writeText(el.textContent.trim()).then(function() {
+        Swal.fire({icon:'success', title:'{% filter escapejs %}{% trans "Configuration copiée !" %}{% endfilter %}', timer:1200, showConfirmButton:false});
+    });
+}
+
+function generateToken() {
+    fetch('{% url "core:mcp-generate-token" %}', {
+        method: 'POST',
+        headers: {'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json'},
+    })
+    .then(function(r) { return r.json(); })
+    .then(function() { location.reload(); });
+}
+
+function regenerateToken() {
+    Swal.fire({
+        title: '{% filter escapejs %}{% trans "Régénérer le token ?" %}{% endfilter %}',
+        text: '{% filter escapejs %}{% trans "L\'ancien token sera invalidé. Vous devrez mettre à jour la configuration de votre client IA." %}{% endfilter %}',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: '{% filter escapejs %}{% trans "Régénérer" %}{% endfilter %}',
+        cancelButtonText: '{% filter escapejs %}{% trans "Annuler" %}{% endfilter %}',
+    }).then(function(result) {
+        if (result.isConfirmed) generateToken();
+    });
+}
+
+function revokeToken() {
+    Swal.fire({
+        title: '{% filter escapejs %}{% trans "Révoquer le token ?" %}{% endfilter %}',
+        text: '{% filter escapejs %}{% trans "Votre assistant IA ne pourra plus accéder à AltiusOne." %}{% endfilter %}',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#c0392b',
+        confirmButtonText: '{% filter escapejs %}{% trans "Révoquer" %}{% endfilter %}',
+        cancelButtonText: '{% filter escapejs %}{% trans "Annuler" %}{% endfilter %}',
+    }).then(function(result) {
+        if (result.isConfirmed) {
+            fetch('{% url "core:mcp-revoke-token" %}', {
+                method: 'POST',
+                headers: {'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json'},
+            })
+            .then(function() { location.reload(); });
+        }
+    });
+}
+</script>
+{% endblock %}

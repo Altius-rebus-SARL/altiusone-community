@@ -216,6 +216,46 @@ urlpatterns = [
     path("admin/collaborateurs/<uuid:pk>/modifier/", views.CollaborateurFiduciaireUpdateView.as_view(), name="admin-collaborateur-update"),
     path("admin/collaborateurs/<uuid:pk>/toggle/", views.collaborateur_fiduciaire_toggle, name="admin-collaborateur-toggle"),
     # ============================================================================
+    # INTÉGRATION IA (MCP)
+    # ============================================================================
+    path("configuration/mcp/", views.mcp_setup_view, name="mcp-setup"),
+    path("configuration/mcp/generate-token/", views.mcp_generate_token, name="mcp-generate-token"),
+    path("configuration/mcp/revoke-token/", views.mcp_revoke_token, name="mcp-revoke-token"),
+    # ============================================================================
+    # CONFIGURATION METIER (Paramètres configurables)
+    # ============================================================================
+    path("configuration/", views.configuration_index, name="configuration"),
+    path(
+        "configuration/<str:module>/<str:categorie>/",
+        views.configuration_list_partial,
+        name="configuration-list",
+    ),
+    path(
+        "configuration/<str:module>/<str:categorie>/nouveau/",
+        views.configuration_create,
+        name="configuration-create",
+    ),
+    path(
+        "configuration/<str:module>/<str:categorie>/reorder/",
+        views.configuration_reorder,
+        name="configuration-reorder",
+    ),
+    path(
+        "configuration/param/<uuid:pk>/modifier/",
+        views.configuration_update,
+        name="configuration-update",
+    ),
+    path(
+        "configuration/param/<uuid:pk>/supprimer/",
+        views.configuration_delete,
+        name="configuration-delete",
+    ),
+    path(
+        "configuration/param/<uuid:pk>/toggle/",
+        views.configuration_toggle,
+        name="configuration-toggle",
+    ),
+    # ============================================================================
     # INVITATIONS CLIENT (accessible par les clients responsables)
     # ============================================================================
     path("mes-invitations/", views.MesInvitationsView.as_view(), name="mes-invitations"),
