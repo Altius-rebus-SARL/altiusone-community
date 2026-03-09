@@ -15326,11 +15326,11 @@ msgstr ""
 "erfassen"
 
 #| msgid "Sélectionner un mandat"
-msgid "Sélectionnez un mandat d\\'abord"
+msgid "Sélectionnez un mandat d'abord"
 msgstr "Wählen Sie zuerst ein Mandat"
 
 #| msgid "Sélectionner un mandat"
-msgid "Sélectionnez une position d\\'abord"
+msgid "Sélectionnez une position d'abord"
 msgstr "Wählen Sie zuerst eine Position"
 
 #| msgid "Poser une question"
@@ -15362,7 +15362,7 @@ msgstr "Verbraucht"
 msgid "Localisation..."
 msgstr "Standort..."
 
-msgid "Impossible d\\'obtenir votre position"
+msgid "Impossible d'obtenir votre position"
 msgstr "Position konnte nicht ermittelt werden"
 
 #| msgid "Modifier plan"

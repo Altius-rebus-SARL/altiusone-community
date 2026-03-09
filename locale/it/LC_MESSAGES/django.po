@@ -15296,11 +15296,11 @@ msgstr ""
 "Fate clic sulla mappa o utilizzate il GPS per registrare la vostra posizione"
 
 #| msgid "Sélectionner un mandat"
-msgid "Sélectionnez un mandat d\\'abord"
+msgid "Sélectionnez un mandat d'abord"
 msgstr "Selezionare prima un mandato"
 
 #| msgid "Sélectionner un mandat"
-msgid "Sélectionnez une position d\\'abord"
+msgid "Sélectionnez une position d'abord"
 msgstr "Selezionare prima una posizione"
 
 #| msgid "Poser une question"
@@ -15332,7 +15332,7 @@ msgstr "Consumato"
 msgid "Localisation..."
 msgstr "Localizzazione..."
 
-msgid "Impossible d\\'obtenir votre position"
+msgid "Impossible d'obtenir votre position"
 msgstr "Impossibile ottenere la vostra posizione"
 
 #| msgid "Modifier plan"

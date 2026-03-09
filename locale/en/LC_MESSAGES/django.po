@@ -15217,11 +15217,11 @@ msgid ""
 msgstr "Click on the map or use GPS to record your position"
 
 #| msgid "Sélectionner un mandat"
-msgid "Sélectionnez un mandat d\\'abord"
+msgid "Sélectionnez un mandat d'abord"
 msgstr "Select a mandate first"
 
 #| msgid "Sélectionner un mandat"
-msgid "Sélectionnez une position d\\'abord"
+msgid "Sélectionnez une position d'abord"
 msgstr "Select a position first"
 
 #| msgid "Poser une question"
@@ -15253,7 +15253,7 @@ msgstr "Consumed"
 msgid "Localisation..."
 msgstr "Location..."
 
-msgid "Impossible d\\'obtenir votre position"
+msgid "Impossible d'obtenir votre position"
 msgstr "Unable to get your position"
 
 #| msgid "Modifier plan"

@@ -100,7 +100,8 @@ class TimeTrackingForm(CoordonneesMixin, forms.ModelForm):
             "position": forms.Select(attrs={"class": "form-control select2"}),
             "operation": forms.Select(attrs={"class": "form-control select2"}),
             "date_travail": forms.DateInput(
-                attrs={"class": "form-control", "type": "date"}
+                attrs={"class": "form-control", "type": "date"},
+                format="%Y-%m-%d",
             ),
             "duree_minutes": forms.NumberInput(attrs={"class": "form-control"}),
             "description": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
