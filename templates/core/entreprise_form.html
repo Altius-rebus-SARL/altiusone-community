@@ -4,7 +4,7 @@
 {% load i18n %}
 
 {% block title %}
-    {% if form.instance.pk %}{% trans "Modifier l'entreprise" %}{% else %}{% trans "Nouvelle entreprise" %}{% endif %}
+    {% if object %}{% trans "Modifier l'entreprise" %}{% else %}{% trans "Nouvelle entreprise" %}{% endif %}
 {% endblock %}
 
 {% block extra_css %}
@@ -71,7 +71,7 @@
 <div class="row m-1">
     <div class="col-12">
         <h4 class="main-title">
-            {% if form.instance.pk %}{% trans "Modifier l'entreprise" %}{% else %}{% trans "Nouvelle entreprise" %}{% endif %}
+            {% if object %}{% trans "Modifier l'entreprise" %}{% else %}{% trans "Nouvelle entreprise" %}{% endif %}
         </h4>
         <ul class="app-line-breadcrumbs mb-3">
             <li class="">
@@ -86,7 +86,7 @@
             </li>
             <li class="active">
                 <a class="f-s-14 f-w-500" href="#">
-                    {% if form.instance.pk %}{{ form.instance.raison_sociale }}{% else %}{% trans "Nouvelle" %}{% endif %}
+                    {% if object %}{{ form.instance.raison_sociale }}{% else %}{% trans "Nouvelle" %}{% endif %}
                 </a>
             </li>
         </ul>
@@ -105,7 +105,7 @@
             </div>
             {% endif %}
 
-            {% if not form.instance.pk %}
+            {% if not object %}
             <div class="alert alert-info mb-4">
                 <i class="ti ti-info-circle me-2"></i>
                 {% trans "Commencez a taper le nom de l'entreprise pour rechercher dans le registre suisse (Zefix)" %}
@@ -246,7 +246,7 @@
                     <div class="row">
                         <div class="col-md-8 mb-3">
                             <label for="{{ form.logo.id_for_label }}" class="form-label">{% trans "Logo" %}</label>
-                            {% if form.instance.pk and form.instance.logo %}
+                            {% if object and form.instance.logo %}
                             <div class="mb-2">
                                 <img src="{{ form.instance.logo.url }}" alt="Logo actuel" style="max-height: 60px;" class="border rounded p-1">
                             </div>
@@ -274,7 +274,7 @@
                     <i class="ti ti-arrow-left me-2"></i>{% trans "Retour" %}
                 </a>
                 <button type="submit" class="btn btn-primary">
-                    <i class="ti ti-check me-2"></i>{% if form.instance.pk %}{% trans "Enregistrer" %}{% else %}{% trans "Creer" %}{% endif %}
+                    <i class="ti ti-check me-2"></i>{% if object %}{% trans "Enregistrer" %}{% else %}{% trans "Creer" %}{% endif %}
                 </button>
             </div>
         </form>

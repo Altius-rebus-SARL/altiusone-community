@@ -255,6 +255,11 @@ urlpatterns = [
         views.configuration_toggle,
         name="configuration-toggle",
     ),
+    path(
+        "api/quick-create/<str:model_type>/",
+        views.quick_create_reference,
+        name="quick-create-reference",
+    ),
     # ============================================================================
     # INVITATIONS CLIENT (accessible par les clients responsables)
     # ============================================================================

@@ -270,3 +270,58 @@ def configuration_reorder(request, module, categorie):
     except (json.JSONDecodeError, TypeError):
         return HttpResponse(status=400)
     return HttpResponse(status=204)
+
+
+# ============================================================================
+# Quick-create pour les modèles de référence (modal AJAX)
+# ============================================================================
+
+QUICK_CREATE_MODELS = {
+    'type_mandat': 'TypeMandat',
+    'periodicite': 'Periodicite',
+    'type_facturation': 'TypeFacturation',
+}
+
+
+@permission_required_business('core.change_parametremetier')
+@require_http_methods(["POST"])
+def quick_create_reference(request, model_type):
+    """Crée rapidement un item de référence (TypeMandat, Periodicite, TypeFacturation)."""
+    import json
+    from core.models import TypeMandat, Periodicite, TypeFacturation
+
+    model_map = {
+        'type_mandat': TypeMandat,
+        'periodicite': Periodicite,
+        'type_facturation': TypeFacturation,
+    }
+
+    Model = model_map.get(model_type)
+    if not Model:
+        return JsonResponse({'error': 'Type invalide'}, status=400)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'JSON invalide'}, status=400)
+
+    code = (data.get('code') or '').strip().upper()
+    libelle = (data.get('libelle') or '').strip()
+
+    if not code or not libelle:
+        return JsonResponse({'error': 'Code et libellé sont requis'}, status=422)
+
+    if Model.objects.filter(code=code).exists():
+        return JsonResponse({'error': 'Ce code existe déjà'}, status=422)
+
+    obj = Model.objects.create(
+        code=code,
+        libelle=libelle,
+        description=data.get('description', ''),
+    )
+
+    return JsonResponse({
+        'id': str(obj.pk),
+        'code': obj.code,
+        'libelle': obj.libelle,
+    })

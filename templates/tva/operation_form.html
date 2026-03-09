@@ -4,13 +4,13 @@
 {% load i18n %}
 {% load widget_tweaks %}
 
-{% block title %}{% if form.instance.pk %}{% trans "Modifier l'opération TVA" %}{% else %}{% trans "Nouvelle opération TVA" %}{% endif %}{% endblock %}
+{% block title %}{% if object %}{% trans "Modifier l'opération TVA" %}{% else %}{% trans "Nouvelle opération TVA" %}{% endif %}{% endblock %}
 
 {% block content %}
 <!-- Breadcrumb -->
 <div class="row m-1">
     <div class="col-12">
-        <h4 class="main-title">{% if form.instance.pk %}{% trans "Modifier l'opération TVA" %}{% else %}{% trans "Nouvelle opération TVA" %}{% endif %}</h4>
+        <h4 class="main-title">{% if object %}{% trans "Modifier l'opération TVA" %}{% else %}{% trans "Nouvelle opération TVA" %}{% endif %}</h4>
         <ul class="app-line-breadcrumbs mb-3">
             <li>
                 <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
@@ -23,7 +23,7 @@
                 </a>
             </li>
             <li class="active">
-                <a class="f-s-14 f-w-500" href="#">{% if form.instance.pk %}{% trans "Modifier" %}{% else %}{% trans "Nouvelle" %}{% endif %}</a>
+                <a class="f-s-14 f-w-500" href="#">{% if object %}{% trans "Modifier" %}{% else %}{% trans "Nouvelle" %}{% endif %}</a>
             </li>
         </ul>
     </div>
@@ -160,13 +160,13 @@
                             <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
                         </a>
                         <div>
-                            {% if form.instance.pk %}
+                            {% if object %}
                             <button type="button" class="btn btn-danger me-2" data-bs-toggle="modal" data-bs-target="#modalSupprimerOp">
                                 <i class="ph ph-trash me-2"></i>{% trans "Supprimer" %}
                             </button>
                             {% endif %}
                             <button type="submit" class="btn btn-primary">
-                                <i class="ph ph-check me-2"></i>{% if form.instance.pk %}{% trans "Enregistrer" %}{% else %}{% trans "Créer" %}{% endif %}
+                                <i class="ph ph-check me-2"></i>{% if object %}{% trans "Enregistrer" %}{% else %}{% trans "Créer" %}{% endif %}
                             </button>
                         </div>
                     </div>
@@ -176,7 +176,7 @@
     </div>
 </div>
 
-{% if form.instance.pk %}
+{% if object %}
 <!-- Modal Supprimer opération -->
 <div class="modal fade" id="modalSupprimerOp" tabindex="-1">
     <div class="modal-dialog">
@@ -190,7 +190,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Annuler" %}</button>
-                <form method="post" action="{% url 'tva:operation-tva-delete' form.instance.pk %}">
+                <form method="post" action="{% url 'tva:operation-tva-delete' object.pk %}">
                     {% csrf_token %}
                     <button type="submit" class="btn btn-danger">{% trans "Supprimer" %}</button>
                 </form>

@@ -4,14 +4,14 @@
 {% load i18n %}
 
 {% block title %}
-    {% if form.instance.pk %}{% trans "Modifier mandat" %}{% else %}{% trans "Nouveau mandat" %}{% endif %}
+    {% if object %}{% trans "Modifier mandat" %}{% else %}{% trans "Nouveau mandat" %}{% endif %}
 {% endblock %}
 
 {% block content %}
 <div class="row">
     <div class="col-12">
         <h4 class="text-primary mb-4">
-            {% if form.instance.pk %}
+            {% if object %}
                 <i class="ti ti-edit me-2"></i>{% trans "Modifier mandat" %}
                 <span class="text-muted fs-6 ms-2">{{ form.instance.numero }}</span>
             {% else %}
@@ -35,7 +35,7 @@
                         <i class="ti ti-info-circle me-2"></i>{% trans "Informations générales" %}
                     </h6>
                     <div class="row">
-                        {% if form.instance.pk %}
+                        {% if object %}
                         <div class="col-md-4">
                             <div class="mb-3">
                                 <label class="form-label">{% trans "Numéro" %}</label>
@@ -48,7 +48,12 @@
                                 <label for="{{ form.client.id_for_label }}" class="form-label">
                                     {{ form.client.label }} <span class="text-danger">*</span>
                                 </label>
-                                {{ form.client }}
+                                <div class="d-flex gap-2">
+                                    <div class="flex-grow-1">{{ form.client }}</div>
+                                    <a href="{% url 'core:client-create' %}" target="_blank" class="btn btn-outline-primary flex-shrink-0" title="{% trans 'Nouveau client' %}">
+                                        <i class="ti ti-plus"></i>
+                                    </a>
+                                </div>
                                 {% if form.client.errors %}
                                 <div class="text-danger f-s-12 mt-1">{{ form.client.errors }}</div>
                                 {% endif %}
@@ -59,7 +64,14 @@
                                 <label for="{{ form.type_mandat_ref.id_for_label }}" class="form-label">
                                     {{ form.type_mandat_ref.label }} <span class="text-danger">*</span>
                                 </label>
-                                {{ form.type_mandat_ref }}
+                                <div class="input-group">
+                                    {{ form.type_mandat_ref }}
+                                    <button type="button" class="btn btn-outline-primary btn-quick-add"
+                                            data-model="type_mandat" data-select-id="{{ form.type_mandat_ref.id_for_label }}"
+                                            data-label="{% trans 'Type de mandat' %}" title="{% trans 'Ajouter' %}">
+                                        <i class="ti ti-plus"></i>
+                                    </button>
+                                </div>
                                 {% if form.type_mandat_ref.errors %}
                                 <div class="text-danger f-s-12 mt-1">{{ form.type_mandat_ref.errors }}</div>
                                 {% endif %}
@@ -83,7 +95,12 @@
                                 <label for="{{ form.regime_fiscal.id_for_label }}" class="form-label">
                                     {{ form.regime_fiscal.label }} <span class="text-danger">*</span>
                                 </label>
-                                {{ form.regime_fiscal }}
+                                <div class="input-group">
+                                    {{ form.regime_fiscal }}
+                                    <a href="{% url 'core:configuration' %}?module=tva" class="btn btn-outline-primary" target="_blank" title="{% trans 'Gérer' %}">
+                                        <i class="ti ti-plus"></i>
+                                    </a>
+                                </div>
                                 {% if form.regime_fiscal.errors %}
                                 <div class="text-danger f-s-12 mt-1">{{ form.regime_fiscal.errors }}</div>
                                 {% endif %}
@@ -94,7 +111,12 @@
                                 <label for="{{ form.devise.id_for_label }}" class="form-label">
                                     {{ form.devise.label }} <span class="text-danger">*</span>
                                 </label>
-                                {{ form.devise }}
+                                <div class="input-group">
+                                    {{ form.devise }}
+                                    <a href="{% url 'core:devise-list' %}" class="btn btn-outline-primary" target="_blank" title="{% trans 'Gérer' %}">
+                                        <i class="ti ti-plus"></i>
+                                    </a>
+                                </div>
                                 {% if form.devise.errors %}
                                 <div class="text-danger f-s-12 mt-1">{{ form.devise.errors }}</div>
                                 {% endif %}
@@ -138,7 +160,14 @@
                                 <label for="{{ form.periodicite_ref.id_for_label }}" class="form-label">
                                     {{ form.periodicite_ref.label }}
                                 </label>
-                                {{ form.periodicite_ref }}
+                                <div class="input-group">
+                                    {{ form.periodicite_ref }}
+                                    <button type="button" class="btn btn-outline-primary btn-quick-add"
+                                            data-model="periodicite" data-select-id="{{ form.periodicite_ref.id_for_label }}"
+                                            data-label="{% trans 'Périodicité' %}" title="{% trans 'Ajouter' %}">
+                                        <i class="ti ti-plus"></i>
+                                    </button>
+                                </div>
                                 {% if form.periodicite_ref.errors %}
                                 <div class="text-danger f-s-12 mt-1">{{ form.periodicite_ref.errors }}</div>
                                 {% endif %}
@@ -160,7 +189,14 @@
                                 <label for="{{ form.type_facturation_ref.id_for_label }}" class="form-label">
                                     {{ form.type_facturation_ref.label }}
                                 </label>
-                                {{ form.type_facturation_ref }}
+                                <div class="input-group">
+                                    {{ form.type_facturation_ref }}
+                                    <button type="button" class="btn btn-outline-primary btn-quick-add"
+                                            data-model="type_facturation" data-select-id="{{ form.type_facturation_ref.id_for_label }}"
+                                            data-label="{% trans 'Type de facturation' %}" title="{% trans 'Ajouter' %}">
+                                        <i class="ti ti-plus"></i>
+                                    </button>
+                                </div>
                                 {% if form.type_facturation_ref.errors %}
                                 <div class="text-danger f-s-12 mt-1">{{ form.type_facturation_ref.errors }}</div>
                                 {% endif %}
@@ -188,7 +224,7 @@
                                 {% endif %}
                             </div>
                         </div>
-                        {% if form.instance.pk %}
+                        {% if object %}
                         <div class="col-md-4">
                             <div class="mb-3">
                                 <label class="form-label">{% trans "Budget réel" %}</label>
@@ -341,7 +377,7 @@
 
             {# ── Actions ── #}
             <div class="d-flex justify-content-end gap-2 mt-4">
-                <a href="{% if form.instance.pk %}{% url 'core:mandat-detail' form.instance.pk %}{% else %}{% url 'core:mandat-list' %}{% endif %}"
+                <a href="{% if object %}{% url 'core:mandat-detail' object.pk %}{% else %}{% url 'core:mandat-list' %}{% endif %}"
                    class="btn btn-secondary">
                     <i class="ti ti-x me-2"></i>{% trans "Annuler" %}
                 </a>
@@ -352,4 +388,116 @@
         </form>
     </div>
 </div>
+
+{# ── Modal ajout rapide ── #}
+<div class="modal fade" id="quickAddModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="ti ti-plus-circle me-2"></i>
+                    <span id="quickAddTitle"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="quickAddError" class="alert alert-danger d-none"></div>
+                <div class="mb-3">
+                    <label for="quickAddCode" class="form-label">{% trans "Code" %} <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="quickAddCode" maxlength="30" placeholder="Ex: COMPTA">
+                </div>
+                <div class="mb-3">
+                    <label for="quickAddLibelle" class="form-label">{% trans "Libellé" %} <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="quickAddLibelle" maxlength="100" placeholder="{% filter escapejs %}{% trans 'Nom affiché' %}{% endfilter %}">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Annuler" %}</button>
+                <button type="button" class="btn btn-primary" id="quickAddSubmit">
+                    <i class="ti ti-check me-2"></i>{% trans "Créer" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('quickAddModal');
+    if (!modal) return;
+
+    const bsModal = new bootstrap.Modal(modal);
+    let currentModelType = '';
+    let currentSelectId = '';
+
+    document.querySelectorAll('.btn-quick-add').forEach(btn => {
+        btn.addEventListener('click', function() {
+            currentModelType = this.dataset.model;
+            currentSelectId = this.dataset.selectId;
+            document.getElementById('quickAddTitle').textContent = this.dataset.label;
+            document.getElementById('quickAddCode').value = '';
+            document.getElementById('quickAddLibelle').value = '';
+            document.getElementById('quickAddError').classList.add('d-none');
+            bsModal.show();
+            setTimeout(() => document.getElementById('quickAddCode').focus(), 300);
+        });
+    });
+
+    document.getElementById('quickAddSubmit').addEventListener('click', function() {
+        const code = document.getElementById('quickAddCode').value.trim();
+        const libelle = document.getElementById('quickAddLibelle').value.trim();
+        const errorDiv = document.getElementById('quickAddError');
+
+        if (!code || !libelle) {
+            errorDiv.textContent = "{% filter escapejs %}{% trans 'Code et libellé sont requis' %}{% endfilter %}";
+            errorDiv.classList.remove('d-none');
+            return;
+        }
+
+        this.disabled = true;
+        fetch(`/api/quick-create/${currentModelType}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({ code, libelle }),
+        })
+        .then(r => r.json().then(data => ({ ok: r.ok, data })))
+        .then(({ ok, data }) => {
+            this.disabled = false;
+            if (!ok) {
+                errorDiv.textContent = data.error || "{% filter escapejs %}{% trans 'Erreur' %}{% endfilter %}";
+                errorDiv.classList.remove('d-none');
+                return;
+            }
+            const select = document.getElementById(currentSelectId);
+            if (select) {
+                const option = new Option(data.libelle, data.id, true, true);
+                select.appendChild(option);
+                select.value = data.id;
+                if (typeof $ !== 'undefined' && $(select).trigger) {
+                    $(select).trigger('change');
+                }
+            }
+            bsModal.hide();
+        })
+        .catch(() => {
+            this.disabled = false;
+            errorDiv.textContent = "{% filter escapejs %}{% trans 'Erreur de connexion' %}{% endfilter %}";
+            errorDiv.classList.remove('d-none');
+        });
+    });
+
+    modal.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('quickAddSubmit').click();
+        }
+    });
+});
+</script>
 {% endblock %}
