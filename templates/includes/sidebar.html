@@ -549,6 +549,13 @@
               >{% trans "Configuration métier" %}</a
             >
           </li>
+          <li
+            data-active="{% if ns == 'core' and is_active == 'mcp-setup' %}true{% endif %}"
+          >
+            <a href="{% url 'core:mcp-setup' %}"
+              >{% trans "Intégration IA (MCP)" %}</a
+            >
+          </li>
         </ul>
       </li>
 

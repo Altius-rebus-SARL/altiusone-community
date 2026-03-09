@@ -153,6 +153,12 @@ from .config_views import (
     configuration_reorder,
 )
 
+from .mcp_views import (
+    mcp_setup_view,
+    mcp_generate_token,
+    mcp_revoke_token,
+)
+
 __all__ = [
     # Error handlers
     'error_400',
