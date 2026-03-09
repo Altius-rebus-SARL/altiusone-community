@@ -490,7 +490,10 @@ class InvitationClientCreateView(LoginRequiredMixin, FormView):
             )
             messages.success(
                 self.request,
-                _("Invitation envoyée à %(email)s") % {'email': invitation.email}
+                _("Invitation envoyée à %(email)s — Code: %(code)s") % {
+                    'email': invitation.email,
+                    'code': invitation.code_court
+                }
             )
         except (PermissionError, ValueError) as e:
             messages.error(self.request, str(e))
@@ -849,3 +852,155 @@ def collaborateur_fiduciaire_toggle(request, pk):
     messages.success(request, _("Affectation %(status)s") % {'status': status})
 
     return redirect('core:admin-collaborateur-list')
+
+
+# =============================================================================
+# VUES CLIENT — INVITATIONS (accessible par les clients responsables)
+# =============================================================================
+
+class MesInvitationsView(LoginRequiredMixin, ListView):
+    """
+    Vue client pour gérer ses invitations.
+    Accessible par les clients responsables d'un mandat.
+    """
+
+    template_name = "core/client/mes_invitations.html"
+    context_object_name = "invitations"
+    paginate_by = 20
+
+    def get_queryset(self):
+        user = self.request.user
+        # Client: invitations qu'il a envoyées
+        if user.is_client_user():
+            return Invitation.objects.filter(
+                invite_par=user
+            ).select_related('mandat', 'mandat__client', 'utilisateur_cree').order_by('-created_at')
+        # Staff/admin: redirigé vers la vue admin
+        return Invitation.objects.none()
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+
+        # Mandats où le client est responsable (peut inviter)
+        context['mandats_responsable'] = AccesMandat.objects.filter(
+            utilisateur=user,
+            est_responsable=True,
+            is_active=True
+        ).select_related('mandat', 'mandat__client')
+
+        return context
+
+
+class ClientInvitationCreateView(LoginRequiredMixin, FormView):
+    """
+    Vue client pour inviter un collaborateur sur un de ses mandats.
+    Le mandat est pré-sélectionné via l'URL.
+    """
+
+    template_name = "core/client/invitation_create.html"
+    form_class = InvitationClientForm
+
+    def dispatch(self, request, *args, **kwargs):
+        self.mandat = get_object_or_404(Mandat, pk=kwargs['mandat_pk'])
+
+        # Vérifier que l'utilisateur peut inviter pour ce mandat
+        if not request.user.peut_inviter_pour_mandat(self.mandat):
+            messages.error(request, _("Vous n'avez pas le droit d'inviter pour ce mandat."))
+            return redirect('core:mes-invitations')
+
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['current_user'] = self.request.user
+        return kwargs
+
+    def get_initial(self):
+        return {'mandat': self.mandat}
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['mandat'] = self.mandat
+
+        # Quota restant
+        acces = self.request.user.acces_mandats.filter(
+            mandat=self.mandat,
+            est_responsable=True,
+            is_active=True
+        ).first()
+        context['acces'] = acces
+
+        return context
+
+    def get_success_url(self):
+        return reverse('core:mes-invitations')
+
+    def form_valid(self, form):
+        try:
+            invitation = InvitationService.creer_invitation_client(
+                email=form.cleaned_data['email'],
+                invite_par=self.request.user,
+                mandat=self.mandat,
+                permissions=list(form.cleaned_data.get('permissions', [])),
+                est_responsable=form.cleaned_data.get('est_responsable', False),
+                limite_invitations=form.cleaned_data.get('limite_invitations', 5),
+                message=form.cleaned_data.get('message', ''),
+                forcer_changement_mdp=form.cleaned_data.get('forcer_changement_mdp', True)
+            )
+            messages.success(
+                self.request,
+                _("Invitation envoyée à %(email)s. Code: %(code)s") % {
+                    'email': invitation.email,
+                    'code': invitation.code_court
+                }
+            )
+        except (PermissionError, ValueError) as e:
+            messages.error(self.request, str(e))
+            return self.form_invalid(form)
+
+        return super().form_valid(form)
+
+
+@login_required
+@require_http_methods(["POST"])
+def client_invitation_cancel(request, pk):
+    """Annuler une invitation (côté client)"""
+    invitation = get_object_or_404(Invitation, pk=pk, invite_par=request.user)
+
+    try:
+        InvitationService.annuler_invitation(invitation, request.user)
+        messages.success(request, _("Invitation annulée"))
+    except (PermissionError, ValueError) as e:
+        messages.error(request, str(e))
+
+    return redirect('core:mes-invitations')
+
+
+class AcceptInvitationByCodeView(FormView):
+    """Vue publique pour accepter une invitation via code court"""
+
+    template_name = "core/client/accept_by_code.html"
+
+    def get(self, request, *args, **kwargs):
+        from core.forms import InvitationCodeForm
+        return self.render_to_response(self.get_context_data(
+            code_form=InvitationCodeForm()
+        ))
+
+    def post(self, request, *args, **kwargs):
+        from core.forms import InvitationCodeForm
+        code_form = InvitationCodeForm(request.POST)
+
+        if code_form.is_valid():
+            code = code_form.cleaned_data['code']
+            invitation = InvitationService.valider_token(code)
+            if invitation:
+                # Rediriger vers la vue d'acceptation standard avec le token
+                return redirect('core:invitation-accept', token=invitation.token)
+            else:
+                messages.error(request, _("Code d'invitation invalide ou expiré."))
+
+        return self.render_to_response(self.get_context_data(
+            code_form=code_form
+        ))

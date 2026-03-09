@@ -197,16 +197,20 @@ class InvitationService:
     @staticmethod
     def valider_token(token: str) -> Optional[Invitation]:
         """
-        Valide un token d'invitation.
+        Valide un token d'invitation ou un code court.
 
         Args:
-            token: Token à valider
+            token: Token long ou code court à valider
 
         Returns:
             Invitation si valide, None sinon
         """
         try:
-            invitation = Invitation.objects.get(token=token)
+            # Essayer d'abord par token, puis par code court
+            if len(token) <= 8:
+                invitation = Invitation.objects.get(code_court=token.upper())
+            else:
+                invitation = Invitation.objects.get(token=token)
 
             if not invitation.est_valide():
                 # Marquer comme expirée si nécessaire
@@ -217,6 +221,17 @@ class InvitationService:
             return invitation
 
         except Invitation.DoesNotExist:
+            # Si la recherche par code court échoue, essayer par token
+            if len(token) <= 8:
+                try:
+                    invitation = Invitation.objects.get(token=token)
+                    if not invitation.est_valide():
+                        if invitation.statut == Invitation.Statut.EN_ATTENTE:
+                            invitation.marquer_expiree()
+                        return None
+                    return invitation
+                except Invitation.DoesNotExist:
+                    pass
             return None
 
     @staticmethod
@@ -362,11 +377,12 @@ class InvitationService:
                     forcer_changement_mdp=invitation.forcer_changement_mdp
                 )
 
-        # Générer un nouveau token et prolonger l'expiration
+        # Générer un nouveau token/code et prolonger l'expiration
         expiry_days = getattr(settings, 'INVITATION_EXPIRY_DAYS', 7)
         invitation.token = Invitation.generer_token()
+        invitation.code_court = Invitation.generer_code_court()
         invitation.date_expiration = timezone.now() + timedelta(days=expiry_days)
-        invitation.save(update_fields=['token', 'date_expiration', 'updated_at'])
+        invitation.save(update_fields=['token', 'code_court', 'date_expiration', 'updated_at'])
 
         # Renvoyer l'email
         InvitationService._envoyer_email_invitation(invitation)
@@ -438,6 +454,7 @@ class InvitationService:
             'invitation': invitation,
             'invite_par': invitation.invite_par,
             'lien_acceptation': invitation.get_absolute_url(),
+            'code_court': invitation.code_court,
             'date_expiration': invitation.date_expiration,
             'message_personnalise': invitation.message_personnalise,
             'mandat': invitation.mandat,

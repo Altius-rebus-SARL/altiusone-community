@@ -38,7 +38,7 @@
 }
 .d3-tooltip .tooltip-value {
     font-weight: 700;
-    color: #3b82f6;
+    color: rgba(var(--primary), 1);
 }
 .d3-tooltip .tooltip-detail {
     color: #6b7280;
@@ -51,7 +51,7 @@ html.dark .d3-tooltip {
     color: #e5e7eb;
 }
 html.dark .d3-tooltip .tooltip-title { color: #f3f4f6; }
-html.dark .d3-tooltip .tooltip-value { color: #60a5fa; }
+html.dark .d3-tooltip .tooltip-value { color: rgba(var(--primary), 1); }
 html.dark .d3-tooltip .tooltip-detail { color: #9ca3af; }
 
 /* Loading state */
@@ -116,7 +116,7 @@ html.dark #sunburst-container .label { fill: #d1d5db; }
     margin-bottom: 0.5rem;
     min-height: 1.5em;
 }
-.sunburst-breadcrumb span { cursor: pointer; color: #3b82f6; }
+.sunburst-breadcrumb span { cursor: pointer; color: rgba(var(--primary), 1); }
 .sunburst-breadcrumb span:hover { text-decoration: underline; }
 
 /* ============================
@@ -190,7 +190,7 @@ html.dark #calendar-container .day:hover { stroke: #6b7280; }
     transition: r 0.2s;
 }
 #network-container .node circle:hover {
-    filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.4));
+    filter: drop-shadow(0 0 6px rgba(var(--primary), 0.4));
 }
 html.dark #network-container .node circle { stroke: #1e1e2e; }
 
@@ -253,7 +253,7 @@ html.dark #icicle-container .cell { stroke: #1e1e2e; }
     margin-bottom: 0.5rem;
     min-height: 1.5em;
 }
-.icicle-breadcrumb span { cursor: pointer; color: #3b82f6; }
+.icicle-breadcrumb span { cursor: pointer; color: rgba(var(--primary), 1); }
 .icicle-breadcrumb span:hover { text-decoration: underline; }
 
 /* ============================
@@ -313,15 +313,15 @@ html.dark #timeline-container .axis path { stroke: #4b5563; }
     cursor: pointer;
     transition: all 0.15s;
 }
-.d3-metric-btn:hover { border-color: #3b82f6; color: #3b82f6; }
+.d3-metric-btn:hover { border-color: rgba(var(--primary), 1); color: rgba(var(--primary), 1); }
 .d3-metric-btn.active {
-    background: #3b82f6;
-    border-color: #3b82f6;
+    background: rgba(var(--primary), 1);
+    border-color: rgba(var(--primary), 1);
     color: #fff;
 }
 html.dark .d3-metric-btn { border-color: #4b5563; color: #9ca3af; }
-html.dark .d3-metric-btn:hover { border-color: #60a5fa; color: #60a5fa; }
-html.dark .d3-metric-btn.active { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+html.dark .d3-metric-btn:hover { border-color: rgba(var(--primary), 0.7); color: rgba(var(--primary), 0.7); }
+html.dark .d3-metric-btn.active { background: rgba(var(--primary), 1); border-color: rgba(var(--primary), 1); color: #fff; }
 
 /* ============================
    Responsive

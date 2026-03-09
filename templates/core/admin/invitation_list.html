@@ -142,6 +142,7 @@
                                 <tr>
                                     <th>{% trans "Email" %}</th>
                                     <th>{% trans "Type" %}</th>
+                                    <th>{% trans "Code" %}</th>
                                     <th>{% trans "Invite par" %}</th>
                                     <th>{% trans "Mandat" %}</th>
                                     <th>{% trans "Statut" %}</th>
@@ -160,6 +161,13 @@
                                         <span class="badge bg-primary">{% trans "Staff" %}</span>
                                         {% else %}
                                         <span class="badge bg-warning">{% trans "Client" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if invitation.code_court and invitation.statut == 'EN_ATTENTE' %}
+                                        <code class="user-select-all fw-bold" style="letter-spacing: 0.1em;">{{ invitation.code_court }}</code>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
                                         {% endif %}
                                     </td>
                                     <td>{{ invitation.invite_par.get_full_name|default:invitation.invite_par.username }}</td>
@@ -200,7 +208,7 @@
                                 </tr>
                                 {% empty %}
                                 <tr>
-                                    <td colspan="7" class="text-center text-muted py-4">
+                                    <td colspan="8" class="text-center text-muted py-4">
                                         {% trans "Aucune invitation trouvee" %}
                                     </td>
                                 </tr>

@@ -147,7 +147,7 @@
                                 </li>
                                 <li>
                                     <form method="post" action="{% url 'fiscalite:taux-imposition-delete' taux_item.pk %}"
-                                          onsubmit="return confirm('{% trans "Supprimer ce taux ?" %}')">
+                                          data-confirm="{% trans 'Supprimer ce taux ?' %}">
                                         {% csrf_token %}
                                         <button type="submit" class="dropdown-item text-danger">
                                             <i class="ph ph-trash me-2"></i>{% trans "Supprimer" %}

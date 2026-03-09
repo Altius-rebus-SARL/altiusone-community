@@ -8,6 +8,7 @@
 {% block title %}{{ fiche.numero_fiche }}{% endblock %}
 
 {% block content %}
+{% include 'includes/regime_banner.html' with mandat=fiche.employe.mandat %}
 <!-- Breadcrumb -->
 <div class="row m-1">
     <div class="col-12">

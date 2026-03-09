@@ -133,3 +133,12 @@ nav .app-nav .main-nav > li.active > a[data-bs-toggle="collapse"]::after {
 nav .app-nav .main-nav .collapse.show {
     display: block;
 }
+
+/* ========================================
+   LIST-GROUP ACTIVE — Override Bootstrap blue
+   ======================================== */
+
+.list-group-item.active {
+    background-color: rgba(var(--primary), 1) !important;
+    border-color: rgba(var(--primary), 1) !important;
+}

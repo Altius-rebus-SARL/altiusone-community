@@ -216,8 +216,15 @@ urlpatterns = [
     path("admin/collaborateurs/<uuid:pk>/modifier/", views.CollaborateurFiduciaireUpdateView.as_view(), name="admin-collaborateur-update"),
     path("admin/collaborateurs/<uuid:pk>/toggle/", views.collaborateur_fiduciaire_toggle, name="admin-collaborateur-toggle"),
     # ============================================================================
+    # INVITATIONS CLIENT (accessible par les clients responsables)
+    # ============================================================================
+    path("mes-invitations/", views.MesInvitationsView.as_view(), name="mes-invitations"),
+    path("mes-invitations/<uuid:mandat_pk>/inviter/", views.ClientInvitationCreateView.as_view(), name="client-invitation-create"),
+    path("mes-invitations/<uuid:pk>/annuler/", views.client_invitation_cancel, name="client-invitation-cancel"),
+    # ============================================================================
     # ACCEPTATION INVITATION (PUBLIQUE)
     # ============================================================================
+    path("invitation/code/", views.AcceptInvitationByCodeView.as_view(), name="invitation-accept-code"),
     path("invitation/<str:token>/", views.AcceptInvitationView.as_view(), name="invitation-accept"),
     # ============================================================================
     # CHANGEMENT MOT DE PASSE OBLIGATOIRE

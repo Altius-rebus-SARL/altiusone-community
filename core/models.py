@@ -140,10 +140,10 @@ class Devise(models.Model):
             Decimal(quantize_str), rounding=ROUND_HALF_UP
         )
 
-        # Formater avec séparateurs
+        # Séparer partie entière et décimale
         parties = str(montant_arrondi).split('.')
-        partie_entiere = parties[0]
-        partie_decimale = parties[1] if len(parties) > 1 else '00'
+        partie_entiere = parties[0].lstrip('-')
+        signe = '-' if montant_arrondi < 0 else ''
 
         # Ajouter séparateur milliers
         partie_entiere_formatee = ''
@@ -152,21 +152,31 @@ class Devise(models.Model):
                 partie_entiere_formatee = self.separateur_milliers + partie_entiere_formatee
             partie_entiere_formatee = chiffre + partie_entiere_formatee
 
-        # Assembler
-        montant_formate = f"{partie_entiere_formatee}{self.separateur_decimal}{partie_decimale}"
+        # Assembler — sans décimales si decimales=0
+        if self.decimales > 0:
+            partie_decimale = parties[1] if len(parties) > 1 else '0' * self.decimales
+            montant_formate = f"{signe}{partie_entiere_formatee}{self.separateur_decimal}{partie_decimale}"
+        else:
+            montant_formate = f"{signe}{partie_entiere_formatee}"
 
         if self.symbole_avant:
-            return f"{self.symbole}{montant_formate}"
+            return f"{self.symbole} {montant_formate}"
         else:
             return f"{montant_formate} {self.symbole}"
 
     def convertir_vers(self, montant, devise_cible):
         """Convertit un montant de cette devise vers une autre"""
+        from decimal import Decimal, ROUND_HALF_UP
+
         if self.code == devise_cible.code:
-            return montant
+            return Decimal(str(montant))
         # Convertir via CHF comme devise pivot
-        montant_chf = montant / self.taux_change if self.taux_change else montant
-        return montant_chf * devise_cible.taux_change
+        montant_decimal = Decimal(str(montant))
+        montant_chf = montant_decimal / self.taux_change if self.taux_change else montant_decimal
+        resultat = montant_chf * devise_cible.taux_change
+        # Quantize selon les décimales de la devise cible
+        quantize_str = '0.' + '0' * devise_cible.decimales if devise_cible.decimales > 0 else '0'
+        return resultat.quantize(Decimal(quantize_str), rounding=ROUND_HALF_UP)
 
     @classmethod
     def get_devise_base(cls):
@@ -2382,6 +2392,16 @@ class Invitation(BaseModel):
         unique=True,
         verbose_name=_('Token')
     )
+    # Code court pour partage verbal/SMS (6 caractères alphanumériques majuscules)
+    code_court = models.CharField(
+        max_length=8,
+        unique=True,
+        null=True,
+        blank=True,
+        db_index=True,
+        verbose_name=_('Code d\'invitation'),
+        help_text=_('Code court à partager (ex: AB3K7X)')
+    )
     date_expiration = models.DateTimeField(
         verbose_name=_('Date d\'expiration')
     )
@@ -2491,6 +2511,7 @@ class Invitation(BaseModel):
         indexes = [
             models.Index(fields=['email', 'statut']),
             models.Index(fields=['token']),
+            models.Index(fields=['code_court']),
             models.Index(fields=['date_expiration', 'statut']),
         ]
 
@@ -2501,6 +2522,9 @@ class Invitation(BaseModel):
         # Générer le token si nécessaire
         if not self.token:
             self.token = self.generer_token()
+        # Générer le code court si nécessaire
+        if not self.code_court:
+            self.code_court = self.generer_code_court()
         super().save(*args, **kwargs)
 
     @staticmethod
@@ -2508,6 +2532,20 @@ class Invitation(BaseModel):
         """Génère un token sécurisé unique"""
         import secrets
         return secrets.token_urlsafe(48)
+
+    @staticmethod
+    def generer_code_court():
+        """Génère un code court unique de 6 caractères alphanumériques majuscules"""
+        import secrets
+        import string
+        alphabet = string.ascii_uppercase + string.digits
+        # Exclure les caractères ambigus (0/O, 1/I/L)
+        alphabet = alphabet.replace('O', '').replace('0', '').replace('I', '').replace('1', '').replace('L', '')
+        for _ in range(100):  # Max tentatives
+            code = ''.join(secrets.choice(alphabet) for _ in range(6))
+            if not Invitation.objects.filter(code_court=code).exists():
+                return code
+        raise ValueError("Impossible de générer un code court unique")
 
     def est_valide(self):
         """Vérifie si l'invitation est toujours valide"""

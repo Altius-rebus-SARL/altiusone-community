@@ -103,5 +103,14 @@
       </a>
     </p>
   </div>
+
+  <!-- Invitation code -->
+  <div class="text-center">
+    <p class="text-muted f-s-12">
+      <a href="{% url 'core:invitation-accept-code' %}" class="text-secondary text-decoration-underline">
+        <i class="ti ti-ticket me-1"></i>{% trans "J'ai un code d'invitation" %}
+      </a>
+    </p>
+  </div>
 </form>
 {% endblock %}

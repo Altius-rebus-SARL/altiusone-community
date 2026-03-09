@@ -6,6 +6,7 @@
 {% block title %}{% trans "Déclaration TVA" %} {{ declaration.numero_declaration }}{% endblock %}
 
 {% block content %}
+{% include 'includes/regime_banner.html' with mandat=declaration.mandat %}
 <!-- Breadcrumb -->
 <div class="row m-1">
     <div class="col-12">
@@ -35,13 +36,13 @@
         <a href="{% url 'tva:declaration-update' declaration.pk %}" class="btn btn-outline-primary">
             <i class="ph ph-pencil me-2"></i>{% trans "Modifier" %}
         </a>
-        <form method="post" action="{% url 'tva:declaration-calculer' declaration.pk %}" class="d-inline" onsubmit="return confirm('{% trans "Recalculer la déclaration ? Les lignes manuelles seront préservées." %}')">
+        <form method="post" action="{% url 'tva:declaration-calculer' declaration.pk %}" class="d-inline" data-confirm="{% trans 'Recalculer la déclaration ? Les lignes manuelles seront préservées.' %}">
             {% csrf_token %}
             <button type="submit" class="btn btn-info">
                 <i class="ph ph-calculator me-2"></i>{% trans "Calculer" %}
             </button>
         </form>
-        <form method="post" action="{% url 'tva:declaration-valider' declaration.pk %}" class="d-inline" onsubmit="return confirm('{% trans "Valider cette déclaration ?" %}')">
+        <form method="post" action="{% url 'tva:declaration-valider' declaration.pk %}" class="d-inline" data-confirm="{% trans 'Valider cette déclaration ?' %}">
             {% csrf_token %}
             <button type="submit" class="btn btn-success">
                 <i class="ph ph-check-circle me-2"></i>{% trans "Valider" %}
@@ -245,7 +246,7 @@
                                         <i class="ph ph-pencil"></i>
                                     </a>
                                     <form method="post" action="{% url 'tva:ligne-tva-delete' ligne.pk %}" class="d-inline"
-                                          onsubmit="return confirm('{% trans "Supprimer cette ligne ?" %}')">
+                                          data-confirm="{% trans 'Supprimer cette ligne ?' %}">
                                         {% csrf_token %}
                                         <button type="submit" class="btn btn-sm btn-light-danger"
                                                 data-bs-toggle="tooltip" title="{% trans 'Supprimer' %}">
@@ -322,7 +323,7 @@
                                 {% if declaration.statut == 'BROUILLON' %}
                                 <td class="text-center">
                                     <form method="post" action="{% url 'tva:correction-tva-delete' correction.pk %}" class="d-inline"
-                                          onsubmit="return confirm('{% trans "Supprimer cette correction ?" %}')">
+                                          data-confirm="{% trans 'Supprimer cette correction ?' %}">
                                         {% csrf_token %}
                                         <button type="submit" class="btn btn-sm btn-light-danger"
                                                 data-bs-toggle="tooltip" title="{% trans 'Supprimer' %}">

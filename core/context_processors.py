@@ -28,6 +28,7 @@ def devise_context(request):
     # Devise choisie par l'utilisateur (persistée dans preferences)
     devise_code = base_code
     devise_taux = Decimal("1")
+    devise_obj = devise_base
 
     if hasattr(request, "user") and request.user.is_authenticated:
         pref_code = request.user.preferences.get("devise_code") if request.user.preferences else None
@@ -36,6 +37,7 @@ def devise_context(request):
                 devise_choisie = devises_actives.get(code=pref_code)
                 devise_code = devise_choisie.code
                 devise_taux = devise_choisie.taux_change
+                devise_obj = devise_choisie
             except Devise.DoesNotExist:
                 pass
 
@@ -43,5 +45,6 @@ def devise_context(request):
         "DEVISE_CODE": devise_code,
         "DEVISE_TAUX": devise_taux,
         "DEVISE_BASE_CODE": base_code,
+        "DEVISE_OBJ": devise_obj,
         "DEVISES_ACTIVES": devises_actives,
     }

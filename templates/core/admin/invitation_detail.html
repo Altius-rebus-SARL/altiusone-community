@@ -190,8 +190,24 @@
             </div>
             {% endif %}
 
-            <!-- Link -->
+            <!-- Code & Link -->
             {% if invitation.statut == 'EN_ATTENTE' %}
+            {% if invitation.code_court %}
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ti ti-ticket me-2"></i>{% trans "Code d'invitation" %}</h5>
+                </div>
+                <div class="card-body text-center">
+                    <div class="py-3">
+                        <code class="user-select-all" style="font-size: 2rem; letter-spacing: 0.3em; font-weight: bold;">{{ invitation.code_court }}</code>
+                    </div>
+                    <p class="text-muted f-s-13 mb-0">
+                        {% trans "Ce code peut etre communique par telephone ou SMS. Le destinataire l'utilise sur" %}
+                        <a href="{% url 'core:invitation-accept-code' %}">{% trans "cette page" %}</a>.
+                    </p>
+                </div>
+            </div>
+            {% endif %}
             <div class="card">
                 <div class="card-header">
                     <h5>{% trans "Lien d'invitation" %}</h5>

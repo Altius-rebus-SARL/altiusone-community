@@ -95,7 +95,7 @@
                 </div>
                 <div class="card-body">
                     {% if permissions_by_app %}
-                    <div class="accordion" id="permissionsAccordion">
+                    <div class="accordion app-accordion accordion-light-primary" id="permissionsAccordion">
                         {% for app, perms in permissions_by_app.items %}
                         <div class="accordion-item">
                             <h2 class="accordion-header">
@@ -108,9 +108,9 @@
                                 <div class="accordion-body">
                                     <ul class="list-unstyled mb-0">
                                         {% for perm in perms %}
-                                        <li class="py-1">
-                                            <code>{{ perm.codename }}</code>
-                                            <span class="text-muted f-s-12"> - {{ perm.name }}</span>
+                                        <li class="py-1 d-flex align-items-center">
+                                            <i class="ti ti-check text-success me-2"></i>
+                                            <span>{{ perm.name }}</span>
                                         </li>
                                         {% endfor %}
                                     </ul>
