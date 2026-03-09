@@ -339,8 +339,8 @@ function setDuree(minutes) {
         var mandatId = mandatSel ? mandatSel.value : '';
 
         // Reset position & operation
-        if (positionSel) populateSelect(positionSel, [], '{% trans "Sélectionnez un mandat d\'abord" %}');
-        if (operationSel) populateSelect(operationSel, [], '{% trans "Sélectionnez une position d\'abord" %}');
+        if (positionSel) populateSelect(positionSel, [], '{% filter escapejs %}{% trans "Sélectionnez un mandat d\'abord" %}{% endfilter %}');
+        if (operationSel) populateSelect(operationSel, [], '{% filter escapejs %}{% trans "Sélectionnez une position d\'abord" %}{% endfilter %}');
 
         if (!mandatId) {
             budgetContainer.classList.add('d-none');
@@ -351,7 +351,7 @@ function setDuree(minutes) {
         fetch('{% url "facturation:get-positions" %}?mandat=' + mandatId)
             .then(function(r) { return r.json(); })
             .then(function(data) {
-                if (positionSel) populateSelect(positionSel, data, '{% trans "Choisir une position..." %}');
+                if (positionSel) populateSelect(positionSel, data, '{% filter escapejs %}{% trans "Choisir une position..." %}{% endfilter %}');
             });
 
         // Fetch taux
@@ -363,14 +363,14 @@ function setDuree(minutes) {
         var positionId = positionSel ? positionSel.value : '';
 
         // Reset operation
-        if (operationSel) populateSelect(operationSel, [], '{% trans "Sélectionnez une position d\'abord" %}');
+        if (operationSel) populateSelect(operationSel, [], '{% filter escapejs %}{% trans "Sélectionnez une position d\'abord" %}{% endfilter %}');
 
         if (!positionId) return;
 
         fetch('{% url "facturation:get-operations" %}?position=' + positionId)
             .then(function(r) { return r.json(); })
             .then(function(data) {
-                if (operationSel) populateSelect(operationSel, data, '{% trans "Choisir une opération..." %}');
+                if (operationSel) populateSelect(operationSel, data, '{% filter escapejs %}{% trans "Choisir une opération..." %}{% endfilter %}');
             });
     }
 
@@ -387,9 +387,9 @@ function setDuree(minutes) {
                 if (data.taux_horaire !== null) {
                     tauxInput.value = data.taux_horaire;
                     var labels = {
-                        'tarif_mandat': '{% trans "Tarif mandat/prestation" %}',
-                        'prestation': '{% trans "Taux prestation" %}',
-                        'mandat': '{% trans "Taux mandat" %}'
+                        'tarif_mandat': '{% filter escapejs %}{% trans "Tarif mandat/prestation" %}{% endfilter %}',
+                        'prestation': '{% filter escapejs %}{% trans "Taux prestation" %}{% endfilter %}',
+                        'mandat': '{% filter escapejs %}{% trans "Taux mandat" %}{% endfilter %}'
                     };
                     var badgeColors = {
                         'tarif_mandat': 'bg-success',
@@ -410,9 +410,9 @@ function setDuree(minutes) {
                     var pct = b.pourcent;
                     var colorClass = pct > 90 ? 'text-danger' : (pct > 70 ? 'text-warning' : 'text-success');
                     budgetText.innerHTML =
-                        '{% trans "Prévu" %}: <strong>' + b.budget_prevu.toLocaleString('fr-CH') + ' {{ DEVISE_CODE }}</strong> | ' +
-                        '{% trans "Réel" %}: <strong>' + b.budget_reel.toLocaleString('fr-CH') + ' {{ DEVISE_CODE }}</strong> | ' +
-                        '{% trans "Consommé" %}: <strong class="' + colorClass + '">' + pct + '%</strong>';
+                        '{% filter escapejs %}{% trans "Prévu" %}{% endfilter %}: <strong>' + b.budget_prevu.toLocaleString('fr-CH') + ' {{ DEVISE_CODE }}</strong> | ' +
+                        '{% filter escapejs %}{% trans "Réel" %}{% endfilter %}: <strong>' + b.budget_reel.toLocaleString('fr-CH') + ' {{ DEVISE_CODE }}</strong> | ' +
+                        '{% filter escapejs %}{% trans "Consommé" %}{% endfilter %}: <strong class="' + colorClass + '">' + pct + '%</strong>';
                     budgetContainer.classList.remove('d-none');
                 } else {
                     budgetContainer.classList.add('d-none');
@@ -463,18 +463,18 @@ function setDuree(minutes) {
     if (btnGps && navigator.geolocation) {
         btnGps.addEventListener('click', function() {
             btnGps.disabled = true;
-            btnGps.innerHTML = '<i class="ph ph-spinner ph-spin me-1"></i>{% trans "Localisation..." %}';
+            btnGps.innerHTML = '<i class="ph ph-spinner ph-spin me-1"></i>{% filter escapejs %}{% trans "Localisation..." %}{% endfilter %}';
             navigator.geolocation.getCurrentPosition(
                 function(pos) {
                     setCoord(pos.coords.latitude, pos.coords.longitude);
                     map.setView([pos.coords.latitude, pos.coords.longitude], 15);
                     btnGps.disabled = false;
-                    btnGps.innerHTML = '<i class="ph ph-crosshair me-1"></i>{% trans "Ma position GPS" %}';
+                    btnGps.innerHTML = '<i class="ph ph-crosshair me-1"></i>{% filter escapejs %}{% trans "Ma position GPS" %}{% endfilter %}';
                 },
                 function() {
                     btnGps.disabled = false;
-                    btnGps.innerHTML = '<i class="ph ph-crosshair me-1"></i>{% trans "Ma position GPS" %}';
-                    alert('{% trans "Impossible d\'obtenir votre position" %}');
+                    btnGps.innerHTML = '<i class="ph ph-crosshair me-1"></i>{% filter escapejs %}{% trans "Ma position GPS" %}{% endfilter %}';
+                    alert('{% filter escapejs %}{% trans "Impossible d\'obtenir votre position" %}{% endfilter %}');
                 },
                 { enableHighAccuracy: true, timeout: 10000 }
             );
