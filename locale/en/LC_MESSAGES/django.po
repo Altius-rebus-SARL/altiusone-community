@@ -9461,7 +9461,6 @@ msgstr "Shared custody"
 msgid "L'enfant est en garde partagée avec l'autre parent"
 msgstr "The child is in shared custody with the other parent"
 
-#, python-format
 #| msgid "Regarder"
 msgid "% de garde"
 msgstr "% custody"

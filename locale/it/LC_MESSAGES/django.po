@@ -9495,7 +9495,6 @@ msgstr "Custodia condivisa"
 msgid "L'enfant est en garde partagée avec l'autre parent"
 msgstr "Il figlio è in custodia condivisa con l'altro genitore"
 
-#, python-format
 #| msgid "Regarder"
 msgid "% de garde"
 msgstr "% di custodia"

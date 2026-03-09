@@ -9504,7 +9504,6 @@ msgstr "Geteiltes Sorgerecht"
 msgid "L'enfant est en garde partagée avec l'autre parent"
 msgstr "Das Kind ist in geteilter Obhut mit dem anderen Elternteil"
 
-#, python-format
 #| msgid "Regarder"
 msgid "% de garde"
 msgstr "% Sorgerecht"
