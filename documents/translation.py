@@ -1,6 +1,11 @@
 # documents/translation.py
 from modeltranslation.translator import register, TranslationOptions
-from .models import CategorieDocument, TypeDocument, Document
+from .models import CategorieDocument, TypeDocument, Document, SourceDocument
+
+
+@register(SourceDocument)
+class SourceDocumentTranslationOptions(TranslationOptions):
+    fields = ("libelle", "description")
 
 
 @register(CategorieDocument)

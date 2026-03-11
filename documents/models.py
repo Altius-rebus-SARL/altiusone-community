@@ -283,6 +283,82 @@ class Dossier(BaseModel):
         return total
 
 
+class SourceDocument(BaseModel):
+    """
+    Source/origine d'un document dans la GED.
+
+    Table dynamique avec données prédéfinies distinguant les sources internes
+    (générées par le système) et externes (uploads utilisateurs/clients).
+    """
+
+    ORIGINE_INTERNE = 'INTERNE'
+    ORIGINE_EXTERNE = 'EXTERNE'
+    ORIGINE_CHOICES = [
+        (ORIGINE_INTERNE, _('Interne (système)')),
+        (ORIGINE_EXTERNE, _('Externe (utilisateur/client)')),
+    ]
+
+    code = models.CharField(
+        max_length=50, unique=True,
+        verbose_name=_('Code'),
+        help_text=_('Code technique unique de la source')
+    )
+    libelle = models.CharField(
+        max_length=150,
+        verbose_name=_('Libellé'),
+        help_text=_('Nom affiché de la source')
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name=_('Description'),
+        help_text=_('Description détaillée de la source')
+    )
+    origine = models.CharField(
+        max_length=10,
+        choices=ORIGINE_CHOICES,
+        verbose_name=_('Origine'),
+        help_text=_('Interne = généré par le système, Externe = fourni par un utilisateur ou client')
+    )
+
+    # Module applicatif associé (pour les sources internes)
+    module_applicatif = models.CharField(
+        max_length=50, blank=True,
+        verbose_name=_('Module applicatif'),
+        help_text=_('Nom du module Django générant le document (ex: facturation, salaires)')
+    )
+
+    # Icône pour UI
+    icone = models.CharField(
+        max_length=50, blank=True,
+        verbose_name=_('Icône'),
+        help_text=_('Nom de l\'icône (ex: upload, file-invoice)')
+    )
+
+    # Ordre d'affichage
+    ordre = models.IntegerField(
+        default=0,
+        verbose_name=_('Ordre'),
+        help_text=_('Position d\'affichage dans les listes')
+    )
+
+    class Meta:
+        db_table = 'sources_document'
+        verbose_name = _('Source de document')
+        verbose_name_plural = _('Sources de document')
+        ordering = ['origine', 'ordre', 'libelle']
+
+    def __str__(self):
+        return f"[{self.get_origine_display()}] {self.libelle}"
+
+    @property
+    def est_interne(self):
+        return self.origine == self.ORIGINE_INTERNE
+
+    @property
+    def est_externe(self):
+        return self.origine == self.ORIGINE_EXTERNE
+
+
 class CategorieDocument(BaseModel):
     """Catégories de documents"""
 
@@ -504,6 +580,15 @@ class Document(BaseModel):
         max_length=64, db_index=True,
         verbose_name=_('Hash du fichier'),
         help_text=_('Empreinte SHA-256 pour déduplication (non unique : un même fichier peut être dans plusieurs mandats)')
+    )
+
+    # Source / Origine
+    source = models.ForeignKey(
+        SourceDocument, on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='documents',
+        verbose_name=_('Source'),
+        help_text=_('Origine du document (upload, module interne, import, etc.)')
     )
 
     # Classification
