@@ -2,7 +2,8 @@
 from django.db import models
 from django.contrib.gis.db import models as gis_models
 from django.utils.translation import gettext_lazy as _
-from core.models import BaseModel, Devise, Mandat, Client, User
+from django.contrib.contenttypes.fields import GenericRelation
+from core.models import BaseModel, Devise, Mandat, Client, User, FichierJoint
 from decimal import Decimal
 from datetime import datetime, date, timedelta
 from tva.utils import get_taux_tva_defaut
@@ -410,6 +411,13 @@ class TimeTracking(BaseModel):
         related_name='+',
         verbose_name=_("Validé par"),
         help_text=_("Utilisateur ayant validé ce temps")
+    )
+
+    # Pièces jointes (preuves du travail effectué)
+    fichiers_joints = GenericRelation(
+        FichierJoint,
+        verbose_name=_("Fichiers joints"),
+        help_text=_("Pièces jointes : preuves du travail effectué (captures, documents, etc.)")
     )
 
     class Meta:
