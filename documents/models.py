@@ -287,15 +287,23 @@ class SourceDocument(BaseModel):
     """
     Source/origine d'un document dans la GED.
 
-    Table dynamique avec données prédéfinies distinguant les sources internes
-    (générées par le système) et externes (uploads utilisateurs/clients).
+    Table dynamique avec données prédéfinies. La distinction interne/externe
+    reflète le type d'utilisateur à l'origine du document :
+
+    - INTERNE : document produit par un collaborateur STAFF de la fiduciaire
+      (employé ou prestataire). Inclut les uploads manuels, les PDF générés
+      par les modules (facturation, salaires, comptabilité, etc.), les exports.
+
+    - EXTERNE : document produit par un utilisateur CLIENT (client externe
+      ou ses collaborateurs) via le portail client, par email, par scan, etc.
+      Ces documents ne sont visibles que sur les mandats concernés (AccesMandat).
     """
 
     ORIGINE_INTERNE = 'INTERNE'
     ORIGINE_EXTERNE = 'EXTERNE'
     ORIGINE_CHOICES = [
-        (ORIGINE_INTERNE, _('Interne (système)')),
-        (ORIGINE_EXTERNE, _('Externe (utilisateur/client)')),
+        (ORIGINE_INTERNE, _('Interne (collaborateur fiduciaire)')),
+        (ORIGINE_EXTERNE, _('Externe (client et ses collaborateurs)')),
     ]
 
     code = models.CharField(
@@ -317,14 +325,17 @@ class SourceDocument(BaseModel):
         max_length=10,
         choices=ORIGINE_CHOICES,
         verbose_name=_('Origine'),
-        help_text=_('Interne = généré par le système, Externe = fourni par un utilisateur ou client')
+        help_text=_(
+            'Interne = collaborateur STAFF de la fiduciaire, '
+            'Externe = utilisateur CLIENT et ses collaborateurs'
+        )
     )
 
-    # Module applicatif associé (pour les sources internes)
+    # Module applicatif associé (si la source est liée à un module)
     module_applicatif = models.CharField(
         max_length=50, blank=True,
         verbose_name=_('Module applicatif'),
-        help_text=_('Nom du module Django générant le document (ex: facturation, salaires)')
+        help_text=_('Nom du module Django associé (ex: facturation, salaires)')
     )
 
     # Icône pour UI
@@ -352,10 +363,12 @@ class SourceDocument(BaseModel):
 
     @property
     def est_interne(self):
+        """Source provenant d'un collaborateur STAFF de la fiduciaire."""
         return self.origine == self.ORIGINE_INTERNE
 
     @property
     def est_externe(self):
+        """Source provenant d'un utilisateur CLIENT externe."""
         return self.origine == self.ORIGINE_EXTERNE
 
 

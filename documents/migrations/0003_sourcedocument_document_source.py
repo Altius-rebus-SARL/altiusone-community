@@ -32,7 +32,7 @@ class Migration(migrations.Migration):
                 ('description_de', models.TextField(blank=True, help_text='Description détaillée de la source', null=True, verbose_name='Description')),
                 ('description_it', models.TextField(blank=True, help_text='Description détaillée de la source', null=True, verbose_name='Description')),
                 ('description_en', models.TextField(blank=True, help_text='Description détaillée de la source', null=True, verbose_name='Description')),
-                ('origine', models.CharField(choices=[('INTERNE', 'Interne (système)'), ('EXTERNE', 'Externe (utilisateur/client)')], help_text='Interne = généré par le système, Externe = fourni par un utilisateur ou client', max_length=10, verbose_name='Origine')),
+                ('origine', models.CharField(choices=[('INTERNE', 'Interne (collaborateur fiduciaire)'), ('EXTERNE', 'Externe (client et ses collaborateurs)')], help_text='Interne = collaborateur STAFF de la fiduciaire, Externe = utilisateur CLIENT et ses collaborateurs', max_length=10, verbose_name='Origine')),
                 ('module_applicatif', models.CharField(blank=True, help_text='Nom du module Django générant le document (ex: facturation, salaires)', max_length=50, verbose_name='Module applicatif')),
                 ('icone', models.CharField(blank=True, help_text="Nom de l'icône (ex: upload, file-invoice)", max_length=50, verbose_name='Icône')),
                 ('ordre', models.IntegerField(default=0, help_text="Position d'affichage dans les listes", verbose_name='Ordre')),
