@@ -1,0 +1,98 @@
+{% comment %}
+Composant réutilisable : Ligne de tableau pour un document.
+
+Usage dans un <tbody>:
+  {% for doc in documents %}
+    {% include "components/documents/document_card.html" with document=doc show_dossier=True show_mandat=True context_params="" %}
+  {% endfor %}
+
+Paramètres:
+  - document : instance Document
+  - show_dossier : afficher la colonne dossier (défaut: True)
+  - show_mandat : afficher la colonne mandat (défaut: True)
+  - context_params : paramètres de contexte pour les URLs (ex: "client=xxx&mandat=yyy&parent=zzz")
+{% endcomment %}
+{% load i18n %}
+
+<tr>
+    <td>
+        <div class="d-flex align-items-center">
+            <div class="me-3">
+                {% include "components/documents/document_preview.html" with document=document mode="thumbnail" %}
+            </div>
+            <div>
+                <a href="{% url 'documents:document-detail' document.pk %}{% if context_params %}?{{ context_params }}{% endif %}" class="text-dark fw-medium">
+                    {{ document.nom_fichier|default:document.nom_original|truncatechars:40 }}
+                </a>
+                {% if document.description %}
+                <br><small class="text-muted">{{ document.description|truncatechars:50 }}</small>
+                {% endif %}
+            </div>
+        </div>
+    </td>
+    {% if show_mandat %}
+    <td>
+        <span class="badge text-light-primary">{{ document.mandat.numero }}</span>
+    </td>
+    {% endif %}
+    {% if show_dossier %}
+    <td>
+        {% if document.dossier %}
+            <small><i class="ph ph-folder me-1"></i>{{ document.dossier.nom }}</small>
+        {% else %}
+            <small class="text-muted"><i class="ph ph-tray me-1"></i>{% trans "Non classé" %}</small>
+        {% endif %}
+    </td>
+    {% endif %}
+    <td>
+        {% if document.type_document %}
+            <span class="badge bg-light text-dark">{{ document.type_document.libelle }}</span>
+        {% else %}
+            <span class="text-muted">-</span>
+        {% endif %}
+    </td>
+    <td>{{ document.taille|filesizeformat }}</td>
+    <td>
+        <span class="text-muted f-s-12">{{ document.date_upload|date:"d/m/Y H:i" }}</span>
+    </td>
+    <td>
+        {% if document.statut_validation == 'VALIDE' %}
+            <span class="badge text-light-success"><i class="ph ph-check-circle me-1"></i>{% trans "Validé" %}</span>
+        {% elif document.statut_validation == 'REJETE' %}
+            <span class="badge text-light-danger"><i class="ph ph-x-circle me-1"></i>{% trans "Rejeté" %}</span>
+        {% elif document.statut_validation == 'EN_ATTENTE' %}
+            <span class="badge text-light-warning"><i class="ph ph-clock me-1"></i>{% trans "En attente" %}</span>
+        {% else %}
+            <span class="text-muted">-</span>
+        {% endif %}
+    </td>
+    <td class="text-end">
+        <div class="dropdown">
+            <a class="text-muted" data-bs-toggle="dropdown" role="button">
+                <i class="ph ph-dots-three-vertical f-s-18"></i>
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li>
+                    <a class="dropdown-item" href="{% url 'documents:document-detail' document.pk %}{% if context_params %}?{{ context_params }}{% endif %}">
+                        <i class="ph ph-eye me-2"></i>{% trans "Voir" %}
+                    </a>
+                </li>
+                {% if document.fichier %}
+                <li>
+                    <a class="dropdown-item" href="{% url 'documents:document-telecharger' document.pk %}">
+                        <i class="ph ph-download me-2"></i>{% trans "Télécharger" %}
+                    </a>
+                </li>
+                {% endif %}
+                {% if document.statut_validation == 'EN_ATTENTE' %}
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <a class="dropdown-item" href="{% url 'documents:document-valider' document.pk %}">
+                        <i class="ph ph-check me-2"></i>{% trans "Valider" %}
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </div>
+    </td>
+</tr>

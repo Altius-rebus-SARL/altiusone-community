@@ -6,7 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django_filters.rest_framework import DjangoFilterBackend
 from django.http import FileResponse, HttpResponse
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.utils import timezone
 from django.conf import settings
 import hashlib
@@ -164,18 +164,10 @@ class DocumentViewSet(viewsets.ModelViewSet):
         Override pour mapper le champ 'file' vers 'fichier' si présent.
         Permet de supporter les deux noms de champ côté client.
         """
-        if self.action == "create":
-            print(f"[DocumentViewSet] get_serializer called for create action")
-            print(f"[DocumentViewSet] request.FILES: {self.request.FILES}")
-            print(f"[DocumentViewSet] request.data: {self.request.data}")
-            print(f"[DocumentViewSet] request.content_type: {self.request.content_type}")
-
-            if self.request.FILES:
-                # Accepter 'file' ou 'fichier' comme nom de champ
-                if 'file' in self.request.FILES and 'fichier' not in self.request.FILES:
-                    self.request.FILES['fichier'] = self.request.FILES['file']
-            else:
-                print(f"[DocumentViewSet] WARNING: No files in request.FILES!")
+        if self.action == "create" and self.request.FILES:
+            # Accepter 'file' ou 'fichier' comme nom de champ
+            if 'file' in self.request.FILES and 'fichier' not in self.request.FILES:
+                self.request.FILES['fichier'] = self.request.FILES['file']
 
         return super().get_serializer(*args, **kwargs)
 
@@ -288,7 +280,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
             document=document,
             type_traitement='CLASSIFICATION',
             statut='EN_COURS',
-            moteur='OpenAI GPT-4'
+            moteur='AltiusOne AI'
         )
 
         # Mettre à jour le statut
@@ -326,7 +318,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
             document=document,
             type_traitement='EXTRACTION',
             statut='EN_COURS',
-            moteur='OpenAI GPT-4'
+            moteur='AltiusOne AI'
         )
 
         # Mettre à jour le statut
@@ -418,8 +410,8 @@ class DocumentViewSet(viewsets.ModelViewSet):
             try:
                 # FileField génère automatiquement l'URL signée
                 preview_url = document.fichier.url
-            except Exception as e:
-                print(f"[Preview] Error generating URL: {e}")
+            except Exception:
+                pass
 
         return Response({
             'document_id': str(document.id),
@@ -503,7 +495,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
             'par_statut_traitement': {},
             'par_type_document': {},
             'en_attente_validation': queryset.filter(statut_validation='EN_ATTENTE').count(),
-            'taille_totale_mo': sum(d.taille for d in queryset) / (1024 * 1024),
+            'taille_totale_mo': (queryset.aggregate(total=Sum('taille'))['total'] or 0) / (1024 * 1024),
         }
 
         # Par statut traitement
@@ -527,13 +519,16 @@ class DocumentViewSet(viewsets.ModelViewSet):
     def batch_valider(self, request):
         """
         Validation en batch de plusieurs documents.
+        Seuls les documents EN_ATTENTE sont traités.
         Body: {
             "document_ids": [1, 2, 3],
-            "validation": "VALIDE"
+            "validation": "VALIDE",
+            "commentaire": "OK"
         }
         """
         document_ids = request.data.get('document_ids', [])
         validation = request.data.get('validation', 'VALIDE')
+        commentaire = request.data.get('commentaire', '')
 
         if not document_ids:
             return Response(
@@ -541,13 +536,33 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        updated = Document.objects.filter(id__in=document_ids).update(
-            statut_validation=validation,
-            valide_par=request.user,
-            date_validation=timezone.now()
+        if validation not in ['VALIDE', 'REJETE']:
+            return Response(
+                {'error': 'Validation doit être VALIDE ou REJETE'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Filtrer : seulement les documents en attente et accessibles
+        queryset = self.get_queryset().filter(
+            id__in=document_ids,
+            statut_validation='EN_ATTENTE',
         )
+
+        update_fields = {
+            'statut_validation': validation,
+            'valide_par': request.user,
+            'date_validation': timezone.now(),
+            'commentaire_validation': commentaire,
+        }
+
+        if validation == 'VALIDE':
+            update_fields['statut_traitement'] = 'VALIDE'
+
+        updated = queryset.update(**update_fields)
 
         return Response({
             'message': f'{updated} documents mis à jour',
-            'validation': validation
+            'validation': validation,
+            'total_demandes': len(document_ids),
+            'total_traites': updated,
         })

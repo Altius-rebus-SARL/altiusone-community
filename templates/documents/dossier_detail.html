@@ -377,15 +377,9 @@
                     <a href="{% url 'documents:document-upload' %}?dossier={{ dossier.pk }}" class="btn btn-light-primary">
                         <i class="ph ph-upload me-2"></i>{% trans "Uploader un document" %}
                     </a>
-                    <button class="btn btn-light-secondary" disabled>
+                    <a href="{% url 'documents:dossier-create' %}?mandat={{ dossier.mandat_id }}&parent={{ dossier.pk }}" class="btn btn-light-secondary">
                         <i class="ph ph-folder-plus me-2"></i>{% trans "Créer un sous-dossier" %}
-                    </button>
-                    <button class="btn btn-light-warning" disabled>
-                        <i class="ph ph-pencil me-2"></i>{% trans "Modifier" %}
-                    </button>
-                    <button class="btn btn-light-danger" disabled>
-                        <i class="ph ph-trash me-2"></i>{% trans "Supprimer" %}
-                    </button>
+                    </a>
                 </div>
             </div>
         </div>

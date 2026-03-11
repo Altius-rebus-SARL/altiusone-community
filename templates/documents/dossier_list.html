@@ -334,59 +334,45 @@
                             </thead>
                             <tbody>
                                 {% for doc in documents %}
+                                    {% include "components/documents/document_card.html" with document=doc show_dossier=False show_mandat=False context_params=context_params %}
+                                {% empty %}
                                 <tr>
-                                    <td>
-                                        {% if doc.extension == 'pdf' %}
-                                            <i class="ph-duotone ph-file-pdf text-danger f-s-24"></i>
-                                        {% elif doc.extension in 'jpg,jpeg,png,gif,webp' %}
-                                            <i class="ph-duotone ph-file-image text-info f-s-24"></i>
-                                        {% elif doc.extension in 'doc,docx' %}
-                                            <i class="ph-duotone ph-file-doc text-primary f-s-24"></i>
-                                        {% elif doc.extension in 'xls,xlsx' %}
-                                            <i class="ph-duotone ph-file-xls text-success f-s-24"></i>
-                                        {% else %}
-                                            <i class="ph-duotone ph-file text-secondary f-s-24"></i>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <a href="{% url 'documents:document-detail' doc.pk %}?{% if current_client %}client={{ current_client.id }}&{% endif %}{% if current_mandat %}mandat={{ current_mandat.id }}&{% endif %}{% if current_parent %}parent={{ current_parent.id }}{% endif %}" class="text-dark fw-medium">
-                                            {{ doc.nom_fichier|default:doc.nom_original|truncatechars:40 }}
-                                        </a>
-                                        {% if doc.dossier %}
-                                        <br><small class="text-muted"><i class="ph ph-folder me-1"></i>{{ doc.dossier.nom }}</small>
-                                        {% elif doc.description %}
-                                        <br><small class="text-muted">{{ doc.description|truncatechars:50 }}</small>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if doc.type_document %}
-                                            <span class="badge bg-light text-dark">{{ doc.type_document.libelle }}</span>
-                                        {% else %}
-                                            <span class="text-muted">-</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ doc.taille|filesizeformat }}</td>
-                                    <td>{{ doc.date_upload|date:"d/m/Y H:i" }}</td>
-                                    <td>
-                                        {% if doc.statut_validation == 'VALIDE' %}
-                                            <span class="badge bg-success">{% trans "Validé" %}</span>
-                                        {% elif doc.statut_validation == 'REJETE' %}
-                                            <span class="badge bg-danger">{% trans "Rejeté" %}</span>
-                                        {% else %}
-                                            <span class="badge bg-warning text-dark">{% trans "En attente" %}</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <div class="btn-group btn-group-sm">
-                                            <a href="{% url 'documents:document-detail' doc.pk %}?{% if current_client %}client={{ current_client.id }}&{% endif %}{% if current_mandat %}mandat={{ current_mandat.id }}&{% endif %}{% if current_parent %}parent={{ current_parent.id }}{% endif %}" class="btn btn-outline-primary" title="{% trans 'Voir' %}">
-                                                <i class="ph ph-eye"></i>
-                                            </a>
-                                            <a href="{% url 'documents:document-telecharger' doc.pk %}" class="btn btn-outline-success" title="{% trans 'Télécharger' %}">
-                                                <i class="ph ph-download"></i>
-                                            </a>
-                                        </div>
+                                    <td colspan="6" class="text-center py-4 text-muted">
+                                        {% trans "Aucun document dans ce dossier" %}
                                     </td>
                                 </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Documents non classés (sans dossier) -->
+                {% if documents_non_classes %}
+                <div class="mt-4">
+                    <h6 class="text-muted mb-3">
+                        <i class="ph-duotone ph-tray me-2"></i>{% trans "Documents non classés" %} ({{ documents_non_classes|length }})
+                    </h6>
+                    <div class="alert alert-info f-s-13 mb-3">
+                        <i class="ph ph-info me-1"></i>
+                        {% trans "Ces documents sont rattachés au mandat mais ne sont assignés à aucun dossier." %}
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>{% trans "Fichier" %}</th>
+                                    <th>{% trans "Type" %}</th>
+                                    <th>{% trans "Taille" %}</th>
+                                    <th>{% trans "Date" %}</th>
+                                    <th>{% trans "Statut" %}</th>
+                                    <th class="text-end">{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for doc in documents_non_classes %}
+                                    {% include "components/documents/document_card.html" with document=doc show_dossier=False show_mandat=False context_params=context_params %}
                                 {% endfor %}
                             </tbody>
                         </table>

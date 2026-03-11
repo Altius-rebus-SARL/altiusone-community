@@ -10,7 +10,7 @@ from django.urls import reverse_lazy
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse, FileResponse
 from django.utils.translation import gettext_lazy as _
-from datetime import datetime
+from django.utils import timezone
 import mimetypes
 import os
 
@@ -331,6 +331,24 @@ class DossierListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
 
         context["filter"] = self.filterset
 
+        # Construire les paramètres de contexte pour les URLs de documents
+        params = []
+        if context.get('current_client'):
+            params.append(f"client={context['current_client'].id}")
+        if context.get('current_mandat'):
+            params.append(f"mandat={context['current_mandat'].id}")
+        if context.get('current_parent'):
+            params.append(f"parent={context['current_parent'].id}")
+        context['context_params'] = '&'.join(params)
+
+        # Documents non classés (sans dossier) pour le niveau mandat
+        if mandat_id and not parent_id:
+            context['documents_non_classes'] = Document.objects.filter(
+                mandat_id=mandat_id,
+                dossier__isnull=True,
+                is_active=True
+            ).select_related('type_document').order_by('-date_upload')[:20]
+
         return context
 
 
@@ -511,7 +529,7 @@ class DocumentDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView
                 "ecriture_comptable",
                 "facture",
             )
-            .prefetch_related("versions", "traitements")
+            .prefetch_related("historique_versions", "traitements")
         )
 
     def get_context_data(self, **kwargs):
@@ -657,8 +675,6 @@ class DocumentUploadView(LoginRequiredMixin, BusinessPermissionMixin, CreateView
 
     def form_valid(self, form):
         from documents.storage import storage_service
-        from documents.tasks import traiter_document_ocr
-        from django.conf import settings
 
         fichier = self.request.FILES["fichier"]
 
@@ -699,10 +715,8 @@ class DocumentUploadView(LoginRequiredMixin, BusinessPermissionMixin, CreateView
         # Puis sauvegarder le fichier via le FileField (utilise DocumentStorage/S3)
         document.fichier.save(fichier.name, fichier, save=True)
 
-        # Lancer le traitement OCR en arrière-plan si activé
-        if getattr(settings, 'OCR_SERVICE_ENABLED', False):
-            traiter_document_ocr.delay(str(document.id))
-            messages.info(self.request, _("Traitement OCR lancé en arrière-plan"))
+        # Le signal post_save lance automatiquement l'OCR si OCR_SERVICE_ENABLED=True
+        # (voir documents/signals.py - traiter_document_apres_upload)
 
         messages.success(self.request, _("Document uploadé avec succès"))
         return super().form_valid(form)
@@ -710,69 +724,62 @@ class DocumentUploadView(LoginRequiredMixin, BusinessPermissionMixin, CreateView
 
 @login_required
 def document_telecharger(request, pk):
-    """Télécharge un document depuis S3/MinIO ou stockage local"""
+    """Télécharge un document depuis S3/MinIO ou stockage local via streaming."""
     document = get_object_or_404(Document, pk=pk)
 
-    # Vérifier que le fichier existe
     if not document.fichier:
         messages.error(request, _("Fichier non disponible"))
         return redirect("documents:document-detail", pk=pk)
 
     try:
-        # Lire le contenu du fichier via le FileField
-        document.fichier.open('rb')
-        content = document.fichier.read()
-        document.fichier.close()
+        file_obj = document.fichier.open('rb')
+        response = FileResponse(
+            file_obj,
+            content_type=document.mime_type or 'application/octet-stream',
+            as_attachment=True,
+            filename=document.nom_original,
+        )
+        if document.taille:
+            response['Content-Length'] = document.taille
+        return response
     except Exception as e:
         messages.error(request, _("Impossible de télécharger le fichier: %(error)s") % {'error': str(e)})
         return redirect("documents:document-detail", pk=pk)
-
-    # Créer la réponse avec le contenu du fichier
-    response = HttpResponse(content, content_type=document.mime_type)
-    response['Content-Disposition'] = f'attachment; filename="{document.nom_original}"'
-    response['Content-Length'] = len(content)
-
-    return response
 
 
 @login_required
 def document_apercu(request, pk):
     """
-    Retourne l'aperçu d'un document (inline).
-    Pour les images et PDF, renvoie le fichier directement.
+    Retourne l'aperçu d'un document (inline) via streaming.
+    Pour les images et PDF, renvoie le fichier directement sans charger en RAM.
     """
     from django.http import Http404
 
     document = get_object_or_404(Document, pk=pk)
 
-    # Vérifier que le fichier existe
     if not document.fichier:
         raise Http404("Fichier non disponible")
 
     try:
-        # Lire le contenu du fichier via le FileField
-        document.fichier.open('rb')
-        content = document.fichier.read()
-        document.fichier.close()
+        file_obj = document.fichier.open('rb')
+        content_type = document.mime_type or mimetypes.guess_type(document.nom_fichier)[0] or 'application/octet-stream'
+
+        response = FileResponse(
+            file_obj,
+            content_type=content_type,
+            as_attachment=False,
+        )
+        response['Content-Disposition'] = f'inline; filename="{document.nom_original}"'
+        if document.taille:
+            response['Content-Length'] = document.taille
+
+        # Cache et iframe
+        response['Cache-Control'] = 'private, max-age=3600'
+        response['X-Frame-Options'] = 'SAMEORIGIN'
+
+        return response
     except Exception as e:
         raise Http404(f"Fichier non trouvé sur le stockage: {e}")
-
-    # Déterminer le Content-Type
-    content_type = document.mime_type or mimetypes.guess_type(document.nom_fichier)[0] or 'application/octet-stream'
-
-    # Créer la réponse avec le contenu du fichier
-    response = HttpResponse(content, content_type=content_type)
-    # Content-Disposition: inline pour afficher dans le navigateur
-    response['Content-Disposition'] = f'inline; filename="{document.nom_original}"'
-    response['Content-Length'] = len(content)
-
-    # Cache headers pour les aperçus
-    response['Cache-Control'] = 'private, max-age=3600'
-
-    # Permettre l'affichage dans iframe (pour PDF)
-    response['X-Frame-Options'] = 'SAMEORIGIN'
-
-    return response
 
 
 @login_required
@@ -785,13 +792,16 @@ def document_valider(request, pk):
 
         if action == "valider":
             document.statut_validation = "VALIDE"
+            document.statut_traitement = "VALIDE"
             document.valide_par = request.user
-            document.date_validation = datetime.now()
+            document.date_validation = timezone.now()
             document.commentaire_validation = request.POST.get("commentaire", "")
             document.save()
             messages.success(request, _("Document validé avec succès"))
         elif action == "rejeter":
             document.statut_validation = "REJETE"
+            document.valide_par = request.user
+            document.date_validation = timezone.now()
             document.commentaire_validation = request.POST.get("commentaire", "")
             document.save()
             messages.warning(request, _("Document rejeté"))
@@ -1000,6 +1010,7 @@ class CategorieDocumentUpdateView(
 
 
 @login_required
+@permission_required_business('documents.add_document')
 @require_http_methods(["POST"])
 def categorie_document_create_ajax(request):
     """Création d'une catégorie via AJAX (pour modal)"""
@@ -1026,6 +1037,7 @@ def categorie_document_create_ajax(request):
 
 
 @login_required
+@permission_required_business('documents.add_document')
 @require_http_methods(["POST"])
 def categorie_document_update_ajax(request, pk):
     """Modification d'une catégorie via AJAX (pour modal)"""
@@ -1198,6 +1210,7 @@ class TypeDocumentUpdateView(LoginRequiredMixin, BusinessPermissionMixin, Update
 
 
 @login_required
+@permission_required_business('documents.add_document')
 @require_http_methods(["POST"])
 def type_document_update_ajax(request, pk):
     """Modification d'un type de document via AJAX (pour modal)"""
@@ -1249,6 +1262,7 @@ def type_document_get_data(request, pk):
 
 
 @login_required
+@permission_required_business('documents.add_document')
 @require_http_methods(["POST"])
 def type_document_create_ajax(request):
     """Création d'un type de document via AJAX (pour modal)"""
