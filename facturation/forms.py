@@ -356,6 +356,8 @@ class FactureForm(forms.ModelForm):
         self.fields['type_facture'].choices = ParametreMetier.get_choices_with_default(
             'facturation', 'type_facture', Facture.TYPE_CHOICES
         )
+        # remise_pourcent: pas obligatoire (default 0 sur le modèle)
+        self.fields['remise_pourcent'].required = False
         # Forcer le format de date
         self.fields["date_emission"].input_formats = ["%Y-%m-%d"]
         self.fields["date_service_debut"].input_formats = ["%Y-%m-%d"]
@@ -367,6 +369,10 @@ class FactureForm(forms.ModelForm):
                 self.fields["devise"].initial = self.mandat.devise_id
             if hasattr(self.mandat, 'regime_fiscal_id') and self.mandat.regime_fiscal_id:
                 self.fields["regime_fiscal"].initial = self.mandat.regime_fiscal_id
+
+    def clean_remise_pourcent(self):
+        val = self.cleaned_data.get('remise_pourcent')
+        return val if val is not None else Decimal('0')
 
 
 class LigneFactureForm(forms.ModelForm):
@@ -406,6 +412,14 @@ class LigneFactureForm(forms.ModelForm):
                 attrs={"class": "form-control", "step": "0.01"}
             ),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['remise_pourcent'].required = False
+
+    def clean_remise_pourcent(self):
+        val = self.cleaned_data.get('remise_pourcent')
+        return val if val is not None else Decimal('0')
 
 
 # Formset pour les lignes de facture
