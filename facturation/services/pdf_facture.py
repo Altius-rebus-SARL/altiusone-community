@@ -121,8 +121,7 @@ class FacturePDF:
 
         y = self._draw_header(p, width, height)
         y = self._draw_emetteur(p, y)
-        if not facture.est_simplifiee:
-            self._draw_destinataire(p, width, height)
+        self._draw_destinataire(p, width, height)
         y = self._draw_info_facture(p, y, width, height)
         y = self._draw_lignes(p, y, width, height)
         y = self._draw_totaux(p, y, width)
