@@ -64,16 +64,13 @@
         <span class="ligne-total" data-row-index="{{ index }}">0.00</span> {{ DEVISE_CODE }}
     </td>
     <td>
-        <input type="checkbox" 
-               name="{{ ligne_form.prefix }}-DELETE" 
-               class="d-none" 
+        <input type="checkbox"
+               name="{{ ligne_form.prefix }}-DELETE"
+               class="d-none delete-checkbox"
                id="id_{{ ligne_form.prefix }}-DELETE">
-        <button type="button" 
+        <button type="button"
                 class="btn btn-sm btn-danger delete-ligne"
-                hx-delete="{% url 'facturation:ligne-delete-row' index %}"
-                hx-target="#ligne-row-{{ index }}"
-                hx-swap="outerHTML swap:1s"
-                hx-confirm="Supprimer cette ligne ?"
+                onclick="supprimerLigne(this)"
                 title="Supprimer">
             <i class="ph ph-trash"></i>
         </button>

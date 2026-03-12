@@ -413,7 +413,7 @@ LigneFactureFormSet = inlineformset_factory(
     Facture,
     LigneFacture,
     form=LigneFactureForm,
-    extra=1,  # 1 ligne vide par défaut
+    extra=0,
     can_delete=True,
     min_num=1,
     validate_min=True,

@@ -274,6 +274,15 @@ function updateFormsetTotal() {
     $('#id_lignes-TOTAL_FORMS').val(ligneIndex);
 }
 
+// Supprimer une ligne (marquer DELETE + masquer)
+function supprimerLigne(btn) {
+    var $row = $(btn).closest('.ligne-row');
+    $row.find('.delete-checkbox').prop('checked', true);
+    $row.hide();
+    // Recalcul des totaux après suppression
+    $(document).trigger('lignes-changed');
+}
+
 $(document).ready(function() {
     // Calculer date d'échéance
     function calculerEcheance() {
@@ -331,6 +340,7 @@ $(document).ready(function() {
 
     // Événements sur les inputs (délégué pour les nouvelles lignes)
     $(document).on('input change', '.quantite-input, .prix-input, .tva-input, #id_remise_pourcent', calculerTotaux);
+    $(document).on('lignes-changed', calculerTotaux);
 
     // Sélection de prestation (délégué)
     $(document).on('change', '.prestation-select', function() {
