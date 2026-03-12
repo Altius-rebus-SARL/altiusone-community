@@ -2976,7 +2976,7 @@ class FichierJoint(BaseModel):
         verbose_name_plural = _('Fichiers joints')
         ordering = ['ordre', 'created_at']
         indexes = [
-            models.Index(fields=['content_type', 'object_id']),
+            models.Index(fields=['content_type', 'object_id'], name='fj_ct_oid_idx'),
         ]
 
     def __str__(self):

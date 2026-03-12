@@ -41,7 +41,7 @@ class Migration(migrations.Migration):
                 'db_table': 'fichiers_joints',
                 'ordering': ['ordre', 'created_at'],
                 'indexes': [
-                    models.Index(fields=['content_type', 'object_id']),
+                    models.Index(fields=['content_type', 'object_id'], name='fj_ct_oid_idx'),
                 ],
             },
         ),
