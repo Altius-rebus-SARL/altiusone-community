@@ -28,6 +28,7 @@ from core.forms import (
     UserForm,
     UserCreateForm,
     RoleForm,
+    AdresseForm,
     EntrepriseForm,
     CompteBancaireFormSet,
     InvitationStaffForm,
@@ -361,14 +362,22 @@ class EntrepriseCreateView(LoginRequiredMixin, AdminRequiredMixin, CreateView):
         context = super().get_context_data(**kwargs)
         if self.request.POST:
             context['comptes_formset'] = CompteBancaireFormSet(self.request.POST, prefix='comptes')
+            context['adresse_form'] = AdresseForm(self.request.POST, prefix='adresse')
         else:
             context['comptes_formset'] = CompteBancaireFormSet(prefix='comptes')
+            context['adresse_form'] = AdresseForm(prefix='adresse')
         return context
 
     def form_valid(self, form):
         context = self.get_context_data()
         comptes_formset = context['comptes_formset']
-        if comptes_formset.is_valid():
+        adresse_form = AdresseForm(self.request.POST, prefix='adresse')
+        if comptes_formset.is_valid() and adresse_form.is_valid():
+            adresse = adresse_form.save()
+            form.instance.adresse = adresse
+            # Synchroniser siege depuis l'adresse
+            if adresse.localite:
+                form.instance.siege = form.instance.siege or adresse.localite
             self.object = form.save()
             comptes_formset.instance = self.object
             comptes_formset.save()
@@ -391,9 +400,17 @@ class EntrepriseUpdateView(LoginRequiredMixin, AdminRequiredMixin, UpdateView):
             context['comptes_formset'] = CompteBancaireFormSet(
                 self.request.POST, instance=self.object, prefix='comptes'
             )
+            context['adresse_form'] = AdresseForm(
+                self.request.POST, prefix='adresse',
+                instance=self.object.adresse,
+            )
         else:
             context['comptes_formset'] = CompteBancaireFormSet(
                 instance=self.object, prefix='comptes'
+            )
+            context['adresse_form'] = AdresseForm(
+                prefix='adresse',
+                instance=self.object.adresse,
             )
         return context
 
@@ -403,7 +420,16 @@ class EntrepriseUpdateView(LoginRequiredMixin, AdminRequiredMixin, UpdateView):
     def form_valid(self, form):
         context = self.get_context_data()
         comptes_formset = context['comptes_formset']
-        if comptes_formset.is_valid():
+        adresse_form = AdresseForm(
+            self.request.POST, prefix='adresse',
+            instance=self.object.adresse,
+        )
+        if comptes_formset.is_valid() and adresse_form.is_valid():
+            adresse = adresse_form.save()
+            form.instance.adresse = adresse
+            # Synchroniser siege depuis l'adresse
+            if adresse.localite:
+                form.instance.siege = form.instance.siege or adresse.localite
             self.object = form.save()
             comptes_formset.save()
             messages.success(self.request, _("Entreprise modifiée avec succès"))

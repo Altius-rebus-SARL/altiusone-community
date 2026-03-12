@@ -66,7 +66,7 @@ class EntrepriseForm(forms.ModelForm):
             ),
             "ofrc_id": forms.TextInput(attrs={"class": "form-control"}),
             "tva_number": forms.TextInput(attrs={"class": "form-control"}),
-            "siege": forms.TextInput(attrs={"class": "form-control"}),
+            "siege": forms.HiddenInput(),
             "canton_rc": forms.Select(attrs={"class": "form-control"}),
             "email": forms.EmailInput(attrs={"class": "form-control"}),
             "telephone": forms.TextInput(attrs={"class": "form-control"}),
@@ -82,6 +82,10 @@ class EntrepriseForm(forms.ModelForm):
             "logo": forms.ClearableFileInput(attrs={"class": "form-control", "accept": "image/*"}),
             "est_defaut": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['siege'].required = False
 
 
 class CompteBancaireForm(forms.ModelForm):

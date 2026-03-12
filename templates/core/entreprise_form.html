@@ -174,19 +174,21 @@
                     <h5>{% trans "Coordonnees" %}</h5>
                 </div>
                 <div class="card-body">
+                    <!-- Adresse du siège -->
+                    <h6 class="text-primary mb-3">{% trans "Adresse du siège" %}</h6>
+                    {% include "includes/adresse_fields.html" with prefix="adresse" adresse_form=adresse_form %}
+
+                    {{ form.siege }}
+
+                    <hr class="my-3">
                     <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="{{ form.siege.id_for_label }}" class="form-label">
-                                {% trans "Siege" %} <span class="text-danger">*</span>
-                            </label>
-                            {{ form.siege }}
-                            {% if form.siege.errors %}<div class="text-danger f-s-12">{{ form.siege.errors|join:", " }}</div>{% endif %}
-                        </div>
                         <div class="col-md-6 mb-3">
                             <label for="{{ form.canton_rc.id_for_label }}" class="form-label">{% trans "Canton RC" %}</label>
                             {{ form.canton_rc }}
                             {% if form.canton_rc.errors %}<div class="text-danger f-s-12">{{ form.canton_rc.errors|join:", " }}</div>{% endif %}
                         </div>
+                    </div>
+                    <div class="row">
                         <div class="col-md-4 mb-3">
                             <label for="{{ form.email.id_for_label }}" class="form-label">{% trans "Email" %}</label>
                             {{ form.email }}
@@ -452,6 +454,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const cantonRcSelect = document.getElementById('{{ form.canton_rc.id_for_label }}');
     const formeJuridiqueSelect = document.getElementById('{{ form.forme_juridique.id_for_label }}');
     const resultsContainer = document.getElementById('autocomplete-results');
+    // Champs adresse structurés
+    const rueInput = document.getElementById('{{ adresse_form.rue.id_for_label }}');
+    const numeroInput = document.getElementById('{{ adresse_form.numero.id_for_label }}');
+    const npaInput = document.getElementById('{{ adresse_form.code_postal.id_for_label }}');
+    const localiteInput = document.getElementById('{{ adresse_form.localite.id_for_label }}');
+    const cantonAdresseSelect = document.getElementById('{{ adresse_form.canton.id_for_label }}');
 
     if (!raisonSocialeInput || !resultsContainer) return;
 
@@ -544,6 +552,11 @@ document.addEventListener('DOMContentLoaded', function() {
         raisonSocialeInput.value = company.name;
         if (ideInput) ideInput.value = company.ide_number;
 
+        // Remplir la localité dans l'adresse structurée
+        if (localiteInput && company.legal_seat) {
+            localiteInput.value = company.legal_seat;
+        }
+        // Synchroniser le champ siege caché
         if (siegeInput && company.legal_seat) {
             siegeInput.value = company.legal_seat;
         }
@@ -551,6 +564,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (cantonRcSelect && company.canton) {
             const option = cantonRcSelect.querySelector(`option[value="${company.canton}"]`);
             if (option) cantonRcSelect.value = company.canton;
+        }
+        // Aussi sur le canton de l'adresse
+        if (cantonAdresseSelect && company.canton) {
+            const option = cantonAdresseSelect.querySelector(`option[value="${company.canton}"]`);
+            if (option) cantonAdresseSelect.value = company.canton;
         }
 
         // Map legal form
@@ -601,6 +619,20 @@ document.addEventListener('DOMContentLoaded', function() {
                         : full.ch_id;
                 }
                 if (ofrcIdInput && full.ofrc_id) ofrcIdInput.value = full.ofrc_id;
+                // Remplir l'adresse structurée depuis les détails complets
+                if (full.address) {
+                    if (rueInput && full.address.street) rueInput.value = full.address.street;
+                    if (numeroInput && full.address.house_number) numeroInput.value = full.address.house_number;
+                    if (npaInput && full.address.postal_code) npaInput.value = full.address.postal_code;
+                    if (localiteInput && full.address.city) localiteInput.value = full.address.city;
+                    // Mettre à jour siege caché
+                    if (siegeInput) {
+                        const parts = [];
+                        if (full.address.street) parts.push(full.address.street + (full.address.house_number ? ' ' + full.address.house_number : ''));
+                        if (full.address.postal_code && full.address.city) parts.push(full.address.postal_code + ' ' + full.address.city);
+                        siegeInput.value = parts.join(', ') || company.legal_seat || '';
+                    }
+                }
             })
             .catch(() => {});
         }
@@ -608,7 +640,7 @@ document.addEventListener('DOMContentLoaded', function() {
         hideResults();
 
         // Visual feedback
-        const filledFields = [raisonSocialeInput, ideInput, siegeInput].filter(f => f && f.value);
+        const filledFields = [raisonSocialeInput, ideInput, rueInput, npaInput, localiteInput].filter(f => f && f.value);
         filledFields.forEach(field => field.classList.add('is-valid'));
         setTimeout(() => filledFields.forEach(field => field.classList.remove('is-valid')), 2000);
     }
