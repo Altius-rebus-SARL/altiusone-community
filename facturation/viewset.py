@@ -335,7 +335,7 @@ class PaiementViewSet(viewsets.ModelViewSet):
     serializer_class = PaiementSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["facture", "mode_paiement"]
+    filterset_fields = ["facture", "facture__mandat", "mode_paiement"]
 
     @action(detail=True, methods=["post"])
     def valider(self, request, pk=None):
@@ -359,7 +359,7 @@ class RelanceViewSet(viewsets.ModelViewSet):
     serializer_class = RelanceSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["facture", "niveau", "envoyee"]
+    filterset_fields = ["facture", "facture__mandat", "niveau", "envoyee"]
 
     @action(detail=True, methods=["post"])
     def envoyer(self, request, pk=None):

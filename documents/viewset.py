@@ -37,6 +37,25 @@ class DossierViewSet(viewsets.ModelViewSet):
     ordering_fields = ['nom', 'created_at', 'niveau']
     ordering = ['chemin_complet']
 
+    def perform_create(self, serializer):
+        """Auto-set proprietaire, created_by, chemin_complet et niveau."""
+        parent = serializer.validated_data.get('parent')
+        nom = serializer.validated_data.get('nom', '')
+
+        if parent:
+            chemin_complet = f"{parent.chemin_complet}/{nom}"
+            niveau = parent.niveau + 1
+        else:
+            chemin_complet = f"/{nom}"
+            niveau = 0
+
+        serializer.save(
+            proprietaire=self.request.user,
+            created_by=self.request.user,
+            chemin_complet=chemin_complet,
+            niveau=niveau,
+        )
+
     def get_queryset(self):
         user = self.request.user
         base_queryset = Dossier.objects.select_related('mandat', 'client', 'parent')

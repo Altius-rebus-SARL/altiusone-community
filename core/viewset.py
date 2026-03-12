@@ -551,6 +551,41 @@ class TacheViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(taches, many=True)
         return Response(serializer.data)
 
+    @action(detail=False, methods=["get"])
+    def calendar_events(self, request):
+        """Retourne les tâches au format calendrier pour le mobile"""
+        start = request.query_params.get("start")
+        end = request.query_params.get("end")
+
+        taches = self.get_queryset().exclude(statut="ANNULEE")
+
+        if start:
+            taches = taches.filter(
+                Q(date_echeance__gte=start) | Q(date_echeance__isnull=True, date_debut__gte=start)
+            )
+        if end:
+            taches = taches.filter(
+                Q(date_echeance__lte=end) | Q(date_echeance__isnull=True, date_debut__lte=end)
+            )
+
+        taches = taches.distinct()
+
+        events = []
+        for t in taches:
+            event_date = t.date_echeance or (t.date_debut.date() if t.date_debut else None)
+            if not event_date:
+                continue
+            events.append({
+                "id": str(t.pk),
+                "title": t.titre,
+                "start": event_date.isoformat(),
+                "priorite": t.priorite,
+                "statut": t.statut,
+                "description": (t.description[:100] if t.description else ""),
+            })
+
+        return Response(events)
+
 
 class IsManagerOrAbove:
     """Permission: seuls les managers ou supérieurs peuvent accéder"""

@@ -7,7 +7,31 @@ from core.serializers import MandatListSerializer
 class DossierSerializer(serializers.ModelSerializer):
     class Meta:
         model = Dossier
-        fields = "__all__"
+        fields = [
+            "id",
+            "parent",
+            "client",
+            "mandat",
+            "nom",
+            "type_dossier",
+            "chemin_complet",
+            "niveau",
+            "description",
+            "tags",
+            "proprietaire",
+            "acces_restreint",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "proprietaire",
+            "chemin_complet",
+            "niveau",
+            "created_at",
+            "updated_at",
+        ]
 
 
 class TypeDocumentSerializer(serializers.ModelSerializer):
