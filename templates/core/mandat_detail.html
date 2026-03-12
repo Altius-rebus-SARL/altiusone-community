@@ -466,7 +466,7 @@ function analyserMandat(mandatPk) {
     btn.disabled = true;
     btn.innerHTML = '<i class="ti ti-loader me-2"></i>Analyse en cours...';
 
-    fetch('/documents/mandats/' + mandatPk + '/analyser/', {
+    fetch('{% url "documents:mandat-analyser" mandat_pk=object.pk %}', {
         method: 'POST',
         headers: {
             'X-CSRFToken': getCookie('csrftoken'),
@@ -489,7 +489,8 @@ function analyserMandat(mandatPk) {
 
 function marquerTraite(el) {
     const insightId = el.getAttribute('data-insight-id');
-    fetch('/documents/insights/' + insightId + '/traiter/', {
+    const url = '{% url "documents:insight-traiter" pk="00000000-0000-0000-0000-000000000000" %}'.replace('00000000-0000-0000-0000-000000000000', insightId);
+    fetch(url, {
         method: 'POST',
         headers: {
             'X-CSRFToken': getCookie('csrftoken'),

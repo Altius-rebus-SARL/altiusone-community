@@ -96,7 +96,8 @@ function getCookie(name) {
 
 function marquerTraite(el) {
     const insightId = el.getAttribute('data-insight-id');
-    fetch('/documents/insights/' + insightId + '/traiter/', {
+    const url = '{% url "documents:insight-traiter" pk="00000000-0000-0000-0000-000000000000" %}'.replace('00000000-0000-0000-0000-000000000000', insightId);
+    fetch(url, {
         method: 'POST',
         headers: {
             'X-CSRFToken': getCookie('csrftoken'),
