@@ -1,10 +1,13 @@
 # apps/core/models.py
 from django.db import models
 from django.contrib.auth.models import AbstractUser, Permission
+from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
 from django.contrib.contenttypes.models import ContentType
 from django.core.validators import RegexValidator, MinValueValidator, MaxValueValidator
 from django.utils.translation import gettext_lazy as _
 from django_countries.fields import CountryField
+import hashlib
+import os
 import uuid
 
 
@@ -2868,3 +2871,138 @@ class ParametreMetier(BaseModel):
         """
         db_choices = cls.get_choices(module, categorie, regime_fiscal)
         return db_choices if db_choices else default_choices
+
+
+# =============================================================================
+# FICHIER JOINT (Pièce jointe générique réutilisable partout)
+# =============================================================================
+
+def fichier_joint_upload_path(instance, filename):
+    """
+    Chemin d'upload pour les fichiers joints génériques.
+    Format: fichiers_joints/{content_type}/{object_id}/{uuid}/{filename}
+    """
+    ct = instance.content_type
+    app_model = f"{ct.app_label}_{ct.model}" if ct else "unknown"
+    return f"fichiers_joints/{app_model}/{instance.object_id}/{uuid.uuid4()}/{filename}"
+
+
+class FichierJoint(BaseModel):
+    """
+    Pièce jointe générique réutilisable dans tout le projet.
+
+    Utilise GenericForeignKey pour pouvoir être rattachée à n'importe quel
+    modèle (TimeTracking, Tache, etc.) sans créer de table intermédiaire
+    spécifique à chaque modèle.
+
+    Usage dans un modèle cible :
+        from django.contrib.contenttypes.fields import GenericRelation
+        from core.models import FichierJoint
+
+        class MonModele(BaseModel):
+            fichiers_joints = GenericRelation(FichierJoint)
+
+    Usage dans une vue :
+        for f in request.FILES.getlist('fichiers'):
+            FichierJoint.objects.create(
+                content_object=mon_instance,
+                fichier=f,
+                nom_original=f.name,
+                created_by=request.user,
+            )
+    """
+
+    # Lien générique vers n'importe quel modèle
+    content_type = models.ForeignKey(
+        ContentType, on_delete=models.CASCADE,
+        verbose_name=_('Type de contenu'),
+        help_text=_('Modèle auquel ce fichier est rattaché')
+    )
+    object_id = models.UUIDField(
+        verbose_name=_('ID objet'),
+        help_text=_('Identifiant de l\'objet parent')
+    )
+    content_object = GenericForeignKey('content_type', 'object_id')
+
+    # Fichier
+    fichier = models.FileField(
+        upload_to=fichier_joint_upload_path,
+        verbose_name=_('Fichier'),
+        help_text=_('Fichier joint')
+    )
+    nom_original = models.CharField(
+        max_length=255,
+        verbose_name=_('Nom original'),
+        help_text=_('Nom du fichier lors de l\'upload')
+    )
+    extension = models.CharField(
+        max_length=20, blank=True,
+        verbose_name=_('Extension'),
+        help_text=_('Extension du fichier (pdf, jpg, etc.)')
+    )
+    mime_type = models.CharField(
+        max_length=100, blank=True,
+        verbose_name=_('Type MIME'),
+        help_text=_('Type MIME du fichier')
+    )
+    taille = models.BigIntegerField(
+        default=0,
+        verbose_name=_('Taille'),
+        help_text=_('Taille du fichier en octets')
+    )
+    hash_fichier = models.CharField(
+        max_length=64, blank=True, db_index=True,
+        verbose_name=_('Hash SHA-256'),
+        help_text=_('Empreinte SHA-256 du fichier')
+    )
+
+    # Description optionnelle
+    description = models.CharField(
+        max_length=500, blank=True,
+        verbose_name=_('Description'),
+        help_text=_('Description ou commentaire sur ce fichier')
+    )
+
+    # Ordre d'affichage
+    ordre = models.IntegerField(
+        default=0,
+        verbose_name=_('Ordre'),
+        help_text=_('Position d\'affichage dans la liste')
+    )
+
+    class Meta:
+        db_table = 'fichiers_joints'
+        verbose_name = _('Fichier joint')
+        verbose_name_plural = _('Fichiers joints')
+        ordering = ['ordre', 'created_at']
+        indexes = [
+            models.Index(fields=['content_type', 'object_id'], name='fj_ct_oid_idx'),
+        ]
+
+    def __str__(self):
+        return self.nom_original
+
+    def save(self, *args, **kwargs):
+        if self.fichier and not self.nom_original:
+            self.nom_original = os.path.basename(self.fichier.name)
+
+        if self.nom_original and not self.extension:
+            self.extension = os.path.splitext(self.nom_original)[1].lower().lstrip('.')
+
+        if self.fichier and not self.taille:
+            try:
+                self.taille = self.fichier.size
+            except (OSError, AttributeError):
+                pass
+
+        if self.fichier and not self.hash_fichier:
+            try:
+                hasher = hashlib.sha256()
+                for chunk in self.fichier.chunks():
+                    hasher.update(chunk)
+                self.hash_fichier = hasher.hexdigest()
+                self.fichier.seek(0)
+            except (OSError, AttributeError):
+                pass
+
+        super().save(*args, **kwargs)

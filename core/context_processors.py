@@ -1,6 +1,39 @@
 from decimal import Decimal
 
+from django.utils.translation import gettext_lazy as _
+
 from core.models import Devise
+
+
+CONNEXION_BADGES = {
+    ("STAFF", "EMPLOYE"):      {"label": _("Staff interne"),  "color": "success"},
+    ("STAFF", "PRESTATAIRE"):  {"label": _("Staff externe"),  "color": "info"},
+    ("CLIENT", "EMPLOYE"):     {"label": _("Client interne"), "color": "warning"},
+    ("CLIENT", "PRESTATAIRE"): {"label": _("Client externe"), "color": "danger"},
+}
+
+
+def connexion_context(request):
+    """Expose le type de connexion utilisateur dans tous les templates.
+
+    Variables exposées :
+    - CONNEXION_LABEL : libellé du type de connexion (ex: "Staff interne")
+    - CONNEXION_COLOR : couleur Bootstrap du badge (success, info, warning, danger)
+    """
+    if not hasattr(request, "user") or not request.user.is_authenticated:
+        return {}
+
+    user = request.user
+    key = (
+        getattr(user, "type_utilisateur", "STAFF"),
+        getattr(user, "type_collaborateur", "EMPLOYE"),
+    )
+    badge = CONNEXION_BADGES.get(key, CONNEXION_BADGES[("STAFF", "EMPLOYE")])
+
+    return {
+        "CONNEXION_LABEL": badge["label"],
+        "CONNEXION_COLOR": badge["color"],
+    }
 
 
 def devise_context(request):

@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 import json
 from django.forms import inlineformset_factory
+from core.models import FichierJoint
 from .models import (
     Prestation, TypePrestation, TimeTracking, Facture, LigneFacture, Paiement, Relance,
     ZoneGeographique, TarifMandat,
@@ -287,8 +288,30 @@ class TimeTrackingCreateView(LoginRequiredMixin, BusinessPermissionMixin, Create
                 Decimal("0.01")
             )
 
-        messages.success(self.request, _("Temps enregistré avec succès"))
-        return super().form_valid(form)
+        response = super().form_valid(form)
+
+        # Traitement des pièces jointes
+        fichiers = self.request.FILES.getlist('fichiers')
+        for fichier in fichiers:
+            FichierJoint.objects.create(
+                content_object=self.object,
+                fichier=fichier,
+                nom_original=fichier.name,
+                mime_type=getattr(fichier, 'content_type', ''),
+                taille=fichier.size,
+                created_by=self.request.user,
+            )
+
+        nb_fichiers = len(fichiers)
+        if nb_fichiers:
+            messages.success(
+                self.request,
+                _("Temps enregistré avec %(nb)d pièce(s) jointe(s)") % {'nb': nb_fichiers}
+            )
+        else:
+            messages.success(self.request, _("Temps enregistré avec succès"))
+
+        return response
 
 
 # ============ FACTURES ============

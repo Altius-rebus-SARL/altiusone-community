@@ -175,6 +175,7 @@
                             <tr>
                                 <th>{% trans "Fichier" %}</th>
                                 <th>{% trans "Mandat" %}</th>
+                                <th>{% trans "Dossier" %}</th>
                                 <th>{% trans "Type" %}</th>
                                 <th>{% trans "Taille" %}</th>
                                 <th>{% trans "Date upload" %}</th>
@@ -184,100 +185,10 @@
                         </thead>
                         <tbody>
                             {% for doc in documents %}
-                            <tr>
-                                <td>
-                                    <div class="d-flex align-items-center">
-                                        <div class="me-3">
-                                            {% if doc.extension in '.jpg,.jpeg,.png,.gif,.webp' %}
-                                                {% if doc.fichier %}
-                                                <!-- Vignette pour les images -->
-                                                <a href="{% url 'documents:document-detail' doc.pk %}" title="{{ doc.nom_fichier }}">
-                                                    <img src="{% url 'documents:document-apercu' doc.pk %}"
-                                                         alt="{{ doc.nom_fichier }}"
-                                                         class="rounded"
-                                                         style="width: 40px; height: 40px; object-fit: cover;"
-                                                         onerror="this.onerror=null; this.outerHTML='<i class=\'ph ph-image text-info f-s-24\'></i>';">
-                                                </a>
-                                                {% else %}
-                                                <i class="ph ph-image text-info f-s-24"></i>
-                                                {% endif %}
-                                            {% elif doc.extension == '.pdf' %}
-                                            <i class="ph ph-file-pdf text-danger f-s-24"></i>
-                                            {% elif doc.extension in '.doc,.docx' %}
-                                            <i class="ph ph-file-doc text-primary f-s-24"></i>
-                                            {% elif doc.extension in '.xls,.xlsx' %}
-                                            <i class="ph ph-file-xls text-success f-s-24"></i>
-                                            {% else %}
-                                            <i class="ph ph-file text-secondary f-s-24"></i>
-                                            {% endif %}
-                                        </div>
-                                        <div>
-                                            <a href="{% url 'documents:document-detail' doc.pk %}" class="text-dark f-w-600">
-                                                {{ doc.nom_fichier|truncatechars:40 }}
-                                            </a>
-                                            <p class="text-muted f-s-12 mb-0">{{ doc.dossier.nom }}</p>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td>
-                                    <span class="badge text-light-primary">{{ doc.mandat.numero }}</span>
-                                </td>
-                                <td>
-                                    {% if doc.type_document %}
-                                    <span class="badge text-light-secondary">{{ doc.type_document.libelle }}</span>
-                                    {% else %}
-                                    <span class="text-muted">-</span>
-                                    {% endif %}
-                                </td>
-                                <td>{{ doc.taille|filesizeformat }}</td>
-                                <td>
-                                    <span class="text-muted f-s-12">{{ doc.date_upload|date:"d/m/Y H:i" }}</span>
-                                </td>
-                                <td>
-                                    {% if doc.statut_validation == 'VALIDE' %}
-                                    <span class="badge text-light-success">
-                                        <i class="ph ph-check-circle me-1"></i>{% trans "Validé" %}
-                                    </span>
-                                    {% elif doc.statut_validation == 'EN_ATTENTE' %}
-                                    <span class="badge text-light-warning">
-                                        <i class="ph ph-clock me-1"></i>{% trans "En attente" %}
-                                    </span>
-                                    {% elif doc.statut_validation == 'REJETE' %}
-                                    <span class="badge text-light-danger">
-                                        <i class="ph ph-x-circle me-1"></i>{% trans "Rejeté" %}
-                                    </span>
-                                    {% endif %}
-                                </td>
-                                <td class="text-end">
-                                    <div class="dropdown">
-                                        <a class="text-muted" data-bs-toggle="dropdown" role="button">
-                                            <i class="ph ph-dots-three-vertical f-s-18"></i>
-                                        </a>
-                                        <ul class="dropdown-menu dropdown-menu-end">
-                                            <li>
-                                                <a class="dropdown-item" href="{% url 'documents:document-detail' doc.pk %}">
-                                                    <i class="ph ph-eye me-2"></i>{% trans "Voir" %}
-                                                </a>
-                                            </li>
-                                            <li>
-                                                <a class="dropdown-item" href="{% url 'documents:document-telecharger' doc.pk %}">
-                                                    <i class="ph ph-download me-2"></i>{% trans "Télécharger" %}
-                                                </a>
-                                            </li>
-                                            {% if doc.statut_validation == 'EN_ATTENTE' %}
-                                            <li>
-                                                <a class="dropdown-item" href="{% url 'documents:document-valider' doc.pk %}">
-                                                    <i class="ph ph-check me-2"></i>{% trans "Valider" %}
-                                                </a>
-                                            </li>
-                                            {% endif %}
-                                        </ul>
-                                    </div>
-                                </td>
-                            </tr>
+                                {% include "components/documents/document_card.html" with document=doc show_dossier=True show_mandat=True %}
                             {% empty %}
                             <tr>
-                                <td colspan="7" class="text-center py-5">
+                                <td colspan="8" class="text-center py-5">
                                     <i class="ph ph-file-x f-s-48 text-muted d-block mb-3"></i>
                                     <p class="text-muted">{% trans "Aucun document trouvé" %}</p>
                                 </td>

@@ -53,6 +53,30 @@ class PrestationForm(forms.ModelForm):
         }
 
 
+class MultipleFileInput(forms.ClearableFileInput):
+    """Widget pour upload de plusieurs fichiers."""
+    allow_multiple_selected = True
+
+
+class MultipleFileField(forms.FileField):
+    """Champ de formulaire acceptant plusieurs fichiers."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault('widget', MultipleFileInput(attrs={
+            'class': 'form-control',
+            'accept': '.pdf,.jpg,.jpeg,.png,.gif,.tiff,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip',
+        }))
+        super().__init__(*args, **kwargs)
+
+    def clean(self, data, initial=None):
+        single_file_clean = super().clean
+        if isinstance(data, (list, tuple)):
+            result = [single_file_clean(d, initial) for d in data]
+        else:
+            result = [single_file_clean(data, initial)]
+        return result
+
+
 class TimeTrackingForm(CoordonneesMixin, forms.ModelForm):
     """Formulaire pour le suivi du temps"""
 
@@ -73,6 +97,13 @@ class TimeTrackingForm(CoordonneesMixin, forms.ModelForm):
     coordonnees = forms.CharField(
         required=False,
         widget=forms.HiddenInput(attrs={"id": "id_coordonnees"}),
+    )
+
+    # Pièces jointes (preuves du travail effectué)
+    fichiers = MultipleFileField(
+        required=False,
+        label=_("Pièces jointes"),
+        help_text=_("Joindre des fichiers comme preuve du travail effectué (captures, documents, etc.)"),
     )
 
     class Meta:

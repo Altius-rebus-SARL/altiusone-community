@@ -17,6 +17,7 @@ from .models import (
     Notification,
     Tache,
     CollaborateurFiduciaire,
+    FichierJoint,
 )
 from .serializers import (
     UserSerializer,
@@ -33,6 +34,9 @@ from .serializers import (
     TacheSerializer,
     CollaborateurFiduciaireListSerializer,
     CollaborateurFiduciaireDetailSerializer,
+    FichierJointListSerializer,
+    FichierJointDetailSerializer,
+    FichierJointUploadSerializer,
 )
 
 
@@ -800,3 +804,77 @@ class GraphViewSet(viewsets.ViewSet):
                 continue
 
         return Response({'stats': stats})
+
+
+class FichierJointViewSet(viewsets.ModelViewSet):
+    """ViewSet pour les fichiers joints (pièces jointes génériques).
+
+    Supporte l'upload multipart et base64 (mobile).
+    Filtrable par content_type et object_id pour récupérer les pièces jointes
+    d'un objet spécifique.
+    """
+
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ["content_type", "object_id"]
+    ordering = ["ordre", "created_at"]
+
+    def get_queryset(self):
+        from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+        return FichierJoint.objects.select_related("content_type")
+
+    def get_parsers(self):
+        from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+        return [MultiPartParser(), FormParser(), JSONParser()]
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return FichierJointListSerializer
+        if self.action == "create":
+            return FichierJointUploadSerializer
+        return FichierJointDetailSerializer
+
+    @action(detail=True, methods=["get"])
+    def download(self, request, pk=None):
+        """Télécharger un fichier joint"""
+        fichier_joint = self.get_object()
+        if not fichier_joint.fichier:
+            return Response(
+                {"error": "Aucun fichier disponible"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response({
+            "url": fichier_joint.fichier.url,
+            "nom_fichier": fichier_joint.nom_original,
+            "mime_type": fichier_joint.mime_type,
+            "taille": fichier_joint.taille,
+        })
+
+    @action(detail=False, methods=["get"])
+    def par_objet(self, request):
+        """Récupérer les fichiers joints d'un objet par content_type et object_id.
+
+        ?content_type_model=timetracking&object_id=uuid
+        """
+        from django.contrib.contenttypes.models import ContentType
+
+        model_name = request.query_params.get("content_type_model")
+        object_id = request.query_params.get("object_id")
+
+        if not model_name or not object_id:
+            return Response(
+                {"error": "content_type_model et object_id sont requis"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            ct = ContentType.objects.get(model=model_name.lower())
+        except ContentType.DoesNotExist:
+            return Response(
+                {"error": f"Type de contenu '{model_name}' introuvable"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        qs = self.get_queryset().filter(content_type=ct, object_id=object_id)
+        serializer = FichierJointListSerializer(qs, many=True)
+        return Response(serializer.data)

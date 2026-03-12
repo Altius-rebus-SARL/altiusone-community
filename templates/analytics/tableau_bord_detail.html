@@ -325,9 +325,9 @@ const demoData = {
 
 // Formater les valeurs
 function formatValue(value, unit) {
-    const _dv = window.ALTIUSONE_DEVISE || { code: '{{ DEVISE_CODE }}', taux: 1 };
-    if (unit === '{{ DEVISE_BASE_CODE }}' || unit === _dv.code) {
-        return _dv.code + " " + (value * _dv.taux).toLocaleString('fr-CH');
+    const devise = window.ALTIUSONE_DEVISE || { code: '{{ DEVISE_CODE }}', taux: 1 };
+    if (unit === '{{ DEVISE_BASE_CODE }}' || unit === devise.code) {
+        return devise.code + " " + (value * devise.taux).toLocaleString('fr-CH');
     } else if (unit === '%') {
         return value + '%';
     } else if (unit === 'h') {
@@ -367,7 +367,7 @@ function updateKPIs() {
 function createCharts() {
     const chartContainers = document.querySelectorAll('[id^="chart-"]');
 
-    const _d = window.ALTIUSONE_DEVISE || { code: '{{ DEVISE_CODE }}', taux: 1 };
+    const devise = window.ALTIUSONE_DEVISE || { code: '{{ DEVISE_CODE }}', taux: 1 };
     chartContainers.forEach(container => {
         const chartType = container.dataset.chartType;
         const metric = container.dataset.metric;
@@ -392,11 +392,11 @@ function createCharts() {
                     markers: { size: 4 },
                     yaxis: {
                         labels: {
-                            formatter: (val) => _d.code + " " + (val * _d.taux).toLocaleString('fr-CH')
+                            formatter: (val) => devise.code + " " + (val * devise.taux).toLocaleString('fr-CH')
                         }
                     },
                     tooltip: {
-                        y: { formatter: (val) => _d.code + " " + (val * _d.taux).toLocaleString('fr-CH') }
+                        y: { formatter: (val) => devise.code + " " + (val * devise.taux).toLocaleString('fr-CH') }
                     }
                 };
                 break;
@@ -412,7 +412,7 @@ function createCharts() {
                     dataLabels: { enabled: false },
                     yaxis: {
                         labels: {
-                            formatter: (val) => _d.code + " " + (val * _d.taux).toLocaleString('fr-CH')
+                            formatter: (val) => devise.code + " " + (val * devise.taux).toLocaleString('fr-CH')
                         }
                     }
                 };
@@ -428,7 +428,7 @@ function createCharts() {
                     dataLabels: { enabled: false },
                     yaxis: {
                         labels: {
-                            formatter: (val) => typeof val === 'number' && val > 1000 ? _d.code + " " + (val * _d.taux).toLocaleString('fr-CH') : val
+                            formatter: (val) => typeof val === 'number' && val > 1000 ? devise.code + " " + (val * devise.taux).toLocaleString('fr-CH') : val
                         }
                     }
                 };
@@ -444,7 +444,7 @@ function createCharts() {
                     dataLabels: { enabled: false },
                     xaxis: {
                         labels: {
-                            formatter: (val) => typeof val === 'number' && val > 1000 ? _d.code + " " + (val * _d.taux).toLocaleString('fr-CH') : val
+                            formatter: (val) => typeof val === 'number' && val > 1000 ? devise.code + " " + (val * devise.taux).toLocaleString('fr-CH') : val
                         }
                     }
                 };
@@ -501,7 +501,7 @@ function createCharts() {
                     },
                     dataLabels: {
                         enabled: true,
-                        formatter: (text, op) => text + '\n' + _d.code + " " + (op.value * _d.taux).toLocaleString('fr-CH')
+                        formatter: (text, op) => text + '\n' + devise.code + " " + (op.value * devise.taux).toLocaleString('fr-CH')
                     }
                 };
                 break;

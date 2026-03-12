@@ -1,0 +1,74 @@
+{% comment %}
+Composant réutilisable : Aperçu de document (PDF/Image/Icône).
+
+Usage:
+  {% include "components/documents/document_preview.html" with document=document mode="full" %}
+  {% include "components/documents/document_preview.html" with document=doc mode="thumbnail" %}
+
+Paramètres:
+  - document : instance Document
+  - mode : "full" (page détail, grande taille), "thumbnail" (liste, 40x40px), "medium" (validation, 80px)
+{% endcomment %}
+{% load i18n %}
+
+{% if mode == "thumbnail" %}
+    {# --- Mode vignette (pour les listes) --- #}
+    {% with ext=document.extension|lower %}
+    {% if ext in '.jpg,.jpeg,.png,.gif,.webp,jpg,jpeg,png,gif,webp' %}
+        {% if document.fichier %}
+        <a href="{% url 'documents:document-detail' document.pk %}" title="{{ document.nom_fichier }}">
+            <img src="{% url 'documents:document-apercu' document.pk %}"
+                 alt="{{ document.nom_fichier }}"
+                 class="rounded"
+                 style="width: 40px; height: 40px; object-fit: cover;"
+                 loading="lazy"
+                 onerror="this.onerror=null; this.outerHTML='<i class=\'ph-duotone ph-file-image text-info f-s-24\'></i>';">
+        </a>
+        {% else %}
+        {% include "components/documents/file_icon.html" with extension=ext size="24" %}
+        {% endif %}
+    {% else %}
+        {% include "components/documents/file_icon.html" with extension=ext size="24" %}
+    {% endif %}
+    {% endwith %}
+
+{% elif mode == "medium" %}
+    {# --- Mode moyen (pour validation) --- #}
+    {% include "components/documents/file_icon.html" with extension=document.extension size="80" %}
+
+{% else %}
+    {# --- Mode full (page détail) --- #}
+    {% if document.fichier %}
+        {% with ext=document.extension|lower %}
+        {% if ext == '.pdf' or ext == 'pdf' %}
+            <div class="ratio ratio-16x9 mb-3" style="max-height: 600px;">
+                <iframe src="{% url 'documents:document-apercu' document.pk %}"
+                        type="application/pdf"
+                        style="border: 1px solid #dee2e6; border-radius: 8px;">
+                </iframe>
+            </div>
+        {% elif ext in '.jpg,.jpeg,.png,.gif,.webp,jpg,jpeg,png,gif,webp' %}
+            <div class="text-center">
+                <a href="{% url 'documents:document-apercu' document.pk %}" target="_blank" title="{% trans 'Cliquez pour agrandir' %}">
+                    <img src="{% url 'documents:document-apercu' document.pk %}"
+                         alt="{{ document.nom_fichier }}"
+                         class="img-fluid rounded shadow-sm"
+                         style="max-height: 500px; cursor: zoom-in;"
+                         loading="lazy"
+                         onerror="this.onerror=null; this.parentElement.innerHTML='{% include "components/documents/file_icon.html" with extension=ext size="120" %}<p class=\'text-muted mt-2\'>{% trans "Aperçu non disponible" %}</p>';">
+                </a>
+            </div>
+        {% else %}
+            <div class="text-center py-5">
+                {% include "components/documents/file_icon.html" with extension=ext size="120" %}
+                <p class="text-muted mt-3">{{ document.nom_fichier }}</p>
+            </div>
+        {% endif %}
+        {% endwith %}
+    {% else %}
+        <div class="text-center py-5">
+            {% include "components/documents/file_icon.html" with extension=document.extension size="120" %}
+            <p class="text-muted mt-3">{% trans "Fichier non disponible dans le stockage" %}</p>
+        </div>
+    {% endif %}
+{% endif %}

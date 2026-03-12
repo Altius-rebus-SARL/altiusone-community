@@ -465,15 +465,12 @@
             </div>
             <div class="card-body">
                 <div class="d-grid gap-2">
-                    <button class="btn btn-light-primary" disabled>
+                    <a href="{% url 'documents:type-update' type_document.pk %}" class="btn btn-light-primary">
                         <i class="ph ph-pencil me-2"></i>{% trans "Modifier le type" %}
-                    </button>
+                    </a>
                     <a href="{% url 'documents:document-list' %}?type_document={{ type_document.pk }}" class="btn btn-light-secondary">
                         <i class="ph ph-funnel me-2"></i>{% trans "Voir tous les documents" %}
                     </a>
-                    <button class="btn btn-light-danger" disabled>
-                        <i class="ph ph-trash me-2"></i>{% trans "Supprimer" %}
-                    </button>
                 </div>
             </div>
         </div>
