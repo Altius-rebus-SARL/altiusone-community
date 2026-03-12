@@ -445,13 +445,22 @@ class FactureCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView)
     template_name = "facturation/facture_form.html"
     business_permission = 'facturation.add_facture'
 
+    def _get_mandat(self):
+        mandat_id = self.request.GET.get("mandat")
+        if mandat_id:
+            return get_object_or_404(Mandat, pk=mandat_id)
+        return None
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['mandat'] = self._get_mandat()
+        return kwargs
+
     def get_initial(self):
         initial = super().get_initial()
 
-        # Préremplir avec le mandat si fourni
-        mandat_id = self.request.GET.get("mandat")
-        if mandat_id:
-            mandat = get_object_or_404(Mandat, pk=mandat_id)
+        mandat = self._get_mandat()
+        if mandat:
             initial["mandat"] = mandat
             initial["client"] = mandat.client
 
@@ -518,6 +527,11 @@ class FactureUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateView)
     def get_queryset(self):
         # Ne peut modifier que les factures en brouillon
         return super().get_queryset().filter(statut="BROUILLON")
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['mandat'] = self.object.mandat if self.object else None
+        return kwargs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

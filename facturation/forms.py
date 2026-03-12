@@ -358,21 +358,44 @@ class FactureForm(forms.ModelForm):
         )
         # remise_pourcent: pas obligatoire (default 0 sur le modèle)
         self.fields['remise_pourcent'].required = False
+        # devise: auto-remplie depuis le mandat, pas obligatoire côté formulaire
+        self.fields['devise'].required = False
+        self.fields['devise'].widget = forms.HiddenInput()
         # Forcer le format de date
         self.fields["date_emission"].input_formats = ["%Y-%m-%d"]
         self.fields["date_service_debut"].input_formats = ["%Y-%m-%d"]
         self.fields["date_service_fin"].input_formats = ["%Y-%m-%d"]
 
-        # Pré-peupler la devise et le régime fiscal depuis le mandat
-        if not self.instance.pk and self.mandat:
+        # Pré-peupler depuis le mandat (en création uniquement)
+        if self.instance._state.adding and self.mandat:
             if hasattr(self.mandat, 'devise_id') and self.mandat.devise_id:
-                self.fields["devise"].initial = self.mandat.devise_id
+                self.initial["devise"] = self.mandat.devise_id
             if hasattr(self.mandat, 'regime_fiscal_id') and self.mandat.regime_fiscal_id:
-                self.fields["regime_fiscal"].initial = self.mandat.regime_fiscal_id
+                self.initial["regime_fiscal"] = self.mandat.regime_fiscal_id
+            # Exercice: filtrer par mandat et pré-sélectionner l'exercice ouvert
+            from core.models import ExerciceComptable
+            self.fields["exercice"].queryset = ExerciceComptable.objects.filter(
+                mandat=self.mandat
+            )
+            exercice_ouvert = self.mandat.exercices.filter(statut="OUVERT").first()
+            if exercice_ouvert:
+                self.initial["exercice"] = exercice_ouvert.pk
 
     def clean_remise_pourcent(self):
         val = self.cleaned_data.get('remise_pourcent')
         return val if val is not None else Decimal('0')
+
+    def clean(self):
+        cleaned_data = super().clean()
+        # Auto-remplir devise depuis le mandat si non fournie
+        if not cleaned_data.get('devise'):
+            mandat = cleaned_data.get('mandat')
+            if mandat and hasattr(mandat, 'devise') and mandat.devise:
+                cleaned_data['devise'] = mandat.devise
+            else:
+                from core.models import Devise
+                cleaned_data['devise'] = Devise.get_devise_base()
+        return cleaned_data
 
 
 class LigneFactureForm(forms.ModelForm):
@@ -473,6 +496,18 @@ class RelanceForm(forms.ModelForm):
     class Meta:
         model = Relance
         fields = ["date_echeance", "montant_frais", "montant_interets", "notes"]
+        widgets = {
+            "date_echeance": forms.DateInput(
+                attrs={"class": "form-control", "type": "date"}
+            ),
+            "montant_frais": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01"}
+            ),
+            "montant_interets": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01"}
+            ),
+            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -486,18 +521,6 @@ class RelanceForm(forms.ModelForm):
     def clean_montant_interets(self):
         val = self.cleaned_data.get('montant_interets')
         return val if val is not None else Decimal('0')
-        widgets = {
-            "date_echeance": forms.DateInput(
-                attrs={"class": "form-control", "type": "date"}
-            ),
-            "montant_frais": forms.NumberInput(
-                attrs={"class": "form-control", "step": "0.01"}
-            ),
-            "montant_interets": forms.NumberInput(
-                attrs={"class": "form-control", "step": "0.01"}
-            ),
-            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
-        }
 
 
 class FacturationGroupeeForm(forms.Form):

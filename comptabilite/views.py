@@ -693,17 +693,25 @@ class EcritureComptableCreateView(
     template_name = "comptabilite/ecriture_form.html"
     business_permission = 'comptabilite.add_ecriture'
 
+    def _get_mandat(self):
+        mandat_id = self.request.GET.get("mandat")
+        if mandat_id:
+            return get_object_or_404(Mandat, pk=mandat_id)
+        return None
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['mandat'] = self._get_mandat()
+        return kwargs
+
     def get_initial(self):
         initial = super().get_initial()
 
-        # Préremplir avec le mandat si fourni
-        mandat_id = self.request.GET.get("mandat")
-        if mandat_id:
-            mandat = get_object_or_404(Mandat, pk=mandat_id)
+        mandat = self._get_mandat()
+        if mandat:
             initial["mandat"] = mandat
             initial["exercice"] = mandat.exercices.filter(statut="OUVERT").first()
 
-        # Préremplir la date
         initial["date_ecriture"] = datetime.now().date()
 
         return initial
@@ -728,6 +736,11 @@ class EcritureComptableUpdateView(
     form_class = EcritureComptableForm
     template_name = "comptabilite/ecriture_form.html"
     business_permission = 'comptabilite.view_ecritures'
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['mandat'] = self.object.mandat if self.object else None
+        return kwargs
 
     def get_queryset(self):
         # Ne peut modifier que les écritures en brouillon

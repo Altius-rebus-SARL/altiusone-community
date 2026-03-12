@@ -34,6 +34,7 @@ class PlanComptableForm(forms.ModelForm):
             "mandat",
             "devise",
             "base_sur",
+            "is_active",
         ]
         widgets = {
             "nom_fr": forms.TextInput(attrs={"class": "form-control"}),
@@ -57,6 +58,7 @@ class PlanComptableForm(forms.ModelForm):
             "mandat": forms.Select(attrs={"class": "form-control select2"}),
             "devise": forms.Select(attrs={"class": "form-control select2"}),
             "base_sur": forms.Select(attrs={"class": "form-control select2"}),
+            "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -266,6 +268,7 @@ class EcritureComptableForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        self.mandat_obj = kwargs.pop('mandat', None)
         super().__init__(*args, **kwargs)
 
         # Champs numériques avec default sur le modèle : accepter vide
@@ -273,11 +276,19 @@ class EcritureComptableForm(forms.ModelForm):
             if field_name in self.fields:
                 self.fields[field_name].required = False
 
-        # Limiter les choix selon le mandat - SEULEMENT si l'instance a un PK (modification)
-        if self.instance.pk:
-            try:
-                mandat = self.instance.mandat
+        # Devise: auto-remplie depuis le mandat, pas besoin de la montrer
+        self.fields['devise'].required = False
+        self.fields['devise'].widget = forms.HiddenInput()
 
+        # Déterminer le mandat (édition ou création)
+        mandat = None
+        if not self.instance._state.adding and self.instance.mandat_id:
+            mandat = self.instance.mandat
+        elif self.mandat_obj:
+            mandat = self.mandat_obj
+
+        if mandat:
+            try:
                 # Exercices du mandat
                 self.fields["exercice"].queryset = ExerciceComptable.objects.filter(
                     mandat=mandat
@@ -295,12 +306,18 @@ class EcritureComptableForm(forms.ModelForm):
 
                 # Documents du mandat
                 from documents.models import Document
-
                 self.fields["piece_justificative"].queryset = Document.objects.filter(
                     mandat=mandat
                 )
-            except:
-                # Si pas de mandat, laisser les querysets par défaut
+
+                # Pré-remplir devise et exercice en création
+                if self.instance._state.adding:
+                    if hasattr(mandat, 'devise_id') and mandat.devise_id:
+                        self.initial["devise"] = mandat.devise_id
+                    exercice_ouvert = mandat.exercices.filter(statut="OUVERT").first()
+                    if exercice_ouvert:
+                        self.initial["exercice"] = exercice_ouvert.pk
+            except Exception:
                 pass
 
     def clean_montant_debit(self):
@@ -321,6 +338,15 @@ class EcritureComptableForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+
+        # Auto-remplir devise depuis le mandat si non fournie
+        if not cleaned_data.get('devise'):
+            mandat = cleaned_data.get('mandat')
+            if mandat and hasattr(mandat, 'devise') and mandat.devise:
+                cleaned_data['devise'] = mandat.devise
+            else:
+                from core.models import Devise
+                cleaned_data['devise'] = Devise.get_devise_base()
 
         # Validation: soit débit, soit crédit (pas les deux)
         debit = cleaned_data.get("montant_debit", Decimal("0"))

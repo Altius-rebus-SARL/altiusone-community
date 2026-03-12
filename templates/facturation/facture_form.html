@@ -45,7 +45,8 @@
 <!-- Form -->
 <form method="post" id="facture-form">
     {% csrf_token %}
-    
+    {{ form.devise }}
+
     <div class="row">
         <div class="col-12">
             <!-- Informations générales -->
