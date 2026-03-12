@@ -1063,24 +1063,52 @@ class Facture(BaseModel):
         return (10 - carry) % 10
 
     def _resolve_iban_and_creditor(self):
-        """Résout l'IBAN et l'entreprise créancière pour le QR-Bill."""
+        """
+        Résout l'IBAN et l'entreprise créancière pour le QR-Bill.
+
+        Chaîne de résolution :
+        1. qr_iban sur la facture (override manuel)
+        2. Compte lié au mandat
+        3. Compte principal de l'entreprise du client (Client → Entreprise → Compte)
+        4. Compte principal de l'entreprise par défaut
+        5. N'importe quel compte actif de l'entreprise par défaut
+        6. N'importe quel compte actif dans le système
+        """
         from core.models import CompteBancaire, Entreprise
 
         iban = None
         entreprise_creancier = None
+        compte = None
 
         if self.qr_iban:
             iban = self.qr_iban
         else:
-            compte = CompteBancaire.objects.filter(mandat=self.mandat, actif=True).first()
+            # 1. Compte directement lié au mandat
+            compte = CompteBancaire.objects.filter(
+                mandat=self.mandat, actif=True
+            ).order_by('-est_compte_principal').first()
+
+            # 2. Via le client → son entreprise → compte de l'entreprise
+            if not compte and self.client and self.client.entreprise_id:
+                entreprise_creancier = self.client.entreprise
+                compte = CompteBancaire.objects.filter(
+                    entreprise=entreprise_creancier, actif=True
+                ).order_by('-est_compte_principal').first()
+
+            # 3. Entreprise par défaut → compte principal
             if not compte:
                 entreprise_creancier = Entreprise.objects.filter(est_defaut=True).first()
                 if entreprise_creancier:
                     compte = CompteBancaire.objects.filter(
-                        entreprise=entreprise_creancier, est_compte_principal=True, actif=True
-                    ).first()
+                        entreprise=entreprise_creancier, actif=True
+                    ).order_by('-est_compte_principal').first()
+
+            # 4. N'importe quel compte actif
             if not compte:
-                compte = CompteBancaire.objects.filter(est_compte_principal=True, actif=True).first()
+                compte = CompteBancaire.objects.filter(
+                    actif=True
+                ).order_by('-est_compte_principal').first()
+
             if compte:
                 iban = compte.iban
                 if not entreprise_creancier and compte.entreprise:
@@ -1090,7 +1118,10 @@ class Facture(BaseModel):
             entreprise_creancier = Entreprise.objects.filter(est_defaut=True).first()
 
         if not iban:
-            raise ValueError("Aucun IBAN configuré. Créez un compte bancaire principal ou associez-en un au mandat.")
+            raise ValueError(
+                "Aucun IBAN configuré. Ajoutez un compte bancaire actif "
+                "à votre entreprise dans Configuration > Entreprise."
+            )
 
         return iban.replace(" ", "").upper(), entreprise_creancier
 
