@@ -200,13 +200,13 @@ class Migration(migrations.Migration):
         ),
         # 7. Seed default categories
         migrations.RunPython(
-            code=lambda apps, schema_editor: _seed_categories(apps, schema_editor),
+            code=lambda apps, schema_editor: seed_categories(apps, schema_editor),
             reverse_code=migrations.RunPython.noop,
         ),
     ]
 
 
-def _seed_categories(apps, schema_editor):
+def seed_categories(apps, schema_editor):
     """Insère les catégories par défaut."""
     CategorieTemps = apps.get_model("facturation", "CategorieTemps")
 

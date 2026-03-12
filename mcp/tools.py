@@ -365,20 +365,20 @@ def execute_tool(name, arguments, user):
 
 # ─── Tool Implementations ─────────────────────────────────────────────────────
 
-def _fmt_decimal(val):
+def fmt_decimal(val):
     """Format decimal for JSON output."""
     if val is None:
         return None
     return float(val) if isinstance(val, Decimal) else val
 
 
-def _fmt_date(val):
+def fmt_date(val):
     if val is None:
         return None
     return val.isoformat() if hasattr(val, "isoformat") else str(val)
 
 
-def _addr_str(adresse):
+def addr_str(adresse):
     if not adresse:
         return None
     parts = [adresse.rue]
@@ -394,7 +394,7 @@ def _addr_str(adresse):
 
 # ── Core tools ────────────────────────────────────────────────────────────────
 
-def _search_clients(args, user):
+def search_clients(args, user):
     from core.models import Client
     from django.db.models import Q, Count
 
@@ -426,14 +426,14 @@ def _search_clients(args, user):
             "statut": c.statut,
             "email": c.email,
             "telephone": c.telephone,
-            "adresse": _addr_str(c.adresse_siege),
+            "adresse": addr_str(c.adresse_siege),
             "responsable": c.responsable.get_full_name() if c.responsable else None,
             "nb_mandats": c.nb_mandats,
         })
     return {"results": results, "count": len(results)}
 
 
-def _get_client(args, user):
+def get_client(args, user):
     from core.models import Client
 
     client = Client.objects.select_related(
@@ -465,8 +465,8 @@ def _get_client(args, user):
         "email": client.email,
         "telephone": client.telephone,
         "website": client.website,
-        "adresse_siege": _addr_str(client.adresse_siege),
-        "adresse_correspondance": _addr_str(client.adresse_correspondance),
+        "adresse_siege": addr_str(client.adresse_siege),
+        "adresse_correspondance": addr_str(client.adresse_correspondance),
         "responsable": client.responsable.get_full_name() if client.responsable else None,
         "contact_principal": {
             "nom": client.contact_principal.nom,
@@ -475,11 +475,11 @@ def _get_client(args, user):
         } if client.contact_principal else None,
         "mandats": mandats,
         "contacts": contacts,
-        "created_at": _fmt_date(client.created_at),
+        "created_at": fmt_date(client.created_at),
     }
 
 
-def _search_mandats(args, user):
+def search_mandats(args, user):
     from core.models import Mandat
     from django.db.models import Q
 
@@ -505,16 +505,16 @@ def _search_mandats(args, user):
             "client_id": str(m.client_id),
             "type_mandat": m.type_mandat,
             "statut": m.statut,
-            "date_debut": _fmt_date(m.date_debut),
-            "date_fin": _fmt_date(m.date_fin),
+            "date_debut": fmt_date(m.date_debut),
+            "date_fin": fmt_date(m.date_fin),
             "responsable": m.responsable.get_full_name() if m.responsable else None,
-            "taux_horaire": _fmt_decimal(m.taux_horaire),
-            "montant_forfait": _fmt_decimal(m.montant_forfait),
+            "taux_horaire": fmt_decimal(m.taux_horaire),
+            "montant_forfait": fmt_decimal(m.montant_forfait),
         })
     return {"results": results, "count": len(results)}
 
 
-def _get_mandat(args, user):
+def get_mandat(args, user):
     from core.models import Mandat, ExerciceComptable
 
     m = Mandat.objects.select_related("client", "responsable", "devise").get(
@@ -544,26 +544,26 @@ def _get_mandat(args, user):
         "client_id": str(m.client_id),
         "type_mandat": m.type_mandat,
         "statut": m.statut,
-        "date_debut": _fmt_date(m.date_debut),
-        "date_fin": _fmt_date(m.date_fin),
+        "date_debut": fmt_date(m.date_debut),
+        "date_fin": fmt_date(m.date_fin),
         "responsable": m.responsable.get_full_name() if m.responsable else None,
         "equipe": equipe,
         "type_facturation": m.type_facturation if hasattr(m, "type_facturation") else None,
-        "taux_horaire": _fmt_decimal(m.taux_horaire),
-        "montant_forfait": _fmt_decimal(m.montant_forfait),
+        "taux_horaire": fmt_decimal(m.taux_horaire),
+        "montant_forfait": fmt_decimal(m.montant_forfait),
         "devise": m.devise.code if m.devise else "CHF",
         "description": m.description,
         "exercices": exercices,
         "budget": {
-            "prevu": _fmt_decimal(budget_prevu),
-            "reel": _fmt_decimal(budget_reel),
+            "prevu": fmt_decimal(budget_prevu),
+            "reel": fmt_decimal(budget_reel),
             "pourcent": round(budget_reel / budget_prevu * 100, 1) if budget_prevu else 0,
         },
-        "created_at": _fmt_date(m.created_at),
+        "created_at": fmt_date(m.created_at),
     }
 
 
-def _list_taches(args, user):
+def list_taches(args, user):
     from core.models import Tache
 
     statut = args.get("statut")
@@ -586,16 +586,16 @@ def _list_taches(args, user):
             "titre": t.titre,
             "priorite": t.priorite,
             "statut": t.statut,
-            "date_echeance": _fmt_date(t.date_echeance),
+            "date_echeance": fmt_date(t.date_echeance),
             "assignes": list(t.assignes.values_list("username", flat=True)),
             "mandat": t.mandat.numero if t.mandat else None,
             "cree_par": t.cree_par.get_full_name() if t.cree_par else None,
-            "created_at": _fmt_date(t.created_at),
+            "created_at": fmt_date(t.created_at),
         })
     return {"results": results, "count": len(results)}
 
 
-def _create_tache(args, user):
+def create_tache(args, user):
     from core.models import Tache, User, Mandat
 
     tache = Tache(
@@ -620,7 +620,7 @@ def _create_tache(args, user):
 
 # ── Facturation tools ─────────────────────────────────────────────────────────
 
-def _search_factures(args, user):
+def search_factures(args, user):
     from facturation.models import Facture
     from django.db.models import Q
 
@@ -655,18 +655,18 @@ def _search_factures(args, user):
             "numero": f.numero_facture,
             "client": f.client.raison_sociale if f.client else None,
             "mandat": f.mandat.numero if f.mandat else None,
-            "date_emission": _fmt_date(f.date_emission),
-            "date_echeance": _fmt_date(f.date_echeance),
-            "montant_ht": _fmt_decimal(f.montant_ht),
-            "montant_ttc": _fmt_decimal(f.montant_ttc),
-            "montant_restant": _fmt_decimal(f.montant_restant),
+            "date_emission": fmt_date(f.date_emission),
+            "date_echeance": fmt_date(f.date_echeance),
+            "montant_ht": fmt_decimal(f.montant_ht),
+            "montant_ttc": fmt_decimal(f.montant_ttc),
+            "montant_restant": fmt_decimal(f.montant_restant),
             "statut": f.statut,
             "devise": f.devise.code if hasattr(f, "devise") and f.devise else "CHF",
         })
     return {"results": results, "count": len(results)}
 
 
-def _get_facture(args, user):
+def get_facture(args, user):
     from facturation.models import Facture
 
     f = Facture.objects.select_related("client", "mandat", "devise").get(
@@ -678,18 +678,18 @@ def _get_facture(args, user):
         lignes.append({
             "numero": l.numero_ligne,
             "description": l.description,
-            "quantite": _fmt_decimal(l.quantite),
-            "prix_unitaire": _fmt_decimal(l.prix_unitaire),
-            "montant_ht": _fmt_decimal(l.montant_ht),
-            "taux_tva": _fmt_decimal(l.taux_tva),
-            "montant_ttc": _fmt_decimal(l.montant_ttc),
+            "quantite": fmt_decimal(l.quantite),
+            "prix_unitaire": fmt_decimal(l.prix_unitaire),
+            "montant_ht": fmt_decimal(l.montant_ht),
+            "taux_tva": fmt_decimal(l.taux_tva),
+            "montant_ttc": fmt_decimal(l.montant_ttc),
         })
 
     paiements = []
     for p in f.paiements.all().order_by("-date_paiement"):
         paiements.append({
-            "date": _fmt_date(p.date_paiement),
-            "montant": _fmt_decimal(p.montant),
+            "date": fmt_date(p.date_paiement),
+            "montant": fmt_decimal(p.montant),
             "methode": p.methode if hasattr(p, "methode") else None,
             "reference": p.reference,
         })
@@ -698,8 +698,8 @@ def _get_facture(args, user):
     for r in f.relances.all().order_by("-date_relance"):
         relances.append({
             "niveau": r.niveau_relance,
-            "date": _fmt_date(r.date_relance),
-            "montant_frais": _fmt_decimal(r.montant_frais),
+            "date": fmt_date(r.date_relance),
+            "montant_frais": fmt_decimal(r.montant_frais),
             "statut": r.statut,
         })
 
@@ -708,12 +708,12 @@ def _get_facture(args, user):
         "numero": f.numero_facture,
         "client": f.client.raison_sociale if f.client else None,
         "mandat": f.mandat.numero if f.mandat else None,
-        "date_emission": _fmt_date(f.date_emission),
-        "date_echeance": _fmt_date(f.date_echeance),
-        "montant_ht": _fmt_decimal(f.montant_ht),
-        "montant_tva": _fmt_decimal(f.montant_tva),
-        "montant_ttc": _fmt_decimal(f.montant_ttc),
-        "montant_restant": _fmt_decimal(f.montant_restant),
+        "date_emission": fmt_date(f.date_emission),
+        "date_echeance": fmt_date(f.date_echeance),
+        "montant_ht": fmt_decimal(f.montant_ht),
+        "montant_tva": fmt_decimal(f.montant_tva),
+        "montant_ttc": fmt_decimal(f.montant_ttc),
+        "montant_restant": fmt_decimal(f.montant_restant),
         "statut": f.statut,
         "notes": f.notes,
         "lignes": lignes,
@@ -722,7 +722,7 @@ def _get_facture(args, user):
     }
 
 
-def _factures_impayees(args, user):
+def factures_impayees(args, user):
     from facturation.models import Facture
     from django.db.models import Sum
 
@@ -751,9 +751,9 @@ def _factures_impayees(args, user):
             "numero": f.numero_facture,
             "client": f.client.raison_sociale if f.client else None,
             "mandat": f.mandat.numero if f.mandat else None,
-            "date_echeance": _fmt_date(f.date_echeance),
-            "montant_ttc": _fmt_decimal(f.montant_ttc),
-            "montant_restant": _fmt_decimal(f.montant_restant),
+            "date_echeance": fmt_date(f.date_echeance),
+            "montant_ttc": fmt_decimal(f.montant_ttc),
+            "montant_restant": fmt_decimal(f.montant_restant),
             "jours_retard": jours_retard,
             "statut": f.statut,
         })
@@ -775,12 +775,12 @@ def _factures_impayees(args, user):
     return {
         "factures": results,
         "count": len(results),
-        "total_restant": _fmt_decimal(totals["total_restant"] or 0),
-        "aging": {k: _fmt_decimal(v) for k, v in buckets.items()},
+        "total_restant": fmt_decimal(totals["total_restant"] or 0),
+        "aging": {k: fmt_decimal(v) for k, v in buckets.items()},
     }
 
 
-def _search_time_entries(args, user):
+def search_time_entries(args, user):
     from facturation.models import TimeTracking
 
     date_from = args.get("date_from")
@@ -810,7 +810,7 @@ def _search_time_entries(args, user):
         results.append({
             "id": str(t.pk),
             "type_entree": t.type_entree,
-            "date": _fmt_date(t.date_travail),
+            "date": fmt_date(t.date_travail),
             "utilisateur": t.utilisateur.get_full_name() if t.utilisateur else None,
             "mandat": t.mandat.numero if t.mandat else None,
             "prestation": t.prestation.libelle if t.prestation else None,
@@ -818,7 +818,7 @@ def _search_time_entries(args, user):
             "duree_minutes": t.duree_minutes,
             "description": t.description,
             "facturable": t.facturable,
-            "taux_horaire": _fmt_decimal(t.taux_horaire),
+            "taux_horaire": fmt_decimal(t.taux_horaire),
         })
         total_minutes += t.duree_minutes or 0
 
@@ -830,7 +830,7 @@ def _search_time_entries(args, user):
     }
 
 
-def _create_time_entry(args, user):
+def create_time_entry(args, user):
     from facturation.models import TimeTracking, CategorieTemps
     from core.models import Mandat
     from facturation.models import Prestation
@@ -871,7 +871,7 @@ def _create_time_entry(args, user):
     return {
         "id": str(entry.pk),
         "type_entree": entry.type_entree,
-        "date": _fmt_date(entry.date_travail),
+        "date": fmt_date(entry.date_travail),
         "duree_minutes": entry.duree_minutes,
         "mandat": entry.mandat.numero if entry.mandat else None,
         "prestation": entry.prestation.libelle if entry.prestation else None,
@@ -879,7 +879,7 @@ def _create_time_entry(args, user):
     }
 
 
-def _chiffre_affaires(args, user):
+def chiffre_affaires(args, user):
     from facturation.models import Facture
     from django.db.models import Sum, Q
 
@@ -912,17 +912,17 @@ def _chiffre_affaires(args, user):
         "mois": mois,
         "nb_factures": nb_factures,
         "nb_payees": nb_payees,
-        "total_ht": _fmt_decimal(agg["total_ht"] or 0),
-        "total_tva": _fmt_decimal(agg["total_tva"] or 0),
-        "total_ttc": _fmt_decimal(agg["total_ttc"] or 0),
-        "total_paye": _fmt_decimal(agg["total_paye"] or 0),
-        "total_restant": _fmt_decimal(agg["total_restant"] or 0),
+        "total_ht": fmt_decimal(agg["total_ht"] or 0),
+        "total_tva": fmt_decimal(agg["total_tva"] or 0),
+        "total_ttc": fmt_decimal(agg["total_ttc"] or 0),
+        "total_paye": fmt_decimal(agg["total_paye"] or 0),
+        "total_restant": fmt_decimal(agg["total_restant"] or 0),
     }
 
 
 # ── Comptabilité tools ────────────────────────────────────────────────────────
 
-def _search_comptes(args, user):
+def search_comptes(args, user):
     from comptabilite.models import Compte, PlanComptable
     from django.db.models import Q
 
@@ -952,14 +952,14 @@ def _search_comptes(args, user):
             "libelle": c.libelle,
             "type_compte": c.type_compte,
             "classe": c.classe,
-            "solde_debit": _fmt_decimal(c.solde_debit),
-            "solde_credit": _fmt_decimal(c.solde_credit),
-            "solde": _fmt_decimal((c.solde_debit or 0) - (c.solde_credit or 0)),
+            "solde_debit": fmt_decimal(c.solde_debit),
+            "solde_credit": fmt_decimal(c.solde_credit),
+            "solde": fmt_decimal((c.solde_debit or 0) - (c.solde_credit or 0)),
         })
     return {"results": results, "count": len(results)}
 
 
-def _search_ecritures(args, user):
+def search_ecritures(args, user):
     from comptabilite.models import EcritureComptable
     from django.db.models import Q
 
@@ -990,20 +990,20 @@ def _search_ecritures(args, user):
     for e in qs.order_by("-date_ecriture", "numero_piece")[:limit]:
         results.append({
             "id": str(e.pk),
-            "date": _fmt_date(e.date_ecriture),
+            "date": fmt_date(e.date_ecriture),
             "journal": e.journal.code if e.journal else None,
             "numero_piece": e.numero_piece,
             "compte": e.compte.numero if e.compte else None,
             "compte_libelle": e.compte.libelle if e.compte else None,
             "libelle": e.libelle,
-            "debit": _fmt_decimal(e.montant_debit),
-            "credit": _fmt_decimal(e.montant_credit),
+            "debit": fmt_decimal(e.montant_debit),
+            "credit": fmt_decimal(e.montant_credit),
             "statut": e.statut,
         })
     return {"results": results, "count": len(results)}
 
 
-def _balance_generale(args, user):
+def balance_generale(args, user):
     from comptabilite.models import EcritureComptable, PlanComptable
     from django.db.models import Sum
 
@@ -1031,8 +1031,8 @@ def _balance_generale(args, user):
     total_debit = 0
     total_credit = 0
     for b in balance:
-        d = _fmt_decimal(b["total_debit"] or 0)
-        c = _fmt_decimal(b["total_credit"] or 0)
+        d = fmt_decimal(b["total_debit"] or 0)
+        c = fmt_decimal(b["total_credit"] or 0)
         total_debit += d
         total_credit += c
         results.append({
@@ -1056,7 +1056,7 @@ def _balance_generale(args, user):
 
 # ── Salaires tools ────────────────────────────────────────────────────────────
 
-def _list_employes(args, user):
+def list_employes(args, user):
     from salaires.models import Employe
 
     mandat_id = args.get("mandat_id")
@@ -1079,14 +1079,14 @@ def _list_employes(args, user):
             "fonction": e.fonction,
             "type_contrat": e.type_contrat,
             "statut": e.statut,
-            "salaire_brut_mensuel": _fmt_decimal(e.salaire_brut_mensuel),
-            "date_embauche": _fmt_date(e.date_embauche),
+            "salaire_brut_mensuel": fmt_decimal(e.salaire_brut_mensuel),
+            "date_embauche": fmt_date(e.date_embauche),
             "mandat": e.mandat.numero if e.mandat else None,
         })
     return {"results": results, "count": len(results)}
 
 
-def _get_employe(args, user):
+def get_employe(args, user):
     from salaires.models import Employe
 
     e = Employe.objects.select_related("mandat", "adresse").get(
@@ -1099,21 +1099,21 @@ def _get_employe(args, user):
         "nom": e.nom,
         "prenom": e.prenom,
         "fonction": e.fonction,
-        "date_naissance": _fmt_date(e.date_naissance),
+        "date_naissance": fmt_date(e.date_naissance),
         "sexe": e.sexe,
         "type_contrat": e.type_contrat,
         "statut": e.statut,
-        "salaire_brut_mensuel": _fmt_decimal(e.salaire_brut_mensuel),
+        "salaire_brut_mensuel": fmt_decimal(e.salaire_brut_mensuel),
         "avs_number": e.avs_number,
-        "date_embauche": _fmt_date(e.date_embauche),
-        "date_fin_emploi": _fmt_date(e.date_fin_emploi),
-        "adresse": _addr_str(e.adresse),
+        "date_embauche": fmt_date(e.date_embauche),
+        "date_fin_emploi": fmt_date(e.date_fin_emploi),
+        "adresse": addr_str(e.adresse),
         "mandat": e.mandat.numero if e.mandat else None,
         "notes": e.notes,
     }
 
 
-def _list_fiches_salaire(args, user):
+def list_fiches_salaire(args, user):
     from salaires.models import FicheSalaire
 
     mandat_id = args.get("mandat_id")
@@ -1140,8 +1140,8 @@ def _list_fiches_salaire(args, user):
             "employe": f"{f.employe.prenom} {f.employe.nom}" if f.employe else None,
             "annee": f.annee,
             "mois": f.mois,
-            "salaire_brut": _fmt_decimal(f.salaire_brut_total),
-            "salaire_net": _fmt_decimal(f.salaire_net),
+            "salaire_brut": fmt_decimal(f.salaire_brut_total),
+            "salaire_net": fmt_decimal(f.salaire_net),
             "statut": f.statut,
             "mandat": f.mandat.numero if f.mandat else None,
         })
@@ -1150,7 +1150,7 @@ def _list_fiches_salaire(args, user):
 
 # ── Documents tools ───────────────────────────────────────────────────────────
 
-def _search_documents(args, user):
+def search_documents(args, user):
     from documents.models import Document
     from django.db.models import Q
 
@@ -1178,7 +1178,7 @@ def _search_documents(args, user):
             "nom": d.nom_original or d.nom_fichier,
             "extension": d.extension,
             "taille": d.taille,
-            "date_document": _fmt_date(d.date_document),
+            "date_document": fmt_date(d.date_document),
             "type": d.type_document.libelle if d.type_document else None,
             "categorie": d.categorie,
             "mandat": d.mandat.numero if d.mandat else None,
@@ -1189,7 +1189,7 @@ def _search_documents(args, user):
 
 # ── Projets tools ─────────────────────────────────────────────────────────────
 
-def _list_positions(args, user):
+def list_positions(args, user):
     from projets.models import Position
 
     mandat_id = args["mandat_id"]
@@ -1202,20 +1202,20 @@ def _list_positions(args, user):
             "numero": p.numero,
             "titre": p.titre,
             "statut": p.statut,
-            "budget_prevu": _fmt_decimal(p.budget_prevu),
-            "budget_reel": _fmt_decimal(p.budget_reel),
+            "budget_prevu": fmt_decimal(p.budget_prevu),
+            "budget_reel": fmt_decimal(p.budget_reel),
             "budget_pourcent": round(
                 (p.budget_reel or 0) / p.budget_prevu * 100, 1
             ) if p.budget_prevu else 0,
-            "date_debut": _fmt_date(p.date_debut),
-            "date_fin": _fmt_date(p.date_fin),
+            "date_debut": fmt_date(p.date_debut),
+            "date_fin": fmt_date(p.date_fin),
             "responsable": p.responsable.get_full_name() if p.responsable else None,
             "nb_operations": p.operations.filter(is_active=True).count(),
         })
     return {"results": results, "count": len(results)}
 
 
-def _list_operations(args, user):
+def list_operations(args, user):
     from projets.models import Operation
 
     position_id = args["position_id"]
@@ -1230,10 +1230,10 @@ def _list_operations(args, user):
             "numero": o.numero,
             "titre": o.titre,
             "statut": o.statut,
-            "budget_prevu": _fmt_decimal(o.budget_prevu),
-            "cout_reel": _fmt_decimal(o.cout_reel),
-            "date_debut": _fmt_date(o.date_debut),
-            "date_fin": _fmt_date(o.date_fin),
+            "budget_prevu": fmt_decimal(o.budget_prevu),
+            "cout_reel": fmt_decimal(o.cout_reel),
+            "date_debut": fmt_date(o.date_debut),
+            "date_fin": fmt_date(o.date_fin),
             "assignes": list(o.assigne_a.values_list("username", flat=True)),
         })
     return {"results": results, "count": len(results)}
@@ -1241,7 +1241,7 @@ def _list_operations(args, user):
 
 # ── Dashboard tool ────────────────────────────────────────────────────────────
 
-def _dashboard(args, user):
+def dashboard(args, user):
     from core.models import Client, Mandat, Tache
     from facturation.models import Facture, TimeTracking
     from django.db.models import Sum, Q
@@ -1286,10 +1286,10 @@ def _dashboard(args, user):
         "mandats_actifs": mandats_actifs,
         "factures": {
             "nb_impayees": nb_impayees,
-            "total_impaye": _fmt_decimal(total_impaye),
+            "total_impaye": fmt_decimal(total_impaye),
             "en_retard": factures_en_retard,
         },
-        "ca_mois": _fmt_decimal(ca_mois),
+        "ca_mois": fmt_decimal(ca_mois),
         "heures_mois": round(heures_mois / 60, 1),
         "taches": {
             "en_cours": taches_en_cours,
@@ -1300,7 +1300,7 @@ def _dashboard(args, user):
 
 # ── Graph tools (kept from v1) ───────────────────────────────────────────────
 
-def _graph_search(args, user):
+def graph_search(args, user):
     from graph.models import Entite
     from django.db.models import Q
 
@@ -1327,12 +1327,12 @@ def _graph_search(args, user):
     return {"results": results, "count": len(results)}
 
 
-def _graph_explore(args, user):
+def graph_explore(args, user):
     from graph.services.exploration import explorer_graphe
     return explorer_graphe(args.get("entite_id"), profondeur=args.get("profondeur", 2))
 
 
-def _graph_semantic_search(args, user):
+def graph_semantic_search(args, user):
     from graph.models import Entite
     from documents.embeddings import embedding_service
     from pgvector.django import CosineDistance
@@ -1361,7 +1361,7 @@ def _graph_semantic_search(args, user):
     return {"results": results}
 
 
-def _graph_stats(args, user):
+def graph_stats(args, user):
     from graph.models import OntologieType, Entite, Relation, Anomalie
     from django.db.models import Count
 
@@ -1385,37 +1385,37 @@ def _graph_stats(args, user):
 
 _TOOL_DISPATCH = {
     # Core
-    "search_clients": _search_clients,
-    "get_client": _get_client,
-    "search_mandats": _search_mandats,
-    "get_mandat": _get_mandat,
-    "list_taches": _list_taches,
-    "create_tache": _create_tache,
+    "search_clients": search_clients,
+    "get_client": get_client,
+    "search_mandats": search_mandats,
+    "get_mandat": get_mandat,
+    "list_taches": list_taches,
+    "create_tache": create_tache,
     # Facturation
-    "search_factures": _search_factures,
-    "get_facture": _get_facture,
-    "factures_impayees": _factures_impayees,
-    "search_time_entries": _search_time_entries,
-    "create_time_entry": _create_time_entry,
-    "chiffre_affaires": _chiffre_affaires,
+    "search_factures": search_factures,
+    "get_facture": get_facture,
+    "factures_impayees": factures_impayees,
+    "search_time_entries": search_time_entries,
+    "create_time_entry": create_time_entry,
+    "chiffre_affaires": chiffre_affaires,
     # Comptabilité
-    "search_comptes": _search_comptes,
-    "search_ecritures": _search_ecritures,
-    "balance_generale": _balance_generale,
+    "search_comptes": search_comptes,
+    "search_ecritures": search_ecritures,
+    "balance_generale": balance_generale,
     # Salaires
-    "list_employes": _list_employes,
-    "get_employe": _get_employe,
-    "list_fiches_salaire": _list_fiches_salaire,
+    "list_employes": list_employes,
+    "get_employe": get_employe,
+    "list_fiches_salaire": list_fiches_salaire,
     # Documents
-    "search_documents": _search_documents,
+    "search_documents": search_documents,
     # Projets
-    "list_positions": _list_positions,
-    "list_operations": _list_operations,
+    "list_positions": list_positions,
+    "list_operations": list_operations,
     # Dashboard
-    "dashboard": _dashboard,
+    "dashboard": dashboard,
     # Graph
-    "graph_search": _graph_search,
-    "graph_explore": _graph_explore,
-    "graph_semantic_search": _graph_semantic_search,
-    "graph_stats": _graph_stats,
+    "graph_search": graph_search,
+    "graph_explore": graph_explore,
+    "graph_semantic_search": graph_semantic_search,
+    "graph_stats": graph_stats,
 }
