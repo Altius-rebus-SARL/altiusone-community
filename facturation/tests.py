@@ -277,6 +277,24 @@ class QRBillSVGTest(FacturationTestBase):
         svg = self.facture.qr_code_image.read().decode('utf-8')
         self.assertIn('162.15', svg)
 
+    def test_qr_bill_siege_sans_adresse_fk(self):
+        """QR-Bill fonctionne quand l'entreprise n'a pas d'adresse FK (parse siege)."""
+        # Supprimer l'adresse FK pour forcer le fallback sur siege
+        old_adresse = self.entreprise.adresse
+        self.entreprise.adresse = None
+        self.entreprise.siege = "Chemin du clos de la pépinière 20, 1040 Échallens"
+        self.entreprise.save(update_fields=['adresse', 'siege'])
+
+        self.facture.generer_qr_bill()
+        self.facture.refresh_from_db()
+        svg = self.facture.qr_code_image.read().decode('utf-8')
+        self.assertIn('<svg', svg)
+        self.assertIn('challens', svg)  # Échallens dans le SVG
+
+        # Restore
+        self.entreprise.adresse = old_adresse
+        self.entreprise.save(update_fields=['adresse'])
+
 
 # =============================================================================
 # Tests PDF

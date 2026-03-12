@@ -1145,23 +1145,43 @@ class Facture(BaseModel):
 
         # Adresse du créancier = l'entreprise (fiduciaire)
         adresse_creancier = getattr(entreprise_creancier, 'adresse', None)
-        creditor = {
-            'name': (entreprise_creancier.raison_sociale if entreprise_creancier else "")[:70],
-            'pcode': (adresse_creancier.npa if adresse_creancier else "") or "0000",
-            'city': (adresse_creancier.localite if adresse_creancier else "") or (entreprise_creancier.siege if entreprise_creancier else "") or "Suisse",
-            'country': 'CH',
-        }
-        if adresse_creancier and adresse_creancier.rue:
-            creditor['street'] = adresse_creancier.rue[:70]
-        if adresse_creancier and adresse_creancier.numero:
-            creditor['house_num'] = adresse_creancier.numero[:16]
+        if adresse_creancier:
+            creditor = {
+                'name': (entreprise_creancier.raison_sociale if entreprise_creancier else "")[:70],
+                'pcode': adresse_creancier.npa or "0000",
+                'city': (adresse_creancier.localite or "Suisse")[:35],
+                'country': 'CH',
+            }
+            if adresse_creancier.rue:
+                creditor['street'] = adresse_creancier.rue[:70]
+            if adresse_creancier.numero:
+                creditor['house_num'] = adresse_creancier.numero[:16]
+        else:
+            # Fallback: parser le champ siege "Rue Num, NPA Ville"
+            creditor = {
+                'name': (entreprise_creancier.raison_sociale if entreprise_creancier else "")[:70],
+                'pcode': '0000',
+                'city': 'Suisse',
+                'country': 'CH',
+            }
+            siege = getattr(entreprise_creancier, 'siege', '') or ''
+            if siege:
+                import re
+                # Format suisse: "Rue ..., NPA Ville" ou juste "Ville"
+                match = re.match(r'^(.+?),\s*(\d{4})\s+(.+)$', siege)
+                if match:
+                    creditor['street'] = match.group(1).strip()[:70]
+                    creditor['pcode'] = match.group(2)
+                    creditor['city'] = match.group(3).strip()[:35]
+                else:
+                    creditor['city'] = siege[:35]
 
         # Adresse du débiteur = le client facturé
         adresse_debiteur = self.client.adresse_correspondance or self.client.adresse_siege
         debtor = {
             'name': self.client.raison_sociale[:70],
             'pcode': (adresse_debiteur.npa if adresse_debiteur else "") or "0000",
-            'city': (adresse_debiteur.localite if adresse_debiteur else "") or "Suisse",
+            'city': ((adresse_debiteur.localite if adresse_debiteur else "") or "Suisse")[:35],
             'country': 'CH',
         }
         if adresse_debiteur and adresse_debiteur.rue:
