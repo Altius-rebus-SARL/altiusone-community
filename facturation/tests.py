@@ -354,6 +354,57 @@ class FactureModelTest(FacturationTestBase):
         self.facture.montant_ttc = Decimal('399.99')
         self.assertTrue(self.facture.est_simplifiee)
 
+    def test_facture_creation_pas_payee(self):
+        """Une facture créée avec montant_ttc=0 ne doit PAS être marquée PAYEE."""
+        f = Facture.objects.create(
+            numero_facture='FAC-TEST-ZERO',
+            mandat=self.mandat,
+            client=self.client_obj,
+            date_emission=date(2026, 3, 12),
+            date_echeance=date(2026, 4, 11),
+            devise=self.devise_chf,
+            creee_par=self.user,
+            # montant_ttc=0 par défaut
+        )
+        f.refresh_from_db()
+        self.assertNotEqual(f.statut, 'PAYEE')
+        self.assertEqual(f.statut, 'BROUILLON')
+
+    def test_facture_emise_pas_payee(self):
+        """Une facture émise avec montant > 0 et aucun paiement reste EMISE."""
+        self.facture.statut = 'EMISE'
+        self.facture.montant_paye = Decimal('0')
+        self.facture.save()
+        self.facture.refresh_from_db()
+        self.assertEqual(self.facture.statut, 'EMISE')
+        self.assertEqual(self.facture.montant_restant, Decimal('162.15'))
+
+    def test_paiement_partiel(self):
+        """Un paiement partiel passe le statut à PARTIELLEMENT_PAYEE."""
+        self.facture.statut = 'EMISE'
+        self.facture.montant_paye = Decimal('50.00')
+        self.facture.save()
+        self.facture.refresh_from_db()
+        self.assertEqual(self.facture.statut, 'PARTIELLEMENT_PAYEE')
+        self.assertEqual(self.facture.montant_restant, Decimal('112.15'))
+
+    def test_paiement_complet(self):
+        """Un paiement complet passe le statut à PAYEE."""
+        self.facture.statut = 'EMISE'
+        self.facture.montant_paye = Decimal('162.15')
+        self.facture.save()
+        self.facture.refresh_from_db()
+        self.assertEqual(self.facture.statut, 'PAYEE')
+        self.assertEqual(self.facture.montant_restant, Decimal('0'))
+
+    def test_annulee_pas_ecrasee_par_paiement(self):
+        """Une facture annulée ne doit pas repasser à PAYEE même si montant_paye >= ttc."""
+        self.facture.statut = 'ANNULEE'
+        self.facture.montant_paye = Decimal('162.15')
+        self.facture.save()
+        self.facture.refresh_from_db()
+        self.assertEqual(self.facture.statut, 'ANNULEE')
+
     def test_generer_pdf_sauvegarde_fichier(self):
         """generer_pdf() sauvegarde le fichier PDF sur le modèle."""
         self.facture.generer_pdf()

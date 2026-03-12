@@ -972,11 +972,13 @@ class Facture(BaseModel):
         self.montant_restant = self.montant_ttc - self.montant_paye
 
         # Mise à jour statut basé sur paiement
-        if self.montant_paye >= self.montant_ttc and self.statut != 'PAYEE':
+        # (seulement si montant_ttc > 0 pour éviter 0 >= 0 = PAYEE sur création)
+        if self.montant_ttc > 0 and self.montant_paye >= self.montant_ttc and self.statut not in ('PAYEE', 'ANNULEE', 'AVOIR'):
             self.statut = 'PAYEE'
             if not self.date_paiement_complet:
-                self.date_paiement_complet = models.functions.Now()
-        elif self.montant_paye > 0 and self.statut == 'EMISE':
+                from django.utils import timezone
+                self.date_paiement_complet = timezone.now()
+        elif self.montant_paye > 0 and self.montant_paye < self.montant_ttc and self.statut in ('EMISE', 'ENVOYEE', 'RELANCEE', 'EN_RETARD'):
             self.statut = 'PARTIELLEMENT_PAYEE'
 
         super().save(*args, **kwargs)
@@ -1354,6 +1356,7 @@ class Facture(BaseModel):
                 "montant_ttc",
                 "remise_montant",
                 "montant_restant",
+                "statut",
             ]
         )
 
