@@ -307,6 +307,7 @@ class MandatForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        self.current_user = kwargs.pop('current_user', None)
         super().__init__(*args, **kwargs)
         # Limiter les choix aux éléments actifs
         self.fields['type_mandat_ref'].queryset = TypeMandat.objects.filter(is_active=True)
@@ -315,9 +316,15 @@ class MandatForm(forms.ModelForm):
         self.fields['periodicite_ref'].label = _('Périodicité')
         self.fields['type_facturation_ref'].queryset = TypeFacturation.objects.filter(is_active=True)
         self.fields['type_facturation_ref'].label = _('Type de facturation')
-        self.fields['equipe'].queryset = User.objects.filter(
+        # Responsable et équipe : collaborateurs internes uniquement
+        staff_qs = User.objects.filter(
             is_active=True, type_utilisateur=User.TypeUtilisateur.STAFF
         ).order_by('first_name', 'last_name')
+        self.fields['responsable'].queryset = staff_qs
+        self.fields['equipe'].queryset = staff_qs
+        # Pré-remplir le responsable avec l'utilisateur connecté (création)
+        if self.current_user and self.instance._state.adding:
+            self.fields['responsable'].initial = self.current_user.pk
 
         # Pré-remplir les champs de configuration depuis le JSONField
         if self.instance and self.instance.pk:

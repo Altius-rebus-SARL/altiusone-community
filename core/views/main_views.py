@@ -349,6 +349,11 @@ class MandatUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     template_name = "core/mandat_form.html"
     permission_required = "core.change_mandat"
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['current_user'] = self.request.user
+        return kwargs
+
     def get_success_url(self):
         return reverse_lazy("core:mandat-detail", kwargs={"pk": self.object.pk})
 
@@ -529,6 +534,11 @@ class MandatCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     form_class = MandatForm
     template_name = "core/mandat_form.html"
     permission_required = "core.add_mandat"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['current_user'] = self.request.user
+        return kwargs
 
     def get_success_url(self):
         return reverse_lazy("core:mandat-detail", kwargs={"pk": self.object.pk})
