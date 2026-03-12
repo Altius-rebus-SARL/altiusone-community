@@ -24,6 +24,7 @@ class PrestationForm(forms.ModelForm):
             "libelle",
             "description",
             "type_prestation",
+            "types_mandats",
             "prix_unitaire_ht",
             "unite",
             "taux_horaire",
@@ -37,6 +38,7 @@ class PrestationForm(forms.ModelForm):
             "libelle": forms.TextInput(attrs={"class": "form-control"}),
             "description": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
             "type_prestation": forms.Select(attrs={"class": "form-control select2"}),
+            "types_mandats": forms.SelectMultiple(attrs={"class": "form-control select2", "multiple": "multiple"}),
             "prix_unitaire_ht": forms.NumberInput(
                 attrs={"class": "form-control", "step": "0.01"}
             ),

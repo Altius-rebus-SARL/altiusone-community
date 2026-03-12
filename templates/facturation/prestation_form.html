@@ -81,6 +81,18 @@
                         </div>
                     </div>
 
+                    <!-- Types de mandats -->
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label">{% trans "Types de mandats" %}</label>
+                            {{ form.types_mandats }}
+                            {% if form.types_mandats.errors %}
+                            <div class="text-danger f-s-12">{{ form.types_mandats.errors.0 }}</div>
+                            {% endif %}
+                            <small class="text-muted">{% trans "Sélectionnez les types de mandats pour lesquels cette prestation est applicable" %}</small>
+                        </div>
+                    </div>
+
                     <!-- Libellé -->
                     <div class="row">
                         <div class="col-md-12 mb-3">

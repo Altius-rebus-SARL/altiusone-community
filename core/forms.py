@@ -3,10 +3,11 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm, SetPasswordForm
 from django.contrib.auth.models import Permission
 from django.utils.translation import gettext_lazy as _
+from django.forms import inlineformset_factory
 from .models import (
     Client, Entreprise, Mandat, Contact, Tache, Adresse, ExerciceComptable, User,
     TypeMandat, TypeFacturation, Periodicite, Role, AccesMandat, Invitation,
-    CollaborateurFiduciaire, TypeCollaborateur
+    CollaborateurFiduciaire, TypeCollaborateur, CompteBancaire
 )
 
 
@@ -81,6 +82,56 @@ class EntrepriseForm(forms.ModelForm):
             "logo": forms.ClearableFileInput(attrs={"class": "form-control", "accept": "image/*"}),
             "est_defaut": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
+
+
+class CompteBancaireForm(forms.ModelForm):
+    """Formulaire pour un compte bancaire d'entreprise"""
+
+    class Meta:
+        model = CompteBancaire
+        fields = [
+            "libelle",
+            "type_compte",
+            "iban",
+            "bic_swift",
+            "nom_banque",
+            "adresse_banque",
+            "clearing",
+            "titulaire_nom",
+            "devise",
+            "est_compte_principal",
+            "est_qr_iban",
+            "qr_reference_type",
+            "actif",
+            "notes",
+        ]
+        widgets = {
+            "libelle": forms.TextInput(attrs={"class": "form-control", "placeholder": _("Ex: Compte principal, Compte salaires")}),
+            "type_compte": forms.Select(attrs={"class": "form-control"}),
+            "iban": forms.TextInput(attrs={"class": "form-control", "placeholder": "CH93 0076 2011 6238 5295 7"}),
+            "bic_swift": forms.TextInput(attrs={"class": "form-control", "placeholder": "POFICHBEXXX"}),
+            "nom_banque": forms.TextInput(attrs={"class": "form-control"}),
+            "adresse_banque": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+            "clearing": forms.TextInput(attrs={"class": "form-control"}),
+            "titulaire_nom": forms.TextInput(attrs={"class": "form-control"}),
+            "devise": forms.Select(attrs={"class": "form-control"}),
+            "est_compte_principal": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "est_qr_iban": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "qr_reference_type": forms.Select(attrs={"class": "form-control"}),
+            "actif": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+        }
+
+
+CompteBancaireFormSet = inlineformset_factory(
+    Entreprise,
+    CompteBancaire,
+    form=CompteBancaireForm,
+    extra=1,
+    can_delete=True,
+    min_num=0,
+    validate_min=False,
+)
 
 
 class ContactPrincipalForm(forms.ModelForm):

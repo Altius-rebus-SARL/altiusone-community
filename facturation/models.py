@@ -119,6 +119,15 @@ class Prestation(BaseModel):
         help_text=_("Compte comptable de produit associé")
     )
 
+    # Lien avec les types de mandats
+    types_mandats = models.ManyToManyField(
+        'core.TypeMandat',
+        blank=True,
+        related_name='prestations',
+        verbose_name=_("Types de mandats"),
+        help_text=_("Types de mandats auxquels cette prestation est associée")
+    )
+
     actif = models.BooleanField(
         default=True,
         verbose_name=_("Actif"),

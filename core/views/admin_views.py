@@ -29,6 +29,7 @@ from core.forms import (
     UserCreateForm,
     RoleForm,
     EntrepriseForm,
+    CompteBancaireFormSet,
     InvitationStaffForm,
     InvitationClientForm,
     AcceptInvitationForm,
@@ -356,9 +357,25 @@ class EntrepriseCreateView(LoginRequiredMixin, AdminRequiredMixin, CreateView):
     template_name = "core/entreprise_form.html"
     success_url = reverse_lazy('core:entreprise-list')
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.POST:
+            context['comptes_formset'] = CompteBancaireFormSet(self.request.POST, prefix='comptes')
+        else:
+            context['comptes_formset'] = CompteBancaireFormSet(prefix='comptes')
+        return context
+
     def form_valid(self, form):
-        messages.success(self.request, _("Entreprise créée avec succès"))
-        return super().form_valid(form)
+        context = self.get_context_data()
+        comptes_formset = context['comptes_formset']
+        if comptes_formset.is_valid():
+            self.object = form.save()
+            comptes_formset.instance = self.object
+            comptes_formset.save()
+            messages.success(self.request, _("Entreprise créée avec succès"))
+            return redirect(self.success_url)
+        else:
+            return self.form_invalid(form)
 
 
 class EntrepriseUpdateView(LoginRequiredMixin, AdminRequiredMixin, UpdateView):
@@ -368,12 +385,31 @@ class EntrepriseUpdateView(LoginRequiredMixin, AdminRequiredMixin, UpdateView):
     form_class = EntrepriseForm
     template_name = "core/entreprise_form.html"
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.POST:
+            context['comptes_formset'] = CompteBancaireFormSet(
+                self.request.POST, instance=self.object, prefix='comptes'
+            )
+        else:
+            context['comptes_formset'] = CompteBancaireFormSet(
+                instance=self.object, prefix='comptes'
+            )
+        return context
+
     def get_success_url(self):
         return reverse('core:entreprise-detail', kwargs={'pk': self.object.pk})
 
     def form_valid(self, form):
-        messages.success(self.request, _("Entreprise modifiée avec succès"))
-        return super().form_valid(form)
+        context = self.get_context_data()
+        comptes_formset = context['comptes_formset']
+        if comptes_formset.is_valid():
+            self.object = form.save()
+            comptes_formset.save()
+            messages.success(self.request, _("Entreprise modifiée avec succès"))
+            return redirect(self.get_success_url())
+        else:
+            return self.form_invalid(form)
 
 
 # =============================================================================
