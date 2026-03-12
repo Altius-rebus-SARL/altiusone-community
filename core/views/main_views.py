@@ -64,6 +64,7 @@ from core.models import (
 )
 from core.forms import (
     ClientForm,
+    ContactPrincipalForm,
     MandatForm,
     ContactForm,
     TacheForm,
@@ -260,24 +261,41 @@ class ClientCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     permission_required = "core.add_client"
     success_url = reverse_lazy("core:client-list")
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['current_user'] = self.request.user
+        return kwargs
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         if self.request.POST:
             context['adresse_form'] = AdresseForm(self.request.POST, prefix='adresse')
+            context['contact_form'] = ContactPrincipalForm(self.request.POST, prefix='contact')
         else:
             context['adresse_form'] = AdresseForm(prefix='adresse')
+            context['contact_form'] = ContactPrincipalForm(prefix='contact')
         return context
 
     def form_valid(self, form):
         adresse_form = AdresseForm(self.request.POST, prefix='adresse')
-        if adresse_form.is_valid():
-            adresse = adresse_form.save()
-            form.instance.adresse_siege = adresse
-            form.instance.created_by = self.request.user
-            messages.success(self.request, _("Client créé avec succès"))
-            return super().form_valid(form)
-        else:
+        contact_form = ContactPrincipalForm(self.request.POST, prefix='contact')
+        if not adresse_form.is_valid():
             return self.form_invalid(form)
+        adresse = adresse_form.save()
+        form.instance.adresse_siege = adresse
+        form.instance.created_by = self.request.user
+        # Sauvegarder le client d'abord
+        response = super().form_valid(form)
+        # Créer le contact principal si nom et prénom renseignés
+        if contact_form.is_valid() and contact_form.cleaned_data.get('nom') and contact_form.cleaned_data.get('prenom'):
+            contact = contact_form.save(commit=False)
+            contact.client = self.object
+            contact.principal = True
+            contact.save()
+            self.object.contact_principal = contact
+            self.object.save(update_fields=['contact_principal'])
+        messages.success(self.request, _("Client créé avec succès"))
+        return response
 
 
 class ClientUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
@@ -287,6 +305,11 @@ class ClientUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     form_class = ClientForm
     template_name = "core/client_form.html"
     permission_required = "core.change_client"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['current_user'] = self.request.user
+        return kwargs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

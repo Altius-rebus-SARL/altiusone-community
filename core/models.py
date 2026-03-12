@@ -1400,9 +1400,11 @@ class Client(BaseModel):
                                           verbose_name=_('Contact principal'))
 
     # Gestion interne
-    responsable = models.ForeignKey(User, on_delete=models.PROTECT,
+    responsable = models.ForeignKey(User, on_delete=models.SET_NULL,
                                     related_name='clients_responsable',
-                                    verbose_name=_('Responsable'))
+                                    null=True, blank=True,
+                                    verbose_name=_('Responsable interne'),
+                                    help_text=_('Collaborateur interne en charge de ce dossier client'))
     notes = models.TextField(blank=True, verbose_name=_('Notes'))
 
     # Régime fiscal par défaut (pour les mandats de ce client)

@@ -83,6 +83,33 @@ class EntrepriseForm(forms.ModelForm):
         }
 
 
+class ContactPrincipalForm(forms.ModelForm):
+    """Formulaire simplifié pour le contact principal lors de la création d'un client"""
+
+    class Meta:
+        model = Contact
+        fields = ["civilite", "nom", "prenom", "fonction", "email", "telephone"]
+        widgets = {
+            "civilite": forms.Select(attrs={"class": "form-control"}),
+            "nom": forms.TextInput(attrs={"class": "form-control"}),
+            "prenom": forms.TextInput(attrs={"class": "form-control"}),
+            "fonction": forms.Select(attrs={"class": "form-control"}),
+            "email": forms.EmailInput(attrs={"class": "form-control"}),
+            "telephone": forms.TextInput(attrs={"class": "form-control"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Seuls nom et prénom sont obligatoires dans ce contexte
+        self.fields['civilite'].required = False
+        self.fields['fonction'].required = False
+        self.fields['email'].required = False
+        self.fields['telephone'].required = False
+        # Choix vide par défaut
+        self.fields['civilite'].choices = [('', '---------')] + list(self.fields['civilite'].choices)
+        self.fields['fonction'].choices = [('', '---------')] + list(self.fields['fonction'].choices)
+
+
 class ClientForm(forms.ModelForm):
     """Formulaire de création/modification d'un client"""
 
@@ -144,15 +171,23 @@ class ClientForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        self.current_user = kwargs.pop('current_user', None)
         super().__init__(*args, **kwargs)
         self.fields['entreprise'].queryset = Entreprise.objects.filter(statut='ACTIVE')
         default = Entreprise.get_default()
-        if default and not self.instance.pk:
+        if default and self.instance._state.adding:
             self.fields['entreprise'].initial = default.pk
         # IDE optionnel (clients sans registre du commerce, personnes physiques, etc.)
         self.fields['ide_number'].required = False
         # Date de création optionnelle (pas toujours connue)
         self.fields['date_creation'].required = False
+        # Responsable : collaborateurs internes uniquement, optionnel, pré-rempli
+        self.fields['responsable'].queryset = User.objects.filter(
+            is_active=True, type_utilisateur='STAFF'
+        ).order_by('first_name', 'last_name')
+        self.fields['responsable'].required = False
+        if self.current_user and self.instance._state.adding:
+            self.fields['responsable'].initial = self.current_user.pk
 
 
 class MandatForm(forms.ModelForm):

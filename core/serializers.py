@@ -167,7 +167,7 @@ class ClientListSerializer(serializers.ModelSerializer):
     )
     statut_display = serializers.CharField(source="get_statut_display", read_only=True)
     responsable_name = serializers.CharField(
-        source="responsable.get_full_name", read_only=True
+        source="responsable.get_full_name", read_only=True, default=""
     )
     nombre_mandats = serializers.SerializerMethodField()
 
@@ -209,7 +209,11 @@ class ClientDetailSerializer(serializers.ModelSerializer):
     adresse_siege = AdresseSerializer()
     adresse_correspondance = AdresseSerializer(allow_null=True)
     contacts = ContactSerializer(many=True, read_only=True)
-    responsable = UserSerializer(read_only=True)
+    responsable_detail = UserSerializer(source="responsable", read_only=True)
+    responsable = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.filter(is_active=True, type_utilisateur='STAFF'),
+        required=False, allow_null=True,
+    )
     contact_principal = ContactSerializer(read_only=True)
 
     class Meta:
@@ -226,6 +230,12 @@ class ClientDetailSerializer(serializers.ModelSerializer):
             adresse_correspondance = Adresse.objects.create(
                 **adresse_correspondance_data
             )
+
+        # Default responsable to current user if not provided
+        if "responsable" not in validated_data or validated_data["responsable"] is None:
+            request = self.context.get("request")
+            if request and request.user.type_utilisateur == 'STAFF':
+                validated_data["responsable"] = request.user
 
         client = Client.objects.create(
             adresse_siege=adresse_siege,
@@ -318,7 +328,7 @@ class MandatListSerializer(serializers.ModelSerializer):
     statut_display = serializers.CharField(source="get_statut_display", read_only=True)
     client_name = serializers.CharField(source="client.raison_sociale", read_only=True)
     responsable_name = serializers.CharField(
-        source="responsable.get_full_name", read_only=True
+        source="responsable.get_full_name", read_only=True, default=""
     )
 
     class Meta:

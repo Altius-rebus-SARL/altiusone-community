@@ -247,6 +247,7 @@
                                     {{ form.email.label }} <span class="text-danger">*</span>
                                 </label>
                                 {{ form.email }}
+                                <small class="text-muted">{% trans "Email principal de l'entreprise" %}</small>
                                 {% if form.email.errors %}
                                 <div class="text-danger f-s-12 mt-1">
                                     {{ form.email.errors }}
@@ -357,6 +358,7 @@
                                     {{ form.statut.label }}
                                 </label>
                                 {{ form.statut }}
+                                <small class="text-muted">{% trans "Prospect = pas encore client actif" %}</small>
                                 {% if form.statut.errors %}
                                 <div class="text-danger f-s-12 mt-1">
                                     {{ form.statut.errors }}
@@ -365,13 +367,14 @@
                             </div>
                         </div>
 
-                        <!-- Responsable -->
+                        <!-- Responsable interne -->
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="{{ form.responsable.id_for_label }}" class="form-label">
-                                    {{ form.responsable.label }} <span class="text-danger">*</span>
+                                    {{ form.responsable.label }}
                                 </label>
                                 {{ form.responsable }}
+                                <small class="text-muted">{% trans "Collaborateur interne en charge de ce dossier client" %}</small>
                                 {% if form.responsable.errors %}
                                 <div class="text-danger f-s-12 mt-1">
                                     {{ form.responsable.errors }}
@@ -395,6 +398,77 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Contact principal (création uniquement) -->
+                    {% if not object %}
+                    <h5 class="text-primary mt-4 mb-3">
+                        {% trans "Contact principal" %}
+                    </h5>
+                    <div class="alert alert-light border mb-3">
+                        <i class="ti ti-info-circle me-2"></i>
+                        {% trans "Personne de contact chez le client. Un accès externe pourra lui être envoyé ultérieurement depuis la fiche client." %}
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label for="{{ contact_form.civilite.id_for_label }}" class="form-label">
+                                    {{ contact_form.civilite.label }}
+                                </label>
+                                {{ contact_form.civilite }}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ contact_form.nom.id_for_label }}" class="form-label">
+                                    {{ contact_form.nom.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ contact_form.nom }}
+                                {% if contact_form.nom.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ contact_form.nom.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-5">
+                            <div class="mb-3">
+                                <label for="{{ contact_form.prenom.id_for_label }}" class="form-label">
+                                    {{ contact_form.prenom.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ contact_form.prenom }}
+                                {% if contact_form.prenom.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ contact_form.prenom.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ contact_form.fonction.id_for_label }}" class="form-label">
+                                    {{ contact_form.fonction.label }}
+                                </label>
+                                {{ contact_form.fonction }}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ contact_form.email.id_for_label }}" class="form-label">
+                                    {% trans "Email du contact" %}
+                                </label>
+                                {{ contact_form.email }}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ contact_form.telephone.id_for_label }}" class="form-label">
+                                    {% trans "Téléphone du contact" %}
+                                </label>
+                                {{ contact_form.telephone }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
 
                     <!-- Actions -->
                     <div class="d-flex justify-content-end gap-2 mt-4">
