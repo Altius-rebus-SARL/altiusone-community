@@ -138,9 +138,11 @@ class FacturePDF:
         return pdf_content
 
     def _get_entreprise(self):
-        """Retourne l'entreprise émettrice (fiduciaire)."""
-        from core.models import Entreprise
-        return Entreprise.objects.filter(est_defaut=True).first()
+        """Retourne l'entreprise émettrice (fiduciaire), avec cache."""
+        if not hasattr(self, '_entreprise'):
+            from core.models import Entreprise
+            self._entreprise = Entreprise.objects.filter(est_defaut=True).first()
+        return self._entreprise
 
     def _draw_header(self, p, width, height):
         """Dessine l'en-tete avec logo de l'entreprise."""
@@ -151,13 +153,44 @@ class FacturePDF:
         logo_drawn = False
         if self._blocs.get('logo', True) and entreprise and entreprise.logo and entreprise.logo.name:
             try:
-                import os
-                logo_path = entreprise.logo.path
-                if os.path.exists(logo_path):
+                from reportlab.lib.utils import ImageReader
+                import io as _io
+
+                # Lire le fichier logo (compatible S3 et local)
+                logo_data = entreprise.logo.read()
+                entreprise.logo.seek(0)
+
+                logo_name = entreprise.logo.name.lower()
+                if logo_name.endswith('.svg'):
+                    # SVG → convertir via svglib
+                    import tempfile, os
+                    from svglib.svglib import svg2rlg
+                    from reportlab.graphics import renderPDF
+
+                    with tempfile.NamedTemporaryFile(suffix='.svg', delete=False) as tmp:
+                        tmp.write(logo_data)
+                        tmp_path = tmp.name
+                    drawing = svg2rlg(tmp_path)
+                    os.unlink(tmp_path)
+                    if drawing:
+                        logo_height = 1.5 * cm
+                        scale = logo_height / drawing.height
+                        logo_width = drawing.width * scale
+                        if logo_width > 5 * cm:
+                            logo_width = 5 * cm
+                            scale = logo_width / drawing.width
+                        drawing.width *= scale
+                        drawing.height *= scale
+                        drawing.scale(scale, scale)
+                        renderPDF.draw(drawing, p, self._margin_left, y - logo_height + 0.3 * cm)
+                        logo_drawn = True
+                else:
+                    # PNG/JPG → ImageReader
+                    logo_reader = ImageReader(_io.BytesIO(logo_data))
                     logo_height = 1.5 * cm
                     logo_width = 4 * cm
                     p.drawImage(
-                        logo_path,
+                        logo_reader,
                         self._margin_left, y - logo_height + 0.3 * cm,
                         width=logo_width, height=logo_height,
                         preserveAspectRatio=True, mask='auto',
