@@ -5,6 +5,7 @@ from django.views.decorators.http import require_http_methods
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, TemplateView
 from core.permissions import BusinessPermissionMixin, permission_required_business
+from core.mixins import SearchMixin
 from django.db.models import Q, Count, Sum
 from django.urls import reverse_lazy
 from django.contrib import messages
@@ -89,7 +90,7 @@ class ChatView(LoginRequiredMixin, TemplateView):
 # ============ DOSSIERS ============
 
 
-class DossierListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class DossierListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """
     Liste des dossiers avec navigation hiérarchique:
     - Niveau 0: Clients (racine)
@@ -102,6 +103,7 @@ class DossierListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     context_object_name = "dossiers"
     paginate_by = 50
     business_permission = 'documents.view_documents'
+    search_fields = ['nom', 'description', 'mandat__numero', 'client__raison_sociale']
 
     def get_queryset(self):
         from core.models import Client
@@ -144,7 +146,7 @@ class DossierListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
             ).distinct()
 
         self.filterset = None
-        return queryset.order_by("nom")
+        return self.apply_search(queryset.order_by("nom"))
 
     def get_context_data(self, **kwargs):
         from core.models import Client, Mandat
@@ -463,7 +465,7 @@ class DossierCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView)
 # ============ DOCUMENTS ============
 
 
-class DocumentListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class DocumentListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des documents"""
 
     model = Document
@@ -471,6 +473,7 @@ class DocumentListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     context_object_name = "documents"
     paginate_by = 50
     business_permission = 'documents.view_documents'
+    search_fields = ['nom_fichier', 'description', 'mandat__numero', 'mandat__client__raison_sociale']
 
     def get_queryset(self):
         queryset = Document.objects.select_related(
@@ -488,10 +491,10 @@ class DocumentListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
         if self.request.GET:
             self.filterset = DocumentFilter(self.request.GET, queryset=queryset)
             if self.filterset.is_valid():
-                return self.filterset.qs.order_by("-date_upload")
+                return self.apply_search(self.filterset.qs.order_by("-date_upload"))
 
         self.filterset = DocumentFilter(queryset=queryset)
-        return queryset.order_by("-date_upload")
+        return self.apply_search(queryset.order_by("-date_upload"))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

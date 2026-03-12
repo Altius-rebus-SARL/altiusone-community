@@ -3,6 +3,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from core.permissions import BusinessPermissionMixin, permission_required_business
+from core.mixins import SearchMixin
 from django.views.generic import ListView, DetailView, CreateView, UpdateView
 from django.db.models import Q, Count, Sum, Avg, F, Max, Min, Prefetch
 from django.urls import reverse_lazy
@@ -78,7 +79,7 @@ def _get_tva_context(mandat=None):
 # ============ PRESTATIONS ============
 
 
-class PrestationListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class PrestationListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des prestations"""
 
     model = Prestation
@@ -86,6 +87,7 @@ class PrestationListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     template_name = "facturation/prestation_list.html"
     context_object_name = "prestations"
     paginate_by = 50
+    search_fields = ['code', 'libelle', 'description']
 
     def get_queryset(self):
         queryset = Prestation.objects.select_related("type_prestation").annotate(
@@ -102,7 +104,7 @@ class PrestationListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
         if actif:
             queryset = queryset.filter(actif=actif == "true")
 
-        return queryset.order_by("code")
+        return self.apply_search(queryset.order_by("code"))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -168,7 +170,7 @@ class PrestationUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateVi
 # ============ TIME TRACKING ============
 
 
-class TimeTrackingListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class TimeTrackingListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste du suivi du temps"""
 
     model = TimeTracking
@@ -176,6 +178,7 @@ class TimeTrackingListView(LoginRequiredMixin, BusinessPermissionMixin, ListView
     template_name = "facturation/timetracking_list.html"
     context_object_name = "temps"
     paginate_by = 50
+    search_fields = ['description', 'mandat__numero', 'mandat__client__raison_sociale', 'prestation__libelle', 'utilisateur__first_name', 'utilisateur__last_name']
 
     def get_queryset(self):
         queryset = TimeTracking.objects.select_related(
@@ -193,7 +196,7 @@ class TimeTrackingListView(LoginRequiredMixin, BusinessPermissionMixin, ListView
 
         # Appliquer les filtres
         self.filterset = TimeTrackingFilter(self.request.GET, queryset=queryset)
-        return self.filterset.qs.order_by("-date_travail")
+        return self.apply_search(self.filterset.qs.order_by("-date_travail"))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -317,7 +320,7 @@ class TimeTrackingCreateView(LoginRequiredMixin, BusinessPermissionMixin, Create
 # ============ FACTURES ============
 
 
-class FactureListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class FactureListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des factures"""
 
     model = Facture
@@ -325,6 +328,7 @@ class FactureListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     template_name = "facturation/facture_list.html"
     context_object_name = "factures"
     paginate_by = 50
+    search_fields = ['numero_facture', 'client__raison_sociale', 'mandat__numero', 'notes']
 
     def get_queryset(self):
         queryset = Facture.objects.select_related(
@@ -340,7 +344,7 @@ class FactureListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
 
         # Appliquer les filtres
         self.filterset = FactureFilter(self.request.GET, queryset=queryset)
-        return self.filterset.qs.order_by("-date_emission")
+        return self.apply_search(self.filterset.qs.order_by("-date_emission"))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -869,7 +873,7 @@ def ligne_facture_delete(request, pk):
 # facturation/views.py
 
 
-class PaiementListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class PaiementListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des paiements"""
 
     model = Paiement
@@ -877,6 +881,7 @@ class PaiementListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     template_name = "facturation/paiement_list.html"
     context_object_name = "paiements"
     paginate_by = 50
+    search_fields = ['facture__numero_facture', 'reference', 'notes', 'facture__client__raison_sociale']
 
     def get_queryset(self):
         # Queryset de base
@@ -887,11 +892,11 @@ class PaiementListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
         # Appliquer les filtres SEULEMENT s'il y a des paramètres
         if self.request.GET:
             self.filterset = PaiementFilter(self.request.GET, queryset=queryset)
-            return self.filterset.qs.order_by("-date_paiement")
+            return self.apply_search(self.filterset.qs.order_by("-date_paiement"))
         else:
             # Pas de filtres = tout afficher
             self.filterset = PaiementFilter(queryset=queryset)  # Filterset vide
-            return queryset.order_by("-date_paiement")
+            return self.apply_search(queryset.order_by("-date_paiement"))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1120,7 +1125,7 @@ def get_operations(request):
 # ============ TARIFS MANDAT ============
 
 
-class TarifMandatListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class TarifMandatListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des tarifs mandat"""
 
     model = TarifMandat
@@ -1128,11 +1133,12 @@ class TarifMandatListView(LoginRequiredMixin, BusinessPermissionMixin, ListView)
     template_name = "facturation/tarif_list.html"
     context_object_name = "tarifs"
     paginate_by = 50
+    search_fields = ['mandat__numero', 'prestation__libelle']
 
     def get_queryset(self):
-        return TarifMandat.objects.select_related(
+        return self.apply_search(TarifMandat.objects.select_related(
             "mandat__client", "prestation"
-        ).filter(is_active=True).order_by("mandat", "prestation")
+        ).filter(is_active=True).order_by("mandat", "prestation"))
 
 
 class TarifMandatCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView):
@@ -1167,7 +1173,7 @@ class TarifMandatUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateV
 # ============ ZONES GEOGRAPHIQUES ============
 
 
-class ZoneGeographiqueListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class ZoneGeographiqueListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des zones géographiques"""
 
     model = ZoneGeographique
@@ -1175,9 +1181,10 @@ class ZoneGeographiqueListView(LoginRequiredMixin, BusinessPermissionMixin, List
     template_name = "facturation/zone_list.html"
     context_object_name = "zones"
     paginate_by = 50
+    search_fields = ['nom', 'description']
 
     def get_queryset(self):
-        return ZoneGeographique.objects.filter(is_active=True).order_by("nom")
+        return self.apply_search(ZoneGeographique.objects.filter(is_active=True).order_by("nom"))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

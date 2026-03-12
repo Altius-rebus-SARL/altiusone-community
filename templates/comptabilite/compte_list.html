@@ -110,13 +110,13 @@
 
                         <form method="get" class="app-form app-icon-form">
                             <div class="position-relative">
-                                <input aria-label="Search" 
-                                       class="form-control search" 
+                                <input aria-label="Search"
+                                       class="form-control search"
                                        placeholder="{% trans 'Rechercher...' %}"
                                        type="search"
-                                       name="search"
-                                       value="{{ request.GET.search }}">
-                                <i class="ph ph-magnifying-glass text-dark"></i>
+                                       name="q"
+                                       value="{{ request.GET.q }}">
+                                <i class="ti ti-search text-dark"></i>
                             </div>
                         </form>
                     </div>
@@ -154,7 +154,7 @@
                                 </select>
                             </div>
                             <div class="col-md-5">
-                                {% if request.GET.type_compte or request.GET.classe or request.GET.plan or request.GET.search %}
+                                {% if request.GET.type_compte or request.GET.classe or request.GET.plan or request.GET.q %}
                                 <a href="{% url 'comptabilite:compte-list' %}" class="btn btn-secondary">
                                     <i class="ph ph-x me-2"></i>{% trans "Réinitialiser" %}
                                 </a>
@@ -263,12 +263,12 @@
                         <ul class="pagination justify-content-center">
                             {% if page_obj.has_previous %}
                             <li class="page-item">
-                                <a class="page-link" href="?page=1{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
+                                <a class="page-link" href="?page=1{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
                                     <i class="ph ph-caret-double-left"></i>
                                 </a>
                             </li>
                             <li class="page-item">
-                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
                                     <i class="ph ph-caret-left"></i>
                                 </a>
                             </li>
@@ -278,18 +278,18 @@
                                 {% if page_obj.number == num %}
                                 <li class="page-item active"><a class="page-link">{{ num }}</a></li>
                                 {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                                <li class="page-item"><a class="page-link" href="?page={{ num }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">{{ num }}</a></li>
+                                <li class="page-item"><a class="page-link" href="?page={{ num }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">{{ num }}</a></li>
                                 {% endif %}
                             {% endfor %}
 
                             {% if page_obj.has_next %}
                             <li class="page-item">
-                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
                                     <i class="ph ph-caret-right"></i>
                                 </a>
                             </li>
                             <li class="page-item">
-                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
                                     <i class="ph ph-caret-double-right"></i>
                                 </a>
                             </li>

@@ -86,9 +86,22 @@
             <div class="card-header">
                 <div class="d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="ph ph-percent me-2"></i>{% trans "Taux d'imposition par pays" %}</h5>
-                    <a href="{% url 'fiscalite:taux-imposition-create' %}" class="btn btn-primary">
-                        <i class="ph ph-plus me-2"></i>{% trans "Nouveau taux" %}
-                    </a>
+                    <div class="d-flex gap-2 align-items-center">
+                        <form method="get" class="app-form app-icon-form">
+                            <div class="position-relative">
+                                <input aria-label="Search"
+                                       class="form-control search"
+                                       placeholder="{% trans 'Rechercher...' %}"
+                                       type="search"
+                                       name="q"
+                                       value="{{ request.GET.q }}">
+                                <i class="ti ti-search text-dark"></i>
+                            </div>
+                        </form>
+                        <a href="{% url 'fiscalite:taux-imposition-create' %}" class="btn btn-primary">
+                            <i class="ph ph-plus me-2"></i>{% trans "Nouveau taux" %}
+                        </a>
+                    </div>
                 </div>
             </div>
             <div class="card-body">

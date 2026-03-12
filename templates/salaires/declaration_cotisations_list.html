@@ -150,7 +150,18 @@
 <!-- Actions -->
 <div class="row mb-3">
     <div class="col-12">
-        <div class="d-flex justify-content-end gap-2">
+        <div class="d-flex justify-content-end align-items-center gap-2">
+            <form method="get" class="app-form app-icon-form me-2">
+                <div class="position-relative">
+                    <input aria-label="Search"
+                           class="form-control search"
+                           placeholder="{% trans 'Rechercher...' %}"
+                           type="search"
+                           name="q"
+                           value="{{ request.GET.q }}">
+                    <i class="ti ti-search text-dark"></i>
+                </div>
+            </form>
             <a href="{% url 'salaires:declaration-cotisations-create' %}" class="btn btn-primary">
                 <i class="ph ph-plus me-1"></i>{% trans "Nouvelle déclaration" %}
             </a>

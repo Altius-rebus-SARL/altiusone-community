@@ -74,6 +74,7 @@ from core.forms import (
     ProfileForm,
 )
 from core.filters import ClientFilter, MandatFilter, TacheFilter
+from core.mixins import SearchMixin
 
 from comptabilite.models import EcritureComptable, Compte
 from facturation.models import Facture
@@ -149,13 +150,18 @@ class DashboardView(LoginRequiredMixin, ListView):
 # ============ CLIENTS ============
 
 
-class ClientListView(LoginRequiredMixin, ListView):
+class ClientListView(SearchMixin, LoginRequiredMixin, ListView):
     """Liste des clients avec filtres avancés"""
 
     model = Client
     template_name = "core/client_list.html"
     context_object_name = "clients"
     paginate_by = 25
+    search_fields = [
+        'raison_sociale', 'ide_number', 'rc_number',
+        'adresse_siege__localite', 'adresse_siege__canton',
+        'email', 'responsable__first_name', 'responsable__last_name',
+    ]
 
     def get_queryset(self):
         queryset = (
@@ -171,7 +177,7 @@ class ClientListView(LoginRequiredMixin, ListView):
 
         # Appliquer les filtres
         self.filterset = ClientFilter(self.request.GET, queryset=queryset)
-        return self.filterset.qs.order_by("-created_at")
+        return self.apply_search(self.filterset.qs.order_by("-created_at"))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -364,13 +370,18 @@ class MandatUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
 # ============ MANDATS ============
 
 
-class MandatListView(LoginRequiredMixin, ListView):
+class MandatListView(SearchMixin, LoginRequiredMixin, ListView):
     """Liste des mandats"""
 
     model = Mandat
     template_name = "core/mandat_list.html"
     context_object_name = "mandats"
     paginate_by = 25
+    search_fields = [
+        'numero', 'description', 'client__raison_sociale',
+        'responsable__first_name', 'responsable__last_name',
+        'type_mandat',
+    ]
 
     def get_queryset(self):
         user = self.request.user
@@ -388,7 +399,7 @@ class MandatListView(LoginRequiredMixin, ListView):
 
         # Appliquer filtres
         self.filterset = MandatFilter(self.request.GET, queryset=queryset)
-        return self.filterset.qs.order_by("-date_debut")
+        return self.apply_search(self.filterset.qs.order_by("-date_debut"))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -552,13 +563,16 @@ class MandatCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
 # ============ TÂCHES ============
 
 
-class TacheListView(LoginRequiredMixin, ListView):
+class TacheListView(SearchMixin, LoginRequiredMixin, ListView):
     """Liste des tâches"""
 
     model = Tache
     template_name = "core/tache_list.html"
     context_object_name = "taches"
     paginate_by = 50
+    search_fields = [
+        'titre', 'description', 'mandat__numero', 'mandat__client__raison_sociale',
+    ]
 
     def get_queryset(self):
         queryset = Tache.objects.prefetch_related('assignes').select_related(
@@ -574,7 +588,7 @@ class TacheListView(LoginRequiredMixin, ListView):
 
         # Appliquer filtres
         self.filterset = TacheFilter(self.request.GET, queryset=queryset)
-        return self.filterset.qs.order_by("date_echeance", "-priorite")
+        return self.apply_search(self.filterset.qs.order_by("date_echeance", "-priorite"))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1510,13 +1524,16 @@ def get_dashboard_stats(request):
 # ============================================================================
 
 
-class ExerciceListView(LoginRequiredMixin, ListView):
+class ExerciceListView(SearchMixin, LoginRequiredMixin, ListView):
     """Liste des exercices comptables"""
 
     model = ExerciceComptable
     template_name = "core/exercice_list.html"
     context_object_name = "exercices"
     paginate_by = 25
+    search_fields = [
+        'mandat__numero', 'mandat__client__raison_sociale',
+    ]
 
     def get_queryset(self):
         queryset = ExerciceComptable.objects.select_related(
@@ -1533,7 +1550,7 @@ class ExerciceListView(LoginRequiredMixin, ListView):
         if statut:
             queryset = queryset.filter(statut=statut)
 
-        return queryset
+        return self.apply_search(queryset)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

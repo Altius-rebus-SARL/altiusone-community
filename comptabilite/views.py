@@ -3,6 +3,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from core.permissions import BusinessPermissionMixin, permission_required_business
+from core.mixins import SearchMixin
 from django.views.generic import (
     ListView,
     DetailView,
@@ -168,7 +169,7 @@ class ClasseComptableListView(LoginRequiredMixin, BusinessPermissionMixin, ListV
 from .filters import PlanComptableFilter
 
 
-class PlanComptableListView(LoginRequiredMixin, BusinessPermissionMixin, FilterView):
+class PlanComptableListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, FilterView):
     """Liste des plans comptables"""
 
     model = PlanComptable
@@ -177,6 +178,7 @@ class PlanComptableListView(LoginRequiredMixin, BusinessPermissionMixin, FilterV
     paginate_by = 25
     filterset_class = PlanComptableFilter
     business_permission = 'comptabilite.view_plan_comptable'
+    search_fields = ['nom_fr', 'nom_de', 'description_fr', 'mandat__numero', 'mandat__client__raison_sociale']
 
     def get_queryset(self):
         queryset = PlanComptable.objects.select_related("mandat", "type_plan").annotate(
@@ -188,7 +190,7 @@ class PlanComptableListView(LoginRequiredMixin, BusinessPermissionMixin, FilterV
         if type_pk:
             queryset = queryset.filter(type_plan_id=type_pk)
 
-        return queryset.order_by("-created_at")
+        return self.apply_search(queryset.order_by("-created_at"))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -309,7 +311,7 @@ class PlanComptableUpdateView(LoginRequiredMixin, BusinessPermissionMixin, Updat
 # ============ COMPTES ============
 
 
-class CompteListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class CompteListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des comptes avec filtres avancés"""
 
     model = Compte
@@ -317,6 +319,7 @@ class CompteListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     context_object_name = "comptes"
     paginate_by = 50
     business_permission = 'comptabilite.view_plan_comptable'
+    search_fields = ['numero', 'libelle_fr', 'libelle_de']
 
     def get_queryset(self):
         # Récupérer le plan comptable depuis l'URL ou les paramètres
@@ -331,7 +334,7 @@ class CompteListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
 
         # Appliquer les filtres
         self.filterset = CompteFilter(self.request.GET, queryset=queryset)
-        return self.filterset.qs.order_by("numero")
+        return self.apply_search(self.filterset.qs.order_by("numero"))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -468,13 +471,14 @@ class CompteUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateView):
 # ============ JOURNAUX ============
 
 
-class JournalListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class JournalListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des journaux"""
 
     model = Journal
     template_name = "comptabilite/journal_list.html"
     context_object_name = "journaux"
     business_permission = 'comptabilite.view_ecritures'
+    search_fields = ['code', 'libelle', 'mandat__numero']
 
     def get_queryset(self):
         queryset = Journal.objects.select_related("mandat").annotate(
@@ -486,7 +490,7 @@ class JournalListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
         if mandat_id:
             queryset = queryset.filter(mandat_id=mandat_id)
 
-        return queryset.order_by("code")
+        return self.apply_search(queryset.order_by("code"))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -588,7 +592,7 @@ class JournalUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateView)
 # ============ ÉCRITURES COMPTABLES ============
 
 
-class EcritureComptableListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class EcritureComptableListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des écritures comptables"""
 
     model = EcritureComptable
@@ -596,6 +600,7 @@ class EcritureComptableListView(LoginRequiredMixin, BusinessPermissionMixin, Lis
     context_object_name = "ecritures"
     paginate_by = 100
     business_permission = 'comptabilite.view_ecritures'
+    search_fields = ['libelle', 'numero_piece', 'compte__numero', 'compte__libelle_fr', 'mandat__numero']
 
     def get_queryset(self):
         queryset = EcritureComptable.objects.select_related(
@@ -611,9 +616,9 @@ class EcritureComptableListView(LoginRequiredMixin, BusinessPermissionMixin, Lis
 
         # Appliquer les filtres
         self.filterset = EcritureComptableFilter(self.request.GET, queryset=queryset)
-        return self.filterset.qs.order_by(
+        return self.apply_search(self.filterset.qs.order_by(
             "-date_ecriture", "numero_piece", "numero_ligne"
-        )
+        ))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -759,7 +764,7 @@ class EcritureComptableUpdateView(
 # ============ PIÈCES COMPTABLES ============
 
 
-class PieceComptableListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class PieceComptableListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des pièces comptables"""
 
     model = PieceComptable
@@ -767,6 +772,7 @@ class PieceComptableListView(LoginRequiredMixin, BusinessPermissionMixin, ListVi
     context_object_name = "pieces"
     paginate_by = 50
     business_permission = 'comptabilite.view_ecritures'
+    search_fields = ['numero_piece', 'libelle', 'reference_externe', 'tiers_nom', 'mandat__numero']
 
     def get_queryset(self):
         queryset = PieceComptable.objects.select_related("mandat", "journal").annotate(
@@ -785,7 +791,7 @@ class PieceComptableListView(LoginRequiredMixin, BusinessPermissionMixin, ListVi
 
         # Appliquer les filtres
         self.filterset = PieceComptableFilter(self.request.GET, queryset=queryset)
-        return self.filterset.qs.order_by("-date_piece", "numero_piece")
+        return self.apply_search(self.filterset.qs.order_by("-date_piece", "numero_piece"))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1270,7 +1276,7 @@ def api_types_pieces(request):
 # ============ LETTRAGE ============
 
 
-class LettrageListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class LettrageListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des lettrages"""
 
     model = Lettrage
@@ -1278,11 +1284,12 @@ class LettrageListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     context_object_name = "lettrages"
     paginate_by = 50
     business_permission = 'comptabilite.view_ecritures'
+    search_fields = ['code_lettrage', 'compte__numero', 'compte__libelle_fr']
 
     def get_queryset(self):
-        return Lettrage.objects.select_related(
+        return self.apply_search(Lettrage.objects.select_related(
             "mandat", "compte", "lettre_par"
-        ).order_by("-date_lettrage")
+        ).order_by("-date_lettrage"))
 
 
 @login_required

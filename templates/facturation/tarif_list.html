@@ -26,9 +26,22 @@
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5>{% trans "Tarifs par mandat/prestation" %}</h5>
-                <a href="{% url 'facturation:tarif-create' %}" class="btn btn-primary btn-sm">
-                    <i class="ph ph-plus me-1"></i>{% trans "Nouveau tarif" %}
-                </a>
+                <div class="d-flex gap-2 align-items-center">
+                    <form method="get" class="app-form app-icon-form">
+                        <div class="position-relative">
+                            <input aria-label="Search"
+                                   class="form-control search"
+                                   placeholder="{% trans 'Rechercher...' %}"
+                                   type="search"
+                                   name="q"
+                                   value="{{ request.GET.q }}">
+                            <i class="ti ti-search text-dark"></i>
+                        </div>
+                    </form>
+                    <a href="{% url 'facturation:tarif-create' %}" class="btn btn-primary btn-sm">
+                        <i class="ph ph-plus me-1"></i>{% trans "Nouveau tarif" %}
+                    </a>
+                </div>
             </div>
             <div class="card-body">
                 <div class="table-responsive">

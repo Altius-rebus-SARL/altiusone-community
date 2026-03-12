@@ -101,6 +101,18 @@
                     <a href="{% url 'tva:operation-create' %}" class="btn btn-primary">
                         <i class="ph ph-plus me-2"></i>{% trans "Nouvelle opération" %}
                     </a>
+                    <div class="d-flex gap-2 align-items-center">
+                        <form method="get" class="app-form app-icon-form">
+                            <div class="position-relative">
+                                <input aria-label="Search"
+                                       class="form-control search"
+                                       placeholder="{% trans 'Rechercher...' %}"
+                                       type="search"
+                                       name="q"
+                                       value="{{ request.GET.q }}">
+                                <i class="ti ti-search text-dark"></i>
+                            </div>
+                        </form>
                     <form method="get" class="d-flex gap-2">
                         <select name="type_operation" class="form-select select-basic" onchange="this.form.submit()">
                             <option value="">{% trans "Tous les types" %}</option>
@@ -120,6 +132,7 @@
                         </a>
                         {% endif %}
                     </form>
+                    </div>
                 </div>
 
                 <!-- Table -->

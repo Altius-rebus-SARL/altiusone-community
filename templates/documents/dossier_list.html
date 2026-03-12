@@ -147,7 +147,18 @@
                             <i class="ph-duotone ph-folders me-2"></i>{% trans "Dossiers" %}
                         {% endif %}
                     </h5>
-                    <div class="d-flex gap-2">
+                    <div class="d-flex gap-2 align-items-center">
+                        <form method="get" class="app-form app-icon-form">
+                            <div class="position-relative">
+                                <input aria-label="Search"
+                                       class="form-control search"
+                                       placeholder="{% trans 'Rechercher...' %}"
+                                       type="search"
+                                       name="q"
+                                       value="{{ request.GET.q }}">
+                                <i class="ti ti-search text-dark"></i>
+                            </div>
+                        </form>
                         {% if nav_level == 'dossiers' or nav_level == 'subfolders' %}
                         <a href="{% url 'documents:dossier-create' %}{% if current_mandat %}?mandat={{ current_mandat.id }}{% endif %}{% if current_parent %}&parent={{ current_parent.id }}{% endif %}" class="btn btn-primary">
                             <i class="ph ph-folder-plus me-2"></i>{% trans "Nouveau dossier" %}

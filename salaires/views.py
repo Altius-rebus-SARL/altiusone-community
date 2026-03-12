@@ -5,6 +5,7 @@ from django.views.decorators.http import require_http_methods
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.views.generic import ListView, DetailView, CreateView, UpdateView
 from core.permissions import BusinessPermissionMixin, permission_required_business
+from core.mixins import SearchMixin
 from django.db.models import Q, Count, Sum, Avg, F, Max
 from django.urls import reverse_lazy
 from django.contrib import messages
@@ -31,7 +32,7 @@ from core.models import Mandat, Adresse
 # ============ EMPLOYÉS ============
 
 
-class EmployeListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class EmployeListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des employés"""
 
     model = Employe
@@ -39,6 +40,7 @@ class EmployeListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     template_name = "salaires/employe_list.html"
     context_object_name = "employes"
     paginate_by = 50
+    search_fields = ['nom', 'prenom', 'matricule', 'fonction', 'departement', 'email', 'mandat__numero', 'mandat__client__raison_sociale']
 
     def get_queryset(self):
         queryset = (
@@ -56,10 +58,10 @@ class EmployeListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
         if self.request.GET:
             self.filterset = EmployeFilter(self.request.GET, queryset=queryset)
             if self.filterset.is_valid():
-                return self.filterset.qs.order_by("nom", "prenom")
+                return self.apply_search(self.filterset.qs.order_by("nom", "prenom"))
 
         self.filterset = EmployeFilter(queryset=queryset)
-        return queryset.order_by("nom", "prenom")
+        return self.apply_search(queryset.order_by("nom", "prenom"))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -217,7 +219,7 @@ class EmployeUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateView)
 # ============ FICHES DE SALAIRE ============
 
 
-class FicheSalaireListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class FicheSalaireListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des fiches de salaire"""
 
     model = FicheSalaire
@@ -225,6 +227,7 @@ class FicheSalaireListView(LoginRequiredMixin, BusinessPermissionMixin, ListView
     template_name = "salaires/fiche_list.html"
     context_object_name = "fiches"
     paginate_by = 50
+    search_fields = ['numero_fiche', 'employe__nom', 'employe__prenom', 'employe__mandat__numero']
 
     def get_queryset(self):
         # Base queryset
@@ -243,11 +246,11 @@ class FicheSalaireListView(LoginRequiredMixin, BusinessPermissionMixin, ListView
         if self.request.GET:
             self.filterset = FicheSalaireFilter(self.request.GET, queryset=queryset)
             if self.filterset.is_valid():
-                return self.filterset.qs.order_by("-periode", "employe__nom")
+                return self.apply_search(self.filterset.qs.order_by("-periode", "employe__nom"))
 
         # Si pas de paramètres, créer un filterset vide
         self.filterset = FicheSalaireFilter(queryset=queryset)
-        return queryset.order_by("-periode", "employe__nom")
+        return self.apply_search(queryset.order_by("-periode", "employe__nom"))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -509,7 +512,7 @@ def generer_fiches_masse(request):
 # ============ CERTIFICATS DE SALAIRE ============
 
 
-class CertificatSalaireListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class CertificatSalaireListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des certificats de salaire - Formulaire 11"""
 
     model = CertificatSalaire
@@ -517,6 +520,7 @@ class CertificatSalaireListView(LoginRequiredMixin, BusinessPermissionMixin, Lis
     template_name = "salaires/certificat_list.html"
     context_object_name = "certificats"
     paginate_by = 50
+    search_fields = ['employe__nom', 'employe__prenom', 'employe__mandat__numero']
 
     def get_queryset(self):
         queryset = CertificatSalaire.objects.select_related(
@@ -540,7 +544,7 @@ class CertificatSalaireListView(LoginRequiredMixin, BusinessPermissionMixin, Lis
                 Q(employe__matricule__icontains=q)
             )
 
-        return queryset
+        return self.apply_search(queryset)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -790,7 +794,7 @@ def certificat_generer_masse(request):
 # ============ CERTIFICATS DE TRAVAIL ============
 
 
-class CertificatTravailListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class CertificatTravailListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des certificats de travail"""
 
     model = CertificatTravail
@@ -798,11 +802,14 @@ class CertificatTravailListView(LoginRequiredMixin, BusinessPermissionMixin, Lis
     template_name = "salaires/certificat_travail_list.html"
     context_object_name = "certificats"
     paginate_by = 50
+    search_fields = ['employe__nom', 'employe__prenom']
 
     def get_queryset(self):
-        return CertificatTravail.objects.select_related(
-            "employe__mandat__client", "emis_par"
-        ).order_by("-date_emission")
+        return self.apply_search(
+            CertificatTravail.objects.select_related(
+                "employe__mandat__client", "emis_par"
+            ).order_by("-date_emission")
+        )
 
 
 class CertificatTravailDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
@@ -895,7 +902,7 @@ def certificat_travail_preview_pdf(request, pk):
 # ============ DÉCLARATIONS COTISATIONS ============
 
 
-class DeclarationCotisationsListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class DeclarationCotisationsListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des déclarations de cotisations"""
 
     model = DeclarationCotisations
@@ -903,6 +910,7 @@ class DeclarationCotisationsListView(LoginRequiredMixin, BusinessPermissionMixin
     template_name = "salaires/declaration_cotisations_list.html"
     context_object_name = "declarations"
     paginate_by = 25
+    search_fields = ['mandat__numero', 'mandat__client__raison_sociale']
 
     def get_queryset(self):
         queryset = DeclarationCotisations.objects.select_related(
@@ -926,7 +934,7 @@ class DeclarationCotisationsListView(LoginRequiredMixin, BusinessPermissionMixin
         if mandat_id:
             queryset = queryset.filter(mandat_id=mandat_id)
 
-        return queryset
+        return self.apply_search(queryset)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
