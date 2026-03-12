@@ -1062,77 +1062,79 @@ class Facture(BaseModel):
             carry = table[(carry + int(char)) % 10]
         return (10 - carry) % 10
 
-    def generer_qr_bill(self):
-        """
-        Génère le QR code Swiss QR-Bill au format PNG.
-
-        Le QR code contient toutes les données de paiement selon la norme
-        Swiss Payment Standards (ISO 20022).
-        """
-        try:
-            import qrcode
-            from qrcode.image.pil import PilImage
-        except ImportError:
-            raise ImportError("Le package 'qrcode' et 'pillow' sont requis.")
-
-        from django.core.files.base import ContentFile
-        import io
-
-        # Générer la référence QR si pas encore fait
-        if not self.qr_reference:
-            self.generer_qr_reference()
-
-        # Résoudre le compte bancaire et l'entreprise créancière
+    def _resolve_iban_and_creditor(self):
+        """Résout l'IBAN et l'entreprise créancière pour le QR-Bill."""
         from core.models import CompteBancaire, Entreprise
+
         iban = None
-        compte_bancaire = None
         entreprise_creancier = None
 
         if self.qr_iban:
             iban = self.qr_iban
         else:
-            # 1. Compte associé au mandat
-            compte_bancaire = CompteBancaire.objects.filter(
-                mandat=self.mandat, actif=True
-            ).first()
-
-            if not compte_bancaire:
-                # 2. Compte principal de l'entreprise par défaut
+            compte = CompteBancaire.objects.filter(mandat=self.mandat, actif=True).first()
+            if not compte:
                 entreprise_creancier = Entreprise.objects.filter(est_defaut=True).first()
                 if entreprise_creancier:
-                    compte_bancaire = CompteBancaire.objects.filter(
+                    compte = CompteBancaire.objects.filter(
                         entreprise=entreprise_creancier, est_compte_principal=True, actif=True
                     ).first()
+            if not compte:
+                compte = CompteBancaire.objects.filter(est_compte_principal=True, actif=True).first()
+            if compte:
+                iban = compte.iban
+                if not entreprise_creancier and compte.entreprise:
+                    entreprise_creancier = compte.entreprise
 
-            if not compte_bancaire:
-                # 3. N'importe quel compte principal actif
-                compte_bancaire = CompteBancaire.objects.filter(
-                    est_compte_principal=True, actif=True
-                ).first()
-
-            if compte_bancaire:
-                iban = compte_bancaire.iban
+        if not entreprise_creancier:
+            entreprise_creancier = Entreprise.objects.filter(est_defaut=True).first()
 
         if not iban:
             raise ValueError("Aucun IBAN configuré. Créez un compte bancaire principal ou associez-en un au mandat.")
-        iban = iban.replace(" ", "").upper()
 
-        # Résoudre l'entreprise créancière (Payable à = la fiduciaire, pas le client)
-        if not entreprise_creancier:
-            if compte_bancaire and compte_bancaire.entreprise:
-                entreprise_creancier = compte_bancaire.entreprise
-            else:
-                entreprise_creancier = Entreprise.objects.filter(est_defaut=True).first()
+        return iban.replace(" ", "").upper(), entreprise_creancier
+
+    def generer_qr_bill(self):
+        """
+        Génère le QR-Bill suisse complet (SVG) avec la librairie qrbill.
+
+        Le SVG contient le récépissé, la section paiement et le QR code
+        selon la norme Swiss Payment Standards (ISO 20022).
+        """
+        from qrbill import QRBill
+        from django.core.files.base import ContentFile
+        import io
+
+        if not self.qr_reference:
+            self.generer_qr_reference()
+
+        iban, entreprise_creancier = self._resolve_iban_and_creditor()
 
         # Adresse du créancier = l'entreprise (fiduciaire)
-        adresse_creancier = entreprise_creancier.adresse if entreprise_creancier and hasattr(entreprise_creancier, 'adresse') else None
-        nom_creancier = entreprise_creancier.raison_sociale if entreprise_creancier else ""
+        adresse_creancier = getattr(entreprise_creancier, 'adresse', None)
+        creditor = {
+            'name': (entreprise_creancier.raison_sociale if entreprise_creancier else "")[:70],
+            'pcode': (adresse_creancier.npa if adresse_creancier else "") or "0000",
+            'city': (adresse_creancier.localite if adresse_creancier else "") or (entreprise_creancier.siege if entreprise_creancier else "") or "Suisse",
+            'country': 'CH',
+        }
+        if adresse_creancier and adresse_creancier.rue:
+            creditor['street'] = adresse_creancier.rue[:70]
+        if adresse_creancier and adresse_creancier.numero:
+            creditor['house_num'] = adresse_creancier.numero[:16]
 
         # Adresse du débiteur = le client facturé
         adresse_debiteur = self.client.adresse_correspondance or self.client.adresse_siege
-
-        # Construire le payload QR selon Swiss QR Bill standard
-        # Format: https://www.paymentstandards.ch/dam/downloads/ig-qr-bill-fr.pdf
+        debtor = {
+            'name': self.client.raison_sociale[:70],
+            'pcode': (adresse_debiteur.npa if adresse_debiteur else "") or "0000",
+            'city': (adresse_debiteur.localite if adresse_debiteur else "") or "Suisse",
+            'country': 'CH',
+        }
+        if adresse_debiteur and adresse_debiteur.rue:
+            debtor['street'] = adresse_debiteur.rue[:70]
+        if adresse_debiteur and adresse_debiteur.numero:
+            debtor['house_num'] = adresse_debiteur.numero[:16]
 
         # Déterminer si c'est un QR-IBAN (IID 30000-31999)
         is_qr_iban = False
@@ -1143,78 +1145,35 @@ class Facture(BaseModel):
             except ValueError:
                 pass
 
-        # Construire l'adresse du créancier pour le QR
-        creancier_rue = ""
-        creancier_npa = ""
-        creancier_localite = ""
-        if adresse_creancier:
-            creancier_rue = f"{adresse_creancier.rue} {adresse_creancier.numero}"[:70]
-            creancier_npa = adresse_creancier.npa or ""
-            creancier_localite = (adresse_creancier.localite or "")[:35]
-        elif entreprise_creancier:
-            # Fallback: siège de l'entreprise
-            creancier_localite = (entreprise_creancier.siege or "")[:35]
+        devise = self.devise_id if self.devise_id in ('CHF', 'EUR') else 'CHF'
 
-        qr_data_lines = [
-            "SPC",  # QR Type
-            "0200",  # Version
-            "1",  # Coding Type (UTF-8)
-            iban,  # IBAN
-            # Creditor = Entreprise (fiduciaire, celle qui reçoit le paiement)
-            "S",  # Address Type
-            nom_creancier[:70],  # Name
-            creancier_rue,  # Street
-            "",  # Building number (included in street)
-            creancier_npa,  # Postal code
-            creancier_localite,  # City
-            "CH",  # Country
-            # Ultimate Creditor (empty)
-            "", "", "", "", "", "", "",
-            # Payment Amount
-            f"{float(self.montant_ttc):.2f}",  # Amount
-            self.devise_id if self.devise_id in ('CHF', 'EUR') else "CHF",  # Currency (QR-Bill: CHF/EUR only)
-            # Ultimate Debtor (Address Type S)
-            "S",
-            self.client.raison_sociale[:70],
-            f"{adresse_debiteur.rue} {adresse_debiteur.numero}"[:70] if adresse_debiteur else "",
-            "",
-            adresse_debiteur.npa if adresse_debiteur else "",
-            adresse_debiteur.localite[:35] if adresse_debiteur else "",
-            "CH",
-            # Reference Type and Reference
-            "QRR" if is_qr_iban else "NON",  # QRR only with QR-IBAN
-            self.qr_reference if is_qr_iban else "",  # Reference (only with QRR)
-            # Unstructured message
-            f"Facture {self.numero_facture}",
-            "EPD",  # Trailer
-            # Additional info (billing info) - optional
-            "",
-        ]
+        qr_kwargs = {
+            'account': iban,
+            'creditor': creditor,
+            'debtor': debtor,
+            'amount': str(self.montant_ttc),
+            'currency': devise,
+            'additional_information': f"Facture {self.numero_facture}",
+            'language': 'fr',
+            'top_line': True,
+            'payment_line': True,
+        }
 
-        qr_payload = "\r\n".join(qr_data_lines)
+        # QRR reference seulement avec QR-IBAN
+        if is_qr_iban and self.qr_reference:
+            qr_kwargs['reference_number'] = self.qr_reference
 
-        # Créer le QR code
-        qr = qrcode.QRCode(
-            version=None,  # Auto-size
-            error_correction=qrcode.constants.ERROR_CORRECT_M,
-            box_size=10,
-            border=0,  # Pas de bordure, on la gère manuellement
-        )
-        qr.add_data(qr_payload)
-        qr.make(fit=True)
+        bill = QRBill(**qr_kwargs)
 
-        # Générer l'image PNG
-        img = qr.make_image(fill_color="black", back_color="white")
+        # Générer le SVG
+        svg_buf = io.StringIO()
+        bill.as_svg(svg_buf)
+        svg_content = svg_buf.getvalue()
 
-        # Sauvegarder en PNG
-        buffer = io.BytesIO()
-        img.save(buffer, format='PNG')
-        buffer.seek(0)
-
-        # Sauvegarder comme fichier Django
+        # Sauvegarder le SVG comme fichier Django
         self.qr_code_image.save(
-            f"qr_code_{self.numero_facture}.png",
-            ContentFile(buffer.read()),
+            f"qr_bill_{self.numero_facture}.svg",
+            ContentFile(svg_content.encode('utf-8')),
             save=True,
         )
 
@@ -1257,223 +1216,75 @@ class Facture(BaseModel):
         return lines
 
     def _ajouter_qr_bill(self, canvas, page_width, page_height):
-        """Ajoute le QR-Bill suisse en bas de la facture"""
+        """Ajoute le QR-Bill suisse en bas de la facture via le SVG qrbill."""
+        from reportlab.lib.units import mm
+        from reportlab.graphics import renderPDF
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        # Générer le SVG si pas encore fait
+        if not self.qr_code_image or not self.qr_code_image.name:
+            try:
+                self.generer_qr_bill()
+                self.refresh_from_db(fields=['qr_code_image'])
+            except Exception as e:
+                logger.warning(f"Impossible de générer le QR-Bill: {e}")
+                self._draw_qr_bill_fallback(canvas, page_width, str(e))
+                return
+
+        # Lire le SVG et le convertir en drawing ReportLab
+        try:
+            from svglib.svglib import svg2rlg
+            import tempfile, os
+
+            svg_content = self.qr_code_image.read().decode('utf-8')
+            self.qr_code_image.seek(0)
+
+            with tempfile.NamedTemporaryFile(suffix='.svg', mode='w', delete=False) as f:
+                f.write(svg_content)
+                tmp_path = f.name
+
+            drawing = svg2rlg(tmp_path)
+            os.unlink(tmp_path)
+
+            if not drawing:
+                raise ValueError("Impossible de parser le SVG")
+
+            # Dimensionner pour occuper le bas de la page A4 (210mm x 105mm)
+            qr_bill_height = 105 * mm
+            scale_x = page_width / drawing.width
+            scale_y = qr_bill_height / drawing.height
+            scale = min(scale_x, scale_y)
+
+            drawing.width *= scale
+            drawing.height *= scale
+            drawing.scale(scale, scale)
+
+            # Dessiner en bas de page
+            renderPDF.draw(drawing, canvas, 0, 0)
+
+        except Exception as e:
+            logger.warning(f"Erreur rendu QR-Bill SVG: {e}")
+            self._draw_qr_bill_fallback(canvas, page_width, str(e))
+
+    def _draw_qr_bill_fallback(self, canvas, page_width, error_msg=""):
+        """Fallback si le SVG QR-Bill n'est pas disponible."""
         from reportlab.lib.units import mm
         from reportlab.lib import colors
-        from core.models import CompteBancaire, Entreprise
 
-        # Swiss QR-Bill spec only allows CHF and EUR
-        devise_qr = self.devise_id if self.devise_id in ('CHF', 'EUR') else 'CHF'
-
-        # Résoudre le compte bancaire et l'entreprise créancière
-        iban = None
-        entreprise_creancier = None
-        if self.qr_iban:
-            iban = self.qr_iban
-        else:
-            compte = CompteBancaire.objects.filter(
-                mandat=self.mandat, actif=True
-            ).first()
-            if not compte:
-                entreprise_creancier = Entreprise.objects.filter(est_defaut=True).first()
-                if entreprise_creancier:
-                    compte = CompteBancaire.objects.filter(
-                        entreprise=entreprise_creancier, est_compte_principal=True, actif=True
-                    ).first()
-            if not compte:
-                compte = CompteBancaire.objects.filter(
-                    est_compte_principal=True, actif=True
-                ).first()
-            if compte:
-                iban = compte.iban_formate
-                if not entreprise_creancier and compte.entreprise:
-                    entreprise_creancier = compte.entreprise
-
-        if not iban:
-            iban = "IBAN NON CONFIGURÉ"
-
-        # Résoudre l'entreprise créancière (Payable à = la fiduciaire)
-        if not entreprise_creancier:
-            entreprise_creancier = Entreprise.objects.filter(est_defaut=True).first()
-
-        # Dimensions du QR-Bill suisse: 210mm x 105mm (bas de page A4)
         qr_height = 105 * mm
-        qr_y = 0  # En bas de page
-
-        # Ligne de découpe perforée
         canvas.setStrokeColor(colors.Color(0.7, 0.7, 0.7))
         canvas.setDash(3, 3)
         canvas.line(0, qr_height, page_width, qr_height)
         canvas.setDash()
 
-        # Symbole ciseaux
-        canvas.setFont("Helvetica", 10)
-        canvas.drawString(5 * mm, qr_height + 2 * mm, "✂")
-
-        # Section Récépissé (gauche: 62mm)
-        receipt_width = 62 * mm
-
         canvas.setFont("Helvetica-Bold", 11)
-        canvas.drawString(5 * mm, qr_height - 10 * mm, "Récépissé")
-
-        canvas.setFont("Helvetica-Bold", 6)
-        canvas.drawString(5 * mm, qr_height - 18 * mm, "Compte / Payable à")
-
+        canvas.drawString(5 * mm, qr_height - 10 * mm, "QR-Bill non disponible")
         canvas.setFont("Helvetica", 8)
-        y_receipt = qr_height - 23 * mm
-
-        # IBAN
-        canvas.drawString(5 * mm, y_receipt, iban)
-        y_receipt -= 4 * mm
-
-        # Créancier = Entreprise (fiduciaire)
-        nom_creancier = entreprise_creancier.raison_sociale if entreprise_creancier else ""
-        canvas.drawString(5 * mm, y_receipt, nom_creancier[:30])
-        y_receipt -= 4 * mm
-        adresse_ent = entreprise_creancier.adresse if entreprise_creancier and hasattr(entreprise_creancier, 'adresse') else None
-        if adresse_ent:
-            canvas.drawString(5 * mm, y_receipt, f"{adresse_ent.rue} {adresse_ent.numero}"[:30])
-            y_receipt -= 4 * mm
-            canvas.drawString(5 * mm, y_receipt, f"{adresse_ent.npa} {adresse_ent.localite}"[:30])
-        elif entreprise_creancier and entreprise_creancier.siege:
-            canvas.drawString(5 * mm, y_receipt, entreprise_creancier.siege[:30])
-
-        # Référence
-        y_receipt -= 8 * mm
-        canvas.setFont("Helvetica-Bold", 6)
-        canvas.drawString(5 * mm, y_receipt, "Référence")
-        y_receipt -= 4 * mm
-        canvas.setFont("Helvetica", 8)
-        ref = self.qr_reference or self.numero_facture
-        canvas.drawString(5 * mm, y_receipt, ref)
-
-        # Payable par
-        y_receipt -= 8 * mm
-        canvas.setFont("Helvetica-Bold", 6)
-        canvas.drawString(5 * mm, y_receipt, "Payable par")
-        y_receipt -= 4 * mm
-        canvas.setFont("Helvetica", 8)
-        canvas.drawString(5 * mm, y_receipt, self.client.raison_sociale[:30])
-        y_receipt -= 4 * mm
-        adresse_client = self.client.adresse_correspondance or self.client.adresse_siege
-        if adresse_client:
-            canvas.drawString(5 * mm, y_receipt, f"{adresse_client.rue} {adresse_client.numero}"[:30])
-            y_receipt -= 4 * mm
-            canvas.drawString(5 * mm, y_receipt, f"{adresse_client.npa} {adresse_client.localite}"[:30])
-
-        # Montant
-        canvas.setFont("Helvetica-Bold", 6)
-        canvas.drawString(5 * mm, 15 * mm, "Monnaie")
-        canvas.drawString(20 * mm, 15 * mm, "Montant")
-        canvas.setFont("Helvetica", 8)
-        canvas.drawString(5 * mm, 10 * mm, devise_qr)
-        canvas.drawString(20 * mm, 10 * mm, f"{self.montant_ttc:.2f}")
-
-        # Point d'acceptation
-        canvas.setFont("Helvetica-Bold", 6)
-        canvas.drawString(35 * mm, 20 * mm, "Point de dépôt")
-
-        # Ligne séparatrice verticale
-        canvas.setStrokeColor(colors.black)
-        canvas.line(receipt_width, 0, receipt_width, qr_height)
-
-        # Section Bulletin de paiement (droite: 148mm)
-        payment_x = receipt_width + 5 * mm
-
-        canvas.setFont("Helvetica-Bold", 11)
-        canvas.drawString(payment_x, qr_height - 10 * mm, "Section paiement")
-
-        # Zone QR Code (46mm x 46mm) - norme Swiss QR Bill
-        qr_code_x = payment_x
-        qr_code_y = qr_height - 60 * mm
-        qr_code_size = 46 * mm
-
-        # Dessiner le QR code PNG si disponible
-        qr_drawn = False
-        if self.qr_code_image and self.qr_code_image.name:
-            try:
-                import os
-                qr_path = self.qr_code_image.path
-                if os.path.exists(qr_path):
-                    # Dessiner l'image PNG directement
-                    canvas.drawImage(
-                        qr_path,
-                        qr_code_x,
-                        qr_code_y,
-                        width=qr_code_size,
-                        height=qr_code_size,
-                        preserveAspectRatio=True,
-                        mask='auto'
-                    )
-                    qr_drawn = True
-            except Exception as e:
-                import logging
-                logging.getLogger(__name__).warning(f"Erreur dessin QR: {e}")
-
-        if not qr_drawn:
-            # Fallback: cadre vide avec texte
-            canvas.setStrokeColor(colors.black)
-            canvas.setLineWidth(0.5)
-            canvas.rect(qr_code_x, qr_code_y, qr_code_size, qr_code_size, stroke=1, fill=0)
-            canvas.setFont("Helvetica", 8)
-            canvas.drawCentredString(qr_code_x + qr_code_size/2, qr_code_y + qr_code_size/2, "QR Code")
-
-        # Informations à droite du QR code
-        info_x = qr_code_x + qr_code_size + 5 * mm
-
-        canvas.setFont("Helvetica-Bold", 8)
-        canvas.drawString(info_x, qr_height - 18 * mm, "Compte / Payable à")
-
-        canvas.setFont("Helvetica", 10)
-        y_info = qr_height - 25 * mm
-        canvas.drawString(info_x, y_info, iban)
-        y_info -= 5 * mm
-        # Créancier = Entreprise (fiduciaire)
-        canvas.drawString(info_x, y_info, nom_creancier[:40])
-        y_info -= 5 * mm
-        if adresse_ent:
-            canvas.drawString(info_x, y_info, f"{adresse_ent.rue} {adresse_ent.numero}"[:40])
-            y_info -= 5 * mm
-            canvas.drawString(info_x, y_info, f"{adresse_ent.npa} {adresse_ent.localite}"[:40])
-        elif entreprise_creancier and entreprise_creancier.siege:
-            canvas.drawString(info_x, y_info, entreprise_creancier.siege[:40])
-
-        # Référence
-        y_info -= 10 * mm
-        canvas.setFont("Helvetica-Bold", 8)
-        canvas.drawString(info_x, y_info, "Référence")
-        y_info -= 5 * mm
-        canvas.setFont("Helvetica", 10)
-        canvas.drawString(info_x, y_info, ref)
-
-        # Informations supplémentaires
-        y_info -= 10 * mm
-        canvas.setFont("Helvetica-Bold", 8)
-        canvas.drawString(info_x, y_info, "Informations supplémentaires")
-        y_info -= 5 * mm
-        canvas.setFont("Helvetica", 9)
-        canvas.drawString(info_x, y_info, f"Facture {self.numero_facture}")
-
-        # Payable par
-        y_info -= 10 * mm
-        canvas.setFont("Helvetica-Bold", 8)
-        canvas.drawString(info_x, y_info, "Payable par")
-        y_info -= 5 * mm
-        canvas.setFont("Helvetica", 10)
-        canvas.drawString(info_x, y_info, self.client.raison_sociale[:40])
-        y_info -= 5 * mm
-        if adresse_client:
-            canvas.drawString(info_x, y_info, f"{adresse_client.rue} {adresse_client.numero}"[:40])
-            y_info -= 5 * mm
-            canvas.drawString(info_x, y_info, f"{adresse_client.npa} {adresse_client.localite}"[:40])
-
-        # Montant en bas
-        canvas.setFont("Helvetica-Bold", 8)
-        canvas.drawString(payment_x, 20 * mm, "Monnaie")
-        canvas.drawString(payment_x + 25 * mm, 20 * mm, "Montant")
-        canvas.setFont("Helvetica", 12)
-        canvas.drawString(payment_x, 12 * mm, devise_qr)
-        canvas.drawString(payment_x + 25 * mm, 12 * mm, f"{self.montant_ttc:.2f}")
+        canvas.setFillColor(colors.Color(0.5, 0.5, 0.5))
+        if error_msg:
+            canvas.drawString(5 * mm, qr_height - 20 * mm, error_msg[:100])
 
     def calculer_totaux(self):
         """Recalcule tous les totaux à partir des lignes"""

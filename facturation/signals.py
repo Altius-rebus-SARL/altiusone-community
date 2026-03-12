@@ -14,28 +14,21 @@ def recalculer_facture(sender, instance, **kwargs):
 
 @receiver(post_save, sender=Facture)
 def generer_qr_bill(sender, instance, created, **kwargs):
-    """Génère le QR-Bill lors de la validation de la facture (Suisse uniquement)"""
+    """Génère le QR-Bill SVG lors de la validation de la facture (Suisse uniquement)"""
     if instance.statut == 'EMISE' and not instance.qr_reference:
-        # QR-Bill uniquement pour les mandats suisses
         regime = instance.regime_fiscal
         if not regime:
             regime = getattr(instance.mandat, 'regime_fiscal', None)
         if regime and regime.code != 'CH':
             return
 
-        instance.generer_qr_reference()
-
-        # Générer l'image QR code
         try:
-            from facturation.utils import generer_qr_code_image
-            qr_image = generer_qr_code_image(instance)
-            if qr_image:
-                instance.qr_code_image.save(qr_image.name, qr_image, save=True)
+            instance.generer_qr_bill()
         except Exception as e:
-            # Log l'erreur mais ne pas bloquer la sauvegarde
             import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f"Erreur génération QR code facture {instance.numero_facture}: {e}")
+            logging.getLogger(__name__).error(
+                f"Erreur génération QR-Bill facture {instance.numero_facture}: {e}"
+            )
 
 
 @receiver(post_save, sender=Facture)
