@@ -45,7 +45,7 @@ def get_resources():
 def read_resource(uri, user):
     """Read a resource. Returns dict."""
     try:
-        fn = RESOURCE_DISPATCH.get(uri)
+        fn = _RESOURCE_DISPATCH.get(uri)
         if not fn:
             return {"error": f"Unknown resource: {uri}"}
         return fn(user)
@@ -54,7 +54,7 @@ def read_resource(uri, user):
         return {"error": str(e)}
 
 
-def resource_entreprise(user):
+def _resource_entreprise(user):
     from core.models import Entreprise
 
     ent = Entreprise.objects.filter(est_defaut=True).select_related("adresse").first()
@@ -81,7 +81,7 @@ def resource_entreprise(user):
     }
 
 
-def resource_utilisateur(user):
+def _resource_utilisateur(user):
     return {
         "id": str(user.pk),
         "username": user.username,
@@ -95,7 +95,7 @@ def resource_utilisateur(user):
     }
 
 
-def resource_prestations(user):
+def _resource_prestations(user):
     from facturation.models import Prestation
 
     prestations = Prestation.objects.filter(is_active=True).select_related("type_prestation")
@@ -111,7 +111,7 @@ def resource_prestations(user):
     return {"prestations": results, "count": len(results)}
 
 
-def resource_devises(user):
+def _resource_devises(user):
     from core.models import Devise
 
     devises = Devise.objects.filter(actif=True).order_by("code")
@@ -126,7 +126,7 @@ def resource_devises(user):
     return {"devises": results}
 
 
-def resource_ontologie(user):
+def _resource_ontologie(user):
     from graph.models import OntologieType
 
     types = OntologieType.objects.filter(is_active=True).order_by("categorie", "ordre_affichage")
@@ -151,10 +151,10 @@ def resource_ontologie(user):
     return result
 
 
-RESOURCE_DISPATCH = {
-    "altiusone://entreprise": resource_entreprise,
-    "altiusone://utilisateur": resource_utilisateur,
-    "altiusone://prestations": resource_prestations,
-    "altiusone://devises": resource_devises,
-    "graph://ontologie": resource_ontologie,
+_RESOURCE_DISPATCH = {
+    "altiusone://entreprise": _resource_entreprise,
+    "altiusone://utilisateur": _resource_utilisateur,
+    "altiusone://prestations": _resource_prestations,
+    "altiusone://devises": _resource_devises,
+    "graph://ontologie": _resource_ontologie,
 }
