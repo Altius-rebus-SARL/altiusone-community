@@ -161,7 +161,7 @@
                                             {{ client.raison_sociale }}
                                         </a>
                                     </td>
-                                    <td>{{ client.ide_number }}</td>
+                                    <td>{{ client.ide_number|default:"-" }}</td>
                                     <td>
                                         <span class="badge bg-light-primary">
                                             {{ client.get_forme_juridique_display }}

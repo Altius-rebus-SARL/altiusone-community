@@ -15,7 +15,7 @@
                 <div class="d-flex justify-content-between align-items-start">
                     <div>
                         <h4 class="text-primary mb-1">{{ client.raison_sociale }}</h4>
-                        <p class="text-muted mb-0">{{ client.ide_number }}</p>
+                        {% if client.ide_number %}<p class="text-muted mb-0">{{ client.ide_number }}</p>{% endif %}
                         <span class="badge bg-light-primary mt-2">{{ client.get_forme_juridique_display }}</span>
                         <span class="badge bg-{{ client.statut|lower }} mt-2">{{ client.get_statut_display }}</span>
                     </div>
@@ -77,10 +77,12 @@
                                         <span class="text-muted">{% trans "Statut" %}</span>
                                         <span class="badge bg-{{ client.statut|lower }}">{{ client.get_statut_display }}</span>
                                     </li>
+                                    {% if client.date_creation %}
                                     <li class="list-group-item d-flex justify-content-between">
                                         <span class="text-muted">{% trans "Date création" %}</span>
                                         <span class="f-w-500">{{ client.date_creation }}</span>
                                     </li>
+                                    {% endif %}
                                     <li class="list-group-item d-flex justify-content-between">
                                         <span class="text-muted">{% trans "Email" %}</span>
                                         <span class="f-w-500">{{ client.email }}</span>
