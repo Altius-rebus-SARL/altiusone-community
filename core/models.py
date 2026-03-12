@@ -718,13 +718,7 @@ class CompteBancaire(models.Model):
     iban = models.CharField(
         max_length=34,
         verbose_name=_('IBAN'),
-        validators=[
-            RegexValidator(
-                r'^[A-Z]{2}\d{2}[A-Z0-9]{4,30}$',
-                _('Format IBAN invalide. Ex: CH93 0076 2011 6238 5295 7')
-            )
-        ],
-        help_text=_('International Bank Account Number (sans espaces)')
+        help_text=_('International Bank Account Number')
     )
     bic_swift = models.CharField(
         max_length=11,
@@ -876,11 +870,14 @@ class CompteBancaire(models.Model):
 
     def clean(self):
         """Validation du modèle"""
+        import re
         from django.core.exceptions import ValidationError
 
         # Nettoyer l'IBAN (supprimer espaces)
         if self.iban:
             self.iban = self.iban.replace(' ', '').upper()
+            if not re.match(r'^[A-Z]{2}\d{2}[A-Z0-9]{4,30}$', self.iban):
+                raise ValidationError({'iban': _('Format IBAN invalide. Ex: CH9300762011623852957')})
 
         # Nettoyer le BIC
         if self.bic_swift:

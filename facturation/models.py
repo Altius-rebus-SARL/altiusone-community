@@ -1082,36 +1082,30 @@ class Facture(BaseModel):
         if not self.qr_reference:
             self.generer_qr_reference()
 
-        # Récupérer les adresses
-        adresse_creancier = self.mandat.client.adresse_siege
-        adresse_debiteur = self.client.adresse_correspondance or self.client.adresse_siege
-
-        # IBAN du compte - Ordre de priorité:
-        # 1. qr_iban de la facture (si défini manuellement)
-        # 2. Compte bancaire associé au mandat
-        # 3. Compte bancaire principal de la fiduciaire
+        # Résoudre le compte bancaire et l'entreprise créancière
+        from core.models import CompteBancaire, Entreprise
         iban = None
         compte_bancaire = None
+        entreprise_creancier = None
 
         if self.qr_iban:
             iban = self.qr_iban
         else:
-            from core.models import CompteBancaire
-            # Chercher un compte associé au mandat
+            # 1. Compte associé au mandat
             compte_bancaire = CompteBancaire.objects.filter(
                 mandat=self.mandat, actif=True
             ).first()
 
             if not compte_bancaire:
-                # Chercher le compte principal de l'entreprise du client
-                entreprise = getattr(self.mandat.client, 'entreprise', None)
-                if entreprise:
+                # 2. Compte principal de l'entreprise par défaut
+                entreprise_creancier = Entreprise.objects.filter(est_defaut=True).first()
+                if entreprise_creancier:
                     compte_bancaire = CompteBancaire.objects.filter(
-                        entreprise=entreprise, est_compte_principal=True, actif=True
+                        entreprise=entreprise_creancier, est_compte_principal=True, actif=True
                     ).first()
 
             if not compte_bancaire:
-                # Fallback: compte principal global
+                # 3. N'importe quel compte principal actif
                 compte_bancaire = CompteBancaire.objects.filter(
                     est_compte_principal=True, actif=True
                 ).first()
@@ -1122,6 +1116,20 @@ class Facture(BaseModel):
         if not iban:
             raise ValueError("Aucun IBAN configuré. Créez un compte bancaire principal ou associez-en un au mandat.")
         iban = iban.replace(" ", "").upper()
+
+        # Résoudre l'entreprise créancière (Payable à = la fiduciaire, pas le client)
+        if not entreprise_creancier:
+            if compte_bancaire and compte_bancaire.entreprise:
+                entreprise_creancier = compte_bancaire.entreprise
+            else:
+                entreprise_creancier = Entreprise.objects.filter(est_defaut=True).first()
+
+        # Adresse du créancier = l'entreprise (fiduciaire)
+        adresse_creancier = entreprise_creancier.adresse if entreprise_creancier and hasattr(entreprise_creancier, 'adresse') else None
+        nom_creancier = entreprise_creancier.raison_sociale if entreprise_creancier else ""
+
+        # Adresse du débiteur = le client facturé
+        adresse_debiteur = self.client.adresse_correspondance or self.client.adresse_siege
 
         # Construire le payload QR selon Swiss QR Bill standard
         # Format: https://www.paymentstandards.ch/dam/downloads/ig-qr-bill-fr.pdf
@@ -1135,18 +1143,30 @@ class Facture(BaseModel):
             except ValueError:
                 pass
 
+        # Construire l'adresse du créancier pour le QR
+        creancier_rue = ""
+        creancier_npa = ""
+        creancier_localite = ""
+        if adresse_creancier:
+            creancier_rue = f"{adresse_creancier.rue} {adresse_creancier.numero}"[:70]
+            creancier_npa = adresse_creancier.npa or ""
+            creancier_localite = (adresse_creancier.localite or "")[:35]
+        elif entreprise_creancier:
+            # Fallback: siège de l'entreprise
+            creancier_localite = (entreprise_creancier.siege or "")[:35]
+
         qr_data_lines = [
             "SPC",  # QR Type
             "0200",  # Version
             "1",  # Coding Type (UTF-8)
             iban,  # IBAN
-            # Creditor (Address Type S = Structured)
+            # Creditor = Entreprise (fiduciaire, celle qui reçoit le paiement)
             "S",  # Address Type
-            self.mandat.client.raison_sociale[:70],  # Name
-            f"{adresse_creancier.rue} {adresse_creancier.numero}"[:70] if adresse_creancier else "",  # Street
+            nom_creancier[:70],  # Name
+            creancier_rue,  # Street
             "",  # Building number (included in street)
-            adresse_creancier.npa if adresse_creancier else "",  # Postal code
-            adresse_creancier.localite[:35] if adresse_creancier else "",  # City
+            creancier_npa,  # Postal code
+            creancier_localite,  # City
             "CH",  # Country
             # Ultimate Creditor (empty)
             "", "", "", "", "", "", "",
@@ -1240,28 +1260,41 @@ class Facture(BaseModel):
         """Ajoute le QR-Bill suisse en bas de la facture"""
         from reportlab.lib.units import mm
         from reportlab.lib import colors
+        from core.models import CompteBancaire, Entreprise
 
         # Swiss QR-Bill spec only allows CHF and EUR
         devise_qr = self.devise_id if self.devise_id in ('CHF', 'EUR') else 'CHF'
 
-        # Récupérer l'IBAN depuis CompteBancaire
+        # Résoudre le compte bancaire et l'entreprise créancière
         iban = None
+        entreprise_creancier = None
         if self.qr_iban:
             iban = self.qr_iban
         else:
-            from core.models import CompteBancaire
             compte = CompteBancaire.objects.filter(
                 mandat=self.mandat, actif=True
             ).first()
+            if not compte:
+                entreprise_creancier = Entreprise.objects.filter(est_defaut=True).first()
+                if entreprise_creancier:
+                    compte = CompteBancaire.objects.filter(
+                        entreprise=entreprise_creancier, est_compte_principal=True, actif=True
+                    ).first()
             if not compte:
                 compte = CompteBancaire.objects.filter(
                     est_compte_principal=True, actif=True
                 ).first()
             if compte:
-                iban = compte.iban_formate  # IBAN formaté avec espaces
+                iban = compte.iban_formate
+                if not entreprise_creancier and compte.entreprise:
+                    entreprise_creancier = compte.entreprise
 
         if not iban:
             iban = "IBAN NON CONFIGURÉ"
+
+        # Résoudre l'entreprise créancière (Payable à = la fiduciaire)
+        if not entreprise_creancier:
+            entreprise_creancier = Entreprise.objects.filter(est_defaut=True).first()
 
         # Dimensions du QR-Bill suisse: 210mm x 105mm (bas de page A4)
         qr_height = 105 * mm
@@ -1293,14 +1326,17 @@ class Facture(BaseModel):
         canvas.drawString(5 * mm, y_receipt, iban)
         y_receipt -= 4 * mm
 
-        # Créancier
-        canvas.drawString(5 * mm, y_receipt, self.mandat.client.raison_sociale[:30])
+        # Créancier = Entreprise (fiduciaire)
+        nom_creancier = entreprise_creancier.raison_sociale if entreprise_creancier else ""
+        canvas.drawString(5 * mm, y_receipt, nom_creancier[:30])
         y_receipt -= 4 * mm
-        adresse = self.mandat.client.adresse_siege
-        if adresse:
-            canvas.drawString(5 * mm, y_receipt, f"{adresse.rue} {adresse.numero}"[:30])
+        adresse_ent = entreprise_creancier.adresse if entreprise_creancier and hasattr(entreprise_creancier, 'adresse') else None
+        if adresse_ent:
+            canvas.drawString(5 * mm, y_receipt, f"{adresse_ent.rue} {adresse_ent.numero}"[:30])
             y_receipt -= 4 * mm
-            canvas.drawString(5 * mm, y_receipt, f"{adresse.npa} {adresse.localite}"[:30])
+            canvas.drawString(5 * mm, y_receipt, f"{adresse_ent.npa} {adresse_ent.localite}"[:30])
+        elif entreprise_creancier and entreprise_creancier.siege:
+            canvas.drawString(5 * mm, y_receipt, entreprise_creancier.siege[:30])
 
         # Référence
         y_receipt -= 8 * mm
@@ -1392,12 +1428,15 @@ class Facture(BaseModel):
         y_info = qr_height - 25 * mm
         canvas.drawString(info_x, y_info, iban)
         y_info -= 5 * mm
-        canvas.drawString(info_x, y_info, self.mandat.client.raison_sociale[:40])
+        # Créancier = Entreprise (fiduciaire)
+        canvas.drawString(info_x, y_info, nom_creancier[:40])
         y_info -= 5 * mm
-        if adresse:
-            canvas.drawString(info_x, y_info, f"{adresse.rue} {adresse.numero}"[:40])
+        if adresse_ent:
+            canvas.drawString(info_x, y_info, f"{adresse_ent.rue} {adresse_ent.numero}"[:40])
             y_info -= 5 * mm
-            canvas.drawString(info_x, y_info, f"{adresse.npa} {adresse.localite}"[:40])
+            canvas.drawString(info_x, y_info, f"{adresse_ent.npa} {adresse_ent.localite}"[:40])
+        elif entreprise_creancier and entreprise_creancier.siege:
+            canvas.drawString(info_x, y_info, entreprise_creancier.siege[:40])
 
         # Référence
         y_info -= 10 * mm

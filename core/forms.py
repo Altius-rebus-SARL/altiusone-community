@@ -87,6 +87,14 @@ class EntrepriseForm(forms.ModelForm):
 class CompteBancaireForm(forms.ModelForm):
     """Formulaire pour un compte bancaire d'entreprise"""
 
+    # Override le champ IBAN pour accepter les espaces en saisie (max 42 chars avec espaces)
+    iban = forms.CharField(
+        max_length=42,
+        label=_('IBAN'),
+        help_text=_('International Bank Account Number'),
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "CH93 0076 2011 6238 5295 7"}),
+    )
+
     class Meta:
         model = CompteBancaire
         fields = [
@@ -108,7 +116,6 @@ class CompteBancaireForm(forms.ModelForm):
         widgets = {
             "libelle": forms.TextInput(attrs={"class": "form-control", "placeholder": _("Ex: Compte principal, Compte salaires")}),
             "type_compte": forms.Select(attrs={"class": "form-control"}),
-            "iban": forms.TextInput(attrs={"class": "form-control", "placeholder": "CH93 0076 2011 6238 5295 7"}),
             "bic_swift": forms.TextInput(attrs={"class": "form-control", "placeholder": "POFICHBEXXX"}),
             "nom_banque": forms.TextInput(attrs={"class": "form-control"}),
             "adresse_banque": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
@@ -121,6 +128,15 @@ class CompteBancaireForm(forms.ModelForm):
             "actif": forms.CheckboxInput(attrs={"class": "form-check-input"}),
             "notes": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
         }
+
+    def clean_iban(self):
+        """Nettoie l'IBAN : supprime les espaces, met en majuscules, valide le format."""
+        import re
+        iban = self.cleaned_data.get('iban', '')
+        iban = iban.replace(' ', '').upper()
+        if iban and not re.match(r'^[A-Z]{2}\d{2}[A-Z0-9]{4,30}$', iban):
+            raise forms.ValidationError(_('Format IBAN invalide. Ex: CH93 0076 2011 6238 5295 7'))
+        return iban
 
 
 CompteBancaireFormSet = inlineformset_factory(
