@@ -457,7 +457,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         this.disabled = true;
-        fetch(`/api/quick-create/${currentModelType}/`, {
+        fetch(`{% url 'core:quick-create-reference' model_type='__MODEL__' %}`.replace('__MODEL__', currentModelType), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
