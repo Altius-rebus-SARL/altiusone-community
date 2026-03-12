@@ -85,6 +85,12 @@ class DeclarationFiscaleForm(forms.ModelForm):
             "remarques": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
         }
 
+    _numeric_optional = [
+        'benefice_avant_impots', 'benefice_imposable',
+        'capital_propre', 'capital_imposable',
+        'impot_federal', 'impot_cantonal', 'impot_communal',
+    ]
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['type_declaration'].choices = ParametreMetier.get_choices_with_default(
@@ -93,6 +99,16 @@ class DeclarationFiscaleForm(forms.ModelForm):
         self.fields['type_impot'].choices = ParametreMetier.get_choices_with_default(
             'fiscalite', 'type_impot', DeclarationFiscale.TYPE_IMPOT_CHOICES
         )
+        for field_name in self._numeric_optional:
+            if field_name in self.fields:
+                self.fields[field_name].required = False
+
+    def clean(self):
+        cleaned_data = super().clean()
+        for field_name in self._numeric_optional:
+            if field_name in cleaned_data and cleaned_data[field_name] is None:
+                cleaned_data[field_name] = Decimal('0')
+        return cleaned_data
 
 
 class AnnexeFiscaleForm(forms.ModelForm):
@@ -148,6 +164,11 @@ class CorrectionFiscaleForm(forms.ModelForm):
         self.fields['type_correction'].choices = ParametreMetier.get_choices_with_default(
             'fiscalite', 'type_correction', CorrectionFiscale.TYPE_CORRECTION_CHOICES
         )
+        self.fields['montant_comptable'].required = False
+
+    def clean_montant_comptable(self):
+        val = self.cleaned_data.get('montant_comptable')
+        return val if val is not None else Decimal('0')
 
 
 class ReportPerteForm(forms.ModelForm):

@@ -141,15 +141,28 @@ class EmployeForm(forms.ModelForm):
             "remarques": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
         }
 
+    _numeric_optional = [
+        "nombre_enfants", "salaire_horaire", "montant_13eme", "taux_is",
+        "jours_vacances_annuel",
+    ]
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Charger les choix depuis ParametreMetier (DB) avec fallback sur les CHOICES du modèle
         self.fields['type_contrat'].choices = ParametreMetier.get_choices_with_default(
             'salaires', 'type_contrat', Employe.TYPE_CONTRAT_CHOICES
         )
+        for field_name in self._numeric_optional:
+            if field_name in self.fields:
+                self.fields[field_name].required = False
 
     def clean(self):
         cleaned_data = super().clean()
+
+        # Convertir les champs numériques vides en valeur par défaut
+        for field_name in self._numeric_optional:
+            if field_name in cleaned_data and cleaned_data[field_name] is None:
+                cleaned_data[field_name] = Decimal('0')
 
         # Si 13ème salaire activé, vérifier le montant
         if cleaned_data.get("treizieme_salaire"):
@@ -162,6 +175,15 @@ class EmployeForm(forms.ModelForm):
 
 class FicheSalaireForm(forms.ModelForm):
     """Formulaire pour une fiche de salaire"""
+
+    # Champs numériques avec default=0 sur le modèle
+    _numeric_optional = [
+        "jours_travailles", "heures_travaillees", "heures_supplementaires",
+        "jours_absence", "jours_vacances", "jours_maladie",
+        "salaire_base", "heures_supp_montant", "primes", "indemnites",
+        "treizieme_mois", "allocations_familiales", "autres_allocations",
+        "avance_salaire", "saisie_salaire", "autres_deductions",
+    ]
 
     class Meta:
         model = FicheSalaire
@@ -241,6 +263,19 @@ class FicheSalaireForm(forms.ModelForm):
             ),
             "remarques": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field_name in self._numeric_optional:
+            if field_name in self.fields:
+                self.fields[field_name].required = False
+
+    def clean(self):
+        cleaned_data = super().clean()
+        for field_name in self._numeric_optional:
+            if field_name in cleaned_data and cleaned_data[field_name] is None:
+                cleaned_data[field_name] = Decimal('0')
+        return cleaned_data
 
 
 class CertificatSalaireForm(forms.ModelForm):

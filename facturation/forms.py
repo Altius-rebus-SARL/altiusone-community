@@ -473,6 +473,19 @@ class RelanceForm(forms.ModelForm):
     class Meta:
         model = Relance
         fields = ["date_echeance", "montant_frais", "montant_interets", "notes"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['montant_frais'].required = False
+        self.fields['montant_interets'].required = False
+
+    def clean_montant_frais(self):
+        val = self.cleaned_data.get('montant_frais')
+        return val if val is not None else Decimal('0')
+
+    def clean_montant_interets(self):
+        val = self.cleaned_data.get('montant_interets')
+        return val if val is not None else Decimal('0')
         widgets = {
             "date_echeance": forms.DateInput(
                 attrs={"class": "form-control", "type": "date"}

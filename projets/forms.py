@@ -71,6 +71,7 @@ class PositionForm(CoordonneesMixin, forms.ModelForm):
         self.mandat = kwargs.pop("mandat", None)
         super().__init__(*args, **kwargs)
         self.fields["responsable"].queryset = User.objects.filter(is_active=True).order_by("first_name", "last_name")
+        self.fields["budget_prevu"].required = False
         self._init_coordonnees()
 
     def clean_budget_prevu(self):
@@ -142,6 +143,9 @@ class OperationForm(CoordonneesMixin, forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["assigne_a"].queryset = User.objects.filter(is_active=True).order_by("first_name", "last_name")
         self.fields["contacts_assignes"].queryset = Contact.objects.filter(is_active=True).order_by("nom", "prenom")
+        for fn in ('budget_prevu', 'cout_reel', 'duree_estimee_heures'):
+            if fn in self.fields:
+                self.fields[fn].required = False
         self._init_coordonnees()
 
     def clean_budget_prevu(self):

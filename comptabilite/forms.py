@@ -268,6 +268,11 @@ class EcritureComptableForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        # Champs numériques avec default sur le modèle : accepter vide
+        for field_name in ('montant_debit', 'montant_credit', 'taux_change', 'montant_tva'):
+            if field_name in self.fields:
+                self.fields[field_name].required = False
+
         # Limiter les choix selon le mandat - SEULEMENT si l'instance a un PK (modification)
         if self.instance.pk:
             try:
@@ -297,6 +302,22 @@ class EcritureComptableForm(forms.ModelForm):
             except:
                 # Si pas de mandat, laisser les querysets par défaut
                 pass
+
+    def clean_montant_debit(self):
+        val = self.cleaned_data.get('montant_debit')
+        return val if val is not None else Decimal('0')
+
+    def clean_montant_credit(self):
+        val = self.cleaned_data.get('montant_credit')
+        return val if val is not None else Decimal('0')
+
+    def clean_taux_change(self):
+        val = self.cleaned_data.get('taux_change')
+        return val if val is not None else Decimal('1')
+
+    def clean_montant_tva(self):
+        val = self.cleaned_data.get('montant_tva')
+        return val if val is not None else Decimal('0')
 
     def clean(self):
         cleaned_data = super().clean()
