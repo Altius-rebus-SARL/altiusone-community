@@ -1425,8 +1425,8 @@ $(function() {
     function startUnreadPolling() {
         updateUnreadBadge();
         // Also poll unread count every 15s
-        if (!window._unreadInterval) {
-            window._unreadInterval = setInterval(updateUnreadBadge, 15000);
+        if (!window.unreadInterval) {
+            window.unreadInterval = setInterval(updateUnreadBadge, 15000);
         }
     }
 
