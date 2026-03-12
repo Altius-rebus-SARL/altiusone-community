@@ -595,6 +595,11 @@ TEMPLATES[0]['OPTIONS']['context_processors'].append(
     'core.permissions.permissions_context'
 )
 
+# Type de connexion disponible dans tous les templates via {{ CONNEXION_LABEL }} / {{ CONNEXION_COLOR }}
+TEMPLATES[0]['OPTIONS']['context_processors'].append(
+    'core.context_processors.connexion_context'
+)
+
 # Devise de base disponible dans tous les templates via {{ DEVISE_CODE }}
 TEMPLATES[0]['OPTIONS']['context_processors'].append(
     'core.context_processors.devise_context'
