@@ -229,10 +229,11 @@ class FacturePDF:
         adresse = getattr(entreprise, 'adresse', None)
         if adresse:
             if adresse.rue:
-                p.drawString(self._margin_left, y, f"{adresse.rue} {adresse.numero or ''}")
-                y -= 0.4 * cm
-            if getattr(adresse, 'complement', None):
-                p.drawString(self._margin_left, y, adresse.complement)
+                rue_ligne = adresse.rue.strip()
+                # Ajouter le numéro seulement s'il n'est pas déjà dans la rue
+                if adresse.numero and adresse.numero not in rue_ligne:
+                    rue_ligne = f"{rue_ligne} {adresse.numero}"
+                p.drawString(self._margin_left, y, rue_ligne)
                 y -= 0.4 * cm
             p.drawString(self._margin_left, y, f"{adresse.npa or ''} {adresse.localite or ''}")
             y -= 0.4 * cm
