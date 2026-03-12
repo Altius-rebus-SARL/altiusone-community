@@ -1296,6 +1296,7 @@ class Client(BaseModel):
     """Client de la fiduciaire"""
 
     FORME_JURIDIQUE_CHOICES = [
+        # Formes suisses
         ('EI', _('Entreprise individuelle')),
         ('RC', _('Raison collective')),
         ('SC', _('Société en commandite')),
@@ -1307,6 +1308,9 @@ class Client(BaseModel):
         ('COOP', _('Société coopérative')),
         ('ASSOC', _('Association')),
         ('FOND', _('Fondation')),
+        # Formes internationales / sans registre
+        ('PP', _('Personne physique')),
+        ('AUTRE', _('Autre')),
     ]
 
     STATUT_CHOICES = [
@@ -1333,13 +1337,14 @@ class Client(BaseModel):
         verbose_name=_('Entreprise')
     )
 
-    # Numéros officiels
+    # Numéros officiels (tous optionnels — clients sans registre du commerce,
+    # personnes physiques, clients européens/africains)
     ide_number = models.CharField(
         max_length=20,
-        unique=True,
+        blank=True,
         validators=[RegexValidator(r'^CHE-\d{3}\.\d{3}\.\d{3}$',
                                    'Format IDE invalide (CHE-XXX.XXX.XXX)')],
-        help_text='Format: CHE-123.456.789',
+        help_text='Format: CHE-123.456.789 (optionnel)',
         verbose_name=_('Numéro IDE')
     )
     ch_id = models.CharField(
@@ -1380,7 +1385,7 @@ class Client(BaseModel):
     )
 
     # Dates importantes
-    date_creation = models.DateField(verbose_name=_('Date de création entreprise'))
+    date_creation = models.DateField(null=True, blank=True, verbose_name=_('Date de création entreprise'))
     date_inscription_rc = models.DateField(null=True, blank=True, verbose_name=_('Date inscription RC'))
     date_debut_exercice = models.DateField(verbose_name=_('Début exercice comptable'))
     date_fin_exercice = models.DateField(verbose_name=_('Fin exercice comptable'))
@@ -1423,9 +1428,18 @@ class Client(BaseModel):
             models.Index(fields=['raison_sociale', 'statut']),
             models.Index(fields=['ide_number']),
         ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['ide_number'],
+                condition=~models.Q(ide_number=''),
+                name='unique_ide_number_non_vide',
+            ),
+        ]
 
     def __str__(self):
-        return f"{self.raison_sociale} ({self.ide_number})"
+        if self.ide_number:
+            return f"{self.raison_sociale} ({self.ide_number})"
+        return self.raison_sociale
 
     @property
     def mandats_actifs(self):

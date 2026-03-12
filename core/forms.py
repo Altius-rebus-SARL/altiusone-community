@@ -149,6 +149,10 @@ class ClientForm(forms.ModelForm):
         default = Entreprise.get_default()
         if default and not self.instance.pk:
             self.fields['entreprise'].initial = default.pk
+        # IDE optionnel (clients sans registre du commerce, personnes physiques, etc.)
+        self.fields['ide_number'].required = False
+        # Date de création optionnelle (pas toujours connue)
+        self.fields['date_creation'].required = False
 
 
 class MandatForm(forms.ModelForm):
