@@ -248,16 +248,118 @@ class TarifMandat(BaseModel):
         return True
 
 
-class TimeTracking(BaseModel):
-    """Suivi du temps de travail sur les prestations"""
+class CategorieTemps(models.Model):
+    """Catégorie pour le temps interne et les absences.
 
-    # Rattachement
+    Permet de classifier le temps non lié à un mandat client :
+    - INTERNE : formation, réunion, admin, prospection...
+    - ABSENCE : vacances, maladie, congé personnel, service militaire...
+    """
+
+    TYPE_CHOICES = [
+        ('INTERNE', _('Temps interne')),
+        ('ABSENCE', _('Absence')),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    code = models.CharField(
+        max_length=30, unique=True,
+        verbose_name=_('Code'),
+        help_text=_('Code technique unique (ex: FORMATION, VACANCES)')
+    )
+    libelle = models.CharField(
+        max_length=100,
+        verbose_name=_('Libellé'),
+        help_text=_('Nom affiché (ex: Formation, Vacances)')
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name=_('Description'),
+    )
+    type_categorie = models.CharField(
+        max_length=10,
+        choices=TYPE_CHOICES,
+        verbose_name=_('Type'),
+        help_text=_('Interne = temps de travail non facturable, Absence = jour non travaillé')
+    )
+    icone = models.CharField(
+        max_length=50, blank=True, default='ph-clock',
+        verbose_name=_('Icône'),
+    )
+    couleur = models.CharField(
+        max_length=20, blank=True, default='secondary',
+        verbose_name=_('Couleur'),
+    )
+    # Pour les absences : impacte-t-il le solde vacances ?
+    decompte_vacances = models.BooleanField(
+        default=False,
+        verbose_name=_('Décompte vacances'),
+        help_text=_('Si coché, cette catégorie décompte du solde de jours de vacances')
+    )
+    # Pour les absences : impacte-t-il le compteur maladie ?
+    decompte_maladie = models.BooleanField(
+        default=False,
+        verbose_name=_('Décompte maladie'),
+        help_text=_('Si coché, cette catégorie incrémente le compteur jours maladie')
+    )
+    ordre = models.IntegerField(default=0, verbose_name=_('Ordre'))
+    is_active = models.BooleanField(default=True, verbose_name=_('Actif'))
+
+    class Meta:
+        db_table = 'categories_temps'
+        verbose_name = _('Catégorie de temps')
+        verbose_name_plural = _('Catégories de temps')
+        ordering = ['type_categorie', 'ordre', 'libelle']
+
+    def __str__(self):
+        return f"[{self.get_type_categorie_display()}] {self.libelle}"
+
+    @property
+    def est_interne(self):
+        return self.type_categorie == 'INTERNE'
+
+    @property
+    def est_absence(self):
+        return self.type_categorie == 'ABSENCE'
+
+
+class TimeTracking(BaseModel):
+    """Suivi du temps de travail sur les prestations, temps interne et absences"""
+
+    TYPE_ENTREE_CHOICES = [
+        ('CLIENT', _('Temps client (mandat)')),
+        ('INTERNE', _('Temps interne')),
+        ('ABSENCE', _('Absence')),
+    ]
+
+    # Type d'entrée
+    type_entree = models.CharField(
+        max_length=10,
+        choices=TYPE_ENTREE_CHOICES,
+        default='CLIENT',
+        db_index=True,
+        verbose_name=_("Type d'entrée"),
+        help_text=_("CLIENT=mandat, INTERNE=formation/admin, ABSENCE=vacances/maladie")
+    )
+
+    # Catégorie interne/absence (obligatoire si type_entree != CLIENT)
+    categorie = models.ForeignKey(
+        CategorieTemps,
+        on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name='temps',
+        verbose_name=_("Catégorie"),
+        help_text=_("Catégorie de temps interne ou type d'absence")
+    )
+
+    # Rattachement (mandat/prestation optionnels si INTERNE ou ABSENCE)
     mandat = models.ForeignKey(
         Mandat,
         on_delete=models.CASCADE,
+        null=True, blank=True,
         related_name='temps_travail',
         verbose_name=_("Mandat"),
-        help_text=_("Mandat concerné par ce temps de travail")
+        help_text=_("Mandat concerné (obligatoire pour type CLIENT)")
     )
     utilisateur = models.ForeignKey(
         User,
@@ -269,9 +371,10 @@ class TimeTracking(BaseModel):
     prestation = models.ForeignKey(
         Prestation,
         on_delete=models.PROTECT,
+        null=True, blank=True,
         related_name='temps_travail',
         verbose_name=_("Prestation"),
-        help_text=_("Type de prestation effectuée")
+        help_text=_("Type de prestation (obligatoire pour type CLIENT)")
     )
 
     # Temps
@@ -317,12 +420,14 @@ class TimeTracking(BaseModel):
     taux_horaire = models.DecimalField(
         max_digits=10,
         decimal_places=2,
+        default=0,
         verbose_name=_("Taux horaire"),
         help_text=_("Taux horaire appliqué pour ce travail")
     )
     montant_ht = models.DecimalField(
         max_digits=10,
         decimal_places=2,
+        default=0,
         verbose_name=_("Montant HT"),
         help_text=_("Montant hors taxes calculé")
     )
@@ -429,10 +534,27 @@ class TimeTracking(BaseModel):
             models.Index(fields=['mandat', 'date_travail']),
             models.Index(fields=['utilisateur', 'date_travail']),
             models.Index(fields=['facturable', 'facture']),
+            models.Index(fields=['type_entree', 'utilisateur', 'date_travail']),
         ]
 
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        errors = {}
+        if self.type_entree == 'CLIENT':
+            if not self.mandat_id:
+                errors['mandat'] = _('Le mandat est obligatoire pour une entrée de type client.')
+            if not self.prestation_id:
+                errors['prestation'] = _('La prestation est obligatoire pour une entrée de type client.')
+        else:
+            if not self.categorie_id:
+                errors['categorie'] = _('La catégorie est obligatoire pour le temps interne ou les absences.')
+        if errors:
+            raise ValidationError(errors)
+
     def __str__(self):
-        return f"{self.date_travail} - {self.utilisateur.username} - {self.duree_minutes}min"
+        prefix = self.get_type_entree_display() if self.type_entree != 'CLIENT' else ''
+        base = f"{self.date_travail} - {self.utilisateur.username} - {self.duree_minutes}min"
+        return f"[{prefix}] {base}" if prefix else base
 
     @property
     def duree_heures(self):

@@ -790,7 +790,7 @@ def _search_time_entries(args, user):
     limit = min(args.get("limit", 50), 200)
 
     qs = TimeTracking.objects.filter(is_active=True).select_related(
-        "mandat", "utilisateur", "prestation"
+        "mandat", "utilisateur", "prestation", "categorie"
     )
     if date_from:
         qs = qs.filter(date_travail__gte=date_from)
@@ -800,16 +800,21 @@ def _search_time_entries(args, user):
         qs = qs.filter(utilisateur__username=utilisateur)
     if mandat_id:
         qs = qs.filter(mandat_id=mandat_id)
+    type_entree = args.get("type_entree")
+    if type_entree:
+        qs = qs.filter(type_entree=type_entree)
 
     results = []
     total_minutes = 0
     for t in qs.order_by("-date_travail")[:limit]:
         results.append({
             "id": str(t.pk),
+            "type_entree": t.type_entree,
             "date": _fmt_date(t.date_travail),
             "utilisateur": t.utilisateur.get_full_name() if t.utilisateur else None,
             "mandat": t.mandat.numero if t.mandat else None,
             "prestation": t.prestation.libelle if t.prestation else None,
+            "categorie": t.categorie.libelle if t.categorie else None,
             "duree_minutes": t.duree_minutes,
             "description": t.description,
             "facturable": t.facturable,
@@ -826,31 +831,51 @@ def _search_time_entries(args, user):
 
 
 def _create_time_entry(args, user):
-    from facturation.models import TimeTracking
+    from facturation.models import TimeTracking, CategorieTemps
     from core.models import Mandat
     from facturation.models import Prestation
 
-    mandat = Mandat.objects.get(pk=args["mandat_id"], is_active=True)
-    prestation = Prestation.objects.get(pk=args["prestation_id"], is_active=True)
+    type_entree = args.get("type_entree", "CLIENT")
 
-    entry = TimeTracking(
-        mandat=mandat,
-        prestation=prestation,
-        utilisateur=user,
-        date_travail=args.get("date_travail", date.today()),
-        duree_minutes=args["duree_minutes"],
-        description=args["description"],
-        facturable=args.get("facturable", True),
-        taux_horaire=prestation.taux_horaire or mandat.taux_horaire or 0,
-    )
+    entry_kwargs = {
+        "utilisateur": user,
+        "type_entree": type_entree,
+        "date_travail": args.get("date_travail", date.today()),
+        "duree_minutes": args["duree_minutes"],
+        "description": args["description"],
+    }
+
+    if type_entree == "CLIENT":
+        mandat = Mandat.objects.get(pk=args["mandat_id"], is_active=True)
+        prestation = Prestation.objects.get(pk=args["prestation_id"], is_active=True)
+        entry_kwargs.update({
+            "mandat": mandat,
+            "prestation": prestation,
+            "facturable": args.get("facturable", True),
+            "taux_horaire": prestation.taux_horaire or mandat.taux_horaire or 0,
+        })
+    else:
+        categorie = CategorieTemps.objects.get(
+            code=args.get("categorie_code", ""), is_active=True
+        )
+        entry_kwargs.update({
+            "categorie": categorie,
+            "facturable": False,
+            "taux_horaire": 0,
+        })
+
+    entry = TimeTracking(**entry_kwargs)
+    entry.montant_ht = 0
     entry.save()
 
     return {
         "id": str(entry.pk),
+        "type_entree": entry.type_entree,
         "date": _fmt_date(entry.date_travail),
         "duree_minutes": entry.duree_minutes,
-        "mandat": mandat.numero,
-        "prestation": prestation.libelle,
+        "mandat": entry.mandat.numero if entry.mandat else None,
+        "prestation": entry.prestation.libelle if entry.prestation else None,
+        "categorie": entry.categorie.libelle if entry.categorie else None,
     }
 
 

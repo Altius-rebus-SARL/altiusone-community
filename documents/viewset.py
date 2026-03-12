@@ -12,13 +12,14 @@ from django.conf import settings
 import hashlib
 import os
 
-from .models import Dossier, TypeDocument, Document, TraitementDocument
+from .models import Dossier, TypeDocument, Document, TraitementDocument, SourceDocument
 from .serializers import (
     DossierSerializer,
     TypeDocumentSerializer,
     DocumentListSerializer,
     DocumentDetailSerializer,
     DocumentUploadSerializer,
+    SourceDocumentSerializer,
 )
 
 
@@ -566,3 +567,32 @@ class DocumentViewSet(viewsets.ModelViewSet):
             'total_demandes': len(document_ids),
             'total_traites': updated,
         })
+
+
+class SourceDocumentViewSet(viewsets.ModelViewSet):
+    """ViewSet pour les sources de documents.
+
+    Table de référence dynamique distinguant les sources internes
+    (collaborateurs STAFF) et externes (clients).
+    """
+
+    queryset = SourceDocument.objects.all()
+    serializer_class = SourceDocumentSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ["origine", "is_active", "module_applicatif"]
+    search_fields = ["code", "libelle"]
+
+    @action(detail=False, methods=["get"])
+    def internes(self, request):
+        """Sources internes uniquement (collaborateurs STAFF)"""
+        qs = self.queryset.filter(origine="INTERNE", is_active=True)
+        serializer = self.get_serializer(qs, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"])
+    def externes(self, request):
+        """Sources externes uniquement (clients)"""
+        qs = self.queryset.filter(origine="EXTERNE", is_active=True)
+        serializer = self.get_serializer(qs, many=True)
+        return Response(serializer.data)

@@ -5,6 +5,7 @@ from .viewset import (
     DossierViewSet,
     TypeDocumentViewSet,
     DocumentViewSet,
+    SourceDocumentViewSet,
 )
 from .api_views import (
     ConversationViewSet,
@@ -21,6 +22,7 @@ router = DefaultRouter()
 router.register(r"dossiers", DossierViewSet, basename="dossier")
 router.register(r"types", TypeDocumentViewSet, basename="type")
 router.register(r"documents", DocumentViewSet, basename="document")
+router.register(r"sources", SourceDocumentViewSet, basename="source")
 router.register(r"chat/conversations", ConversationViewSet, basename="conversation")
 
 # URLs additionnelles pour le chat
@@ -89,4 +91,13 @@ DOCUMENTS:
 - POST   /api/v1/documents/documents/{id}/valider/     Valider document
 - GET    /api/v1/documents/documents/{id}/download/    Télécharger document
 - GET    /api/v1/documents/documents/{id}/preview/     Aperçu document
+
+SOURCES DOCUMENT (table de référence):
+- GET    /api/v1/documents/sources/                     Liste sources
+- POST   /api/v1/documents/sources/                     Créer source
+- GET    /api/v1/documents/sources/{id}/                Détail source
+- PUT    /api/v1/documents/sources/{id}/                Modifier source
+- DELETE /api/v1/documents/sources/{id}/                Supprimer source
+- GET    /api/v1/documents/sources/internes/            Sources internes (STAFF)
+- GET    /api/v1/documents/sources/externes/            Sources externes (clients)
 """

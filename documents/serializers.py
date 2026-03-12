@@ -1,6 +1,6 @@
 # documents/serializers.py
 from rest_framework import serializers
-from .models import Dossier, TypeDocument, Document, Conversation, Message
+from .models import Dossier, TypeDocument, Document, Conversation, Message, SourceDocument
 from core.serializers import MandatListSerializer
 
 
@@ -14,6 +14,30 @@ class TypeDocumentSerializer(serializers.ModelSerializer):
     class Meta:
         model = TypeDocument
         fields = "__all__"
+
+
+class SourceDocumentSerializer(serializers.ModelSerializer):
+    """Serializer pour les sources de documents"""
+
+    origine_display = serializers.CharField(
+        source="get_origine_display", read_only=True
+    )
+
+    class Meta:
+        model = SourceDocument
+        fields = [
+            "id",
+            "code",
+            "libelle",
+            "description",
+            "origine",
+            "origine_display",
+            "module_applicatif",
+            "icone",
+            "ordre",
+            "is_active",
+            "created_at",
+        ]
 
 
 class DocumentListSerializer(serializers.ModelSerializer):

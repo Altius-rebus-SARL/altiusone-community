@@ -18,6 +18,9 @@ def api_root(request, format=None):
                     "notification-list", request=request, format=format
                 ),
                 "taches": reverse("tache-list", request=request, format=format),
+                "fichiers-joints": reverse(
+                    "fichier-joint-list", request=request, format=format
+                ),
             },
             "comptabilite": {
                 "plans-comptables": reverse(
@@ -44,16 +47,30 @@ def api_root(request, format=None):
                     "prestation-list", request=request, format=format
                 ),
                 "paiements": reverse("paiement-list", request=request, format=format),
+                "temps": reverse("temps-list", request=request, format=format),
+                "categories-temps": reverse(
+                    "categorie-temps-list", request=request, format=format
+                ),
             },
             "salaires": {
                 "employes": reverse("employe-list", request=request, format=format),
                 "fiches-salaire": reverse(
                     "fiche-list", request=request, format=format
                 ),
+                "certificats": reverse(
+                    "certificat-list", request=request, format=format
+                ),
+                "declarations-cotisations": reverse(
+                    "declaration-list", request=request, format=format
+                ),
+                "certificats-travail": reverse(
+                    "certificat-travail-list", request=request, format=format
+                ),
             },
             "documents": {
                 "dossiers": reverse("dossier-list", request=request, format=format),
                 "documents": reverse("document-list", request=request, format=format),
+                "sources": reverse("source-list", request=request, format=format),
             },
             "analytics": {
                 "tableaux-bord": reverse(
