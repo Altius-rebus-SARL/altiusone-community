@@ -15,12 +15,22 @@ from .models import (
 from core.serializers import MandatListSerializer, UserSerializer, ClientListSerializer
 
 
+class TypeMandatSimpleSerializer(serializers.Serializer):
+    """Serializer léger pour les types de mandats dans le contexte prestation"""
+    id = serializers.UUIDField()
+    code = serializers.CharField()
+    libelle = serializers.CharField()
+
+
 class PrestationSerializer(serializers.ModelSerializer):
     type_prestation_display = serializers.CharField(
         source="type_prestation.libelle", read_only=True
     )
     type_prestation_code = serializers.CharField(
         source="type_prestation.code", read_only=True
+    )
+    types_mandats_detail = TypeMandatSimpleSerializer(
+        source="types_mandats", many=True, read_only=True
     )
 
     class Meta:

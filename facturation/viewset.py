@@ -35,10 +35,10 @@ from .serializers import (
 
 
 class PrestationViewSet(viewsets.ModelViewSet):
-    queryset = Prestation.objects.all()
+    queryset = Prestation.objects.prefetch_related('types_mandats').all()
     serializer_class = PrestationSerializer
     permission_classes = [IsAuthenticated]
-    filterset_fields = ["type_prestation__code", "actif"]
+    filterset_fields = ["type_prestation__code", "actif", "types_mandats__code"]
 
 
 class CategorieTempsViewSet(viewsets.ModelViewSet):
