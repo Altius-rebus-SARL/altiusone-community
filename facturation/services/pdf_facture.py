@@ -137,13 +137,40 @@ class FacturePDF:
         buffer.close()
         return pdf_content
 
-    def _draw_header(self, p, width, height):
-        """Dessine l'en-tete de la facture."""
-        y = height - self._margin_top
+    def _get_entreprise(self):
+        """Retourne l'entreprise émettrice (fiduciaire)."""
+        from core.models import Entreprise
+        return Entreprise.objects.filter(est_defaut=True).first()
 
+    def _draw_header(self, p, width, height):
+        """Dessine l'en-tete avec logo de l'entreprise."""
+        y = height - self._margin_top
+        entreprise = self._get_entreprise()
+
+        # Logo de l'entreprise (gauche)
+        logo_drawn = False
+        if self._blocs.get('logo', True) and entreprise and entreprise.logo and entreprise.logo.name:
+            try:
+                import os
+                logo_path = entreprise.logo.path
+                if os.path.exists(logo_path):
+                    logo_height = 1.5 * cm
+                    logo_width = 4 * cm
+                    p.drawImage(
+                        logo_path,
+                        self._margin_left, y - logo_height + 0.3 * cm,
+                        width=logo_width, height=logo_height,
+                        preserveAspectRatio=True, mask='auto',
+                    )
+                    logo_drawn = True
+            except Exception:
+                pass
+
+        # Titre FACTURE
+        title_x = self._margin_left + (4.5 * cm if logo_drawn else 0)
         p.setFillColor(self._color_accent)
         p.setFont(self._font_bold, 18)
-        p.drawString(self._margin_left, y, "FACTURE")
+        p.drawString(title_x, y, "FACTURE")
 
         p.setFont(self._font_bold, 12)
         p.drawRightString(width - self._margin_right, y, f"N° {self.facture.numero_facture}")
@@ -152,27 +179,43 @@ class FacturePDF:
         return y
 
     def _draw_emetteur(self, p, y_start):
-        """Dessine les informations de l'emetteur (gauche)."""
+        """Dessine les informations de l'émetteur = Entreprise (fiduciaire, gauche)."""
         y = y_start - 2 * cm
+        entreprise = self._get_entreprise()
+
+        if not entreprise:
+            return y
 
         p.setFillColor(self._color_accent)
         p.setFont(self._font_bold, 10)
-        p.drawString(self._margin_left, y, self.facture.mandat.client.raison_sociale)
+        p.drawString(self._margin_left, y, entreprise.raison_sociale)
 
         p.setFillColor(self._color_text)
         p.setFont(self._font, 9)
         y -= 0.45 * cm
-        adresse = self.facture.mandat.client.adresse_siege
+
+        adresse = getattr(entreprise, 'adresse', None)
         if adresse:
-            p.drawString(self._margin_left, y, f"{adresse.rue} {adresse.numero}")
-            y -= 0.4 * cm
-            if adresse.complement:
+            if adresse.rue:
+                p.drawString(self._margin_left, y, f"{adresse.rue} {adresse.numero or ''}")
+                y -= 0.4 * cm
+            if getattr(adresse, 'complement', None):
                 p.drawString(self._margin_left, y, adresse.complement)
                 y -= 0.4 * cm
-            p.drawString(self._margin_left, y, f"{adresse.npa} {adresse.localite}")
+            p.drawString(self._margin_left, y, f"{adresse.npa or ''} {adresse.localite or ''}")
             y -= 0.4 * cm
-        if self.facture.mandat.client.tva_number:
-            p.drawString(self._margin_left, y, f"N° TVA: {self.facture.mandat.client.tva_number}")
+        elif entreprise.siege:
+            p.drawString(self._margin_left, y, entreprise.siege)
+            y -= 0.4 * cm
+
+        if entreprise.tva_number:
+            p.drawString(self._margin_left, y, f"N° TVA: {entreprise.tva_number}")
+            y -= 0.4 * cm
+        if entreprise.telephone:
+            p.drawString(self._margin_left, y, f"Tél: {entreprise.telephone}")
+            y -= 0.4 * cm
+        if entreprise.email:
+            p.drawString(self._margin_left, y, entreprise.email)
 
         return y
 
