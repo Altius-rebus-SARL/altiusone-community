@@ -1225,7 +1225,7 @@ def api_dossiers_par_mandat(request, mandat_pk):
     from django.db.models import Q
 
     # Récupérer le mandat pour avoir accès au client
-    mandat = get_object_or_404(Mandat, pk=mandat_pk)
+    mandat = get_object_or_404(Mandat.objects.select_related('client'), pk=mandat_pk)
 
     # Dossiers liés au mandat OU au client du mandat
     dossiers = Dossier.objects.filter(
@@ -1295,7 +1295,11 @@ class LettrageListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin,
 @login_required
 def lettrage_compte(request, compte_pk):
     """Interface de lettrage d'un compte"""
-    compte = get_object_or_404(Compte, pk=compte_pk, lettrable=True)
+    compte = get_object_or_404(
+        Compte.objects.select_related('plan_comptable__mandat'),
+        pk=compte_pk, lettrable=True,
+    )
+    mandat = compte.plan_comptable.mandat
 
     # Écritures non lettrées du compte
     ecritures = EcritureComptable.objects.filter(
@@ -1318,7 +1322,7 @@ def lettrage_compte(request, compte_pk):
             if total_debit == total_credit:
                 # Générer code de lettrage
                 dernier_lettrage = (
-                    Lettrage.objects.filter(mandat=compte.plan_comptable.mandat)
+                    Lettrage.objects.filter(mandat=mandat)
                     .order_by("code_lettrage")
                     .last()
                 )
@@ -1332,7 +1336,7 @@ def lettrage_compte(request, compte_pk):
 
                 # Créer le lettrage
                 lettrage = Lettrage.objects.create(
-                    mandat=compte.plan_comptable.mandat,
+                    mandat=mandat,
                     compte=compte,
                     code_lettrage=code_lettrage,
                     montant_total=total_debit,
@@ -1370,7 +1374,7 @@ def lettrage_compte(request, compte_pk):
 @login_required
 def balance_generale(request, mandat_pk):
     """Balance générale d'un mandat"""
-    mandat = get_object_or_404(Mandat, pk=mandat_pk)
+    mandat = get_object_or_404(Mandat.objects.select_related('client'), pk=mandat_pk)
 
     # Exercice
     exercice_id = request.GET.get("exercice")
@@ -1577,7 +1581,7 @@ def grand_livre(request, compte_pk):
 @login_required
 def bilan(request, mandat_pk):
     """Bilan (Actifs vs Passifs) d'un mandat — PME suisse classes 1 et 2"""
-    mandat = get_object_or_404(Mandat, pk=mandat_pk)
+    mandat = get_object_or_404(Mandat.objects.select_related('client'), pk=mandat_pk)
 
     exercice_id = request.GET.get("exercice")
     if exercice_id:
@@ -1635,7 +1639,7 @@ def bilan(request, mandat_pk):
 @login_required
 def compte_resultat(request, mandat_pk):
     """Compte de résultat (Produits vs Charges) — PME suisse classes 3-8"""
-    mandat = get_object_or_404(Mandat, pk=mandat_pk)
+    mandat = get_object_or_404(Mandat.objects.select_related('client'), pk=mandat_pk)
 
     exercice_id = request.GET.get("exercice")
     if exercice_id:
@@ -1695,7 +1699,7 @@ def cloture_exercice(request, mandat_pk):
     """Workflow de clôture d'exercice comptable"""
     from django.utils import timezone
 
-    mandat = get_object_or_404(Mandat, pk=mandat_pk)
+    mandat = get_object_or_404(Mandat.objects.select_related('client'), pk=mandat_pk)
 
     exercice_id = request.GET.get("exercice")
     if exercice_id:
