@@ -79,6 +79,7 @@ services:
       - logs:/app/logs
       - ./oidc_rsa_key.pem:/app/oidc_rsa_key.pem:ro
       - ./firebase-credentials.json:/app/firebase-credentials.json:ro
+      - ./apns-auth-key.p8:/app/apns-auth-key.p8:ro
     ports:
       - "${DJANGO_PORT:-8011}:8000"
     depends_on:
@@ -126,6 +127,7 @@ services:
       - logs:/app/logs
       - ./oidc_rsa_key.pem:/app/oidc_rsa_key.pem:ro
       - ./firebase-credentials.json:/app/firebase-credentials.json:ro
+      - ./apns-auth-key.p8:/app/apns-auth-key.p8:ro
     depends_on:
       altiusone_postgres:
         condition: service_healthy
@@ -164,6 +166,7 @@ services:
       - logs:/app/logs
       - ./oidc_rsa_key.pem:/app/oidc_rsa_key.pem:ro
       - ./firebase-credentials.json:/app/firebase-credentials.json:ro
+      - ./apns-auth-key.p8:/app/apns-auth-key.p8:ro
     depends_on:
       altiusone_postgres:
         condition: service_healthy

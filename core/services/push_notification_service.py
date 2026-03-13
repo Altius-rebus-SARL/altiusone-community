@@ -1,8 +1,11 @@
 # core/services/push_notification_service.py
 """
-Service de notifications push (FCM, APNs, Web Push).
-Utilise django-push-notifications. Toutes les opérations sont no-op
-si PUSH_NOTIFICATIONS_ENABLED est False.
+Service de notifications push.
+- Android: FCM (Firebase, seule option)
+- iOS: APNs direct (pas de Firebase)
+- Web: VAPID / Web Push (pas de Firebase)
+
+Toutes les opérations sont no-op si PUSH_NOTIFICATIONS_ENABLED est False.
 """
 import logging
 from django.conf import settings
@@ -19,22 +22,16 @@ def register_device(user, token, device_type, device_id=None, name=None):
     """
     Enregistre ou met à jour un device pour recevoir des push notifications.
 
-    Args:
-        user: instance User Django
-        token: registration token (FCM token ou Web Push subscription info)
-        device_type: 'android', 'ios', ou 'web'
-        device_id: identifiant unique du device (optionnel)
-        name: nom lisible du device (optionnel)
-
-    Returns:
-        device instance ou None si push désactivé
+    - android → GCMDevice (FCM)
+    - ios → APNSDevice (APNs direct)
+    - web → WebPushDevice (VAPID)
     """
     if not is_push_enabled():
         logger.debug("Push notifications désactivées — register_device ignoré")
         return None
 
     try:
-        if device_type in ('android', 'ios'):
+        if device_type == 'android':
             from push_notifications.models import GCMDevice
             device, created = GCMDevice.objects.update_or_create(
                 registration_id=token,
@@ -43,7 +40,18 @@ def register_device(user, token, device_type, device_id=None, name=None):
                     'cloud_message_type': 'FCM',
                     'active': True,
                     'device_id': device_id,
-                    'name': name or f'{device_type}-{user.username}',
+                    'name': name or f'android-{user.username}',
+                },
+            )
+        elif device_type == 'ios':
+            from push_notifications.models import APNSDevice
+            device, created = APNSDevice.objects.update_or_create(
+                registration_id=token,
+                defaults={
+                    'user': user,
+                    'active': True,
+                    'device_id': device_id,
+                    'name': name or f'ios-{user.username}',
                 },
             )
         elif device_type == 'web':
@@ -70,26 +78,22 @@ def register_device(user, token, device_type, device_id=None, name=None):
 
 
 def unregister_device(user, token):
-    """
-    Désactive un device pour ne plus recevoir de notifications.
-
-    Args:
-        user: instance User Django
-        token: registration token à désactiver
-
-    Returns:
-        True si désactivé, False sinon
-    """
+    """Désactive un device pour ne plus recevoir de notifications."""
     if not is_push_enabled():
         return False
 
     try:
-        from push_notifications.models import GCMDevice, WebPushDevice
+        from push_notifications.models import GCMDevice, APNSDevice, WebPushDevice
 
-        # Chercher dans les deux types de devices
+        # Chercher dans les trois types de devices
         updated = GCMDevice.objects.filter(
             user=user, registration_id=token
         ).update(active=False)
+
+        if not updated:
+            updated = APNSDevice.objects.filter(
+                user=user, registration_id=token
+            ).update(active=False)
 
         if not updated:
             updated = WebPushDevice.objects.filter(
@@ -109,19 +113,7 @@ def unregister_device(user, token):
 
 
 def send_push_to_user(user, title, message, data=None, badge=None):
-    """
-    Envoie une notification push à tous les devices actifs d'un utilisateur.
-
-    Args:
-        user: instance User Django
-        title: titre de la notification
-        message: corps du message
-        data: dict de données supplémentaires (optionnel)
-        badge: nombre à afficher sur l'icône de l'app (optionnel)
-
-    Returns:
-        int — nombre de devices notifiés
-    """
+    """Envoie une notification push à tous les devices actifs d'un utilisateur."""
     if not is_push_enabled():
         return 0
 
@@ -129,9 +121,9 @@ def send_push_to_user(user, title, message, data=None, badge=None):
     extra = data or {}
 
     try:
-        from push_notifications.models import GCMDevice, WebPushDevice
+        from push_notifications.models import GCMDevice, APNSDevice, WebPushDevice
 
-        # FCM devices (Android + iOS)
+        # Android via FCM
         fcm_devices = GCMDevice.objects.filter(user=user, active=True)
         if fcm_devices.exists():
             try:
@@ -145,7 +137,20 @@ def send_push_to_user(user, title, message, data=None, badge=None):
             except Exception as e:
                 logger.error("Erreur envoi FCM pour %s: %s", user.username, e)
 
-        # Web Push devices
+        # iOS via APNs direct
+        apns_devices = APNSDevice.objects.filter(user=user, active=True)
+        if apns_devices.exists():
+            try:
+                apns_devices.send_message(
+                    message,
+                    extra=extra,
+                    badge=badge,
+                )
+                count += apns_devices.count()
+            except Exception as e:
+                logger.error("Erreur envoi APNs pour %s: %s", user.username, e)
+
+        # Web via VAPID
         web_devices = WebPushDevice.objects.filter(user=user, active=True)
         if web_devices.exists():
             try:
@@ -164,18 +169,7 @@ def send_push_to_user(user, title, message, data=None, badge=None):
 
 
 def send_push_to_users(users, title, message, data=None):
-    """
-    Envoie une notification push à plusieurs utilisateurs.
-
-    Args:
-        users: queryset ou liste d'instances User
-        title: titre de la notification
-        message: corps du message
-        data: dict de données supplémentaires
-
-    Returns:
-        int — nombre total de devices notifiés
-    """
+    """Envoie une notification push à plusieurs utilisateurs."""
     if not is_push_enabled():
         return 0
 

@@ -721,39 +721,36 @@ else:
 # ============================================================================
 # PUSH NOTIFICATIONS (FCM, APNs, Web Push)
 # ============================================================================
-# Notifications push pour l'app mobile (FCM/APNs) et le web (VAPID/Web Push).
-# Utilise django-push-notifications. Activé uniquement quand les credentials
-# Firebase sont déployés via Ansible. Par défaut désactivé = aucun impact.
+# - Android: FCM v1 (Firebase, seule option pour Android)
+# - iOS: APNs direct (pas de Firebase, token .p8 d'Apple Developer)
+# - Web: VAPID / Web Push (pas de Firebase, juste une paire de clés)
+# Par défaut désactivé = aucun impact sur les instances existantes.
 
 PUSH_NOTIFICATIONS_ENABLED = os.environ.get('PUSH_NOTIFICATIONS_ENABLED', 'False').lower() in ('true', '1', 'yes')
 
 if PUSH_NOTIFICATIONS_ENABLED:
     PUSH_NOTIFICATIONS_SETTINGS = {
-        # Firebase Cloud Messaging v1 (Android + iOS)
+        # --- Android: FCM v1 ---
         # Auth via GOOGLE_APPLICATION_CREDENTIALS env var → firebase-credentials.json
         "FCM_API_VERSION": "v1",
-        "FCM_FIREBASE_APP": None,  # Uses default Firebase app from env
+        "FCM_FIREBASE_APP": None,
 
-        # Web Push (VAPID keys)
+        # --- iOS: APNs direct (pas de Firebase) ---
+        "APNS_AUTH_KEY": os.environ.get('APNS_AUTH_KEY_FILE', ''),
+        "APNS_AUTH_KEY_ID": os.environ.get('APNS_AUTH_KEY_ID', ''),
+        "APNS_TEAM_ID": os.environ.get('APNS_TEAM_ID', ''),
+        "APNS_TOPIC": os.environ.get('APNS_TOPIC', 'com.altiusone.mobile'),
+        "APNS_USE_SANDBOX": os.environ.get('APNS_USE_SANDBOX', 'False').lower() in ('true', '1', 'yes'),
+
+        # --- Web: VAPID (pas de Firebase) ---
         "WP_PRIVATE_KEY": os.environ.get('VAPID_PRIVATE_KEY', ''),
         "WP_PUBLIC_KEY": os.environ.get('VAPID_PUBLIC_KEY', ''),
         "WP_CLAIMS": {
             "sub": "mailto:{}".format(os.environ.get('VAPID_ADMIN_EMAIL', 'admin@altiusone.ch')),
         },
 
-        # Remplacer le token existant si le même device se ré-enregistre
         "UPDATE_ON_DUPLICATE_REG_ID": True,
     }
-
-    # Initialiser Firebase Admin SDK si le fichier credentials existe
-    _fcm_credentials_file = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS', '')
-    if _fcm_credentials_file and os.path.exists(_fcm_credentials_file):
-        try:
-            import firebase_admin
-            if not firebase_admin._apps:
-                firebase_admin.initialize_app()
-        except Exception:
-            pass  # Firebase non disponible — FCM désactivé silencieusement
 
 
 # ============================================================================
