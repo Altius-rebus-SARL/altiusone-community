@@ -726,6 +726,13 @@ class DeclarationTVA(BaseModel):
                 regime__code='CH', code='500'
             ).first()
 
+        if not code_tva_sss:
+            import logging
+            logging.getLogger(__name__).warning(
+                "Déclaration %s: codes TVA 321/500 introuvables pour régime CH",
+                self.numero_declaration,
+            )
+
         if code_tva_sss:
             LigneTVA.objects.create(
                 declaration=self,
