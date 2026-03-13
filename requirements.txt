@@ -80,5 +80,10 @@ boto3>=1.34
 pgvector>=0.3.0
 numpy>=1.26.0
 
+# Push Notifications (FCM, APNs, Web Push)
+django-push-notifications>=3.1.0
+firebase-admin>=6.0.0
+pywebpush>=2.0.0
+
 # AltiusOne AI SDK (OCR, Embeddings, Chat, Extraction)
 altiusone-ai>=1.2.2

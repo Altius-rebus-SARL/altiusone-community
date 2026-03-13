@@ -3,8 +3,9 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views import View
+from django.views.static import serve as static_serve
 from django.conf.urls.i18n import i18n_patterns
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import (
@@ -58,9 +59,23 @@ class HealthCheckView(View):
         return JsonResponse({"status": "ok", "service": "altiusone"})
 
 
+def sw_push_view(request):
+    """Serve the push notification Service Worker from root scope."""
+    import os
+    sw_path = os.path.join(settings.BASE_DIR, 'static', 'js', 'sw-push.js')
+    try:
+        with open(sw_path, 'r') as f:
+            return HttpResponse(f.read(), content_type='application/javascript')
+    except FileNotFoundError:
+        return HttpResponse('', content_type='application/javascript', status=404)
+
+
 urlpatterns = [
     # Health check
     path("health/", HealthCheckView.as_view(), name="health"),
+
+    # Service Worker for Web Push (must be served from root for scope)
+    path("sw-push.js", sw_push_view, name="sw-push"),
 
     # Admin
     path("admin/", admin.site.urls),

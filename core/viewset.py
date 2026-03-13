@@ -197,6 +197,101 @@ class UserViewSet(viewsets.ModelViewSet):
             "backup_codes_remaining": len(user.backup_codes) if user.backup_codes else 0,
         })
 
+    # =========================================================================
+    # Push Notifications — device registration
+    # =========================================================================
+
+    @action(detail=False, methods=["post"], url_path="devices/register")
+    def register_device(self, request):
+        """
+        Enregistre un device pour recevoir des push notifications.
+        POST /api/v1/core/users/devices/register/
+        {
+            "token": "fcm-or-webpush-token",
+            "device_type": "android" | "ios" | "web",
+            "device_id": "optional-unique-id",
+            "name": "optional-device-name"
+        }
+        """
+        token = request.data.get("token", "").strip()
+        device_type = request.data.get("device_type", "").strip().lower()
+
+        if not token:
+            return Response(
+                {"error": "Le token est requis"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if device_type not in ("android", "ios", "web"):
+            return Response(
+                {"error": "device_type doit être 'android', 'ios' ou 'web'"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from .services.push_notification_service import register_device, is_push_enabled
+        if not is_push_enabled():
+            return Response(
+                {"message": "Push notifications non activées sur cette instance", "registered": False},
+                status=status.HTTP_200_OK,
+            )
+
+        device = register_device(
+            user=request.user,
+            token=token,
+            device_type=device_type,
+            device_id=request.data.get("device_id"),
+            name=request.data.get("name"),
+        )
+
+        return Response({
+            "registered": device is not None,
+            "device_type": device_type,
+        })
+
+    @action(detail=False, methods=["post"], url_path="devices/unregister")
+    def unregister_device(self, request):
+        """
+        Désactive un device pour ne plus recevoir de notifications.
+        POST /api/v1/core/users/devices/unregister/
+        { "token": "fcm-or-webpush-token" }
+        """
+        token = request.data.get("token", "").strip()
+        if not token:
+            return Response(
+                {"error": "Le token est requis"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from .services.push_notification_service import unregister_device, is_push_enabled
+        if not is_push_enabled():
+            return Response({"unregistered": False}, status=status.HTTP_200_OK)
+
+        success = unregister_device(user=request.user, token=token)
+        return Response({"unregistered": success})
+
+    @action(detail=False, methods=["get"], url_path="push/config")
+    def push_config(self, request):
+        """
+        Retourne la configuration push notifications pour le client.
+        GET /api/v1/core/users/push/config/
+        """
+        from .services.push_notification_service import is_push_enabled
+        from django.conf import settings as django_settings
+
+        if not is_push_enabled():
+            return Response({
+                "enabled": False,
+                "vapid_public_key": None,
+            })
+
+        push_settings = getattr(django_settings, 'PUSH_NOTIFICATIONS_SETTINGS', {})
+        # Extraire la clé publique VAPID pour Web Push
+        vapid_public_key = push_settings.get('WP_PUBLIC_KEY', '')
+
+        return Response({
+            "enabled": True,
+            "vapid_public_key": vapid_public_key,
+        })
+
 
 class ClientViewSet(viewsets.ModelViewSet):
     """

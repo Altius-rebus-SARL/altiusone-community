@@ -64,6 +64,8 @@ EXTERNAL_APPS = [
     'import_export',
     # OAuth2/OIDC Provider pour Docs
     'oauth2_provider',
+    # Push Notifications (FCM, APNs, Web Push)
+    'push_notifications',
 ]
 
 
@@ -714,6 +716,44 @@ else:
             "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
         },
     }
+
+
+# ============================================================================
+# PUSH NOTIFICATIONS (FCM, APNs, Web Push)
+# ============================================================================
+# Notifications push pour l'app mobile (FCM/APNs) et le web (VAPID/Web Push).
+# Utilise django-push-notifications. Activé uniquement quand les credentials
+# Firebase sont déployés via Ansible. Par défaut désactivé = aucun impact.
+
+PUSH_NOTIFICATIONS_ENABLED = os.environ.get('PUSH_NOTIFICATIONS_ENABLED', 'False').lower() in ('true', '1', 'yes')
+
+if PUSH_NOTIFICATIONS_ENABLED:
+    PUSH_NOTIFICATIONS_SETTINGS = {
+        # Firebase Cloud Messaging v1 (Android + iOS)
+        # Auth via GOOGLE_APPLICATION_CREDENTIALS env var → firebase-credentials.json
+        "FCM_API_VERSION": "v1",
+        "FCM_FIREBASE_APP": None,  # Uses default Firebase app from env
+
+        # Web Push (VAPID keys)
+        "WP_PRIVATE_KEY": os.environ.get('VAPID_PRIVATE_KEY', ''),
+        "WP_PUBLIC_KEY": os.environ.get('VAPID_PUBLIC_KEY', ''),
+        "WP_CLAIMS": {
+            "sub": "mailto:{}".format(os.environ.get('VAPID_ADMIN_EMAIL', 'admin@altiusone.ch')),
+        },
+
+        # Remplacer le token existant si le même device se ré-enregistre
+        "UPDATE_ON_DUPLICATE_REG_ID": True,
+    }
+
+    # Initialiser Firebase Admin SDK si le fichier credentials existe
+    _fcm_credentials_file = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS', '')
+    if _fcm_credentials_file and os.path.exists(_fcm_credentials_file):
+        try:
+            import firebase_admin
+            if not firebase_admin._apps:
+                firebase_admin.initialize_app()
+        except Exception:
+            pass  # Firebase non disponible — FCM désactivé silencieusement
 
 
 # ============================================================================

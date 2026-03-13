@@ -427,6 +427,11 @@
     <!-- Password visibility toggle -->
     <script src="{% static 'core/js/password-toggle.js' %}"></script>
 
+    <!-- Web Push Notifications (activé uniquement si PUSH_NOTIFICATIONS_ENABLED) -->
+    {% if user.is_authenticated %}
+    <script src="{% static 'js/push-notifications.js' %}" defer></script>
+    {% endif %}
+
     {% block extra_js %}{% endblock %} {% if user.is_authenticated %}
     <!-- AltiusOne FAB Styles -->
     <style>

@@ -2,7 +2,10 @@
 from django.db.models.signals import post_save, pre_save, post_delete, m2m_changed
 from django.dispatch import receiver
 from decimal import Decimal
+import logging
 from .models import Client, Mandat, User, AuditLog, Notification
+
+logger = logging.getLogger(__name__)
 
 
 @receiver(post_save, sender=Client)
@@ -111,8 +114,31 @@ def initialiser_mandat(sender, instance, created, **kwargs):
         )
 
 
+@receiver(post_save, sender=Notification)
+def envoyer_push_notification(sender, instance, created, **kwargs):
+    """Envoie une push notification quand une Notification DB est créée."""
+    if not created:
+        return
 
+    try:
+        from .services.push_notification_service import send_push_to_user, is_push_enabled
+        if not is_push_enabled():
+            return
 
+        data = {}
+        if instance.lien_action:
+            data['link'] = instance.lien_action
+        if instance.type_notification:
+            data['type'] = instance.type_notification
+
+        send_push_to_user(
+            user=instance.destinataire,
+            title=instance.titre,
+            message=instance.message,
+            data=data,
+        )
+    except Exception as e:
+        logger.error("Erreur envoi push notification: %s", e)
 
 
 

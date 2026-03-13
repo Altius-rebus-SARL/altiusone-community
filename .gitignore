@@ -65,6 +65,7 @@ Thumbs.db
 ##
 notes.md
 oidc_rsa_key.pem
+firebase-credentials.json
 docs-suite/
 docker-compose.override.yml
 
