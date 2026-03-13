@@ -76,7 +76,10 @@ class FicheSalairePDF:
         # Colonne gauche: employeur
         employer_lines = [f"<b>{self.client.raison_sociale}</b>"]
         if self.adresse:
-            employer_lines.append(f"{self.adresse.rue} {self.adresse.numero or ''}")
+            rue = self.adresse.rue.strip()
+            if self.adresse.numero and self.adresse.numero not in rue:
+                rue = f"{rue} {self.adresse.numero}"
+            employer_lines.append(rue)
             employer_lines.append(f"{self.adresse.code_postal} {self.adresse.localite}")
         employer_text = Paragraph("<br/>".join(employer_lines), self.styles['employer_detail'])
 

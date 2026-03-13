@@ -269,7 +269,10 @@ class FacturePDF:
 
         adresse_client = self.facture.client.adresse_correspondance or self.facture.client.adresse_siege
         if adresse_client:
-            p.drawString(x_right, y_right, f"{adresse_client.rue} {adresse_client.numero}")
+            rue_dest = adresse_client.rue.strip()
+            if adresse_client.numero and adresse_client.numero not in rue_dest:
+                rue_dest = f"{rue_dest} {adresse_client.numero}"
+            p.drawString(x_right, y_right, rue_dest)
             y_right -= 0.4 * cm
             if adresse_client.complement:
                 p.drawString(x_right, y_right, adresse_client.complement)
