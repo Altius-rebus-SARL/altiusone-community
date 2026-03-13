@@ -168,7 +168,7 @@ class DossierListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, 
         # Construire le fil d'ariane et déterminer le niveau
         if parent_id:
             # On navigue dans les sous-dossiers
-            parent = Dossier.objects.select_related('client', 'mandat', 'parent').get(id=parent_id)
+            parent = Dossier.objects.select_related('client', 'mandat__client', 'parent').get(id=parent_id)
             context['current_parent'] = parent
             context['nav_level'] = 'subfolders'
 
@@ -594,7 +594,7 @@ class DocumentDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView
 
             if parent_id:
                 try:
-                    parent = Dossier.objects.select_related('client', 'mandat', 'parent').get(id=parent_id)
+                    parent = Dossier.objects.select_related('client', 'mandat__client', 'parent').get(id=parent_id)
                     # Construire l'arborescence des dossiers
                     dossier_path = []
                     current = parent
