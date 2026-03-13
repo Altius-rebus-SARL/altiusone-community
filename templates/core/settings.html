@@ -130,13 +130,89 @@
                                 </ul>
 
                                 <div class="mt-4">
-                                    <a href="#" class="btn btn-outline-primary w-100 mb-2">
+                                    <a href="{% url 'core:password-reset' %}" class="btn btn-outline-primary w-100 mb-2">
                                         <i class="ti ti-key me-2"></i>{% trans "Changer le mot de passe" %}
                                     </a>
-                                    <a href="#" class="btn btn-outline-secondary w-100">
-                                        <i class="ti ti-shield-lock me-2"></i>{% trans "Configurer 2FA" %}
-                                    </a>
+
+                                    {% if security.two_factor_enabled %}
+                                        <button type="button" class="btn btn-outline-danger w-100" data-bs-toggle="modal" data-bs-target="#disable2faModal">
+                                            <i class="ti ti-shield-off me-2"></i>{% trans "Désactiver 2FA" %}
+                                        </button>
+                                    {% else %}
+                                        <form method="post" action="{% url 'core:2fa-setup' %}">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-outline-secondary w-100">
+                                                <i class="ti ti-shield-lock me-2"></i>{% trans "Configurer 2FA" %}
+                                            </button>
+                                        </form>
+                                    {% endif %}
                                 </div>
+
+                                {% if two_factor_setup %}
+                                <!-- QR Code setup modal (auto-show) -->
+                                <div class="modal fade show" id="setup2faModal" tabindex="-1" style="display:block;" aria-modal="true" role="dialog">
+                                    <div class="modal-dialog modal-dialog-centered">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">
+                                                    <i class="ti ti-shield-lock me-2"></i>{% trans "Configurer l'authentification 2FA" %}
+                                                </h5>
+                                            </div>
+                                            <div class="modal-body text-center">
+                                                <p class="text-muted">{% trans "Scannez ce QR code avec votre application authenticator (Google Authenticator, Authy, etc.)" %}</p>
+                                                <img src="{{ two_factor_setup.qr_code }}" alt="QR Code 2FA" class="img-fluid mb-3" style="max-width: 240px;">
+                                                <p class="small text-muted">{% trans "Ou entrez ce code manuellement :" %}</p>
+                                                <code class="d-block mb-3 p-2 bg-light rounded" style="letter-spacing: 2px; font-size: 1.1rem;">{{ two_factor_setup.secret }}</code>
+
+                                                <hr>
+                                                <p class="text-muted">{% trans "Entrez le code à 6 chiffres affiché dans votre application :" %}</p>
+                                                <form method="post" action="{% url 'core:2fa-enable' %}">
+                                                    {% csrf_token %}
+                                                    <div class="input-group mb-3 mx-auto" style="max-width: 250px;">
+                                                        <input type="text" name="code" class="form-control text-center" placeholder="000000" maxlength="6" pattern="[0-9]{6}" required autofocus>
+                                                        <button type="submit" class="btn btn-primary">{% trans "Activer" %}</button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="modal-backdrop fade show"></div>
+                                {% endif %}
+
+                                {% if two_factor_backup_codes %}
+                                <!-- Backup codes modal (auto-show, one-time display) -->
+                                <div class="modal fade show" id="backupCodesModal" tabindex="-1" style="display:block;" aria-modal="true" role="dialog">
+                                    <div class="modal-dialog modal-dialog-centered">
+                                        <div class="modal-content">
+                                            <div class="modal-header bg-success text-white">
+                                                <h5 class="modal-title">
+                                                    <i class="ti ti-shield-check me-2"></i>{% trans "2FA activée — Codes de secours" %}
+                                                </h5>
+                                            </div>
+                                            <div class="modal-body">
+                                                <div class="alert alert-warning">
+                                                    <i class="ti ti-alert-triangle me-2"></i>
+                                                    {% trans "Sauvegardez ces codes dans un endroit sûr. Ils ne seront affichés qu'une seule fois." %}
+                                                </div>
+                                                <div class="row g-2">
+                                                    {% for code in two_factor_backup_codes %}
+                                                    <div class="col-6">
+                                                        <code class="d-block text-center p-2 bg-light rounded">{{ code }}</code>
+                                                    </div>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <a href="{% url 'core:settings' %}" class="btn btn-primary">
+                                                    {% trans "J'ai sauvegardé mes codes" %}
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="modal-backdrop fade show"></div>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
@@ -186,6 +262,34 @@
                 </div>
 
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Désactiver 2FA -->
+<div class="modal fade" id="disable2faModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="ti ti-shield-off me-2"></i>{% trans "Désactiver l'authentification 2FA" %}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'core:2fa-disable' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p class="text-muted">{% trans "Pour désactiver l'authentification à deux facteurs, veuillez confirmer votre mot de passe." %}</p>
+                    <div class="mb-3">
+                        <label for="disable2faPassword" class="form-label">{% trans "Mot de passe" %}</label>
+                        <input type="password" name="password" id="disable2faPassword" class="form-control" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Annuler" %}</button>
+                    <button type="submit" class="btn btn-danger">{% trans "Désactiver 2FA" %}</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>

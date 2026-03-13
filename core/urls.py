@@ -136,6 +136,9 @@ urlpatterns = [
         views.update_user_preferences,
         name="update-preferences",
     ),
+    path("settings/2fa/setup/", views.TwoFactorSetupWebView.as_view(), name="2fa-setup"),
+    path("settings/2fa/enable/", views.TwoFactorEnableWebView.as_view(), name="2fa-enable"),
+    path("settings/2fa/disable/", views.TwoFactorDisableWebView.as_view(), name="2fa-disable"),
     # ============================================================================
     # DEVISES & TAUX DE CHANGE
     # ============================================================================

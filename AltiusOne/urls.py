@@ -20,6 +20,7 @@ from drf_spectacular.views import (
 )
 
 from core.auth_views import simple_login, check_auth, simple_logout
+from core.views.two_factor_views import TwoFactorVerifyView
 
 # Import des routers de chaque app
 from core.api_urls import router as core_router
@@ -109,6 +110,7 @@ urlpatterns = [
     path("api/v1/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("api/v1/auth/token/verify/", TokenVerifyView.as_view(), name="token_verify"),
     path("api/v1/auth/token/blacklist/", TokenBlacklistView.as_view(), name="token_blacklist"),
+    path("api/v1/auth/2fa/verify/", TwoFactorVerifyView.as_view(), name="2fa-verify"),
     
     # =========================================================================
     # API Documentation (drf-spectacular)

@@ -95,6 +95,108 @@ class UserViewSet(viewsets.ModelViewSet):
 
         return Response({"message": "Mot de passe changé avec succès"})
 
+    # =========================================================================
+    # 2FA (TOTP) endpoints
+    # =========================================================================
+
+    @action(detail=False, methods=["post"], url_path="2fa/setup")
+    def setup_2fa(self, request):
+        """
+        Étape 1: Génère un secret TOTP + QR code.
+        L'utilisateur scanne le QR dans son app authenticator.
+        POST /api/v1/core/users/2fa/setup/
+        """
+        user = request.user
+        if user.two_factor_enabled:
+            return Response(
+                {"error": "2FA déjà activée"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        raw_secret = user.generate_totp_secret()
+        user.save(update_fields=["totp_secret"])
+
+        uri = user.get_totp_uri()
+        from .services.two_factor_service import generate_qr_code_base64
+        qr_base64 = generate_qr_code_base64(uri)
+
+        return Response({
+            "secret": raw_secret,
+            "qr_code": f"data:image/png;base64,{qr_base64}",
+            "otpauth_uri": uri,
+        })
+
+    @action(detail=False, methods=["post"], url_path="2fa/enable")
+    def enable_2fa(self, request):
+        """
+        Étape 2: Vérifie le premier code TOTP et active la 2FA.
+        Retourne les codes de secours (à sauvegarder par l'utilisateur).
+        POST /api/v1/core/users/2fa/enable/ { "code": "123456" }
+        """
+        user = request.user
+        if user.two_factor_enabled:
+            return Response(
+                {"error": "2FA déjà activée"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not user.totp_secret:
+            return Response(
+                {"error": "Veuillez d'abord appeler /2fa/setup/"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        code = request.data.get("code", "").strip()
+        if not code or not user.verify_totp(code):
+            return Response(
+                {"error": "Code invalide"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        backup_codes = user.generate_backup_codes()
+        user.enable_2fa()
+        user.save(update_fields=["backup_codes"])
+
+        return Response({
+            "message": "2FA activée avec succès",
+            "backup_codes": backup_codes,
+        })
+
+    @action(detail=False, methods=["post"], url_path="2fa/disable")
+    def disable_2fa(self, request):
+        """
+        Désactive la 2FA (nécessite le mot de passe pour confirmer).
+        POST /api/v1/core/users/2fa/disable/ { "password": "..." }
+        """
+        user = request.user
+        if not user.two_factor_enabled:
+            return Response(
+                {"error": "2FA n'est pas activée"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        password = request.data.get("password", "")
+        if not user.check_password(password):
+            return Response(
+                {"error": "Mot de passe incorrect"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user.disable_2fa()
+        return Response({"message": "2FA désactivée avec succès"})
+
+    @action(detail=False, methods=["get"], url_path="2fa/status")
+    def status_2fa(self, request):
+        """
+        Retourne le statut 2FA de l'utilisateur.
+        GET /api/v1/core/users/2fa/status/
+        """
+        user = request.user
+        return Response({
+            "two_factor_enabled": user.two_factor_enabled,
+            "backup_codes_remaining": len(user.backup_codes) if user.backup_codes else 0,
+        })
+
 
 class ClientViewSet(viewsets.ModelViewSet):
     """

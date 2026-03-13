@@ -1228,8 +1228,12 @@ class SettingsView(LoginRequiredMixin, TemplateView):
         context["security"] = {
             "last_login": user.last_login,
             "date_joined": user.date_joined,
-            "two_factor_enabled": False,  # À implémenter si nécessaire
+            "two_factor_enabled": user.two_factor_enabled,
         }
+
+        # 2FA setup data (from session, set by TwoFactorSetupWebView)
+        context["two_factor_setup"] = self.request.session.pop("2fa_setup", None)
+        context["two_factor_backup_codes"] = self.request.session.pop("2fa_backup_codes", None)
 
         return context
 

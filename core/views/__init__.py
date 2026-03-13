@@ -160,6 +160,13 @@ from .mcp_views import (
     mcp_revoke_token,
 )
 
+from .two_factor_views import (
+    TwoFactorVerifyView,
+    TwoFactorSetupWebView,
+    TwoFactorEnableWebView,
+    TwoFactorDisableWebView,
+)
+
 __all__ = [
     # Error handlers
     'error_400',
@@ -282,4 +289,9 @@ __all__ = [
     'GraphView',
     'GraphAPIView',
     'GraphStatsAPIView',
+    # 2FA
+    'TwoFactorVerifyView',
+    'TwoFactorSetupWebView',
+    'TwoFactorEnableWebView',
+    'TwoFactorDisableWebView',
 ]

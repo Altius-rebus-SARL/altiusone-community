@@ -7,7 +7,9 @@ from django.core.validators import RegexValidator, MinValueValidator, MaxValueVa
 from django.utils.translation import gettext_lazy as _
 from django_countries.fields import CountryField
 import hashlib
+import json
 import os
+import secrets
 import uuid
 
 
@@ -386,6 +388,16 @@ class User(AbstractUser):
     mobile = models.CharField(max_length=20, blank=True, verbose_name=_('Mobile'))
     signature = models.ImageField(upload_to='signatures/', null=True, blank=True, verbose_name=_('Signature'))
     two_factor_enabled = models.BooleanField(default=False, verbose_name=_('Authentification à deux facteurs'))
+    totp_secret = models.CharField(
+        max_length=255, blank=True, default='',
+        verbose_name=_('Secret TOTP (chiffré)'),
+        help_text=_('Secret TOTP chiffré pour l\'authentification à deux facteurs')
+    )
+    backup_codes = models.JSONField(
+        default=list, blank=True,
+        verbose_name=_('Codes de secours (hashés)'),
+        help_text=_('Liste de codes de secours hashés pour la 2FA')
+    )
     preferences = models.JSONField(default=dict, blank=True, verbose_name=_('Préférences'))
 
     # IMPORTANT: Résoudre les conflits avec auth.User
@@ -589,6 +601,82 @@ class User(AbstractUser):
             ).first()
             return acces and acces.invitations_restantes > 0
         return False
+
+    # =========================================================================
+    # Méthodes pour l'authentification à deux facteurs (TOTP)
+    # =========================================================================
+
+    def _get_fernet(self):
+        """Retourne une instance Fernet pour chiffrer/déchiffrer le secret TOTP."""
+        from cryptography.fernet import Fernet
+        from django.conf import settings
+        import base64
+        key = hashlib.sha256(settings.SECRET_KEY.encode()).digest()
+        return Fernet(base64.urlsafe_b64encode(key))
+
+    def generate_totp_secret(self):
+        """Génère un nouveau secret TOTP et le stocke chiffré."""
+        import pyotp
+        raw_secret = pyotp.random_base32()
+        fernet = self._get_fernet()
+        self.totp_secret = fernet.encrypt(raw_secret.encode()).decode()
+        return raw_secret
+
+    def get_totp_secret(self):
+        """Déchiffre et retourne le secret TOTP brut."""
+        if not self.totp_secret:
+            return None
+        fernet = self._get_fernet()
+        return fernet.decrypt(self.totp_secret.encode()).decode()
+
+    def get_totp_uri(self):
+        """Retourne l'URI otpauth:// pour le QR code."""
+        import pyotp
+        raw_secret = self.get_totp_secret()
+        if not raw_secret:
+            return None
+        return pyotp.totp.TOTP(raw_secret).provisioning_uri(
+            name=self.email or self.username,
+            issuer_name='AltiusOne'
+        )
+
+    def verify_totp(self, code):
+        """Vérifie un code TOTP (accepte ±1 intervalle pour le décalage horloge)."""
+        import pyotp
+        raw_secret = self.get_totp_secret()
+        if not raw_secret:
+            return False
+        totp = pyotp.TOTP(raw_secret)
+        return totp.verify(code, valid_window=1)
+
+    def generate_backup_codes(self):
+        """Génère 8 codes de secours, stocke les hash, retourne les codes en clair."""
+        codes = [secrets.token_hex(4).upper() for _ in range(8)]
+        self.backup_codes = [
+            hashlib.sha256(code.encode()).hexdigest() for code in codes
+        ]
+        return codes
+
+    def verify_backup_code(self, code):
+        """Vérifie et consume un code de secours. Retourne True si valide."""
+        code_hash = hashlib.sha256(code.strip().upper().encode()).hexdigest()
+        if code_hash in self.backup_codes:
+            self.backup_codes.remove(code_hash)
+            self.save(update_fields=['backup_codes'])
+            return True
+        return False
+
+    def enable_2fa(self):
+        """Active la 2FA (après vérification du premier code)."""
+        self.two_factor_enabled = True
+        self.save(update_fields=['two_factor_enabled'])
+
+    def disable_2fa(self):
+        """Désactive la 2FA et efface les données associées."""
+        self.two_factor_enabled = False
+        self.totp_secret = ''
+        self.backup_codes = []
+        self.save(update_fields=['two_factor_enabled', 'totp_secret', 'backup_codes'])
 
 
 class Adresse(models.Model):

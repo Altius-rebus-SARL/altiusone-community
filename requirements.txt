@@ -65,6 +65,7 @@ faker-file[common,pdf,docx,xlsx,images]>=0.18.0
 cryptography>=45.0.0
 bcrypt>=4.3.0
 django-fernet-fields>=0.6
+pyotp>=2.9.0
 
 # Development & Testing
 pytest>=8.4.0
