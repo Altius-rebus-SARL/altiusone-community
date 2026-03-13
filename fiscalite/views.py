@@ -609,7 +609,7 @@ def taux_imposition_delete(request, pk):
 @permission_required_business('fiscalite.view_declarations_fiscales')
 def rapport_fiscal_annuel(request, mandat_pk):
     """Génère un rapport fiscal annuel pour un mandat"""
-    mandat = get_object_or_404(Mandat, pk=mandat_pk)
+    mandat = get_object_or_404(Mandat.objects.select_related("client"), pk=mandat_pk)
 
     annee = request.GET.get("annee", datetime.now().year)
 

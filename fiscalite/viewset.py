@@ -34,7 +34,7 @@ class DeclarationFiscaleViewSet(viewsets.ModelViewSet):
     filterset_fields = ["mandat", "annee_fiscale", "type_impot", "statut"]
 
     def get_queryset(self):
-        return DeclarationFiscale.objects.select_related("mandat")
+        return DeclarationFiscale.objects.select_related("mandat__client")
 
     def get_serializer_class(self):
         if self.action == "list":
@@ -94,7 +94,7 @@ class DeclarationFiscaleViewSet(viewsets.ModelViewSet):
 
 
 class AnnexeFiscaleViewSet(viewsets.ModelViewSet):
-    queryset = AnnexeFiscale.objects.all()
+    queryset = AnnexeFiscale.objects.select_related("declaration")
     serializer_class = AnnexeFiscaleSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
@@ -102,7 +102,7 @@ class AnnexeFiscaleViewSet(viewsets.ModelViewSet):
 
 
 class CorrectionFiscaleViewSet(viewsets.ModelViewSet):
-    queryset = CorrectionFiscale.objects.all()
+    queryset = CorrectionFiscale.objects.select_related("declaration", "compte")
     serializer_class = CorrectionFiscaleSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
@@ -110,7 +110,7 @@ class CorrectionFiscaleViewSet(viewsets.ModelViewSet):
 
 
 class ReportPerteViewSet(viewsets.ModelViewSet):
-    queryset = ReportPerte.objects.all()
+    queryset = ReportPerte.objects.select_related("mandat__client")
     serializer_class = ReportPerteSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
@@ -244,7 +244,7 @@ class TauxImpositionViewSet(viewsets.ModelViewSet):
 
 
 class OptimisationFiscaleViewSet(viewsets.ModelViewSet):
-    queryset = OptimisationFiscale.objects.all()
+    queryset = OptimisationFiscale.objects.select_related("mandat__client")
     serializer_class = OptimisationFiscaleSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]

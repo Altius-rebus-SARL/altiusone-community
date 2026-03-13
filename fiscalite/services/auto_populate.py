@@ -1,7 +1,10 @@
 # fiscalite/services/auto_populate.py
 """Service pour pré-remplir une déclaration fiscale depuis la comptabilité."""
+import logging
 from decimal import Decimal
 from django.db.models import Sum
+
+logger = logging.getLogger(__name__)
 
 
 def populate_from_comptabilite(declaration):
@@ -56,12 +59,19 @@ def populate_from_comptabilite(declaration):
     declaration.benefice_imposable = benefice  # avant corrections fiscales
 
     # Capital propre = solde des comptes classe 28 (fonds propres PME suisse)
+    # Classe 28 = standard Plan comptable PME suisse (capital, réserves, report)
     comptes_fonds_propres = Compte.objects.filter(
         plan_comptable=plan,
         imputable=True,
         numero__startswith="28",
         type_compte="PASSIF",
     )
+    if not comptes_fonds_propres.exists():
+        logger.warning(
+            "Aucun compte de fonds propres (28xx) trouvé dans le plan %s "
+            "pour le mandat %s — capital propre sera 0.",
+            plan.pk, mandat.pk,
+        )
     capital = Decimal("0")
     for compte in comptes_fonds_propres:
         agg = compte.ecritures.filter(
