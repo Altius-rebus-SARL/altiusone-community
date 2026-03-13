@@ -673,11 +673,15 @@ class PaymentViewSet(viewsets.ViewSet):
             )
 
         order = Pain001GeneratorService.from_pieces_comptables(piece_ids, compte_bancaire)
+        skipped = getattr(order, '_skipped', [])
 
         if not order.payments:
             return Response(
-                {'error': 'Aucune piece valide trouvee pour les IDs fournis'},
-                status=status.HTTP_404_NOT_FOUND,
+                {
+                    'error': 'Aucune pièce valide pour générer le pain.001',
+                    'pieces_ignorees': skipped,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         xml_bytes = Pain001GeneratorService.generate(order)
@@ -685,6 +689,9 @@ class PaymentViewSet(viewsets.ViewSet):
         from django.http import HttpResponse
         response = HttpResponse(xml_bytes, content_type='application/xml')
         response['Content-Disposition'] = f'attachment; filename="pain001_{order.message_id}.xml"'
+        if skipped:
+            # Header informatif pour le frontend
+            response['X-Pieces-Ignorees'] = str(len(skipped))
         return response
 
 

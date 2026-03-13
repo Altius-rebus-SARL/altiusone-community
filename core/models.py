@@ -870,14 +870,16 @@ class CompteBancaire(models.Model):
 
     def clean(self):
         """Validation du modèle"""
-        import re
         from django.core.exceptions import ValidationError
+        from core.validators import clean_iban, validate_iban_format, validate_iban_checksum
 
-        # Nettoyer l'IBAN (supprimer espaces)
+        # Nettoyer l'IBAN (supprimer espaces, corriger O→0)
         if self.iban:
-            self.iban = self.iban.replace(' ', '').upper()
-            if not re.match(r'^[A-Z]{2}\d{2}[A-Z0-9]{4,30}$', self.iban):
+            self.iban = clean_iban(self.iban)
+            if not validate_iban_format(self.iban):
                 raise ValidationError({'iban': _('Format IBAN invalide. Ex: CH9300762011623852957')})
+            if not validate_iban_checksum(self.iban):
+                raise ValidationError({'iban': _('IBAN invalide (erreur de checksum). Vérifiez les chiffres.')})
 
         # Nettoyer le BIC
         if self.bic_swift:

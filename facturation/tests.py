@@ -180,7 +180,7 @@ class ResolveIBANTest(FacturationTestBase):
         """Compte directement lié au mandat a priorité."""
         compte_mandat = CompteBancaire.objects.create(
             libelle='Compte mandat',
-            iban='CH1234567890123456789',
+            iban='CH5604835012345678009',
             nom_banque='PostFinance',
             titulaire_nom='Altius Academy SNC',
             devise=self.devise_chf,
@@ -188,14 +188,14 @@ class ResolveIBANTest(FacturationTestBase):
             actif=True,
         )
         iban, _ = self.facture._resolve_iban_and_creditor()
-        self.assertEqual(iban, 'CH1234567890123456789')
+        self.assertEqual(iban, 'CH5604835012345678009')
         compte_mandat.delete()
 
     def test_resolve_qr_iban_override(self):
         """qr_iban sur la facture a la priorité absolue."""
-        self.facture.qr_iban = 'CH0000000000000000001'
+        self.facture.qr_iban = 'CH0731000000000000000'
         iban, _ = self.facture._resolve_iban_and_creditor()
-        self.assertEqual(iban, 'CH0000000000000000001')
+        self.assertEqual(iban, 'CH0731000000000000000')
         self.facture.qr_iban = ''
 
     def test_resolve_compte_non_principal_fallback(self):
