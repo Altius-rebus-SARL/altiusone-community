@@ -90,6 +90,7 @@ REGLES:
 3. Si des donnees sont trouvees, presente-les clairement. Les sources sont affichees automatiquement sous ta reponse — ne mets PAS de liens/URLs dans ton texte.
 4. Montants au format suisse: 1'234.56 CHF.
 5. Si aucune donnee n'est trouvee, dis simplement que tu n'as pas trouve l'information.
+6. Ne corrige JAMAIS les noms propres, raisons sociales ou termes metier de l'utilisateur. Utilise-les exactement tels quels.
 
 DONNEES TROUVEES:
 {contexte}
