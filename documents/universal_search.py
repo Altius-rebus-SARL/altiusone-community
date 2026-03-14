@@ -239,6 +239,52 @@ class UniversalSearchService:
             self._ai_service = ai_service
         return self._ai_service
 
+    # Mots vides a ignorer lors de l'extraction de mots-cles
+    STOP_WORDS = frozenset({
+        # Francais
+        'le', 'la', 'les', 'un', 'une', 'des', 'du', 'de', 'au', 'aux',
+        'ce', 'ces', 'cet', 'cette', 'mon', 'ton', 'son', 'ma', 'ta', 'sa',
+        'mes', 'tes', 'ses', 'nos', 'vos', 'leur', 'leurs',
+        'je', 'tu', 'il', 'elle', 'nous', 'vous', 'ils', 'elles', 'on',
+        'me', 'te', 'se', 'lui', 'y', 'en',
+        'et', 'ou', 'mais', 'donc', 'ni', 'car', 'que', 'qui', 'quoi',
+        'est', 'sont', 'a', 'ont', 'fait', 'font', 'dit', 'va', 'vont',
+        'dans', 'sur', 'sous', 'avec', 'pour', 'par', 'chez', 'entre',
+        'pas', 'plus', 'moins', 'bien', 'mal', 'tout', 'tous', 'toute',
+        'quel', 'quelle', 'quels', 'quelles', 'comment', 'pourquoi',
+        'quand', 'combien',
+        "c'est", "qu'est", "l'", "d'", "j'", "n'", "s'",
+        'oui', 'non', 'si', 'ne', 'tres', 'aussi', 'comme',
+        'moi', 'toi', 'eux', 'nous',
+        'etre', 'avoir', 'faire', 'dire', 'aller', 'voir', 'savoir',
+        'pouvoir', 'vouloir', 'falloir', 'devoir',
+        # Questions courantes
+        'quoi', 'donne', 'montre', 'affiche', 'trouve', 'cherche',
+        'explique', 'raconte', 'parle',
+    })
+
+    def _extract_search_keywords(self, message: str) -> str:
+        """
+        Extrait les mots-cles significatifs d'un message utilisateur.
+
+        Supprime les mots vides pour ne garder que les termes pertinents
+        pour la recherche dans la base de donnees.
+        """
+        import re
+        # Nettoyer la ponctuation sauf apostrophes internes
+        clean = re.sub(r"[^\w\s'-]", ' ', message.lower())
+        # Gerer les apostrophes en debut de mot (l', d', etc.)
+        clean = re.sub(r"\b[a-z]'", ' ', clean)
+
+        words = clean.split()
+        keywords = [w for w in words if w not in self.STOP_WORDS and len(w) > 1]
+
+        if not keywords:
+            # Fallback: utiliser le message original
+            return message.strip()
+
+        return ' '.join(keywords)
+
     def search(
         self,
         query: str,
@@ -250,7 +296,7 @@ class UniversalSearchService:
         Recherche universelle dans toutes les entites.
 
         Args:
-            query: Requete de recherche
+            query: Requete de recherche (message utilisateur brut)
             context: Contexte (user, filtres, permissions)
             limit: Nombre max de resultats
             semantic_weight: Poids de la recherche semantique (0-1)
@@ -258,6 +304,10 @@ class UniversalSearchService:
         Returns:
             Liste de SearchResult tries par pertinence
         """
+        # Extraire les mots-cles significatifs du message
+        search_query = self._extract_search_keywords(query)
+        logger.info(f"Recherche: '{query}' -> mots-cles: '{search_query}'")
+
         results = []
         entity_types = context.entity_types or list(EntityType)
 
@@ -267,7 +317,7 @@ class UniversalSearchService:
         for entity_type in entity_types:
             try:
                 type_results = self._search_entity_type(
-                    query=query,
+                    query=search_query,
                     entity_type=entity_type,
                     context=context,
                     limit=limit_per_type,
@@ -276,6 +326,22 @@ class UniversalSearchService:
                 results.extend(type_results)
             except Exception as e:
                 logger.error(f"Erreur recherche {entity_type.value}: {e}")
+
+        # Si pas de resultats avec les mots-cles, essayer avec la requete brute
+        if not results and search_query != query.strip():
+            logger.info(f"Aucun resultat avec mots-cles, retry avec requete brute")
+            for entity_type in entity_types:
+                try:
+                    type_results = self._search_entity_type(
+                        query=query.strip(),
+                        entity_type=entity_type,
+                        context=context,
+                        limit=limit_per_type,
+                        semantic_weight=semantic_weight
+                    )
+                    results.extend(type_results)
+                except Exception as e:
+                    pass
 
         # Trier par score decroissant
         results.sort(key=lambda r: r.score, reverse=True)
@@ -384,6 +450,24 @@ class UniversalSearchService:
 
         return results
 
+    def _build_term_filter(self, query: str, fields: List[str]) -> Q:
+        """
+        Construit un filtre Q qui cherche CHAQUE terme individuellement
+        dans les champs specifies. Tous les termes doivent matcher (AND).
+        """
+        terms = query.lower().split()
+        if not terms:
+            return Q(pk__isnull=True)  # Aucun resultat
+
+        combined = Q()
+        for term in terms:
+            term_q = Q()
+            for field_name in fields:
+                term_q |= Q(**{f'{field_name}__icontains': term})
+            combined &= term_q
+
+        return combined
+
     def _search_clients(self, query: str, context: SearchContext, limit: int) -> List[SearchResult]:
         """Recherche dans les clients."""
         from core.models import Client
@@ -391,15 +475,10 @@ class UniversalSearchService:
         results = []
         config = self.ENTITY_CONFIG[EntityType.CLIENT]
 
-        # Construire la requete
-        q_filter = Q(is_active=True) & (
-            Q(raison_sociale__icontains=query) |
-            Q(nom_commercial__icontains=query) |
-            Q(ide_number__icontains=query) |
-            Q(tva_number__icontains=query) |
-            Q(email__icontains=query) |
-            Q(telephone__icontains=query)
-        )
+        # Chercher chaque mot-cle dans les champs (AND entre termes)
+        search_fields = ['raison_sociale', 'nom_commercial', 'ide_number',
+                         'tva_number', 'email', 'telephone']
+        q_filter = Q(is_active=True) & self._build_term_filter(query, search_fields)
 
         # Filtrer par mandats si specifie
         if context.mandat_ids:
@@ -444,12 +523,8 @@ class UniversalSearchService:
         results = []
         config = self.ENTITY_CONFIG[EntityType.MANDAT]
 
-        q_filter = Q(is_active=True) & (
-            Q(numero__icontains=query) |
-            Q(description__icontains=query) |
-            Q(type_mandat__icontains=query) |
-            Q(client__raison_sociale__icontains=query)
-        )
+        search_fields = ['numero', 'description', 'type_mandat', 'client__raison_sociale']
+        q_filter = Q(is_active=True) & self._build_term_filter(query, search_fields)
 
         # Filtrer par mandats autorises
         if context.mandat_ids:
@@ -496,19 +571,11 @@ class UniversalSearchService:
         results = []
         config = self.ENTITY_CONFIG[EntityType.EMPLOYE]
 
-        q_filter = Q(is_active=True) & (
-            Q(nom__icontains=query) |
-            Q(prenom__icontains=query) |
-            Q(matricule__icontains=query) |
-            Q(email__icontains=query) |
-            Q(fonction__icontains=query) |
-            Q(avs_number__icontains=query)
-        )
+        search_fields = ['nom', 'prenom', 'matricule', 'email', 'fonction', 'avs_number']
+        q_filter = Q(is_active=True) & self._build_term_filter(query, search_fields)
 
-        # Multi-word: also search concatenated full name ("Laetitia Barman")
-        q_fullname = Q(full_name__icontains=query)
-        # Also try reversed order ("Barman Laetitia")
-        q_fullname_rev = Q(full_name_rev__icontains=query)
+        # Multi-word: also search concatenated full name
+        q_fullname = self._build_term_filter(query, ['full_name', 'full_name_rev'])
 
         if context.mandat_ids:
             q_filter &= Q(mandat_id__in=context.mandat_ids)
@@ -516,7 +583,7 @@ class UniversalSearchService:
         employes = Employe.objects.annotate(
             full_name=Concat('prenom', Value(' '), 'nom', output_field=CharField()),
             full_name_rev=Concat('nom', Value(' '), 'prenom', output_field=CharField()),
-        ).filter(q_filter | q_fullname | q_fullname_rev).select_related('mandat').distinct()[:limit]
+        ).filter(q_filter | q_fullname).select_related('mandat').distinct()[:limit]
 
         for emp in employes:
             score = self._calculate_text_score(query, [
@@ -618,10 +685,8 @@ class UniversalSearchService:
         results = []
         config = self.ENTITY_CONFIG[EntityType.FACTURE]
 
-        q_filter = Q(is_active=True) & (
-            Q(numero_facture__icontains=query) |
-            Q(client__raison_sociale__icontains=query)
-        )
+        search_fields = ['numero_facture', 'client__raison_sociale', 'qr_reference']
+        q_filter = Q(is_active=True) & self._build_term_filter(query, search_fields)
 
         if context.mandat_ids:
             q_filter &= Q(mandat_id__in=context.mandat_ids)

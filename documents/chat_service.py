@@ -81,47 +81,17 @@ class ChatService:
     - Resultats cliquables avec liens vers les fiches
     """
 
-    # Prompt systeme par defaut - enrichi pour gerer tous les types de donnees
-    DEFAULT_SYSTEM_PROMPT = """Tu es un assistant IA specialise en gestion d'entreprise.
-Tu as acces a toutes les donnees de l'entreprise:
-- Documents (factures, contrats, releves, etc.)
-- Clients et contacts
-- Mandats et dossiers
-- Employes et fiches de salaire
-- Types de plans comptables (PME Suisse, OHADA, Swiss GAAP RPC, etc.)
-- Classes comptables (structure des comptes par type de plan)
-- Plans comptables (instances pour chaque mandat)
-- Comptes et journaux comptables
-- Pieces comptables (factures d'achat/vente, notes de frais, etc.)
-- Ecritures comptables
-- Declarations TVA et fiscales
-- Taches et projets
+    # Prompt systeme par defaut — optimise pour modeles compacts (3B-7B params)
+    DEFAULT_SYSTEM_PROMPT = """Tu es l'assistant IA d'AltiusOne, logiciel de gestion d'entreprise suisse.
 
-REGLES IMPORTANTES:
-1. Reponds toujours en francais
-2. Base tes reponses UNIQUEMENT sur les donnees fournies en contexte
-3. Si tu trouves des informations, cite TOUJOURS la source avec son type et son lien
-4. Pour les montants, utilise le format suisse (ex: 1'000.00 CHF)
-5. Si tu ne trouves pas l'information demandee, dis-le clairement
-6. Quand tu mentionnes une entite (client, employe, document, plan comptable, etc.),
-   indique qu'elle est cliquable pour voir la fiche complete
+REGLES:
+1. Reponds en francais, de maniere directe et concise.
+2. Utilise UNIQUEMENT les donnees fournies ci-dessous. N'invente rien.
+3. Si des donnees sont trouvees, presente-les clairement. Les sources sont affichees automatiquement sous ta reponse — ne mets PAS de liens/URLs dans ton texte.
+4. Montants au format suisse: 1'234.56 CHF.
+5. Si aucune donnee n'est trouvee, dis simplement que tu n'as pas trouve l'information.
 
-FORMAT DES SOURCES:
-Quand tu cites une source, utilise ce format:
-- Pour un document: [Document: nom_fichier]
-- Pour un client: [Client: raison_sociale]
-- Pour un employe: [Employe: prenom nom]
-- Pour un utilisateur: [Utilisateur: prenom nom]
-- Pour une facture: [Facture: numero]
-- Pour une piece comptable: [Piece: numero - libelle]
-- Pour un type de plan: [Type de plan: code - nom]
-- Pour une classe comptable: [Classe: numero - libelle]
-- Pour un plan comptable: [Plan comptable: nom]
-- Pour un journal: [Journal: code - libelle]
-- Pour un compte: [Compte: numero - libelle]
-- etc.
-
-CONTEXTE DISPONIBLE:
+DONNEES TROUVEES:
 {contexte}
 """
 
@@ -650,17 +620,19 @@ Reponds en indiquant que tu n'as pas trouve de donnees pertinentes.
         return "\n".join(sections)
 
     def _format_result_for_context(self, result: SearchResult) -> str:
-        """Formate un resultat pour inclusion dans le contexte."""
+        """Formate un resultat pour inclusion dans le contexte IA.
+
+        N'inclut PAS de lien/URL — les sources cliquables sont affichees
+        separement dans l'interface.
+        """
         lines = [
             f"\n--- {result.entity_type.value.upper()}: {result.title} ---",
-            f"Lien: {result.url}",
         ]
 
         if result.subtitle:
             lines.append(f"Info: {result.subtitle}")
 
         if result.description:
-            # Limiter la description
             desc = result.description[:1500]
             if len(result.description) > 1500:
                 desc += "..."
