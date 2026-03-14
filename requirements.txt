@@ -46,8 +46,11 @@ tablib[all]>=3.5.0
 # Forms & Templates
 django-widget-tweaks>=1.5.0
 
-# Images
+# Images & OCR
 pillow>=11.0.0
+pytesseract>=0.3.10
+pypdf>=5.1.0
+pdf2image>=1.17.0
 
 # QR Code & Swiss billing
 qrcode>=8.0

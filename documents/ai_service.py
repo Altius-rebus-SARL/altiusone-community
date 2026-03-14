@@ -243,6 +243,12 @@ class AltiusAIService:
     # OCR - EXTRACTION DE TEXTE
     # =========================================================================
 
+    # Mapping langue -> code Tesseract
+    TESSERACT_LANGS = {
+        'fr': 'fra', 'de': 'deu', 'it': 'ita', 'en': 'eng',
+        'auto': 'fra+deu+eng+ita',
+    }
+
     def ocr(
         self,
         file_path: Optional[str] = None,
@@ -255,13 +261,15 @@ class AltiusAIService:
         """
         Extrait le texte d'un document (image, PDF ou DOCX).
 
-        Pour les fichiers DOCX, l'extraction est faite localement sans OCR.
-        Pour les images et PDFs, utilise l'API OCR externe.
+        Utilise Tesseract OCR localement (rapide, CPU).
+        DOCX: extraction directe du texte (pas d'OCR).
+        PDF: extraction du texte embarque, puis OCR sur les pages images.
+        Images: OCR Tesseract.
 
         Args:
             file_path: Chemin vers le fichier local
             file_content: Contenu du fichier en bytes
-            file_url: URL du fichier
+            file_url: URL du fichier (telecharge puis traite)
             filename: Nom du fichier (pour determiner le mime_type)
             mime_type: Type MIME du fichier (prioritaire sur la detection)
             language: Langue du document (auto, fr, de, en, it)
@@ -269,66 +277,127 @@ class AltiusAIService:
         Returns:
             OCRResult avec le texte extrait et metadonnees
         """
+        import time as _time
+        start = _time.time()
+
         try:
             if file_path:
-                # Lire le fichier et l'encoder en base64
                 with open(file_path, 'rb') as f:
                     file_content = f.read()
-                # Extraire le nom de fichier du chemin si non fourni
                 if not filename:
                     filename = file_path.split('/')[-1]
 
-            if file_content:
-                import mimetypes
-                # Utiliser le filename fourni, sinon extraire du path, sinon default
+            if file_url and not file_content:
+                import requests as _req
+                resp = _req.get(file_url, timeout=30)
+                resp.raise_for_status()
+                file_content = resp.content
                 if not filename:
-                    filename = 'document'
-                # Utiliser le mime_type fourni, sinon deviner depuis le filename
-                if not mime_type:
-                    mime_type = mimetypes.guess_type(filename)[0] or 'application/octet-stream'
+                    filename = file_url.split('/')[-1].split('?')[0] or 'document'
 
-                # Traitement local pour les fichiers DOCX (pas besoin d'OCR)
-                if mime_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' or filename.lower().endswith('.docx'):
-                    return self._extract_text_from_docx(file_content, filename)
-
-                # Pour les autres fichiers, utiliser l'API OCR
-                files = {'file': (filename, file_content, mime_type)}
-                params = {'language': language} if language != 'auto' else {}
-
-                # Utiliser /ocr/file pour upload multipart
-                response = self._make_request(
-                    'POST',
-                    '/ocr/file',
-                    json_data=params,
-                    files=files
-                )
-
-            elif file_url:
-                # Methode 2: Envoyer URL via /ocr
-                response = self._make_request(
-                    'POST',
-                    '/ocr',
-                    json_data={
-                        'image_url': file_url,
-                        'language': language
-                    }
-                )
-            else:
+            if not file_content:
                 raise AIServiceError("Aucune source de fichier fournie")
 
-            return OCRResult(
-                text=response.get('text', ''),
-                confidence=response.get('confidence', 95.0),
-                pages=response.get('pages', 1),
-                language=response.get('detected_language', language if language != 'auto' else 'fr'),
-                processing_time=response.get('processing_time', 0)
-            )
+            import mimetypes
+            if not filename:
+                filename = 'document'
+            if not mime_type:
+                mime_type = mimetypes.guess_type(filename)[0] or 'application/octet-stream'
+
+            # DOCX — extraction directe
+            if mime_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' or filename.lower().endswith('.docx'):
+                return self._extract_text_from_docx(file_content, filename)
+
+            # PDF — texte embarque + OCR fallback sur pages images
+            if 'pdf' in mime_type.lower() or filename.lower().endswith('.pdf'):
+                return self._ocr_pdf(file_content, language, start)
+
+            # Images — OCR Tesseract
+            return self._ocr_image(file_content, language, start)
 
         except AIServiceError:
             raise
         except Exception as e:
             logger.error(f"Erreur OCR: {e}")
             raise AIServiceError(f"Erreur lors de l'extraction OCR: {str(e)}")
+
+    def _ocr_image(self, image_bytes: bytes, language: str, start_time: float) -> OCRResult:
+        """OCR d'une image avec Tesseract."""
+        import time as _time
+        import pytesseract
+        from PIL import Image
+        import io
+
+        lang = self.TESSERACT_LANGS.get(language, 'fra+deu+eng+ita')
+        img = Image.open(io.BytesIO(image_bytes))
+
+        text = pytesseract.image_to_string(img, lang=lang)
+        processing_ms = (_time.time() - start_time) * 1000
+
+        detected_lang = language if language != 'auto' else 'fr'
+
+        return OCRResult(
+            text=text.strip(),
+            confidence=90.0,
+            pages=1,
+            language=detected_lang,
+            processing_time=processing_ms
+        )
+
+    def _ocr_pdf(self, pdf_bytes: bytes, language: str, start_time: float) -> OCRResult:
+        """OCR d'un PDF: texte embarque d'abord, puis OCR sur pages images."""
+        import time as _time
+        import io
+
+        # 1. Essayer d'extraire le texte embarque (PDF textuel)
+        try:
+            from pypdf import PdfReader
+            reader = PdfReader(io.BytesIO(pdf_bytes))
+            num_pages = len(reader.pages)
+            text_parts = []
+
+            for page in reader.pages:
+                page_text = page.extract_text()
+                if page_text and page_text.strip():
+                    text_parts.append(page_text.strip())
+
+            # Si on a du texte pour la majorite des pages, c'est un PDF textuel
+            if len(text_parts) >= num_pages * 0.5 and any(len(t) > 20 for t in text_parts):
+                processing_ms = (_time.time() - start_time) * 1000
+                return OCRResult(
+                    text='\n\n'.join(text_parts),
+                    confidence=95.0,
+                    pages=num_pages,
+                    language=language if language != 'auto' else 'fr',
+                    processing_time=processing_ms
+                )
+        except Exception as e:
+            logger.warning(f"Extraction texte PDF echouee, fallback OCR: {e}")
+            num_pages = 0
+
+        # 2. PDF image — convertir en images et OCR chaque page
+        import pytesseract
+        from pdf2image import convert_from_bytes
+
+        lang = self.TESSERACT_LANGS.get(language, 'fra+deu+eng+ita')
+        images = convert_from_bytes(pdf_bytes, dpi=300)
+        num_pages = len(images)
+        text_parts = []
+
+        for img in images:
+            page_text = pytesseract.image_to_string(img, lang=lang)
+            if page_text and page_text.strip():
+                text_parts.append(page_text.strip())
+
+        processing_ms = (_time.time() - start_time) * 1000
+
+        return OCRResult(
+            text='\n\n'.join(text_parts),
+            confidence=85.0,
+            pages=num_pages,
+            language=language if language != 'auto' else 'fr',
+            processing_time=processing_ms
+        )
 
     def _extract_text_from_docx(self, file_content: bytes, filename: str) -> OCRResult:
         """
