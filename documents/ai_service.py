@@ -1,23 +1,20 @@
 # documents/ai_service.py
 """
-Service AI unifie utilisant l'API AltiusOne AI.
+Service AI unifie pour AltiusOne.
 
-Ce service centralise toutes les operations AI:
-- OCR (extraction de texte depuis images/PDFs)
-- Embeddings (vecteurs 768D pour recherche semantique)
-- Extraction structuree (factures, contrats, etc.)
-- Chat IA (assistant conversationnel)
-- Resume de documents longs
-- Q&A contextuel sur documents
+Combine traitement local et API AltiusOne AI:
+- OCR: Tesseract local (images, PDF scannes, multilingue FR/DE/EN/IT)
+- Embeddings: API AltiusOne AI (vecteurs 768D, nomic-embed-text)
+- Extraction structuree: API AltiusOne AI (qwen2.5:3b)
+- Chat IA: API AltiusOne AI (qwen2.5:3b, streaming SSE)
+- Resume et Q&A sur documents
 
 Configuration via .env:
 - AI_API_KEY: Cle API AltiusOne
 - AI_API_URL: URL de l'API (https://ai.altiusone.ch)
 
-Endpoints API (sans prefixe /api/):
+Endpoints API utilises:
 - POST /embeddings - Generation d'embeddings 768D
-- POST /ocr - OCR sur images/PDF (base64 ou URL)
-- POST /ocr/file - OCR sur fichier uploade
 - POST /chat - Chat avec le LLM
 - POST /extract - Extraction structuree
 - GET /health - Health check
