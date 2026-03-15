@@ -1,22 +1,27 @@
 # documents/chat_service.py
 """
-Service de chat IA avec recherche universelle.
+Service de chat IA avec tool use (function calling).
 
-Fournit une interface pour interagir avec l'assistant AI
-en utilisant le contexte de TOUTES les donnees de la base:
-- Documents (avec recherche semantique)
-- Clients, Mandats, Employes
-- Factures, Ecritures comptables
-- Declarations TVA/fiscales
-- Et plus encore...
+L'assistant IA utilise Qwen 2.5 14B avec tool use pour chercher
+les donnees dont il a besoin via des outils ORM.
+Le LLM decide lui-meme quels outils appeler selon la question.
 
-Chaque resultat est cliquable et renvoie vers la fiche correspondante.
+Le flux:
+1. Message utilisateur -> LLM avec tools
+2. LLM retourne des tool_calls -> execution ORM -> resultats
+3. Resultats reinjectes -> LLM genere la reponse finale
+4. Max 3 iterations de tool calls
+
+L'ancienne recherche universelle (universal_search.py) reste
+intacte pour la navbar.
 """
+import json as _json
 import logging
 import time
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass, field
 
+from .chat_tools import CHAT_TOOLS, execute_tool_call
 from .universal_search import (
     UniversalSearchService,
     SearchContext,
@@ -26,6 +31,9 @@ from .universal_search import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Nombre max d'iterations de tool calls (eviter les boucles infinies)
+MAX_TOOL_ITERATIONS = 3
 
 
 @dataclass
@@ -81,7 +89,19 @@ class ChatService:
     - Resultats cliquables avec liens vers les fiches
     """
 
-    # Prompt systeme par defaut — optimise pour modeles compacts (3B-7B params)
+    # Prompt systeme pour le mode tool use (Qwen 2.5 14B)
+    TOOL_SYSTEM_PROMPT = """Tu es l'assistant IA d'AltiusOne, logiciel de gestion pour fiduciaires suisses.
+
+REGLES:
+1. Reponds dans la langue de l'utilisateur (francais, allemand, italien ou anglais).
+2. Utilise les outils disponibles pour chercher les donnees. N'invente JAMAIS de donnees.
+3. Presente les resultats clairement. Les sources sont affichees automatiquement — ne mets pas de liens.
+4. Montants au format suisse: 1'234.56 CHF.
+5. Si les outils ne trouvent rien, dis-le simplement.
+6. Ne corrige JAMAIS les noms propres ou raisons sociales.
+"""
+
+    # Ancien prompt pour fallback (sans tools)
     DEFAULT_SYSTEM_PROMPT = """Tu es l'assistant IA d'AltiusOne, logiciel de gestion d'entreprise suisse.
 
 REGLES:
@@ -151,13 +171,16 @@ DONNEES TROUVEES:
         """
         Envoie un message dans une conversation et retourne la reponse.
 
+        Utilise le tool use: le LLM decide quels outils appeler
+        pour chercher les donnees, puis genere la reponse.
+
         Args:
             conversation: Instance Conversation
             message: Message de l'utilisateur
-            use_semantic_search: Utiliser la recherche semantique
-            max_context_results: Nombre max de resultats pour le contexte
-            similarity_threshold: Seuil de similarite
-            entity_types: Types d'entites a rechercher (None = tous)
+            use_semantic_search: (ignore — garde pour compatibilite)
+            max_context_results: (ignore — garde pour compatibilite)
+            similarity_threshold: (ignore — garde pour compatibilite)
+            entity_types: (ignore — garde pour compatibilite)
 
         Returns:
             ChatResponse avec la reponse, sources et entites
@@ -174,68 +197,97 @@ DONNEES TROUVEES:
                 contenu=message
             )
 
-            # 2. Recherche universelle
-            search_results = []
-            sources = []
-            entities = []
+            # 2. Construire le system prompt et l'historique
+            system_prompt = self.TOOL_SYSTEM_PROMPT
+            if conversation.contexte_systeme:
+                system_prompt = conversation.contexte_systeme
 
-            if use_semantic_search:
-                search_results = self._search_all_entities(
-                    query=message,
-                    conversation=conversation,
-                    limit=max_context_results,
-                    entity_types=entity_types or self.DEFAULT_ENTITY_TYPES
+            # Ajouter le contexte mandat si specifie
+            if conversation.mandat:
+                mandat_ctx = (
+                    f"\nContexte: Mandat {conversation.mandat.numero} - "
+                    f"{conversation.mandat.client.raison_sociale if conversation.mandat.client else 'N/A'}"
                 )
+                system_prompt += mandat_ctx
 
-                # Separer documents et autres entites
-                for result in search_results:
-                    source_info = SourceInfo(
-                        entity_type=result.entity_type.value,
-                        entity_id=result.entity_id,
-                        title=result.title,
-                        subtitle=result.subtitle,
-                        url=result.url,
-                        icon=result.icon,
-                        color=result.color,
-                        score=result.score,
-                        snippet=result.description[:200] if result.description else '',
-                        metadata=result.metadata
-                    )
-
-                    if result.entity_type == EntityType.DOCUMENT:
-                        sources.append(source_info.to_dict())
-                    else:
-                        entities.append(source_info.to_dict())
-
-            # 3. Construire le prompt systeme avec contexte
-            system_prompt = self._build_system_prompt(
-                conversation=conversation,
-                search_results=search_results
-            )
-
-            # 4. Construire l'historique de conversation
             history = self._build_conversation_history(conversation)
 
-            # 5. Appeler l'API AI
-            ai_response = self.ai_service.chat(
-                message=message,
-                history=history,
-                system_prompt=system_prompt,
-                temperature=float(conversation.temperature)
-            )
+            # 3. Construire les messages initiaux
+            messages = [{'role': 'system', 'content': system_prompt}]
+            # Ajouter l'historique (exclure le dernier user car on l'ajoute apres)
+            if history:
+                for msg in history[:-1]:
+                    role = msg.get('role', '').lower()
+                    content = msg.get('content', '')
+                    if role in ['user', 'assistant'] and content:
+                        messages.append({'role': role, 'content': content})
+            messages.append({'role': 'user', 'content': message})
+
+            # 4. Boucle tool use
+            all_sources = []
+            total_tokens_prompt = 0
+            total_tokens_completion = 0
+
+            for iteration in range(MAX_TOOL_ITERATIONS + 1):
+                ai_response = self.ai_service.chat(
+                    messages_override=messages,
+                    temperature=float(conversation.temperature),
+                    tools=CHAT_TOOLS if iteration < MAX_TOOL_ITERATIONS else None,
+                )
+
+                total_tokens_prompt += ai_response.get('tokens_prompt', 0)
+                total_tokens_completion += ai_response.get('tokens_completion', 0)
+
+                tool_calls = ai_response.get('tool_calls')
+                if not tool_calls:
+                    # Pas de tool calls -> reponse finale
+                    break
+
+                # Ajouter le message assistant avec tool_calls
+                messages.append({
+                    'role': 'assistant',
+                    'content': ai_response.get('response', ''),
+                    'tool_calls': tool_calls,
+                })
+
+                # Executer chaque tool call
+                for tc in tool_calls:
+                    func = tc.get('function', {})
+                    tool_name = func.get('name', '')
+                    tool_args = func.get('arguments', {})
+                    if isinstance(tool_args, str):
+                        try:
+                            tool_args = _json.loads(tool_args)
+                        except _json.JSONDecodeError:
+                            tool_args = {'query': tool_args}
+
+                    logger.info(f"Tool call: {tool_name}({tool_args})")
+
+                    result_text, result_sources = execute_tool_call(
+                        tool_name, tool_args, conversation.utilisateur
+                    )
+                    all_sources.extend(result_sources)
+
+                    # Ajouter le resultat comme message tool
+                    messages.append({
+                        'role': 'tool',
+                        'content': result_text,
+                    })
 
             duree_ms = int((time.time() - start_time) * 1000)
+            response_text = ai_response.get('response', '')
+
+            # 5. Separer sources et entities
+            sources = [s for s in all_sources if s.get('entity_type') == 'document']
+            entities = [s for s in all_sources if s.get('entity_type') != 'document']
 
             # 6. Sauvegarder la reponse de l'assistant
-            # Combiner sources et entities pour le stockage
-            all_sources = sources + entities
-
             assistant_message = Message.objects.create(
                 conversation=conversation,
                 role='ASSISTANT',
-                contenu=ai_response.get('response', ''),
-                tokens_prompt=ai_response.get('tokens_prompt', 0),
-                tokens_completion=ai_response.get('tokens_completion', 0),
+                contenu=response_text,
+                tokens_prompt=total_tokens_prompt,
+                tokens_completion=total_tokens_completion,
                 duree_ms=duree_ms,
                 sources=all_sources
             )
@@ -251,11 +303,11 @@ DONNEES TROUVEES:
                 conversation.generer_titre()
 
             return ChatResponse(
-                contenu=ai_response.get('response', ''),
+                contenu=response_text,
                 sources=sources,
                 entities=entities,
-                tokens_prompt=ai_response.get('tokens_prompt', 0),
-                tokens_completion=ai_response.get('tokens_completion', 0),
+                tokens_prompt=total_tokens_prompt,
+                tokens_completion=total_tokens_completion,
                 duree_ms=duree_ms
             )
 
@@ -295,17 +347,18 @@ DONNEES TROUVEES:
         entity_types=None
     ):
         """
-        Stream a chat response as SSE events.
+        Stream a chat response as SSE events with tool use.
+
+        Le flux tool use est non-streaming (les appels d'outils se font
+        en synchrone), puis la reponse finale est streamee token par token.
 
         Yields JSON-serializable dicts with a 'type' field:
-        - sources: search results found
+        - sources: tool call results (entities trouvees)
         - token: individual AI token
         - done: AI generation finished
         - message_saved: assistant message persisted
         - error: something went wrong
         """
-        import json as _json
-        import time
         from documents.models import Message, Document
 
         start_time = time.time()
@@ -318,100 +371,149 @@ DONNEES TROUVEES:
                 contenu=message
             )
 
-            # 2. Universal search
-            search_results = []
-            sources = []
-            entities = []
+            # 2. Build system prompt and history
+            system_prompt = self.TOOL_SYSTEM_PROMPT
+            if conversation.contexte_systeme:
+                system_prompt = conversation.contexte_systeme
 
-            if use_semantic_search:
-                search_results = self._search_all_entities(
-                    query=message,
-                    conversation=conversation,
-                    limit=max_context_results,
-                    entity_types=entity_types or self.DEFAULT_ENTITY_TYPES
+            if conversation.mandat:
+                mandat_ctx = (
+                    f"\nContexte: Mandat {conversation.mandat.numero} - "
+                    f"{conversation.mandat.client.raison_sociale if conversation.mandat.client else 'N/A'}"
                 )
+                system_prompt += mandat_ctx
 
-                for result in search_results:
-                    source_info = SourceInfo(
-                        entity_type=result.entity_type.value,
-                        entity_id=result.entity_id,
-                        title=result.title,
-                        subtitle=result.subtitle,
-                        url=result.url,
-                        icon=result.icon,
-                        color=result.color,
-                        score=result.score,
-                        snippet=result.description[:200] if result.description else '',
-                        metadata=result.metadata
+            history = self._build_conversation_history(conversation)
+
+            # 3. Build initial messages
+            messages = [{'role': 'system', 'content': system_prompt}]
+            if history:
+                for msg in history[:-1]:
+                    role = msg.get('role', '').lower()
+                    content = msg.get('content', '')
+                    if role in ['user', 'assistant'] and content:
+                        messages.append({'role': role, 'content': content})
+            messages.append({'role': 'user', 'content': message})
+
+            # 4. Tool use loop (non-streaming, uses chat() not chat_stream())
+            all_sources = []
+            total_tokens = 0
+
+            for iteration in range(MAX_TOOL_ITERATIONS):
+                ai_response = self.ai_service.chat(
+                    messages_override=messages,
+                    temperature=float(conversation.temperature),
+                    tools=CHAT_TOOLS,
+                )
+                total_tokens += ai_response.get('tokens_completion', 0)
+
+                tool_calls = ai_response.get('tool_calls')
+                if not tool_calls:
+                    # Pas de tool calls -> on va streamer la reponse finale
+                    break
+
+                # Ajouter le message assistant avec tool_calls
+                messages.append({
+                    'role': 'assistant',
+                    'content': ai_response.get('response', ''),
+                    'tool_calls': tool_calls,
+                })
+
+                # Executer chaque tool call
+                for tc in tool_calls:
+                    func = tc.get('function', {})
+                    tool_name = func.get('name', '')
+                    tool_args = func.get('arguments', {})
+                    if isinstance(tool_args, str):
+                        try:
+                            tool_args = _json.loads(tool_args)
+                        except _json.JSONDecodeError:
+                            tool_args = {'query': tool_args}
+
+                    logger.info(f"Tool call: {tool_name}({tool_args})")
+
+                    result_text, result_sources = execute_tool_call(
+                        tool_name, tool_args, conversation.utilisateur
                     )
+                    all_sources.extend(result_sources)
 
-                    if result.entity_type == EntityType.DOCUMENT:
-                        sources.append(source_info.to_dict())
-                    else:
-                        entities.append(source_info.to_dict())
+                    messages.append({
+                        'role': 'tool',
+                        'content': result_text,
+                    })
+            else:
+                # Max iterations atteint, on a deja la derniere reponse non-streaming
+                pass
 
-            # 3. Yield sources event
+            # 5. Yield sources event (from tool calls)
+            sources = [s for s in all_sources if s.get('entity_type') == 'document']
+            entities = [s for s in all_sources if s.get('entity_type') != 'document']
+
             yield _json.dumps({
                 'type': 'sources',
                 'sources': sources,
                 'entities': entities,
             }) + '\n'
 
-            # 4. Build system prompt and history
-            system_prompt = self._build_system_prompt(
-                conversation=conversation,
-                search_results=search_results
-            )
-            history = self._build_conversation_history(conversation)
+            # 6. Stream the final response
+            # If the last non-streaming call already has the answer, use it directly
+            # Otherwise, make a streaming call WITHOUT tools for the final answer
+            last_response_text = ai_response.get('response', '')
 
-            # 5. Stream AI response
-            full_response = ''
-            model_name = ''
-            tokens_used = 0
-            processing_time_ms = 0
-
-            for event in self.ai_service.chat_stream(
-                message=message,
-                history=history,
-                system_prompt=system_prompt,
-                temperature=float(conversation.temperature)
-            ):
-                if event.get('error'):
-                    yield _json.dumps({
-                        'type': 'error',
-                        'error': event['error'],
-                    }) + '\n'
-                    return
-
-                if event.get('done'):
-                    model_name = event.get('model', '')
-                    tokens_used = event.get('tokens_used', 0)
-                    processing_time_ms = event.get('processing_time_ms', 0)
-                    yield _json.dumps({
-                        'type': 'done',
-                        'model': model_name,
-                        'tokens_used': tokens_used,
-                        'processing_time_ms': processing_time_ms,
-                    }) + '\n'
-                else:
-                    token = event.get('token', '')
-                    if token:
-                        full_response += token
+            if last_response_text and not ai_response.get('tool_calls'):
+                # La derniere reponse non-streaming est la reponse finale
+                # On la yield comme un seul token pour simplicite
+                yield _json.dumps({
+                    'type': 'token',
+                    'token': last_response_text,
+                }) + '\n'
+                yield _json.dumps({
+                    'type': 'done',
+                    'model': '',
+                    'tokens_used': total_tokens,
+                    'processing_time_ms': int((time.time() - start_time) * 1000),
+                }) + '\n'
+                full_response = last_response_text
+            else:
+                # Stream la reponse finale (sans tools)
+                full_response = ''
+                for event in self.ai_service.chat_stream(
+                    messages_override=messages,
+                    temperature=float(conversation.temperature),
+                ):
+                    if event.get('error'):
                         yield _json.dumps({
-                            'type': 'token',
-                            'token': token,
+                            'type': 'error',
+                            'error': event['error'],
                         }) + '\n'
+                        return
 
-            # 6. Save assistant message
+                    if event.get('done'):
+                        total_tokens += event.get('tokens_used', 0)
+                        yield _json.dumps({
+                            'type': 'done',
+                            'model': event.get('model', ''),
+                            'tokens_used': total_tokens,
+                            'processing_time_ms': event.get('processing_time_ms', 0),
+                        }) + '\n'
+                    elif event.get('type') == 'token':
+                        token = event.get('token', '')
+                        if token:
+                            full_response += token
+                            yield _json.dumps({
+                                'type': 'token',
+                                'token': token,
+                            }) + '\n'
+
+            # 7. Save assistant message
             duree_ms = int((time.time() - start_time) * 1000)
-            all_sources = sources + entities
 
             assistant_message = Message.objects.create(
                 conversation=conversation,
                 role='ASSISTANT',
                 contenu=full_response,
                 tokens_prompt=0,
-                tokens_completion=tokens_used,
+                tokens_completion=total_tokens,
                 duree_ms=duree_ms,
                 sources=all_sources
             )
@@ -421,7 +523,6 @@ DONNEES TROUVEES:
                 docs = Document.objects.filter(id__in=doc_ids)
                 assistant_message.documents_contexte.set(docs)
 
-            # 7. Yield message_saved event
             yield _json.dumps({
                 'type': 'message_saved',
                 'message_id': str(assistant_message.id),

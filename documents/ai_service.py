@@ -682,7 +682,9 @@ Contenu:
         context: Optional[str] = None,
         history: Optional[List[Dict[str, str]]] = None,
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None
+        max_tokens: Optional[int] = None,
+        tools: Optional[List[dict]] = None,
+        messages_override: Optional[List[Dict[str, str]]] = None,
     ) -> Dict[str, Any]:
         """
         Interroge l'assistant IA.
@@ -695,30 +697,35 @@ Contenu:
             history: Historique de conversation [{role: 'user'|'assistant', content: '...'}]
             temperature: Temperature de generation (0.0-1.0)
             max_tokens: Limite de tokens pour la reponse (reduit le temps de reponse)
+            tools: Definitions d'outils pour le function calling
+            messages_override: Si fourni, utilise ces messages directement (ignore message/system/history)
 
         Returns:
-            Dict avec 'response', 'tokens_prompt', 'tokens_completion'
+            Dict avec 'response', 'tokens_prompt', 'tokens_completion', et optionnel 'tool_calls'
         """
-        # Support des deux noms de parametre
-        system = system or system_prompt
+        if messages_override:
+            messages = messages_override
+        else:
+            # Support des deux noms de parametre
+            system = system or system_prompt
 
-        if context:
-            message = f"Contexte:\n{context}\n\nQuestion: {message}"
+            if context:
+                message = f"Contexte:\n{context}\n\nQuestion: {message}"
 
-        # Construire les messages pour l'API
-        messages = []
-        if system:
-            messages.append({'role': 'system', 'content': system})
+            # Construire les messages pour l'API
+            messages = []
+            if system:
+                messages.append({'role': 'system', 'content': system})
 
-        # Ajouter l'historique de conversation (exclure le dernier message user)
-        if history:
-            for msg in history[:-1] if history else []:
-                role = msg.get('role', '').lower()
-                content = msg.get('content', '')
-                if role in ['user', 'assistant'] and content:
-                    messages.append({'role': role, 'content': content})
+            # Ajouter l'historique de conversation (exclure le dernier message user)
+            if history:
+                for msg in history[:-1] if history else []:
+                    role = msg.get('role', '').lower()
+                    content = msg.get('content', '')
+                    if role in ['user', 'assistant'] and content:
+                        messages.append({'role': role, 'content': content})
 
-        messages.append({'role': 'user', 'content': message})
+            messages.append({'role': 'user', 'content': message})
 
         try:
             request_data = {
@@ -727,6 +734,8 @@ Contenu:
             }
             if max_tokens:
                 request_data['max_tokens'] = max_tokens
+            if tools:
+                request_data['tools'] = tools
 
             response = self._make_request(
                 'POST',
@@ -739,11 +748,18 @@ Contenu:
                             response.get('content',
                             response.get('response', '')))
 
-            return {
+            result = {
                 'response': response_text,
                 'tokens_prompt': response.get('tokens_prompt', response.get('usage', {}).get('prompt_tokens', 0)),
-                'tokens_completion': response.get('tokens_completion', response.get('usage', {}).get('completion_tokens', 0))
+                'tokens_completion': response.get('tokens_completion', response.get('usage', {}).get('completion_tokens', 0)),
             }
+
+            # Propager les tool_calls si presents
+            tool_calls = response.get('tool_calls')
+            if tool_calls:
+                result['tool_calls'] = tool_calls
+
+            return result
 
         except AIServiceError:
             raise
@@ -759,7 +775,9 @@ Contenu:
         context: Optional[str] = None,
         history: Optional[List[Dict[str, str]]] = None,
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None
+        max_tokens: Optional[int] = None,
+        tools: Optional[List[dict]] = None,
+        messages_override: Optional[List[Dict[str, str]]] = None,
     ):
         """
         Stream chat response token by token via SSE.
@@ -768,43 +786,50 @@ Contenu:
         Falls back gracefully if the server returns a non-streaming JSON response.
 
         Yields:
-            Dict with 'token', 'done', and optionally 'model', 'tokens_used', 'processing_time_ms'
+            Dict with 'token', 'done', 'tool_calls', and optionally 'model', 'tokens_used', 'processing_time_ms'
         """
         if not self.enabled:
             raise AIServiceError("Service AI non configure. Verifiez AI_API_KEY et AI_API_URL dans .env")
 
-        # Support des deux noms de parametre
-        system = system or system_prompt
+        if messages_override:
+            messages = messages_override
+        else:
+            # Support des deux noms de parametre
+            system = system or system_prompt
 
-        if context:
-            message = f"Contexte:\n{context}\n\nQuestion: {message}"
+            if context:
+                message = f"Contexte:\n{context}\n\nQuestion: {message}"
 
-        # Construire les messages pour l'API
-        messages = []
-        if system:
-            messages.append({'role': 'system', 'content': system})
+            # Construire les messages pour l'API
+            messages = []
+            if system:
+                messages.append({'role': 'system', 'content': system})
 
-        if history:
-            for msg in history[:-1] if history else []:
-                role = msg.get('role', '').lower()
-                content = msg.get('content', '')
-                if role in ['user', 'assistant'] and content:
-                    messages.append({'role': role, 'content': content})
+            if history:
+                for msg in history[:-1] if history else []:
+                    role = msg.get('role', '').lower()
+                    content = msg.get('content', '')
+                    if role in ['user', 'assistant'] and content:
+                        messages.append({'role': role, 'content': content})
 
-        messages.append({'role': 'user', 'content': message})
+            messages.append({'role': 'user', 'content': message})
 
         url = f"{self.api_url}/chat"
+
+        request_body = {
+            'messages': messages,
+            'temperature': temperature,
+            'max_tokens': max_tokens,
+            'stream': True,
+        }
+        if tools:
+            request_body['tools'] = tools
 
         try:
             import json as _json
             response = requests.post(
                 url,
-                json={
-                    'messages': messages,
-                    'temperature': temperature,
-                    'max_tokens': max_tokens,
-                    'stream': True,
-                },
+                json=request_body,
                 headers=self._get_headers(),
                 stream=True,
                 timeout=self.timeout,
@@ -842,8 +867,17 @@ Contenu:
                         continue
             else:
                 # Non-streaming fallback: server returned plain JSON
-                # Convert to streaming events for compatibility
                 data = response.json()
+
+                # Check for tool_calls
+                tool_calls = data.get('tool_calls')
+                if tool_calls:
+                    yield {
+                        'type': 'tool_calls',
+                        'tool_calls': tool_calls,
+                    }
+                    return
+
                 response_text = data.get('message',
                                 data.get('content',
                                 data.get('response', '')))
