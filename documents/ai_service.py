@@ -676,7 +676,7 @@ Contenu:
 
     def chat(
         self,
-        message: str,
+        message: str = "",
         system: Optional[str] = None,
         system_prompt: Optional[str] = None,
         context: Optional[str] = None,
@@ -769,7 +769,7 @@ Contenu:
 
     def chat_stream(
         self,
-        message: str,
+        message: str = "",
         system: Optional[str] = None,
         system_prompt: Optional[str] = None,
         context: Optional[str] = None,
