@@ -234,17 +234,6 @@
                 </button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link {% if active_tab == 'visualisations' %}active{% endif %}"
-                        id="tab-visualisations" type="button" role="tab"
-                        data-tab="visualisations"
-                        hx-get="{% url 'analytics:hub-tab-visualisations' %}?annee={{ annee_selectionnee }}{% if mandat_selectionne %}&mandat={{ mandat_selectionne.pk }}{% endif %}"
-                        hx-target="#hub-tab-content"
-                        hx-swap="innerHTML"
-                        hx-indicator="#tab-spinner">
-                    <i class="ti ti-chart-dots-3 me-1"></i>{% trans "Visualisations" %}
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
                 <button class="nav-link {% if active_tab == 'rapports' %}active{% endif %}"
                         id="tab-rapports" type="button" role="tab"
                         data-tab="rapports"

@@ -86,11 +86,20 @@
 
       <li
         class="no-sub"
-        data-active="{% if ns == 'analytics' %}true{% endif %}"
+        data-active="{% if ns == 'analytics' and is_active != 'visualisations' %}true{% endif %}"
       >
         <a href="{% url 'analytics:dashboard-executif' %}">
           <i class="ti ti-chart-infographic f-s-30"></i>
           {% trans "Analytics" %}
+        </a>
+      </li>
+      <li
+        class="no-sub"
+        data-active="{% if ns == 'analytics' and is_active == 'visualisations' %}true{% endif %}"
+      >
+        <a href="{% url 'analytics:visualisations' %}">
+          <i class="ti ti-chart-dots-3 f-s-30"></i>
+          {% trans "Visualisations" %}
         </a>
       </li>
 
