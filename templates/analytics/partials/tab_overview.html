@@ -220,7 +220,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Gauge Recouvrement
     AltiusCharts.radialBar('gauge-recouvrement', {
-        value: {{ kpis.taux_recouvrement.valeur }},
+        value: {{ kpis.taux_recouvrement.valeur|stringformat:"g" }},
         label: '{% trans "Recouvrement" %}'
     }, {
         height: 120,
