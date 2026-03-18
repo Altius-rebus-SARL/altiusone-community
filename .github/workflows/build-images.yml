@@ -17,11 +17,13 @@ on:
     branches:
       - main
     paths:
+      - '**/*.py'
       - 'Dockerfile'
       - 'Dockerfile.postgres'
       - 'Dockerfile.nextcloud'
       - 'requirements.txt'
       - 'entrypoint.sh'
+      - 'docker-compose.yml'
       - '.github/workflows/build-images.yml'
     tags:
       - 'v*.*.*'
