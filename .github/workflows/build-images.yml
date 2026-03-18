@@ -34,7 +34,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_PREFIX: ${{ github.repository_owner }}/altiusone
 
 jobs:
   build-and-push:
@@ -57,9 +56,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract version
+      - name: Extract version and image prefix
         id: version
         run: |
+          # Version
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             VERSION="${{ github.event.inputs.version }}"
           elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
@@ -69,7 +69,12 @@ jobs:
             VERSION="latest"
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Building version: $VERSION"
+
+          # Image prefix (GHCR exige lowercase)
+          OWNER="${{ github.repository_owner }}"
+          OWNER_LC=$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')
+          echo "prefix=${OWNER_LC}/altiusone" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION — prefix: ${OWNER_LC}/altiusone"
 
       # =========================================================================
       # Build altiusone-django (le gros: torch + sentence-transformers + embedding model)
@@ -82,8 +87,8 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-django:${{ steps.version.outputs.version }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-django:latest
+            ${{ env.REGISTRY }}/${{ steps.version.outputs.prefix }}-django:${{ steps.version.outputs.version }}
+            ${{ env.REGISTRY }}/${{ steps.version.outputs.prefix }}-django:latest
           cache-from: type=gha,scope=django
           cache-to: type=gha,mode=max,scope=django
 
@@ -98,8 +103,8 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-postgres:${{ steps.version.outputs.version }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-postgres:latest
+            ${{ env.REGISTRY }}/${{ steps.version.outputs.prefix }}-postgres:${{ steps.version.outputs.version }}
+            ${{ env.REGISTRY }}/${{ steps.version.outputs.prefix }}-postgres:latest
           cache-from: type=gha,scope=postgres
           cache-to: type=gha,mode=max,scope=postgres
 
@@ -114,8 +119,8 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-nextcloud:${{ steps.version.outputs.version }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-nextcloud:latest
+            ${{ env.REGISTRY }}/${{ steps.version.outputs.prefix }}-nextcloud:${{ steps.version.outputs.version }}
+            ${{ env.REGISTRY }}/${{ steps.version.outputs.prefix }}-nextcloud:latest
           cache-from: type=gha,scope=nextcloud
           cache-to: type=gha,mode=max,scope=nextcloud
 
@@ -129,4 +134,4 @@ jobs:
           echo "| postgres | \`${{ steps.version.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| nextcloud | \`${{ steps.version.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Registry:** \`${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Registry:** \`${{ env.REGISTRY }}/${{ steps.version.outputs.prefix }}\`" >> $GITHUB_STEP_SUMMARY
