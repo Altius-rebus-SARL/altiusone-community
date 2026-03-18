@@ -35,63 +35,23 @@
     </div>
 </div>
 
+<!-- D3.js Libraries -->
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12"></script>
+
+<!-- Configuration -->
 <script>
-(function() {
-    // Configuration D3
     window.D3_CONFIG = {
         annee: '{{ annee_selectionnee }}',
         {% if mandat_selectionne %}mandat: '{{ mandat_selectionne.pk }}',{% endif %}
     };
-
-    // Libs CDN + utilitaires: charger une seule fois (const ne tolère pas de redéclaration)
-    // Visualisations IIFE: recharger à chaque activation pour se rattacher aux nouveaux containers DOM
-    var cdnScripts = [
-        { src: 'https://cdn.jsdelivr.net/npm/d3@7', skip: function() { return typeof d3 !== 'undefined'; } },
-        { src: 'https://cdn.jsdelivr.net/npm/d3-sankey@0.12', skip: function() { return typeof d3 !== 'undefined' && d3.sankey; } },
-        { src: '{% static "analytics/js/d3-common.js" %}', skip: function() { return typeof AltiusD3 !== 'undefined'; } },
-    ];
-
-    var vizScripts = [
-        '{% static "analytics/js/d3-calendar.js" %}',
-        '{% static "analytics/js/d3-sunburst.js" %}',
-        '{% static "analytics/js/d3-sankey.js" %}',
-        '{% static "analytics/js/d3-network.js" %}',
-        '{% static "analytics/js/d3-icicle.js" %}',
-        '{% static "analytics/js/d3-timeline.js" %}',
-    ];
-
-    var bustId = Date.now();
-
-    // Phase 1 : charger les dépendances (skip si déjà en mémoire)
-    function loadDeps(index) {
-        if (index >= cdnScripts.length) { loadViz(0); return; }
-
-        var dep = cdnScripts[index];
-        if (dep.skip()) { loadDeps(index + 1); return; }
-
-        var s = document.createElement('script');
-        s.src = dep.src;
-        s.onload = function() { loadDeps(index + 1); };
-        s.onerror = function() { loadDeps(index + 1); };
-        document.head.appendChild(s);
-    }
-
-    // Phase 2 : charger les visualisations (cache-buster pour ré-exécuter les IIFE)
-    function loadViz(index) {
-        if (index >= vizScripts.length) return;
-
-        // Nettoyer l'ancienne balise
-        var old = document.querySelector('script[data-d3-viz="' + index + '"]');
-        if (old) old.remove();
-
-        var s = document.createElement('script');
-        s.src = vizScripts[index] + '?_=' + bustId;
-        s.setAttribute('data-d3-viz', index);
-        s.onload = function() { loadViz(index + 1); };
-        s.onerror = function() { loadViz(index + 1); };
-        document.head.appendChild(s);
-    }
-
-    loadDeps(0);
-})();
 </script>
+
+<!-- Common utilities + Visualisations (ordre garanti par HTMX) -->
+<script src="{% static 'analytics/js/d3-common.js' %}"></script>
+<script src="{% static 'analytics/js/d3-calendar.js' %}"></script>
+<script src="{% static 'analytics/js/d3-sunburst.js' %}"></script>
+<script src="{% static 'analytics/js/d3-sankey.js' %}"></script>
+<script src="{% static 'analytics/js/d3-network.js' %}"></script>
+<script src="{% static 'analytics/js/d3-icicle.js' %}"></script>
+<script src="{% static 'analytics/js/d3-timeline.js' %}"></script>

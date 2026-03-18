@@ -2,7 +2,7 @@
  * AltiusOne D3.js - Utilitaires partagés
  * Tooltip, formatage, couleurs, responsive, dark mode
  */
-const AltiusD3 = (function() {
+var AltiusD3 = (function() {
     'use strict';
 
     // Palette de couleurs (alignée sur AltiusCharts)
