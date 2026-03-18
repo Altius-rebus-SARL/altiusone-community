@@ -175,6 +175,9 @@ python manage.py init_devises || echo "Warning: Currency init failed, continuing
 echo "Init default social contribution rates (Swiss 2026)"
 python manage.py init_taux_cotisations || echo "Warning: Social contribution rates init failed, continuing..."
 
+echo "Vectorize missing embeddings (background, non-blocking)"
+python manage.py vectorize_all --tier 1 --batch-size 50 &
+
 echo "Setup commands done"
 
 # === PULL MODELE OLLAMA (premier démarrage) ===
