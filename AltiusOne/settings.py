@@ -348,6 +348,11 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'documents.tasks_intelligence.generer_digests_mensuels',
         'schedule': crontab(hour=6, minute=0, day_of_month=1),
     },
+    # Indexer les embeddings manquants toutes les 30 minutes
+    'indexer-embeddings-manquants': {
+        'task': 'core.tasks.indexer_embeddings_manquants_task',
+        'schedule': 1800.0,  # 30 minutes
+    },
 }
 
 
@@ -754,46 +759,32 @@ if PUSH_NOTIFICATIONS_ENABLED:
 
 
 # ============================================================================
-# ALTIUSONE AI SDK
+# IA LOCALE (100% on-instance)
 # ============================================================================
-# Service AI unifie pour OCR, Embeddings, Classification et Extraction.
-# Utilise le SDK AltiusOne AI (https://pypi.org/project/altiusone-ai/)
+# Tout le traitement IA tourne en local sur chaque instance:
+# - Embeddings: sentence-transformers (paraphrase-multilingual-mpnet-base-v2, 768D)
+# - Chat LLM: Ollama (phi3:mini 3.8B) en container Docker
+# - OCR: Tesseract local (déjà en place)
 #
-# Configuration:
-# - AI_API_URL: URL de l'API (https://ai.altiusone.ch)
-# - AI_API_KEY: Cle API pour l'authentification
-#
-# Fonctionnalites:
-# - OCR: Extraction de texte depuis images/PDFs
-# - Embeddings: Vecteurs 768D pour recherche semantique (compatible PGVector)
-# - Classification: Detection automatique du type de document
-# - Extraction: Extraction structuree de donnees (factures, contrats, etc.)
-# - Chat: Assistant conversationnel IA
+# Aucune dépendance externe. Aucune donnée ne quitte l'instance.
 
-AI_API_URL = os.environ.get('AI_API_URL', 'https://ai.altiusone.ch')
-AI_API_KEY = os.environ.get('AI_API_KEY', '')
+# Embeddings locaux (sentence-transformers)
+EMBEDDING_MODEL = os.environ.get('EMBEDDING_MODEL', 'sentence-transformers/paraphrase-multilingual-mpnet-base-v2')
+EMBEDDING_DIMENSIONS = int(os.environ.get('EMBEDDING_DIMENSIONS', '768'))
+
+# Ollama LLM local (chat, classification, extraction)
+OLLAMA_URL = os.environ.get('OLLAMA_URL', 'http://ollama:11434')
+OLLAMA_CHAT_MODEL = os.environ.get('OLLAMA_CHAT_MODEL', 'phi3:mini')
+OLLAMA_TIMEOUT = int(os.environ.get('OLLAMA_TIMEOUT', '120'))
 
 # Recherche hybride - ponderation des scores
 SEARCH_FULLTEXT_WEIGHT = float(os.environ.get('SEARCH_FULLTEXT_WEIGHT', '0.4'))
 SEARCH_SEMANTIC_WEIGHT = float(os.environ.get('SEARCH_SEMANTIC_WEIGHT', '0.6'))
 SEARCH_SEMANTIC_THRESHOLD = float(os.environ.get('SEARCH_SEMANTIC_THRESHOLD', '0.5'))
 
-# ============================================================================
-# LEGACY - SERVICE OCR EXTERNE (DEPRECIE)
-# ============================================================================
-# Ces parametres sont conserves pour compatibilite mais ne sont plus utilises.
-# Tout le traitement AI passe maintenant par le SDK AltiusOne AI.
-
-OCR_SERVICE_ENABLED = False  # Deprecie - utiliser AI_API_KEY
-OCR_SERVICE_URL = os.environ.get('OCR_SERVICE_URL', '')
-OCR_SERVICE_API_KEY = os.environ.get('OCR_SERVICE_API_KEY', '')
-OCR_SERVICE_TIMEOUT = int(os.environ.get('OCR_SERVICE_TIMEOUT', '60'))
-
-# LEGACY - Configuration embeddings (DEPRECIE)
-# Le SDK AltiusOne AI genere des embeddings 768D directement
-EMBEDDING_BACKEND = 'altiusone'  # Fixe - utilise toujours le SDK
-OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')  # Non utilise
-LOCAL_EMBEDDING_MODEL = ''  # Non utilise
+# LEGACY — conservé pour compatibilité (sera supprimé)
+AI_API_URL = os.environ.get('AI_API_URL', '')
+AI_API_KEY = os.environ.get('AI_API_KEY', '')
 
 
 

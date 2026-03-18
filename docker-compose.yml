@@ -72,6 +72,9 @@ services:
       - AWS_STORAGE_BUCKET_NAME=${AWS_STORAGE_BUCKET_NAME:-altiusone-media}
       - AWS_S3_ENDPOINT_URL=http://minio:9000
       - AWS_S3_REGION_NAME=us-east-1
+      # Ollama LLM local
+      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_CHAT_MODEL=${OLLAMA_CHAT_MODEL:-phi3:mini}
     command: /app/entrypoint.sh
     volumes:
       - media:/app/media
@@ -88,6 +91,8 @@ services:
       redis:
         condition: service_healthy
       minio:
+        condition: service_healthy
+      ollama:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
@@ -122,6 +127,9 @@ services:
       - AWS_STORAGE_BUCKET_NAME=${AWS_STORAGE_BUCKET_NAME:-altiusone-media}
       - AWS_S3_ENDPOINT_URL=http://minio:9000
       - AWS_S3_REGION_NAME=us-east-1
+      # Ollama LLM local
+      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_CHAT_MODEL=${OLLAMA_CHAT_MODEL:-phi3:mini}
     volumes:
       - media:/app/media
       - logs:/app/logs
@@ -194,6 +202,31 @@ services:
       - ./nginx/ssl:/etc/nginx/ssl:ro
     depends_on:
       - django
+    networks:
+      - altiusone_network
+
+  # ===========================================================================
+  # Ollama - LLM local (chat, classification, extraction)
+  # ===========================================================================
+  ollama:
+    image: ollama/ollama:latest
+    platform: linux/amd64
+    container_name: altiusone_ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list || true"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
     networks:
       - altiusone_network
 
@@ -351,6 +384,8 @@ volumes:
   postgres_data:
     driver: local
   redis_data:
+    driver: local
+  ollama_data:
     driver: local
   media:
     driver: local

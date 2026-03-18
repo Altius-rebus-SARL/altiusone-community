@@ -80,6 +80,16 @@ class Position(BaseModel):
     )
     est_sous_traite = models.BooleanField(default=False, verbose_name=_("Sous-traité"))
 
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            f"{self.numero} {self.titre}",
+            self.description,
+            self.adresse,
+            self.prestataire_nom,
+        ]
+        return ' '.join(filter(None, parts))
+
     class Meta:
         db_table = "positions"
         verbose_name = _("Position")
@@ -217,6 +227,14 @@ class Operation(BaseModel):
     # Ordre
     ordre = models.PositiveIntegerField(default=0, verbose_name=_("Ordre"))
 
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            f"{self.numero} {self.titre}" if self.numero else self.titre,
+            self.description,
+        ]
+        return ' '.join(filter(None, parts))
+
     class Meta:
         db_table = "operations"
         verbose_name = _("Opération")
@@ -259,6 +277,10 @@ class OperationNote(BaseModel):
         verbose_name=_("Auteur"),
     )
     contenu = models.TextField(verbose_name=_("Contenu"))
+
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        return self.contenu or ''
 
     class Meta:
         db_table = "operation_notes"

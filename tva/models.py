@@ -576,6 +576,15 @@ class DeclarationTVA(BaseModel):
         help_text=_('Commentaires reçus de l\'AFC')
     )
 
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            f"Déclaration TVA {self.numero_declaration}",
+            f"{self.type_decompte} {self.annee}",
+            self.mandat.client.raison_sociale if self.mandat and self.mandat.client else '',
+        ]
+        return ' '.join(filter(None, parts))
+
     class Meta:
         db_table = 'declarations_tva'
         verbose_name = _('Déclaration TVA')

@@ -399,6 +399,14 @@ class Compte(BaseModel):
         help_text=_("Cumul des montants au crédit")
     )
 
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            f"{self.numero} {self.libelle}",
+            self.libelle_court,
+        ]
+        return ' '.join(filter(None, parts))
+
     class Meta:
         db_table = 'comptes'
         verbose_name = _('Compte')
@@ -512,6 +520,10 @@ class Journal(BaseModel):
         verbose_name=_("Dernier numéro"),
         help_text=_("Dernier numéro de pièce utilisé dans ce journal")
     )
+
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        return f"Journal {self.code} {self.libelle}"
 
     class Meta:
         db_table = 'journaux'
@@ -757,6 +769,16 @@ class EcritureComptable(BaseModel):
         verbose_name=_("Écriture extournée"),
         help_text=_("Écriture d'origine si celle-ci est une extourne")
     )
+
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            self.libelle,
+            self.libelle_complement,
+            f"Pièce {self.numero_piece}" if self.numero_piece else '',
+            f"Compte {self.compte.numero} {self.compte.libelle}" if self.compte else '',
+        ]
+        return ' '.join(filter(None, parts))
 
     class Meta:
         db_table = 'ecritures_comptables'
@@ -1123,6 +1145,16 @@ class PieceComptable(BaseModel):
         verbose_name=_("Date de validation"),
         help_text=_("Date et heure de validation de la pièce")
     )
+
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            f"Pièce {self.numero_piece}",
+            self.libelle,
+            self.reference_externe,
+            self.tiers_nom,
+        ]
+        return ' '.join(filter(None, parts))
 
     class Meta:
         db_table = "pieces_comptables"

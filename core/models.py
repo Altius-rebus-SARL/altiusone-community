@@ -1107,6 +1107,17 @@ class Tiers(BaseModel):
         verbose_name=_('Notes')
     )
 
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            self.nom,
+            self.code,
+            f"TVA: {self.numero_tva}" if self.numero_tva else '',
+            self.email or '',
+            self.notes,
+        ]
+        return ' '.join(filter(None, parts))
+
     class Meta:
         db_table = 'tiers'
         verbose_name = _('Tiers')
@@ -1508,6 +1519,19 @@ class Client(BaseModel):
         related_name='sous_clients_set', verbose_name=_('Client parent')
     )
 
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            self.raison_sociale,
+            self.nom_commercial,
+            self.description,
+            f"IDE: {self.ide_number}" if self.ide_number else '',
+            f"TVA: {self.tva_number}" if self.tva_number else '',
+            self.email or '',
+            self.notes,
+        ]
+        return ' '.join(filter(None, parts))
+
     class Meta:
         db_table = 'clients'
         verbose_name = _('Client')
@@ -1580,6 +1604,15 @@ class Contact(BaseModel):
     mobile = models.CharField(max_length=20, blank=True, verbose_name=_('Mobile'))
 
     principal = models.BooleanField(default=False, verbose_name=_('Contact principal'))
+
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            f"{self.prenom} {self.nom}",
+            self.fonction or '',
+            self.email or '',
+        ]
+        return ' '.join(filter(None, parts))
 
     class Meta:
         db_table = 'contacts'
@@ -1962,6 +1995,16 @@ class Mandat(BaseModel):
         verbose_name=_('Devise'),
         db_column='devise_mandat'
     )
+
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            f"Mandat {self.numero}",
+            self.client.raison_sociale if self.client else '',
+            self.description,
+            self.conditions_particulieres,
+        ]
+        return ' '.join(filter(None, parts))
 
     class Meta:
         db_table = 'mandats'
@@ -3109,3 +3152,100 @@ class FichierJoint(BaseModel):
                 pass
 
         super().save(*args, **kwargs)
+
+
+# =============================================================================
+# MODEL EMBEDDING (vectorisation générique via pgvector)
+# =============================================================================
+
+class ModelEmbedding(models.Model):
+    """
+    Embedding vectoriel générique pour n'importe quel modèle.
+
+    Utilise GenericForeignKey (même pattern que AuditLog, FichierJoint).
+    Stocke un vecteur 768D dans pgvector pour la recherche sémantique.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    # Lien générique vers le modèle source
+    content_type = models.ForeignKey(
+        ContentType, on_delete=models.CASCADE,
+        verbose_name=_('Type de contenu'),
+    )
+    object_id = models.UUIDField(verbose_name=_('ID objet'))
+    content_object = GenericForeignKey('content_type', 'object_id')
+
+    # Vecteur 768D (pgvector)
+    from pgvector.django import VectorField
+    embedding = VectorField(dimensions=768, verbose_name=_('Embedding'))
+
+    # Métadonnées
+    text_hash = models.CharField(
+        max_length=64,
+        verbose_name=_('Hash du texte'),
+        help_text=_('SHA-256 du texte source, pour détecter les changements'),
+    )
+    text_preview = models.CharField(
+        max_length=200, blank=True,
+        verbose_name=_('Aperçu du texte'),
+    )
+    model_used = models.CharField(
+        max_length=100, default='paraphrase-multilingual-mpnet-base-v2',
+        verbose_name=_('Modèle utilisé'),
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_('Créé le'))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_('Modifié le'))
+
+    class Meta:
+        db_table = 'model_embeddings'
+        verbose_name = _('Embedding de modèle')
+        verbose_name_plural = _('Embeddings de modèles')
+        constraints = [
+            models.UniqueConstraint(
+                fields=['content_type', 'object_id'],
+                name='unique_model_embedding',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['content_type', 'object_id'], name='me_ct_oid_idx'),
+            models.Index(fields=['content_type'], name='me_ct_idx'),
+        ]
+
+    def __str__(self):
+        return f"Embedding {self.content_type} #{self.object_id}"
+
+    @classmethod
+    def search_similar(cls, embedding, content_type=None, limit=20, threshold=0.5, metric='cosine'):
+        """
+        Recherche les objets les plus similaires.
+
+        La métrique de distance est configurable (cosine par défaut).
+        Voir core.ai.distances pour les métriques disponibles :
+        'cosine', 'l2', 'l1', 'jaccard', 'hamming'.
+
+        Args:
+            embedding: Vecteur de requête (list[float] 768D)
+            content_type: Filtrer par ContentType (optionnel)
+            limit: Nombre max de résultats
+            threshold: Seuil de similarité (0-1, 1=identique)
+            metric: Mesure de distance ('cosine', 'l2', 'l1', 'jaccard', 'hamming')
+
+        Returns:
+            QuerySet annoté avec 'distance' (plus petit = plus similaire)
+        """
+        from core.ai.distances import get_distance_function, threshold_for_metric
+
+        distance_fn = get_distance_function(metric)
+        max_distance = threshold_for_metric(metric, threshold)
+
+        qs = cls.objects.annotate(
+            distance=distance_fn('embedding', embedding)
+        ).filter(
+            distance__lt=max_distance
+        )
+
+        if content_type:
+            qs = qs.filter(content_type=content_type)
+
+        return qs.order_by('distance')[:limit]

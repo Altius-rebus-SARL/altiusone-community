@@ -144,6 +144,23 @@ CHAT_TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_semantic",
+            "description": "Recherche semantique dans toutes les entites (clients, factures, employes, ecritures, documents, etc.) en utilisant la similarite vectorielle. Utilise cet outil quand la recherche par mots-cles ne suffit pas ou quand l'utilisateur cherche quelque chose de vague ou conceptuel.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Description en langage naturel de ce que tu cherches",
+                    }
+                },
+                "required": ["query"],
+            },
+        },
+    },
 ]
 
 
@@ -177,6 +194,7 @@ def execute_tool_call(
         "search_ecritures": _search_ecritures,
         "search_documents": _search_documents,
         "search_taches": _search_taches,
+        "search_semantic": _search_semantic,
     }
 
     handler = handlers.get(tool_name)
@@ -527,6 +545,98 @@ def _search_taches(
         })
 
     return f"Taches trouvees ({len(operations)}):\n" + "\n".join(lines), sources
+
+
+def _search_semantic(
+    arguments: Dict[str, Any], user
+) -> Tuple[str, List[Dict[str, Any]]]:
+    """Recherche sémantique universelle via ModelEmbedding (pgvector)."""
+    from core.ai.embeddings import embedding_service
+    from core.models import ModelEmbedding
+
+    query = arguments.get("query", "").strip()
+    if not query:
+        return "Aucun terme de recherche fourni.", []
+
+    query_embedding = embedding_service.generate_embedding(query)
+    if query_embedding is None:
+        return "Impossible de générer l'embedding pour la recherche.", []
+
+    similar = ModelEmbedding.search_similar(
+        embedding=query_embedding,
+        limit=15,
+        threshold=0.4,
+    )
+
+    if not similar:
+        return f"Aucun résultat sémantique pour '{query}'.", []
+
+    lines = []
+    sources = []
+    for me in similar:
+        try:
+            obj = me.content_object
+            if obj is None:
+                continue
+
+            model_name = me.content_type.model
+            similarity = round(1 - me.distance, 3)
+
+            title = str(obj)
+            entity_type = model_name
+            url = ''
+            icon = 'bi-search'
+            color = '#7f8c8d'
+
+            # Déterminer les infos selon le type
+            if hasattr(obj, 'raison_sociale'):
+                title = obj.raison_sociale
+                entity_type = 'client'
+                url = f"/core/clients/{obj.id}/"
+                icon = 'bi-building'
+                color = '#3498db'
+            elif hasattr(obj, 'numero_facture'):
+                title = obj.numero_facture
+                entity_type = 'facture'
+                url = f"/facturation/factures/{obj.id}/"
+                icon = 'bi-receipt'
+                color = '#e67e22'
+            elif hasattr(obj, 'matricule') and hasattr(obj, 'nom'):
+                title = f"{getattr(obj, 'prenom', '')} {obj.nom}"
+                entity_type = 'employe'
+                url = f"/salaires/employes/{obj.id}/"
+                icon = 'bi-person-badge'
+                color = '#9b59b6'
+            elif hasattr(obj, 'libelle') and hasattr(obj, 'numero_piece'):
+                title = f"Pièce {obj.numero_piece}"
+                entity_type = 'ecriture'
+                url = f"/comptabilite/ecritures/{obj.id}/"
+                icon = 'bi-journal-text'
+                color = '#1abc9c'
+            elif hasattr(obj, 'nom_fichier'):
+                title = obj.nom_fichier
+                entity_type = 'document'
+                url = f"/documents/documents/{obj.id}/"
+                icon = 'bi-file-earmark-text'
+                color = '#e74c3c'
+
+            lines.append(f"- [{entity_type}] {title} (similarité: {similarity})")
+            if me.text_preview:
+                lines.append(f"  Aperçu: {me.text_preview[:150]}")
+
+            sources.append({
+                "entity_type": entity_type,
+                "entity_id": str(obj.pk),
+                "title": title,
+                "subtitle": f"Similarité: {similarity}",
+                "url": url,
+                "icon": icon,
+                "color": color,
+            })
+        except Exception:
+            continue
+
+    return f"Résultats sémantiques ({len(sources)}):\n" + "\n".join(lines), sources
 
 
 # =========================================================================

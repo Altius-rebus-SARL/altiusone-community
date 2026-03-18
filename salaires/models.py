@@ -304,6 +304,17 @@ class Employe(BaseModel):
         help_text=_('Notes et observations')
     )
 
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            f"{self.prenom} {self.nom}",
+            f"Matricule {self.matricule}",
+            self.fonction,
+            self.departement,
+            self.remarques,
+        ]
+        return ' '.join(filter(None, parts))
+
     class Meta:
         db_table = 'employes'
         verbose_name = _('Employé')
@@ -912,6 +923,15 @@ class FicheSalaire(BaseModel):
         help_text=_('Notes et observations')
     )
 
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            f"Fiche salaire {self.numero_fiche}",
+            f"{self.employe.prenom} {self.employe.nom}" if self.employe else '',
+            f"{self.mois}/{self.annee}",
+        ]
+        return ' '.join(filter(None, parts))
+
     class Meta:
         db_table = 'fiches_salaire'
         verbose_name = _('Fiche de salaire')
@@ -1453,6 +1473,14 @@ class CertificatSalaire(BaseModel):
         verbose_name=_('Généré par'),
         help_text=_('Utilisateur ayant généré le certificat')
     )
+
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            f"Certificat salaire {self.annee}",
+            f"{self.employe.prenom} {self.employe.nom}" if self.employe else '',
+        ]
+        return ' '.join(filter(None, parts))
 
     class Meta:
         db_table = 'certificats_salaire'

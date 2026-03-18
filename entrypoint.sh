@@ -177,6 +177,28 @@ python manage.py init_taux_cotisations || echo "Warning: Social contribution rat
 
 echo "Setup commands done"
 
+# === PULL MODELE OLLAMA (premier démarrage) ===
+OLLAMA_URL="${OLLAMA_URL:-http://ollama:11434}"
+OLLAMA_CHAT_MODEL="${OLLAMA_CHAT_MODEL:-phi3:mini}"
+
+echo "Checking Ollama model $OLLAMA_CHAT_MODEL..."
+if curl -sf "$OLLAMA_URL/api/tags" > /dev/null 2>&1; then
+    # Vérifier si le modèle est déjà téléchargé
+    if ! curl -sf "$OLLAMA_URL/api/tags" | python -c "
+import sys, json
+models = [m['name'] for m in json.load(sys.stdin).get('models', [])]
+sys.exit(0 if any('$OLLAMA_CHAT_MODEL' in m for m in models) else 1)
+" 2>/dev/null; then
+        echo "Downloading Ollama model $OLLAMA_CHAT_MODEL (first run)..."
+        curl -sf "$OLLAMA_URL/api/pull" -d "{\"name\": \"$OLLAMA_CHAT_MODEL\", \"stream\": false}" \
+            --max-time 600 || echo "Warning: Ollama model pull failed, will retry later"
+    else
+        echo "✓ Ollama model $OLLAMA_CHAT_MODEL already available"
+    fi
+else
+    echo "Warning: Ollama not reachable at $OLLAMA_URL, skipping model pull"
+fi
+
 
 # === DEMARRAGE DU SERVEUR ===
 

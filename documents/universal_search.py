@@ -24,6 +24,7 @@ import logging
 from typing import List, Dict, Any, Optional, Set
 from dataclasses import dataclass, field
 from enum import Enum
+from django.conf import settings
 from django.db.models import Q, Value, CharField
 from django.db.models.functions import Concat
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
@@ -342,6 +343,39 @@ class UniversalSearchService:
                     results.extend(type_results)
                 except Exception as e:
                     pass
+
+        # Recherche sémantique (ModelEmbedding pgvector)
+        if semantic_weight > 0:
+            try:
+                semantic_results = self._search_semantic(
+                    query=query,
+                    context=context,
+                    limit=limit,
+                    threshold=float(getattr(settings, 'SEARCH_SEMANTIC_THRESHOLD', 0.5)),
+                )
+
+                # Fusionner: pondérer les scores
+                fulltext_weight = 1 - semantic_weight
+                seen_ids = set()
+
+                for r in results:
+                    r.score *= fulltext_weight
+                    seen_ids.add((r.entity_type.value, r.entity_id))
+
+                for r in semantic_results:
+                    key = (r.entity_type.value, r.entity_id)
+                    if key in seen_ids:
+                        # Bonus: trouvé en fulltext ET sémantique
+                        for existing in results:
+                            if existing.entity_type.value == key[0] and existing.entity_id == key[1]:
+                                existing.score += r.score * semantic_weight
+                                break
+                    else:
+                        r.score *= semantic_weight
+                        results.append(r)
+                        seen_ids.add(key)
+            except Exception as e:
+                logger.debug(f"Recherche sémantique ignorée: {e}")
 
         # Trier par score decroissant
         results.sort(key=lambda r: r.score, reverse=True)
@@ -1439,6 +1473,130 @@ class UniversalSearchService:
                 lines.append(f"{key}: {value}")
 
         return "\n".join(lines)
+
+    # =========================================================================
+    # RECHERCHE SÉMANTIQUE (ModelEmbedding pgvector)
+    # =========================================================================
+
+    def _search_semantic(
+        self,
+        query: str,
+        context: SearchContext,
+        limit: int = 20,
+        threshold: float = 0.5,
+    ) -> List[SearchResult]:
+        """
+        Recherche sémantique sur tous les types via ModelEmbedding.
+
+        Génère un embedding de la query, puis cherche les voisins les plus
+        proches dans la table ModelEmbedding (pgvector cosine distance).
+        """
+        try:
+            from core.ai.embeddings import embedding_service
+            from core.models import ModelEmbedding
+            from django.contrib.contenttypes.models import ContentType
+
+            query_embedding = embedding_service.generate_embedding(query)
+            if query_embedding is None:
+                return []
+
+            # Chercher les plus proches voisins
+            similar = ModelEmbedding.search_similar(
+                embedding=query_embedding,
+                limit=limit,
+                threshold=threshold,
+            )
+
+            results = []
+            for me in similar:
+                try:
+                    obj = me.content_object
+                    if obj is None or not getattr(obj, 'is_active', True):
+                        continue
+
+                    # Déterminer le type d'entité
+                    model_name = me.content_type.model
+                    entity_type = self._model_to_entity_type(model_name)
+                    if entity_type is None:
+                        continue
+
+                    # Vérifier que le type est dans les filtres
+                    if context.entity_types and entity_type not in context.entity_types:
+                        continue
+
+                    # Construire le résultat
+                    config = self.ENTITY_CONFIG.get(entity_type, {})
+                    similarity = 1 - me.distance  # distance cosinus -> similarité
+
+                    result = SearchResult(
+                        entity_type=entity_type,
+                        entity_id=str(obj.pk),
+                        title=self._get_object_title(obj, entity_type),
+                        subtitle=self._get_object_subtitle(obj, entity_type),
+                        description=me.text_preview or '',
+                        score=similarity,
+                        url=config.get('url_pattern', '').replace('{id}', str(obj.pk)),
+                        icon=config.get('icon', 'ph-magnifying-glass'),
+                        color=config.get('color', 'secondary'),
+                    )
+                    results.append(result)
+
+                except Exception as e:
+                    logger.debug(f"Erreur résultat sémantique {me.pk}: {e}")
+                    continue
+
+            return results
+
+        except Exception as e:
+            logger.warning(f"Recherche sémantique échouée: {e}")
+            return []
+
+    def _model_to_entity_type(self, model_name: str) -> Optional[EntityType]:
+        """Mappe un nom de modèle Django vers EntityType."""
+        mapping = {
+            'client': EntityType.CLIENT,
+            'mandat': EntityType.MANDAT,
+            'employe': EntityType.EMPLOYE,
+            'contact': EntityType.CONTACT,
+            'facture': EntityType.FACTURE,
+            'ecriturecomptable': EntityType.ECRITURE,
+            'piececomptable': EntityType.PIECE_COMPTABLE,
+            'compte': EntityType.COMPTE,
+            'journal': EntityType.JOURNAL,
+            'declarationtva': EntityType.DECLARATION_TVA,
+            'declarationfiscale': EntityType.DECLARATION_FISCALE,
+            'document': EntityType.DOCUMENT,
+            'tiers': EntityType.CLIENT,  # fallback
+            'position': EntityType.TACHE,
+            'operation': EntityType.TACHE,
+        }
+        return mapping.get(model_name)
+
+    def _get_object_title(self, obj, entity_type: EntityType) -> str:
+        """Titre lisible d'un objet pour les résultats."""
+        if hasattr(obj, 'raison_sociale'):
+            return obj.raison_sociale
+        if hasattr(obj, 'numero_facture'):
+            return obj.numero_facture
+        if hasattr(obj, 'nom') and hasattr(obj, 'prenom'):
+            return f"{obj.prenom} {obj.nom}"
+        if hasattr(obj, 'nom'):
+            return obj.nom
+        if hasattr(obj, 'titre'):
+            return obj.titre
+        if hasattr(obj, 'numero'):
+            return str(obj.numero)
+        if hasattr(obj, 'libelle'):
+            return obj.libelle
+        return str(obj)
+
+    def _get_object_subtitle(self, obj, entity_type: EntityType) -> str:
+        """Sous-titre d'un objet."""
+        if hasattr(obj, 'statut'):
+            return str(obj.statut)
+        if hasattr(obj, 'fonction'):
+            return obj.fonction or ''
+        return ''
 
 
 # Instance singleton

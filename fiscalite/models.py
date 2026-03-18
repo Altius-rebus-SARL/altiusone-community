@@ -242,6 +242,16 @@ class DeclarationFiscale(BaseModel):
         help_text=_('Notes et observations sur cette déclaration')
     )
 
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            f"Déclaration fiscale {self.numero_declaration}",
+            f"{self.canton} {self.commune}",
+            self.remarques,
+            self.mandat.client.raison_sociale if self.mandat and self.mandat.client else '',
+        ]
+        return ' '.join(filter(None, parts))
+
     class Meta:
         db_table = 'declarations_fiscales'
         verbose_name = _('Déclaration fiscale')
@@ -403,6 +413,15 @@ class CorrectionFiscale(BaseModel):
         verbose_name=_('Référence légale'),
         help_text=_('Article de loi, circulaire AFC ou jurisprudence')
     )
+
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            self.description,
+            self.justification,
+            self.reference_legale,
+        ]
+        return ' '.join(filter(None, parts))
 
     class Meta:
         db_table = 'corrections_fiscales'

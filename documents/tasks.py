@@ -40,17 +40,12 @@ def traiter_document_ocr(self, document_id: str):
         document = Document.objects.get(id=document_id)
         logger.info(f"Debut traitement AI document {document_id}: {document.nom_fichier}")
 
-        # Verifier si le service AI est disponible
-        if not ai_service.enabled:
-            logger.warning(f"Service AI non configure, document {document_id} mis en attente")
-            return {'status': 'skipped', 'reason': 'AI service not configured'}
-
         # Creer un enregistrement de traitement
         traitement = TraitementDocument.objects.create(
             document=document,
             type_traitement='OCR',
             statut='EN_COURS',
-            moteur='AltiusOne AI SDK'
+            moteur='Local (Tesseract + Ollama)'
         )
 
         # Mettre a jour le statut du document
@@ -97,9 +92,11 @@ def traiter_document_ocr(self, document_id: str):
         document.statut_traitement = 'OCR_TERMINE'
         document.save()
 
-        # Sauvegarder l'embedding
+        # Sauvegarder l'embedding (DocumentEmbedding legacy + ModelEmbedding)
         if result['embedding']:
             from documents.models import DocumentEmbedding
+            from core.models import ModelEmbedding
+            from django.contrib.contenttypes.models import ContentType
             import hashlib
 
             text = document.ocr_text or document.description or document.nom_fichier
@@ -109,10 +106,23 @@ def traiter_document_ocr(self, document_id: str):
                 document=document,
                 defaults={
                     'embedding': result['embedding'],
-                    'model_used': 'altiusone-768',
+                    'model_used': 'paraphrase-multilingual-mpnet-base-v2',
                     'dimensions': 768,
                     'text_hash': text_hash,
                     'text_length': len(text)
+                }
+            )
+
+            # Aussi dans ModelEmbedding (table générique)
+            ct = ContentType.objects.get_for_model(document)
+            ModelEmbedding.objects.update_or_create(
+                content_type=ct,
+                object_id=document.pk,
+                defaults={
+                    'embedding': result['embedding'],
+                    'text_hash': text_hash,
+                    'text_preview': text[:200],
+                    'model_used': 'paraphrase-multilingual-mpnet-base-v2',
                 }
             )
 
@@ -182,14 +192,9 @@ def traiter_documents_en_attente():
     Gere aussi les documents bloques (EN_COURS depuis plus de 5 minutes).
     """
     from documents.models import Document
-    from documents.ai_service import ai_service
     from django.db.models import Q
     from django.utils import timezone
     from datetime import timedelta
-
-    if not ai_service.enabled:
-        logger.warning("Service AI non configure, traitement en attente ignore")
-        return {'documents_queued': 0, 'errors_retried': 0, 'stuck_reset': 0, 'reason': 'AI service not configured'}
 
     # 1. Reset des documents BLOQUES (EN_COURS depuis plus de 5 minutes)
     seuil_blocage = timezone.now() - timedelta(minutes=5)
@@ -440,11 +445,6 @@ def reindexer_tous_documents(mandat_id: str = None, batch_size: int = 50):
     IMPORTANT: A executer apres la migration vers 768D.
     """
     from documents.search import search_service
-    from documents.ai_service import ai_service
-
-    if not ai_service.enabled:
-        logger.error("Service AI non configure, reindexation impossible")
-        return {'status': 'error', 'reason': 'AI service not configured'}
 
     try:
         indexed, errors = search_service.reindex_all_documents(
@@ -472,11 +472,6 @@ def indexer_documents_sans_embedding():
     """
     from documents.models import Document, DocumentEmbedding
     from documents.search import search_service
-    from documents.ai_service import ai_service
-
-    if not ai_service.enabled:
-        logger.warning("Service AI non configure, indexation automatique ignoree")
-        return {'indexed_count': 0, 'reason': 'AI service not configured'}
 
     # Trouver les documents avec texte mais sans embedding
     documents_avec_embedding = DocumentEmbedding.objects.values_list('document_id', flat=True)
@@ -507,11 +502,19 @@ def indexer_documents_sans_embedding():
 @shared_task
 def verifier_service_ai():
     """
-    Tache pour verifier l'etat du service AI.
-    Utile pour le monitoring.
+    Tache pour verifier l'etat des services AI locaux.
     """
     from documents.ai_service import ai_service
 
     status = ai_service.health_check()
-    logger.info(f"Verification service AI: {status}")
+
+    # Pull le modèle Ollama si pas encore chargé
+    if not status.get('ollama', {}).get('model_loaded'):
+        try:
+            from core.ai.chat import chat_service
+            chat_service.pull_model()
+        except Exception as e:
+            logger.warning(f"Pull modèle Ollama échoué: {e}")
+
+    logger.info(f"Verification service AI local: {status}")
     return status

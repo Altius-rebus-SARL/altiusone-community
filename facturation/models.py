@@ -134,6 +134,14 @@ class Prestation(BaseModel):
         help_text=_("Indique si la prestation est active")
     )
 
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            f"{self.code} {self.libelle}",
+            self.description,
+        ]
+        return ' '.join(filter(None, parts))
+
     class Meta:
         db_table = 'prestations'
         verbose_name = _('Prestation')
@@ -534,6 +542,15 @@ class TimeTracking(BaseModel):
         help_text=_("Pièces jointes : preuves du travail effectué (captures, documents, etc.)")
     )
 
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            self.description,
+            self.notes_internes,
+            self.prestation.libelle if self.prestation else '',
+        ]
+        return ' '.join(filter(None, parts))
+
     class Meta:
         db_table = 'time_tracking'
         verbose_name = _('Suivi du temps')
@@ -917,6 +934,17 @@ class Facture(BaseModel):
         verbose_name=_("Validée par"),
         help_text=_("Utilisateur ayant validé la facture")
     )
+
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            f"Facture {self.numero_facture}",
+            self.client.raison_sociale if self.client else '',
+            self.introduction,
+            self.conclusion,
+            self.notes,
+        ]
+        return ' '.join(filter(None, parts))
 
     class Meta:
         db_table = 'factures'

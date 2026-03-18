@@ -1,29 +1,17 @@
 # documents/ai_service.py
 """
-Service AI unifie pour AltiusOne.
+Service AI unifie pour AltiusOne — 100% local.
 
-Combine traitement local et API AltiusOne AI:
-- OCR: Tesseract local (images, PDF scannes, multilingue FR/DE/EN/IT)
-- Embeddings: API AltiusOne AI (vecteurs 768D, nomic-embed-text)
-- Extraction structuree: API AltiusOne AI (qwen2.5:3b)
-- Chat IA: API AltiusOne AI (qwen2.5:3b, streaming SSE)
-- Resume et Q&A sur documents
+- OCR: Tesseract local (images, PDF scannés, multilingue FR/DE/EN/IT)
+- Embeddings: sentence-transformers local (768D) via core.ai.embeddings
+- Chat/Classification/Extraction: Ollama local via core.ai.chat
+- Résumé et Q&A sur documents
 
-Configuration via .env:
-- AI_API_KEY: Cle API AltiusOne
-- AI_API_URL: URL de l'API (https://ai.altiusone.ch)
-
-Endpoints API utilises:
-- POST /embeddings - Generation d'embeddings 768D
-- POST /chat - Chat avec le LLM
-- POST /extract - Extraction structuree
-- GET /health - Health check
+Aucune dépendance externe. Aucune donnée ne quitte l'instance.
 """
 import logging
 import hashlib
-import base64
-import requests
-from typing import Optional, Dict, Any, List, Union
+from typing import Optional, Dict, Any, List
 from dataclasses import dataclass
 from django.conf import settings
 
@@ -117,124 +105,29 @@ class AltiusAIService:
     }
 
     def __init__(self):
-        self.api_url = getattr(settings, 'AI_API_URL', 'https://ai.altiusone.ch').rstrip('/')
-        self.api_key = getattr(settings, 'AI_API_KEY', '')
-        self.timeout = 300  # Timeout augmente pour operations longues (300s = 5min)
-        self.timeout_short = 60  # Timeout court pour operations rapides (embeddings, health)
+        self._embedding_service = None
+        self._chat_service = None
+
+    @property
+    def embedding_svc(self):
+        if self._embedding_service is None:
+            from core.ai.embeddings import embedding_service
+            self._embedding_service = embedding_service
+        return self._embedding_service
+
+    @property
+    def chat_svc(self):
+        if self._chat_service is None:
+            from core.ai.chat import chat_service
+            self._chat_service = chat_service
+        return self._chat_service
 
     @property
     def enabled(self) -> bool:
-        """Verifie si le service AI est configure."""
-        return bool(self.api_key and self.api_url)
+        """Le service local est toujours disponible."""
+        return True
 
-    def _get_headers(self) -> Dict[str, str]:
-        """Retourne les headers pour les requetes API."""
-        return {
-            'X-API-Key': self.api_key,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        }
-
-    def _make_request(
-        self,
-        method: str,
-        endpoint: str,
-        json_data: Optional[Dict] = None,
-        files: Optional[Dict] = None,
-        timeout: Optional[int] = None
-    ) -> Dict[str, Any]:
-        """
-        Effectue une requete vers l'API AltiusOne AI.
-
-        Args:
-            method: HTTP method (GET, POST)
-            endpoint: Endpoint (ex: /embeddings, /ocr, /chat)
-            json_data: Donnees JSON a envoyer
-            files: Fichiers a uploader (multipart)
-            timeout: Timeout personnalise
-
-        Returns:
-            Reponse JSON de l'API
-
-        Raises:
-            AIServiceError: Si la requete echoue
-        """
-        if not self.enabled:
-            raise AIServiceError("Service AI non configure. Verifiez AI_API_KEY et AI_API_URL dans .env")
-
-        url = f"{self.api_url}{endpoint}"
-        timeout = timeout or self.timeout
-
-        try:
-            headers = self._get_headers()
-
-            if files:
-                # Multipart pour upload de fichiers - pas de Content-Type (requests le gere)
-                headers.pop('Content-Type', None)
-                response = requests.request(
-                    method,
-                    url,
-                    data=json_data,
-                    files=files,
-                    headers=headers,
-                    timeout=timeout
-                )
-            else:
-                response = requests.request(
-                    method,
-                    url,
-                    json=json_data,
-                    headers=headers,
-                    timeout=timeout
-                )
-
-            # Log pour debug
-            if response.status_code != 200:
-                logger.error(f"API Error {response.status_code}: {response.text[:500]}")
-
-            response.raise_for_status()
-            return response.json()
-
-        except requests.exceptions.Timeout:
-            logger.error(f"Timeout API: {url}")
-            raise AIServiceError(f"L'API n'a pas repondu dans les {timeout}s")
-
-        except requests.exceptions.ConnectionError:
-            logger.error(f"Connexion impossible: {url}")
-            raise AIServiceError(f"Impossible de se connecter a {self.api_url}")
-
-        except requests.exceptions.HTTPError as e:
-            status_code = e.response.status_code
-            # Cloudflare-specific errors (return HTML, not JSON)
-            cloudflare_errors = {
-                520: "Le service IA a retourne une erreur inattendue",
-                521: "Le service IA est arrete",
-                522: "Le service IA est injoignable (connexion impossible)",
-                523: "Le service IA est injoignable (origine introuvable)",
-                524: "Le service IA met trop de temps a repondre",
-            }
-            if status_code in cloudflare_errors:
-                error_msg = cloudflare_errors[status_code]
-                logger.error(f"Cloudflare {status_code}: {error_msg} ({url})")
-                raise AIServiceError(error_msg)
-
-            error_msg = f"Erreur HTTP {status_code}"
-            try:
-                # Detect HTML responses (Cloudflare, nginx, etc.)
-                content_type = e.response.headers.get('content-type', '')
-                if 'text/html' in content_type or e.response.text[:15].strip().startswith(('<', '<!',)):
-                    error_msg = f"Le service IA a retourne une erreur (HTTP {status_code})"
-                else:
-                    error_detail = e.response.json().get('detail', e.response.text)
-                    error_msg = f"{error_msg}: {error_detail}"
-            except Exception:
-                error_msg = f"Le service IA a retourne une erreur (HTTP {status_code})"
-            logger.error(error_msg)
-            raise AIServiceError(error_msg)
-
-        except Exception as e:
-            logger.error(f"Erreur inattendue API: {e}")
-            raise AIServiceError(f"Erreur inattendue: {str(e)}")
+    # _make_request supprimé — plus d'API externe
 
     # =========================================================================
     # OCR - EXTRACTION DE TEXTE
@@ -448,78 +341,25 @@ class AltiusAIService:
             raise AIServiceError(f"Erreur lors de l'extraction du texte DOCX: {str(e)}")
 
     # =========================================================================
-    # EMBEDDINGS - VECTORISATION
+    # EMBEDDINGS - VECTORISATION (local sentence-transformers)
     # =========================================================================
 
     def embed(self, text: str) -> List[float]:
-        """
-        Genere un embedding 768D pour un texte.
-
-        Args:
-            text: Texte a vectoriser
-
-        Returns:
-            Liste de 768 floats representant le vecteur
-        """
+        """Genere un embedding 768D via sentence-transformers local."""
         if not text or not text.strip():
             raise AIServiceError("Texte vide fourni pour l'embedding")
-
-        # Tronquer si trop long (limite API)
-        text = text[:30000]
-
-        try:
-            response = self._make_request(
-                'POST',
-                '/embeddings',
-                json_data={'text': text}
-            )
-
-            embeddings = response.get('embeddings', [])
-            if embeddings and len(embeddings) > 0:
-                return embeddings[0]
-
-            # Fallback si format different
-            if 'embedding' in response:
-                return response['embedding']
-
-            raise AIServiceError("Aucun embedding retourne par l'API")
-
-        except AIServiceError:
-            raise
-        except Exception as e:
-            logger.error(f"Erreur generation embedding: {e}")
-            raise AIServiceError(f"Erreur lors de la generation de l'embedding: {str(e)}")
+        result = self.embedding_svc.generate_embedding(text)
+        if result is None:
+            raise AIServiceError("Echec generation embedding")
+        return result
 
     def embed_batch(self, texts: List[str]) -> List[Optional[List[float]]]:
-        """
-        Genere des embeddings pour plusieurs textes.
-
-        Args:
-            texts: Liste de textes a vectoriser
-
-        Returns:
-            Liste d'embeddings (ou None pour les textes vides)
-        """
-        if not texts:
-            return []
-
-        results = []
-        for text in texts:
-            if text and text.strip():
-                try:
-                    embedding = self.embed(text)
-                    results.append(embedding)
-                except AIServiceError:
-                    results.append(None)
-            else:
-                results.append(None)
-
-        return results
+        """Genere des embeddings pour plusieurs textes."""
+        return self.embedding_svc.generate_embeddings_batch(texts)
 
     @property
     def embedding_dimensions(self) -> int:
-        """Retourne le nombre de dimensions des embeddings (768)."""
-        return 768
+        return self.embedding_svc.dimensions
 
     # =========================================================================
     # CLASSIFICATION DE DOCUMENTS
@@ -531,82 +371,59 @@ class AltiusAIService:
         filename: Optional[str] = None
     ) -> ClassificationResult:
         """
-        Classifie automatiquement un document en utilisant le Chat IA.
+        Classifie un document par similarite vectorielle (pas de LLM).
+
+        Compare l'embedding du document avec des embeddings de reference
+        pour chaque type. ~50ms, deterministe.
+
+        La metrique de distance est configurable via le classifier
+        (cosine par defaut, extensible a l2, jaccard, etc.)
 
         Args:
             text: Texte du document (extrait par OCR)
-            filename: Nom du fichier (optionnel, aide a la classification)
+            filename: Nom du fichier (optionnel, ajoute au texte)
 
         Returns:
             ClassificationResult avec type, confiance et tags
         """
-        # Types de documents disponibles (depuis schemas.py)
-        types_disponibles = get_available_document_types()
-
-        system_prompt = f"""Tu es un assistant specialise dans la classification de documents professionnels (comptabilite, facturation, RH, projets).
-
-Types de documents disponibles:
-- FACTURE_ACHAT, FACTURE_VENTE: Factures fournisseurs ou clients
-- CONTRAT_TRAVAIL: Contrats de travail (CDI, CDD, apprentissage)
-- CONTRAT_BAIL: Contrats de location (habitation, commercial)
-- CONTRAT: Autres contrats (prestation, vente, etc.)
-- FICHE_SALAIRE: Fiches/bulletins de paie mensuels
-- CERTIFICAT_SALAIRE: Certificats de salaire annuels
-- RELEVE_BANQUE, EXTRAIT_BANCAIRE: Releves de compte bancaire
-- DECLARATION_TVA: Declarations TVA trimestrielles/annuelles
-- DEVIS, OFFRE: Devis et offres commerciales
-- ATTESTATION: Attestations diverses (domicile, travail, etc.)
-- CORRESPONDANCE, COURRIER: Lettres et correspondance
-
-Analyse le document et determine son type.
-Reponds UNIQUEMENT en JSON valide:
-{{"type_document": "TYPE_EXACT", "confidence": 0.95, "tags": ["tag1", "tag2"], "raison": "breve explication"}}"""
-
-        user_prompt = f"""Classifie ce document suisse:
-Nom fichier: {filename or 'inconnu'}
-
-Contenu:
-{text[:4000]}"""
+        from core.ai.classifier import document_classifier
 
         try:
-            chat_response = self.chat(message=user_prompt, system=system_prompt)
-            response_text = chat_response.get('response', '') if isinstance(chat_response, dict) else str(chat_response)
+            # Preparer le texte (inclure le nom de fichier pour aider)
+            classify_text = text[:8000]
+            if filename:
+                classify_text = f"Fichier: {filename}\n\n{classify_text}"
 
-            # Parser la reponse JSON
-            import json
-            try:
-                # Essayer de trouver le JSON dans la reponse
-                json_start = response_text.find('{')
-                json_end = response_text.rfind('}') + 1
-                if json_start >= 0 and json_end > json_start:
-                    result = json.loads(response_text[json_start:json_end])
-                else:
-                    result = json.loads(response_text)
-            except json.JSONDecodeError:
-                # Fallback si pas de JSON valide
-                result = {
-                    'type_document': 'AUTRE',
-                    'confidence': 0.5,
-                    'tags': []
-                }
+            # Classification par similarite vectorielle
+            results = document_classifier.classify(classify_text, top_k=3)
 
-            type_doc = result.get('type_document', 'AUTRE')
-            category = self.TYPE_TO_CATEGORY.get(type_doc, 'Divers')
+            if not results:
+                return ClassificationResult(
+                    type_document='AUTRE', confidence=0.0,
+                    categories=['Divers'], tags=[]
+                )
+
+            best_type, best_score = results[0]
+            category = self.TYPE_TO_CATEGORY.get(best_type, 'Divers')
+
+            # Tags = les 2-3 meilleurs types si proches en score
+            tags = []
+            for doc_type, score in results[1:]:
+                if score > best_score * 0.8:  # dans 80% du meilleur score
+                    tags.append(doc_type.lower())
 
             return ClassificationResult(
-                type_document=type_doc,
-                confidence=float(result.get('confidence', 0.5)),
+                type_document=best_type,
+                confidence=round(best_score, 3),
                 categories=[category],
-                tags=result.get('tags', [])
+                tags=tags
             )
 
         except Exception as e:
             logger.error(f"Erreur classification document: {e}")
             return ClassificationResult(
-                type_document='AUTRE',
-                confidence=0.0,
-                categories=['Divers'],
-                tags=[]
+                type_document='AUTRE', confidence=0.0,
+                categories=['Divers'], tags=[]
             )
 
     # =========================================================================
@@ -638,34 +455,33 @@ Contenu:
         Returns:
             ExtractionResult avec les donnees extraites
         """
-        # Utiliser le schema personnalise ou celui defini pour le type de document
         schema = custom_schema or get_schema_for_document_type(type_document)
 
+        import json as _json
+        system_prompt = f"""Tu es un assistant d'extraction de metadonnees pour documents professionnels suisses.
+Extrais les informations structurees du document selon ce schema JSON:
+{_json.dumps(schema, indent=2, ensure_ascii=False) if schema else 'Extrais toutes les informations pertinentes.'}
+
+Reponds UNIQUEMENT en JSON valide. Langue de sortie: {output_language}."""
+
+        user_prompt = f"Document de type {type_document}:\n\n{text[:8000]}"
+
         try:
-            response = self._make_request(
-                'POST',
-                '/extract',
-                json_data={
-                    'text': text[:15000],  # Augmente la limite pour documents longs
-                    'schema': schema,
-                    'source_language': source_language,
-                    'output_language': output_language,
-                }
-            )
+            chat_response = self.chat(message=user_prompt, system=system_prompt, temperature=0.1)
+            response_text = chat_response.get('response', '')
 
-            # Extraire les donnees de la reponse
-            data = response.get('data', response.get('extracted', response))
-            if isinstance(data, dict) and 'data' not in response and 'extracted' not in response:
-                # La reponse est directement les donnees
-                pass
+            try:
+                json_start = response_text.find('{')
+                json_end = response_text.rfind('}') + 1
+                if json_start >= 0 and json_end > json_start:
+                    data = _json.loads(response_text[json_start:json_end])
+                else:
+                    data = {}
+            except _json.JSONDecodeError:
+                data = {}
 
-            return ExtractionResult(
-                data=data if isinstance(data, dict) else {},
-                confidence=response.get('confidence', 0.9)
-            )
+            return ExtractionResult(data=data, confidence=0.8 if data else 0.0)
 
-        except AIServiceError:
-            raise
         except Exception as e:
             logger.error(f"Erreur extraction metadonnees: {e}")
             return ExtractionResult(data={}, confidence=0.0)
@@ -686,86 +502,22 @@ Contenu:
         tools: Optional[List[dict]] = None,
         messages_override: Optional[List[Dict[str, str]]] = None,
     ) -> Dict[str, Any]:
-        """
-        Interroge l'assistant IA.
-
-        Args:
-            message: Question ou instruction
-            system: Prompt systeme (alias de system_prompt)
-            system_prompt: Prompt systeme (personnalite de l'assistant)
-            context: Contexte additionnel (ex: contenu document)
-            history: Historique de conversation [{role: 'user'|'assistant', content: '...'}]
-            temperature: Temperature de generation (0.0-1.0)
-            max_tokens: Limite de tokens pour la reponse (reduit le temps de reponse)
-            tools: Definitions d'outils pour le function calling
-            messages_override: Si fourni, utilise ces messages directement (ignore message/system/history)
-
-        Returns:
-            Dict avec 'response', 'tokens_prompt', 'tokens_completion', et optionnel 'tool_calls'
-        """
-        if messages_override:
-            messages = messages_override
-        else:
-            # Support des deux noms de parametre
-            system = system or system_prompt
-
-            if context:
-                message = f"Contexte:\n{context}\n\nQuestion: {message}"
-
-            # Construire les messages pour l'API
-            messages = []
-            if system:
-                messages.append({'role': 'system', 'content': system})
-
-            # Ajouter l'historique de conversation (exclure le dernier message user)
-            if history:
-                for msg in history[:-1] if history else []:
-                    role = msg.get('role', '').lower()
-                    content = msg.get('content', '')
-                    if role in ['user', 'assistant'] and content:
-                        messages.append({'role': role, 'content': content})
-
-            messages.append({'role': 'user', 'content': message})
-
+        """Interroge le LLM local via Ollama. Même interface qu'avant."""
         try:
-            request_data = {
-                'messages': messages,
-                'temperature': temperature
-            }
-            if max_tokens:
-                request_data['max_tokens'] = max_tokens
-            if tools:
-                request_data['tools'] = tools
-
-            response = self._make_request(
-                'POST',
-                '/chat',
-                json_data=request_data
+            return self.chat_svc.chat(
+                message=message,
+                system=system,
+                system_prompt=system_prompt,
+                context=context,
+                history=history,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                tools=tools,
+                messages_override=messages_override,
             )
-
-            # Extraire le contenu de la reponse - supporter differents formats
-            response_text = response.get('message',
-                            response.get('content',
-                            response.get('response', '')))
-
-            result = {
-                'response': response_text,
-                'tokens_prompt': response.get('tokens_prompt', response.get('usage', {}).get('prompt_tokens', 0)),
-                'tokens_completion': response.get('tokens_completion', response.get('usage', {}).get('completion_tokens', 0)),
-            }
-
-            # Propager les tool_calls si presents
-            tool_calls = response.get('tool_calls')
-            if tool_calls:
-                result['tool_calls'] = tool_calls
-
-            return result
-
-        except AIServiceError:
-            raise
         except Exception as e:
             logger.error(f"Erreur chat IA: {e}")
-            raise AIServiceError(f"Erreur lors de la requete chat: {str(e)}")
+            raise AIServiceError(str(e))
 
     def chat_stream(
         self,
@@ -779,131 +531,18 @@ Contenu:
         tools: Optional[List[dict]] = None,
         messages_override: Optional[List[Dict[str, str]]] = None,
     ):
-        """
-        Stream chat response token by token via SSE.
-
-        Same signature as chat() but yields dicts from the SSE stream.
-        Falls back gracefully if the server returns a non-streaming JSON response.
-
-        Yields:
-            Dict with 'token', 'done', 'tool_calls', and optionally 'model', 'tokens_used', 'processing_time_ms'
-        """
-        if not self.enabled:
-            raise AIServiceError("Service AI non configure. Verifiez AI_API_KEY et AI_API_URL dans .env")
-
-        if messages_override:
-            messages = messages_override
-        else:
-            # Support des deux noms de parametre
-            system = system or system_prompt
-
-            if context:
-                message = f"Contexte:\n{context}\n\nQuestion: {message}"
-
-            # Construire les messages pour l'API
-            messages = []
-            if system:
-                messages.append({'role': 'system', 'content': system})
-
-            if history:
-                for msg in history[:-1] if history else []:
-                    role = msg.get('role', '').lower()
-                    content = msg.get('content', '')
-                    if role in ['user', 'assistant'] and content:
-                        messages.append({'role': role, 'content': content})
-
-            messages.append({'role': 'user', 'content': message})
-
-        url = f"{self.api_url}/chat"
-
-        request_body = {
-            'messages': messages,
-            'temperature': temperature,
-            'max_tokens': max_tokens,
-            'stream': True,
-        }
-        if tools:
-            request_body['tools'] = tools
-
-        try:
-            import json as _json
-            response = requests.post(
-                url,
-                json=request_body,
-                headers=self._get_headers(),
-                stream=True,
-                timeout=self.timeout,
-            )
-
-            if response.status_code != 200:
-                cloudflare_errors = {
-                    520: "Le service IA a retourne une erreur inattendue",
-                    521: "Le service IA est arrete",
-                    522: "Le service IA est injoignable (connexion impossible)",
-                    523: "Le service IA est injoignable (origine introuvable)",
-                    524: "Le service IA met trop de temps a repondre",
-                }
-                if response.status_code in cloudflare_errors:
-                    raise AIServiceError(cloudflare_errors[response.status_code])
-                raise AIServiceError(f"Erreur HTTP {response.status_code}")
-
-            # Check if response is SSE or plain JSON
-            content_type = response.headers.get('content-type', '')
-            is_sse = 'text/event-stream' in content_type
-
-            if is_sse:
-                # True SSE streaming - yield token by token
-                for line in response.iter_lines(decode_unicode=True):
-                    if not line:
-                        continue
-                    if line.startswith('data: '):
-                        line = line[6:]
-                    try:
-                        event = _json.loads(line)
-                        yield event
-                        if event.get('done'):
-                            return
-                    except _json.JSONDecodeError:
-                        continue
-            else:
-                # Non-streaming fallback: server returned plain JSON
-                data = response.json()
-
-                # Check for tool_calls
-                tool_calls = data.get('tool_calls')
-                if tool_calls:
-                    yield {
-                        'type': 'tool_calls',
-                        'tool_calls': tool_calls,
-                    }
-                    return
-
-                response_text = data.get('message',
-                                data.get('content',
-                                data.get('response', '')))
-
-                # Yield the full response as a single token
-                if response_text:
-                    yield {'type': 'token', 'token': response_text}
-
-                # Yield done event
-                yield {
-                    'type': 'done',
-                    'done': True,
-                    'model': data.get('model', ''),
-                    'tokens_used': data.get('tokens_used', 0),
-                    'processing_time_ms': data.get('processing_time_ms', 0),
-                }
-
-        except AIServiceError:
-            raise
-        except requests.exceptions.Timeout:
-            raise AIServiceError(f"L'API n'a pas repondu dans les {self.timeout}s")
-        except requests.exceptions.ConnectionError:
-            raise AIServiceError(f"Impossible de se connecter a {self.api_url}")
-        except Exception as e:
-            logger.error(f"Erreur chat stream: {e}")
-            raise AIServiceError(f"Erreur lors du streaming chat: {str(e)}")
+        """Stream la réponse token par token via Ollama local."""
+        yield from self.chat_svc.chat_stream(
+            message=message,
+            system=system,
+            system_prompt=system_prompt,
+            context=context,
+            history=history,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            tools=tools,
+            messages_override=messages_override,
+        )
 
     # =========================================================================
     # RESUME ET Q&A SUR DOCUMENTS
@@ -1156,57 +795,31 @@ Question: {question}"""
         return hashlib.sha256(text.encode()).hexdigest()
 
     def compute_similarity(self, embedding1: List[float], embedding2: List[float]) -> float:
-        """
-        Calcule la similarite cosinus entre deux embeddings.
-
-        Returns:
-            Score entre 0 et 1 (1 = identique)
-        """
-        import numpy as np
-
-        a = np.array(embedding1)
-        b = np.array(embedding2)
-
-        return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)))
+        """Calcule la similarite cosinus entre deux embeddings."""
+        return self.embedding_svc.compute_similarity(embedding1, embedding2)
 
     def health_check(self) -> Dict[str, Any]:
-        """
-        Verifie l'etat du service AI.
-
-        Returns:
-            Dict avec le statut et details
-        """
+        """Verifie l'etat des services IA locaux."""
         status = {
-            'enabled': self.enabled,
-            'api_url': self.api_url,
+            'enabled': True,
+            'backend': 'local',
+            'embedding_available': self.embedding_svc.is_available(),
+            'embedding_model': self.embedding_svc.model_name,
             'connected': False,
-            'error': None
+            'error': None,
         }
 
-        if not self.enabled:
-            status['error'] = "Service non configure (AI_API_KEY manquant)"
-            return status
-
         try:
-            # 1. Verifier le health endpoint (pas d'auth requise)
-            health_response = requests.get(
-                f"{self.api_url}/health",
-                timeout=10
-            )
-            if health_response.status_code == 200:
-                health_data = health_response.json()
-                status['api_status'] = health_data.get('status', 'unknown')
-                status['api_version'] = health_data.get('version', 'unknown')
+            # Test embedding
+            test = self.embedding_svc.generate_embedding("test")
+            status['connected'] = test is not None and len(test) == 768
+            status['embedding_dimensions'] = len(test) if test else 0
 
-            # 2. Test avec un embedding pour verifier l'API key
-            test_embedding = self.embed("test")
-            status['connected'] = len(test_embedding) == 768
-            status['embedding_dimensions'] = len(test_embedding)
-
-        except AIServiceError as e:
-            status['error'] = str(e)
+            # Test Ollama
+            ollama_status = self.chat_svc.health_check()
+            status['ollama'] = ollama_status
         except Exception as e:
-            status['error'] = f"Erreur connexion: {str(e)}"
+            status['error'] = str(e)
 
         return status
 

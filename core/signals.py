@@ -141,5 +141,47 @@ def envoyer_push_notification(sender, instance, created, **kwargs):
         logger.error("Erreur envoi push notification: %s", e)
 
 
+# =============================================================================
+# EMBEDDING SIGNALS (vectorisation automatique)
+# =============================================================================
 
+def _on_model_save_generate_embedding(sender, instance, **kwargs):
+    """
+    Handler post_save générique pour générer un embedding.
+
+    Connecté dynamiquement dans CoreConfig.ready() pour tous les modèles
+    listés dans MODEL_EMBEDDING_CONFIG.
+    """
+    if not hasattr(instance, 'texte_pour_embedding'):
+        return
+
+    try:
+        from core.tasks import generer_embedding_task
+        generer_embedding_task.delay(
+            app_label=instance._meta.app_label,
+            model_name=instance._meta.model_name,
+            object_id=str(instance.pk),
+        )
+    except Exception as e:
+        logger.debug(f"Impossible de lancer la task embedding pour {instance}: {e}")
+
+
+def register_embedding_signals():
+    """
+    Connecte le signal post_save pour tous les modèles du registre.
+
+    Appelé depuis CoreConfig.ready().
+    """
+    from core.embedding_config import MODEL_EMBEDDING_CONFIG, get_model_class
+
+    for app_model in MODEL_EMBEDDING_CONFIG:
+        try:
+            model_class = get_model_class(app_model)
+            post_save.connect(
+                _on_model_save_generate_embedding,
+                sender=model_class,
+                dispatch_uid=f'embedding_{app_model}',
+            )
+        except Exception as e:
+            logger.debug(f"Signal embedding non connecté pour {app_model}: {e}")
 
