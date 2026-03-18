@@ -143,7 +143,7 @@ DONNEES TROUVEES:
         conversation,
         message: str,
         use_semantic_search: bool = True,
-        max_context_results: int = 10,
+        max_context_results: int = 5,
         similarity_threshold: float = 0.3,
         entity_types: Optional[List[EntityType]] = None
     ) -> ChatResponse:
@@ -285,7 +285,7 @@ DONNEES TROUVEES:
         conversation,
         message: str,
         use_semantic_search: bool = True,
-        max_context_results: int = 10,
+        max_context_results: int = 5,
         entity_types=None
     ):
         """
@@ -475,59 +475,36 @@ DONNEES TROUVEES:
         search_results: List[SearchResult]
     ) -> str:
         """
-        Construit le prompt systeme avec le contexte universel.
+        Construit le prompt système — compact pour modèle 3B.
 
-        Args:
-            conversation: Conversation
-            search_results: Resultats de recherche
-
-        Returns:
-            Prompt systeme complet
+        Max ~2000 tokens de contexte pour éviter les timeouts.
         """
-        # Utiliser le contexte personnalise si defini
-        if conversation.contexte_systeme:
-            base_prompt = conversation.contexte_systeme
-        else:
-            base_prompt = self.DEFAULT_SYSTEM_PROMPT
-
-        # Construire le contexte a partir des resultats
-        contexte_parts = []
+        base_prompt = conversation.contexte_systeme or self.SYSTEM_PROMPT
 
         if not search_results:
-            contexte_parts.append("""
-ATTENTION: Aucune donnee n'a ete trouvee correspondant a cette requete.
-Cela peut signifier:
-- Les donnees n'ont pas encore ete indexees
-- La requete ne correspond a aucune entite dans la base
-- L'utilisateur n'a pas acces aux donnees demandees
-
-Reponds en indiquant que tu n'as pas trouve de donnees pertinentes.
-""")
+            contexte = "Aucune donnee trouvee pour cette requete."
         else:
-            # Grouper par type d'entite
-            by_type = {}
-            for result in search_results:
-                type_name = result.entity_type.value
-                if type_name not in by_type:
-                    by_type[type_name] = []
-                by_type[type_name].append(result)
+            # Format compact — 1 ligne par résultat, max 5
+            lines = []
+            for r in search_results[:5]:
+                line = f"- [{r.entity_type.value}] {r.title}"
+                if r.subtitle:
+                    line += f" | {r.subtitle}"
+                # Métadonnées importantes seulement
+                for key in ('montant_ttc', 'statut', 'date_emission', 'date_document', 'email'):
+                    val = r.metadata.get(key)
+                    if val:
+                        line += f" | {key}: {val}"
+                lines.append(line)
+            contexte = "\n".join(lines)
 
-            for type_name, results in by_type.items():
-                contexte_parts.append(f"\n=== {type_name.upper()}S TROUVES ({len(results)}) ===")
-
-                for result in results:
-                    contexte_parts.append(self._format_result_for_context(result))
-
-        contexte = "\n".join(contexte_parts)
-
-        # Ajouter info sur le mandat si specifie
+        # Ajouter mandat si spécifié
         if conversation.mandat:
-            contexte = f"Contexte: Mandat {conversation.mandat.numero} - {conversation.mandat.client.raison_sociale if conversation.mandat.client else 'N/A'}\n\n" + contexte
-
-        # Ajouter le contexte intelligence (insights, relations, digest)
-        intelligence_context = self._build_intelligence_context(conversation)
-        if intelligence_context:
-            contexte += "\n\n" + intelligence_context
+            contexte = (
+                f"Mandat {conversation.mandat.numero} - "
+                f"{conversation.mandat.client.raison_sociale if conversation.mandat.client else 'N/A'}\n\n"
+                + contexte
+            )
 
         return base_prompt.format(contexte=contexte)
 
