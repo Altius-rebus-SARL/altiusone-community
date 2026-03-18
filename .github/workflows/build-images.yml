@@ -23,8 +23,8 @@ on:
       - 'requirements.txt'
       - 'entrypoint.sh'
       - '.github/workflows/build-images.yml'
-  tags:
-    - 'v*.*.*'
+    tags:
+      - 'v*.*.*'
   workflow_dispatch:
     inputs:
       version:
