@@ -101,6 +101,7 @@ class OllamaChatService:
             'stream': False,
             'options': {
                 'temperature': temperature,
+                'num_ctx': 2048,  # Limiter le contexte pour éviter OOM sur 8GB
             },
         }
         if max_tokens:
@@ -186,6 +187,7 @@ class OllamaChatService:
             'stream': True,
             'options': {
                 'temperature': temperature,
+                'num_ctx': 2048,
             },
         }
         if max_tokens:
