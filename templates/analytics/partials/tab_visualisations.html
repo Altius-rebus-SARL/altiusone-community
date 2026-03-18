@@ -43,7 +43,10 @@
         {% if mandat_selectionne %}mandat: '{{ mandat_selectionne.pk }}',{% endif %}
     };
 
-    // Chargement séquentiel strict : chaque script attend le précédent
+    // Chargement séquentiel via <script> tags avec cache-buster
+    // pour forcer la ré-exécution des IIFE à chaque activation HTMX.
+    // new Function() ne marche PAS ici car d3-common.js utilise
+    // "const AltiusD3 = ..." qui reste local au scope de la Function.
     var scriptChain = [
         'https://cdn.jsdelivr.net/npm/d3@7',
         'https://cdn.jsdelivr.net/npm/d3-sankey@0.12',
@@ -56,37 +59,28 @@
         '{% static "analytics/js/d3-timeline.js" %}'
     ];
 
+    var bustId = Date.now();
+
     function loadNext(index) {
         if (index >= scriptChain.length) return;
 
         var src = scriptChain[index];
 
-        // D3 et d3-sankey: skip si déjà chargés globalement
+        // CDN libs: skip si déjà chargées
         if (index === 0 && typeof d3 !== 'undefined') { loadNext(index + 1); return; }
         if (index === 1 && typeof d3 !== 'undefined' && d3.sankey) { loadNext(index + 1); return; }
 
-        // Pour les scripts applicatifs (d3-common + visualisations):
-        // toujours recharger via fetch+eval pour ré-exécuter les IIFE
-        // même si le <script> est déjà dans le DOM d'une visite précédente
+        // Supprimer l'ancienne balise si elle existe (pour les scripts app)
         if (index >= 2) {
-            fetch(src)
-                .then(function(r) { return r.text(); })
-                .then(function(code) {
-                    try { (new Function(code))(); } catch(e) { console.warn('D3 script error:', src, e); }
-                    loadNext(index + 1);
-                })
-                .catch(function() { loadNext(index + 1); });
-            return;
+            var old = document.querySelector('script[data-d3-viz="' + index + '"]');
+            if (old) old.remove();
         }
 
-        // Pour les CDN (d3, d3-sankey): charger classiquement avec <script>
-        var existing = document.querySelector('script[src="' + src + '"]');
-        if (existing) { loadNext(index + 1); return; }
-
         var s = document.createElement('script');
-        s.src = src;
+        s.src = (index >= 2) ? src + '?_=' + bustId : src;
+        s.setAttribute('data-d3-viz', index);
         s.onload = function() { loadNext(index + 1); };
-        s.onerror = function() { loadNext(index + 1); };
+        s.onerror = function() { console.warn('Failed to load:', src); loadNext(index + 1); };
         document.head.appendChild(s);
     }
 
