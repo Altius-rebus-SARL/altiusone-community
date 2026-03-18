@@ -8,6 +8,9 @@ ENV/
 *.env
 .env.*
 
+# Docker Compose override (dev local uniquement, pas en production)
+docker-compose.override.yml
+
 # Dépendances
 node_modules/
 dist/

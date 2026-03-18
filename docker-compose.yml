@@ -1,10 +1,7 @@
 services:
   # Base de données PostgreSQL avec PostGIS et pgvector
   altiusone_postgres:
-    build:
-      context: .
-      dockerfile: Dockerfile.postgres
-    image: altiusone-postgres
+    image: ghcr.io/altius-rebus-sarl/altiusone-postgres:latest
     platform: linux/amd64
     container_name: altiusone_postgres
     restart: unless-stopped
@@ -50,10 +47,7 @@ services:
 
   # Backend Django
   django:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: altiusone-django
+    image: ghcr.io/altius-rebus-sarl/altiusone-django:latest
     platform: linux/amd64
     container_name: altiusone_django
     restart: unless-stopped
@@ -105,8 +99,7 @@ services:
 
   # Celery Worker
   celery:
-    image: altiusone-django
-    pull_policy: never
+    image: ghcr.io/altius-rebus-sarl/altiusone-django:latest
     platform: linux/amd64
     container_name: altiusone_celery
     restart: unless-stopped
@@ -148,8 +141,7 @@ services:
 
   # Celery Beat (pour les tâches planifiées)
   celery-beat:
-    image: altiusone-django
-    pull_policy: never
+    image: ghcr.io/altius-rebus-sarl/altiusone-django:latest
     platform: linux/amd64
     container_name: altiusone_celery_beat
     restart: unless-stopped
@@ -305,10 +297,7 @@ services:
       - altiusone_network
 
   altiusone_nextcloud:
-    build:
-      context: .
-      dockerfile: Dockerfile.nextcloud
-    image: altiusone-nextcloud
+    image: ghcr.io/altius-rebus-sarl/altiusone-nextcloud:latest
     container_name: altiusone_nextcloud
     restart: unless-stopped
     depends_on:
