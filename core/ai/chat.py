@@ -1,73 +1,82 @@
 # core/ai/chat.py
 """
-Service de chat local via Ollama.
+Service de chat local via transformers (Hugging Face).
 
-Modèle par défaut: qwen2.5:3b (3B, ~1.9GB)
-- Supporte tool calling (format OpenAI-compatible)
-- Multilingue FR/DE/EN/IT (même famille que l'ancien SDK Qwen 2.5 14B)
-- Streaming SSE token par token
+Charge le modèle directement en mémoire Python — pas de container Ollama.
+Même pattern que LocalEmbeddingService (lazy loading, singleton).
 
-L'API Ollama est compatible OpenAI :
-- POST /api/chat (non-streaming + streaming)
+Modèle par défaut: Qwen/Qwen2.5-0.5B-Instruct (~500MB RAM)
+- Suffisant pour reformuler des résultats pgvector en langage naturel
+- Multilingue FR/DE/EN/IT
+- Le raisonnement complexe est fait par pgvector, pas par le LLM
 """
-import json
 import logging
+import time
+import threading
 from typing import Any, Dict, Generator, List, Optional
 
-import requests
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
+# Lock pour éviter les accès concurrents au modèle (pas thread-safe)
+_model_lock = threading.Lock()
 
-class OllamaChatService:
+
+class LocalChatService:
     """
-    Service de chat local via Ollama.
+    Service de chat local avec transformers.
 
-    Expose la même interface que l'ancien AltiusAIService.chat()
-    pour une migration transparente.
+    Le modèle est chargé lazily au premier appel et gardé en mémoire.
+    Expose la même interface que l'ancien OllamaChatService.
     """
 
     def __init__(self):
-        self._base_url = getattr(settings, 'OLLAMA_URL', 'http://ollama:11434')
-        self._model = getattr(settings, 'OLLAMA_CHAT_MODEL', 'qwen2.5:3b')
-        self._timeout = getattr(settings, 'OLLAMA_TIMEOUT', 120)
+        self._model = None
+        self._tokenizer = None
+        self._model_name = getattr(
+            settings, 'CHAT_MODEL_NAME', 'Qwen/Qwen2.5-0.5B-Instruct'
+        )
+        self._max_new_tokens = getattr(settings, 'CHAT_MAX_NEW_TOKENS', 300)
+
+    def _load_model(self):
+        """Charge le modèle et le tokenizer (une seule fois)."""
+        if self._model is not None:
+            return
+
+        import torch
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+
+        logger.info(f"Chargement du modèle chat: {self._model_name}")
+        start = time.time()
+
+        self._tokenizer = AutoTokenizer.from_pretrained(
+            self._model_name,
+            trust_remote_code=True,
+        )
+
+        self._model = AutoModelForCausalLM.from_pretrained(
+            self._model_name,
+            torch_dtype=torch.float16,
+            device_map="cpu",
+            trust_remote_code=True,
+        )
+        self._model.eval()
+
+        elapsed = time.time() - start
+        logger.info(f"Modèle chat chargé en {elapsed:.1f}s")
 
     @property
     def model_name(self) -> str:
-        return self._model
-
-    @property
-    def base_url(self) -> str:
-        return self._base_url
+        return self._model_name
 
     def is_available(self) -> bool:
-        """Vérifie si Ollama est joignable et le modèle est chargé."""
+        """Vérifie si le modèle peut être chargé."""
         try:
-            resp = requests.get(
-                f"{self._base_url}/api/tags",
-                timeout=5,
-            )
-            if resp.status_code != 200:
-                return False
-            models = [m['name'] for m in resp.json().get('models', [])]
-            # Vérifier que le modèle (ou un préfixe) est présent
-            return any(self._model in m for m in models)
-        except Exception:
-            return False
-
-    def pull_model(self) -> bool:
-        """Télécharge le modèle si absent. Bloquant."""
-        try:
-            logger.info(f"Pull du modèle Ollama: {self._model}")
-            resp = requests.post(
-                f"{self._base_url}/api/pull",
-                json={'name': self._model, 'stream': False},
-                timeout=600,  # 10 min pour le premier téléchargement
-            )
-            return resp.status_code == 200
+            self._load_model()
+            return self._model is not None
         except Exception as e:
-            logger.error(f"Erreur pull modèle Ollama: {e}")
+            logger.error(f"Modèle chat non disponible: {e}")
             return False
 
     def chat(
@@ -83,79 +92,36 @@ class OllamaChatService:
         messages_override: Optional[List[Dict[str, str]]] = None,
     ) -> Dict[str, Any]:
         """
-        Envoie un message au LLM local (non-streaming).
+        Génère une réponse (non-streaming).
 
-        Interface identique à l'ancien AltiusAIService.chat().
-
-        Returns:
-            Dict avec 'response', 'tokens_prompt', 'tokens_completion',
-            et optionnel 'tool_calls'
+        Même interface que l'ancien OllamaChatService.chat().
+        Le paramètre tools est ignoré (plus de tool calling).
         """
+        self._load_model()
+
         messages = self._build_messages(
             message, system, system_prompt, context, history, messages_override
         )
 
-        request_data: Dict[str, Any] = {
-            'model': self._model,
-            'messages': messages,
-            'stream': False,
-            'options': {
-                'temperature': temperature,
-                'num_ctx': 2048,  # Limiter le contexte pour éviter OOM sur 8GB
-            },
-        }
-        if max_tokens:
-            request_data['options']['num_predict'] = max_tokens
-        if tools:
-            request_data['tools'] = tools
+        start = time.time()
+        max_new = max_tokens or self._max_new_tokens
 
         try:
-            resp = requests.post(
-                f"{self._base_url}/api/chat",
-                json=request_data,
-                timeout=self._timeout,
-            )
-            resp.raise_for_status()
-            data = resp.json()
+            with _model_lock:
+                response_text = self._generate(messages, temperature, max_new)
 
-            msg = data.get('message', {})
-            response_text = msg.get('content', '')
+            elapsed_ms = int((time.time() - start) * 1000)
 
-            result: Dict[str, Any] = {
+            return {
                 'response': response_text,
-                'tokens_prompt': data.get('prompt_eval_count', 0),
-                'tokens_completion': data.get('eval_count', 0),
+                'tokens_prompt': 0,
+                'tokens_completion': len(response_text.split()),
+                'processing_time_ms': elapsed_ms,
             }
 
-            # Tool calls (Ollama format)
-            tool_calls = msg.get('tool_calls')
-            if tool_calls:
-                # Normaliser au format OpenAI-compatible
-                normalized = []
-                for tc in tool_calls:
-                    func = tc.get('function', {})
-                    normalized.append({
-                        'id': f"call_{len(normalized)}",
-                        'type': 'function',
-                        'function': {
-                            'name': func.get('name', ''),
-                            'arguments': func.get('arguments', {}),
-                        }
-                    })
-                result['tool_calls'] = normalized
-
-            return result
-
-        except requests.exceptions.ConnectionError:
-            logger.error(f"Ollama non joignable: {self._base_url}")
-            raise OllamaChatError(f"Impossible de se connecter à Ollama ({self._base_url})")
-        except requests.exceptions.Timeout:
-            raise OllamaChatError(f"Ollama timeout ({self._timeout}s)")
-        except requests.exceptions.HTTPError as e:
-            raise OllamaChatError(f"Erreur Ollama HTTP {e.response.status_code}")
         except Exception as e:
-            logger.error(f"Erreur chat Ollama: {e}")
-            raise OllamaChatError(str(e))
+            logger.error(f"Erreur chat: {e}")
+            raise ChatError(str(e))
 
     def chat_stream(
         self,
@@ -170,96 +136,113 @@ class OllamaChatService:
         messages_override: Optional[List[Dict[str, str]]] = None,
     ) -> Generator[Dict[str, Any], None, None]:
         """
-        Stream la réponse token par token.
+        Génère une réponse en streaming (token par token).
 
-        Interface identique à l'ancien AltiusAIService.chat_stream().
-
-        Yields:
-            Dict avec 'type': 'token'|'done'|'error' et données associées
+        Utilise TextIteratorStreamer de transformers.
         """
+        self._load_model()
+
         messages = self._build_messages(
             message, system, system_prompt, context, history, messages_override
         )
 
-        request_data: Dict[str, Any] = {
-            'model': self._model,
-            'messages': messages,
-            'stream': True,
-            'options': {
-                'temperature': temperature,
-                'num_ctx': 2048,
-            },
-        }
-        if max_tokens:
-            request_data['options']['num_predict'] = max_tokens
-        # Pas de tools en streaming (Ollama ne supporte pas tools + stream ensemble)
-        # Les tools sont gérés en non-streaming par chat_service.py
+        max_new = max_tokens or self._max_new_tokens
+        start = time.time()
 
         try:
-            resp = requests.post(
-                f"{self._base_url}/api/chat",
-                json=request_data,
-                stream=True,
-                timeout=self._timeout,
+            from transformers import TextIteratorStreamer
+
+            text = self._tokenizer.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True
             )
-            resp.raise_for_status()
+            inputs = self._tokenizer(text, return_tensors="pt")
+            input_len = inputs["input_ids"].shape[1]
+
+            streamer = TextIteratorStreamer(
+                self._tokenizer, skip_prompt=True, skip_special_tokens=True
+            )
+
+            # Lancer la génération dans un thread (le streamer bloque sinon)
+            import torch
+            gen_kwargs = {
+                "input_ids": inputs["input_ids"],
+                "attention_mask": inputs["attention_mask"],
+                "max_new_tokens": max_new,
+                "temperature": max(temperature, 0.01),
+                "do_sample": temperature > 0,
+                "streamer": streamer,
+            }
+
+            thread = threading.Thread(
+                target=self._generate_threaded,
+                args=(gen_kwargs,),
+            )
+            thread.start()
 
             total_tokens = 0
-            for line in resp.iter_lines(decode_unicode=True):
-                if not line:
-                    continue
-                try:
-                    data = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-
-                if data.get('done'):
-                    total_tokens = data.get('eval_count', 0)
-                    yield {
-                        'type': 'done',
-                        'done': True,
-                        'model': data.get('model', self._model),
-                        'tokens_used': total_tokens,
-                        'processing_time_ms': int(data.get('total_duration', 0) / 1_000_000),
-                    }
-                    return
-
-                msg = data.get('message', {})
-                token = msg.get('content', '')
-                if token:
+            for token_text in streamer:
+                if token_text:
+                    total_tokens += 1
                     yield {
                         'type': 'token',
-                        'token': token,
+                        'token': token_text,
                     }
 
-        except requests.exceptions.ConnectionError:
-            yield {'type': 'error', 'error': f"Ollama non joignable ({self._base_url})"}
-        except requests.exceptions.Timeout:
-            yield {'type': 'error', 'error': f"Ollama timeout ({self._timeout}s)"}
+            thread.join()
+
+            yield {
+                'type': 'done',
+                'done': True,
+                'model': self._model_name,
+                'tokens_used': total_tokens,
+                'processing_time_ms': int((time.time() - start) * 1000),
+            }
+
         except Exception as e:
-            logger.error(f"Erreur chat stream Ollama: {e}")
+            logger.error(f"Erreur chat stream: {e}")
             yield {'type': 'error', 'error': str(e)}
 
+    def _generate(self, messages: List[Dict], temperature: float, max_new_tokens: int) -> str:
+        """Génère une réponse complète (bloquant)."""
+        import torch
+
+        text = self._tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+        inputs = self._tokenizer(text, return_tensors="pt")
+
+        with torch.no_grad():
+            outputs = self._model.generate(
+                input_ids=inputs["input_ids"],
+                attention_mask=inputs["attention_mask"],
+                max_new_tokens=max_new_tokens,
+                temperature=max(temperature, 0.01),
+                do_sample=temperature > 0,
+                pad_token_id=self._tokenizer.eos_token_id,
+            )
+
+        # Décoder uniquement les tokens générés (pas le prompt)
+        input_len = inputs["input_ids"].shape[1]
+        response = self._tokenizer.decode(
+            outputs[0][input_len:], skip_special_tokens=True
+        )
+        return response.strip()
+
+    def _generate_threaded(self, gen_kwargs):
+        """Wrapper pour model.generate dans un thread (pour le streaming)."""
+        import torch
+        with _model_lock:
+            with torch.no_grad():
+                self._model.generate(**gen_kwargs)
+
     def health_check(self) -> Dict[str, Any]:
-        """Vérifie l'état d'Ollama."""
-        status: Dict[str, Any] = {
+        """Vérifie l'état du service chat."""
+        return {
             'enabled': True,
-            'backend': 'ollama',
-            'url': self._base_url,
-            'model': self._model,
-            'connected': False,
-            'model_loaded': False,
+            'backend': 'transformers',
+            'model': self._model_name,
+            'model_loaded': self._model is not None,
         }
-        try:
-            resp = requests.get(f"{self._base_url}/api/tags", timeout=5)
-            if resp.status_code == 200:
-                status['connected'] = True
-                models = [m['name'] for m in resp.json().get('models', [])]
-                status['model_loaded'] = any(self._model in m for m in models)
-                status['available_models'] = models
-        except Exception as e:
-            status['error'] = str(e)
-        return status
 
     def _build_messages(
         self,
@@ -270,7 +253,7 @@ class OllamaChatService:
         history: Optional[List[Dict[str, str]]],
         messages_override: Optional[List[Dict[str, str]]],
     ) -> List[Dict[str, str]]:
-        """Construit la liste de messages pour l'API Ollama."""
+        """Construit la liste de messages pour le modèle."""
         if messages_override:
             return messages_override
 
@@ -295,10 +278,10 @@ class OllamaChatService:
         return messages
 
 
-class OllamaChatError(Exception):
-    """Erreur du service chat Ollama."""
+class ChatError(Exception):
+    """Erreur du service chat local."""
     pass
 
 
 # Singleton
-chat_service = OllamaChatService()
+chat_service = LocalChatService()

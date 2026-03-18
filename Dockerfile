@@ -41,8 +41,9 @@ RUN pip install --upgrade pip && \
     pip install torch --index-url https://download.pytorch.org/whl/cpu && \
     pip install -r requirements.txt
 
-# Pré-télécharger le modèle d'embedding dans l'image (évite téléchargement au runtime)
+# Pré-télécharger les modèles IA dans l'image (évite téléchargement au runtime)
 RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/paraphrase-multilingual-mpnet-base-v2', cache_folder='/opt/models')"
+RUN python -c "from transformers import AutoModelForCausalLM, AutoTokenizer; AutoTokenizer.from_pretrained('Qwen/Qwen2.5-0.5B-Instruct', cache_dir='/opt/models'); AutoModelForCausalLM.from_pretrained('Qwen/Qwen2.5-0.5B-Instruct', cache_dir='/opt/models')"
 
 # =============================================================================
 # Stage 2: Runtime - Image finale légère
@@ -54,8 +55,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PATH="/opt/venv/bin:$PATH" \
     # Tesseract
     TESSDATA_PREFIX=/usr/share/tesseract-ocr/5/tessdata \
-    # Sentence-transformers model cache (pré-téléchargé au build)
+    # Modèles IA pré-téléchargés au build
     SENTENCE_TRANSFORMERS_HOME=/opt/models \
+    HF_HOME=/opt/models \
     # Désactiver CUDA (CPU only)
     CUDA_VISIBLE_DEVICES=""
 

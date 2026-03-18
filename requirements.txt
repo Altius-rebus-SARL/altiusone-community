@@ -89,6 +89,7 @@ numpy>=1.26.0
 sentence-transformers>=3.0.0,<4.0.0
 huggingface-hub>=0.25.0,<0.31.0
 transformers>=4.46.0,<4.49.0
+accelerate>=0.26.0
 
 # Push Notifications
 # - Android: FCM (firebase-admin requis par django-push-notifications pour FCM v1)

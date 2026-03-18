@@ -763,7 +763,7 @@ if PUSH_NOTIFICATIONS_ENABLED:
 # ============================================================================
 # Tout le traitement IA tourne en local sur chaque instance:
 # - Embeddings: sentence-transformers (paraphrase-multilingual-mpnet-base-v2, 768D)
-# - Chat LLM: Ollama (qwen2.5:3b, tool calling, multilingue FR/DE/EN/IT)
+# - Chat LLM: transformers direct (Qwen2.5-0.5B-Instruct, ~500MB RAM, pas d'Ollama)
 # - OCR: Tesseract local (déjà en place)
 #
 # Aucune dépendance externe. Aucune donnée ne quitte l'instance.
@@ -772,10 +772,9 @@ if PUSH_NOTIFICATIONS_ENABLED:
 EMBEDDING_MODEL = os.environ.get('EMBEDDING_MODEL', 'sentence-transformers/paraphrase-multilingual-mpnet-base-v2')
 EMBEDDING_DIMENSIONS = int(os.environ.get('EMBEDDING_DIMENSIONS', '768'))
 
-# Ollama LLM local (chat, classification, extraction)
-OLLAMA_URL = os.environ.get('OLLAMA_URL', 'http://ollama:11434')
-OLLAMA_CHAT_MODEL = os.environ.get('OLLAMA_CHAT_MODEL', 'qwen2.5:3b')
-OLLAMA_TIMEOUT = int(os.environ.get('OLLAMA_TIMEOUT', '120'))
+# Chat LLM local (transformers direct, pas d'Ollama)
+CHAT_MODEL_NAME = os.environ.get('CHAT_MODEL_NAME', 'Qwen/Qwen2.5-0.5B-Instruct')
+CHAT_MAX_NEW_TOKENS = int(os.environ.get('CHAT_MAX_NEW_TOKENS', '300'))
 
 # Recherche hybride - ponderation des scores
 SEARCH_FULLTEXT_WEIGHT = float(os.environ.get('SEARCH_FULLTEXT_WEIGHT', '0.4'))

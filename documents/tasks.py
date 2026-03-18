@@ -507,14 +507,5 @@ def verifier_service_ai():
     from documents.ai_service import ai_service
 
     status = ai_service.health_check()
-
-    # Pull le modèle Ollama si pas encore chargé
-    if not status.get('ollama', {}).get('model_loaded'):
-        try:
-            from core.ai.chat import chat_service
-            chat_service.pull_model()
-        except Exception as e:
-            logger.warning(f"Pull modèle Ollama échoué: {e}")
-
     logger.info(f"Verification service AI local: {status}")
     return status

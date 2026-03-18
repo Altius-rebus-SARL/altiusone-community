@@ -815,9 +815,9 @@ Question: {question}"""
             status['connected'] = test is not None and len(test) == 768
             status['embedding_dimensions'] = len(test) if test else 0
 
-            # Test Ollama
-            ollama_status = self.chat_svc.health_check()
-            status['ollama'] = ollama_status
+            # Test chat LLM
+            chat_status = self.chat_svc.health_check()
+            status['chat'] = chat_status
         except Exception as e:
             status['error'] = str(e)
 
