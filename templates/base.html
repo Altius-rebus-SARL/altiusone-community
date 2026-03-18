@@ -44,7 +44,7 @@
     <script>
       window.ALTIUSONE_DEVISE = {
         code: "{{ DEVISE_CODE }}",
-        taux: {{ DEVISE_TAUX|default:"1" }},
+        taux: {{ DEVISE_TAUX|stringformat:"f"|default:"1" }},
         base: "{{ DEVISE_BASE_CODE|default:"CHF" }}"
       };
     </script>
