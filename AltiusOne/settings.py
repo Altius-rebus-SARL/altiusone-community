@@ -763,7 +763,7 @@ if PUSH_NOTIFICATIONS_ENABLED:
 # ============================================================================
 # Tout le traitement IA tourne en local sur chaque instance:
 # - Embeddings: sentence-transformers (paraphrase-multilingual-mpnet-base-v2, 768D)
-# - Chat LLM: Ollama (phi3:mini 3.8B) en container Docker
+# - Chat LLM: Ollama (qwen2.5:3b, tool calling, multilingue FR/DE/EN/IT)
 # - OCR: Tesseract local (déjà en place)
 #
 # Aucune dépendance externe. Aucune donnée ne quitte l'instance.

@@ -179,7 +179,7 @@ echo "Setup commands done"
 
 # === PULL MODELE OLLAMA (premier démarrage) ===
 OLLAMA_URL="${OLLAMA_URL:-http://ollama:11434}"
-OLLAMA_CHAT_MODEL="${OLLAMA_CHAT_MODEL:-phi3:mini}"
+OLLAMA_CHAT_MODEL="${OLLAMA_CHAT_MODEL:-qwen2.5:3b}"
 
 echo "Checking Ollama model $OLLAMA_CHAT_MODEL..."
 if curl -sf "$OLLAMA_URL/api/tags" > /dev/null 2>&1; then

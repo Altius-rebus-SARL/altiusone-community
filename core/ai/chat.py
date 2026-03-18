@@ -2,9 +2,9 @@
 """
 Service de chat local via Ollama.
 
-Modèle par défaut: phi3:mini (3.8B, ~2.3GB)
+Modèle par défaut: qwen2.5:3b (3B, ~1.9GB)
 - Supporte tool calling (format OpenAI-compatible)
-- Multilingue FR/DE/EN/IT
+- Multilingue FR/DE/EN/IT (même famille que l'ancien SDK Qwen 2.5 14B)
 - Streaming SSE token par token
 
 L'API Ollama est compatible OpenAI :
@@ -30,7 +30,7 @@ class OllamaChatService:
 
     def __init__(self):
         self._base_url = getattr(settings, 'OLLAMA_URL', 'http://ollama:11434')
-        self._model = getattr(settings, 'OLLAMA_CHAT_MODEL', 'phi3:mini')
+        self._model = getattr(settings, 'OLLAMA_CHAT_MODEL', 'qwen2.5:3b')
         self._timeout = getattr(settings, 'OLLAMA_TIMEOUT', 120)
 
     @property
