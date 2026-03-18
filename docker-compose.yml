@@ -68,7 +68,7 @@ services:
       - AWS_S3_REGION_NAME=us-east-1
       # Ollama LLM local
       - OLLAMA_URL=http://ollama:11434
-      - OLLAMA_CHAT_MODEL=${OLLAMA_CHAT_MODEL:-phi3:mini}
+      - OLLAMA_CHAT_MODEL=${OLLAMA_CHAT_MODEL:-qwen2.5:3b}
     command: /app/entrypoint.sh
     volumes:
       - media:/app/media
@@ -122,7 +122,7 @@ services:
       - AWS_S3_REGION_NAME=us-east-1
       # Ollama LLM local
       - OLLAMA_URL=http://ollama:11434
-      - OLLAMA_CHAT_MODEL=${OLLAMA_CHAT_MODEL:-phi3:mini}
+      - OLLAMA_CHAT_MODEL=${OLLAMA_CHAT_MODEL:-qwen2.5:3b}
     volumes:
       - media:/app/media
       - logs:/app/logs
