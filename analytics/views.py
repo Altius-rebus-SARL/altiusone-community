@@ -45,85 +45,91 @@ from .forms import (
 from core.models import Mandat
 
 
-# ============ DASHBOARD EXÉCUTIF ============
+# ============ HUB ANALYTICS ============
 
 
-class DashboardExecutifView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
+def _get_analytics_filters(request):
+    """Parse les filtres communs année/mandat depuis la requête."""
+    annee = request.GET.get('annee')
+    if annee:
+        try:
+            annee = int(annee)
+        except ValueError:
+            annee = None
+
+    mandat_id = request.GET.get('mandat')
+    mandat = None
+    if mandat_id:
+        try:
+            mandat = Mandat.objects.get(pk=mandat_id)
+        except Mandat.DoesNotExist:
+            pass
+
+    return annee, mandat
+
+
+def _get_filters_context(request):
+    """Retourne le contexte commun pour les filtres."""
+    annee, mandat = _get_analytics_filters(request)
+    return {
+        'annees': list(range(datetime.now().year, datetime.now().year - 5, -1)),
+        'annee_selectionnee': annee or datetime.now().year,
+        'mandats': Mandat.objects.filter(
+            statut='ACTIF'
+        ).select_related('client').order_by('client__raison_sociale'),
+        'mandat_selectionne': mandat,
+    }
+
+
+class AnalyticsHubView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
     """
-    Dashboard Exécutif - Vue principale d'analyse.
+    Hub Analytics — Point d'entrée unique pour toute l'analyse.
 
-    Affiche:
-    - KPIs principaux (CA, recouvrement, encours, DSO)
-    - Graphiques d'évolution et de répartition
-    - Alertes et points d'attention
+    Onglets chargés en HTMX:
+    - Vue d'ensemble (overview) — KPIs + alertes
+    - Financier — CA, évolution, répartition, treemap
+    - Clients — Top clients, Pareto, aging, DSO
+    - Visualisations — D3.js (calendrier, sunburst, sankey, etc.)
+    - Rapports — Génération + liste
+    - Alertes & Exports
     """
-    template_name = "analytics/dashboard_executif.html"
+    template_name = "analytics/hub.html"
     business_permission = 'analytics.view_tableaux_bord'
 
     def get_object(self):
-        """Pas d'objet spécifique, retourne None."""
         return None
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        context.update(_get_filters_context(self.request))
 
-        # Paramètres de filtrage
-        annee = self.request.GET.get('annee')
-        if annee:
-            try:
-                annee = int(annee)
-            except ValueError:
-                annee = None
+        tab = self.request.GET.get('tab', 'overview')
+        context['active_tab'] = tab
 
-        mandat_id = self.request.GET.get('mandat')
-        mandat = None
-        if mandat_id:
-            try:
-                mandat = Mandat.objects.get(pk=mandat_id)
-            except Mandat.DoesNotExist:
-                pass
-
-        # Service de données
-        service = DashboardDataService(
-            user=self.request.user,
-            mandat=mandat,
-            annee=annee
-        )
-
-        # Récupération des données
-        dashboard_data = service.get_full_dashboard_data()
-
-        # KPIs pour les cartes
-        context['kpis'] = dashboard_data['kpis']
-
-        # Données JSON pour les graphiques
-        context['chart_evolution_ca'] = json.dumps(dashboard_data['evolution_ca'])
-        context['chart_repartition'] = json.dumps(dashboard_data['repartition_prestation'])
-        context['chart_top_clients'] = json.dumps(dashboard_data['top_clients'])
-        context['chart_aging'] = json.dumps(dashboard_data['aging'])
-
-        # Données supplémentaires
-        context['alertes'] = dashboard_data['alertes']
-
-        # Données Pareto et Treemap (chargement différé possible)
-        pareto_data = service.get_pareto_clients()
-        treemap_data = service.get_treemap_mandats()
-        context['chart_pareto'] = json.dumps(pareto_data)
-        context['chart_treemap'] = json.dumps(treemap_data)
-
-        # Filtres disponibles
-        context['annees'] = list(range(datetime.now().year, datetime.now().year - 5, -1))
-        context['annee_selectionnee'] = annee or datetime.now().year
-        context['mandats'] = Mandat.objects.filter(
-            statut='ACTIF'
-        ).select_related('client').order_by('client__raison_sociale')
-        context['mandat_selectionne'] = mandat
+        # Charger les données de l'onglet overview inline (pas de HTMX pour le premier)
+        if tab == 'overview':
+            annee, mandat = _get_analytics_filters(self.request)
+            service = DashboardDataService(
+                user=self.request.user, mandat=mandat, annee=annee
+            )
+            kpis = service.get_kpis_principaux()
+            context['kpis'] = kpis
+            context['alertes'] = service.get_alertes_dashboard()
+            # Compteurs pour les badges
+            context['nb_alertes_actives'] = AlerteMetrique.objects.filter(statut='ACTIVE').count()
+            context['nb_rapports'] = Rapport.objects.count()
 
         return context
 
 
+# Ancien alias — redirige vers le hub
+class DashboardExecutifView(AnalyticsHubView):
+    """Rétro-compatibilité: redirige vers le Hub Analytics."""
+    pass
+
+
 class D3DashboardView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
-    """Dashboard des visualisations D3.js avancées."""
+    """Dashboard des visualisations D3.js avancées (accès direct conservé)."""
     template_name = "analytics/d3_dashboard.html"
     business_permission = 'analytics.view_tableaux_bord'
 
@@ -132,30 +138,107 @@ class D3DashboardView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-
-        annee = self.request.GET.get('annee')
-        if annee:
-            try:
-                annee = int(annee)
-            except ValueError:
-                annee = None
-
-        mandat_id = self.request.GET.get('mandat')
-        mandat = None
-        if mandat_id:
-            try:
-                mandat = Mandat.objects.get(pk=mandat_id)
-            except Mandat.DoesNotExist:
-                pass
-
-        context['annees'] = list(range(datetime.now().year, datetime.now().year - 5, -1))
-        context['annee_selectionnee'] = annee or datetime.now().year
-        context['mandats'] = Mandat.objects.filter(
-            statut='ACTIF'
-        ).select_related('client').order_by('client__raison_sociale')
-        context['mandat_selectionne'] = mandat
-
+        context.update(_get_filters_context(self.request))
         return context
+
+
+# ============ HTMX PARTIALS POUR LE HUB ============
+
+
+@login_required
+def hub_tab_overview(request):
+    """Onglet Vue d'ensemble — KPIs + alertes."""
+    annee, mandat = _get_analytics_filters(request)
+    service = DashboardDataService(user=request.user, mandat=mandat, annee=annee)
+    kpis = service.get_kpis_principaux()
+    context = _get_filters_context(request)
+    context['kpis'] = kpis
+    context['alertes'] = service.get_alertes_dashboard()
+    context['nb_alertes_actives'] = AlerteMetrique.objects.filter(statut='ACTIVE').count()
+    context['nb_rapports'] = Rapport.objects.count()
+    return render(request, "analytics/partials/tab_overview.html", context)
+
+
+@login_required
+def hub_tab_financier(request):
+    """Onglet Financier — CA, évolution, répartition, treemap."""
+    annee, mandat = _get_analytics_filters(request)
+    service = DashboardDataService(user=request.user, mandat=mandat, annee=annee)
+    context = _get_filters_context(request)
+    context['chart_evolution_ca'] = json.dumps(service.get_evolution_ca_mensuel())
+    context['chart_repartition'] = json.dumps(service.get_repartition_ca_type_prestation())
+    context['chart_treemap'] = json.dumps(service.get_treemap_mandats())
+    # KPIs financiers
+    kpis = service.get_kpis_principaux()
+    context['kpis'] = kpis
+    return render(request, "analytics/partials/tab_financier.html", context)
+
+
+@login_required
+def hub_tab_clients(request):
+    """Onglet Clients — Top clients, Pareto, aging, DSO."""
+    annee, mandat = _get_analytics_filters(request)
+    service = DashboardDataService(user=request.user, mandat=mandat, annee=annee)
+    context = _get_filters_context(request)
+    context['chart_top_clients'] = json.dumps(service.get_top_clients())
+    context['chart_pareto'] = json.dumps(service.get_pareto_clients())
+    context['chart_aging'] = json.dumps(service.get_aging_analysis())
+    kpis = service.get_kpis_principaux()
+    context['kpis'] = kpis
+    return render(request, "analytics/partials/tab_clients.html", context)
+
+
+@login_required
+def hub_tab_visualisations(request):
+    """Onglet Visualisations D3.js."""
+    context = _get_filters_context(request)
+    return render(request, "analytics/partials/tab_visualisations.html", context)
+
+
+@login_required
+def hub_tab_rapports(request):
+    """Onglet Rapports — Liste + lien vers génération."""
+    context = _get_filters_context(request)
+    context['rapports'] = Rapport.objects.select_related(
+        "mandat__client", "genere_par"
+    ).order_by("-date_generation")[:20]
+    context['planifications'] = PlanificationRapport.objects.select_related(
+        "mandat"
+    ).filter(actif=True).order_by("nom")[:10]
+    context['types_rapport'] = (
+        Rapport.objects.values("type_rapport")
+        .annotate(count=Count("id"))
+        .order_by("type_rapport")
+    )
+    return render(request, "analytics/partials/tab_rapports.html", context)
+
+
+@login_required
+def hub_tab_alertes(request):
+    """Onglet Alertes & Exports."""
+    user = request.user
+    context = _get_filters_context(request)
+
+    # Alertes
+    alertes_qs = AlerteMetrique.objects.select_related(
+        "indicateur", "mandat", "acquittee_par"
+    )
+    if hasattr(user, 'is_manager') and not user.is_manager():
+        alertes_qs = alertes_qs.filter(
+            Q(mandat__responsable=user) | Q(mandat__equipe=user)
+        ).distinct()
+    context['alertes_actives'] = alertes_qs.filter(statut='ACTIVE').order_by('-date_detection')[:20]
+    context['alertes_stats'] = {
+        'actives': alertes_qs.filter(statut='ACTIVE').count(),
+        'critiques': alertes_qs.filter(statut='ACTIVE', niveau='CRITIQUE').count(),
+    }
+
+    # Exports
+    context['exports'] = ExportDonnees.objects.select_related(
+        "mandat", "demande_par"
+    ).order_by("-date_demande")[:15]
+
+    return render(request, "analytics/partials/tab_alertes.html", context)
 
 
 @login_required

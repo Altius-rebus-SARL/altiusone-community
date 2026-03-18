@@ -1,0 +1,89 @@
+{% load i18n %}
+{% load static %}
+
+<!-- Row 1: Calendar Heatmap (full width) -->
+<div class="row mb-4">
+    <div class="col-12">
+        {% include 'analytics/components/d3_calendar.html' %}
+    </div>
+</div>
+
+<!-- Row 2: Sunburst + Sankey -->
+<div class="row mb-4">
+    <div class="col-xl-6 mb-4 mb-xl-0">
+        {% include 'analytics/components/d3_sunburst.html' %}
+    </div>
+    <div class="col-xl-6">
+        {% include 'analytics/components/d3_sankey.html' %}
+    </div>
+</div>
+
+<!-- Row 3: Network + Icicle -->
+<div class="row mb-4">
+    <div class="col-xl-6 mb-4 mb-xl-0">
+        {% include 'analytics/components/d3_network.html' %}
+    </div>
+    <div class="col-xl-6">
+        {% include 'analytics/components/d3_icicle.html' %}
+    </div>
+</div>
+
+<!-- Row 4: Timeline (full width) -->
+<div class="row mb-4">
+    <div class="col-12">
+        {% include 'analytics/components/d3_timeline.html' %}
+    </div>
+</div>
+
+<script>
+(function() {
+    // Charger D3.js si pas déjà chargé
+    if (typeof d3 === 'undefined') {
+        var d3Script = document.createElement('script');
+        d3Script.src = 'https://cdn.jsdelivr.net/npm/d3@7';
+        d3Script.onload = function() {
+            var sankeyScript = document.createElement('script');
+            sankeyScript.src = 'https://cdn.jsdelivr.net/npm/d3-sankey@0.12';
+            sankeyScript.onload = loadVisualizations;
+            document.head.appendChild(sankeyScript);
+        };
+        document.head.appendChild(d3Script);
+    } else {
+        loadVisualizations();
+    }
+
+    function loadVisualizations() {
+        // Configuration
+        window.D3_CONFIG = {
+            annee: '{{ annee_selectionnee }}',
+            {% if mandat_selectionne %}mandat: '{{ mandat_selectionne.pk }}',{% endif %}
+        };
+
+        // Charger les scripts de visualisation
+        var scripts = [
+            '{% static "analytics/js/d3-common.js" %}',
+            '{% static "analytics/js/d3-sunburst.js" %}',
+            '{% static "analytics/js/d3-sankey.js" %}',
+            '{% static "analytics/js/d3-calendar.js" %}',
+            '{% static "analytics/js/d3-network.js" %}',
+            '{% static "analytics/js/d3-icicle.js" %}',
+            '{% static "analytics/js/d3-timeline.js" %}'
+        ];
+
+        var loaded = 0;
+        scripts.forEach(function(src) {
+            // Éviter de recharger un script déjà en page
+            if (document.querySelector('script[src="' + src + '"]')) {
+                loaded++;
+                return;
+            }
+            var s = document.createElement('script');
+            s.src = src;
+            s.onload = function() {
+                loaded++;
+            };
+            document.body.appendChild(s);
+        });
+    }
+})();
+</script>

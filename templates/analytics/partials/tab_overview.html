@@ -1,0 +1,230 @@
+{% load i18n %}
+{% load humanize %}
+{% load devise_tags %}
+
+<!-- Alertes -->
+{% if alertes %}
+<div class="row mb-4">
+    <div class="col-12">
+        {% for alerte in alertes %}
+        <div class="alert-item {{ alerte.type }}">
+            <i class="{{ alerte.icon }} alert-icon"></i>
+            <div class="flex-grow-1">
+                <span class="f-w-500">{{ alerte.message }}</span>
+                {% if alerte.montant %}
+                <span class="ms-2 badge bg-{{ alerte.type }}">{{ DEVISE_CODE }} {{ alerte.montant|devise:DEVISE_TAUX|floatformat:0|intcomma }}</span>
+                {% endif %}
+            </div>
+            {% if alerte.action_url %}
+            <a href="{{ alerte.action_url }}" class="btn btn-sm btn-light-{{ alerte.type }}">
+                {% trans "Voir" %} <i class="ph ph-arrow-right ms-1"></i>
+            </a>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- KPIs Principaux -->
+<div class="row mb-4">
+    <!-- CA Mensuel -->
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="card kpi-card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="kpi-label mb-1">{% trans "CA Mensuel" %}</p>
+                        <h3 class="kpi-value text-primary mb-0">
+                            {{ DEVISE_CODE }} {{ kpis.ca_mensuel.valeur|devise:DEVISE_TAUX|floatformat:0|intcomma }}
+                        </h3>
+                    </div>
+                    <span class="badge bg-light-primary p-2 rounded-circle">
+                        <i class="ti ti-currency-dollar f-s-20"></i>
+                    </span>
+                </div>
+                <div class="kpi-trend {% if kpis.ca_mensuel.evolution >= 0 %}up{% else %}down{% endif %} mt-2">
+                    <i class="ti ti-trending-{% if kpis.ca_mensuel.evolution >= 0 %}up{% else %}down{% endif %}"></i>
+                    {{ kpis.ca_mensuel.evolution|floatformat:1 }}% {% trans "vs mois précédent" %}
+                </div>
+                <div id="sparkline-ca" class="kpi-sparkline"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Taux de Recouvrement -->
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="card kpi-card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="kpi-label mb-1">{% trans "Taux de Recouvrement" %}</p>
+                        <h3 class="kpi-value {% if kpis.taux_recouvrement.valeur >= 90 %}text-success{% elif kpis.taux_recouvrement.valeur >= 80 %}text-warning{% else %}text-danger{% endif %} mb-0">
+                            {{ kpis.taux_recouvrement.valeur }}%
+                        </h3>
+                    </div>
+                    <span class="badge bg-light-success p-2 rounded-circle">
+                        <i class="ti ti-percentage f-s-20"></i>
+                    </span>
+                </div>
+                <div class="kpi-trend {% if kpis.taux_recouvrement.valeur >= kpis.taux_recouvrement.objectif %}up{% else %}down{% endif %} mt-2">
+                    {% if kpis.taux_recouvrement.valeur >= kpis.taux_recouvrement.objectif %}
+                    <i class="ti ti-check"></i> {% trans "Objectif atteint" %} ({{ kpis.taux_recouvrement.objectif }}%)
+                    {% else %}
+                    <i class="ti ti-target"></i> {% trans "Objectif:" %} {{ kpis.taux_recouvrement.objectif }}%
+                    {% endif %}
+                </div>
+                <div id="gauge-recouvrement" style="height: 80px; margin-top: 0.5rem;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Encours Clients -->
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="card kpi-card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="kpi-label mb-1">{% trans "Encours Clients" %}</p>
+                        <h3 class="kpi-value text-warning mb-0">
+                            {{ DEVISE_CODE }} {{ kpis.encours_clients.valeur|devise:DEVISE_TAUX|floatformat:0|intcomma }}
+                        </h3>
+                    </div>
+                    <span class="badge bg-light-warning p-2 rounded-circle">
+                        <i class="ti ti-file-invoice f-s-20"></i>
+                    </span>
+                </div>
+                <div class="kpi-trend stable mt-2">
+                    <i class="ti ti-files"></i> {{ kpis.encours_clients.nb_factures }} {% trans "facture(s) ouverte(s)" %}
+                </div>
+                {% if kpis.factures_impayees.valeur > 0 %}
+                <div class="mt-2">
+                    <span class="badge bg-light-danger">
+                        <i class="ti ti-alert-triangle me-1"></i>
+                        {{ kpis.factures_impayees.valeur }} {% trans "en retard" %}
+                    </span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- DSO -->
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="card kpi-card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="kpi-label mb-1">{% trans "Délai Paiement Moyen" %}</p>
+                        <h3 class="kpi-value {% if kpis.dso.valeur <= 30 %}text-success{% elif kpis.dso.valeur <= 45 %}text-warning{% else %}text-danger{% endif %} mb-0">
+                            {{ kpis.dso.valeur|floatformat:0 }} {% trans "jours" %}
+                        </h3>
+                    </div>
+                    <span class="badge bg-light-info p-2 rounded-circle">
+                        <i class="ti ti-clock f-s-20"></i>
+                    </span>
+                </div>
+                <div class="kpi-trend {% if kpis.dso.evolution <= 0 %}up{% else %}down{% endif %} mt-2">
+                    <i class="ti ti-trending-{% if kpis.dso.evolution <= 0 %}down{% else %}up{% endif %}"></i>
+                    {{ kpis.dso.evolution|floatformat:1 }}% {% trans "vs période précédente" %}
+                </div>
+                <p class="text-muted f-s-12 mt-2 mb-0">
+                    <i class="ti ti-info-circle me-1"></i>{% trans "DSO < 30j = Excellent" %}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- KPIs Secondaires -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="card kpi-card h-100 bg-light-primary">
+            <div class="card-body py-3">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="badge bg-primary p-2 rounded-circle">
+                        <i class="ti ti-chart-line f-s-18"></i>
+                    </span>
+                    <div>
+                        <p class="kpi-label mb-0">{% trans "CA Annuel" %} {{ annee_selectionnee }}</p>
+                        <h5 class="mb-0 f-w-700">{{ DEVISE_CODE }} {{ kpis.ca_annuel.valeur|devise:DEVISE_TAUX|floatformat:0|intcomma }}</h5>
+                        <small class="{% if kpis.ca_annuel.evolution >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {% if kpis.ca_annuel.evolution >= 0 %}+{% endif %}{{ kpis.ca_annuel.evolution|floatformat:1 }}% vs N-1
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="card kpi-card h-100 bg-light-success">
+            <div class="card-body py-3">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="badge bg-success p-2 rounded-circle">
+                        <i class="ti ti-clock-hour-4 f-s-18"></i>
+                    </span>
+                    <div>
+                        <p class="kpi-label mb-0">{% trans "Heures Facturées" %}</p>
+                        <h5 class="mb-0 f-w-700">{{ kpis.heures_facturees.valeur|floatformat:0 }}h</h5>
+                        <small class="{% if kpis.heures_facturees.evolution >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {% if kpis.heures_facturees.evolution >= 0 %}+{% endif %}{{ kpis.heures_facturees.evolution|floatformat:1 }}% {% trans "ce mois" %}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="card kpi-card h-100 bg-light-info">
+            <div class="card-body py-3">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="badge bg-info p-2 rounded-circle">
+                        <i class="ti ti-users f-s-18"></i>
+                    </span>
+                    <div>
+                        <p class="kpi-label mb-0">{% trans "Clients Actifs" %}</p>
+                        <h5 class="mb-0 f-w-700">{{ kpis.nb_clients_actifs.valeur }}</h5>
+                        <small class="text-muted">{% trans "cette année" %}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="card kpi-card h-100 {% if kpis.factures_impayees.montant > 0 %}bg-light-danger{% else %}bg-light-success{% endif %}">
+            <div class="card-body py-3">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="badge {% if kpis.factures_impayees.montant > 0 %}bg-danger{% else %}bg-success{% endif %} p-2 rounded-circle">
+                        <i class="ti ti-alert-triangle f-s-18"></i>
+                    </span>
+                    <div>
+                        <p class="kpi-label mb-0">{% trans "Impayés en Retard" %}</p>
+                        <h5 class="mb-0 f-w-700">{{ DEVISE_CODE }} {{ kpis.factures_impayees.montant|devise:DEVISE_TAUX|floatformat:0|intcomma }}</h5>
+                        <small class="text-muted">{{ kpis.factures_impayees.valeur }} {% trans "facture(s)" %}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof AltiusCharts === 'undefined') return;
+
+    // Sparkline CA
+    var sparklineData = {{ kpis.ca_mensuel.tendance|safe }};
+    if (sparklineData && sparklineData.length > 0) {
+        AltiusCharts.sparkline('sparkline-ca', { series: sparklineData });
+    }
+
+    // Gauge Recouvrement
+    AltiusCharts.radialBar('gauge-recouvrement', {
+        value: {{ kpis.taux_recouvrement.valeur }},
+        label: '{% trans "Recouvrement" %}'
+    }, {
+        height: 120,
+        thresholds: { danger: 70, warning: 85, success: 95 }
+    });
+});
+</script>

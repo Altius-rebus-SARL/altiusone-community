@@ -86,11 +86,11 @@
 
       <li
         class="no-sub"
-        data-active="{% if ns == 'analytics' and is_active == 'dashboard-executif' %}true{% endif %}"
+        data-active="{% if ns == 'analytics' %}true{% endif %}"
       >
         <a href="{% url 'analytics:dashboard-executif' %}">
           <i class="ti ti-chart-infographic f-s-30"></i>
-          {% trans "Dashboard Exécutif" %}
+          {% trans "Analytics" %}
         </a>
       </li>
 
@@ -426,60 +426,7 @@
         </ul>
       </li>
 
-      <li class="menu-title"><span>{% trans "Analyse" %}</span></li>
-
-      <!-- ANALYTICS Module -->
-      <li data-active="{% if ns == 'analytics' %}true{% endif %}">
-        <a
-          data-expanded="{% if ns == 'analytics' %}true{% else %}false{% endif %}"
-          data-bs-toggle="collapse"
-          href="#analyticsMenu"
-        >
-          <i class="ti ti-chart-bar f-s-30"></i>
-          {% trans "Analytics" %}
-        </a>
-        <ul
-          class="collapse"
-          data-show="{% if ns == 'analytics' %}true{% endif %}"
-          id="analyticsMenu"
-        >
-          <li
-            data-active="{% if ns == 'analytics' and 'tableau-bord' in is_active %}true{% endif %}"
-          >
-            <a href="{% url 'analytics:tableau-bord-list' %}"
-              >{% trans "Tableaux de bord" %}</a
-            >
-          </li>
-          <li
-            data-active="{% if ns == 'analytics' and is_active == 'visualisations' %}true{% endif %}"
-          >
-            <a href="{% url 'analytics:visualisations' %}"
-              >{% trans "Visualisations" %}</a
-            >
-          </li>
-          <li
-            data-active="{% if ns == 'analytics' and 'rapport' in is_active %}true{% endif %}"
-          >
-            <a href="{% url 'analytics:rapport-list' %}"
-              >{% trans "Rapports" %}</a
-            >
-          </li>
-          <li
-            data-active="{% if ns == 'analytics' and 'alerte' in is_active %}true{% endif %}"
-          >
-            <a href="{% url 'analytics:alerte-list' %}"
-              >{% trans "Alertes" %}</a
-            >
-          </li>
-          <li
-            data-active="{% if ns == 'analytics' and 'export' in is_active %}true{% endif %}"
-          >
-            <a href="{% url 'analytics:export-list' %}"
-              >{% trans "Exports" %}</a
-            >
-          </li>
-        </ul>
-      </li>
+      <!-- Analytics est maintenant un lien unique en haut du sidebar -->
 
       {% if user.is_client_user %}
       <li

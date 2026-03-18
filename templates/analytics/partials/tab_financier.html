@@ -1,0 +1,144 @@
+{% load i18n %}
+{% load humanize %}
+{% load devise_tags %}
+
+<!-- KPIs financiers résumé -->
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="card kpi-card h-100 bg-light-primary">
+            <div class="card-body py-3">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="badge bg-primary p-2 rounded-circle">
+                        <i class="ti ti-chart-line f-s-18"></i>
+                    </span>
+                    <div>
+                        <p class="kpi-label mb-0">{% trans "CA Annuel" %} {{ annee_selectionnee }}</p>
+                        <h5 class="mb-0 f-w-700">{{ DEVISE_CODE }} {{ kpis.ca_annuel.valeur|devise:DEVISE_TAUX|floatformat:0|intcomma }}</h5>
+                        <small class="{% if kpis.ca_annuel.evolution >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {% if kpis.ca_annuel.evolution >= 0 %}+{% endif %}{{ kpis.ca_annuel.evolution|floatformat:1 }}% vs N-1
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card kpi-card h-100 bg-light-success">
+            <div class="card-body py-3">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="badge bg-success p-2 rounded-circle">
+                        <i class="ti ti-currency-dollar f-s-18"></i>
+                    </span>
+                    <div>
+                        <p class="kpi-label mb-0">{% trans "CA Mensuel" %}</p>
+                        <h5 class="mb-0 f-w-700">{{ DEVISE_CODE }} {{ kpis.ca_mensuel.valeur|devise:DEVISE_TAUX|floatformat:0|intcomma }}</h5>
+                        <small class="{% if kpis.ca_mensuel.evolution >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {% if kpis.ca_mensuel.evolution >= 0 %}+{% endif %}{{ kpis.ca_mensuel.evolution|floatformat:1 }}% {% trans "vs mois précédent" %}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card kpi-card h-100 bg-light-info">
+            <div class="card-body py-3">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="badge bg-info p-2 rounded-circle">
+                        <i class="ti ti-percentage f-s-18"></i>
+                    </span>
+                    <div>
+                        <p class="kpi-label mb-0">{% trans "Taux de Recouvrement" %}</p>
+                        <h5 class="mb-0 f-w-700">{{ kpis.taux_recouvrement.valeur }}%</h5>
+                        <small class="text-muted">{% trans "Objectif:" %} {{ kpis.taux_recouvrement.objectif }}%</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Evolution CA (graphique principal) -->
+<div class="row mb-4">
+    <div class="col-xl-8 mb-4">
+        <div class="card chart-card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">{% trans "Évolution du Chiffre d'Affaires" %}</h5>
+                <div class="d-flex gap-2">
+                    <span class="badge bg-primary">{{ annee_selectionnee }}</span>
+                    <span class="badge bg-secondary">{{ annee_selectionnee|add:"-1" }}</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="chart-evolution-ca" class="chart-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Répartition par Type -->
+    <div class="col-xl-4 mb-4">
+        <div class="card chart-card h-100">
+            <div class="card-header">
+                <h5 class="mb-0">{% trans "Répartition par Type" %}</h5>
+            </div>
+            <div class="card-body">
+                <div id="chart-repartition" class="chart-container"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Treemap -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card chart-card">
+            <div class="card-header">
+                <h5 class="mb-0">{% trans "CA par Type de Mandat" %}</h5>
+                <small class="text-muted">{% trans "Répartition visuelle" %}</small>
+            </div>
+            <div class="card-body">
+                <div id="chart-treemap" style="height: 350px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    if (typeof AltiusCharts === 'undefined') return;
+
+    var evolutionData = {{ chart_evolution_ca|safe }};
+    var repartitionData = {{ chart_repartition|safe }};
+    var treemapData = {{ chart_treemap|safe }};
+
+    // Evolution CA
+    AltiusCharts.area('chart-evolution-ca', evolutionData, {
+        height: 350,
+        colors: ['#3b82f6', '#94a3b8'],
+        legend: { position: 'top' }
+    });
+
+    // Répartition par Type
+    if (repartitionData.labels && repartitionData.labels.length > 0) {
+        AltiusCharts.donut('chart-repartition', repartitionData, {
+            height: 350,
+            totalLabel: '{% trans "Total" %}'
+        });
+    } else {
+        document.getElementById('chart-repartition').innerHTML =
+            '<div class="d-flex align-items-center justify-content-center h-100 text-muted">' +
+            '<div class="text-center"><i class="ti ti-chart-pie f-s-50 mb-2"></i>' +
+            '<p>{% trans "Aucune donnée disponible" %}</p></div></div>';
+    }
+
+    // Treemap
+    if (treemapData.series && treemapData.series[0] && treemapData.series[0].data.length > 0) {
+        AltiusCharts.treemap('chart-treemap', treemapData, { height: 350 });
+    } else {
+        document.getElementById('chart-treemap').innerHTML =
+            '<div class="d-flex align-items-center justify-content-center h-100 text-muted">' +
+            '<div class="text-center"><i class="ti ti-chart-treemap f-s-50 mb-2"></i>' +
+            '<p>{% trans "Aucune donnée disponible" %}</p></div></div>';
+    }
+})();
+</script>
