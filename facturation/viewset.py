@@ -261,6 +261,33 @@ class FactureViewSet(PDFViewSetMixin, viewsets.ModelViewSet):
             "numero_facture": facture.numero_facture,
         })
 
+    @action(detail=True, methods=["get"])
+    def stream_pdf(self, request, pk=None):
+        """Stream le PDF de la facture (proxy pour mobile)."""
+        from django.http import FileResponse
+        facture = self.get_object()
+
+        if not facture.fichier_pdf:
+            return Response(
+                {"error": "Aucun PDF disponible"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            file_obj = facture.fichier_pdf.open('rb')
+            response = FileResponse(
+                file_obj,
+                content_type='application/pdf',
+                as_attachment=False,
+            )
+            response['Content-Disposition'] = f'inline; filename="{facture.numero_facture}.pdf"'
+            return response
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
     @action(detail=True, methods=["post"])
     def calculer(self, request, pk=None):
         """Recalculer montant_ht/tva/ttc depuis les lignes"""
