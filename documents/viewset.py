@@ -153,7 +153,10 @@ class DocumentViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['mandat', 'dossier', 'type_document', 'statut_traitement', 'statut_validation']
+    filterset_fields = [
+        'mandat', 'dossier', 'type_document', 'statut_traitement', 'statut_validation',
+        'facture', 'fiche_salaire', 'ecriture_comptable',
+    ]
     search_fields = ['nom_fichier', 'nom_original', 'description', 'ocr_text', 'tags']
     ordering_fields = ['date_upload', 'date_document', 'nom_fichier', 'taille']
     ordering = ['-date_upload']
