@@ -205,11 +205,13 @@ def save_pdf_overwrite(instance, field_name, pdf_bytes, filename):
 
 # Mapping model → (dossier cible, FK sur Document, résolution du mandat)
 _MODEL_GED_CONFIG = {
+    # --- Facturation ---
     'facturation.Facture': {
         'dossier': 'Factures',
         'fk_field': 'facture',
         'get_mandat': lambda inst: inst.mandat,
     },
+    # --- Salaires ---
     'salaires.FicheSalaire': {
         'dossier': 'Salaires',
         'fk_field': 'fiche_salaire',
@@ -229,6 +231,12 @@ _MODEL_GED_CONFIG = {
         'dossier': 'Salaires',
         'fk_field': None,
         'get_mandat': lambda inst: inst.employe.mandat,
+    },
+    # --- TVA ---
+    'tva.DeclarationTVA': {
+        'dossier': 'TVA',
+        'fk_field': None,
+        'get_mandat': lambda inst: inst.mandat,
     },
 }
 
@@ -311,3 +319,51 @@ def _auto_file_document(instance, pdf_bytes, filename):
         doc = Document(**doc_kwargs)
         doc.save()
         doc.fichier.save(filename, ContentFile(pdf_bytes), save=True)
+
+
+def auto_file_to_ged(mandat, file_bytes, filename, dossier_nom, mime_type='application/pdf',
+                     description='', **extra_fk):
+    """
+    API publique pour classer un fichier dans la GED.
+
+    Utilisé par les modules qui ne passent pas par save_pdf_overwrite
+    (ex: generer_xml TVA, uploads fiscalité, exports analytics).
+
+    Args:
+        mandat: Instance Mandat
+        file_bytes: Contenu du fichier en bytes
+        filename: Nom du fichier
+        dossier_nom: Nom du sous-dossier cible (ex: 'TVA', 'Fiscalité')
+        mime_type: Type MIME du fichier
+        description: Description du document
+        **extra_fk: FK additionnelles (ex: facture=instance)
+    """
+    import hashlib
+    import os
+    from documents.models import Document, Dossier
+    from django.db.models import Q
+
+    dossier = Dossier.objects.filter(
+        Q(mandat=mandat) | Q(client=mandat.client),
+        nom=dossier_nom, is_active=True,
+    ).first()
+
+    file_hash = hashlib.sha256(file_bytes).hexdigest()
+    ext = os.path.splitext(filename)[1].lower()
+
+    doc = Document(
+        mandat=mandat,
+        dossier=dossier,
+        nom_fichier=filename,
+        nom_original=filename,
+        extension=ext,
+        mime_type=mime_type,
+        taille=len(file_bytes),
+        hash_fichier=file_hash,
+        statut_traitement='VALIDE',
+        description=description or f"Fichier classé automatiquement — {filename}",
+        **extra_fk,
+    )
+    doc.save()
+    doc.fichier.save(filename, ContentFile(file_bytes), save=True)
+    return doc

@@ -1014,11 +1014,22 @@ class DeclarationTVA(BaseModel):
         pretty_xml = reparsed.toprettyxml(indent="  ", encoding="utf-8")
 
         # Sauvegarder le fichier dans le modèle
-        self.fichier_xml.save(
-            f"TVA_{self.numero_declaration}.xml",
-            ContentFile(pretty_xml),
-            save=True
-        )
+        filename = f"TVA_{self.numero_declaration}.xml"
+        self.fichier_xml.save(filename, ContentFile(pretty_xml), save=True)
+
+        # Classer dans la GED
+        try:
+            from core.pdf import auto_file_to_ged
+            auto_file_to_ged(
+                mandat=self.mandat,
+                file_bytes=pretty_xml,
+                filename=filename,
+                dossier_nom='TVA',
+                mime_type='application/xml',
+                description=f"Déclaration TVA {self.numero_declaration} — XML AFC",
+            )
+        except Exception:
+            pass  # Le XML est sauvegardé sur le modèle même si le filing échoue
 
         return self.fichier_xml
 
