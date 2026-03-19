@@ -1,0 +1,33 @@
+{% load i18n %}
+<!-- Ligne de formset écriture inline -->
+<tr class="ecriture-row {% if form.errors %}table-danger{% endif %}">
+    {% for hidden in form.hidden_fields %}
+        {{ hidden }}
+    {% endfor %}
+    <td>
+        {{ form.compte }}
+        {% if form.compte.errors %}<div class="text-danger f-s-11">{{ form.compte.errors }}</div>{% endif %}
+    </td>
+    <td>
+        {{ form.libelle }}
+        {% if form.libelle.errors %}<div class="text-danger f-s-11">{{ form.libelle.errors }}</div>{% endif %}
+    </td>
+    <td>
+        {{ form.montant_debit }}
+        {% if form.montant_debit.errors %}<div class="text-danger f-s-11">{{ form.montant_debit.errors }}</div>{% endif %}
+    </td>
+    <td>
+        {{ form.montant_credit }}
+        {% if form.montant_credit.errors %}<div class="text-danger f-s-11">{{ form.montant_credit.errors }}</div>{% endif %}
+    </td>
+    <td>
+        {{ form.code_tva }}
+    </td>
+    <td class="text-center">
+        {% if form.DELETE %}
+        <div class="form-check">
+            {{ form.DELETE }}
+        </div>
+        {% endif %}
+    </td>
+</tr>

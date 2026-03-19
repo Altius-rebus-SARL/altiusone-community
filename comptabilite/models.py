@@ -917,6 +917,14 @@ class TypePieceComptable(BaseModel):
         help_text=_("Ordre d'affichage dans les listes de sélection")
     )
 
+    # Dossier de classement automatique
+    dossier_classement = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name=_("Dossier de classement"),
+        help_text=_("Nom du sous-dossier cible pour le classement automatique (ex: Comptabilité, Salaires)")
+    )
+
     # Est un type système (non supprimable)
     is_system = models.BooleanField(
         default=False,
@@ -932,6 +940,53 @@ class TypePieceComptable(BaseModel):
 
     def __str__(self):
         return f"{self.code} - {self.libelle}"
+
+    # Mapping catégorie → type_journal
+    CATEGORIE_JOURNAL_MAP = {
+        'ACHAT': 'ACH',
+        'VENTE': 'VTE',
+        'BANQUE': 'BNQ',
+        'CAISSE': 'CAS',
+        'OD': 'OD',
+        'SALAIRE': 'OD',
+        'AUTRE': 'OD',
+    }
+
+    def resoudre_journal(self, mandat):
+        """Résout le journal depuis la catégorie du type de pièce.
+
+        Résolution : type exact → OD fallback → premier journal.
+        """
+        type_journal = self.CATEGORIE_JOURNAL_MAP.get(self.categorie, 'OD')
+        journal = Journal.objects.filter(
+            mandat=mandat, type_journal=type_journal
+        ).first()
+        if not journal:
+            # Fallback : journal OD, puis n'importe quel journal
+            journal = Journal.objects.filter(
+                mandat=mandat, type_journal='OD'
+            ).first() or Journal.objects.filter(mandat=mandat).first()
+        return journal
+
+    def resoudre_compte_charge(self, plan):
+        """Résout le compte de charge par défaut dans le plan du mandat.
+
+        Les comptes par défaut sont des comptes template. On les résout
+        par numéro dans le plan actif du mandat.
+        """
+        if not self.compte_charge_defaut or not plan:
+            return None
+        return plan.comptes.filter(
+            numero=self.compte_charge_defaut.numero
+        ).first()
+
+    def resoudre_compte_produit(self, plan):
+        """Résout le compte de produit par défaut dans le plan du mandat."""
+        if not self.compte_produit_defaut or not plan:
+            return None
+        return plan.comptes.filter(
+            numero=self.compte_produit_defaut.numero
+        ).first()
 
     @classmethod
     def get_default_types(cls):
@@ -1172,6 +1227,12 @@ class PieceComptable(BaseModel):
 
     def __str__(self):
         return f"{self.numero_piece} - {self.date_piece}"
+
+    def save(self, *args, **kwargs):
+        # Auto-résoudre le journal depuis le type de pièce si non défini
+        if not self.journal_id and self.type_piece_id and self.mandat_id:
+            self.journal = self.type_piece.resoudre_journal(self.mandat)
+        super().save(*args, **kwargs)
 
     def calculer_equilibre(self):
         """Vérifie l'équilibre débit/crédit"""

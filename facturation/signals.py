@@ -57,7 +57,7 @@ def comptabiliser_facture(sender, instance, **kwargs):
 
             # Compte client (débiteur)
             compte_client = Compte.objects.filter(
-                plan_comptable__mandat=instance.mandat,
+                plan_comptable=instance.mandat.plan_comptable,
                 numero='1100'  # Créances clients
             ).first()
 
@@ -83,7 +83,7 @@ def comptabiliser_facture(sender, instance, **kwargs):
 
             if not compte_tva:
                 compte_tva = Compte.objects.filter(
-                    plan_comptable__mandat=instance.mandat,
+                    plan_comptable=instance.mandat.plan_comptable,
                     numero='2200'  # TVA due (fallback)
                 ).first()
 
@@ -107,12 +107,16 @@ def comptabiliser_facture(sender, instance, **kwargs):
                 )
 
                 # Crédits: Ventes par ligne et TVA
+                plan = instance.mandat.plan_comptable
                 ligne_num = 2
                 for ligne in instance.lignes.all():
-                    compte_produit = ligne.prestation.compte_produit if ligne.prestation else None
-                    if not compte_produit:
+                    # Résolution : ligne.compte_produit > prestation.compte_produit > fallback 70*
+                    compte_produit = getattr(ligne, 'compte_produit', None)
+                    if not compte_produit and ligne.prestation:
+                        compte_produit = ligne.prestation.compte_produit
+                    if not compte_produit and plan:
                         compte_produit = Compte.objects.filter(
-                            plan_comptable__mandat=instance.mandat,
+                            plan_comptable=plan,
                             numero__startswith='70'
                         ).first()
 
@@ -193,12 +197,12 @@ def comptabiliser_paiement(sender, instance, created, **kwargs):
             numero_piece = journal.get_next_numero()
 
             compte_banque = Compte.objects.filter(
-                plan_comptable__mandat=instance.facture.mandat,
+                plan_comptable=instance.facture.mandat.plan_comptable,
                 numero='1020'  # Compte banque
             ).first()
 
             compte_client = Compte.objects.filter(
-                plan_comptable__mandat=instance.facture.mandat,
+                plan_comptable=instance.facture.mandat.plan_comptable,
                 numero='1100'  # Créances clients
             ).first()
 

@@ -44,6 +44,7 @@ from .forms import (
     EcritureComptableForm,
     PieceComptableForm,
     LettrageForm,
+    EcritureInlineFormSet,
 )
 from .filters import (
     CompteFilter,
@@ -840,30 +841,34 @@ class PieceComptableDetailView(LoginRequiredMixin, BusinessPermissionMixin, Deta
 
 
 class PieceComptableCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView):
-    """Création d'une pièce comptable avec upload de documents"""
+    """Création d'une pièce comptable avec upload de documents et écritures inline"""
 
     model = PieceComptable
     form_class = PieceComptableForm
     template_name = "comptabilite/piece_form.html"
     business_permission = 'comptabilite.add_ecritures'
 
+    def _get_mandat_from_request(self):
+        mandat_id = self.request.GET.get('mandat') or self.request.POST.get('mandat')
+        if mandat_id:
+            try:
+                return Mandat.objects.get(pk=mandat_id)
+            except Mandat.DoesNotExist:
+                pass
+        return None
+
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs['user'] = self.request.user
-        # Passer le mandat initial pour le filtrage des journaux/dossiers
-        mandat_id = self.request.GET.get('mandat')
-        if mandat_id:
-            try:
-                kwargs['mandat'] = Mandat.objects.get(pk=mandat_id)
-            except Mandat.DoesNotExist:
-                pass
+        mandat = self._get_mandat_from_request()
+        if mandat:
+            kwargs['mandat'] = mandat
         return kwargs
 
     def get_initial(self):
         initial = super().get_initial()
         from datetime import date
         initial['date_piece'] = date.today()
-        # Pré-sélectionner le mandat si fourni en paramètre
         mandat_id = self.request.GET.get('mandat')
         if mandat_id:
             initial['mandat'] = mandat_id
@@ -873,19 +878,70 @@ class PieceComptableCreateView(LoginRequiredMixin, BusinessPermissionMixin, Crea
         context = super().get_context_data(**kwargs)
         context['title'] = _("Nouvelle pièce comptable")
         context['submit_text'] = _("Créer la pièce")
+
+        mandat = self._get_mandat_from_request()
+
+        if 'formset' not in context:
+            if self.request.method == 'POST':
+                context['formset'] = EcritureInlineFormSet(
+                    self.request.POST,
+                    instance=self.object if hasattr(self, 'object') and self.object else None,
+                    mandat=mandat,
+                )
+            else:
+                context['formset'] = EcritureInlineFormSet(
+                    instance=None,
+                    mandat=mandat,
+                )
         return context
 
     def form_valid(self, form):
         from django.contrib import messages
         from documents.models import Document
-        from documents.storage import storage_service
+
+        mandat = self._get_mandat_from_request() or form.cleaned_data.get('mandat')
+
+        # Valider le formset
+        formset = EcritureInlineFormSet(
+            self.request.POST,
+            instance=None,
+            mandat=mandat,
+        )
+
+        if not formset.is_valid():
+            return self.form_invalid(form, formset=formset)
 
         # Sauvegarder la pièce
         piece = form.save(commit=False)
         piece.created_by = self.request.user
         piece.save()
         form.save_m2m()
-        self.object = piece  # Nécessaire pour get_success_url()
+        self.object = piece
+
+        # Sauvegarder les écritures inline
+        formset.instance = piece
+        ecritures = formset.save(commit=False)
+
+        exercice = piece.mandat.exercices.filter(statut='OUVERT').first()
+
+        for i, ecriture in enumerate(ecritures):
+            ecriture.mandat = piece.mandat
+            ecriture.journal = piece.journal
+            ecriture.exercice = exercice
+            ecriture.date_ecriture = piece.date_piece
+            ecriture.numero_piece = piece.numero_piece
+            ecriture.numero_ligne = i + 1
+            ecriture.piece = piece
+            ecriture.statut = 'BROUILLON'
+            ecriture.created_by = self.request.user
+            ecriture.save()
+
+        # Supprimer les écritures marquées pour suppression
+        for obj in formset.deleted_objects:
+            obj.delete()
+
+        # Recalculer l'équilibre de la pièce
+        piece.calculer_equilibre()
 
         # Traiter les fichiers uploadés
         fichiers = self.request.FILES.getlist('fichiers')
@@ -896,16 +952,13 @@ class PieceComptableCreateView(LoginRequiredMixin, BusinessPermissionMixin, Crea
                 import hashlib
                 import os
 
-                # Calculer le hash du fichier
                 fichier.seek(0)
                 file_content = fichier.read()
                 file_hash = hashlib.sha256(file_content).hexdigest()
                 fichier.seek(0)
 
-                # Extension
                 _, ext = os.path.splitext(fichier.name)
 
-                # Créer le document
                 document = Document(
                     mandat=piece.mandat,
                     dossier=piece.dossier,
@@ -919,12 +972,10 @@ class PieceComptableCreateView(LoginRequiredMixin, BusinessPermissionMixin, Crea
                     created_by=self.request.user,
                 )
 
-                # Sauvegarder le document puis le fichier
                 document.save()
                 document.fichier.save(fichier.name, fichier, save=True)
                 documents_crees.append(document)
 
-                # Lancer le traitement OCR en arrière-plan
                 from documents.tasks import traiter_document_ocr
                 traiter_document_ocr.delay(str(document.id))
 
@@ -937,7 +988,6 @@ class PieceComptableCreateView(LoginRequiredMixin, BusinessPermissionMixin, Crea
                     }
                 )
 
-        # Associer les documents à la pièce
         if documents_crees:
             piece.documents_justificatifs.add(*documents_crees)
             messages.success(
@@ -946,6 +996,9 @@ class PieceComptableCreateView(LoginRequiredMixin, BusinessPermissionMixin, Crea
                     'count': len(documents_crees)
                 }
             )
+
+        # Auto-classement (Phase 3)
+        self._auto_classer_documents(piece)
 
         messages.success(
             self.request,
@@ -956,12 +1009,51 @@ class PieceComptableCreateView(LoginRequiredMixin, BusinessPermissionMixin, Crea
 
         return redirect(self.get_success_url())
 
+    def form_invalid(self, form, formset=None):
+        if formset is None:
+            mandat = self._get_mandat_from_request()
+            formset = EcritureInlineFormSet(
+                self.request.POST,
+                instance=None,
+                mandat=mandat,
+            )
+        return self.render_to_response(
+            self.get_context_data(form=form, formset=formset)
+        )
+
+    def _auto_classer_documents(self, piece):
+        """Phase 3.2 : auto-classement des documents selon le type de pièce."""
+        if piece.dossier or not piece.type_piece:
+            return  # Dossier déjà assigné ou pas de type
+
+        dossier_cible = piece.type_piece.dossier_classement
+        if not dossier_cible:
+            return
+
+        from documents.models import Dossier
+        from django.db.models import Q
+
+        # Chercher le sous-dossier correspondant pour le client
+        dossier = Dossier.objects.filter(
+            Q(client=piece.mandat.client) | Q(mandat=piece.mandat),
+            nom=dossier_cible,
+            is_active=True,
+        ).first()
+
+        if dossier:
+            piece.dossier = dossier
+            piece.save(update_fields=['dossier'])
+            # Aussi classer les documents attachés
+            for doc in piece.documents_justificatifs.filter(dossier__isnull=True):
+                doc.dossier = dossier
+                doc.save(update_fields=['dossier'])
+
     def get_success_url(self):
         return reverse('comptabilite:piece-detail', kwargs={'pk': self.object.pk})
 
 
 class PieceComptableUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateView):
-    """Modification d'une pièce comptable"""
+    """Modification d'une pièce comptable avec écritures inline"""
 
     model = PieceComptable
     form_class = PieceComptableForm
@@ -981,14 +1073,66 @@ class PieceComptableUpdateView(LoginRequiredMixin, BusinessPermissionMixin, Upda
         }
         context['submit_text'] = _("Enregistrer les modifications")
         context['documents'] = self.object.documents_justificatifs.all()
+
+        mandat = self.object.mandat
+
+        if 'formset' not in context:
+            if self.request.method == 'POST':
+                context['formset'] = EcritureInlineFormSet(
+                    self.request.POST,
+                    instance=self.object,
+                    mandat=mandat,
+                )
+            else:
+                context['formset'] = EcritureInlineFormSet(
+                    instance=self.object,
+                    mandat=mandat,
+                )
         return context
 
     def form_valid(self, form):
         from django.contrib import messages
         from documents.models import Document
-        from documents.storage import storage_service
+
+        mandat = self.object.mandat
+
+        # Valider le formset
+        formset = EcritureInlineFormSet(
+            self.request.POST,
+            instance=self.object,
+            mandat=mandat,
+        )
+
+        if not formset.is_valid():
+            return self.form_invalid(form, formset=formset)
 
         piece = form.save()
+
+        # Sauvegarder les écritures inline
+        ecritures = formset.save(commit=False)
+
+        exercice = piece.mandat.exercices.filter(statut='OUVERT').first()
+
+        # Numéroter les nouvelles écritures
+        existing_max = piece.ecritures.count()
+        for i, ecriture in enumerate(ecritures):
+            if not ecriture.pk:
+                ecriture.mandat = piece.mandat
+                ecriture.journal = piece.journal
+                ecriture.exercice = exercice
+                ecriture.date_ecriture = piece.date_piece
+                ecriture.numero_piece = piece.numero_piece
+                ecriture.numero_ligne = existing_max + i + 1
+                ecriture.piece = piece
+                ecriture.statut = 'BROUILLON'
+                ecriture.created_by = self.request.user
+            ecriture.save()
+
+        for obj in formset.deleted_objects:
+            obj.delete()
+
+        # Recalculer l'équilibre
+        piece.calculer_equilibre()
 
         # Traiter les nouveaux fichiers uploadés
         fichiers = self.request.FILES.getlist('fichiers')
@@ -999,13 +1143,11 @@ class PieceComptableUpdateView(LoginRequiredMixin, BusinessPermissionMixin, Upda
                 import hashlib
                 import os
 
-                # Calculer le hash du fichier
                 fichier.seek(0)
                 file_content = fichier.read()
                 file_hash = hashlib.sha256(file_content).hexdigest()
                 fichier.seek(0)
 
-                # Extension
                 _, ext = os.path.splitext(fichier.name)
 
                 document = Document(
@@ -1021,7 +1163,6 @@ class PieceComptableUpdateView(LoginRequiredMixin, BusinessPermissionMixin, Upda
                     created_by=self.request.user,
                 )
 
-                # Sauvegarder le document puis le fichier
                 document.save()
                 document.fichier.save(fichier.name, fichier, save=True)
                 documents_crees.append(document)
@@ -1047,6 +1188,17 @@ class PieceComptableUpdateView(LoginRequiredMixin, BusinessPermissionMixin, Upda
 
         messages.success(self.request, _("Pièce comptable mise à jour"))
         return redirect(self.get_success_url())
+
+    def form_invalid(self, form, formset=None):
+        if formset is None:
+            formset = EcritureInlineFormSet(
+                self.request.POST,
+                instance=self.object,
+                mandat=self.object.mandat,
+            )
+        return self.render_to_response(
+            self.get_context_data(form=form, formset=formset)
+        )
 
     def get_success_url(self):
         return reverse('comptabilite:piece-detail', kwargs={'pk': self.object.pk})
@@ -1248,6 +1400,36 @@ def api_dossiers_par_mandat(request, mandat_pk):
 
 
 @login_required
+def api_comptes_par_mandat(request, mandat_pk):
+    """Retourne les comptes imputables du plan actif d'un mandat (AJAX)"""
+    mandat = get_object_or_404(Mandat, pk=mandat_pk)
+    plan = mandat.plan_comptable
+
+    if not plan:
+        return JsonResponse({'comptes': []})
+
+    comptes = Compte.objects.filter(
+        plan_comptable=plan,
+        imputable=True,
+        is_active=True,
+    ).order_by('numero').values('id', 'numero', 'libelle', 'type_compte', 'classe')
+
+    return JsonResponse({
+        'comptes': [
+            {
+                'id': str(c['id']),
+                'numero': c['numero'],
+                'libelle': c['libelle'],
+                'type_compte': c['type_compte'],
+                'classe': c['classe'],
+                'display': f"{c['numero']} - {c['libelle']}",
+            }
+            for c in comptes
+        ]
+    })
+
+
+@login_required
 def api_types_pieces(request):
     """Retourne les types de pièces comptables (AJAX)"""
     from .models import TypePieceComptable
@@ -1384,7 +1566,7 @@ def balance_generale(request, mandat_pk):
         exercice = mandat.exercices.filter(statut="OUVERT").first()
 
     # Plan comptable
-    plan = mandat.plans_comptables.first()
+    plan = mandat.plan_comptable
     if not plan:
         messages.error(request, _("Aucun plan comptable trouvé pour ce mandat"))
         return redirect("core:mandat-detail", pk=mandat.pk)
@@ -1589,7 +1771,7 @@ def bilan(request, mandat_pk):
     else:
         exercice = mandat.exercices.filter(statut="OUVERT").first()
 
-    plan = mandat.plans_comptables.first()
+    plan = mandat.plan_comptable
     if not plan:
         messages.error(request, _("Aucun plan comptable trouvé pour ce mandat"))
         return redirect("core:mandat-detail", pk=mandat.pk)
@@ -1647,7 +1829,7 @@ def compte_resultat(request, mandat_pk):
     else:
         exercice = mandat.exercices.filter(statut="OUVERT").first()
 
-    plan = mandat.plans_comptables.first()
+    plan = mandat.plan_comptable
     if not plan:
         messages.error(request, _("Aucun plan comptable trouvé pour ce mandat"))
         return redirect("core:mandat-detail", pk=mandat.pk)
@@ -1711,7 +1893,7 @@ def cloture_exercice(request, mandat_pk):
         messages.error(request, _("Aucun exercice ouvert trouvé"))
         return redirect("core:mandat-detail", pk=mandat.pk)
 
-    plan = mandat.plans_comptables.first()
+    plan = mandat.plan_comptable
 
     # Vérifications pré-clôture
     ecritures_brouillon = EcritureComptable.objects.filter(

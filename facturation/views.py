@@ -476,12 +476,22 @@ class FactureCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView)
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
+        # Determiner le mandat pour filtrer les comptes produit
+        facture_mandat = None
+        mandat_id = self.request.GET.get("mandat")
+        if mandat_id:
+            facture_mandat = Mandat.objects.filter(pk=mandat_id).first()
+
         if self.request.POST:
             context["formset"] = LigneFactureFormSet(
-                self.request.POST, instance=self.object
+                self.request.POST, instance=self.object,
+                mandat=facture_mandat,
             )
         else:
-            context["formset"] = LigneFactureFormSet(instance=self.object)
+            context["formset"] = LigneFactureFormSet(
+                instance=self.object,
+                mandat=facture_mandat,
+            )
 
         # Prestations pour l'autocomplete
         context["prestations"] = Prestation.objects.filter(actif=True).values(
@@ -489,11 +499,7 @@ class FactureCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView)
         )
 
         # TVA context
-        mandat = None
-        mandat_id = self.request.GET.get("mandat")
-        if mandat_id:
-            mandat = Mandat.objects.filter(pk=mandat_id).first()
-        context.update(_get_tva_context(mandat))
+        context.update(_get_tva_context(facture_mandat))
 
         return context
 
@@ -540,12 +546,18 @@ class FactureUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateView)
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
+        facture_mandat = self.object.mandat if self.object else None
+
         if self.request.POST:
             context["formset"] = LigneFactureFormSet(
-                self.request.POST, instance=self.object
+                self.request.POST, instance=self.object,
+                mandat=facture_mandat,
             )
         else:
-            context["formset"] = LigneFactureFormSet(instance=self.object)
+            context["formset"] = LigneFactureFormSet(
+                instance=self.object,
+                mandat=facture_mandat,
+            )
 
         # Prestations pour l'autocomplete
         context["prestations"] = Prestation.objects.filter(actif=True).values(

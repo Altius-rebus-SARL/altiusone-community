@@ -1996,6 +1996,40 @@ class Mandat(BaseModel):
         db_column='devise_mandat'
     )
 
+    # Plan comptable actif (lien direct pour cohérence régime fiscal)
+    plan_comptable_actif = models.ForeignKey(
+        'comptabilite.PlanComptable',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='mandats_actifs',
+        verbose_name=_('Plan comptable actif'),
+        help_text=_('Plan comptable utilisé par ce mandat')
+    )
+
+    @property
+    def plan_comptable(self):
+        """Retourne le plan comptable actif ou le premier plan disponible."""
+        if self.plan_comptable_actif_id:
+            return self.plan_comptable_actif
+        return self.plans_comptables.first()
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        super().clean()
+        # Vérifier cohérence entre régime fiscal et plan comptable actif
+        if self.plan_comptable_actif and self.regime_fiscal_id:
+            type_plan_attendu = self.regime_fiscal.type_plan_comptable
+            if type_plan_attendu and self.plan_comptable_actif.type_plan != type_plan_attendu:
+                raise ValidationError({
+                    'plan_comptable_actif': _(
+                        "Le plan comptable doit être de type « %(attendu)s » "
+                        "pour le régime fiscal « %(regime)s »."
+                    ) % {
+                        'attendu': type_plan_attendu,
+                        'regime': self.regime_fiscal,
+                    }
+                })
+
     def texte_pour_embedding(self):
         """Texte pour vectorisation sémantique."""
         parts = [

@@ -214,6 +214,13 @@ class FactureDetailSerializer(serializers.ModelSerializer):
 
 
 class LigneFactureSerializer(serializers.ModelSerializer):
+    compte_produit_numero = serializers.CharField(
+        source="compte_produit.numero", read_only=True, default=None
+    )
+    compte_produit_libelle = serializers.CharField(
+        source="compte_produit.libelle", read_only=True, default=None
+    )
+
     class Meta:
         model = LigneFacture
         fields = "__all__"

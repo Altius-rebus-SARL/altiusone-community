@@ -518,7 +518,8 @@ class MandatViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = Mandat.objects.select_related(
-            "client", "responsable"
+            "client", "responsable", "plan_comptable_actif",
+            "plan_comptable_actif__type_plan",
         ).prefetch_related("equipe", "exercices")
 
         # Filtrer par utilisateur si demandé

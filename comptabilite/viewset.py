@@ -28,6 +28,7 @@ from .serializers import (
     PieceComptableListSerializer,
     PieceComptableDetailSerializer,
     PieceComptableCreateSerializer,
+    PieceComptableCreateWithEcrituresSerializer,
     TypePieceComptableSerializer,
     LettrageSerializer,
     BalanceSerializer,
@@ -35,6 +36,7 @@ from .serializers import (
     CompteResultatsSerializer,
 )
 from .models import TypePieceComptable
+from core.models import Mandat
 
 
 class PlanComptableViewSet(viewsets.ModelViewSet):
@@ -346,7 +348,7 @@ class PieceComptableViewSet(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         if self.action == "create":
-            return PieceComptableCreateSerializer
+            return PieceComptableCreateWithEcrituresSerializer
         elif self.action == "list":
             return PieceComptableListSerializer
         elif self.action in ["retrieve", "update", "partial_update"]:
@@ -492,6 +494,27 @@ class PieceComptableViewSet(viewsets.ModelViewSet):
                 "date_fin": date_fin
             }
         })
+
+
+    @action(detail=False, methods=["get"], url_path="comptes/(?P<mandat_pk>[^/.]+)")
+    def comptes(self, request, mandat_pk=None):
+        """Retourne les comptes imputables du plan actif d'un mandat.
+
+        GET /pieces/comptes/{mandat_pk}/
+        """
+        from django.shortcuts import get_object_or_404
+
+        mandat = get_object_or_404(Mandat, pk=mandat_pk)
+        plan = mandat.plan_comptable
+        if not plan:
+            return Response({"comptes": []})
+
+        comptes = Compte.objects.filter(
+            plan_comptable=plan, imputable=True, is_active=True,
+        ).order_by("numero")
+
+        serializer = CompteListSerializer(comptes, many=True)
+        return Response({"comptes": serializer.data})
 
 
 class LettrageViewSet(viewsets.ModelViewSet):
@@ -713,9 +736,16 @@ class RapportsViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Récupérer tous les comptes du mandat
+        # Récupérer tous les comptes du mandat via le plan actif
+        mandat = Mandat.objects.filter(pk=mandat_id).first()
+        plan = mandat.plan_comptable if mandat else None
+        if not plan:
+            return Response(
+                {"error": "Aucun plan comptable trouvé pour ce mandat"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         comptes = Compte.objects.filter(
-            plan_comptable__mandat_id=mandat_id, imputable=True
+            plan_comptable=plan, imputable=True
         )
 
         balance_data = []
@@ -762,7 +792,8 @@ class RapportsViewSet(viewsets.ViewSet):
                 {"error": "mandat et date requis"}, status=status.HTTP_400_BAD_REQUEST
             )
 
-        plan = PlanComptable.objects.filter(mandat_id=mandat_id).first()
+        mandat = Mandat.objects.filter(pk=mandat_id).first()
+        plan = mandat.plan_comptable if mandat else None
         if not plan:
             return Response(
                 {"error": "Aucun plan comptable trouvé pour ce mandat"},
@@ -830,7 +861,8 @@ class RapportsViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        plan = PlanComptable.objects.filter(mandat_id=mandat_id).first()
+        mandat = Mandat.objects.filter(pk=mandat_id).first()
+        plan = mandat.plan_comptable if mandat else None
         if not plan:
             return Response(
                 {"error": "Aucun plan comptable trouvé pour ce mandat"},

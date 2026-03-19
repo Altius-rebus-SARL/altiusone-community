@@ -51,8 +51,20 @@ def initialiser_mandat(sender, instance, created, **kwargs):
 
         # 2. Si mandat comptabilité, créer plan comptable
         if instance.type_mandat in ['COMPTA', 'GLOBAL']:
-            # Copier plan comptable template
-            template = PlanComptable.objects.filter(is_template=True).first()
+            # Résoudre le type de plan depuis le régime fiscal
+            type_plan = None
+            if hasattr(instance, 'regime_fiscal') and instance.regime_fiscal_id:
+                type_plan = instance.regime_fiscal.type_plan_comptable
+
+            # Trouver le template correspondant au régime fiscal
+            if type_plan:
+                template = PlanComptable.objects.filter(
+                    is_template=True, type_plan=type_plan
+                ).first()
+            else:
+                # Fallback : premier template disponible
+                template = PlanComptable.objects.filter(is_template=True).first()
+
             if template:
                 plan = PlanComptable.objects.create(
                     nom=f"Plan comptable {instance.client.raison_sociale}",
@@ -74,6 +86,10 @@ def initialiser_mandat(sender, instance, created, **kwargs):
                         imputable=compte_template.imputable,
                         lettrable=compte_template.lettrable
                     )
+
+                # Lier le plan comptable actif au mandat
+                instance.plan_comptable_actif = plan
+                instance.save(update_fields=['plan_comptable_actif'])
 
                 # Créer journaux standards
                 journaux = [

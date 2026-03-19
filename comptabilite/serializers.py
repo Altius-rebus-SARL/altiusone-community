@@ -192,6 +192,7 @@ class EcritureComptableCreateSerializer(serializers.ModelSerializer):
             "mandat",
             "exercice",
             "journal",
+            "piece",
             "numero_piece",
             "numero_ligne",
             "date_ecriture",
@@ -206,6 +207,7 @@ class EcritureComptableCreateSerializer(serializers.ModelSerializer):
             "devise",
             "taux_change",
             "code_tva",
+            "tiers",
             "montant_tva",
             "piece_justificative",
         ]
@@ -238,6 +240,7 @@ class TypePieceComptableSerializer(serializers.ModelSerializer):
             "description",
             "categorie",
             "prefixe_numero",
+            "dossier_classement",
             "ordre",
             "is_active",
         ]
@@ -402,6 +405,154 @@ class PieceComptableCreateSerializer(serializers.ModelSerializer):
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
+        return instance
+
+
+class EcritureInlinePieceSerializer(serializers.Serializer):
+    """Serializer pour une écriture inline lors de la création d'une pièce."""
+
+    compte = serializers.PrimaryKeyRelatedField(queryset=Compte.objects.all())
+    libelle = serializers.CharField(max_length=255)
+    montant_debit = serializers.DecimalField(
+        max_digits=15, decimal_places=2, default=Decimal("0")
+    )
+    montant_credit = serializers.DecimalField(
+        max_digits=15, decimal_places=2, default=Decimal("0")
+    )
+    code_tva = serializers.CharField(max_length=10, required=False, allow_blank=True, default="")
+    tiers = serializers.UUIDField(required=False, allow_null=True, default=None)
+
+    def validate_tiers(self, value):
+        if value is None:
+            return None
+        from core.models import Tiers
+        try:
+            return Tiers.objects.get(pk=value)
+        except Tiers.DoesNotExist:
+            raise serializers.ValidationError("Tiers non trouvé")
+
+    def validate(self, attrs):
+        debit = attrs.get("montant_debit", Decimal("0"))
+        credit = attrs.get("montant_credit", Decimal("0"))
+
+        if debit > 0 and credit > 0:
+            raise serializers.ValidationError(
+                "Une écriture ne peut pas avoir un montant au débit ET au crédit"
+            )
+        if debit == 0 and credit == 0:
+            raise serializers.ValidationError(
+                "Une écriture doit avoir un montant (débit ou crédit)"
+            )
+        return attrs
+
+
+class PieceComptableCreateWithEcrituresSerializer(serializers.ModelSerializer):
+    """Serializer pour créer une pièce comptable avec ses écritures inline."""
+
+    generer_numero = serializers.BooleanField(
+        write_only=True, required=False, default=True
+    )
+    ecritures = EcritureInlinePieceSerializer(many=True, write_only=True, required=False)
+    numero_piece = serializers.CharField(required=False, allow_blank=True, default="")
+
+    class Meta:
+        model = PieceComptable
+        fields = [
+            "mandat",
+            "journal",
+            "type_piece",
+            "numero_piece",
+            "date_piece",
+            "libelle",
+            "reference_externe",
+            "tiers_nom",
+            "tiers_numero_tva",
+            "montant_ht",
+            "montant_tva",
+            "montant_ttc",
+            "dossier",
+            "generer_numero",
+            "ecritures",
+        ]
+
+    def validate(self, attrs):
+        generer = attrs.pop('generer_numero', True)
+        numero = attrs.get('numero_piece')
+
+        if not generer and not numero:
+            raise serializers.ValidationError({
+                'numero_piece': "Le numéro de pièce est obligatoire si la génération automatique est désactivée"
+            })
+
+        self._generer_numero = generer
+
+        # Valider l'équilibre des écritures
+        ecritures_data = attrs.get('ecritures', [])
+        if ecritures_data:
+            total_debit = sum(e.get('montant_debit', Decimal('0')) for e in ecritures_data)
+            total_credit = sum(e.get('montant_credit', Decimal('0')) for e in ecritures_data)
+            if total_debit != total_credit:
+                raise serializers.ValidationError({
+                    'ecritures': f"La pièce n'est pas équilibrée : débit ({total_debit}) ≠ crédit ({total_credit})"
+                })
+
+        return attrs
+
+    def create(self, validated_data):
+        ecritures_data = validated_data.pop('ecritures', [])
+
+        instance = PieceComptable(**validated_data)
+        if self._generer_numero and not instance.numero_piece:
+            if instance.date_piece:
+                instance.generer_numero()
+        instance.save()
+
+        # Créer les écritures inline
+        if ecritures_data:
+            mandat = instance.mandat
+            exercice = mandat.exercices.filter(statut='OUVERT').first()
+            user = self.context.get('request', None)
+            user = user.user if user else None
+
+            # Le journal est auto-résolu par PieceComptable.save()
+            journal = instance.journal
+
+            for i, ecriture_data in enumerate(ecritures_data):
+                EcritureComptable.objects.create(
+                    mandat=mandat,
+                    exercice=exercice,
+                    journal=journal,
+                    piece=instance,
+                    numero_piece=instance.numero_piece,
+                    numero_ligne=i + 1,
+                    date_ecriture=instance.date_piece,
+                    compte=ecriture_data['compte'],
+                    libelle=ecriture_data['libelle'],
+                    montant_debit=ecriture_data.get('montant_debit', Decimal('0')),
+                    montant_credit=ecriture_data.get('montant_credit', Decimal('0')),
+                    code_tva=ecriture_data.get('code_tva', ''),
+                    tiers=ecriture_data.get('tiers'),
+                    statut='BROUILLON',
+                    created_by=user,
+                )
+
+            instance.calculer_equilibre()
+
+        # Auto-classement
+        if not instance.dossier and instance.type_piece:
+            dossier_cible = instance.type_piece.dossier_classement
+            if dossier_cible:
+                from documents.models import Dossier
+                from django.db.models import Q
+                _mandat = instance.mandat
+                dossier = Dossier.objects.filter(
+                    Q(client=_mandat.client) | Q(mandat=_mandat),
+                    nom=dossier_cible, is_active=True,
+                ).first()
+                if dossier:
+                    instance.dossier = dossier
+                    instance.save(update_fields=['dossier'])
+
         return instance
 
 

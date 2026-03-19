@@ -405,6 +405,7 @@ class LigneFactureForm(forms.ModelForm):
         model = LigneFacture
         fields = [
             "prestation",
+            "compte_produit",
             "description",
             "description_detaillee",
             "quantite",
@@ -416,6 +417,9 @@ class LigneFactureForm(forms.ModelForm):
         widgets = {
             "prestation": forms.Select(
                 attrs={"class": "form-control select2 prestation-select"}
+            ),
+            "compte_produit": forms.Select(
+                attrs={"class": "form-control select2"}
             ),
             "description": forms.TextInput(attrs={"class": "form-control"}),
             "description_detaillee": forms.Textarea(
@@ -436,13 +440,39 @@ class LigneFactureForm(forms.ModelForm):
             ),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, mandat=None, **kwargs):
+        self.mandat_obj = mandat
         super().__init__(*args, **kwargs)
         self.fields['remise_pourcent'].required = False
+        self.fields['compte_produit'].required = False
+
+        # Filtrer les comptes produit par le plan du mandat
+        if mandat:
+            plan = mandat.plan_comptable
+            if plan:
+                from comptabilite.models import Compte
+                self.fields['compte_produit'].queryset = Compte.objects.filter(
+                    plan_comptable=plan,
+                    imputable=True,
+                    type_compte='PRODUIT',
+                ).order_by('numero')
 
     def clean_remise_pourcent(self):
         val = self.cleaned_data.get('remise_pourcent')
         return val if val is not None else Decimal('0')
+
+
+class BaseLigneFactureFormSet(forms.BaseInlineFormSet):
+    """Formset de base qui passe le mandat aux formulaires."""
+
+    def __init__(self, *args, mandat=None, **kwargs):
+        self.mandat_obj = mandat
+        super().__init__(*args, **kwargs)
+
+    def get_form_kwargs(self, index):
+        kwargs = super().get_form_kwargs(index)
+        kwargs['mandat'] = self.mandat_obj
+        return kwargs
 
 
 # Formset pour les lignes de facture
@@ -450,6 +480,7 @@ LigneFactureFormSet = inlineformset_factory(
     Facture,
     LigneFacture,
     form=LigneFactureForm,
+    formset=BaseLigneFactureFormSet,
     extra=0,
     can_delete=True,
     min_num=1,

@@ -76,6 +76,23 @@
         font-weight: 500;
         color: #1565c0;
     }
+    /* Ecritures inline */
+    .ecritures-table th {
+        font-size: 0.8rem;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+    .ecritures-table td {
+        padding: 0.25rem 0.35rem;
+        vertical-align: top;
+    }
+    .ecritures-table .form-control,
+    .ecritures-table .form-select {
+        font-size: 0.85rem;
+        padding: 0.3rem 0.5rem;
+    }
+    .equilibre-ok { color: #27ae60; font-weight: 600; }
+    .equilibre-ko { color: #c0392b; font-weight: 600; }
 </style>
 {% endblock %}
 
@@ -305,6 +322,64 @@
                     </div>
                 </div>
             </div>
+
+            <!-- ============================================ -->
+            <!-- Section Ecritures Inline -->
+            <!-- ============================================ -->
+            {% if formset %}
+            <div class="card mt-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="ph ph-list-numbers me-2"></i>
+                        {% trans "Ecritures comptables" %}
+                    </h5>
+                    <div>
+                        <span id="equilibreIndicateur" class="me-3"></span>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="btnAjouterLigne">
+                            <i class="ph ph-plus me-1"></i>{% trans "Ajouter une ligne" %}
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <!-- Erreurs du formset -->
+                    {% if formset.non_form_errors %}
+                    <div class="alert alert-danger m-3">
+                        {{ formset.non_form_errors }}
+                    </div>
+                    {% endif %}
+
+                    {{ formset.management_form }}
+
+                    <div class="table-responsive">
+                        <table class="table table-sm ecritures-table mb-0" id="ecrituresTable">
+                            <thead>
+                                <tr class="table-light">
+                                    <th style="min-width:200px">{% trans "Compte" %}</th>
+                                    <th style="min-width:180px">{% trans "Libelle" %}</th>
+                                    <th style="width:120px" class="text-end">{% trans "Debit" %}</th>
+                                    <th style="width:120px" class="text-end">{% trans "Credit" %}</th>
+                                    <th style="width:80px">{% trans "TVA" %}</th>
+                                    <th style="width:50px" class="text-center"><i class="ph ph-trash"></i></th>
+                                </tr>
+                            </thead>
+                            <tbody id="ecrituresBody">
+                                {% for ecriture_form in formset %}
+                                {% include "comptabilite/partials/ecriture_piece_row.html" with form=ecriture_form %}
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr class="table-light fw-bold">
+                                    <td colspan="2" class="text-end">{% trans "Totaux" %}</td>
+                                    <td class="text-end" id="totalDebit">0.00</td>
+                                    <td class="text-end" id="totalCredit">0.00</td>
+                                    <td colspan="2"></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
         </div>
 
         <!-- Colonne droite : Upload documents -->
@@ -497,28 +572,122 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ========================================
     // Rechargement de la page au changement de mandat
-    // (le filtrage des journaux/dossiers est géré côté serveur par Django)
     // ========================================
     const mandatSelect = document.getElementById('id_mandat');
     if (mandatSelect) {
-        // Fonction de rechargement
         function rechargerAvecMandat() {
             const mandatValue = mandatSelect.value;
             if (mandatValue) {
-                // Recharger la page avec le mandat en paramètre
                 const url = new URL(window.location.href);
                 url.searchParams.set('mandat', mandatValue);
                 window.location.href = url.toString();
             }
         }
 
-        // Écouter l'événement change natif
         mandatSelect.addEventListener('change', rechargerAvecMandat);
 
-        // Support Select2 - écouter aussi l'événement select2:select
         if (typeof jQuery !== 'undefined') {
             jQuery(mandatSelect).on('select2:select', rechargerAvecMandat);
         }
+    }
+
+    // ========================================
+    // Ecritures inline - Ajout dynamique de lignes + totaux temps reel
+    // ========================================
+    const ecrituresBody = document.getElementById('ecrituresBody');
+    const totalFormsInput = document.getElementById('id_ecritures-TOTAL_FORMS');
+    const btnAjouter = document.getElementById('btnAjouterLigne');
+    const totalDebitEl = document.getElementById('totalDebit');
+    const totalCreditEl = document.getElementById('totalCredit');
+    const equilibreEl = document.getElementById('equilibreIndicateur');
+
+    if (btnAjouter && ecrituresBody && totalFormsInput) {
+        // Ajouter une ligne
+        btnAjouter.addEventListener('click', function() {
+            const totalForms = parseInt(totalFormsInput.value);
+            const lastRow = ecrituresBody.querySelector('tr:last-child');
+            if (!lastRow) return;
+
+            const newRow = lastRow.cloneNode(true);
+            // Mettre a jour les noms/ids
+            newRow.querySelectorAll('input, select, textarea').forEach(function(el) {
+                if (el.name) {
+                    el.name = el.name.replace(/-\d+-/, '-' + totalForms + '-');
+                }
+                if (el.id) {
+                    el.id = el.id.replace(/-\d+-/, '-' + totalForms + '-');
+                }
+                // Reset les valeurs
+                if (el.type === 'checkbox') {
+                    el.checked = false;
+                } else if (el.tagName === 'SELECT') {
+                    el.selectedIndex = 0;
+                } else if (el.type !== 'hidden') {
+                    el.value = '';
+                } else {
+                    // Hidden fields (comme l'id) doivent etre vides pour les nouvelles lignes
+                    el.value = '';
+                }
+            });
+
+            newRow.classList.remove('table-danger');
+            // Supprimer les messages d'erreur
+            newRow.querySelectorAll('.text-danger').forEach(el => el.remove());
+
+            ecrituresBody.appendChild(newRow);
+            totalFormsInput.value = totalForms + 1;
+
+            // Re-attacher les listeners
+            attachCalculListeners();
+        });
+
+        // Calcul des totaux en temps reel
+        function calculerTotaux() {
+            let totalDebit = 0;
+            let totalCredit = 0;
+
+            ecrituresBody.querySelectorAll('tr.ecriture-row').forEach(function(row) {
+                // Ignorer les lignes marquees pour suppression
+                const deleteCheck = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+                if (deleteCheck && deleteCheck.checked) return;
+
+                const debitInput = row.querySelector('.ecriture-debit');
+                const creditInput = row.querySelector('.ecriture-credit');
+
+                if (debitInput) totalDebit += parseFloat(debitInput.value) || 0;
+                if (creditInput) totalCredit += parseFloat(creditInput.value) || 0;
+            });
+
+            if (totalDebitEl) totalDebitEl.textContent = totalDebit.toFixed(2);
+            if (totalCreditEl) totalCreditEl.textContent = totalCredit.toFixed(2);
+
+            // Indicateur d'equilibre
+            if (equilibreEl) {
+                const diff = Math.abs(totalDebit - totalCredit);
+                if (totalDebit === 0 && totalCredit === 0) {
+                    equilibreEl.innerHTML = '';
+                } else if (diff < 0.01) {
+                    equilibreEl.innerHTML = '<span class="equilibre-ok"><i class="ph ph-check-circle me-1"></i>Equilibre</span>';
+                } else {
+                    equilibreEl.innerHTML = '<span class="equilibre-ko"><i class="ph ph-warning me-1"></i>Ecart: ' + diff.toFixed(2) + '</span>';
+                }
+            }
+        }
+
+        function attachCalculListeners() {
+            ecrituresBody.querySelectorAll('.ecriture-debit, .ecriture-credit').forEach(function(input) {
+                input.removeEventListener('input', calculerTotaux);
+                input.addEventListener('input', calculerTotaux);
+            });
+            // Aussi recalculer quand on coche la suppression
+            ecrituresBody.querySelectorAll('input[type="checkbox"][name$="-DELETE"]').forEach(function(cb) {
+                cb.removeEventListener('change', calculerTotaux);
+                cb.addEventListener('change', calculerTotaux);
+            });
+        }
+
+        attachCalculListeners();
+        calculerTotaux();
     }
 });
 </script>

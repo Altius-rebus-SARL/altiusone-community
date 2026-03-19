@@ -187,6 +187,11 @@ urlpatterns = [
         name="api-dossiers-mandat",
     ),
     path(
+        "api/mandat/<uuid:mandat_pk>/comptes/",
+        views.api_comptes_par_mandat,
+        name="api-comptes-mandat",
+    ),
+    path(
         "api/types-pieces/",
         views.api_types_pieces,
         name="api-types-pieces",

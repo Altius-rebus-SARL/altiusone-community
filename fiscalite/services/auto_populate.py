@@ -23,7 +23,7 @@ def populate_from_comptabilite(declaration):
         return False
 
     mandat = declaration.mandat
-    plan = mandat.plans_comptables.first()
+    plan = mandat.plan_comptable
     if not plan:
         return False
 

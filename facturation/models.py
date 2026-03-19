@@ -1610,6 +1610,17 @@ class LigneFacture(BaseModel):
         help_text=_("Prestation associée à cette ligne")
     )
 
+    # Compte de produit override (prioritaire sur prestation.compte_produit)
+    compte_produit = models.ForeignKey(
+        'comptabilite.Compte',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='lignes_facture',
+        verbose_name=_("Compte de produit"),
+        help_text=_("Compte comptable de produit (override la prestation)")
+    )
+
     # Description
     description = models.TextField(
         verbose_name=_("Description"),

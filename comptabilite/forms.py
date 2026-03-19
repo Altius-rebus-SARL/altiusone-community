@@ -2,6 +2,7 @@
 from django import forms
 from django.utils.translation import gettext_lazy as _
 from django.db.models import Q
+from django.forms import inlineformset_factory
 from decimal import Decimal
 from .models import (
     PlanComptable,
@@ -196,7 +197,7 @@ class JournalForm(forms.ModelForm):
         )
         # Limiter les comptes au plan du mandat
         if self.instance and self.instance.mandat:
-            plan = self.instance.mandat.plans_comptables.first()
+            plan = self.instance.mandat.plan_comptable
             if plan:
                 self.fields[
                     "compte_contrepartie_defaut"
@@ -298,7 +299,7 @@ class EcritureComptableForm(forms.ModelForm):
                 self.fields["journal"].queryset = Journal.objects.filter(mandat=mandat)
 
                 # Comptes du plan
-                plan = mandat.plans_comptables.first()
+                plan = mandat.plan_comptable
                 if plan:
                     self.fields["compte"].queryset = Compte.objects.filter(
                         plan_comptable=plan, imputable=True
@@ -751,3 +752,141 @@ class ImportEcrituresForm(forms.Form):
         label=_("La première ligne contient les en-têtes"),
         widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
     )
+
+
+# =============================================================================
+# ÉCRITURES INLINE DANS PIÈCE COMPTABLE
+# =============================================================================
+
+class EcritureInlinePieceForm(forms.ModelForm):
+    """Formulaire inline pour une écriture dans une pièce comptable."""
+
+    class Meta:
+        model = EcritureComptable
+        fields = [
+            'compte', 'libelle', 'montant_debit', 'montant_credit',
+            'code_tva', 'tiers',
+        ]
+        widgets = {
+            'compte': forms.Select(attrs={
+                'class': 'form-control select2 ecriture-compte',
+            }),
+            'libelle': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': _('Libellé'),
+            }),
+            'montant_debit': forms.NumberInput(attrs={
+                'class': 'form-control text-end ecriture-debit',
+                'step': '0.01',
+                'placeholder': '0.00',
+            }),
+            'montant_credit': forms.NumberInput(attrs={
+                'class': 'form-control text-end ecriture-credit',
+                'step': '0.01',
+                'placeholder': '0.00',
+            }),
+            'code_tva': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': _('Code TVA'),
+            }),
+            'tiers': forms.Select(attrs={
+                'class': 'form-control select2',
+            }),
+        }
+
+    def __init__(self, *args, mandat=None, **kwargs):
+        self.mandat_obj = mandat
+        super().__init__(*args, **kwargs)
+
+        # Champs numériques optionnels avec default
+        for field_name in ('montant_debit', 'montant_credit'):
+            self.fields[field_name].required = False
+        self.fields['code_tva'].required = False
+        self.fields['tiers'].required = False
+
+        # Filtrer comptes par plan du mandat
+        if mandat:
+            plan = mandat.plan_comptable
+            if plan:
+                self.fields['compte'].queryset = Compte.objects.filter(
+                    plan_comptable=plan, imputable=True
+                ).order_by('numero')
+
+    def clean_montant_debit(self):
+        val = self.cleaned_data.get('montant_debit')
+        return val if val is not None else Decimal('0')
+
+    def clean_montant_credit(self):
+        val = self.cleaned_data.get('montant_credit')
+        return val if val is not None else Decimal('0')
+
+    def clean(self):
+        cleaned_data = super().clean()
+        # Ignorer les lignes vides (pas de compte sélectionné)
+        if not cleaned_data.get('compte'):
+            return cleaned_data
+
+        debit = cleaned_data.get('montant_debit', Decimal('0'))
+        credit = cleaned_data.get('montant_credit', Decimal('0'))
+
+        if debit > 0 and credit > 0:
+            raise forms.ValidationError(
+                _("Une écriture ne peut pas avoir un montant au débit ET au crédit")
+            )
+        if debit == 0 and credit == 0:
+            raise forms.ValidationError(
+                _("Une écriture doit avoir un montant (débit ou crédit)")
+            )
+        return cleaned_data
+
+
+class BaseEcritureInlineFormSet(forms.BaseInlineFormSet):
+    """Formset de base avec validation d'équilibre."""
+
+    def __init__(self, *args, mandat=None, **kwargs):
+        self.mandat_obj = mandat
+        super().__init__(*args, **kwargs)
+
+    def get_form_kwargs(self, index):
+        kwargs = super().get_form_kwargs(index)
+        kwargs['mandat'] = self.mandat_obj
+        return kwargs
+
+    def clean(self):
+        super().clean()
+        if any(self.errors):
+            return
+
+        total_debit = Decimal('0')
+        total_credit = Decimal('0')
+        has_data = False
+
+        for form in self.forms:
+            if self.can_delete and self._should_delete_form(form):
+                continue
+            if not form.cleaned_data or not form.cleaned_data.get('compte'):
+                continue
+            has_data = True
+            total_debit += form.cleaned_data.get('montant_debit', Decimal('0'))
+            total_credit += form.cleaned_data.get('montant_credit', Decimal('0'))
+
+        if has_data and total_debit != total_credit:
+            raise forms.ValidationError(
+                _("La pièce n'est pas équilibrée : débit (%(debit)s) ≠ crédit (%(credit)s)") % {
+                    'debit': total_debit,
+                    'credit': total_credit,
+                }
+            )
+
+
+EcritureInlineFormSet = inlineformset_factory(
+    PieceComptable,
+    EcritureComptable,
+    form=EcritureInlinePieceForm,
+    formset=BaseEcritureInlineFormSet,
+    fk_name='piece',
+    extra=2,
+    min_num=2,
+    validate_min=True,
+    can_delete=True,
+)

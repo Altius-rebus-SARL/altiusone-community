@@ -331,6 +331,13 @@ class MandatListSerializer(serializers.ModelSerializer):
         source="responsable.get_full_name", read_only=True, default=""
     )
 
+    plan_comptable_id = serializers.UUIDField(
+        source="plan_comptable_actif_id", read_only=True
+    )
+    plan_comptable_nom = serializers.CharField(
+        source="plan_comptable.nom", read_only=True, default=None
+    )
+
     class Meta:
         model = Mandat
         fields = [
@@ -338,6 +345,10 @@ class MandatListSerializer(serializers.ModelSerializer):
             "numero",
             "client",
             "client_name",
+            # Plan comptable actif
+            "plan_comptable_actif",
+            "plan_comptable_id",
+            "plan_comptable_nom",
             # Nouveaux champs de référence
             "type_mandat_ref",
             "type_mandat_libelle",
@@ -385,6 +396,13 @@ class MandatDetailSerializer(serializers.ModelSerializer):
     client = ClientListSerializer(read_only=True)
     responsable = UserSerializer(read_only=True)
     equipe = UserSerializer(many=True, read_only=True)
+    # Plan comptable actif (via property)
+    plan_comptable_nom = serializers.CharField(
+        source="plan_comptable.nom", read_only=True, default=None
+    )
+    plan_comptable_type = serializers.CharField(
+        source="plan_comptable.type_plan.code", read_only=True, default=None
+    )
 
     class Meta:
         model = Mandat
