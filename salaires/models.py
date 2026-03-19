@@ -2,6 +2,7 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from core.models import BaseModel, Mandat, User, Adresse
+from core.storage import SalairesStorage
 from decimal import Decimal
 from django.db.models import Q
 from django.core.validators import RegexValidator
@@ -901,7 +902,10 @@ class FicheSalaire(BaseModel):
 
     # Fichier PDF
     fichier_pdf = models.FileField(
-        upload_to='salaires/fiches/', null=True, blank=True,
+        upload_to='salaires/fiches/',
+        storage=SalairesStorage(),
+        max_length=500,
+        null=True, blank=True,
         verbose_name=_('Fichier PDF'),
         help_text=_('Fiche de salaire au format PDF')
     )
@@ -1458,7 +1462,10 @@ class CertificatSalaire(BaseModel):
 
     # ==================== FICHIER PDF ====================
     fichier_pdf = models.FileField(
-        upload_to='salaires/certificats/', null=True, blank=True,
+        upload_to='salaires/certificats/',
+        storage=SalairesStorage(),
+        max_length=500,
+        null=True, blank=True,
         verbose_name=_('Fichier PDF'),
         help_text=_('Certificat de salaire au format PDF')
     )
@@ -1987,6 +1994,8 @@ class DeclarationCotisations(BaseModel):
     # Documents
     fichier_declaration = models.FileField(
         upload_to='salaires/declarations/',
+        storage=SalairesStorage(),
+        max_length=500,
         null=True, blank=True,
         verbose_name=_('Fichier déclaration'),
         help_text=_('Document de déclaration généré')
@@ -2449,6 +2458,8 @@ class CertificatTravail(BaseModel):
     # Fichier
     fichier_pdf = models.FileField(
         upload_to='salaires/certificats_travail/',
+        storage=SalairesStorage(),
+        max_length=500,
         null=True, blank=True
     )
 

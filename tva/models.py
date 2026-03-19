@@ -1,6 +1,7 @@
 # apps/tva/models.py
 from django.db import models
 from core.models import BaseModel, Mandat, User, Periodicite
+from core.storage import TVAStorage
 from decimal import Decimal
 from django.db.models import Q
 from io import BytesIO
@@ -554,12 +555,18 @@ class DeclarationTVA(BaseModel):
 
     # Fichiers
     fichier_xml = models.FileField(
-        upload_to='tva/xml/', null=True, blank=True,
+        upload_to='tva/xml/',
+        storage=TVAStorage(),
+        max_length=500,
+        null=True, blank=True,
         verbose_name=_('Fichier XML'),
         help_text=_('Export XML pour soumission électronique')
     )
     fichier_pdf = models.FileField(
-        upload_to='tva/pdf/', null=True, blank=True,
+        upload_to='tva/pdf/',
+        storage=TVAStorage(),
+        max_length=500,
+        null=True, blank=True,
         verbose_name=_('Fichier PDF'),
         help_text=_('Version PDF de la déclaration')
     )

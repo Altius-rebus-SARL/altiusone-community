@@ -2,6 +2,7 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from core.models import BaseModel, Mandat, Client, User, ExerciceComptable, SwissCantons
+from core.storage import FiscaliteStorage
 from decimal import Decimal
 
 
@@ -224,12 +225,16 @@ class DeclarationFiscale(BaseModel):
     # Fichiers
     fichier_declaration = models.FileField(
         upload_to='fiscalite/declarations/',
+        storage=FiscaliteStorage(),
+        max_length=500,
         null=True, blank=True,
         verbose_name=_('Fichier déclaration'),
         help_text=_('Document PDF de la déclaration déposée')
     )
     fichier_taxation = models.FileField(
         upload_to='fiscalite/taxations/',
+        storage=FiscaliteStorage(),
+        max_length=500,
         null=True, blank=True,
         verbose_name=_('Fichier taxation'),
         help_text=_('Document PDF de la décision de taxation')
@@ -332,6 +337,8 @@ class AnnexeFiscale(BaseModel):
     # Fichier associé
     fichier = models.FileField(
         upload_to='fiscalite/annexes/',
+        storage=FiscaliteStorage(),
+        max_length=500,
         null=True, blank=True,
         verbose_name=_('Fichier'),
         help_text=_('Document PDF ou autre pièce jointe')
@@ -724,12 +731,16 @@ class ReclamationFiscale(BaseModel):
 
     fichier_reclamation = models.FileField(
         upload_to='fiscalite/reclamations/',
+        storage=FiscaliteStorage(),
+        max_length=500,
         null=True, blank=True,
         verbose_name=_('Fichier réclamation'),
         help_text=_('Document PDF de la réclamation déposée')
     )
     fichier_decision = models.FileField(
         upload_to='fiscalite/decisions/',
+        storage=FiscaliteStorage(),
+        max_length=500,
         null=True, blank=True,
         verbose_name=_('Fichier décision'),
         help_text=_('Document PDF de la décision reçue')

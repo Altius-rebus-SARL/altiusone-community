@@ -4,6 +4,7 @@ from django.contrib.gis.db import models as gis_models
 from django.utils.translation import gettext_lazy as _
 from django.contrib.contenttypes.fields import GenericRelation
 from core.models import BaseModel, Devise, Mandat, Client, User, FichierJoint
+from core.storage import InvoiceStorage
 from decimal import Decimal
 from datetime import datetime, date, timedelta
 from tva.utils import get_taux_tva_defaut
@@ -779,6 +780,8 @@ class Facture(BaseModel):
     )
     qr_code_image = models.ImageField(
         upload_to='factures/qr/',
+        storage=InvoiceStorage(),
+        max_length=500,
         null=True,
         blank=True,
         verbose_name=_("Image QR code"),
@@ -850,6 +853,8 @@ class Facture(BaseModel):
     # Fichiers
     fichier_pdf = models.FileField(
         upload_to='factures/pdf/',
+        storage=InvoiceStorage(),
+        max_length=500,
         null=True,
         blank=True,
         verbose_name=_("Fichier PDF"),
@@ -1930,6 +1935,8 @@ class Relance(BaseModel):
 
     fichier_pdf = models.FileField(
         upload_to='factures/relances/',
+        storage=InvoiceStorage(),
+        max_length=500,
         null=True,
         blank=True,
         verbose_name=_("Fichier PDF"),
