@@ -345,11 +345,9 @@ class PieceComptableDetailSerializer(serializers.ModelSerializer):
         ]
 
     def get_documents(self, obj):
-        """Retourne les documents associés à cette pièce"""
+        """Retourne les documents justificatifs associés à cette pièce"""
         from documents.serializers import DocumentListSerializer
-        if hasattr(obj, 'documents'):
-            return DocumentListSerializer(obj.documents.all(), many=True).data
-        return []
+        return DocumentListSerializer(obj.documents_justificatifs.all(), many=True).data
 
 
 class PieceComptableCreateSerializer(serializers.ModelSerializer):
