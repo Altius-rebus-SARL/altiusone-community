@@ -584,6 +584,7 @@ class Document(BaseModel):
     fichier = models.FileField(
         storage=DocumentStorage(),
         upload_to=document_upload_path,
+        max_length=500,
         null=True,
         blank=True,
         verbose_name=_('Fichier'),

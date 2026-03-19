@@ -40,7 +40,7 @@ def initialiser_mandat(sender, instance, created, **kwargs):
         from documents.models import Dossier
         from comptabilite.models import PlanComptable, Journal
 
-        # 1. Créer dossier mandat
+        # 1. Créer dossier mandat + sous-dossiers module
         dossier = Dossier.objects.create(
             nom=f"Mandat {instance.numero}",
             type_dossier='MANDAT',
@@ -48,6 +48,20 @@ def initialiser_mandat(sender, instance, created, **kwargs):
             mandat=instance,
             proprietaire=instance.responsable
         )
+
+        # Sous-dossiers par module (pour classement automatique des documents générés)
+        for nom_dossier in [
+            'Factures', 'Pièces comptables', 'Salaires',
+            'TVA', 'Fiscalité', 'Correspondance',
+        ]:
+            Dossier.objects.create(
+                nom=nom_dossier,
+                type_dossier='STANDARD',
+                parent=dossier,
+                client=instance.client,
+                mandat=instance,
+                proprietaire=instance.responsable
+            )
 
         # 2. Si mandat comptabilité, créer plan comptable
         if instance.type_mandat in ['COMPTA', 'GLOBAL']:

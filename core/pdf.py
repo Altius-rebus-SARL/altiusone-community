@@ -160,6 +160,9 @@ def save_pdf_overwrite(instance, field_name, pdf_bytes, filename):
     Évite l'accumulation de fichiers orphelins sur le storage (S3/local)
     sans avoir à modifier file_overwrite sur les storage classes.
 
+    Après sauvegarde, enregistre automatiquement le document dans la GED
+    (dossier du mandat correspondant au module).
+
     Args:
         instance: Instance du modèle Django
         field_name: Nom du champ FileField (ex: 'fichier_pdf')
@@ -183,4 +186,128 @@ def save_pdf_overwrite(instance, field_name, pdf_bytes, filename):
             )
 
     field.save(filename, ContentFile(pdf_bytes), save=True)
+
+    # Auto-filing dans la GED
+    try:
+        _auto_file_document(instance, pdf_bytes, filename)
+    except Exception:
+        logger.warning(
+            "Auto-filing GED échoué pour %s (%s) — le PDF est quand même sauvegardé",
+            instance, filename,
+        )
+
     return getattr(instance, field_name)
+
+
+# =============================================================================
+# AUTO-FILING GED
+# =============================================================================
+
+# Mapping model → (dossier cible, FK sur Document, résolution du mandat)
+_MODEL_GED_CONFIG = {
+    'facturation.Facture': {
+        'dossier': 'Factures',
+        'fk_field': 'facture',
+        'get_mandat': lambda inst: inst.mandat,
+    },
+    'salaires.FicheSalaire': {
+        'dossier': 'Salaires',
+        'fk_field': 'fiche_salaire',
+        'get_mandat': lambda inst: inst.employe.mandat,
+    },
+    'salaires.CertificatSalaire': {
+        'dossier': 'Salaires',
+        'fk_field': None,
+        'get_mandat': lambda inst: inst.employe.mandat,
+    },
+    'salaires.DeclarationCotisations': {
+        'dossier': 'Salaires',
+        'fk_field': None,
+        'get_mandat': lambda inst: inst.mandat,
+    },
+    'salaires.CertificatTravail': {
+        'dossier': 'Salaires',
+        'fk_field': None,
+        'get_mandat': lambda inst: inst.employe.mandat,
+    },
+}
+
+
+def _auto_file_document(instance, pdf_bytes, filename):
+    """
+    Crée ou met à jour un Document dans la GED pour un PDF généré.
+
+    Le document est classé dans le sous-dossier module du mandat.
+    Si un Document lié existe déjà (même FK), on met à jour le fichier
+    (versioning implicite — l'ancien fichier S3 est écrasé).
+    """
+    import hashlib
+    import os
+    from documents.models import Document, Dossier
+    from django.db.models import Q
+
+    app_model = f"{instance._meta.app_label}.{instance._meta.object_name}"
+    config = _MODEL_GED_CONFIG.get(app_model)
+    if not config:
+        return  # Modèle non configuré pour l'auto-filing
+
+    mandat = config['get_mandat'](instance)
+    if not mandat:
+        return
+
+    # Trouver le sous-dossier cible
+    dossier = Dossier.objects.filter(
+        Q(mandat=mandat) | Q(client=mandat.client),
+        nom=config['dossier'],
+        is_active=True,
+    ).first()
+
+    # Hash du contenu
+    file_hash = hashlib.sha256(pdf_bytes).hexdigest()
+    ext = os.path.splitext(filename)[1].lower()
+
+    # Chercher un Document existant lié à cette instance
+    existing_doc = None
+    fk_field = config.get('fk_field')
+    if fk_field:
+        existing_doc = Document.objects.filter(
+            **{fk_field: instance}
+        ).first()
+
+    if existing_doc:
+        # Mise à jour du fichier existant (écrasement = nouvelle version)
+        existing_doc.nom_fichier = filename
+        existing_doc.nom_original = filename
+        existing_doc.extension = ext
+        existing_doc.taille = len(pdf_bytes)
+        existing_doc.hash_fichier = file_hash
+        existing_doc.mime_type = 'application/pdf'
+        if dossier:
+            existing_doc.dossier = dossier
+        # Remplacer le fichier S3
+        if existing_doc.fichier:
+            try:
+                existing_doc.fichier.storage.delete(existing_doc.fichier.name)
+            except Exception:
+                pass
+        existing_doc.fichier.save(filename, ContentFile(pdf_bytes), save=True)
+    else:
+        # Créer un nouveau Document
+        doc_kwargs = {
+            'mandat': mandat,
+            'dossier': dossier,
+            'nom_fichier': filename,
+            'nom_original': filename,
+            'extension': ext,
+            'mime_type': 'application/pdf',
+            'taille': len(pdf_bytes),
+            'hash_fichier': file_hash,
+            'statut_traitement': 'VALIDE',
+            'description': f"Généré automatiquement — {instance}",
+        }
+        if fk_field:
+            doc_kwargs[fk_field] = instance
+
+        doc = Document(**doc_kwargs)
+        doc.save()
+        doc.fichier.save(filename, ContentFile(pdf_bytes), save=True)
