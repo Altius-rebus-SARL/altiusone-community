@@ -259,6 +259,10 @@ class MessageCreateSerializer(serializers.Serializer):
         max_length=10000,
         help_text='Message de l\'utilisateur'
     )
+    mandat = serializers.UUIDField(
+        required=False, allow_null=True, default=None,
+        help_text='Mandat courant (met à jour le contexte de la conversation)'
+    )
     use_semantic_search = serializers.BooleanField(
         default=True,
         help_text='Utiliser la recherche semantique pour le contexte'

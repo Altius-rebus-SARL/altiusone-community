@@ -110,6 +110,18 @@ class ConversationViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # Mettre à jour le mandat si fourni (changement de contexte)
+        new_mandat_id = serializer.validated_data.get('mandat')
+        if new_mandat_id:
+            from core.models import Mandat
+            try:
+                new_mandat = Mandat.objects.get(pk=new_mandat_id)
+                if conversation.mandat != new_mandat:
+                    conversation.mandat = new_mandat
+                    conversation.save(update_fields=['mandat'])
+            except Mandat.DoesNotExist:
+                pass
+
         # Envoyer le message via le service
         response = chat_service.chat(
             conversation=conversation,

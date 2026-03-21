@@ -1514,6 +1514,22 @@ class UniversalSearchService:
                     if obj is None or not getattr(obj, 'is_active', True):
                         continue
 
+                    # Filtrer par mandat si contexte mandat
+                    if context.mandat_ids:
+                        obj_mandat_id = None
+                        if hasattr(obj, 'mandat_id'):
+                            obj_mandat_id = str(obj.mandat_id) if obj.mandat_id else None
+                        elif hasattr(obj, 'id') and me.content_type.model == 'mandat':
+                            obj_mandat_id = str(obj.id)
+                        elif hasattr(obj, 'mandats'):
+                            # Client → vérifier s'il a un mandat dans le filtre
+                            obj_mandat_ids = set(str(m) for m in obj.mandats.values_list('id', flat=True))
+                            if not obj_mandat_ids.intersection(set(context.mandat_ids)):
+                                continue
+                            obj_mandat_id = None  # skip le check suivant
+                        if obj_mandat_id is not None and obj_mandat_id not in context.mandat_ids:
+                            continue
+
                     # Déterminer le type d'entité
                     model_name = me.content_type.model
                     entity_type = self._model_to_entity_type(model_name)
