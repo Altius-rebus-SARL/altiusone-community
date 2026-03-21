@@ -21,10 +21,23 @@ class BaseModel(models.Model):
     created_by = models.ForeignKey('core.User', on_delete=models.SET_NULL,
                                    null=True, related_name='+', verbose_name=_('Créé par'))
     is_active = models.BooleanField(default=True, db_index=True, verbose_name=_('Actif'))
+    langue_saisie = models.CharField(
+        max_length=5, blank=True, default='',
+        db_index=True,
+        verbose_name=_('Langue de saisie'),
+        help_text=_('Langue dans laquelle les données ont été saisies (auto-détecté)')
+    )
 
     class Meta:
         abstract = True
         ordering = ['-created_at']
+
+    def save(self, *args, **kwargs):
+        # Auto-remplir la langue de saisie si non définie
+        if not self.langue_saisie:
+            from django.utils.translation import get_language
+            self.langue_saisie = get_language() or 'fr'
+        super().save(*args, **kwargs)
 
 
 class SwissCantons(models.TextChoices):
