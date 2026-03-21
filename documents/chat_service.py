@@ -194,13 +194,14 @@ DONNEES TROUVEES:
             # 4. Construire le system prompt avec le contexte
             system_prompt = self._build_system_prompt(conversation, search_results)
 
-            # Ajouter le contexte mandat
-            if conversation.mandat:
-                mandat_ctx = (
-                    f"\nContexte: Mandat {conversation.mandat.numero} - "
-                    f"{conversation.mandat.client.raison_sociale if conversation.mandat.client else 'N/A'}"
-                )
-                system_prompt += mandat_ctx
+            # Ajouter le contexte mandat(s)
+            mandats_qs = conversation.mandats.select_related('client').all()
+            if mandats_qs.exists():
+                parts = [
+                    f"Mandat {m.numero} - {m.client.raison_sociale if m.client else 'N/A'}"
+                    for m in mandats_qs
+                ]
+                system_prompt += f"\nContexte: {' | '.join(parts)}"
 
             history = self._build_conversation_history(conversation)
 
@@ -342,11 +343,13 @@ DONNEES TROUVEES:
 
             # 4. Construire le prompt avec contexte
             system_prompt = self._build_system_prompt(conversation, search_results)
-            if conversation.mandat:
-                system_prompt += (
-                    f"\nContexte: Mandat {conversation.mandat.numero} - "
-                    f"{conversation.mandat.client.raison_sociale if conversation.mandat.client else 'N/A'}"
-                )
+            mandats_qs = conversation.mandats.select_related('client').all()
+            if mandats_qs.exists():
+                parts = [
+                    f"Mandat {m.numero} - {m.client.raison_sociale if m.client else 'N/A'}"
+                    for m in mandats_qs
+                ]
+                system_prompt += f"\nContexte: {' | '.join(parts)}"
 
             history = self._build_conversation_history(conversation)
             messages = [{'role': 'system', 'content': system_prompt}]
@@ -448,8 +451,9 @@ DONNEES TROUVEES:
         """
         # Construire le contexte de recherche
         mandat_ids = None
-        if conversation.mandat:
-            mandat_ids = [str(conversation.mandat.id)]
+        mandats_qs = conversation.mandats.all()
+        if mandats_qs.exists():
+            mandat_ids = [str(m.id) for m in mandats_qs]
 
         context = SearchContext(
             user=conversation.utilisateur,
@@ -498,13 +502,14 @@ DONNEES TROUVEES:
                 lines.append(line)
             contexte = "\n".join(lines)
 
-        # Ajouter mandat si spécifié
-        if conversation.mandat:
-            contexte = (
-                f"Mandat {conversation.mandat.numero} - "
-                f"{conversation.mandat.client.raison_sociale if conversation.mandat.client else 'N/A'}\n\n"
-                + contexte
-            )
+        # Ajouter mandats si spécifiés
+        mandats_qs = conversation.mandats.select_related('client').all()
+        if mandats_qs.exists():
+            parts = [
+                f"Mandat {m.numero} - {m.client.raison_sociale if m.client else 'N/A'}"
+                for m in mandats_qs
+            ]
+            contexte = " | ".join(parts) + "\n\n" + contexte
 
         return base_prompt.format(contexte=contexte)
 
@@ -513,8 +518,8 @@ DONNEES TROUVEES:
         Construit le contexte intelligence (insights, relations, digest).
         """
         sections = []
-        mandat = conversation.mandat
-        if not mandat:
+        mandats_qs = conversation.mandats.all()
+        if not mandats_qs.exists():
             return ""
 
         try:
@@ -524,7 +529,7 @@ DONNEES TROUVEES:
 
             # Insights non traites
             insights = MandatInsight.objects.filter(
-                mandat=mandat, traite=False
+                mandat__in=mandats_qs, traite=False
             ).filter(
                 Q(date_expiration__isnull=True) | Q(date_expiration__gt=timezone.now())
             ).order_by('-severite', '-created_at')[:10]
@@ -567,7 +572,7 @@ DONNEES TROUVEES:
 
             # Dernier digest
             digest = MandatDigest.objects.filter(
-                mandat=mandat
+                mandat__in=mandats_qs
             ).order_by('-periode_fin').first()
 
             if digest:

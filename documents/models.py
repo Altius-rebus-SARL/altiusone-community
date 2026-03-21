@@ -1312,14 +1312,12 @@ class Conversation(BaseModel):
         verbose_name=_('Utilisateur'),
         help_text=_('Utilisateur propriétaire de la conversation')
     )
-    mandat = models.ForeignKey(
+    mandats = models.ManyToManyField(
         Mandat,
-        on_delete=models.CASCADE,
-        null=True,
         blank=True,
         related_name='conversations',
-        verbose_name=_('Mandat'),
-        help_text=_('Mandat pour le contexte documentaire')
+        verbose_name=_('Mandats'),
+        help_text=_('Mandats pour le contexte documentaire')
     )
     document = models.ForeignKey(
         Document,
@@ -1393,7 +1391,6 @@ class Conversation(BaseModel):
         ordering = ['-updated_at']
         indexes = [
             models.Index(fields=['utilisateur', 'statut']),
-            models.Index(fields=['mandat', 'statut']),
         ]
 
     def __str__(self):
@@ -1421,9 +1418,10 @@ class Conversation(BaseModel):
         if self.document:
             return [self.document]
 
-        if self.mandat:
+        mandat_ids = list(self.mandats.values_list('id', flat=True))
+        if mandat_ids:
             return Document.objects.filter(
-                mandat=self.mandat,
+                mandat_id__in=mandat_ids,
                 is_active=True,
                 ocr_text__isnull=False
             ).exclude(ocr_text='').order_by('-date_upload')[:limit]
