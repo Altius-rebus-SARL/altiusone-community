@@ -10,6 +10,7 @@ from .viewset import (
     ComparaisonPeriodeViewSet,
     AlerteMetriqueViewSet,
     ExportDonneesViewSet,
+    dashboard_data,
 )
 
 app_name = "analytics"
@@ -27,6 +28,7 @@ router.register(r"alertes", AlerteMetriqueViewSet, basename="alerte")
 router.register(r"exports", ExportDonneesViewSet, basename="export")
 
 urlpatterns = [
+    path("dashboard/", dashboard_data, name="api-dashboard-data"),
     path("", include(router.urls)),
 ]
 

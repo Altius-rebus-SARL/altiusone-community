@@ -106,6 +106,9 @@ urlpatterns = [
     # API v1 - Chat & Messagerie (team messaging + AI)
     path("api/v1/messaging/", include("chat.api_urls")),
 
+    # API v1 - Analytics dashboard (endpoints hors-router)
+    path("api/v1/analytics/", include("analytics.api_urls")),
+
     # API v1 - Graphe relationnel (URLs additionnelles)
     path("api/v1/graph-analytics/", include(graph_extra_urls)),
 
