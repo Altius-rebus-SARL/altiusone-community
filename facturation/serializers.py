@@ -95,6 +95,12 @@ class TimeTrackingListSerializer(serializers.ModelSerializer):
     categorie_couleur = serializers.CharField(
         source="categorie.couleur", read_only=True, allow_null=True, default=None
     )
+    position_titre = serializers.CharField(
+        source="position.titre", read_only=True, allow_null=True, default=None
+    )
+    operation_titre = serializers.CharField(
+        source="operation.titre", read_only=True, allow_null=True, default=None
+    )
     duree_heures = serializers.DecimalField(
         max_digits=6, decimal_places=2, read_only=True
     )
@@ -112,6 +118,10 @@ class TimeTrackingListSerializer(serializers.ModelSerializer):
             "mandat_numero",
             "prestation",
             "prestation_libelle",
+            "position",
+            "position_titre",
+            "operation",
+            "operation_titre",
             "categorie",
             "categorie_libelle",
             "categorie_icone",
@@ -142,6 +152,12 @@ class TimeTrackingSerializer(serializers.ModelSerializer):
     )
     prestation_libelle = serializers.CharField(
         source="prestation.libelle", read_only=True, allow_null=True, default=None
+    )
+    position_titre = serializers.CharField(
+        source="position.titre", read_only=True, allow_null=True
+    )
+    operation_titre = serializers.CharField(
+        source="operation.titre", read_only=True, allow_null=True
     )
     categorie_detail = CategorieTempsSerializer(
         source="categorie", read_only=True
@@ -183,6 +199,9 @@ class FactureListSerializer(serializers.ModelSerializer):
     regime_fiscal_code = serializers.CharField(
         source="regime_fiscal.code", read_only=True, default=None
     )
+    position_titre = serializers.CharField(
+        source="position.titre", read_only=True, allow_null=True, default=None
+    )
     est_simplifiee = serializers.BooleanField(read_only=True)
 
     class Meta:
@@ -199,6 +218,8 @@ class FactureListSerializer(serializers.ModelSerializer):
             "statut_display",
             "devise_code",
             "regime_fiscal_code",
+            "position",
+            "position_titre",
             "est_simplifiee",
         ]
 
@@ -206,6 +227,9 @@ class FactureListSerializer(serializers.ModelSerializer):
 class FactureDetailSerializer(serializers.ModelSerializer):
     client = ClientListSerializer(read_only=True)
     mandat = MandatListSerializer(read_only=True)
+    position_titre = serializers.CharField(
+        source="position.titre", read_only=True, allow_null=True
+    )
     est_simplifiee = serializers.BooleanField(read_only=True)
 
     class Meta:

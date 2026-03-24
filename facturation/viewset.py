@@ -71,13 +71,13 @@ class TimeTrackingViewSet(viewsets.ModelViewSet):
 
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ["mandat", "utilisateur", "facturable", "type_entree", "categorie", "valide"]
+    filterset_fields = ["mandat", "utilisateur", "facturable", "type_entree", "categorie", "valide", "position", "operation"]
     ordering_fields = ["date_travail", "duree_minutes", "created_at"]
     ordering = ["-date_travail"]
 
     def get_queryset(self):
         return TimeTracking.objects.select_related(
-            "mandat", "utilisateur", "prestation", "categorie"
+            "mandat", "utilisateur", "prestation", "categorie", "position", "operation"
         )
 
     def get_serializer_class(self):
@@ -209,10 +209,10 @@ class TimeTrackingViewSet(viewsets.ModelViewSet):
 
 class FactureViewSet(PDFViewSetMixin, viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
-    filterset_fields = ["client", "mandat", "statut"]
+    filterset_fields = ["client", "mandat", "statut", "position"]
 
     def get_queryset(self):
-        return Facture.objects.select_related("client", "mandat")
+        return Facture.objects.select_related("client", "mandat", "position")
 
     def get_serializer_class(self):
         if self.action == "list":

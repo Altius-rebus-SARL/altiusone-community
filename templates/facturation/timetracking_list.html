@@ -145,6 +145,7 @@
                                 <th>{% trans "Utilisateur" %}</th>
                                 <th>{% trans "Mandat" %}</th>
                                 <th>{% trans "Prestation" %}</th>
+                                <th>{% trans "Position" %}</th>
                                 <th>{% trans "Description" %}</th>
                                 <th>{% trans "Durée" %}</th>
                                 {% if is_manager %}
@@ -172,6 +173,18 @@
                                     </a>
                                 </td>
                                 <td>{{ temps.prestation.libelle|truncatewords:3 }}</td>
+                                <td>
+                                    {% if temps.position %}
+                                    <a href="{% url 'comptabilite:immobilisation-list' %}" class="text-muted f-s-12">
+                                        {{ temps.position.titre|truncatewords:3 }}
+                                    </a>
+                                    {% if temps.operation %}
+                                    <br><span class="f-s-11 text-secondary">{{ temps.operation.titre|truncatewords:3 }}</span>
+                                    {% endif %}
+                                    {% else %}
+                                    <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
                                 <td>
                                     <span class="text-muted">{{ temps.description|truncatewords:8 }}</span>
                                 </td>

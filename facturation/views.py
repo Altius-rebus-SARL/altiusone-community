@@ -182,7 +182,8 @@ class TimeTrackingListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMi
 
     def get_queryset(self):
         queryset = TimeTracking.objects.select_related(
-            "mandat__client", "utilisateur", "prestation", "facture"
+            "mandat__client", "utilisateur", "prestation", "facture",
+            "position", "operation"
         )
 
         # Filtrer selon le rôle
@@ -406,6 +407,7 @@ class FactureDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView)
                 "creee_par",
                 "validee_par",
                 "facture_origine",
+                "position",
             )
             .prefetch_related(
                 "lignes__prestation", "lignes__temps_factures", "paiements", "relances"

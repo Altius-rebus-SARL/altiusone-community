@@ -11,6 +11,7 @@ from .models import (
 )
 from django.db.models import Q
 from core.models import Mandat, Client, User, ParametreMetier
+from projets.models import Position
 from projets.forms import CoordonneesMixin
 
 
@@ -307,6 +308,7 @@ class FactureForm(forms.ModelForm):
         fields = [
             "mandat",
             "client",
+            "position",
             "type_facture",
             "regime_fiscal",
             "exercice",
@@ -324,6 +326,7 @@ class FactureForm(forms.ModelForm):
         widgets = {
             "mandat": forms.Select(attrs={"class": "form-control select2"}),
             "client": forms.Select(attrs={"class": "form-control select2"}),
+            "position": forms.Select(attrs={"class": "form-control select2"}),
             "type_facture": forms.Select(attrs={"class": "form-control"}),
             "regime_fiscal": forms.Select(attrs={"class": "form-control select2"}),
             "exercice": forms.Select(attrs={"class": "form-control select2"}),
@@ -365,6 +368,16 @@ class FactureForm(forms.ModelForm):
         self.fields["date_emission"].input_formats = ["%Y-%m-%d"]
         self.fields["date_service_debut"].input_formats = ["%Y-%m-%d"]
         self.fields["date_service_fin"].input_formats = ["%Y-%m-%d"]
+
+        # Position : filtrer par mandat si disponible
+        mandat_for_position = self.mandat or (self.instance.mandat if self.instance and self.instance.pk else None)
+        if mandat_for_position:
+            self.fields['position'].queryset = Position.objects.filter(
+                mandat=mandat_for_position, is_active=True
+            )
+        else:
+            self.fields['position'].queryset = Position.objects.filter(is_active=True)
+        self.fields['position'].required = False
 
         # Pré-peupler depuis le mandat (en création uniquement)
         if self.instance._state.adding and self.mandat:
