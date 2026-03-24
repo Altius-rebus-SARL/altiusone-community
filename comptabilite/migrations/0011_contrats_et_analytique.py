@@ -22,7 +22,7 @@ def safe_add_columns(apps, schema_editor):
     for table in [
         'classes_comptables', 'comptes', 'ecritures_comptables', 'journaux',
         'lettrages', 'pieces_comptables', 'plans_comptables',
-        'types_piece_comptable', 'types_plan_comptable',
+        'types_pieces_comptables', 'types_plans_comptables',
     ]:
         if not col_exists(table, 'langue_saisie'):
             cursor.execute(
@@ -31,9 +31,9 @@ def safe_add_columns(apps, schema_editor):
             )
 
     # dossier_classement on types_piece_comptable
-    if not col_exists('types_piece_comptable', 'dossier_classement'):
+    if not col_exists('types_pieces_comptables', 'dossier_classement'):
         cursor.execute(
-            'ALTER TABLE "types_piece_comptable" ADD COLUMN "dossier_classement" '
+            'ALTER TABLE "types_pieces_comptables" ADD COLUMN "dossier_classement" '
             "varchar(100) NOT NULL DEFAULT ''"
         )
 

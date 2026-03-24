@@ -1,19 +1,16 @@
-# Safe migration — adds langue_saisie only if column doesn't exist yet.
-# Required because some instances already have the column (added manually).
+# Safe idempotent migration — adds langue_saisie only if column doesn't exist.
 
-from django.db import migrations, models
+from django.db import migrations
 
 
 def add_column_if_not_exists(apps, schema_editor):
-    """Add langue_saisie to all documents tables, skipping if already present."""
-    connection = schema_editor.connection
+    cursor = schema_editor.connection.cursor()
     tables = [
-        'categories_document', 'conversations', 'documents', 'documents_relations',
-        'dossiers', 'mandat_digests', 'mandat_insights', 'messages_conversation',
+        'categories_document', 'conversations', 'documents', 'document_relations',
+        'dossiers', 'mandat_digests', 'mandat_insights', 'messages',
         'sources_document', 'traitements_document', 'types_document', 'versions_document',
     ]
     for table in tables:
-        cursor = connection.cursor()
         cursor.execute(
             "SELECT 1 FROM information_schema.columns "
             "WHERE table_name = %s AND column_name = 'langue_saisie'",
@@ -23,10 +20,6 @@ def add_column_if_not_exists(apps, schema_editor):
             cursor.execute(
                 f'ALTER TABLE "{table}" ADD COLUMN "langue_saisie" '
                 f"varchar(5) NOT NULL DEFAULT ''"
-            )
-            cursor.execute(
-                f'CREATE INDEX IF NOT EXISTS "{table}_langue_saisie_idx" '
-                f'ON "{table}" ("langue_saisie")'
             )
 
 
