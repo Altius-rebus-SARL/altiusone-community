@@ -1,0 +1,340 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load devise_tags %}
+
+{% block title %}{% trans "Immobilisation" %} {{ immobilisation.numero }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Immobilisation" %} {{ immobilisation.numero }}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'comptabilite:immobilisation-list' %}">
+                    <span>{% trans "Immobilisations" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{{ immobilisation.numero }}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<!-- Header Card -->
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h4 class="text-primary mb-1">{{ immobilisation.designation }}</h4>
+                        <p class="text-muted mb-0">
+                            <span class="badge bg-light-dark f-w-600 me-2">{{ immobilisation.numero }}</span>
+                            {% if immobilisation.categorie %}{{ immobilisation.categorie }}{% endif %}
+                        </p>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'comptabilite:immobilisation-update' immobilisation.pk %}" class="btn btn-primary">
+                            <i class="ph ph-pencil me-2"></i>{% trans "Modifier" %}
+                        </a>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    {% if immobilisation.statut == 'ACTIF' %}
+                    <span class="badge bg-success">{% trans "Actif" %}</span>
+                    {% elif immobilisation.statut == 'AMORTI' %}
+                    <span class="badge bg-info">{% trans "Totalement amorti" %}</span>
+                    {% elif immobilisation.statut == 'CEDE' %}
+                    <span class="badge bg-warning">{% trans "Cede" %}</span>
+                    {% elif immobilisation.statut == 'MIS_AU_REBUT' %}
+                    <span class="badge bg-danger">{% trans "Mis au rebut" %}</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <label class="text-muted f-s-12">{% trans "Valeur nette comptable" %}</label>
+                <h3 class="text-primary mb-0">{{ immobilisation.valeur_nette_comptable|floatformat:2 }}</h3>
+                <p class="text-muted f-s-12 mb-0">
+                    {% trans "sur" %} {{ immobilisation.valeur_acquisition|floatformat:2 }}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabs -->
+<div class="row">
+    <div class="col-12">
+        <ul class="nav nav-tabs app-tabs-primary" id="immoTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="info-tab" data-bs-toggle="tab"
+                        data-bs-target="#info-pane" type="button" role="tab">
+                    <i class="ph ph-info me-1"></i> {% trans "Informations" %}
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="amort-tab" data-bs-toggle="tab"
+                        data-bs-target="#amort-pane" type="button" role="tab">
+                    <i class="ph ph-chart-bar me-1"></i> {% trans "Amortissement" %}
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="docs-tab" data-bs-toggle="tab"
+                        data-bs-target="#docs-pane" type="button" role="tab">
+                    <i class="ph ph-paperclip me-1"></i> {% trans "Documents" %}
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="immoTabsContent">
+            <!-- Tab Informations -->
+            <div class="tab-pane fade show active" id="info-pane" role="tabpanel">
+                <div class="card border-top-0 rounded-top-0">
+                    <div class="card-body">
+                        <div class="row">
+                            <!-- Acquisition -->
+                            <div class="col-md-6">
+                                <h6 class="text-muted mb-3">
+                                    <i class="ph ph-shopping-cart me-2"></i>{% trans "Acquisition" %}
+                                </h6>
+                                <div class="mb-3">
+                                    <label class="text-muted f-s-12">{% trans "Date d'acquisition" %}</label>
+                                    <p class="mb-0">{{ immobilisation.date_acquisition|date:"d.m.Y" }}</p>
+                                </div>
+                                {% if immobilisation.date_mise_en_service %}
+                                <div class="mb-3">
+                                    <label class="text-muted f-s-12">{% trans "Date de mise en service" %}</label>
+                                    <p class="mb-0">{{ immobilisation.date_mise_en_service|date:"d.m.Y" }}</p>
+                                </div>
+                                {% endif %}
+                                <div class="mb-3">
+                                    <label class="text-muted f-s-12">{% trans "Valeur d'acquisition" %}</label>
+                                    <p class="mb-0 f-w-600">{{ immobilisation.valeur_acquisition|floatformat:2 }}</p>
+                                </div>
+                                {% if immobilisation.fournisseur %}
+                                <div class="mb-3">
+                                    <label class="text-muted f-s-12">{% trans "Fournisseur" %}</label>
+                                    <p class="mb-0">{{ immobilisation.fournisseur }}</p>
+                                </div>
+                                {% endif %}
+                                {% if immobilisation.numero_facture %}
+                                <div class="mb-3">
+                                    <label class="text-muted f-s-12">{% trans "N. facture" %}</label>
+                                    <p class="mb-0">{{ immobilisation.numero_facture }}</p>
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Comptes -->
+                            <div class="col-md-6">
+                                <h6 class="text-muted mb-3">
+                                    <i class="ph ph-book-open me-2"></i>{% trans "Comptes" %}
+                                </h6>
+                                <div class="mb-3">
+                                    <label class="text-muted f-s-12">{% trans "Compte immobilisation" %}</label>
+                                    <p class="mb-0">
+                                        <a href="{% url 'comptabilite:compte-detail' immobilisation.compte_immobilisation.pk %}">
+                                            {{ immobilisation.compte_immobilisation.numero }} - {{ immobilisation.compte_immobilisation.libelle_fr }}
+                                        </a>
+                                    </p>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="text-muted f-s-12">{% trans "Compte amortissement" %}</label>
+                                    <p class="mb-0">
+                                        <a href="{% url 'comptabilite:compte-detail' immobilisation.compte_amortissement.pk %}">
+                                            {{ immobilisation.compte_amortissement.numero }} - {{ immobilisation.compte_amortissement.libelle_fr }}
+                                        </a>
+                                    </p>
+                                </div>
+                                {% if immobilisation.compte_amort_cumule %}
+                                <div class="mb-3">
+                                    <label class="text-muted f-s-12">{% trans "Compte amort. cumule" %}</label>
+                                    <p class="mb-0">
+                                        <a href="{% url 'comptabilite:compte-detail' immobilisation.compte_amort_cumule.pk %}">
+                                            {{ immobilisation.compte_amort_cumule.numero }} - {{ immobilisation.compte_amort_cumule.libelle_fr }}
+                                        </a>
+                                    </p>
+                                </div>
+                                {% endif %}
+
+                                <h6 class="text-muted mb-3 mt-4">
+                                    <i class="ph ph-gear me-2"></i>{% trans "Parametres d'amortissement" %}
+                                </h6>
+                                <div class="mb-3">
+                                    <label class="text-muted f-s-12">{% trans "Methode" %}</label>
+                                    <p class="mb-0">{{ immobilisation.get_methode_amortissement_display }}</p>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="text-muted f-s-12">{% trans "Duree" %}</label>
+                                    <p class="mb-0">{{ immobilisation.duree_amortissement_mois }} {% trans "mois" %}</p>
+                                </div>
+                                {% if immobilisation.taux_amortissement %}
+                                <div class="mb-3">
+                                    <label class="text-muted f-s-12">{% trans "Taux" %}</label>
+                                    <p class="mb-0">{{ immobilisation.taux_amortissement }}%</p>
+                                </div>
+                                {% endif %}
+                                <div class="mb-3">
+                                    <label class="text-muted f-s-12">{% trans "Valeur residuelle" %}</label>
+                                    <p class="mb-0">{{ immobilisation.valeur_residuelle|floatformat:2 }}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {% if immobilisation.description %}
+                        <hr>
+                        <div class="mb-3">
+                            <label class="text-muted f-s-12">{% trans "Description" %}</label>
+                            <p class="mb-0">{{ immobilisation.description }}</p>
+                        </div>
+                        {% endif %}
+
+                        {% if immobilisation.notes %}
+                        <div class="mb-3">
+                            <label class="text-muted f-s-12">{% trans "Notes" %}</label>
+                            <p class="mb-0">{{ immobilisation.notes }}</p>
+                        </div>
+                        {% endif %}
+
+                        <!-- Cession -->
+                        {% if immobilisation.date_cession %}
+                        <hr>
+                        <h6 class="text-muted mb-3">
+                            <i class="ph ph-sign-out me-2"></i>{% trans "Cession" %}
+                        </h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="text-muted f-s-12">{% trans "Date de cession" %}</label>
+                                <p class="mb-0">{{ immobilisation.date_cession|date:"d.m.Y" }}</p>
+                            </div>
+                            {% if immobilisation.prix_cession %}
+                            <div class="col-md-6">
+                                <label class="text-muted f-s-12">{% trans "Prix de cession" %}</label>
+                                <p class="mb-0 f-w-600">{{ immobilisation.prix_cession|floatformat:2 }}</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Amortissement -->
+            <div class="tab-pane fade" id="amort-pane" role="tabpanel">
+                <div class="card border-top-0 rounded-top-0">
+                    <div class="card-body">
+                        <!-- Progress bar -->
+                        <div class="mb-4">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-muted f-s-12">{% trans "Progression de l'amortissement" %}</span>
+                                <span class="f-w-600">{{ pct_amorti }}%</span>
+                            </div>
+                            <div class="progress" style="height: 20px;">
+                                <div class="progress-bar {% if pct_amorti >= 100 %}bg-info{% elif pct_amorti >= 75 %}bg-warning{% else %}bg-primary{% endif %}"
+                                     role="progressbar"
+                                     style="width: {{ pct_amorti }}%"
+                                     aria-valuenow="{{ pct_amorti }}"
+                                     aria-valuemin="0"
+                                     aria-valuemax="100">
+                                    {{ pct_amorti }}%
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Summary -->
+                        <div class="row mb-4">
+                            <div class="col-md-4">
+                                <div class="p-3 bg-light rounded">
+                                    <label class="text-muted f-s-12">{% trans "Valeur d'acquisition" %}</label>
+                                    <h5 class="mb-0">{{ immobilisation.valeur_acquisition|floatformat:2 }}</h5>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="p-3 bg-light rounded">
+                                    <label class="text-muted f-s-12">{% trans "Amortissement cumule" %}</label>
+                                    <h5 class="mb-0 text-danger">- {{ immobilisation.amortissement_cumule|floatformat:2 }}</h5>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="p-3 bg-light rounded">
+                                    <label class="text-muted f-s-12">{% trans "Valeur nette comptable" %}</label>
+                                    <h5 class="mb-0 text-success">= {{ immobilisation.valeur_nette_comptable|floatformat:2 }}</h5>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Plan d'amortissement -->
+                        <h6 class="text-muted mb-3">{% trans "Plan d'amortissement" %}</h6>
+                        <div class="overflow-auto app-scroll">
+                            <table class="table table-bottom-border align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>{% trans "Methode" %}</th>
+                                        <th>{% trans "Duree" %}</th>
+                                        <th>{% trans "Valeur residuelle" %}</th>
+                                        <th>{% trans "Base amortissable" %}</th>
+                                        {% if immobilisation.methode_amortissement == 'LINEAIRE' %}
+                                        <th>{% trans "Annuite" %}</th>
+                                        {% endif %}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>{{ immobilisation.get_methode_amortissement_display }}</td>
+                                        <td>{{ immobilisation.duree_amortissement_mois }} {% trans "mois" %}</td>
+                                        <td>{{ immobilisation.valeur_residuelle|floatformat:2 }}</td>
+                                        <td class="f-w-600">
+                                            {% widthratio immobilisation.valeur_acquisition 1 1 as va %}
+                                            {% widthratio immobilisation.valeur_residuelle 1 1 as vr %}
+                                            {{ immobilisation.valeur_acquisition|floatformat:2 }}
+                                        </td>
+                                        {% if immobilisation.methode_amortissement == 'LINEAIRE' and immobilisation.duree_amortissement_mois > 0 %}
+                                        <td class="f-w-600">
+                                            {% widthratio immobilisation.valeur_acquisition immobilisation.duree_amortissement_mois 12 as annuite %}
+                                            ~{{ annuite|floatformat:2 }}
+                                        </td>
+                                        {% endif %}
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Documents -->
+            <div class="tab-pane fade" id="docs-pane" role="tabpanel">
+                <div class="card border-top-0 rounded-top-0">
+                    <div class="card-body">
+                        {% if immobilisation.numero_facture %}
+                        <div class="mb-3">
+                            <label class="text-muted f-s-12">{% trans "Facture d'acquisition" %}</label>
+                            <p class="mb-0">{{ immobilisation.numero_facture }}</p>
+                        </div>
+                        {% endif %}
+                        <div class="text-center py-4">
+                            <i class="ph ph-paperclip f-s-50 text-muted"></i>
+                            <p class="text-muted mt-2">{% trans "Les pieces justificatives sont gerees via le module Documents" %}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,246 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load devise_tags %}
+
+{% block title %}{% trans "Immobilisations" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Immobilisations" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Immobilisations" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<!-- Statistics Cards -->
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-primary mb-0">{{ stats.total_actifs }}</h3>
+                        <p class="text-muted mb-0">{% trans "Actifs en service" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-primary">
+                        <i class="ph ph-buildings f-s-24 text-primary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-success mb-0">{{ stats.vnc_totale|floatformat:2 }}</h3>
+                        <p class="text-muted mb-0">{% trans "VNC totale" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-success">
+                        <i class="ph ph-chart-line-up f-s-24 text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-info mb-0">{{ stats.amort_cumules|floatformat:2 }}</h3>
+                        <p class="text-muted mb-0">{% trans "Amortissements cumules" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-info">
+                        <i class="ph ph-chart-bar f-s-24 text-info"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>{% trans "Liste des immobilisations" %}</h5>
+                <a href="{% url 'comptabilite:immobilisation-create' %}" class="btn btn-primary">
+                    <i class="ph ph-plus me-2"></i>{% trans "Nouvelle immobilisation" %}
+                </a>
+            </div>
+            <div class="card-body">
+                <!-- Header with Search -->
+                <div class="list-table-header d-flex justify-content-end align-items-center mb-3">
+                    <form method="get" class="app-form app-icon-form">
+                        <div class="position-relative">
+                            <input aria-label="Search"
+                                   class="form-control search"
+                                   placeholder="{% trans 'Rechercher...' %}"
+                                   type="search"
+                                   name="q"
+                                   value="{{ request.GET.q }}">
+                            <i class="ph ph-magnifying-glass text-dark"></i>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Filters Row -->
+                <form method="get" class="mb-3">
+                    {% if request.GET.q %}<input type="hidden" name="q" value="{{ request.GET.q }}">{% endif %}
+                    <div class="row app-form">
+                        <div class="col-md-3">
+                            <select name="mandat" class="form-select select-basic" onchange="this.form.submit()">
+                                <option value="">{% trans "Tous les mandats" %}</option>
+                                {% for m in mandats %}
+                                <option value="{{ m.pk }}" {% if request.GET.mandat == m.pk|slugify %}selected{% endif %}>
+                                    {{ m.numero }} - {{ m.client.raison_sociale }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select name="statut" class="form-select select-basic" onchange="this.form.submit()">
+                                <option value="">{% trans "Tous les statuts" %}</option>
+                                <option value="ACTIF" {% if request.GET.statut == 'ACTIF' %}selected{% endif %}>{% trans "Actif" %}</option>
+                                <option value="AMORTI" {% if request.GET.statut == 'AMORTI' %}selected{% endif %}>{% trans "Totalement amorti" %}</option>
+                                <option value="CEDE" {% if request.GET.statut == 'CEDE' %}selected{% endif %}>{% trans "Cede" %}</option>
+                                <option value="MIS_AU_REBUT" {% if request.GET.statut == 'MIS_AU_REBUT' %}selected{% endif %}>{% trans "Mis au rebut" %}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            {% if request.GET.statut or request.GET.mandat or request.GET.q %}
+                            <a href="{% url 'comptabilite:immobilisation-list' %}" class="btn btn-secondary">
+                                <i class="ph ph-x me-2"></i>{% trans "Reinitialiser" %}
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </form>
+
+                <!-- Table -->
+                <div class="overflow-auto app-scroll">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr class="app-sort">
+                                <th scope="col">{% trans "Numero" %}</th>
+                                <th scope="col">{% trans "Designation" %}</th>
+                                <th scope="col">{% trans "Date acquisition" %}</th>
+                                <th scope="col" class="text-end">{% trans "Valeur" %}</th>
+                                <th scope="col" class="text-end">{% trans "VNC" %}</th>
+                                <th scope="col">{% trans "Methode" %}</th>
+                                <th scope="col">{% trans "Statut" %}</th>
+                                <th scope="col">{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody class="list">
+                            {% for immo in immobilisations %}
+                            <tr>
+                                <td>
+                                    <span class="badge bg-light-dark f-w-600">{{ immo.numero }}</span>
+                                </td>
+                                <td>{{ immo.designation|truncatewords:8 }}</td>
+                                <td>{{ immo.date_acquisition|date:"d.m.Y" }}</td>
+                                <td class="text-end">
+                                    <span class="f-w-600">{{ immo.valeur_acquisition|floatformat:2 }}</span>
+                                </td>
+                                <td class="text-end">
+                                    <span class="f-w-600 {% if immo.valeur_nette_comptable > 0 %}text-success{% else %}text-muted{% endif %}">
+                                        {{ immo.valeur_nette_comptable|floatformat:2 }}
+                                    </span>
+                                </td>
+                                <td>{{ immo.get_methode_amortissement_display }}</td>
+                                <td>
+                                    {% if immo.statut == 'ACTIF' %}
+                                    <span class="badge bg-success-subtle text-success">{% trans "Actif" %}</span>
+                                    {% elif immo.statut == 'AMORTI' %}
+                                    <span class="badge bg-info-subtle text-info">{% trans "Amorti" %}</span>
+                                    {% elif immo.statut == 'CEDE' %}
+                                    <span class="badge bg-warning-subtle text-warning">{% trans "Cede" %}</span>
+                                    {% elif immo.statut == 'MIS_AU_REBUT' %}
+                                    <span class="badge bg-danger-subtle text-danger">{% trans "Rebut" %}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{% url 'comptabilite:immobilisation-detail' immo.pk %}"
+                                       class="btn btn-sm btn-light-primary"
+                                       data-bs-toggle="tooltip"
+                                       title="{% trans 'Voir' %}">
+                                        <i class="ph ph-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="8" class="text-center py-5">
+                                    <i class="ph ph-buildings f-s-50 text-muted"></i>
+                                    <p class="text-muted mt-2">{% trans "Aucune immobilisation trouvee" %}</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if is_paginated %}
+                <div class="list-pagination mt-3">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1">
+                                <i class="ph ph-caret-double-left"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                                <i class="ph ph-caret-left"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                            <li class="page-item active"><a class="page-link">{{ num }}</a></li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                                <i class="ph ph-caret-right"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">
+                                <i class="ph ph-caret-double-right"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+                {% endif %}
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

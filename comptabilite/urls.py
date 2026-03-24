@@ -196,4 +196,24 @@ urlpatterns = [
         views.api_types_pieces,
         name="api-types-pieces",
     ),
+
+    # =========================================================================
+    # COMPTABILITÉ ANALYTIQUE
+    # =========================================================================
+    path("analytique/", views.AxeAnalytiqueListView.as_view(), name="axe-list"),
+    path("analytique/sections/", views.SectionAnalytiqueListView.as_view(), name="section-list"),
+
+    # =========================================================================
+    # IMMOBILISATIONS
+    # =========================================================================
+    path("immobilisations/", views.ImmobilisationListView.as_view(), name="immobilisation-list"),
+    path("immobilisations/nouveau/", views.ImmobilisationCreateView.as_view(), name="immobilisation-create"),
+    path("immobilisations/<uuid:pk>/", views.ImmobilisationDetailView.as_view(), name="immobilisation-detail"),
+    path("immobilisations/<uuid:pk>/modifier/", views.ImmobilisationUpdateView.as_view(), name="immobilisation-update"),
+
+    # =========================================================================
+    # RAPPROCHEMENT BANCAIRE
+    # =========================================================================
+    path("releves/", views.ReleveBancaireListView.as_view(), name="releve-list"),
+    path("releves/<uuid:pk>/", views.ReleveBancaireDetailView.as_view(), name="releve-detail"),
 ]

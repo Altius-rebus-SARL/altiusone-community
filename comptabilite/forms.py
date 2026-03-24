@@ -12,6 +12,9 @@ from .models import (
     PieceComptable,
     Lettrage,
     TypePieceComptable,
+    AxeAnalytique,
+    SectionAnalytique,
+    Immobilisation,
 )
 from core.models import Mandat, ExerciceComptable, ParametreMetier
 
@@ -890,3 +893,129 @@ EcritureInlineFormSet = inlineformset_factory(
     validate_min=True,
     can_delete=True,
 )
+
+
+# =============================================================================
+# COMPTABILITÉ ANALYTIQUE
+# =============================================================================
+
+class AxeAnalytiqueForm(forms.ModelForm):
+    """Formulaire pour un axe analytique"""
+
+    class Meta:
+        model = AxeAnalytique
+        fields = ['code', 'libelle', 'description', 'obligatoire']
+        widgets = {
+            'code': forms.TextInput(attrs={'class': 'form-control'}),
+            'libelle': forms.TextInput(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'obligatoire': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
+class SectionAnalytiqueForm(forms.ModelForm):
+    """Formulaire pour une section analytique"""
+
+    class Meta:
+        model = SectionAnalytique
+        fields = ['code', 'libelle', 'description', 'budget_annuel', 'parent']
+        widgets = {
+            'code': forms.TextInput(attrs={'class': 'form-control'}),
+            'libelle': forms.TextInput(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'budget_annuel': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'parent': forms.Select(attrs={'class': 'form-control select2'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        axe = kwargs.pop('axe', None)
+        super().__init__(*args, **kwargs)
+        if axe:
+            self.fields['parent'].queryset = SectionAnalytique.objects.filter(
+                axe=axe
+            ).exclude(pk=self.instance.pk if self.instance.pk else None)
+        elif self.instance and self.instance.axe_id:
+            self.fields['parent'].queryset = SectionAnalytique.objects.filter(
+                axe=self.instance.axe
+            ).exclude(pk=self.instance.pk)
+        else:
+            self.fields['parent'].queryset = SectionAnalytique.objects.none()
+
+
+# =============================================================================
+# IMMOBILISATIONS
+# =============================================================================
+
+class ImmobilisationForm(forms.ModelForm):
+    """Formulaire pour une immobilisation"""
+
+    class Meta:
+        model = Immobilisation
+        fields = [
+            'mandat', 'numero', 'designation', 'description', 'categorie',
+            'date_acquisition', 'date_mise_en_service', 'valeur_acquisition',
+            'fournisseur', 'numero_facture',
+            'compte_immobilisation', 'compte_amortissement', 'compte_amort_cumule',
+            'methode_amortissement', 'duree_amortissement_mois',
+            'taux_amortissement', 'valeur_residuelle',
+            'statut', 'devise', 'notes',
+        ]
+        widgets = {
+            'mandat': forms.Select(attrs={'class': 'form-control select2'}),
+            'numero': forms.TextInput(attrs={'class': 'form-control'}),
+            'designation': forms.TextInput(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'categorie': forms.TextInput(attrs={'class': 'form-control'}),
+            'date_acquisition': forms.DateInput(
+                attrs={'class': 'form-control', 'type': 'date'},
+                format='%Y-%m-%d'
+            ),
+            'date_mise_en_service': forms.DateInput(
+                attrs={'class': 'form-control', 'type': 'date'},
+                format='%Y-%m-%d'
+            ),
+            'valeur_acquisition': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'fournisseur': forms.TextInput(attrs={'class': 'form-control'}),
+            'numero_facture': forms.TextInput(attrs={'class': 'form-control'}),
+            'compte_immobilisation': forms.Select(attrs={'class': 'form-control select2'}),
+            'compte_amortissement': forms.Select(attrs={'class': 'form-control select2'}),
+            'compte_amort_cumule': forms.Select(attrs={'class': 'form-control select2'}),
+            'methode_amortissement': forms.Select(attrs={'class': 'form-control select-basic'}),
+            'duree_amortissement_mois': forms.NumberInput(attrs={'class': 'form-control'}),
+            'taux_amortissement': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'valeur_residuelle': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'statut': forms.Select(attrs={'class': 'form-control select-basic'}),
+            'devise': forms.Select(attrs={'class': 'form-control select2'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Filtrer les comptes par le plan du mandat
+        mandat = None
+        if self.instance and self.instance.mandat_id:
+            mandat = self.instance.mandat
+        elif self.data.get('mandat'):
+            try:
+                from core.models import Mandat as MandatModel
+                mandat = MandatModel.objects.get(pk=self.data.get('mandat'))
+            except Exception:
+                pass
+
+        if mandat and hasattr(mandat, 'plan_comptable') and mandat.plan_comptable:
+            comptes_qs = Compte.objects.filter(
+                plan_comptable=mandat.plan_comptable
+            ).order_by('numero')
+            self.fields['compte_immobilisation'].queryset = comptes_qs
+            self.fields['compte_amortissement'].queryset = comptes_qs
+            self.fields['compte_amort_cumule'].queryset = comptes_qs
+
+        # Catégories depuis ParametreMetier
+        categories = ParametreMetier.get_choices_with_default(
+            'comptabilite', 'type_immobilisation', []
+        )
+        if categories:
+            self.fields['categorie'].widget = forms.Select(
+                attrs={'class': 'form-control select-basic'},
+                choices=[('', '---------')] + list(categories),
+            )

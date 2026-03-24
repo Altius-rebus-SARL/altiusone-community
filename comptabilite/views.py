@@ -2228,3 +2228,317 @@ class PaiementListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
             client__mandats__fiduciaire=self.request.user.fiduciaire, actif=True
         ).distinct()
         return context
+
+
+# =============================================================================
+# COMPTABILITÉ ANALYTIQUE
+# =============================================================================
+
+from .models import AxeAnalytique, SectionAnalytique, Immobilisation, ReleveBancaire, LigneReleve
+from .forms import AxeAnalytiqueForm, SectionAnalytiqueForm, ImmobilisationForm
+
+
+class AxeAnalytiqueListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+    """Liste des axes analytiques avec sections."""
+
+    model = AxeAnalytique
+    template_name = "comptabilite/axe_analytique_list.html"
+    context_object_name = "axes"
+    business_permission = 'comptabilite.view_plan_comptable'
+
+    def get_queryset(self):
+        queryset = AxeAnalytique.objects.filter(
+            is_active=True
+        ).annotate(
+            nb_sections=Count('sections')
+        ).order_by('ordre', 'code')
+
+        mandat_id = self.request.GET.get('mandat')
+        if mandat_id:
+            queryset = queryset.filter(mandat_id=mandat_id)
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Mandats disponibles
+        user = self.request.user
+        if user.is_manager():
+            context['mandats'] = Mandat.objects.filter(statut='ACTIF')
+        else:
+            context['mandats'] = Mandat.objects.filter(
+                Q(responsable=user) | Q(equipe=user), statut='ACTIF'
+            ).distinct()
+
+        # Axe sélectionné pour afficher les sections
+        axe_id = self.request.GET.get('axe')
+        if axe_id:
+            try:
+                axe = AxeAnalytique.objects.get(pk=axe_id)
+                context['axe_selectionne'] = axe
+                context['sections'] = axe.sections.filter(
+                    is_active=True
+                ).select_related('parent', 'responsable').order_by('ordre', 'code')
+            except AxeAnalytique.DoesNotExist:
+                pass
+
+        # Formulaires pour création HTMX inline
+        context['axe_form'] = AxeAnalytiqueForm()
+        context['section_form'] = SectionAnalytiqueForm()
+
+        return context
+
+
+class SectionAnalytiqueListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+    """Liste des sections analytiques filtrées par axe."""
+
+    model = SectionAnalytique
+    template_name = "comptabilite/axe_analytique_list.html"
+    context_object_name = "sections"
+    business_permission = 'comptabilite.view_plan_comptable'
+
+    def get_queryset(self):
+        queryset = SectionAnalytique.objects.filter(
+            is_active=True
+        ).select_related('axe', 'parent', 'responsable').order_by('axe', 'ordre', 'code')
+
+        axe_id = self.request.GET.get('axe')
+        if axe_id:
+            queryset = queryset.filter(axe_id=axe_id)
+
+        return queryset
+
+
+# =============================================================================
+# IMMOBILISATIONS
+# =============================================================================
+
+
+class ImmobilisationListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
+    """Liste des immobilisations avec recherche et filtres."""
+
+    model = Immobilisation
+    template_name = "comptabilite/immobilisation_list.html"
+    context_object_name = "immobilisations"
+    paginate_by = 25
+    business_permission = 'comptabilite.view_plan_comptable'
+    search_fields = ['numero', 'designation', 'fournisseur', 'description']
+
+    def get_queryset(self):
+        queryset = Immobilisation.objects.filter(
+            is_active=True
+        ).select_related('mandat', 'compte_immobilisation', 'devise')
+
+        # Filtrer par mandat
+        mandat_id = self.request.GET.get('mandat')
+        if mandat_id:
+            queryset = queryset.filter(mandat_id=mandat_id)
+
+        # Filtrer par statut
+        statut = self.request.GET.get('statut')
+        if statut:
+            queryset = queryset.filter(statut=statut)
+
+        # Filtrer par catégorie
+        categorie = self.request.GET.get('categorie')
+        if categorie:
+            queryset = queryset.filter(categorie=categorie)
+
+        return self.apply_search(queryset.order_by('numero'))
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Mandats disponibles
+        user = self.request.user
+        if user.is_manager():
+            context['mandats'] = Mandat.objects.filter(statut='ACTIF')
+        else:
+            context['mandats'] = Mandat.objects.filter(
+                Q(responsable=user) | Q(equipe=user), statut='ACTIF'
+            ).distinct()
+
+        # Statistiques
+        qs = self.get_queryset()
+        context['stats'] = {
+            'total_actifs': qs.filter(statut='ACTIF').count(),
+            'vnc_totale': qs.filter(statut='ACTIF').aggregate(
+                total=Sum('valeur_nette_comptable')
+            )['total'] or Decimal('0'),
+            'amort_cumules': qs.filter(statut='ACTIF').aggregate(
+                total=Sum('amortissement_cumule')
+            )['total'] or Decimal('0'),
+        }
+
+        return context
+
+
+class ImmobilisationDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
+    """Détail d'une immobilisation avec amortissement."""
+
+    model = Immobilisation
+    template_name = "comptabilite/immobilisation_detail.html"
+    context_object_name = "immobilisation"
+    business_permission = 'comptabilite.view_plan_comptable'
+
+    def get_queryset(self):
+        return Immobilisation.objects.select_related(
+            'mandat', 'compte_immobilisation', 'compte_amortissement',
+            'compte_amort_cumule', 'devise'
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        immo = self.object
+
+        # Calcul du pourcentage d'amortissement
+        if immo.valeur_acquisition and immo.valeur_acquisition > 0:
+            context['pct_amorti'] = min(
+                100,
+                int(immo.amortissement_cumule * 100 / immo.valeur_acquisition)
+            )
+        else:
+            context['pct_amorti'] = 0
+
+        return context
+
+
+class ImmobilisationCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView):
+    """Création d'une immobilisation."""
+
+    model = Immobilisation
+    form_class = ImmobilisationForm
+    template_name = "comptabilite/immobilisation_form.html"
+    business_permission = 'comptabilite.view_plan_comptable'
+
+    def get_success_url(self):
+        return reverse_lazy('comptabilite:immobilisation-detail', kwargs={'pk': self.object.pk})
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = _("Nouvelle immobilisation")
+        context['submit_text'] = _("Créer")
+        return context
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        # Initialiser VNC = valeur acquisition
+        if not form.instance.valeur_nette_comptable:
+            form.instance.valeur_nette_comptable = form.instance.valeur_acquisition
+        messages.success(self.request, _("Immobilisation créée avec succès"))
+        return super().form_valid(form)
+
+
+class ImmobilisationUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateView):
+    """Modification d'une immobilisation."""
+
+    model = Immobilisation
+    form_class = ImmobilisationForm
+    template_name = "comptabilite/immobilisation_form.html"
+    business_permission = 'comptabilite.view_plan_comptable'
+
+    def get_success_url(self):
+        return reverse_lazy('comptabilite:immobilisation-detail', kwargs={'pk': self.object.pk})
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = _("Modifier l'immobilisation")
+        context['submit_text'] = _("Enregistrer")
+        return context
+
+    def form_valid(self, form):
+        messages.success(self.request, _("Immobilisation modifiée avec succès"))
+        return super().form_valid(form)
+
+
+# =============================================================================
+# RAPPROCHEMENT BANCAIRE
+# =============================================================================
+
+
+class ReleveBancaireListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
+    """Liste des relevés bancaires."""
+
+    model = ReleveBancaire
+    template_name = "comptabilite/releve_bancaire_list.html"
+    context_object_name = "releves"
+    paginate_by = 25
+    business_permission = 'comptabilite.view_plan_comptable'
+    search_fields = ['reference', 'compte_bancaire__libelle']
+
+    def get_queryset(self):
+        queryset = ReleveBancaire.objects.filter(
+            is_active=True
+        ).select_related('mandat', 'compte_bancaire', 'devise')
+
+        # Filtrer par mandat
+        mandat_id = self.request.GET.get('mandat')
+        if mandat_id:
+            queryset = queryset.filter(mandat_id=mandat_id)
+
+        # Filtrer par statut
+        statut = self.request.GET.get('statut')
+        if statut:
+            queryset = queryset.filter(statut=statut)
+
+        return self.apply_search(queryset.order_by('-date_fin'))
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Mandats disponibles
+        user = self.request.user
+        if user.is_manager():
+            context['mandats'] = Mandat.objects.filter(statut='ACTIF')
+        else:
+            context['mandats'] = Mandat.objects.filter(
+                Q(responsable=user) | Q(equipe=user), statut='ACTIF'
+            ).distinct()
+
+        # Statistiques
+        qs = self.get_queryset()
+        agg = qs.aggregate(
+            total_lignes=Sum('nb_lignes'),
+            total_rapprochees=Sum('nb_rapprochees'),
+        )
+        context['stats'] = {
+            'total_releves': qs.count(),
+            'total_lignes': agg['total_lignes'] or 0,
+            'total_rapprochees': agg['total_rapprochees'] or 0,
+        }
+
+        return context
+
+
+class ReleveBancaireDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
+    """Détail d'un relevé bancaire avec lignes."""
+
+    model = ReleveBancaire
+    template_name = "comptabilite/releve_bancaire_detail.html"
+    context_object_name = "releve"
+    business_permission = 'comptabilite.view_plan_comptable'
+
+    def get_queryset(self):
+        return ReleveBancaire.objects.select_related(
+            'mandat', 'compte_bancaire', 'journal', 'devise'
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        releve = self.object
+
+        context['lignes'] = releve.lignes.select_related(
+            'ecriture'
+        ).order_by('date_valeur')
+
+        # Stats lignes
+        lignes = releve.lignes.all()
+        context['stats_lignes'] = {
+            'total': lignes.count(),
+            'rapprochees': lignes.filter(statut='RAPPROCHEE').count(),
+            'non_rapprochees': lignes.filter(statut='NON_RAPPROCHEE').count(),
+            'ignorees': lignes.filter(statut='IGNOREE').count(),
+        }
+
+        return context

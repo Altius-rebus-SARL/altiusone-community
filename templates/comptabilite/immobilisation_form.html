@@ -1,0 +1,319 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{{ title }}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'comptabilite:immobilisation-list' %}">
+                    <span>{% trans "Immobilisations" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">
+                    {% if object %}{% trans "Modifier" %}{% else %}{% trans "Nouvelle" %}{% endif %}
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<form method="post" class="app-form">
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        {{ form.non_field_errors }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Identification -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="ph ph-identification-badge me-2"></i>{% trans "Identification" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.mandat.id_for_label }}" class="form-label">
+                                    {{ form.mandat.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.mandat }}
+                                {% if form.mandat.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.mandat.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.numero.id_for_label }}" class="form-label">
+                                    {{ form.numero.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.numero }}
+                                {% if form.numero.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.numero.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label for="{{ form.designation.id_for_label }}" class="form-label">
+                                    {{ form.designation.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.designation }}
+                                {% if form.designation.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.designation.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.categorie.id_for_label }}" class="form-label">
+                                    {{ form.categorie.label }}
+                                </label>
+                                {{ form.categorie }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.statut.id_for_label }}" class="form-label">
+                                    {{ form.statut.label }}
+                                </label>
+                                {{ form.statut }}
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label for="{{ form.description.id_for_label }}" class="form-label">
+                                    {{ form.description.label }}
+                                </label>
+                                {{ form.description }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Acquisition -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="ph ph-shopping-cart me-2"></i>{% trans "Acquisition" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.date_acquisition.id_for_label }}" class="form-label">
+                                    {{ form.date_acquisition.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.date_acquisition }}
+                                {% if form.date_acquisition.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.date_acquisition.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.date_mise_en_service.id_for_label }}" class="form-label">
+                                    {{ form.date_mise_en_service.label }}
+                                </label>
+                                {{ form.date_mise_en_service }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.valeur_acquisition.id_for_label }}" class="form-label">
+                                    {{ form.valeur_acquisition.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.valeur_acquisition }}
+                                {% if form.valeur_acquisition.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.valeur_acquisition.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.devise.id_for_label }}" class="form-label">
+                                    {{ form.devise.label }}
+                                </label>
+                                {{ form.devise }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.fournisseur.id_for_label }}" class="form-label">
+                                    {{ form.fournisseur.label }}
+                                </label>
+                                {{ form.fournisseur }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.numero_facture.id_for_label }}" class="form-label">
+                                    {{ form.numero_facture.label }}
+                                </label>
+                                {{ form.numero_facture }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comptes -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="ph ph-book-open me-2"></i>{% trans "Comptes comptables" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.compte_immobilisation.id_for_label }}" class="form-label">
+                                    {{ form.compte_immobilisation.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.compte_immobilisation }}
+                                {% if form.compte_immobilisation.help_text %}
+                                <small class="text-muted">{{ form.compte_immobilisation.help_text }}</small>
+                                {% endif %}
+                                {% if form.compte_immobilisation.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.compte_immobilisation.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.compte_amortissement.id_for_label }}" class="form-label">
+                                    {{ form.compte_amortissement.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.compte_amortissement }}
+                                {% if form.compte_amortissement.help_text %}
+                                <small class="text-muted">{{ form.compte_amortissement.help_text }}</small>
+                                {% endif %}
+                                {% if form.compte_amortissement.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.compte_amortissement.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.compte_amort_cumule.id_for_label }}" class="form-label">
+                                    {{ form.compte_amort_cumule.label }}
+                                </label>
+                                {{ form.compte_amort_cumule }}
+                                {% if form.compte_amort_cumule.help_text %}
+                                <small class="text-muted">{{ form.compte_amort_cumule.help_text }}</small>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Amortissement -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="ph ph-chart-bar me-2"></i>{% trans "Amortissement" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.methode_amortissement.id_for_label }}" class="form-label">
+                                    {{ form.methode_amortissement.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.methode_amortissement }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.duree_amortissement_mois.id_for_label }}" class="form-label">
+                                    {{ form.duree_amortissement_mois.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.duree_amortissement_mois }}
+                                {% if form.duree_amortissement_mois.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.duree_amortissement_mois.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.taux_amortissement.id_for_label }}" class="form-label">
+                                    {{ form.taux_amortissement.label }}
+                                </label>
+                                {{ form.taux_amortissement }}
+                                {% if form.taux_amortissement.help_text %}
+                                <small class="text-muted">{{ form.taux_amortissement.help_text }}</small>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.valeur_residuelle.id_for_label }}" class="form-label">
+                                    {{ form.valeur_residuelle.label }}
+                                </label>
+                                {{ form.valeur_residuelle }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Notes -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="ph ph-note me-2"></i>{% trans "Notes" %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {{ form.notes }}
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="ph ph-check me-2"></i>{{ submit_text }}
+                        </button>
+                        <a href="{% if object %}{% url 'comptabilite:immobilisation-detail' object.pk %}{% else %}{% url 'comptabilite:immobilisation-list' %}{% endif %}"
+                           class="btn btn-outline-secondary">
+                            <i class="ph ph-x me-2"></i>{% trans "Annuler" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
