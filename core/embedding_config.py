@@ -86,6 +86,20 @@ MODEL_EMBEDDING_CONFIG = {
     'mailing.EmailEnvoye': {
         'tier': 3,
     },
+
+    # ===== Contrats & Analytique =====
+    'core.Contrat': {
+        'tier': 1,
+    },
+    'core.ModeleContrat': {
+        'tier': 3,
+    },
+    'comptabilite.SectionAnalytique': {
+        'tier': 2,
+    },
+    'comptabilite.AxeAnalytique': {
+        'tier': 3,
+    },
 }
 
 

@@ -1385,3 +1385,144 @@ class Lettrage(BaseModel):
 
     def __str__(self):
         return f"{self.code_lettrage} - {self.compte.numero}"
+
+
+# ══════════════════════════════════════════════════════════════
+# COMPTABILITE ANALYTIQUE
+# ══════════════════════════════════════════════════════════════
+
+class AxeAnalytique(BaseModel):
+    """
+    Dimension d'analyse : centre de coût, département, projet, etc.
+
+    Chaque mandat peut définir ses propres axes. Un axe regroupe
+    des sections analytiques qui servent à ventiler les écritures.
+    """
+
+    mandat = models.ForeignKey(
+        'core.Mandat', on_delete=models.CASCADE,
+        related_name='axes_analytiques',
+        verbose_name=_('Mandat')
+    )
+    code = models.CharField(max_length=50, verbose_name=_('Code'))
+    libelle = models.CharField(max_length=200, verbose_name=_('Libellé'))
+    description = models.TextField(blank=True, verbose_name=_('Description'))
+    obligatoire = models.BooleanField(
+        default=False,
+        verbose_name=_('Obligatoire'),
+        help_text=_('Si coché, chaque écriture doit être ventilée sur cet axe')
+    )
+    ordre = models.IntegerField(default=0, verbose_name=_('Ordre'))
+
+    class Meta:
+        db_table = 'axes_analytiques'
+        verbose_name = _('Axe analytique')
+        verbose_name_plural = _('Axes analytiques')
+        ordering = ['ordre', 'code']
+        unique_together = [['mandat', 'code']]
+
+    def __str__(self):
+        return f"{self.code} - {self.libelle}"
+
+    def texte_pour_embedding(self):
+        parts = [
+            f"Axe analytique: {self.libelle}",
+            f"Code: {self.code}",
+            self.description,
+        ]
+        return ' '.join(filter(None, parts))
+
+
+class SectionAnalytique(BaseModel):
+    """
+    Valeur dans un axe analytique.
+
+    Ex: axe "Département" → sections "Marketing", "R&D", "Direction".
+    Hiérarchique (parent optionnel) pour les structures arborescentes.
+    """
+
+    axe = models.ForeignKey(
+        AxeAnalytique, on_delete=models.CASCADE,
+        related_name='sections',
+        verbose_name=_('Axe')
+    )
+    parent = models.ForeignKey(
+        'self', on_delete=models.CASCADE,
+        null=True, blank=True, related_name='sous_sections',
+        verbose_name=_('Section parente')
+    )
+    code = models.CharField(max_length=50, verbose_name=_('Code'))
+    libelle = models.CharField(max_length=200, verbose_name=_('Libellé'))
+    description = models.TextField(blank=True, verbose_name=_('Description'))
+    budget_annuel = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        verbose_name=_('Budget annuel')
+    )
+    responsable = models.ForeignKey(
+        'core.User', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='+',
+        verbose_name=_('Responsable')
+    )
+    ordre = models.IntegerField(default=0, verbose_name=_('Ordre'))
+
+    class Meta:
+        db_table = 'sections_analytiques'
+        verbose_name = _('Section analytique')
+        verbose_name_plural = _('Sections analytiques')
+        ordering = ['axe', 'ordre', 'code']
+        unique_together = [['axe', 'code']]
+
+    def __str__(self):
+        return f"{self.axe.code}/{self.code} - {self.libelle}"
+
+    def texte_pour_embedding(self):
+        parts = [
+            f"Section analytique: {self.libelle}",
+            f"Axe: {self.axe.libelle}",
+            f"Code: {self.axe.code}/{self.code}",
+            f"Budget: {self.budget_annuel}" if self.budget_annuel else '',
+            self.description,
+        ]
+        return ' '.join(filter(None, parts))
+
+
+class VentilationAnalytique(BaseModel):
+    """
+    Répartition d'une écriture comptable sur une section analytique.
+
+    Une écriture peut être ventilée sur plusieurs sections
+    (ex: 60% Marketing, 40% R&D). Le total des pourcentages
+    par axe doit faire 100% (vérifié côté applicatif).
+    """
+
+    ecriture = models.ForeignKey(
+        'comptabilite.EcritureComptable', on_delete=models.CASCADE,
+        related_name='ventilations_analytiques',
+        verbose_name=_('Écriture')
+    )
+    section = models.ForeignKey(
+        SectionAnalytique, on_delete=models.CASCADE,
+        related_name='ventilations',
+        verbose_name=_('Section')
+    )
+    pourcentage = models.DecimalField(
+        max_digits=6, decimal_places=2,
+        verbose_name=_('Pourcentage'),
+        help_text=_('Part de l\'écriture affectée à cette section (0-100)')
+    )
+    montant = models.DecimalField(
+        max_digits=15, decimal_places=2,
+        verbose_name=_('Montant'),
+        help_text=_('Montant calculé (écriture × pourcentage / 100)')
+    )
+
+    class Meta:
+        db_table = 'ventilations_analytiques'
+        verbose_name = _('Ventilation analytique')
+        verbose_name_plural = _('Ventilations analytiques')
+        indexes = [
+            models.Index(fields=['ecriture', 'section']),
+        ]
+
+    def __str__(self):
+        return f"{self.ecriture} → {self.section} ({self.pourcentage}%)"

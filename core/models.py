@@ -3296,3 +3296,215 @@ class ModelEmbedding(models.Model):
             qs = qs.filter(content_type=content_type)
 
         return qs.order_by('distance')[:limit]
+
+
+# ══════════════════════════════════════════════════════════════
+# CONTRATS
+# ══════════════════════════════════════════════════════════════
+
+class ModeleContrat(BaseModel):
+    """
+    Modèle/template de contrat (standard suisse ou personnalisé).
+
+    Le fichier source est un Document existant dans la GED (S3/MinIO),
+    éditable via OnlyOffice/NextCloud.
+    """
+
+    SOURCE_CHOICES = [
+        ('CONFEDERATION', _('Standard Confédération')),
+        ('FIDUCIAIRE', _('Standard fiduciaire')),
+        ('PERSONNALISE', _('Personnalisé')),
+    ]
+
+    nom = models.CharField(max_length=255, verbose_name=_('Nom'))
+    description = models.TextField(blank=True, verbose_name=_('Description'))
+    categorie = models.CharField(
+        max_length=50, blank=True,
+        verbose_name=_('Catégorie'),
+        help_text=_('Code ParametreMetier (module=contrats, categorie=type_contrat)')
+    )
+    source = models.CharField(
+        max_length=20, choices=SOURCE_CHOICES, default='FIDUCIAIRE',
+        verbose_name=_('Source')
+    )
+    langue = models.CharField(
+        max_length=5, default='fr',
+        verbose_name=_('Langue')
+    )
+    document = models.ForeignKey(
+        'documents.Document', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='modeles_contrat',
+        verbose_name=_('Document template'),
+        help_text=_('Fichier template dans la GED (DOCX, éditable via OnlyOffice)')
+    )
+    ordre = models.IntegerField(default=0, verbose_name=_('Ordre'))
+
+    class Meta:
+        db_table = 'modeles_contrat'
+        verbose_name = _('Modèle de contrat')
+        verbose_name_plural = _('Modèles de contrat')
+        ordering = ['ordre', 'nom']
+
+    def __str__(self):
+        return f"{self.nom} ({self.get_source_display()})"
+
+    def texte_pour_embedding(self):
+        parts = [
+            f"Modèle contrat: {self.nom}",
+            self.description,
+            f"Source: {self.get_source_display()}",
+            f"Catégorie: {self.categorie}" if self.categorie else '',
+        ]
+        return ' '.join(filter(None, parts))
+
+
+class Contrat(BaseModel):
+    """
+    Contrat lié à un client/mandat.
+
+    Le fichier du contrat est un Document dans la GED — stocké en S3,
+    éditable via OnlyOffice, versionné, OCR-isé et vectorisé.
+    """
+
+    SENS_CHOICES = [
+        ('EMIS', _('Émis')),
+        ('RECU', _('Reçu')),
+    ]
+
+    STATUT_CHOICES = [
+        ('BROUILLON', _('Brouillon')),
+        ('ENVOYE', _('Envoyé')),
+        ('SIGNE', _('Signé')),
+        ('ACTIF', _('Actif')),
+        ('EXPIRE', _('Expiré')),
+        ('RESILIE', _('Résilié')),
+        ('ANNULE', _('Annulé')),
+    ]
+
+    # Rattachement
+    client = models.ForeignKey(
+        'core.Client', on_delete=models.CASCADE,
+        related_name='contrats', verbose_name=_('Client')
+    )
+    mandat = models.ForeignKey(
+        'core.Mandat', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='contrats',
+        verbose_name=_('Mandat')
+    )
+
+    # Document GED (le fichier contrat lui-même)
+    document = models.ForeignKey(
+        'documents.Document', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='contrats',
+        verbose_name=_('Document'),
+        help_text=_('Fichier du contrat dans la GED')
+    )
+    modele_source = models.ForeignKey(
+        ModeleContrat, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='contrats_generes',
+        verbose_name=_('Modèle source')
+    )
+
+    # Identification
+    numero = models.CharField(
+        max_length=50, blank=True,
+        verbose_name=_('Numéro'),
+        help_text=_('Référence unique du contrat')
+    )
+    titre = models.CharField(max_length=255, verbose_name=_('Titre'))
+    description = models.TextField(blank=True, verbose_name=_('Description'))
+    categorie = models.CharField(
+        max_length=50, blank=True,
+        verbose_name=_('Catégorie'),
+        help_text=_('Code ParametreMetier (module=contrats, categorie=type_contrat)')
+    )
+    sens = models.CharField(
+        max_length=10, choices=SENS_CHOICES, default='EMIS',
+        verbose_name=_('Sens'),
+        help_text=_('Émis = envoyé au client, Reçu = reçu du client')
+    )
+
+    # Dates
+    date_emission = models.DateField(
+        null=True, blank=True, verbose_name=_("Date d'émission")
+    )
+    date_signature = models.DateField(
+        null=True, blank=True, verbose_name=_('Date de signature')
+    )
+    date_debut = models.DateField(
+        null=True, blank=True, verbose_name=_('Date de début')
+    )
+    date_fin = models.DateField(
+        null=True, blank=True, verbose_name=_('Date de fin'),
+        help_text=_('Vide = durée indéterminée')
+    )
+
+    # Renouvellement
+    tacite_reconduction = models.BooleanField(
+        default=False, verbose_name=_('Tacite reconduction')
+    )
+    delai_resiliation_jours = models.IntegerField(
+        null=True, blank=True,
+        verbose_name=_('Délai de résiliation (jours)')
+    )
+    date_prochaine_echeance = models.DateField(
+        null=True, blank=True,
+        verbose_name=_('Prochaine échéance')
+    )
+
+    # Financier
+    montant = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        verbose_name=_('Montant')
+    )
+    devise = models.ForeignKey(
+        'core.Devise', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='+',
+        verbose_name=_('Devise')
+    )
+
+    # Signataires
+    signataire_interne = models.CharField(
+        max_length=255, blank=True,
+        verbose_name=_('Signataire interne')
+    )
+    signataire_externe = models.CharField(
+        max_length=255, blank=True,
+        verbose_name=_('Signataire externe')
+    )
+
+    # Statut
+    statut = models.CharField(
+        max_length=20, choices=STATUT_CHOICES, default='BROUILLON',
+        db_index=True, verbose_name=_('Statut')
+    )
+    notes = models.TextField(blank=True, verbose_name=_('Notes'))
+
+    class Meta:
+        db_table = 'contrats'
+        verbose_name = _('Contrat')
+        verbose_name_plural = _('Contrats')
+        ordering = ['-date_emission', '-created_at']
+        indexes = [
+            models.Index(fields=['client', 'statut']),
+            models.Index(fields=['mandat', 'statut']),
+        ]
+
+    def __str__(self):
+        return f"{self.numero or self.titre} - {self.client}"
+
+    def texte_pour_embedding(self):
+        parts = [
+            f"Contrat: {self.titre}",
+            f"N° {self.numero}" if self.numero else '',
+            f"Client: {self.client.raison_sociale}" if self.client_id else '',
+            f"Catégorie: {self.categorie}" if self.categorie else '',
+            f"Sens: {self.get_sens_display()}",
+            f"Statut: {self.get_statut_display()}",
+            f"Du {self.date_debut}" if self.date_debut else '',
+            f"Au {self.date_fin}" if self.date_fin else 'Durée indéterminée',
+            f"Montant: {self.montant} {self.devise}" if self.montant else '',
+            self.description,
+            self.notes,
+        ]
+        return ' '.join(filter(None, parts))
