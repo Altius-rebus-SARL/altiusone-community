@@ -1,0 +1,282 @@
+<!-- core/contrat_list.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load devise_tags %}
+
+{% block title %}{% trans "Contrats" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Contrats" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Contrats" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-primary mb-0">{{ stats.total }}</h3>
+                        <p class="text-muted mb-0">{% trans "Total" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-primary">
+                        <i class="ph ph-file-text f-s-24 text-primary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-success mb-0">{{ stats.actifs }}</h3>
+                        <p class="text-muted mb-0">{% trans "Actifs" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-success">
+                        <i class="ph ph-check-circle f-s-24 text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-danger mb-0">{{ stats.en_retard }}</h3>
+                        <p class="text-muted mb-0">{% trans "Expirés" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-danger">
+                        <i class="ph ph-warning f-s-24 text-danger"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-info mb-0">{{ stats.montant_total|floatformat:0 }}</h3>
+                        <p class="text-muted mb-0">{% trans "Montant total" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-info">
+                        <i class="ph ph-currency-circle-dollar f-s-24 text-info"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Liste des contrats" %}</h5>
+            </div>
+            <div class="card-body">
+                <!-- Header -->
+                <div class="list-table-header d-flex justify-content-between align-items-center mb-3">
+                    <a href="{% url 'core:contrat-create' %}" class="btn btn-primary">
+                        <i class="ph ph-plus me-2"></i>{% trans "Nouveau contrat" %}
+                    </a>
+                    <div class="d-flex gap-2 align-items-center">
+                        <form method="get" class="app-form app-icon-form">
+                            <div class="position-relative">
+                                <input aria-label="Search"
+                                       class="form-control search"
+                                       placeholder="{% trans 'Rechercher...' %}"
+                                       type="search"
+                                       name="q"
+                                       value="{{ request.GET.q }}">
+                                <i class="ti ti-search text-dark"></i>
+                            </div>
+                        </form>
+                        <form method="get" class="d-flex gap-2">
+                            <select name="statut" class="form-select select-basic" onchange="this.form.submit()">
+                                <option value="">{% trans "Tous les statuts" %}</option>
+                                <option value="BROUILLON" {% if request.GET.statut == 'BROUILLON' %}selected{% endif %}>{% trans "Brouillon" %}</option>
+                                <option value="ENVOYE" {% if request.GET.statut == 'ENVOYE' %}selected{% endif %}>{% trans "Envoyé" %}</option>
+                                <option value="SIGNE" {% if request.GET.statut == 'SIGNE' %}selected{% endif %}>{% trans "Signé" %}</option>
+                                <option value="ACTIF" {% if request.GET.statut == 'ACTIF' %}selected{% endif %}>{% trans "Actif" %}</option>
+                                <option value="EXPIRE" {% if request.GET.statut == 'EXPIRE' %}selected{% endif %}>{% trans "Expiré" %}</option>
+                                <option value="RESILIE" {% if request.GET.statut == 'RESILIE' %}selected{% endif %}>{% trans "Résilié" %}</option>
+                                <option value="ANNULE" {% if request.GET.statut == 'ANNULE' %}selected{% endif %}>{% trans "Annulé" %}</option>
+                            </select>
+                            <select name="sens" class="form-select select-basic" onchange="this.form.submit()">
+                                <option value="">{% trans "Tous les sens" %}</option>
+                                <option value="EMIS" {% if request.GET.sens == 'EMIS' %}selected{% endif %}>{% trans "Émis" %}</option>
+                                <option value="RECU" {% if request.GET.sens == 'RECU' %}selected{% endif %}>{% trans "Reçus" %}</option>
+                            </select>
+                            {% if request.GET.statut or request.GET.sens %}
+                            <a href="{% url 'core:contrat-list' %}" class="btn btn-secondary">
+                                <i class="ph ph-x"></i>
+                            </a>
+                            {% endif %}
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Table -->
+                <div class="overflow-auto app-scroll">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Numéro" %}</th>
+                                <th>{% trans "Titre" %}</th>
+                                <th>{% trans "Client" %}</th>
+                                <th>{% trans "Sens" %}</th>
+                                <th>{% trans "Dates" %}</th>
+                                <th class="text-end">{% trans "Montant" %}</th>
+                                <th>{% trans "Statut" %}</th>
+                                <th>{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for contrat in contrats %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'core:contrat-detail' contrat.pk %}" class="f-w-600">
+                                        {{ contrat.numero|default:"—" }}
+                                    </a>
+                                </td>
+                                <td>{{ contrat.titre|truncatewords:5 }}</td>
+                                <td>{{ contrat.client.raison_sociale|truncatewords:3 }}</td>
+                                <td>
+                                    {% if contrat.sens == 'EMIS' %}
+                                    <span class="badge bg-primary">{% trans "Émis" %}</span>
+                                    {% elif contrat.sens == 'RECU' %}
+                                    <span class="badge bg-info">{% trans "Reçu" %}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ contrat.date_debut|date:"d.m.Y"|default:"—" }}
+                                    {% if contrat.date_fin %}
+                                    — {{ contrat.date_fin|date:"d.m.Y" }}
+                                    {% endif %}
+                                </td>
+                                <td class="text-end f-w-600">
+                                    {% if contrat.montant %}
+                                    {{ contrat.montant|floatformat:2 }}
+                                    {% if contrat.devise %}{{ contrat.devise.code }}{% endif %}
+                                    {% else %}
+                                    —
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if contrat.statut == 'BROUILLON' %}
+                                    <span class="badge bg-secondary">{% trans "Brouillon" %}</span>
+                                    {% elif contrat.statut == 'ENVOYE' %}
+                                    <span class="badge bg-info">{% trans "Envoyé" %}</span>
+                                    {% elif contrat.statut == 'SIGNE' %}
+                                    <span class="badge bg-primary">{% trans "Signé" %}</span>
+                                    {% elif contrat.statut == 'ACTIF' %}
+                                    <span class="badge bg-success">{% trans "Actif" %}</span>
+                                    {% elif contrat.statut == 'EXPIRE' %}
+                                    <span class="badge bg-warning">{% trans "Expiré" %}</span>
+                                    {% elif contrat.statut == 'RESILIE' %}
+                                    <span class="badge bg-danger">{% trans "Résilié" %}</span>
+                                    {% elif contrat.statut == 'ANNULE' %}
+                                    <span class="badge bg-dark">{% trans "Annulé" %}</span>
+                                    {% else %}
+                                    <span class="badge bg-light-dark">{{ contrat.get_statut_display }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-light-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                            <i class="ph ph-dots-three-outline-vertical"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'core:contrat-detail' contrat.pk %}">
+                                                    <i class="ph ph-eye me-2"></i>{% trans "Voir" %}
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'core:contrat-update' contrat.pk %}">
+                                                    <i class="ph ph-pencil me-2"></i>{% trans "Modifier" %}
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="8" class="text-center py-5">
+                                    <i class="ph ph-file-text f-s-50 text-muted"></i>
+                                    <p class="text-muted mt-2">{% trans "Aucun contrat trouvé" %}</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if is_paginated %}
+                <div class="list-pagination mt-3">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}{% if request.GET.sens %}&sens={{ request.GET.sens }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                                <i class="ph ph-caret-double-left"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}{% if request.GET.sens %}&sens={{ request.GET.sens }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                                <i class="ph ph-caret-left"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                            <li class="page-item active"><a class="page-link">{{ num }}</a></li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item"><a class="page-link" href="?page={{ num }}{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}{% if request.GET.sens %}&sens={{ request.GET.sens }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">{{ num }}</a></li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}{% if request.GET.sens %}&sens={{ request.GET.sens }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                                <i class="ph ph-caret-right"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}{% if request.GET.sens %}&sens={{ request.GET.sens }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                                <i class="ph ph-caret-double-right"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -7,7 +7,8 @@ from django.forms import inlineformset_factory
 from .models import (
     Client, Entreprise, Mandat, Contact, Tache, Adresse, ExerciceComptable, User,
     TypeMandat, TypeFacturation, Periodicite, Role, AccesMandat, Invitation,
-    CollaborateurFiduciaire, TypeCollaborateur, CompteBancaire
+    CollaborateurFiduciaire, TypeCollaborateur, CompteBancaire,
+    Contrat, ModeleContrat, Devise, ParametreMetier,
 )
 
 
@@ -1209,3 +1210,79 @@ class CollaborateurFiduciaireForm(forms.ModelForm):
 
         # Mandats actifs uniquement
         self.fields['mandat'].queryset = Mandat.objects.filter(statut='ACTIF')
+
+
+# ============================================================================
+# CONTRATS
+# ============================================================================
+
+class ContratForm(forms.ModelForm):
+    """Formulaire pour un contrat"""
+
+    class Meta:
+        model = Contrat
+        fields = [
+            "client",
+            "mandat",
+            "titre",
+            "numero",
+            "description",
+            "categorie",
+            "sens",
+            "modele_source",
+            "date_emission",
+            "date_signature",
+            "date_debut",
+            "date_fin",
+            "tacite_reconduction",
+            "delai_resiliation_jours",
+            "date_prochaine_echeance",
+            "montant",
+            "devise",
+            "signataire_interne",
+            "signataire_externe",
+            "statut",
+            "notes",
+        ]
+        widgets = {
+            "client": forms.Select(attrs={"class": "form-control select2"}),
+            "mandat": forms.Select(attrs={"class": "form-control select2"}),
+            "titre": forms.TextInput(attrs={"class": "form-control"}),
+            "numero": forms.TextInput(attrs={"class": "form-control", "placeholder": "CTR-XXXX"}),
+            "description": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+            "categorie": forms.Select(attrs={"class": "form-control"}),
+            "sens": forms.Select(attrs={"class": "form-control"}),
+            "modele_source": forms.Select(attrs={"class": "form-control select2"}),
+            "date_emission": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "date_signature": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "date_debut": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "date_fin": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "tacite_reconduction": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "delai_resiliation_jours": forms.NumberInput(attrs={"class": "form-control"}),
+            "date_prochaine_echeance": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "montant": forms.NumberInput(attrs={"class": "form-control", "step": "0.01"}),
+            "devise": forms.Select(attrs={"class": "form-control"}),
+            "signataire_interne": forms.TextInput(attrs={"class": "form-control"}),
+            "signataire_externe": forms.TextInput(attrs={"class": "form-control"}),
+            "statut": forms.Select(attrs={"class": "form-control"}),
+            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Clients actifs uniquement
+        self.fields['client'].queryset = Client.objects.filter(is_active=True).order_by('raison_sociale')
+        # Mandats actifs uniquement
+        self.fields['mandat'].queryset = Mandat.objects.filter(statut='ACTIF').select_related('client')
+        self.fields['mandat'].required = False
+        # Devises actives
+        self.fields['devise'].queryset = Devise.objects.filter(actif=True)
+        self.fields['devise'].required = False
+        # Modèles de contrat actifs
+        self.fields['modele_source'].queryset = ModeleContrat.objects.filter(is_active=True)
+        self.fields['modele_source'].required = False
+        # Catégorie depuis ParametreMetier
+        self.fields['categorie'].widget = forms.Select(attrs={"class": "form-control"})
+        self.fields['categorie'].choices = [('', '---------')] + ParametreMetier.get_choices(
+            'contrats', 'type_contrat'
+        )

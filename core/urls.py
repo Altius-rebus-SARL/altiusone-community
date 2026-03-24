@@ -279,6 +279,14 @@ urlpatterns = [
     # ============================================================================
     path("force-password-change/", views.ForcePasswordChangeView.as_view(), name="force-password-change"),
     # ============================================================================
+    # CONTRATS
+    # ============================================================================
+    path("contrats/", views.ContratListView.as_view(), name="contrat-list"),
+    path("contrats/nouveau/", views.ContratCreateView.as_view(), name="contrat-create"),
+    path("contrats/<uuid:pk>/", views.ContratDetailView.as_view(), name="contrat-detail"),
+    path("contrats/<uuid:pk>/modifier/", views.ContratUpdateView.as_view(), name="contrat-update"),
+    path("modeles-contrat/", views.ModeleContratListView.as_view(), name="modele-contrat-list"),
+    # ============================================================================
     # GRAPHE RELATIONNEL
     # ============================================================================
     path("graphe/", views.GraphView.as_view(), name="graph"),

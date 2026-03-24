@@ -167,6 +167,14 @@ from .two_factor_views import (
     TwoFactorDisableWebView,
 )
 
+from .contrat_views import (
+    ContratListView,
+    ContratDetailView,
+    ContratCreateView,
+    ContratUpdateView,
+    ModeleContratListView,
+)
+
 __all__ = [
     # Error handlers
     'error_400',
@@ -294,4 +302,10 @@ __all__ = [
     'TwoFactorSetupWebView',
     'TwoFactorEnableWebView',
     'TwoFactorDisableWebView',
+    # Contrats
+    'ContratListView',
+    'ContratDetailView',
+    'ContratCreateView',
+    'ContratUpdateView',
+    'ModeleContratListView',
 ]
