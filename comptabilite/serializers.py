@@ -664,3 +664,167 @@ class CompteResultatsSerializer(serializers.Serializer):
     resultat_net = serializers.DecimalField(max_digits=15, decimal_places=2)
 
     details = serializers.JSONField()
+
+
+# ══════════════════════════════════════════════════════════════
+# COMPTABILITE ANALYTIQUE
+# ══════════════════════════════════════════════════════════════
+
+from .models import AxeAnalytique, SectionAnalytique, VentilationAnalytique
+
+
+class AxeAnalytiqueSerializer(serializers.ModelSerializer):
+    nb_sections = serializers.IntegerField(source='sections.count', read_only=True)
+
+    class Meta:
+        model = AxeAnalytique
+        fields = [
+            'id', 'mandat', 'code', 'libelle', 'description',
+            'obligatoire', 'ordre', 'nb_sections', 'is_active',
+        ]
+
+
+class SectionAnalytiqueSerializer(serializers.ModelSerializer):
+    axe_code = serializers.CharField(source='axe.code', read_only=True)
+    axe_libelle = serializers.CharField(source='axe.libelle', read_only=True)
+    parent_libelle = serializers.CharField(source='parent.libelle', read_only=True, allow_null=True)
+
+    class Meta:
+        model = SectionAnalytique
+        fields = [
+            'id', 'axe', 'axe_code', 'axe_libelle', 'parent', 'parent_libelle',
+            'code', 'libelle', 'description', 'budget_annuel',
+            'responsable', 'ordre', 'is_active',
+        ]
+
+
+class VentilationAnalytiqueSerializer(serializers.ModelSerializer):
+    section_code = serializers.CharField(source='section.code', read_only=True)
+    section_libelle = serializers.CharField(source='section.libelle', read_only=True)
+    axe_code = serializers.CharField(source='section.axe.code', read_only=True)
+
+    class Meta:
+        model = VentilationAnalytique
+        fields = [
+            'id', 'ecriture', 'section', 'section_code', 'section_libelle',
+            'axe_code', 'pourcentage', 'montant',
+        ]
+
+
+# ══════════════════════════════════════════════════════════════
+# IMMOBILISATIONS
+# ══════════════════════════════════════════════════════════════
+
+from .models import Immobilisation
+
+
+class ImmobilisationListSerializer(serializers.ModelSerializer):
+    methode_display = serializers.CharField(source='get_methode_amortissement_display', read_only=True)
+    statut_display = serializers.CharField(source='get_statut_display', read_only=True)
+
+    class Meta:
+        model = Immobilisation
+        fields = [
+            'id', 'numero', 'designation', 'categorie',
+            'date_acquisition', 'valeur_acquisition',
+            'methode_amortissement', 'methode_display',
+            'amortissement_cumule', 'valeur_nette_comptable',
+            'statut', 'statut_display',
+        ]
+
+
+class ImmobilisationDetailSerializer(serializers.ModelSerializer):
+    methode_display = serializers.CharField(source='get_methode_amortissement_display', read_only=True)
+    statut_display = serializers.CharField(source='get_statut_display', read_only=True)
+    compte_immobilisation_numero = serializers.CharField(
+        source='compte_immobilisation.numero', read_only=True
+    )
+    compte_amortissement_numero = serializers.CharField(
+        source='compte_amortissement.numero', read_only=True
+    )
+
+    class Meta:
+        model = Immobilisation
+        fields = [
+            'id', 'mandat', 'numero', 'designation', 'description', 'categorie',
+            'date_acquisition', 'date_mise_en_service', 'valeur_acquisition',
+            'fournisseur', 'numero_facture',
+            'compte_immobilisation', 'compte_immobilisation_numero',
+            'compte_amortissement', 'compte_amortissement_numero',
+            'compte_amort_cumule',
+            'methode_amortissement', 'methode_display',
+            'duree_amortissement_mois', 'taux_amortissement', 'valeur_residuelle',
+            'amortissement_cumule', 'valeur_nette_comptable',
+            'date_cession', 'prix_cession',
+            'statut', 'statut_display', 'devise', 'notes',
+            'created_at', 'updated_at',
+        ]
+
+
+class ImmobilisationCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Immobilisation
+        fields = [
+            'mandat', 'numero', 'designation', 'description', 'categorie',
+            'date_acquisition', 'date_mise_en_service', 'valeur_acquisition',
+            'fournisseur', 'numero_facture',
+            'compte_immobilisation', 'compte_amortissement', 'compte_amort_cumule',
+            'methode_amortissement', 'duree_amortissement_mois',
+            'taux_amortissement', 'valeur_residuelle',
+            'devise', 'notes',
+        ]
+
+    def create(self, validated_data):
+        validated_data['created_by'] = self.context['request'].user
+        validated_data['valeur_nette_comptable'] = validated_data['valeur_acquisition']
+        return super().create(validated_data)
+
+
+# ══════════════════════════════════════════════════════════════
+# RAPPROCHEMENT BANCAIRE
+# ══════════════════════════════════════════════════════════════
+
+from .models import ReleveBancaire, LigneReleve
+
+
+class LigneReleveSerializer(serializers.ModelSerializer):
+    statut_display = serializers.CharField(source='get_statut_display', read_only=True)
+
+    class Meta:
+        model = LigneReleve
+        fields = [
+            'id', 'date_valeur', 'date_operation', 'libelle', 'reference',
+            'montant', 'ecriture', 'statut', 'statut_display', 'date_rapprochement',
+        ]
+
+
+class ReleveBancaireListSerializer(serializers.ModelSerializer):
+    statut_display = serializers.CharField(source='get_statut_display', read_only=True)
+    compte_bancaire_libelle = serializers.CharField(source='compte_bancaire.libelle', read_only=True)
+
+    class Meta:
+        model = ReleveBancaire
+        fields = [
+            'id', 'compte_bancaire', 'compte_bancaire_libelle',
+            'date_debut', 'date_fin', 'solde_debut', 'solde_fin',
+            'nb_lignes', 'nb_rapprochees', 'ecart',
+            'statut', 'statut_display', 'created_at',
+        ]
+
+
+class ReleveBancaireDetailSerializer(serializers.ModelSerializer):
+    statut_display = serializers.CharField(source='get_statut_display', read_only=True)
+    compte_bancaire_libelle = serializers.CharField(source='compte_bancaire.libelle', read_only=True)
+    lignes = LigneReleveSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ReleveBancaire
+        fields = [
+            'id', 'mandat', 'compte_bancaire', 'compte_bancaire_libelle',
+            'journal', 'date_debut', 'date_fin', 'reference',
+            'solde_debut', 'solde_fin', 'devise',
+            'format_import', 'fichier_source',
+            'nb_lignes', 'nb_rapprochees', 'ecart',
+            'statut', 'statut_display', 'lignes',
+            'created_at', 'updated_at',
+        ]

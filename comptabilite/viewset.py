@@ -917,3 +917,127 @@ class RapportsViewSet(viewsets.ViewSet):
 
         serializer = CompteResultatsSerializer(cr_data)
         return Response(serializer.data)
+
+
+# ══════════════════════════════════════════════════════════════
+# COMPTABILITE ANALYTIQUE
+# ══════════════════════════════════════════════════════════════
+
+from .models import AxeAnalytique, SectionAnalytique, VentilationAnalytique
+from .serializers import (
+    AxeAnalytiqueSerializer,
+    SectionAnalytiqueSerializer,
+    VentilationAnalytiqueSerializer,
+)
+
+
+class AxeAnalytiqueViewSet(viewsets.ModelViewSet):
+    serializer_class = AxeAnalytiqueSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['mandat']
+
+    def get_queryset(self):
+        return AxeAnalytique.objects.filter(
+            is_active=True
+        ).prefetch_related('sections')
+
+
+class SectionAnalytiqueViewSet(viewsets.ModelViewSet):
+    serializer_class = SectionAnalytiqueSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['axe', 'axe__mandat', 'parent']
+    search_fields = ['code', 'libelle']
+
+    def get_queryset(self):
+        return SectionAnalytique.objects.filter(
+            is_active=True
+        ).select_related('axe', 'parent')
+
+
+class VentilationAnalytiqueViewSet(viewsets.ModelViewSet):
+    serializer_class = VentilationAnalytiqueSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['ecriture', 'section', 'section__axe']
+
+    def get_queryset(self):
+        return VentilationAnalytique.objects.select_related(
+            'section', 'section__axe'
+        )
+
+
+# ══════════════════════════════════════════════════════════════
+# IMMOBILISATIONS
+# ══════════════════════════════════════════════════════════════
+
+from .models import Immobilisation
+from .serializers import (
+    ImmobilisationListSerializer,
+    ImmobilisationDetailSerializer,
+    ImmobilisationCreateSerializer,
+)
+
+
+class ImmobilisationViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['mandat', 'statut', 'categorie', 'methode_amortissement']
+    search_fields = ['numero', 'designation', 'fournisseur']
+    ordering_fields = ['numero', 'date_acquisition', 'valeur_nette_comptable']
+    ordering = ['numero']
+
+    def get_queryset(self):
+        return Immobilisation.objects.filter(
+            is_active=True
+        ).select_related('compte_immobilisation', 'compte_amortissement', 'devise')
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return ImmobilisationListSerializer
+        if self.action == 'create':
+            return ImmobilisationCreateSerializer
+        return ImmobilisationDetailSerializer
+
+
+# ══════════════════════════════════════════════════════════════
+# RAPPROCHEMENT BANCAIRE
+# ══════════════════════════════════════════════════════════════
+
+from .models import ReleveBancaire, LigneReleve
+from .serializers import (
+    ReleveBancaireListSerializer,
+    ReleveBancaireDetailSerializer,
+    LigneReleveSerializer,
+)
+
+
+class ReleveBancaireViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ['mandat', 'compte_bancaire', 'statut']
+    ordering = ['-date_fin']
+
+    def get_queryset(self):
+        return ReleveBancaire.objects.filter(
+            is_active=True
+        ).select_related('compte_bancaire', 'devise')
+
+    def get_serializer_class(self):
+        if self.action in ('retrieve',):
+            return ReleveBancaireDetailSerializer
+        return ReleveBancaireListSerializer
+
+
+class LigneReleveViewSet(viewsets.ModelViewSet):
+    serializer_class = LigneReleveSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['releve', 'statut']
+    search_fields = ['libelle', 'reference']
+
+    def get_queryset(self):
+        return LigneReleve.objects.filter(
+            is_active=True
+        ).select_related('ecriture')

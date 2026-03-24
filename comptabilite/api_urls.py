@@ -11,6 +11,12 @@ from .viewset import (
     BankStatementViewSet,
     PaymentViewSet,
     RapportsViewSet,
+    AxeAnalytiqueViewSet,
+    SectionAnalytiqueViewSet,
+    VentilationAnalytiqueViewSet,
+    ImmobilisationViewSet,
+    ReleveBancaireViewSet,
+    LigneReleveViewSet,
 )
 
 app_name = "comptabilite"
@@ -25,6 +31,12 @@ router.register(r"lettrages", LettrageViewSet, basename="lettrage")
 router.register(r"releves-bancaires", BankStatementViewSet, basename="releve-bancaire")
 router.register(r"paiements", PaymentViewSet, basename="paiement-bancaire")
 router.register(r"rapports", RapportsViewSet, basename="rapport")
+router.register(r"axes-analytiques", AxeAnalytiqueViewSet, basename="axe-analytique")
+router.register(r"sections-analytiques", SectionAnalytiqueViewSet, basename="section-analytique")
+router.register(r"ventilations", VentilationAnalytiqueViewSet, basename="ventilation")
+router.register(r"immobilisations", ImmobilisationViewSet, basename="immobilisation")
+router.register(r"releves", ReleveBancaireViewSet, basename="releve")
+router.register(r"lignes-releve", LigneReleveViewSet, basename="ligne-releve")
 
 urlpatterns = [
     path("", include(router.urls)),

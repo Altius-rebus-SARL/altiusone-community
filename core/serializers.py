@@ -769,3 +769,76 @@ class FichierJointUploadSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         return FichierJointDetailSerializer(instance).data
+
+
+# ══════════════════════════════════════════════════════════════
+# CONTRATS
+# ══════════════════════════════════════════════════════════════
+
+from .models import ModeleContrat, Contrat
+
+
+class ModeleContratSerializer(serializers.ModelSerializer):
+    source_display = serializers.CharField(source='get_source_display', read_only=True)
+
+    class Meta:
+        model = ModeleContrat
+        fields = [
+            'id', 'nom', 'description', 'categorie', 'source', 'source_display',
+            'langue', 'document', 'ordre', 'is_active', 'created_at',
+        ]
+
+
+class ContratListSerializer(serializers.ModelSerializer):
+    client_nom = serializers.CharField(source='client.raison_sociale', read_only=True)
+    mandat_numero = serializers.CharField(source='mandat.numero', read_only=True, allow_null=True)
+    sens_display = serializers.CharField(source='get_sens_display', read_only=True)
+    statut_display = serializers.CharField(source='get_statut_display', read_only=True)
+
+    class Meta:
+        model = Contrat
+        fields = [
+            'id', 'numero', 'titre', 'client', 'client_nom',
+            'mandat', 'mandat_numero', 'categorie', 'sens', 'sens_display',
+            'statut', 'statut_display', 'date_debut', 'date_fin',
+            'montant', 'created_at',
+        ]
+
+
+class ContratDetailSerializer(serializers.ModelSerializer):
+    client_nom = serializers.CharField(source='client.raison_sociale', read_only=True)
+    mandat_numero = serializers.CharField(source='mandat.numero', read_only=True, allow_null=True)
+    sens_display = serializers.CharField(source='get_sens_display', read_only=True)
+    statut_display = serializers.CharField(source='get_statut_display', read_only=True)
+    modele_source_nom = serializers.CharField(source='modele_source.nom', read_only=True, allow_null=True)
+    document_nom = serializers.CharField(source='document.nom_fichier', read_only=True, allow_null=True)
+
+    class Meta:
+        model = Contrat
+        fields = [
+            'id', 'numero', 'titre', 'description', 'categorie',
+            'client', 'client_nom', 'mandat', 'mandat_numero',
+            'document', 'document_nom', 'modele_source', 'modele_source_nom',
+            'sens', 'sens_display', 'statut', 'statut_display',
+            'date_emission', 'date_signature', 'date_debut', 'date_fin',
+            'tacite_reconduction', 'delai_resiliation_jours', 'date_prochaine_echeance',
+            'montant', 'devise', 'signataire_interne', 'signataire_externe',
+            'notes', 'created_at', 'updated_at',
+        ]
+
+
+class ContratCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Contrat
+        fields = [
+            'client', 'mandat', 'document', 'modele_source',
+            'numero', 'titre', 'description', 'categorie', 'sens',
+            'date_emission', 'date_signature', 'date_debut', 'date_fin',
+            'tacite_reconduction', 'delai_resiliation_jours', 'date_prochaine_echeance',
+            'montant', 'devise', 'signataire_interne', 'signataire_externe',
+            'statut', 'notes',
+        ]
+
+    def create(self, validated_data):
+        validated_data['created_by'] = self.context['request'].user
+        return super().create(validated_data)

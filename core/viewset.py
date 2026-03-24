@@ -1111,3 +1111,47 @@ class FichierJointViewSet(viewsets.ModelViewSet):
         qs = self.get_queryset().filter(content_type=ct, object_id=object_id)
         serializer = FichierJointListSerializer(qs, many=True)
         return Response(serializer.data)
+
+
+# ══════════════════════════════════════════════════════════════
+# CONTRATS
+# ══════════════════════════════════════════════════════════════
+
+from .models import ModeleContrat, Contrat
+from .serializers import (
+    ModeleContratSerializer,
+    ContratListSerializer,
+    ContratDetailSerializer,
+    ContratCreateSerializer,
+)
+
+
+class ModeleContratViewSet(viewsets.ModelViewSet):
+    queryset = ModeleContrat.objects.filter(is_active=True)
+    serializer_class = ModeleContratSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['source', 'categorie', 'langue']
+    search_fields = ['nom', 'description']
+    ordering = ['ordre', 'nom']
+
+
+class ContratViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['client', 'mandat', 'statut', 'sens', 'categorie']
+    search_fields = ['numero', 'titre', 'description', 'client__raison_sociale']
+    ordering_fields = ['date_emission', 'date_debut', 'created_at', 'titre']
+    ordering = ['-created_at']
+
+    def get_queryset(self):
+        return Contrat.objects.filter(
+            is_active=True
+        ).select_related('client', 'mandat', 'document', 'modele_source', 'devise')
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return ContratListSerializer
+        if self.action == 'create':
+            return ContratCreateSerializer
+        return ContratDetailSerializer

@@ -15,6 +15,8 @@ from .viewset import (
     AdresseViewSet,
     GraphViewSet,
     FichierJointViewSet,
+    ModeleContratViewSet,
+    ContratViewSet,
 )
 
 app_name = "core"
@@ -33,6 +35,8 @@ router.register(r"devises", DeviseViewSet, basename="devise")
 router.register(r"adresses", AdresseViewSet, basename="adresse")
 router.register(r"graph", GraphViewSet, basename="graph")
 router.register(r"fichiers-joints", FichierJointViewSet, basename="fichier-joint")
+router.register(r"modeles-contrat", ModeleContratViewSet, basename="modele-contrat")
+router.register(r"contrats", ContratViewSet, basename="contrat")
 
 urlpatterns = [
     path("", include(router.urls)),
