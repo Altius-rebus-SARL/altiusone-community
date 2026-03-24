@@ -70,6 +70,10 @@ class EmployeForm(forms.ModelForm):
             "soumis_is",
             "barreme_is",
             "taux_is",
+            "canton_imposition",
+            "eglise_is",
+            "nombre_enfants_is",
+            "numero_securite_sociale",
             "config_cotisations",
             "remarques",
         ]
@@ -135,6 +139,14 @@ class EmployeForm(forms.ModelForm):
             "taux_is": forms.NumberInput(
                 attrs={"class": "form-control", "step": "0.01"}
             ),
+            "canton_imposition": forms.TextInput(
+                attrs={"class": "form-control", "maxlength": "2", "placeholder": "GE"}
+            ),
+            "eglise_is": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "nombre_enfants_is": forms.NumberInput(
+                attrs={"class": "form-control", "min": "0"}
+            ),
+            "numero_securite_sociale": forms.TextInput(attrs={"class": "form-control"}),
             "config_cotisations": forms.Textarea(
                 attrs={"class": "form-control", "rows": 4}
             ),
@@ -143,7 +155,7 @@ class EmployeForm(forms.ModelForm):
 
     _numeric_optional = [
         "nombre_enfants", "salaire_horaire", "montant_13eme", "taux_is",
-        "jours_vacances_annuel",
+        "jours_vacances_annuel", "nombre_enfants_is",
     ]
 
     def __init__(self, *args, **kwargs):

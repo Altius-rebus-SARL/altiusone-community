@@ -8,8 +8,20 @@ from .models import (
     DeclarationCotisations,
     DeclarationCotisationsLigne,
     CertificatTravail,
+    LigneCotisationFiche,
 )
 from core.serializers import MandatListSerializer, UserSerializer, AdresseSerializer
+
+
+class LigneCotisationFicheSerializer(serializers.ModelSerializer):
+    type_cotisation_libelle = serializers.CharField(source='taux_cotisation.libelle', read_only=True)
+    type_cotisation_code = serializers.CharField(source='taux_cotisation.type_cotisation', read_only=True)
+
+    class Meta:
+        model = LigneCotisationFiche
+        fields = ['id', 'taux_cotisation', 'type_cotisation_libelle', 'type_cotisation_code',
+                  'libelle', 'base_calcul', 'taux_employe', 'taux_employeur',
+                  'montant_employe', 'montant_employeur', 'ordre']
 
 
 class EmployeListSerializer(serializers.ModelSerializer):
@@ -46,6 +58,10 @@ class EmployeListSerializer(serializers.ModelSerializer):
             "utilisateur",
             "utilisateur_email",
             "a_compte_utilisateur",
+            "canton_imposition",
+            "eglise_is",
+            "nombre_enfants_is",
+            "numero_securite_sociale",
             "created_at",
         ]
 
@@ -125,6 +141,7 @@ class FicheSalaireDetailSerializer(serializers.ModelSerializer):
     statut_display = serializers.CharField(source="get_statut_display", read_only=True)
     employe = EmployeListSerializer(read_only=True)
     valide_par = UserSerializer(read_only=True)
+    lignes_cotisations = LigneCotisationFicheSerializer(many=True, read_only=True)
 
     class Meta:
         model = FicheSalaire

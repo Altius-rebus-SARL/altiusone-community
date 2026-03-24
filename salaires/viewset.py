@@ -15,6 +15,7 @@ from .models import (
     CertificatSalaire,
     DeclarationCotisations,
     CertificatTravail,
+    LigneCotisationFiche,
 )
 from .serializers import (
     EmployeListSerializer,
@@ -32,6 +33,7 @@ from .serializers import (
     DeclarationCotisationsCreateSerializer,
     CertificatTravailListSerializer,
     CertificatTravailDetailSerializer,
+    LigneCotisationFicheSerializer,
 )
 
 
@@ -878,3 +880,17 @@ class CertificatTravailViewSet(PDFViewSetMixin, viewsets.ModelViewSet):
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class LigneCotisationFicheViewSet(viewsets.ModelViewSet):
+    """ViewSet pour les lignes de cotisation sur les fiches de salaire"""
+
+    serializer_class = LigneCotisationFicheSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['fiche', 'taux_cotisation']
+
+    def get_queryset(self):
+        return LigneCotisationFiche.objects.filter(
+            is_active=True
+        ).select_related('taux_cotisation')

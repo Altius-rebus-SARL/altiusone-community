@@ -8,6 +8,7 @@ from .viewset import (
     CertificatSalaireViewSet,
     DeclarationCotisationsViewSet,
     CertificatTravailViewSet,
+    LigneCotisationFicheViewSet,
 )
 
 app_name = "salaires"
@@ -19,6 +20,7 @@ router.register(r"fiches", FicheSalaireViewSet, basename="fiche")
 router.register(r"certificats", CertificatSalaireViewSet, basename="certificat")
 router.register(r"declarations", DeclarationCotisationsViewSet, basename="declaration")
 router.register(r"certificats-travail", CertificatTravailViewSet, basename="certificat-travail")
+router.register(r"lignes-cotisations", LigneCotisationFicheViewSet, basename="ligne-cotisation")
 
 urlpatterns = [
     path("", include(router.urls)),

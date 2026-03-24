@@ -1,5 +1,5 @@
 # fiscalite/viewset.py
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -14,6 +14,8 @@ from .models import (
     OptimisationFiscale,
     ReclamationFiscale,
     UtilisationPerte,
+    AcompteFiscal,
+    ImpotAnticipe,
 )
 from .serializers import (
     DeclarationFiscaleListSerializer,
@@ -25,6 +27,10 @@ from .serializers import (
     OptimisationFiscaleSerializer,
     ReclamationFiscaleSerializer,
     UtilisationPerteSerializer,
+    AcompteFiscalListSerializer,
+    AcompteFiscalDetailSerializer,
+    ImpotAnticipeListSerializer,
+    ImpotAnticipeDetailSerializer,
 )
 
 
@@ -271,3 +277,37 @@ class UtilisationPerteViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["report_perte", "declaration_fiscale"]
+
+
+class AcompteFiscalViewSet(viewsets.ModelViewSet):
+    """ViewSet pour les acomptes fiscaux"""
+
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ['mandat', 'annee_fiscale', 'type_acompte', 'statut']
+    ordering = ['date_echeance']
+
+    def get_queryset(self):
+        return AcompteFiscal.objects.filter(is_active=True)
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return AcompteFiscalListSerializer
+        return AcompteFiscalDetailSerializer
+
+
+class ImpotAnticipeViewSet(viewsets.ModelViewSet):
+    """ViewSet pour les impôts anticipés"""
+
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ['mandat', 'annee', 'type_revenu', 'statut']
+    ordering = ['-date_revenu']
+
+    def get_queryset(self):
+        return ImpotAnticipe.objects.filter(is_active=True)
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return ImpotAnticipeListSerializer
+        return ImpotAnticipeDetailSerializer
