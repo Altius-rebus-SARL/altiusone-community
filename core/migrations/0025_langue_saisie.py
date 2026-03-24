@@ -1,6 +1,6 @@
 # Safe idempotent migration — adds langue_saisie only if not present.
 
-from django.db import migrations
+from django.db import migrations, models
 
 
 def add_langue_saisie_if_missing(apps, schema_editor):
@@ -31,5 +31,24 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(add_langue_saisie_if_missing, migrations.RunPython.noop),
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                migrations.AddField(model_name='accesmandat', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='client', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='collaborateurfiduciaire', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='contact', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='exercicecomptable', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='fichierjoint', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='invitation', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='mandat', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='modeledocumentpdf', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='notification', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='parametremetier', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='tache', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='tiers', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+            ],
+            database_operations=[
+                migrations.RunPython(add_langue_saisie_if_missing, migrations.RunPython.noop),
+            ],
+        ),
     ]

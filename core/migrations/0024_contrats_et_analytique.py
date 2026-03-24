@@ -48,10 +48,31 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # 1. Safe add columns (idempotent)
-        migrations.RunPython(safe_add_columns, migrations.RunPython.noop),
-
-        # 2. Create new tables
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                migrations.AddField(model_name='accesmandat', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='client', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='collaborateurfiduciaire', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='contact', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='exercicecomptable', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='fichierjoint', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='invitation', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='mandat', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='modeledocumentpdf', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='notification', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='parametremetier', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='tache', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='tiers', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(
+                    model_name='mandat',
+                    name='plan_comptable_actif',
+                    field=models.ForeignKey(blank=True, help_text='Plan comptable utilisé par ce mandat', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='mandats_actifs', to='comptabilite.plancomptable', verbose_name='Plan comptable actif'),
+                ),
+            ],
+            database_operations=[
+                migrations.RunPython(safe_add_columns, migrations.RunPython.noop),
+            ],
+        ),
         migrations.CreateModel(
             name='ModeleContrat',
             fields=[

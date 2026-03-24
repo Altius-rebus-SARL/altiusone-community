@@ -37,6 +37,17 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(add_plan_comptable_actif_if_missing, migrations.RunPython.noop),
-        migrations.RunPython(set_plan_comptable_actif, migrations.RunPython.noop),
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                migrations.AddField(
+                    model_name='mandat',
+                    name='plan_comptable_actif',
+                    field=models.ForeignKey(blank=True, help_text='Plan comptable utilisé par ce mandat', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='mandats_actifs', to='comptabilite.plancomptable', verbose_name='Plan comptable actif'),
+                ),
+            ],
+            database_operations=[
+                migrations.RunPython(add_plan_comptable_actif_if_missing, migrations.RunPython.noop),
+                migrations.RunPython(set_plan_comptable_actif, migrations.RunPython.noop),
+            ],
+        ),
     ]

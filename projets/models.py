@@ -141,11 +141,18 @@ class Position(BaseModel):
         )
 
     def recalculer_budget_reel(self):
-        """Recalcule le budget réel à partir des coûts des opérations, puis propage au mandat."""
-        total = self.operations.filter(is_active=True).aggregate(
+        """Recalcule le budget réel à partir des opérations + temps directs, puis propage au mandat."""
+        # Coûts des opérations
+        total_operations = self.operations.filter(is_active=True).aggregate(
             total=models.Sum("cout_reel")
         )["total"] or Decimal("0")
-        self.budget_reel = total
+        # Temps liés directement à la position (sans opération)
+        total_temps_directs = self.temps_passes.filter(
+            is_active=True, operation__isnull=True
+        ).aggregate(
+            total=models.Sum("montant_ht")
+        )["total"] or Decimal("0")
+        self.budget_reel = total_operations + total_temps_directs
         self.save(update_fields=["budget_reel"])
         self.mandat.recalculer_budget_reel()
 

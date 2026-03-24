@@ -47,10 +47,23 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # 1. Safe add columns (idempotent)
-        migrations.RunPython(safe_add_columns, migrations.RunPython.noop),
-
-        # 2. Create new tables (IF NOT EXISTS handled by CreateModel on fresh DB)
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                migrations.AddField(model_name='classecomptable', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='compte', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='ecriturecomptable', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='journal', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='lettrage', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='piececomptable', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='plancomptable', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='typepiececomptable', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='typeplancomptable', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='typepiececomptable', name='dossier_classement', field=models.CharField(blank=True, help_text='Nom du sous-dossier cible pour le classement automatique (ex: Comptabilité, Salaires)', max_length=100, verbose_name='Dossier de classement')),
+            ],
+            database_operations=[
+                migrations.RunPython(safe_add_columns, migrations.RunPython.noop),
+            ],
+        ),
         migrations.CreateModel(
             name='AxeAnalytique',
             fields=[

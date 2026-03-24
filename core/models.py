@@ -3438,6 +3438,12 @@ class Contrat(BaseModel):
         null=True, blank=True, related_name='contrats',
         verbose_name=_('Mandat')
     )
+    position = models.ForeignKey(
+        'projets.Position', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='contrats',
+        verbose_name=_('Position'),
+        help_text=_('Position/lot du projet (pour contrats de sous-traitance)')
+    )
 
     # Document GED (le fichier contrat lui-même)
     document = models.ForeignKey(

@@ -1,7 +1,7 @@
 # apps/facturation/signals.py
 from decimal import Decimal
 
-from django.db.models.signals import post_save, m2m_changed
+from django.db.models.signals import post_save, post_delete, m2m_changed
 from django.dispatch import receiver
 from .models import Facture, LigneFacture, Paiement, TimeTracking, ZoneGeographique
 
@@ -268,20 +268,51 @@ def alerter_facture_en_retard(sender, instance, **kwargs):
                 )
 
 
-@receiver(post_save, sender=TimeTracking)
-def decompter_budget_operation(sender, instance, **kwargs):
-    """Recalcule le coût réel de l'opération depuis tous les temps passés"""
-    if instance.operation_id and instance.montant_ht:
-        from django.db.models import Sum
-        from projets.models import Operation
+def _recalculer_budgets_depuis_temps(instance):
+    """Recalcule la chaîne budget : Opération → Position → Mandat."""
+    from django.db.models import Sum
+    from projets.models import Operation
 
+    # Si lié à une opération → recalculer cout_reel de l'opération
+    if instance.operation_id:
         total = TimeTracking.objects.filter(
-            operation=instance.operation, is_active=True
+            operation_id=instance.operation_id, is_active=True
         ).aggregate(total=Sum('montant_ht'))['total'] or Decimal('0')
         Operation.objects.filter(pk=instance.operation_id).update(cout_reel=total)
-        # Refresh and cascade: position → mandat
-        instance.operation.refresh_from_db()
-        instance.operation.position.recalculer_budget_reel()
+
+    # Cascade position → mandat (que ce soit via opération ou directement)
+    position_id = None
+    if instance.operation_id:
+        try:
+            position_id = Operation.objects.filter(
+                pk=instance.operation_id
+            ).values_list('position_id', flat=True).first()
+        except Exception:
+            pass
+    if not position_id:
+        position_id = instance.position_id
+
+    if position_id:
+        from projets.models import Position
+        try:
+            position = Position.objects.get(pk=position_id)
+            position.recalculer_budget_reel()
+        except Position.DoesNotExist:
+            pass
+
+
+@receiver(post_save, sender=TimeTracking)
+def decompter_budget_operation(sender, instance, **kwargs):
+    """Recalcule le coût réel après ajout/modification d'un temps."""
+    if instance.operation_id or instance.position_id:
+        _recalculer_budgets_depuis_temps(instance)
+
+
+@receiver(post_delete, sender=TimeTracking)
+def decompter_budget_operation_delete(sender, instance, **kwargs):
+    """Recalcule le coût réel après suppression d'un temps."""
+    if instance.operation_id or instance.position_id:
+        _recalculer_budgets_depuis_temps(instance)
 
 
 @receiver(post_save, sender=TimeTracking)

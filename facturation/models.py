@@ -679,6 +679,15 @@ class Facture(BaseModel):
         verbose_name=_("Client"),
         help_text=_("Client facturé")
     )
+    position = models.ForeignKey(
+        'projets.Position',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='factures',
+        verbose_name=_("Position"),
+        help_text=_("Position/lot du projet concerné")
+    )
 
     type_facture = models.CharField(
         max_length=20,

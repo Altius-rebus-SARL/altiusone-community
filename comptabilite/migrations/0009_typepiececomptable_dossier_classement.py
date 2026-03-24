@@ -42,6 +42,17 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(add_dossier_classement_if_missing, migrations.RunPython.noop),
-        migrations.RunPython(set_default_dossier_classement, migrations.RunPython.noop),
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                migrations.AddField(
+                    model_name='typepiececomptable',
+                    name='dossier_classement',
+                    field=models.CharField(blank=True, help_text='Nom du sous-dossier cible pour le classement automatique (ex: Comptabilité, Salaires)', max_length=100, verbose_name='Dossier de classement'),
+                ),
+            ],
+            database_operations=[
+                migrations.RunPython(add_dossier_classement_if_missing, migrations.RunPython.noop),
+                migrations.RunPython(set_default_dossier_classement, migrations.RunPython.noop),
+            ],
+        ),
     ]
