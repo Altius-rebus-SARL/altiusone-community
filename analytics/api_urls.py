@@ -13,8 +13,6 @@ from .viewset import (
     dashboard_data,
 )
 
-app_name = "analytics"
-
 router = DefaultRouter()
 router.register(r"tableaux-bord", TableauBordViewSet, basename="tableau-bord")
 router.register(r"indicateurs", IndicateurViewSet, basename="indicateur")

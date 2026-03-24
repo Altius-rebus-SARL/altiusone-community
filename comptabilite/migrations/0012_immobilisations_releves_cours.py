@@ -10,7 +10,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('comptabilite', '0011_contrats_et_analytique'),
-        ('core', '0025_immobilisations_releves_cours'),
+        ('core', '0026_merge_contrats_langue_saisie'),
         ('documents', '0009_contrats_et_analytique'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
