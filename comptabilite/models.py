@@ -1526,3 +1526,327 @@ class VentilationAnalytique(BaseModel):
 
     def __str__(self):
         return f"{self.ecriture} → {self.section} ({self.pourcentage}%)"
+
+
+# ══════════════════════════════════════════════════════════════
+# IMMOBILISATIONS & AMORTISSEMENTS
+# ══════════════════════════════════════════════════════════════
+
+class Immobilisation(BaseModel):
+    """
+    Actif immobilisé (matériel, véhicule, licence, etc.).
+
+    Suit le plan comptable suisse : immobilisations corporelles (1500-1599)
+    et incorporelles (1700-1799). Génère les écritures d'amortissement.
+    """
+
+    METHODE_CHOICES = [
+        ('LINEAIRE', _('Linéaire')),
+        ('DEGRESSIF', _('Dégressif')),
+        ('UNITE_PRODUCTION', _('Unités de production')),
+    ]
+
+    STATUT_CHOICES = [
+        ('ACTIF', _('Actif')),
+        ('AMORTI', _('Totalement amorti')),
+        ('CEDE', _('Cédé')),
+        ('MIS_AU_REBUT', _('Mis au rebut')),
+    ]
+
+    mandat = models.ForeignKey(
+        Mandat, on_delete=models.CASCADE,
+        related_name='immobilisations',
+        verbose_name=_('Mandat')
+    )
+    numero = models.CharField(
+        max_length=50, verbose_name=_('Numéro inventaire')
+    )
+    designation = models.CharField(
+        max_length=255, verbose_name=_('Désignation')
+    )
+    description = models.TextField(blank=True, verbose_name=_('Description'))
+    categorie = models.CharField(
+        max_length=50, blank=True,
+        verbose_name=_('Catégorie'),
+        help_text=_('Code ParametreMetier (module=comptabilite, categorie=type_immobilisation)')
+    )
+
+    # Acquisition
+    date_acquisition = models.DateField(verbose_name=_("Date d'acquisition"))
+    date_mise_en_service = models.DateField(
+        null=True, blank=True, verbose_name=_('Date de mise en service')
+    )
+    valeur_acquisition = models.DecimalField(
+        max_digits=15, decimal_places=2,
+        verbose_name=_("Valeur d'acquisition")
+    )
+    fournisseur = models.CharField(
+        max_length=255, blank=True, verbose_name=_('Fournisseur')
+    )
+    numero_facture = models.CharField(
+        max_length=100, blank=True, verbose_name=_('N° facture')
+    )
+
+    # Comptes
+    compte_immobilisation = models.ForeignKey(
+        'comptabilite.Compte', on_delete=models.PROTECT,
+        related_name='immobilisations_actif',
+        verbose_name=_('Compte immobilisation'),
+        help_text=_('Compte actif au bilan (ex: 1500)')
+    )
+    compte_amortissement = models.ForeignKey(
+        'comptabilite.Compte', on_delete=models.PROTECT,
+        related_name='immobilisations_amort',
+        verbose_name=_('Compte amortissement'),
+        help_text=_('Compte de charge (ex: 6800)')
+    )
+    compte_amort_cumule = models.ForeignKey(
+        'comptabilite.Compte', on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name='immobilisations_amort_cumule',
+        verbose_name=_('Compte amort. cumulé'),
+        help_text=_('Correctif actif, si méthode indirecte (ex: 1509)')
+    )
+
+    # Amortissement
+    methode_amortissement = models.CharField(
+        max_length=20, choices=METHODE_CHOICES, default='LINEAIRE',
+        verbose_name=_("Méthode d'amortissement")
+    )
+    duree_amortissement_mois = models.IntegerField(
+        verbose_name=_('Durée amort. (mois)'),
+        help_text=_('Durée de vie utile en mois')
+    )
+    taux_amortissement = models.DecimalField(
+        max_digits=6, decimal_places=2, null=True, blank=True,
+        verbose_name=_("Taux d'amortissement (%)"),
+        help_text=_('Pour méthode dégressive (ex: 25.00)')
+    )
+    valeur_residuelle = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name=_('Valeur résiduelle')
+    )
+
+    # État actuel
+    amortissement_cumule = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name=_('Amortissement cumulé')
+    )
+    valeur_nette_comptable = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name=_('Valeur nette comptable')
+    )
+
+    # Cession
+    date_cession = models.DateField(
+        null=True, blank=True, verbose_name=_('Date de cession')
+    )
+    prix_cession = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        verbose_name=_('Prix de cession')
+    )
+
+    statut = models.CharField(
+        max_length=20, choices=STATUT_CHOICES, default='ACTIF',
+        db_index=True, verbose_name=_('Statut')
+    )
+    devise = models.ForeignKey(
+        Devise, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='+',
+        verbose_name=_('Devise')
+    )
+    notes = models.TextField(blank=True, verbose_name=_('Notes'))
+
+    class Meta:
+        db_table = 'immobilisations'
+        verbose_name = _('Immobilisation')
+        verbose_name_plural = _('Immobilisations')
+        ordering = ['numero']
+        indexes = [
+            models.Index(fields=['mandat', 'statut']),
+        ]
+        unique_together = [['mandat', 'numero']]
+
+    def __str__(self):
+        return f"{self.numero} - {self.designation}"
+
+    def texte_pour_embedding(self):
+        parts = [
+            f"Immobilisation: {self.designation}",
+            f"N° {self.numero}",
+            f"Catégorie: {self.categorie}" if self.categorie else '',
+            f"Acquisition: {self.date_acquisition} — {self.valeur_acquisition}",
+            f"Amort. {self.get_methode_amortissement_display()} {self.duree_amortissement_mois} mois",
+            f"VNC: {self.valeur_nette_comptable}",
+            f"Statut: {self.get_statut_display()}",
+            self.description,
+        ]
+        return ' '.join(filter(None, parts))
+
+
+# ══════════════════════════════════════════════════════════════
+# RAPPROCHEMENT BANCAIRE
+# ══════════════════════════════════════════════════════════════
+
+class ReleveBancaire(BaseModel):
+    """
+    Relevé de compte bancaire importé (CSV, MT940, CAMT.053).
+
+    Contient les lignes brutes du relevé. Le rapprochement consiste
+    à matcher chaque ligne avec une écriture comptable existante.
+    """
+
+    STATUT_CHOICES = [
+        ('IMPORTE', _('Importé')),
+        ('EN_COURS', _('Rapprochement en cours')),
+        ('RAPPROCHE', _('Rapproché')),
+        ('VALIDE', _('Validé')),
+    ]
+
+    mandat = models.ForeignKey(
+        Mandat, on_delete=models.CASCADE,
+        related_name='releves_bancaires',
+        verbose_name=_('Mandat')
+    )
+    compte_bancaire = models.ForeignKey(
+        'core.CompteBancaire', on_delete=models.CASCADE,
+        related_name='releves',
+        verbose_name=_('Compte bancaire')
+    )
+    journal = models.ForeignKey(
+        'comptabilite.Journal', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='releves_bancaires',
+        verbose_name=_('Journal bancaire')
+    )
+
+    # Période
+    date_debut = models.DateField(verbose_name=_('Date début'))
+    date_fin = models.DateField(verbose_name=_('Date fin'))
+    reference = models.CharField(
+        max_length=100, blank=True, verbose_name=_('Référence')
+    )
+
+    # Soldes
+    solde_debut = models.DecimalField(
+        max_digits=15, decimal_places=2,
+        verbose_name=_('Solde début')
+    )
+    solde_fin = models.DecimalField(
+        max_digits=15, decimal_places=2,
+        verbose_name=_('Solde fin')
+    )
+    devise = models.ForeignKey(
+        Devise, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='+',
+        verbose_name=_('Devise')
+    )
+
+    # Import
+    format_import = models.CharField(
+        max_length=20, blank=True,
+        verbose_name=_('Format'),
+        help_text=_('CSV, MT940, CAMT.053, etc.')
+    )
+    fichier_source = models.ForeignKey(
+        'documents.Document', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='releves_bancaires',
+        verbose_name=_('Fichier source')
+    )
+
+    # Statistiques
+    nb_lignes = models.IntegerField(default=0, verbose_name=_('Nb lignes'))
+    nb_rapprochees = models.IntegerField(
+        default=0, verbose_name=_('Nb rapprochées')
+    )
+    ecart = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name=_('Écart'),
+        help_text=_('Différence entre solde relevé et solde comptable')
+    )
+
+    statut = models.CharField(
+        max_length=20, choices=STATUT_CHOICES, default='IMPORTE',
+        db_index=True, verbose_name=_('Statut')
+    )
+
+    class Meta:
+        db_table = 'releves_bancaires'
+        verbose_name = _('Relevé bancaire')
+        verbose_name_plural = _('Relevés bancaires')
+        ordering = ['-date_fin']
+        indexes = [
+            models.Index(fields=['mandat', 'compte_bancaire']),
+        ]
+
+    def __str__(self):
+        return f"Relevé {self.compte_bancaire} {self.date_debut}—{self.date_fin}"
+
+    def texte_pour_embedding(self):
+        parts = [
+            f"Relevé bancaire: {self.compte_bancaire}" if self.compte_bancaire_id else 'Relevé bancaire',
+            f"Période: {self.date_debut} au {self.date_fin}",
+            f"Solde: {self.solde_debut} → {self.solde_fin}",
+            f"Statut: {self.get_statut_display()}",
+            f"{self.nb_rapprochees}/{self.nb_lignes} lignes rapprochées",
+        ]
+        return ' '.join(filter(None, parts))
+
+
+class LigneReleve(BaseModel):
+    """
+    Ligne d'un relevé bancaire.
+
+    Chaque ligne peut être rapprochée avec une écriture comptable
+    existante, ou générer une nouvelle écriture.
+    """
+
+    STATUT_CHOICES = [
+        ('NON_RAPPROCHEE', _('Non rapprochée')),
+        ('RAPPROCHEE', _('Rapprochée')),
+        ('IGNOREE', _('Ignorée')),
+    ]
+
+    releve = models.ForeignKey(
+        ReleveBancaire, on_delete=models.CASCADE,
+        related_name='lignes',
+        verbose_name=_('Relevé')
+    )
+    date_valeur = models.DateField(verbose_name=_('Date valeur'))
+    date_operation = models.DateField(
+        null=True, blank=True, verbose_name=_('Date opération')
+    )
+    libelle = models.CharField(max_length=500, verbose_name=_('Libellé'))
+    reference = models.CharField(
+        max_length=200, blank=True, verbose_name=_('Référence')
+    )
+    montant = models.DecimalField(
+        max_digits=15, decimal_places=2,
+        verbose_name=_('Montant'),
+        help_text=_('Positif = crédit, négatif = débit')
+    )
+
+    # Rapprochement
+    ecriture = models.ForeignKey(
+        'comptabilite.EcritureComptable', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='lignes_releve',
+        verbose_name=_('Écriture rapprochée')
+    )
+    statut = models.CharField(
+        max_length=20, choices=STATUT_CHOICES, default='NON_RAPPROCHEE',
+        db_index=True, verbose_name=_('Statut')
+    )
+    date_rapprochement = models.DateTimeField(
+        null=True, blank=True, verbose_name=_('Date rapprochement')
+    )
+
+    class Meta:
+        db_table = 'lignes_releve'
+        verbose_name = _('Ligne de relevé')
+        verbose_name_plural = _('Lignes de relevé')
+        ordering = ['date_valeur']
+        indexes = [
+            models.Index(fields=['releve', 'statut']),
+        ]
+
+    def __str__(self):
+        return f"{self.date_valeur} | {self.libelle[:40]} | {self.montant}"

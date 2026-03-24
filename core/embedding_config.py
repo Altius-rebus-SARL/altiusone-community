@@ -100,6 +100,12 @@ MODEL_EMBEDDING_CONFIG = {
     'comptabilite.AxeAnalytique': {
         'tier': 3,
     },
+    'comptabilite.Immobilisation': {
+        'tier': 2,
+    },
+    'comptabilite.ReleveBancaire': {
+        'tier': 3,
+    },
 }
 
 

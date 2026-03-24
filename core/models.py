@@ -202,6 +202,53 @@ class Devise(models.Model):
         return cls.objects.filter(est_devise_base=True).first() or cls.objects.get(code='CHF')
 
 
+class CoursChange(models.Model):
+    """
+    Historique des taux de change journaliers.
+
+    Permet les conversions et réévaluations à une date passée.
+    Source : taux indicatifs BNS (Banque nationale suisse).
+    Devise de référence : CHF.
+    """
+
+    devise = models.ForeignKey(
+        Devise, on_delete=models.CASCADE,
+        related_name='historique_cours',
+        verbose_name=_('Devise')
+    )
+    date = models.DateField(verbose_name=_('Date'))
+    taux = models.DecimalField(
+        max_digits=12, decimal_places=6,
+        verbose_name=_('Taux'),
+        help_text=_('1 CHF = X unités de cette devise')
+    )
+    source = models.CharField(
+        max_length=50, blank=True, default='BNS',
+        verbose_name=_('Source'),
+        help_text=_('BNS, BCE, manuel, etc.')
+    )
+
+    class Meta:
+        db_table = 'cours_change'
+        verbose_name = _('Cours de change')
+        verbose_name_plural = _('Cours de change')
+        ordering = ['-date']
+        unique_together = [['devise', 'date']]
+        indexes = [
+            models.Index(fields=['devise', 'date']),
+        ]
+
+    def __str__(self):
+        return f"{self.devise_id} {self.date} = {self.taux}"
+
+    @classmethod
+    def get_taux(cls, devise_code, date):
+        """Retourne le taux le plus récent <= date donnée."""
+        return cls.objects.filter(
+            devise_id=devise_code, date__lte=date
+        ).order_by('-date').values_list('taux', flat=True).first()
+
+
 # =============================================================================
 # ROLE (avec intégration Django Permissions)
 # =============================================================================
