@@ -106,6 +106,12 @@ MODEL_EMBEDDING_CONFIG = {
     'comptabilite.ReleveBancaire': {
         'tier': 3,
     },
+    'fiscalite.AcompteFiscal': {
+        'tier': 3,
+    },
+    'fiscalite.ImpotAnticipe': {
+        'tier': 3,
+    },
 }
 
 

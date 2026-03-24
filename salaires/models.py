@@ -287,9 +287,25 @@ class Employe(BaseModel):
     # Impôt à la source
     soumis_is = models.BooleanField(_('Soumis impôt à la source'), default=False)
     barreme_is = models.CharField(_('Barème IS'), max_length=10, blank=True,
-                                   help_text=_('Ex: A, B, C, etc.'))
+                                   help_text=_('Ex: A0, A1, B0, B1, C0, C1, etc.'))
     taux_is = models.DecimalField(_('Taux IS'), max_digits=5, decimal_places=2,
                                    null=True, blank=True)
+    canton_imposition = models.CharField(
+        _('Canton imposition IS'), max_length=2, blank=True,
+        help_text=_('Canton pour le barème impôt source (ex: GE, VD, ZH)')
+    )
+    eglise_is = models.BooleanField(
+        _('Impôt ecclésiastique'), default=False,
+        help_text=_('Affecte le barème IS dans certains cantons')
+    )
+    nombre_enfants_is = models.IntegerField(
+        _("Nombre d'enfants IS"), default=0,
+        help_text=_("Nombre d'enfants pour le calcul du barème IS")
+    )
+    numero_securite_sociale = models.CharField(
+        _('N° sécurité sociale'), max_length=50, blank=True,
+        help_text=_('Numéro universel (N° AVS en CH, N° sécu en FR, INPS au Mali, etc.)')
+    )
     
     # Configuration paie
     config_cotisations = models.JSONField(
@@ -2555,3 +2571,74 @@ class CertificatTravail(BaseModel):
         type_suffix = self.type_certificat.lower()
         filename = f"certificat_travail_{self.employe.matricule}_{type_suffix}_{date.today().strftime('%Y%m%d')}.pdf"
         return save_pdf_overwrite(self, 'fichier_pdf', pdf_bytes, filename)
+
+
+# ══════════════════════════════════════════════════════════════
+# LIGNES DE COTISATION — remplace les colonnes hardcodées sur FicheSalaire
+# ══════════════════════════════════════════════════════════════
+
+class LigneCotisationFiche(BaseModel):
+    """
+    Ligne de cotisation sur une fiche de salaire.
+
+    Remplace les 15+ colonnes hardcodées suisses (avs_employe, ac_employe, etc.)
+    par un modèle générique lié à TauxCotisation.
+    Fonctionne pour tous les régimes : CH (AVS/AC/LPP), FR (URSSAF/CSG),
+    OHADA (CNPS/IPRES/CSS), etc.
+    """
+
+    fiche = models.ForeignKey(
+        FicheSalaire, on_delete=models.CASCADE,
+        related_name='lignes_cotisations',
+        verbose_name=_('Fiche de salaire')
+    )
+    taux_cotisation = models.ForeignKey(
+        TauxCotisation, on_delete=models.PROTECT,
+        related_name='lignes_fiches',
+        verbose_name=_('Type de cotisation'),
+        help_text=_('Référence au taux configuré (type, régime, taux)')
+    )
+    libelle = models.CharField(
+        max_length=200, blank=True,
+        verbose_name=_('Libellé'),
+        help_text=_('Auto-rempli depuis TauxCotisation si vide')
+    )
+    base_calcul = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name=_('Base de calcul'),
+        help_text=_('Salaire soumis à cette cotisation')
+    )
+    taux_employe = models.DecimalField(
+        max_digits=6, decimal_places=3, default=0,
+        verbose_name=_('Taux employé (%)')
+    )
+    taux_employeur = models.DecimalField(
+        max_digits=6, decimal_places=3, default=0,
+        verbose_name=_('Taux employeur (%)')
+    )
+    montant_employe = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name=_('Montant employé')
+    )
+    montant_employeur = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name=_('Montant employeur')
+    )
+    ordre = models.IntegerField(default=0, verbose_name=_('Ordre'))
+
+    class Meta:
+        db_table = 'lignes_cotisation_fiche'
+        verbose_name = _('Ligne de cotisation')
+        verbose_name_plural = _('Lignes de cotisation')
+        ordering = ['fiche', 'ordre']
+        indexes = [
+            models.Index(fields=['fiche', 'taux_cotisation']),
+        ]
+
+    def __str__(self):
+        return f"{self.libelle or self.taux_cotisation.libelle} — {self.montant_employe + self.montant_employeur}"
+
+    def save(self, *args, **kwargs):
+        if not self.libelle and self.taux_cotisation_id:
+            self.libelle = self.taux_cotisation.libelle
+        super().save(*args, **kwargs)
