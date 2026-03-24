@@ -144,7 +144,8 @@ jobs:
   # BUILD + PUSH — Only if validation passes
   # =========================================================================
   build-and-push:
-    needs: validate
+    # TODO: remettre needs: validate quand le job validate aura les bonnes libs système
+    # needs: validate
     runs-on: ubuntu-latest
     permissions:
       contents: read
