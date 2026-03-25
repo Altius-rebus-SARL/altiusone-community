@@ -45,7 +45,6 @@ class UserViewSet(viewsets.ModelViewSet):
     ViewSet pour gérer les utilisateurs
     """
 
-    queryset = User.objects.all()
     permission_classes = [IsAuthenticated]
     filter_backends = [
         DjangoFilterBackend,
@@ -56,6 +55,32 @@ class UserViewSet(viewsets.ModelViewSet):
     search_fields = ["username", "first_name", "last_name", "email"]
     ordering_fields = ["username", "date_joined", "last_name"]
     ordering = ["-date_joined"]
+
+    def get_queryset(self):
+        qs = User.objects.all()
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        if user.is_client_user():
+            # CLIENT users see: themselves + users who share at least one mandat
+            from core.models import AccesMandat
+            my_mandat_ids = AccesMandat.objects.filter(
+                utilisateur=user, is_active=True
+            ).values_list('mandat_id', flat=True)
+            colleague_ids = AccesMandat.objects.filter(
+                mandat_id__in=my_mandat_ids, is_active=True
+            ).values_list('utilisateur_id', flat=True)
+            return qs.filter(Q(pk=user.pk) | Q(pk__in=colleague_ids)).distinct()
+        # Staff non-manager: see all staff + client users on accessible mandats
+        from core.models import AccesMandat
+        accessible = user.get_accessible_mandats()
+        client_user_ids = AccesMandat.objects.filter(
+            mandat__in=accessible, is_active=True
+        ).values_list('utilisateur_id', flat=True)
+        return qs.filter(
+            Q(type_utilisateur=User.TypeUtilisateur.STAFF) |
+            Q(pk__in=client_user_ids)
+        ).distinct()
 
     def get_serializer_class(self):
         if self.action == "create":
@@ -317,6 +342,11 @@ class ClientViewSet(viewsets.ModelViewSet):
             "contact_principal",
         ).prefetch_related("contacts", "mandats")
 
+        user = self.request.user
+        if not (user.is_superuser or user.is_manager()):
+            accessible = user.get_accessible_mandats()
+            queryset = queryset.filter(mandats__in=accessible).distinct()
+
         # Filtre par statut
         statut = self.request.query_params.get("statut", None)
         if statut:
@@ -353,12 +383,13 @@ class ClientViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"])
     def statistics(self, request):
         """Statistiques sur les clients"""
+        qs = self.get_queryset()
         stats = {
-            "total": Client.objects.count(),
-            "actifs": Client.objects.filter(statut="ACTIF").count(),
-            "prospects": Client.objects.filter(statut="PROSPECT").count(),
+            "total": qs.count(),
+            "actifs": qs.filter(statut="ACTIF").count(),
+            "prospects": qs.filter(statut="PROSPECT").count(),
             "par_forme_juridique": dict(
-                Client.objects.values("forme_juridique")
+                qs.values("forme_juridique")
                 .annotate(count=Count("id"))
                 .values_list("forme_juridique", "count")
             ),
@@ -486,7 +517,6 @@ class ContactViewSet(viewsets.ModelViewSet):
     ViewSet pour gérer les contacts
     """
 
-    queryset = Contact.objects.all()
     serializer_class = ContactSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [
@@ -498,6 +528,14 @@ class ContactViewSet(viewsets.ModelViewSet):
     search_fields = ["nom", "prenom", "email", "telephone"]
     ordering_fields = ["nom", "prenom"]
     ordering = ["nom", "prenom"]
+
+    def get_queryset(self):
+        qs = Contact.objects.all()
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(client__mandats__in=accessible).distinct()
 
 
 class MandatViewSet(viewsets.ModelViewSet):
@@ -521,6 +559,11 @@ class MandatViewSet(viewsets.ModelViewSet):
             "client", "responsable", "plan_comptable_actif",
             "plan_comptable_actif__type_plan",
         ).prefetch_related("equipe", "exercices")
+
+        user = self.request.user
+        if not (user.is_superuser or user.is_manager()):
+            accessible = user.get_accessible_mandats()
+            queryset = queryset.filter(pk__in=accessible)
 
         # Filtrer par utilisateur si demandé
         user_id = self.request.query_params.get("user", None)
@@ -574,13 +617,20 @@ class ExerciceComptableViewSet(viewsets.ModelViewSet):
     ViewSet pour gérer les exercices comptables
     """
 
-    queryset = ExerciceComptable.objects.all()
     serializer_class = ExerciceComptableSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ["mandat", "annee", "statut"]
     ordering_fields = ["annee", "date_debut"]
     ordering = ["-annee"]
+
+    def get_queryset(self):
+        qs = ExerciceComptable.objects.all()
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(mandat__in=accessible)
 
     @action(detail=True, methods=["post"])
     def cloturer(self, request, pk=None):
@@ -707,10 +757,23 @@ class TacheViewSet(viewsets.ModelViewSet):
             'cree_par', 'mandat__client', 'prestation'
         )
 
-        # Par défaut, montrer les tâches assignées à l'utilisateur
-        if not user.is_staff:
+        if user.is_superuser or user.is_manager():
+            pass  # Full access
+        elif user.is_client_user():
+            # CLIENT users: only tasks assigned to them or on their accessible mandats
+            accessible = user.get_accessible_mandats()
+            queryset = queryset.filter(
+                Q(assignes=user) | Q(cree_par=user) | Q(mandat__in=accessible)
+            ).distinct()
+        elif not user.is_staff:
             queryset = queryset.filter(
                 Q(assignes=user) | Q(cree_par=user)
+            ).distinct()
+        else:
+            # Staff non-manager: tasks on accessible mandats + assigned to them
+            accessible = user.get_accessible_mandats()
+            queryset = queryset.filter(
+                Q(assignes=user) | Q(cree_par=user) | Q(mandat__in=accessible)
             ).distinct()
 
         # Filtre par assigné
@@ -1155,9 +1218,14 @@ class ContratViewSet(viewsets.ModelViewSet):
     ordering = ['-created_at']
 
     def get_queryset(self):
-        return Contrat.objects.filter(
+        qs = Contrat.objects.filter(
             is_active=True
         ).select_related('client', 'mandat', 'document', 'modele_source', 'devise')
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(mandat__in=accessible)
 
     def get_serializer_class(self):
         if self.action == 'list':

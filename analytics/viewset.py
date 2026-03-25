@@ -53,11 +53,18 @@ class IndicateurViewSet(viewsets.ModelViewSet):
 
 
 class ValeurIndicateurViewSet(viewsets.ModelViewSet):
-    queryset = ValeurIndicateur.objects.all()
     serializer_class = ValeurIndicateurSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["indicateur", "mandat", "date_mesure"]
+
+    def get_queryset(self):
+        qs = ValeurIndicateur.objects.all()
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(mandat__in=accessible)
 
 
 class RapportViewSet(viewsets.ModelViewSet):
@@ -66,7 +73,12 @@ class RapportViewSet(viewsets.ModelViewSet):
     filterset_fields = ["mandat", "type_rapport", "statut"]
 
     def get_queryset(self):
-        return Rapport.objects.select_related("mandat", "genere_par")
+        qs = Rapport.objects.select_related("mandat", "genere_par")
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(mandat__in=accessible)
 
     def get_serializer_class(self):
         if self.action == "list":
@@ -75,27 +87,48 @@ class RapportViewSet(viewsets.ModelViewSet):
 
 
 class PlanificationRapportViewSet(viewsets.ModelViewSet):
-    queryset = PlanificationRapport.objects.all()
     serializer_class = PlanificationRapportSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["mandat", "frequence", "actif"]
 
+    def get_queryset(self):
+        qs = PlanificationRapport.objects.all()
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(mandat__in=accessible)
+
 
 class ComparaisonPeriodeViewSet(viewsets.ModelViewSet):
-    queryset = ComparaisonPeriode.objects.all()
     serializer_class = ComparaisonPeriodeSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["mandat", "type_comparaison"]
 
+    def get_queryset(self):
+        qs = ComparaisonPeriode.objects.all()
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(mandat__in=accessible)
+
 
 class AlerteMetriqueViewSet(viewsets.ModelViewSet):
-    queryset = AlerteMetrique.objects.all()
     serializer_class = AlerteMetriqueSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["indicateur", "mandat", "niveau", "statut"]
+
+    def get_queryset(self):
+        qs = AlerteMetrique.objects.all()
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(mandat__in=accessible)
 
     @action(detail=True, methods=["post"])
     def acquitter(self, request, pk=None):
@@ -111,11 +144,18 @@ class AlerteMetriqueViewSet(viewsets.ModelViewSet):
 
 
 class ExportDonneesViewSet(viewsets.ModelViewSet):
-    queryset = ExportDonnees.objects.all()
     serializer_class = ExportDonneesSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["mandat", "type_export", "format_export"]
+
+    def get_queryset(self):
+        qs = ExportDonnees.objects.all()
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(mandat__in=accessible)
 
 
 def _decimal_to_float(obj):
@@ -156,6 +196,16 @@ def dashboard_data(request):
                 {'error': 'Mandat introuvable'},
                 status=status.HTTP_404_NOT_FOUND
             )
+
+        # Enforce mandat access
+        user = request.user
+        if not (user.is_superuser or user.is_manager()):
+            accessible = user.get_accessible_mandats()
+            if not accessible.filter(pk=mandat.pk).exists():
+                return Response(
+                    {'error': 'Accès refusé à ce mandat'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
 
     service = DashboardDataService(
         user=request.user,

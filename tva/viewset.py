@@ -47,11 +47,18 @@ class RegimeFiscalViewSet(viewsets.ReadOnlyModelViewSet):
 class ConfigurationTVAViewSet(viewsets.ModelViewSet):
     """ViewSet pour les configurations TVA"""
 
-    queryset = ConfigurationTVA.objects.select_related('regime').all()
     serializer_class = ConfigurationTVASerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["mandat", "assujetti_tva", "methode_calcul", "regime"]
+
+    def get_queryset(self):
+        qs = ConfigurationTVA.objects.select_related('regime')
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(mandat__in=accessible)
 
 
 class TauxTVAViewSet(viewsets.ModelViewSet):
@@ -104,9 +111,14 @@ class DeclarationTVAViewSet(PDFViewSetMixin, viewsets.ModelViewSet):
     ordering = ["-annee", "-trimestre", "-semestre"]
 
     def get_queryset(self):
-        return DeclarationTVA.objects.select_related(
+        qs = DeclarationTVA.objects.select_related(
             "mandat", "valide_par", "soumis_par"
         ).prefetch_related("lignes", "corrections", "operations")
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(mandat__in=accessible)
 
     def get_serializer_class(self):
         if self.action == "list":
@@ -226,11 +238,18 @@ class DeclarationTVAViewSet(PDFViewSetMixin, viewsets.ModelViewSet):
 class LigneTVAViewSet(viewsets.ModelViewSet):
     """ViewSet pour les lignes TVA"""
 
-    queryset = LigneTVA.objects.all()
     serializer_class = LigneTVASerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["declaration", "code_tva"]
+
+    def get_queryset(self):
+        qs = LigneTVA.objects.select_related("declaration")
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(declaration__mandat__in=accessible)
 
     @action(detail=True, methods=["post"])
     def calculer(self, request, pk=None):
@@ -250,7 +269,6 @@ class LigneTVAViewSet(viewsets.ModelViewSet):
 class OperationTVAViewSet(viewsets.ModelViewSet):
     """ViewSet pour les opérations TVA"""
 
-    queryset = OperationTVA.objects.all()
     serializer_class = OperationTVASerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [
@@ -267,6 +285,14 @@ class OperationTVAViewSet(viewsets.ModelViewSet):
     search_fields = ["libelle", "tiers", "numero_facture"]
     ordering = ["-date_operation"]
 
+    def get_queryset(self):
+        qs = OperationTVA.objects.all()
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(mandat__in=accessible)
+
     @action(detail=False, methods=["get"])
     def non_integrees(self, request):
         """Récupérer les opérations non encore intégrées dans une déclaration"""
@@ -277,7 +303,7 @@ class OperationTVAViewSet(viewsets.ModelViewSet):
                 {"error": "mandat requis"}, status=status.HTTP_400_BAD_REQUEST
             )
 
-        operations = self.queryset.filter(
+        operations = self.get_queryset().filter(
             mandat_id=mandat_id, integre_declaration=False
         )
 
@@ -296,7 +322,7 @@ class OperationTVAViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        operations = self.queryset.filter(id__in=operation_ids)
+        operations = self.get_queryset().filter(id__in=operation_ids)
         operations.update(
             declaration_tva_id=declaration_id,
             integre_declaration=True,
@@ -309,21 +335,35 @@ class OperationTVAViewSet(viewsets.ModelViewSet):
 class CorrectionTVAViewSet(viewsets.ModelViewSet):
     """ViewSet pour les corrections TVA"""
 
-    queryset = CorrectionTVA.objects.all()
     serializer_class = CorrectionTVASerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["declaration", "type_correction"]
 
+    def get_queryset(self):
+        qs = CorrectionTVA.objects.select_related("declaration")
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(declaration__mandat__in=accessible)
+
 
 class RapprochementAnnuelViewSet(viewsets.ModelViewSet):
     """ViewSet pour les rapprochements annuels TVA"""
 
-    queryset = RapprochementAnnuel.objects.select_related("mandat").all()
     serializer_class = RapprochementAnnuelSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["mandat", "annee", "statut"]
+
+    def get_queryset(self):
+        qs = RapprochementAnnuel.objects.select_related("mandat")
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(mandat__in=accessible)
 
     @action(detail=True, methods=["post"])
     def calculer(self, request, pk=None):

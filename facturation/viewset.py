@@ -76,9 +76,21 @@ class TimeTrackingViewSet(viewsets.ModelViewSet):
     ordering = ["-date_travail"]
 
     def get_queryset(self):
-        return TimeTracking.objects.select_related(
+        qs = TimeTracking.objects.select_related(
             "mandat", "utilisateur", "prestation", "categorie", "position", "operation"
         )
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        # Staff non-manager: temps liés aux mandats accessibles + ses propres temps
+        from django.db.models import Q
+        if user.is_staff_user():
+            return qs.filter(
+                Q(mandat__in=accessible) | Q(utilisateur=user)
+            ).distinct()
+        # CLIENT: uniquement temps liés à ses mandats accessibles
+        return qs.filter(mandat__in=accessible)
 
     def get_serializer_class(self):
         if self.action == "list":
@@ -212,7 +224,12 @@ class FactureViewSet(PDFViewSetMixin, viewsets.ModelViewSet):
     filterset_fields = ["client", "mandat", "statut", "position"]
 
     def get_queryset(self):
-        return Facture.objects.select_related("client", "mandat", "position")
+        qs = Facture.objects.select_related("client", "mandat", "position")
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(mandat__in=accessible)
 
     def get_serializer_class(self):
         if self.action == "list":
@@ -350,19 +367,33 @@ class FactureViewSet(PDFViewSetMixin, viewsets.ModelViewSet):
 
 
 class LigneFactureViewSet(viewsets.ModelViewSet):
-    queryset = LigneFacture.objects.all()
     serializer_class = LigneFactureSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["facture"]
 
+    def get_queryset(self):
+        qs = LigneFacture.objects.select_related("facture")
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(facture__mandat__in=accessible)
+
 
 class PaiementViewSet(viewsets.ModelViewSet):
-    queryset = Paiement.objects.all()
     serializer_class = PaiementSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["facture", "facture__mandat", "mode_paiement"]
+
+    def get_queryset(self):
+        qs = Paiement.objects.select_related("facture")
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(facture__mandat__in=accessible)
 
     @action(detail=True, methods=["post"])
     def valider(self, request, pk=None):
@@ -382,11 +413,18 @@ class PaiementViewSet(viewsets.ModelViewSet):
 
 
 class RelanceViewSet(viewsets.ModelViewSet):
-    queryset = Relance.objects.all()
     serializer_class = RelanceSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["facture", "facture__mandat", "niveau", "envoyee"]
+
+    def get_queryset(self):
+        qs = Relance.objects.select_related("facture")
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(facture__mandat__in=accessible)
 
     @action(detail=True, methods=["post"])
     def envoyer(self, request, pk=None):
@@ -446,8 +484,15 @@ class ZoneGeographiqueViewSet(viewsets.ModelViewSet):
 class TarifMandatViewSet(viewsets.ModelViewSet):
     """ViewSet pour les tarifs par mandat"""
 
-    queryset = TarifMandat.objects.select_related("mandat", "prestation").all()
     serializer_class = TarifMandatSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["mandat", "prestation"]
+
+    def get_queryset(self):
+        qs = TarifMandat.objects.select_related("mandat", "prestation")
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(mandat__in=accessible)
