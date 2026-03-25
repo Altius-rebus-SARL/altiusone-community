@@ -901,6 +901,9 @@ class GlobalSearchView(LoginRequiredMixin, TemplateView):
         'tache': 'Tâches', 'compte': 'Comptes', 'dossier': 'Dossiers',
         'type_plan_comptable': 'Types de plans', 'classe_comptable': 'Classes comptables',
         'plan_comptable': 'Plans comptables', 'journal': 'Journaux',
+        'contrat': 'Contrats', 'immobilisation': 'Immobilisations',
+        'position': 'Positions', 'operation': 'Opérations',
+        'releve_bancaire': 'Relevés bancaires',
     }
 
     def get_context_data(self, **kwargs):
@@ -967,6 +970,9 @@ def omnibar_search(request):
         'tache': 'Tâches', 'compte': 'Comptes', 'dossier': 'Dossiers',
         'type_plan_comptable': 'Types de plans', 'classe_comptable': 'Classes comptables',
         'plan_comptable': 'Plans comptables', 'journal': 'Journaux',
+        'contrat': 'Contrats', 'immobilisation': 'Immobilisations',
+        'position': 'Positions', 'operation': 'Opérations',
+        'releve_bancaire': 'Relevés bancaires',
     }
 
     groups = {}

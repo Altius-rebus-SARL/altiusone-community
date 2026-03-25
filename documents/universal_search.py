@@ -52,6 +52,11 @@ class EntityType(Enum):
     PLAN_COMPTABLE = 'plan_comptable'
     JOURNAL = 'journal'
     UTILISATEUR = 'utilisateur'
+    CONTRAT = 'contrat'
+    IMMOBILISATION = 'immobilisation'
+    POSITION = 'position'
+    OPERATION = 'operation'
+    RELEVE_BANCAIRE = 'releve_bancaire'
 
 
 @dataclass
@@ -217,6 +222,31 @@ class UniversalSearchService:
             'color': 'info',
             'url_pattern': '/fr/admin/utilisateurs/{id}/',
             'search_fields': ['first_name', 'last_name', 'email', 'username'],
+        },
+        EntityType.CONTRAT: {
+            'icon': 'ph-file-text',
+            'color': 'primary',
+            'url_pattern': '/fr/contrats/{id}/',
+        },
+        EntityType.IMMOBILISATION: {
+            'icon': 'ph-buildings',
+            'color': 'info',
+            'url_pattern': '/fr/comptabilite/immobilisations/{id}/',
+        },
+        EntityType.POSITION: {
+            'icon': 'ph-folder-open',
+            'color': 'success',
+            'url_pattern': '/fr/projets/positions/{id}/',
+        },
+        EntityType.OPERATION: {
+            'icon': 'ph-list-checks',
+            'color': 'warning',
+            'url_pattern': '/fr/projets/operations/{id}/',
+        },
+        EntityType.RELEVE_BANCAIRE: {
+            'icon': 'ph-bank',
+            'color': 'secondary',
+            'url_pattern': '/fr/comptabilite/releves/{id}/',
         },
     }
 
@@ -428,6 +458,16 @@ class UniversalSearchService:
             return self._search_journaux(query, context, limit)
         elif entity_type == EntityType.UTILISATEUR:
             return self._search_utilisateurs(query, context, limit)
+        elif entity_type == EntityType.CONTRAT:
+            return self._search_contrats(query, context, limit)
+        elif entity_type == EntityType.IMMOBILISATION:
+            return self._search_immobilisations(query, context, limit)
+        elif entity_type == EntityType.POSITION:
+            return self._search_positions(query, context, limit)
+        elif entity_type == EntityType.OPERATION:
+            return self._search_operations(query, context, limit)
+        elif entity_type == EntityType.RELEVE_BANCAIRE:
+            return self._search_releves_bancaires(query, context, limit)
 
         return []
 
@@ -1473,6 +1513,228 @@ class UniversalSearchService:
                 lines.append(f"{key}: {value}")
 
         return "\n".join(lines)
+
+    def _search_contrats(self, query: str, context: SearchContext, limit: int) -> List[SearchResult]:
+        """Recherche dans les contrats."""
+        from core.models import Contrat
+
+        results = []
+        config = self.ENTITY_CONFIG[EntityType.CONTRAT]
+
+        q_filter = Q(is_active=True) & (
+            Q(numero__icontains=query) |
+            Q(titre__icontains=query) |
+            Q(description__icontains=query) |
+            Q(client__raison_sociale__icontains=query)
+        )
+
+        if context.mandat_ids:
+            q_filter &= Q(mandat_id__in=context.mandat_ids)
+
+        contrats = Contrat.objects.filter(q_filter).select_related('client', 'mandat')[:limit]
+
+        for contrat in contrats:
+            score = self._calculate_text_score(query, [
+                contrat.titre,
+                contrat.numero or '',
+                contrat.description or '',
+            ])
+
+            results.append(SearchResult(
+                entity_type=EntityType.CONTRAT,
+                entity_id=str(contrat.id),
+                title=contrat.titre,
+                subtitle=f"{contrat.get_sens_display()} - {contrat.get_statut_display()}",
+                description=contrat.description[:150] if contrat.description else '',
+                score=score,
+                url=config['url_pattern'].format(id=contrat.id),
+                icon=config['icon'],
+                color=config['color'],
+                metadata={
+                    'statut': contrat.statut,
+                    'sens': contrat.sens,
+                    'client_nom': contrat.client.raison_sociale if contrat.client else None,
+                    'montant': str(contrat.montant) if contrat.montant else None,
+                    'date_debut': contrat.date_debut.isoformat() if contrat.date_debut else None,
+                }
+            ))
+
+        return results
+
+    def _search_immobilisations(self, query: str, context: SearchContext, limit: int) -> List[SearchResult]:
+        """Recherche dans les immobilisations."""
+        from comptabilite.models import Immobilisation
+
+        results = []
+        config = self.ENTITY_CONFIG[EntityType.IMMOBILISATION]
+
+        q_filter = Q(is_active=True) & (
+            Q(numero__icontains=query) |
+            Q(designation__icontains=query) |
+            Q(fournisseur__icontains=query)
+        )
+
+        if context.mandat_ids:
+            q_filter &= Q(mandat_id__in=context.mandat_ids)
+
+        immobilisations = Immobilisation.objects.filter(q_filter)[:limit]
+
+        for immo in immobilisations:
+            score = self._calculate_text_score(query, [
+                immo.designation,
+                immo.numero or '',
+                immo.fournisseur or '',
+            ])
+
+            results.append(SearchResult(
+                entity_type=EntityType.IMMOBILISATION,
+                entity_id=str(immo.id),
+                title=immo.designation,
+                subtitle=f"N° {immo.numero} - VNC: {immo.valeur_nette_comptable}",
+                description=f"Acquisition: {immo.valeur_acquisition}" if immo.valeur_acquisition else '',
+                score=score,
+                url=config['url_pattern'].format(id=immo.id),
+                icon=config['icon'],
+                color=config['color'],
+                metadata={
+                    'statut': immo.statut,
+                    'valeur_acquisition': str(immo.valeur_acquisition) if immo.valeur_acquisition else None,
+                    'valeur_nette_comptable': str(immo.valeur_nette_comptable) if immo.valeur_nette_comptable else None,
+                }
+            ))
+
+        return results
+
+    def _search_positions(self, query: str, context: SearchContext, limit: int) -> List[SearchResult]:
+        """Recherche dans les positions."""
+        from projets.models import Position
+
+        results = []
+        config = self.ENTITY_CONFIG[EntityType.POSITION]
+
+        q_filter = Q(is_active=True) & (
+            Q(numero__icontains=query) |
+            Q(titre__icontains=query) |
+            Q(description__icontains=query)
+        )
+
+        if context.mandat_ids:
+            q_filter &= Q(mandat_id__in=context.mandat_ids)
+
+        positions = Position.objects.filter(q_filter).select_related('mandat')[:limit]
+
+        for pos in positions:
+            score = self._calculate_text_score(query, [
+                pos.titre,
+                pos.numero or '',
+                pos.description or '',
+            ])
+
+            results.append(SearchResult(
+                entity_type=EntityType.POSITION,
+                entity_id=str(pos.id),
+                title=pos.titre,
+                subtitle=f"N° {pos.numero} - {pos.get_statut_display()}",
+                description=pos.description[:150] if pos.description else '',
+                score=score,
+                url=config['url_pattern'].format(id=pos.id),
+                icon=config['icon'],
+                color=config['color'],
+                metadata={
+                    'statut': pos.statut,
+                    'budget_prevu': str(pos.budget_prevu) if pos.budget_prevu else None,
+                    'budget_reel': str(pos.budget_reel) if pos.budget_reel else None,
+                }
+            ))
+
+        return results
+
+    def _search_operations(self, query: str, context: SearchContext, limit: int) -> List[SearchResult]:
+        """Recherche dans les operations."""
+        from projets.models import Operation
+
+        results = []
+        config = self.ENTITY_CONFIG[EntityType.OPERATION]
+
+        q_filter = Q(is_active=True) & (
+            Q(numero__icontains=query) |
+            Q(titre__icontains=query) |
+            Q(description__icontains=query)
+        )
+
+        if context.mandat_ids:
+            q_filter &= Q(position__mandat_id__in=context.mandat_ids)
+
+        operations = Operation.objects.filter(q_filter).select_related('position', 'position__mandat')[:limit]
+
+        for op in operations:
+            score = self._calculate_text_score(query, [
+                op.titre,
+                op.numero or '',
+                op.description or '',
+            ])
+
+            results.append(SearchResult(
+                entity_type=EntityType.OPERATION,
+                entity_id=str(op.id),
+                title=op.titre,
+                subtitle=f"N° {op.numero} - {op.get_statut_display()}",
+                description=op.description[:150] if op.description else '',
+                score=score,
+                url=config['url_pattern'].format(id=op.id),
+                icon=config['icon'],
+                color=config['color'],
+                metadata={
+                    'statut': op.statut,
+                    'priorite': op.priorite,
+                    'cout_reel': str(op.cout_reel) if op.cout_reel else None,
+                }
+            ))
+
+        return results
+
+    def _search_releves_bancaires(self, query: str, context: SearchContext, limit: int) -> List[SearchResult]:
+        """Recherche dans les releves bancaires."""
+        from comptabilite.models import ReleveBancaire
+
+        results = []
+        config = self.ENTITY_CONFIG[EntityType.RELEVE_BANCAIRE]
+
+        q_filter = Q(is_active=True) & (
+            Q(reference__icontains=query) |
+            Q(compte_bancaire__libelle__icontains=query)
+        )
+
+        if context.mandat_ids:
+            q_filter &= Q(mandat_id__in=context.mandat_ids)
+
+        releves = ReleveBancaire.objects.filter(q_filter).select_related('compte_bancaire')[:limit]
+
+        for releve in releves:
+            score = self._calculate_text_score(query, [
+                releve.reference or '',
+                releve.compte_bancaire.libelle if releve.compte_bancaire else '',
+            ])
+
+            results.append(SearchResult(
+                entity_type=EntityType.RELEVE_BANCAIRE,
+                entity_id=str(releve.id),
+                title=f"Relevé {releve.compte_bancaire.libelle if releve.compte_bancaire_id else ''}",
+                subtitle=f"{releve.date_debut} — {releve.date_fin}",
+                description=f"Ref: {releve.reference}" if releve.reference else '',
+                score=score,
+                url=config['url_pattern'].format(id=releve.id),
+                icon=config['icon'],
+                color=config['color'],
+                metadata={
+                    'statut': releve.statut,
+                    'solde_debut': str(releve.solde_debut) if releve.solde_debut else None,
+                    'solde_fin': str(releve.solde_fin) if releve.solde_fin else None,
+                    'nb_lignes': releve.nb_lignes if hasattr(releve, 'nb_lignes') else None,
+                }
+            ))
+
+        return results
 
     # =========================================================================
     # RECHERCHE SÉMANTIQUE (ModelEmbedding pgvector)
