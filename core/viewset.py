@@ -676,11 +676,21 @@ class NotificationViewSet(viewsets.ModelViewSet):
 
 class TacheViewSet(viewsets.ModelViewSet):
     """
-    ViewSet pour gérer les tâches
+    ViewSet pour gérer les tâches.
+
+    Permissions:
+    - list/retrieve/mes_taches/calendar_events: tout utilisateur authentifié
+    - create/update/partial_update/destroy/change_status: staff uniquement (pas CLIENT)
     """
 
     serializer_class = TacheSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        if self.action in ('create', 'update', 'partial_update', 'destroy', 'change_status'):
+            from core.permissions import IsStaffOrAbove
+            return [IsAuthenticated(), IsStaffOrAbove()]
+        return [IsAuthenticated()]
     filter_backends = [
         DjangoFilterBackend,
         filters.SearchFilter,
