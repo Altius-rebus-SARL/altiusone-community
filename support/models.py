@@ -12,15 +12,7 @@ class CategorieSupport(BaseModel):
 
     code = models.CharField(max_length=50, unique=True, verbose_name=_('Code'))
     nom = models.CharField(max_length=200, verbose_name=_('Nom'))
-    nom_fr = models.CharField(max_length=200, blank=True)
-    nom_de = models.CharField(max_length=200, blank=True)
-    nom_it = models.CharField(max_length=200, blank=True)
-    nom_en = models.CharField(max_length=200, blank=True)
     description = models.TextField(blank=True, verbose_name=_('Description'))
-    description_fr = models.TextField(blank=True)
-    description_de = models.TextField(blank=True)
-    description_it = models.TextField(blank=True)
-    description_en = models.TextField(blank=True)
     icone = models.CharField(
         max_length=50, blank=True,
         verbose_name=_('Icône'),
@@ -46,7 +38,7 @@ class CategorieSupport(BaseModel):
 class ArticleSupport(BaseModel):
     """
     Article de documentation / guide utilisateur.
-    Contenu Markdown multilingue, lié à une catégorie et un module.
+    Contenu Markdown multilingue (via modeltranslation), lié à une catégorie et un module.
     """
 
     categorie = models.ForeignKey(
@@ -55,10 +47,6 @@ class ArticleSupport(BaseModel):
         verbose_name=_('Catégorie')
     )
     titre = models.CharField(max_length=255, verbose_name=_('Titre'))
-    titre_fr = models.CharField(max_length=255, blank=True)
-    titre_de = models.CharField(max_length=255, blank=True)
-    titre_it = models.CharField(max_length=255, blank=True)
-    titre_en = models.CharField(max_length=255, blank=True)
     slug = models.SlugField(
         max_length=255, unique=True,
         verbose_name=_('Slug URL')
@@ -67,18 +55,10 @@ class ArticleSupport(BaseModel):
         blank=True, verbose_name=_('Résumé'),
         help_text=_('Court résumé affiché dans les listes')
     )
-    resume_fr = models.TextField(blank=True)
-    resume_de = models.TextField(blank=True)
-    resume_it = models.TextField(blank=True)
-    resume_en = models.TextField(blank=True)
     contenu = models.TextField(
         verbose_name=_('Contenu'),
         help_text=_('Contenu Markdown de l\'article')
     )
-    contenu_fr = models.TextField(blank=True)
-    contenu_de = models.TextField(blank=True)
-    contenu_it = models.TextField(blank=True)
-    contenu_en = models.TextField(blank=True)
     module = models.CharField(
         max_length=50, blank=True,
         verbose_name=_('Module'),
@@ -114,6 +94,7 @@ class VideoTutoriel(BaseModel):
     """
     Tutoriel vidéo YouTube.
     Stocke l'ID YouTube + métadonnées. La vidéo est sur YouTube.
+    Titres/descriptions multilingues via modeltranslation.
     """
 
     categorie = models.ForeignKey(
@@ -122,15 +103,7 @@ class VideoTutoriel(BaseModel):
         verbose_name=_('Catégorie')
     )
     titre = models.CharField(max_length=255, verbose_name=_('Titre'))
-    titre_fr = models.CharField(max_length=255, blank=True)
-    titre_de = models.CharField(max_length=255, blank=True)
-    titre_it = models.CharField(max_length=255, blank=True)
-    titre_en = models.CharField(max_length=255, blank=True)
     description = models.TextField(blank=True, verbose_name=_('Description'))
-    description_fr = models.TextField(blank=True)
-    description_de = models.TextField(blank=True)
-    description_it = models.TextField(blank=True)
-    description_en = models.TextField(blank=True)
     youtube_id = models.CharField(
         max_length=20, verbose_name=_('ID YouTube'),
         help_text=_('Ex: dQw4w9WgXcQ (partie après ?v= dans l\'URL)')
@@ -186,6 +159,7 @@ class Nouveaute(BaseModel):
     """
     Note de version / changelog.
     Informe les utilisateurs des nouvelles fonctionnalités et corrections.
+    Titres/contenus multilingues via modeltranslation.
     """
 
     TYPE_CHOICES = [
@@ -198,18 +172,10 @@ class Nouveaute(BaseModel):
     version = models.CharField(max_length=20, verbose_name=_('Version'))
     date_publication = models.DateField(verbose_name=_('Date de publication'))
     titre = models.CharField(max_length=255, verbose_name=_('Titre'))
-    titre_fr = models.CharField(max_length=255, blank=True)
-    titre_de = models.CharField(max_length=255, blank=True)
-    titre_it = models.CharField(max_length=255, blank=True)
-    titre_en = models.CharField(max_length=255, blank=True)
     contenu = models.TextField(
         verbose_name=_('Contenu'),
         help_text=_('Détails en Markdown')
     )
-    contenu_fr = models.TextField(blank=True)
-    contenu_de = models.TextField(blank=True)
-    contenu_it = models.TextField(blank=True)
-    contenu_en = models.TextField(blank=True)
     type_changement = models.CharField(
         max_length=20, choices=TYPE_CHOICES, default='NOUVEAU',
         verbose_name=_('Type')
