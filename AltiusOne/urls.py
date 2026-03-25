@@ -115,6 +115,9 @@ urlpatterns = [
     # API v1 - Éditeur collaboratif
     path("api/v1/editeur/", include(editeur_api_urls)),
 
+    # API v1 - Support (articles, vidéos, nouveautés)
+    path("api/v1/support/", include("support.api_urls")),
+
     # MCP Server (Model Context Protocol)
     path("mcp/", include("mcp.urls", namespace="mcp")),
 

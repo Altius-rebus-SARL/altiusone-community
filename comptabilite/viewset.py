@@ -201,7 +201,6 @@ class CompteViewSet(viewsets.ModelViewSet):
 class JournalViewSet(viewsets.ModelViewSet):
     """ViewSet pour les journaux"""
 
-    queryset = Journal.objects.all()
     serializer_class = JournalSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [
@@ -212,6 +211,11 @@ class JournalViewSet(viewsets.ModelViewSet):
     filterset_fields = ["mandat", "type_journal"]
     search_fields = ["code", "libelle"]
     ordering = ["code"]
+
+    def get_queryset(self):
+        return Journal.objects.filter(is_active=True).select_related(
+            'mandat', 'compte_contrepartie_defaut'
+        )
 
     @action(detail=True, methods=["post"])
     def generer_numero(self, request, pk=None):
@@ -236,7 +240,7 @@ class EcritureComptableViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return EcritureComptable.objects.select_related(
-            "mandat", "journal", "compte", "exercice", "valide_par"
+            "mandat", "journal", "compte", "exercice", "piece", "tiers", "valide_par"
         )
 
     def get_serializer_class(self):
@@ -343,7 +347,7 @@ class PieceComptableViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return PieceComptable.objects.select_related(
-            "mandat", "mandat__client", "journal", "type_piece", "dossier", "valide_par"
+            "mandat", "mandat__client", "journal", "type_piece", "tiers", "dossier", "valide_par"
         ).prefetch_related("documents", "ecritures")
 
     def get_serializer_class(self):
