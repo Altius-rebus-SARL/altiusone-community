@@ -45,6 +45,7 @@
                                 <th>{% trans "Langue" %}</th>
                                 <th>{% trans "Catégorie" %}</th>
                                 <th>{% trans "Document" %}</th>
+                                <th>{% trans "Actions" %}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -73,10 +74,18 @@
                                     <span class="text-muted">—</span>
                                     {% endif %}
                                 </td>
+                                <td>
+                                    <a href="{% url 'core:contrat-create' %}?modele_source={{ modele.pk }}"
+                                       class="btn btn-sm btn-light-success"
+                                       data-bs-toggle="tooltip"
+                                       title="{% trans 'Créer un contrat depuis ce modèle' %}">
+                                        <i class="ph ph-plus me-1"></i>{% trans "Créer un contrat" %}
+                                    </a>
+                                </td>
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="5" class="text-center py-5">
+                                <td colspan="6" class="text-center py-5">
                                     <i class="ph ph-files f-s-50 text-muted"></i>
                                     <p class="text-muted mt-2">{% trans "Aucun modèle de contrat disponible" %}</p>
                                 </td>

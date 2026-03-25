@@ -64,7 +64,7 @@
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <h3 class="text-info mb-0">{{ stats.amort_cumules|floatformat:2 }}</h3>
-                        <p class="text-muted mb-0">{% trans "Amortissements cumules" %}</p>
+                        <p class="text-muted mb-0">{% trans "Amortissements cumulés" %}</p>
                     </div>
                     <div class="h-50 w-50 d-flex-center rounded-circle bg-light-info">
                         <i class="ph ph-chart-bar f-s-24 text-info"></i>
@@ -120,14 +120,14 @@
                                 <option value="">{% trans "Tous les statuts" %}</option>
                                 <option value="ACTIF" {% if request.GET.statut == 'ACTIF' %}selected{% endif %}>{% trans "Actif" %}</option>
                                 <option value="AMORTI" {% if request.GET.statut == 'AMORTI' %}selected{% endif %}>{% trans "Totalement amorti" %}</option>
-                                <option value="CEDE" {% if request.GET.statut == 'CEDE' %}selected{% endif %}>{% trans "Cede" %}</option>
+                                <option value="CEDE" {% if request.GET.statut == 'CEDE' %}selected{% endif %}>{% trans "Cédé" %}</option>
                                 <option value="MIS_AU_REBUT" {% if request.GET.statut == 'MIS_AU_REBUT' %}selected{% endif %}>{% trans "Mis au rebut" %}</option>
                             </select>
                         </div>
                         <div class="col-md-6">
                             {% if request.GET.statut or request.GET.mandat or request.GET.q %}
                             <a href="{% url 'comptabilite:immobilisation-list' %}" class="btn btn-secondary">
-                                <i class="ph ph-x me-2"></i>{% trans "Reinitialiser" %}
+                                <i class="ph ph-x me-2"></i>{% trans "Réinitialiser" %}
                             </a>
                             {% endif %}
                         </div>
@@ -139,12 +139,12 @@
                     <table class="table table-bottom-border align-middle mb-0">
                         <thead>
                             <tr class="app-sort">
-                                <th scope="col">{% trans "Numero" %}</th>
-                                <th scope="col">{% trans "Designation" %}</th>
+                                <th scope="col">{% trans "Numéro" %}</th>
+                                <th scope="col">{% trans "Désignation" %}</th>
                                 <th scope="col">{% trans "Date acquisition" %}</th>
                                 <th scope="col" class="text-end">{% trans "Valeur" %}</th>
                                 <th scope="col" class="text-end">{% trans "VNC" %}</th>
-                                <th scope="col">{% trans "Methode" %}</th>
+                                <th scope="col">{% trans "Méthode" %}</th>
                                 <th scope="col">{% trans "Statut" %}</th>
                                 <th scope="col">{% trans "Actions" %}</th>
                             </tr>
@@ -172,7 +172,7 @@
                                     {% elif immo.statut == 'AMORTI' %}
                                     <span class="badge bg-info-subtle text-info">{% trans "Amorti" %}</span>
                                     {% elif immo.statut == 'CEDE' %}
-                                    <span class="badge bg-warning-subtle text-warning">{% trans "Cede" %}</span>
+                                    <span class="badge bg-warning-subtle text-warning">{% trans "Cédé" %}</span>
                                     {% elif immo.statut == 'MIS_AU_REBUT' %}
                                     <span class="badge bg-danger-subtle text-danger">{% trans "Rebut" %}</span>
                                     {% endif %}
@@ -190,7 +190,7 @@
                             <tr>
                                 <td colspan="8" class="text-center py-5">
                                     <i class="ph ph-buildings f-s-50 text-muted"></i>
-                                    <p class="text-muted mt-2">{% trans "Aucune immobilisation trouvee" %}</p>
+                                    <p class="text-muted mt-2">{% trans "Aucune immobilisation trouvée" %}</p>
                                 </td>
                             </tr>
                             {% endfor %}

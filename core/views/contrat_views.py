@@ -103,6 +103,13 @@ class ContratCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView)
     template_name = "core/contrat_form.html"
     business_permission = 'core.add_contrat'
 
+    def get_initial(self):
+        initial = super().get_initial()
+        modele_source = self.request.GET.get("modele_source")
+        if modele_source:
+            initial["modele_source"] = modele_source
+        return initial
+
     def get_success_url(self):
         return reverse_lazy("core:contrat-detail", kwargs={"pk": self.object.pk})
 

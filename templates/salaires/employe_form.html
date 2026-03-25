@@ -410,6 +410,7 @@
                             <div class="mb-3">
                                 <label class="form-label">{% trans "Barème IS" %}</label>
                                 {{ form.barreme_is|add_class:"form-control" }}
+                                <small class="text-muted">{% trans "Ex: A0, A1, B0, B1, C0, C1" %}</small>
                             </div>
                         </div>
 
@@ -417,6 +418,48 @@
                             <div class="mb-3">
                                 <label class="form-label">{% trans "Taux IS (%)" %}</label>
                                 {{ form.taux_is|add_class:"form-control" }}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Canton imposition" %}</label>
+                                {{ form.canton_imposition|add_class:"form-control" }}
+                                <small class="text-muted">{% trans "Ex: GE, VD, ZH" %}</small>
+                                {% if form.canton_imposition.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.canton_imposition.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Impôt ecclésiastique" %}</label>
+                                <div class="form-check form-switch">
+                                    {{ form.eglise_is|add_class:"form-check-input" }}
+                                    <label class="form-check-label">{% trans "Oui" %}</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "Nombre d'enfants IS" %}</label>
+                                {{ form.nombre_enfants_is|add_class:"form-control" }}
+                                {% if form.nombre_enfants_is.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.nombre_enfants_is.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{% trans "N° sécurité sociale" %}</label>
+                                {{ form.numero_securite_sociale|add_class:"form-control" }}
+                                <small class="text-muted">{% trans "N° AVS (CH), N° sécu (FR), INPS (Mali), etc." %}</small>
+                                {% if form.numero_securite_sociale.errors %}
+                                <div class="text-danger f-s-12 mt-1">{{ form.numero_securite_sociale.errors.0 }}</div>
+                                {% endif %}
                             </div>
                         </div>
                     </div>

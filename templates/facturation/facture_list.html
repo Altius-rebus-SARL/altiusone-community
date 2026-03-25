@@ -207,6 +207,9 @@
                                 <td colspan="9" class="text-center py-5">
                                     <i class="ph ph-scroll f-s-50 text-muted"></i>
                                     <p class="text-muted mt-2">{% trans "Aucune facture trouvée" %}</p>
+                                    <a href="{% url 'facturation:facture-create' %}" class="btn btn-primary mt-3">
+                                        <i class="ti ti-plus me-2"></i>{% trans "Nouvelle facture" %}
+                                    </a>
                                 </td>
                             </tr>
                             {% endfor %}

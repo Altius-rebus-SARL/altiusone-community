@@ -175,7 +175,7 @@
                                 <td>{{ temps.prestation.libelle|truncatewords:3 }}</td>
                                 <td>
                                     {% if temps.position %}
-                                    <a href="{% url 'comptabilite:immobilisation-list' %}" class="text-muted f-s-12">
+                                    <a href="#" class="text-muted f-s-12">
                                         {{ temps.position.titre|truncatewords:3 }}
                                     </a>
                                     {% if temps.operation %}

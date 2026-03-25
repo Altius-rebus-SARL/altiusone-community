@@ -3,13 +3,13 @@
 {% load i18n %}
 {% load devise_tags %}
 
-{% block title %}{% trans "Releves bancaires" %}{% endblock %}
+{% block title %}{% trans "Relevés bancaires" %}{% endblock %}
 
 {% block content %}
 <!-- Breadcrumb start -->
 <div class="row m-1">
     <div class="col-12">
-        <h4 class="main-title">{% trans "Releves bancaires" %}</h4>
+        <h4 class="main-title">{% trans "Relevés bancaires" %}</h4>
         <ul class="app-line-breadcrumbs mb-3">
             <li class="">
                 <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
@@ -19,7 +19,7 @@
                 </a>
             </li>
             <li class="active">
-                <a class="f-s-14 f-w-500" href="#">{% trans "Releves" %}</a>
+                <a class="f-s-14 f-w-500" href="#">{% trans "Relevés" %}</a>
             </li>
         </ul>
     </div>
@@ -34,7 +34,7 @@
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <h3 class="text-primary mb-0">{{ stats.total_releves }}</h3>
-                        <p class="text-muted mb-0">{% trans "Releves" %}</p>
+                        <p class="text-muted mb-0">{% trans "Relevés" %}</p>
                     </div>
                     <div class="h-50 w-50 d-flex-center rounded-circle bg-light-primary">
                         <i class="ph ph-bank f-s-24 text-primary"></i>
@@ -49,7 +49,7 @@
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <h3 class="text-success mb-0">{{ stats.total_rapprochees }}</h3>
-                        <p class="text-muted mb-0">{% trans "Lignes rapprochees" %}</p>
+                        <p class="text-muted mb-0">{% trans "Lignes rapprochées" %}</p>
                     </div>
                     <div class="h-50 w-50 d-flex-center rounded-circle bg-light-success">
                         <i class="ph ph-check-circle f-s-24 text-success"></i>
@@ -80,7 +80,7 @@
     <div class="col-12">
         <div class="card">
             <div class="card-header">
-                <h5>{% trans "Liste des releves bancaires" %}</h5>
+                <h5>{% trans "Liste des relevés bancaires" %}</h5>
             </div>
             <div class="card-body">
                 <!-- Filters Row -->
@@ -99,16 +99,16 @@
                         <div class="col-md-3">
                             <select name="statut" class="form-select select-basic" onchange="this.form.submit()">
                                 <option value="">{% trans "Tous les statuts" %}</option>
-                                <option value="IMPORTE" {% if request.GET.statut == 'IMPORTE' %}selected{% endif %}>{% trans "Importe" %}</option>
+                                <option value="IMPORTE" {% if request.GET.statut == 'IMPORTE' %}selected{% endif %}>{% trans "Importé" %}</option>
                                 <option value="EN_COURS" {% if request.GET.statut == 'EN_COURS' %}selected{% endif %}>{% trans "En cours" %}</option>
-                                <option value="RAPPROCHE" {% if request.GET.statut == 'RAPPROCHE' %}selected{% endif %}>{% trans "Rapproche" %}</option>
-                                <option value="VALIDE" {% if request.GET.statut == 'VALIDE' %}selected{% endif %}>{% trans "Valide" %}</option>
+                                <option value="RAPPROCHE" {% if request.GET.statut == 'RAPPROCHE' %}selected{% endif %}>{% trans "Rapproché" %}</option>
+                                <option value="VALIDE" {% if request.GET.statut == 'VALIDE' %}selected{% endif %}>{% trans "Validé" %}</option>
                             </select>
                         </div>
                         <div class="col-md-6">
                             {% if request.GET.statut or request.GET.mandat %}
                             <a href="{% url 'comptabilite:releve-list' %}" class="btn btn-secondary">
-                                <i class="ph ph-x me-2"></i>{% trans "Reinitialiser" %}
+                                <i class="ph ph-x me-2"></i>{% trans "Réinitialiser" %}
                             </a>
                             {% endif %}
                         </div>
@@ -121,8 +121,8 @@
                         <thead>
                             <tr class="app-sort">
                                 <th scope="col">{% trans "Compte" %}</th>
-                                <th scope="col">{% trans "Periode" %}</th>
-                                <th scope="col" class="text-end">{% trans "Solde debut" %}</th>
+                                <th scope="col">{% trans "Période" %}</th>
+                                <th scope="col" class="text-end">{% trans "Solde début" %}</th>
                                 <th scope="col" class="text-end">{% trans "Solde fin" %}</th>
                                 <th scope="col" class="text-center">{% trans "Lignes" %}</th>
                                 <th scope="col">{% trans "Statut" %}</th>
@@ -155,13 +155,13 @@
                                 </td>
                                 <td>
                                     {% if releve.statut == 'IMPORTE' %}
-                                    <span class="badge bg-secondary-subtle text-secondary">{% trans "Importe" %}</span>
+                                    <span class="badge bg-secondary-subtle text-secondary">{% trans "Importé" %}</span>
                                     {% elif releve.statut == 'EN_COURS' %}
                                     <span class="badge bg-warning-subtle text-warning">{% trans "En cours" %}</span>
                                     {% elif releve.statut == 'RAPPROCHE' %}
-                                    <span class="badge bg-success-subtle text-success">{% trans "Rapproche" %}</span>
+                                    <span class="badge bg-success-subtle text-success">{% trans "Rapproché" %}</span>
                                     {% elif releve.statut == 'VALIDE' %}
-                                    <span class="badge bg-info-subtle text-info">{% trans "Valide" %}</span>
+                                    <span class="badge bg-info-subtle text-info">{% trans "Validé" %}</span>
                                     {% endif %}
                                 </td>
                                 <td>
@@ -177,7 +177,7 @@
                             <tr>
                                 <td colspan="7" class="text-center py-5">
                                     <i class="ph ph-bank f-s-50 text-muted"></i>
-                                    <p class="text-muted mt-2">{% trans "Aucun releve bancaire" %}</p>
+                                    <p class="text-muted mt-2">{% trans "Aucun relevé bancaire" %}</p>
                                 </td>
                             </tr>
                             {% endfor %}

@@ -1,13 +1,13 @@
 {% extends 'base.html' %}
 {% load i18n %}
 
-{% block title %}{% trans "Tutoriels video" %}{% endblock %}
+{% block title %}{% trans "Tutoriels vidéo" %}{% endblock %}
 
 {% block content %}
 <!-- Breadcrumb -->
 <div class="row m-1">
     <div class="col-12">
-        <h4 class="main-title">{% trans "Tutoriels video" %}</h4>
+        <h4 class="main-title">{% trans "Tutoriels vidéo" %}</h4>
         <ul class="app-line-breadcrumbs mb-3">
             <li>
                 <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
@@ -20,7 +20,7 @@
                 </a>
             </li>
             <li class="active">
-                <a class="f-s-14 f-w-500" href="#">{% trans "Videos" %}</a>
+                <a class="f-s-14 f-w-500" href="#">{% trans "Vidéos" %}</a>
             </li>
         </ul>
     </div>
@@ -39,7 +39,7 @@
                         <i class="ti ti-search text-dark"></i>
                     </div>
                     <select name="categorie" class="form-select select-basic" style="max-width: 200px;" onchange="this.form.submit()">
-                        <option value="">{% trans "Toutes les categories" %}</option>
+                        <option value="">{% trans "Toutes les catégories" %}</option>
                         {% for cat in categories %}
                         <option value="{{ cat.code }}" {% if current_categorie == cat.code %}selected{% endif %}>
                             {{ cat.nom }}
@@ -104,10 +104,10 @@
         <div class="card">
             <div class="card-body text-center py-5">
                 <i class="ph ph-video f-s-48 text-muted d-block mb-3"></i>
-                <p class="text-muted">{% trans "Aucun tutoriel video trouve." %}</p>
+                <p class="text-muted">{% trans "Aucun tutoriel vidéo trouvé." %}</p>
                 {% if request.GET.q or current_categorie %}
                 <a href="{% url 'support:video-list' %}" class="btn btn-sm btn-light-primary">
-                    {% trans "Reinitialiser les filtres" %}
+                    {% trans "Réinitialiser les filtres" %}
                 </a>
                 {% endif %}
             </div>
