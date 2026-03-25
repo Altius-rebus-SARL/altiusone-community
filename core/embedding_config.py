@@ -112,6 +112,17 @@ MODEL_EMBEDDING_CONFIG = {
     'fiscalite.ImpotAnticipe': {
         'tier': 3,
     },
+
+    # ===== Support & Documentation =====
+    'support.ArticleSupport': {
+        'tier': 2,
+    },
+    'support.VideoTutoriel': {
+        'tier': 3,
+    },
+    'support.Nouveaute': {
+        'tier': 3,
+    },
 }
 
 

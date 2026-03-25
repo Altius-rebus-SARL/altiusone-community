@@ -158,6 +158,7 @@ urlpatterns += i18n_patterns(
     path("modelforms/", include("modelforms.urls", namespace="modelforms")),
     path("projets/", include("projets.urls", namespace="projets")),
     path("graph/", include("graph.urls", namespace="graph")),
+    path("support/", include("support.urls", namespace="support")),
     # Import/Export générique pour tous les modèles
     path("import-export/", include("core.import_export.urls", namespace="import_export")),
     prefix_default_language=True,

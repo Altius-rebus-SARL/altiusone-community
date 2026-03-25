@@ -84,6 +84,7 @@ LOCAL_APPS = [
     "modelforms",
     "projets",
     "graph",
+    "support",
 ]
 
 

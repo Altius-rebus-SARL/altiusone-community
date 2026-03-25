@@ -461,6 +461,14 @@
         </ul>
       </li>
 
+      <!-- Support / Aide -->
+      <li class="no-sub" data-active="{% if ns == 'support' %}true{% endif %}">
+        <a href="{% url 'support:hub' %}">
+          <i class="ti ti-help-circle f-s-30"></i>
+          {% trans "Aide & Support" %}
+        </a>
+      </li>
+
       <!-- Analytics est maintenant un lien unique en haut du sidebar -->
 
       {% if user.is_client_user %}
