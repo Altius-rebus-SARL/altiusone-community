@@ -99,8 +99,12 @@
             </div>
             <div class="card-body">
                 <div id="piecesTable">
-                    <!-- Header with Search -->
-                    <div class="list-table-header d-flex justify-content-end align-items-center mb-3">
+                    <!-- Header with Add button and Search -->
+                    <div class="list-table-header d-flex justify-content-between align-items-center mb-3">
+                        <a href="{% url 'comptabilite:piece-create' %}" class="btn btn-primary">
+                            <i class="ph ph-plus me-2"></i>{% trans "Nouvelle pièce" %}
+                        </a>
+
                         <form method="get" class="app-form app-icon-form">
                             <div class="position-relative">
                                 <input aria-label="Search" 
@@ -211,6 +215,9 @@
                                     <td colspan="9" class="text-center py-5">
                                         <i class="ph ph-file-text f-s-50 text-muted"></i>
                                         <p class="text-muted mt-2">{% trans "Aucune pièce trouvée" %}</p>
+                                        <a href="{% url 'comptabilite:piece-create' %}" class="btn btn-primary mt-2">
+                                            <i class="ph ph-plus me-2"></i>{% trans "Nouvelle pièce" %}
+                                        </a>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -224,12 +231,12 @@
                         <ul class="pagination justify-content-center">
                             {% if page_obj.has_previous %}
                             <li class="page-item">
-                                <a class="page-link" href="?page=1">
+                                <a class="page-link" href="?page=1{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.equilibree %}&equilibree={{ request.GET.equilibree }}{% endif %}{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}">
                                     <i class="ph ph-caret-double-left"></i>
                                 </a>
                             </li>
                             <li class="page-item">
-                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.equilibree %}&equilibree={{ request.GET.equilibree }}{% endif %}{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}">
                                     <i class="ph ph-caret-left"></i>
                                 </a>
                             </li>
@@ -239,18 +246,18 @@
                                 {% if page_obj.number == num %}
                                 <li class="page-item active"><a class="page-link">{{ num }}</a></li>
                                 {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                                <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                                <li class="page-item"><a class="page-link" href="?page={{ num }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.equilibree %}&equilibree={{ request.GET.equilibree }}{% endif %}{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}">{{ num }}</a></li>
                                 {% endif %}
                             {% endfor %}
 
                             {% if page_obj.has_next %}
                             <li class="page-item">
-                                <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.equilibree %}&equilibree={{ request.GET.equilibree }}{% endif %}{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}">
                                     <i class="ph ph-caret-right"></i>
                                 </a>
                             </li>
                             <li class="page-item">
-                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.equilibree %}&equilibree={{ request.GET.equilibree }}{% endif %}{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}">
                                     <i class="ph ph-caret-double-right"></i>
                                 </a>
                             </li>
