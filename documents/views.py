@@ -47,7 +47,7 @@ class ChatView(LoginRequiredMixin, TemplateView):
         context['conversations'] = Conversation.objects.filter(
             utilisateur=user,
             statut='ACTIVE'
-        ).select_related('mandat', 'document').order_by('-updated_at')[:20]
+        ).select_related('document').prefetch_related('mandats').order_by('-updated_at')[:20]
 
         # Mandats accessibles pour le filtre
         if user.is_manager():
