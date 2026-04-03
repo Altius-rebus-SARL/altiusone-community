@@ -24,7 +24,7 @@ from .models import (
     DeclarationCotisations,
     DeclarationCotisationsLigne,
 )
-from .forms import EmployeForm, AdresseInlineForm, FicheSalaireForm, CertificatSalaireForm, CertificatTravailForm
+from .forms import EmployeForm, AdresseInlineForm, FicheSalaireForm, CertificatSalaireForm, CertificatTravailForm, DeclarationCotisationsForm
 from .filters import EmployeFilter, FicheSalaireFilter
 from core.models import Mandat, Adresse
 
@@ -1050,15 +1050,12 @@ class DeclarationCotisationsCreateView(LoginRequiredMixin, BusinessPermissionMix
     """Création d'une déclaration de cotisations"""
 
     model = DeclarationCotisations
+    form_class = DeclarationCotisationsForm
     business_permission = 'salaires.manage_cotisations'
     template_name = "salaires/declaration_cotisations_form.html"
-    fields = ['mandat', 'regime_fiscal', 'devise', 'organisme', 'periode_type', 'annee', 'mois', 'trimestre',
-              'nom_caisse', 'numero_affilie', 'numero_contrat']
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['mandats'] = Mandat.objects.select_related('client').filter(is_active=True)
-        context['organismes'] = DeclarationCotisations.ORGANISME_CHOICES
         context['current_year'] = datetime.now().year
         context['current_month'] = datetime.now().month
         return context
@@ -1088,7 +1085,7 @@ class DeclarationCotisationsCreateView(LoginRequiredMixin, BusinessPermissionMix
         declaration.save()
 
         # Calculer automatiquement si demandé
-        if self.request.POST.get('auto_calculer'):
+        if form.cleaned_data.get('auto_calculer'):
             declaration.calculer_depuis_fiches()
             declaration.calculer_echeance()
             messages.success(self.request, _("Déclaration créée et calculée avec succès"))
