@@ -118,8 +118,15 @@ def get_logo_image(width=3 * cm, height=None, logo_source=None):
 
 
 def get_logo_for_client(client, width=3 * cm, height=None):
-    """Retourne le logo flowable pour un client (client.logo -> entreprise.logo -> SVG statique)."""
+    """
+    Retourne le logo flowable pour un client.
+
+    Résolution : client.logo → entreprise.logo → None (pas de fallback SVG statique).
+    Le logo de l'app n'a rien à faire sur les documents d'un client.
+    """
     logo_source = client.get_logo() if client else None
+    if not logo_source:
+        return None
     return get_logo_image(width=width, height=height, logo_source=logo_source)
 
 
