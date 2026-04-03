@@ -890,6 +890,24 @@ class Facture(BaseModel):
         verbose_name=_("Régime fiscal"),
         help_text=_("Régime fiscal applicable à cette facture")
     )
+    TYPE_OPERATION_TVA_CHOICES = [
+        ('NATIONALE', _('Vente nationale')),
+        ('EXPORT', _('Exportation')),
+        ('INTRACOM', _('Intracommunautaire')),
+        ('AUTOLIQUIDATION', _('Autoliquidation')),
+    ]
+    type_operation_tva = models.CharField(
+        max_length=20,
+        choices=TYPE_OPERATION_TVA_CHOICES,
+        default='NATIONALE',
+        verbose_name=_("Type d'opération TVA"),
+        help_text=_("Détermine le traitement TVA : nationale, export (0%), intracommunautaire, autoliquidation")
+    )
+    mentions_legales_generees = models.TextField(
+        blank=True,
+        verbose_name=_("Mentions légales"),
+        help_text=_("Mentions légales générées automatiquement selon le régime fiscal")
+    )
     # Exercice comptable
     exercice = models.ForeignKey(
         'core.ExerciceComptable',
@@ -1495,21 +1513,20 @@ class Facture(BaseModel):
         return avoir
 
     def creer_relance(self, niveau=None, user=None):
-        """Crée une relance pour cette facture"""
-        niveau_relance = niveau or (self.nombre_relances + 1)
+        """
+        Crée une relance pour cette facture.
 
-        # Frais selon le niveau
-        frais = Decimal("0")
-        if niveau_relance == 2:
-            frais = Decimal("20.00")
-        elif niveau_relance >= 3:
-            frais = Decimal("40.00")
+        Les frais et délais sont lus depuis NiveauRelance (DB) pour le régime
+        fiscal de la facture. Fallback sur des valeurs par défaut si non configuré.
+        """
+        niveau_relance = niveau or (self.nombre_relances + 1)
+        params = self.niveau_relance_suivant()
 
         relance = Relance.objects.create(
             facture=self,
             niveau=niveau_relance,
-            date_echeance=date.today() + timedelta(days=15),
-            montant_frais=frais,
+            date_echeance=date.today() + timedelta(days=params['delai_jours']),
+            montant_frais=params['frais'],
         )
 
         # Mettre à jour la facture
@@ -1538,15 +1555,25 @@ class Facture(BaseModel):
         return True, ""
 
     def peut_supprimer(self):
-        """Vérifie si la facture peut être supprimée."""
+        """
+        Vérifie si la facture peut être supprimée.
+
+        Par défaut (et conformément aux législations FR, CH, OHADA),
+        seules les factures en brouillon sont supprimables.
+        Le régime fiscal peut autoriser la suppression de factures émises
+        sans paiement via `suppression_facture_emise`.
+        """
         if self.statut == 'BROUILLON':
-            return True, ""
-        if self.statut == 'EMISE' and not self.paiements.filter(valide=True).exists():
             return True, ""
         if self.paiements.filter(valide=True).exists():
             return False, _("Impossible de supprimer une facture avec des paiements validés. Créez un avoir.")
         if self.statut in ['PAYEE', 'PARTIELLEMENT_PAYEE']:
             return False, _("Impossible de supprimer une facture payée. Créez un avoir.")
+        # Vérifier si le régime autorise la suppression après émission
+        if self.statut == 'EMISE' and self.regime_fiscal and self.regime_fiscal.suppression_facture_emise:
+            return True, ""
+        if self.statut != 'BROUILLON':
+            return False, _("Une facture émise ne peut pas être supprimée. Créez un avoir.")
         return False, _("Cette facture ne peut pas être supprimée dans son statut actuel.")
 
     def peut_relancer(self):
@@ -1585,15 +1612,52 @@ class Facture(BaseModel):
         return 0
 
     def niveau_relance_suivant(self):
-        """Retourne le prochain niveau de relance et ses paramètres (système suisse)."""
+        """
+        Retourne le prochain niveau de relance et ses paramètres.
+
+        Cherche d'abord dans NiveauRelance (DB) pour le régime fiscal,
+        puis fallback sur la configuration suisse par défaut.
+        """
         niveau = self.nombre_relances + 1
-        NIVEAUX = {
-            1: {'label': _('1ère relance'), 'delai_jours': 15, 'frais': Decimal('0'), 'interets': False},
-            2: {'label': _('2ème relance'), 'delai_jours': 10, 'frais': Decimal('20.00'), 'interets': False},
-            3: {'label': _('3ème relance'), 'delai_jours': 10, 'frais': Decimal('40.00'), 'interets': True},
-            4: {'label': _('Mise en demeure'), 'delai_jours': 10, 'frais': Decimal('50.00'), 'interets': True},
+
+        # Chercher en DB pour le régime fiscal de la facture
+        if self.regime_fiscal_id:
+            from facturation.models import NiveauRelance
+            config = NiveauRelance.objects.filter(
+                regime_fiscal=self.regime_fiscal,
+                niveau=niveau,
+                is_active=True,
+            ).first()
+            if config:
+                return {
+                    'label': config.libelle,
+                    'delai_jours': config.delai_jours,
+                    'frais': config.frais,
+                    'interets': config.interets,
+                    'taux_interet': config.taux_interet,
+                }
+            # Si pas de config pour ce niveau, prendre le dernier niveau configuré
+            dernier = NiveauRelance.objects.filter(
+                regime_fiscal=self.regime_fiscal,
+                is_active=True,
+            ).order_by('-niveau').first()
+            if dernier:
+                return {
+                    'label': dernier.libelle,
+                    'delai_jours': dernier.delai_jours,
+                    'frais': dernier.frais,
+                    'interets': dernier.interets,
+                    'taux_interet': dernier.taux_interet,
+                }
+
+        # Fallback : configuration suisse par défaut
+        NIVEAUX_DEFAUT = {
+            1: {'label': _('1ère relance'), 'delai_jours': 15, 'frais': Decimal('0'), 'interets': False, 'taux_interet': Decimal('0')},
+            2: {'label': _('2ème relance'), 'delai_jours': 10, 'frais': Decimal('20.00'), 'interets': False, 'taux_interet': Decimal('0')},
+            3: {'label': _('3ème relance'), 'delai_jours': 10, 'frais': Decimal('40.00'), 'interets': True, 'taux_interet': Decimal('5')},
+            4: {'label': _('Mise en demeure'), 'delai_jours': 10, 'frais': Decimal('50.00'), 'interets': True, 'taux_interet': Decimal('5')},
         }
-        return NIVEAUX.get(niveau, NIVEAUX[4])
+        return NIVEAUX_DEFAUT.get(niveau, NIVEAUX_DEFAUT[4])
 
 
 class LigneFacture(BaseModel):
@@ -1966,3 +2030,113 @@ class Relance(BaseModel):
 
     def __str__(self):
         return f"Relance niv.{self.niveau} - {self.facture.numero_facture}"
+
+
+class NiveauRelance(BaseModel):
+    """
+    Configuration des niveaux de relance par régime fiscal.
+
+    Remplace les frais et délais hardcodés (système suisse 0/20/40/50 CHF)
+    par une configuration en base, adaptable par pays/régime.
+    """
+    regime_fiscal = models.ForeignKey(
+        'tva.RegimeFiscal',
+        on_delete=models.CASCADE,
+        related_name='niveaux_relance',
+        verbose_name=_("Régime fiscal"),
+    )
+    niveau = models.PositiveIntegerField(
+        verbose_name=_("Niveau"),
+        help_text=_("Numéro du niveau de relance (1, 2, 3, 4…)")
+    )
+    libelle = models.CharField(
+        max_length=100,
+        verbose_name=_("Libellé"),
+        help_text=_("Ex: 1ère relance, Mise en demeure, Sommation")
+    )
+    delai_jours = models.PositiveIntegerField(
+        verbose_name=_("Délai accordé (jours)"),
+        help_text=_("Nouveau délai de paiement accordé en jours")
+    )
+    frais = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name=_("Frais de relance"),
+        help_text=_("Montant des frais facturés pour cette relance")
+    )
+    interets = models.BooleanField(
+        default=False,
+        verbose_name=_("Intérêts moratoires"),
+        help_text=_("Appliquer des intérêts de retard à ce niveau")
+    )
+    taux_interet = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        verbose_name=_("Taux d'intérêt annuel (%)"),
+        help_text=_("Taux annuel des intérêts moratoires (ex: 5% en Suisse)")
+    )
+
+    class Meta:
+        db_table = 'niveaux_relance'
+        verbose_name = _("Niveau de relance")
+        verbose_name_plural = _("Niveaux de relance")
+        ordering = ['regime_fiscal', 'niveau']
+        unique_together = ['regime_fiscal', 'niveau']
+
+    def __str__(self):
+        return f"{self.regime_fiscal.code} — Niv.{self.niveau}: {self.libelle}"
+
+
+class MentionLegale(BaseModel):
+    """
+    Mention légale obligatoire ou optionnelle par régime fiscal.
+
+    Chaque régime définit ses mentions : N° TVA, SIRET, RCCM,
+    conditions de pénalités, mentions d'exonération, etc.
+    Le texte supporte des variables : {tva_number}, {ide_number}, {raison_sociale}…
+    """
+    regime_fiscal = models.ForeignKey(
+        'tva.RegimeFiscal',
+        on_delete=models.CASCADE,
+        related_name='mentions_legales',
+        verbose_name=_("Régime fiscal"),
+    )
+    code = models.CharField(
+        max_length=50,
+        verbose_name=_("Code"),
+        help_text=_("Code technique (ex: TVA_NUMBER, PENALITES_RETARD, EXONERATION)")
+    )
+    libelle = models.CharField(
+        max_length=200,
+        verbose_name=_("Libellé"),
+    )
+    texte = models.TextField(
+        verbose_name=_("Texte de la mention"),
+        help_text=_("Supporte les variables : {tva_number}, {ide_number}, {raison_sociale}, {siret}, {rccm}")
+    )
+    TYPE_DOCUMENT_CHOICES = [
+        ('TOUS', _('Tous les documents')),
+        ('FACTURE', _('Factures uniquement')),
+        ('DEVIS', _('Devis uniquement')),
+        ('AVOIR', _('Avoirs uniquement')),
+    ]
+    type_document = models.CharField(
+        max_length=20,
+        choices=TYPE_DOCUMENT_CHOICES,
+        default='TOUS',
+        verbose_name=_("Type de document"),
+    )
+    obligatoire = models.BooleanField(
+        default=True,
+        verbose_name=_("Obligatoire"),
+        help_text=_("Si True, la mention est ajoutée automatiquement au document")
+    )
+    ordre = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = 'mentions_legales'
+        verbose_name = _("Mention légale")
+        verbose_name_plural = _("Mentions légales")
+        ordering = ['regime_fiscal', 'ordre']
+        unique_together = ['regime_fiscal', 'code']
+
+    def __str__(self):
+        return f"{self.regime_fiscal.code} — {self.code}: {self.libelle}"

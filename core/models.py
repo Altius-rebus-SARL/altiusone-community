@@ -1635,6 +1635,141 @@ class Client(BaseModel):
         return None
 
 
+class TypeIdentifiantLegal(BaseModel):
+    """
+    Type d'identifiant légal par pays/régime.
+
+    Exemples : IDE (Suisse), SIRET/SIREN (France), RCCM (OHADA/Mali/Cameroun),
+    NIF (générique), N° contribuable, TVA intracommunautaire (UE), etc.
+    """
+    code = models.CharField(
+        max_length=30, unique=True,
+        verbose_name=_("Code"),
+        help_text=_("Code technique unique (ex: IDE, SIRET, RCCM, NIF)")
+    )
+    libelle = models.CharField(
+        max_length=150,
+        verbose_name=_("Libellé"),
+        help_text=_("Nom complet (ex: Identifiant des entreprises)")
+    )
+    regime_fiscal = models.ForeignKey(
+        'tva.RegimeFiscal',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='types_identifiants',
+        verbose_name=_("Régime fiscal"),
+        help_text=_("Si renseigné, cet identifiant ne s'affiche que pour ce régime")
+    )
+    pays = CountryField(
+        blank=True,
+        verbose_name=_("Pays"),
+        help_text=_("Pays d'origine de cet identifiant")
+    )
+    format_validation = models.CharField(
+        max_length=255, blank=True,
+        verbose_name=_("Format de validation (regex)"),
+        help_text=_("Expression régulière pour valider le format. Ex: ^CHE-\\d{3}\\.\\d{3}\\.\\d{3}$")
+    )
+    exemple = models.CharField(
+        max_length=100, blank=True,
+        verbose_name=_("Exemple"),
+        help_text=_("Exemple de valeur correcte (ex: CHE-123.456.789)")
+    )
+    obligatoire_entreprise = models.BooleanField(
+        default=False,
+        verbose_name=_("Obligatoire pour l'entreprise émettrice"),
+    )
+    obligatoire_client = models.BooleanField(
+        default=False,
+        verbose_name=_("Obligatoire pour le client"),
+    )
+    afficher_sur_facture = models.BooleanField(
+        default=True,
+        verbose_name=_("Afficher sur les factures"),
+    )
+    ordre = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = 'types_identifiants_legaux'
+        verbose_name = _("Type d'identifiant légal")
+        verbose_name_plural = _("Types d'identifiants légaux")
+        ordering = ['ordre', 'code']
+
+    def __str__(self):
+        return f"{self.code} — {self.libelle}"
+
+
+class IdentifiantLegal(BaseModel):
+    """
+    Identifiant légal d'un client ou d'une entreprise.
+
+    Modèle flexible : au lieu de colonnes en dur (ide_number, siret, rccm…),
+    chaque identifiant est une ligne liée à un TypeIdentifiantLegal.
+    """
+    type_identifiant = models.ForeignKey(
+        TypeIdentifiantLegal,
+        on_delete=models.PROTECT,
+        related_name='identifiants',
+        verbose_name=_("Type"),
+    )
+    valeur = models.CharField(
+        max_length=100,
+        verbose_name=_("Valeur"),
+    )
+    client = models.ForeignKey(
+        'core.Client',
+        on_delete=models.CASCADE,
+        null=True, blank=True,
+        related_name='identifiants_legaux',
+        verbose_name=_("Client"),
+    )
+    entreprise = models.ForeignKey(
+        'core.Entreprise',
+        on_delete=models.CASCADE,
+        null=True, blank=True,
+        related_name='identifiants_legaux',
+        verbose_name=_("Entreprise"),
+    )
+    verifie = models.BooleanField(
+        default=False,
+        verbose_name=_("Vérifié"),
+        help_text=_("Indique si cet identifiant a été vérifié auprès du registre officiel")
+    )
+    date_verification = models.DateField(
+        null=True, blank=True,
+        verbose_name=_("Date de vérification"),
+    )
+
+    class Meta:
+        db_table = 'identifiants_legaux'
+        verbose_name = _("Identifiant légal")
+        verbose_name_plural = _("Identifiants légaux")
+        ordering = ['type_identifiant__ordre']
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(client__isnull=False, entreprise__isnull=True)
+                    | models.Q(client__isnull=True, entreprise__isnull=False)
+                ),
+                name='identifiant_legal_une_seule_entite',
+            ),
+            models.UniqueConstraint(
+                fields=['type_identifiant', 'client'],
+                condition=models.Q(client__isnull=False),
+                name='unique_type_identifiant_par_client',
+            ),
+            models.UniqueConstraint(
+                fields=['type_identifiant', 'entreprise'],
+                condition=models.Q(entreprise__isnull=False),
+                name='unique_type_identifiant_par_entreprise',
+            ),
+        ]
+
+    def __str__(self):
+        entite = self.client or self.entreprise
+        return f"{self.type_identifiant.code}: {self.valeur} ({entite})"
+
+
 class Contact(BaseModel):
     """Contact d'un client"""
 

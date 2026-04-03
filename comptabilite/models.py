@@ -1850,3 +1850,52 @@ class LigneReleve(BaseModel):
 
     def __str__(self):
         return f"{self.date_valeur} | {self.libelle[:40]} | {self.montant}"
+
+
+class CompteParDefaut(BaseModel):
+    """
+    Mapping des comptes comptables par défaut pour un plan comptable.
+
+    Remplace les numéros de compte hardcodés dans les signaux
+    (1100 = créances clients, 1020 = banque, 2200 = TVA due, etc.)
+    par une configuration en base, adaptable par plan comptable / régime.
+    """
+    TYPES_COMPTE = [
+        ('CREANCES_CLIENTS', _('Créances clients')),
+        ('BANQUE', _('Compte banque principal')),
+        ('TVA_DUE', _('TVA due')),
+        ('TVA_PREALABLE', _('Impôt préalable (TVA récupérable)')),
+        ('PRODUITS', _('Compte de produits (ventes)')),
+        ('CHARGES', _('Compte de charges (achats)')),
+        ('CAISSE', _('Caisse')),
+        ('CAPITAL', _('Capital')),
+    ]
+    plan_comptable = models.ForeignKey(
+        'comptabilite.PlanComptable',
+        on_delete=models.CASCADE,
+        related_name='comptes_par_defaut',
+        verbose_name=_("Plan comptable"),
+    )
+    type_compte = models.CharField(
+        max_length=30,
+        choices=TYPES_COMPTE,
+        verbose_name=_("Type de compte"),
+        help_text=_("Rôle fonctionnel de ce compte dans le plan comptable")
+    )
+    compte = models.ForeignKey(
+        'comptabilite.Compte',
+        on_delete=models.PROTECT,
+        related_name='roles_par_defaut',
+        verbose_name=_("Compte"),
+        help_text=_("Compte comptable utilisé par défaut pour ce rôle")
+    )
+
+    class Meta:
+        db_table = 'comptes_par_defaut'
+        verbose_name = _("Compte par défaut")
+        verbose_name_plural = _("Comptes par défaut")
+        unique_together = ['plan_comptable', 'type_compte']
+        ordering = ['plan_comptable', 'type_compte']
+
+    def __str__(self):
+        return f"{self.plan_comptable} — {self.get_type_compte_display()}: {self.compte.numero}"

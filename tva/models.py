@@ -85,6 +85,46 @@ class RegimeFiscal(BaseModel):
         help_text=_('Liste des méthodes de calcul disponibles pour ce regime')
     )
 
+    # ── Configuration facturation ──────────────────────────────────
+    suppression_facture_emise = models.BooleanField(
+        default=False,
+        verbose_name=_("Autoriser suppression facture émise"),
+        help_text=_("Si False, seules les factures en brouillon peuvent être supprimées (recommandé)")
+    )
+    seuil_facture_simplifiee = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        verbose_name=_("Seuil facture simplifiée"),
+        help_text=_("Montant TTC en dessous duquel la facture est simplifiée (ex: 400 CHF en Suisse, 150 EUR en France)")
+    )
+    delai_paiement_defaut = models.IntegerField(
+        default=30,
+        verbose_name=_("Délai de paiement par défaut (jours)"),
+    )
+    penalite_retard_taux = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        verbose_name=_("Taux pénalités de retard (%)"),
+        help_text=_("Taux annuel applicable en cas de retard de paiement")
+    )
+    indemnite_recouvrement = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name=_("Indemnité forfaitaire de recouvrement"),
+        help_text=_("Montant fixe ajouté en cas de recouvrement (ex: 40 EUR en France)")
+    )
+    mentions_obligatoires = models.JSONField(
+        default=list, blank=True,
+        verbose_name=_("Mentions légales obligatoires"),
+        help_text=_("Liste des mentions requises sur les factures. Ex: [{code, texte, type_document}]")
+    )
+    identifiants_requis = models.JSONField(
+        default=list, blank=True,
+        verbose_name=_("Types d'identifiants requis"),
+        help_text=_("Codes des TypeIdentifiantLegal requis pour ce régime. Ex: ['IDE', 'TVA']")
+    )
+    nombre_relances_max = models.PositiveIntegerField(
+        default=4,
+        verbose_name=_("Nombre maximum de relances"),
+    )
+
     class Meta:
         db_table = 'regimes_fiscaux'
         verbose_name = _('Régime fiscal')
