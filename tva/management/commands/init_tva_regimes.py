@@ -129,6 +129,81 @@ REGIMES = [
             ('REDUIT', Decimal('9.0'), "Taux réduit TVA Côte d'Ivoire"),
         ],
     },
+    # ── Mali ──────────────────────────────────────────────────────
+    {
+        'code': 'ML',
+        'nom': 'Mali (OHADA)',
+        'pays': 'ML',
+        'devise_code': 'XOF',
+        'devise_defaults': {
+            'nom': 'Franc CFA (UEMOA)',
+            'symbole': 'FCFA',
+            'separateur_milliers': ' ',
+            'separateur_decimal': ',',
+            'taux_change': Decimal('0.00152'),
+            'est_devise_base': False,
+        },
+        'nom_taxe': 'TVA',
+        'taux_normal': Decimal('18.0'),
+        'a_taux_reduit': False,
+        'a_taux_special': False,
+        'format_numero_tva': '',
+        'supporte_xml': False,
+        'methodes_disponibles': ['REEL_NORMAL', 'REEL_SIMPLIFIE', 'FORFAITAIRE'],
+        'taux': [
+            ('NORMAL', Decimal('18.0'), 'Taux normal TVA Mali'),
+        ],
+    },
+    # ── Burkina Faso ──────────────────────────────────────────────
+    {
+        'code': 'BF',
+        'nom': 'Burkina Faso (OHADA)',
+        'pays': 'BF',
+        'devise_code': 'XOF',
+        'devise_defaults': {
+            'nom': 'Franc CFA (UEMOA)',
+            'symbole': 'FCFA',
+            'separateur_milliers': ' ',
+            'separateur_decimal': ',',
+            'taux_change': Decimal('0.00152'),
+            'est_devise_base': False,
+        },
+        'nom_taxe': 'TVA',
+        'taux_normal': Decimal('18.0'),
+        'a_taux_reduit': False,
+        'a_taux_special': False,
+        'format_numero_tva': '',
+        'supporte_xml': False,
+        'methodes_disponibles': ['REEL_NORMAL', 'REEL_SIMPLIFIE', 'FORFAITAIRE'],
+        'taux': [
+            ('NORMAL', Decimal('18.0'), 'Taux normal TVA Burkina Faso'),
+        ],
+    },
+    # ── Niger ─────────────────────────────────────────────────────
+    {
+        'code': 'NE',
+        'nom': 'Niger (OHADA)',
+        'pays': 'NE',
+        'devise_code': 'XOF',
+        'devise_defaults': {
+            'nom': 'Franc CFA (UEMOA)',
+            'symbole': 'FCFA',
+            'separateur_milliers': ' ',
+            'separateur_decimal': ',',
+            'taux_change': Decimal('0.00152'),
+            'est_devise_base': False,
+        },
+        'nom_taxe': 'TVA',
+        'taux_normal': Decimal('19.0'),
+        'a_taux_reduit': False,
+        'a_taux_special': False,
+        'format_numero_tva': '',
+        'supporte_xml': False,
+        'methodes_disponibles': ['REEL_NORMAL', 'REEL_SIMPLIFIE', 'FORFAITAIRE'],
+        'taux': [
+            ('NORMAL', Decimal('19.0'), 'Taux normal TVA Niger'),
+        ],
+    },
 ]
 
 

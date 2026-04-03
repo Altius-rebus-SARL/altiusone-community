@@ -1,103 +1,61 @@
 """
 Generateur PDF pour CertificatSalaire - Formulaire 11 officiel suisse.
 
-Conformite AFC preservee: tous les numeros de chiffres, lettres de section,
-options de checkboxes et formules restent identiques. Seule la presentation
-visuelle change.
+Layout pixel-perfect basé sur le formulaire ESTV Form. 11 dfe 01.21.
+Utilise ReportLab Canvas (pas Platypus) pour positionner chaque champ
+exactement comme le formulaire officiel.
 
-Structure:
-- Sections A-B: Informations employeur
-- Sections C-E: Informations employe, periode
-- Sections F-G: Occupation et transport (checkboxes)
-- Chiffres 1-7: Revenus
-- Chiffre 8: Total brut (surligne)
-- Chiffres 9-10: Deductions
-- Chiffre 11: Salaire net (surligne + double ligne)
-- Chiffres 12-15: Frais professionnels
-- Section I: Remarques
-- Signature
+Structure officielle :
+- A/B : Checkboxes Lohnausweis / Rentenbescheinigung
+- C : N° AVS + Date de naissance
+- D : Année
+- E : Période (du/au)
+- F : Checkbox transport gratuit
+- G : Checkbox cantine/lunch-checks
+- H : Adresse employé (bloc multilignes)
+- Chiffres 1-8 : Revenus → Total brut
+- Chiffres 9-10 : Déductions
+- Chiffre 11 : Salaire net (→ déclaration d'impôt)
+- Chiffre 12 : Retenue impôt source
+- Chiffre 13 : Frais professionnels (6 sous-champs)
+- Chiffre 14 : Autres prestations salariales accessoires
+- Chiffre 15 : Remarques
+- I : Lieu, date, signature, certification
+
+Référence : https://www.estv.admin.ch/fr/certificat-de-salaire-et-attestation-de-rentes
 """
+import io
 from datetime import date as date_class
 from decimal import Decimal
-from io import BytesIO
 
-from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.lib.colors import HexColor, black, white
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import ParagraphStyle
-from reportlab.lib.units import cm, mm
-from reportlab.platypus import (
-    Flowable,
-    Paragraph,
-    Spacer,
-    Table,
-    TableStyle,
-)
+from reportlab.lib.units import mm
+from reportlab.pdfgen import canvas as pdf_canvas
 
-from .pdf_styles import (
-    ALTIUSONE_BORDER,
-    ALTIUSONE_DARK,
-    ALTIUSONE_GREEN,
-    ALTIUSONE_GREEN_LIGHT,
-    ALTIUSONE_GREY,
-    ALTIUSONE_GREY_LIGHT,
-    ALTIUSONE_WHITE,
-    GreenLine,
-    build_doc,
-    create_salaire_doc,
-    format_montant_suisse,
-    get_salaires_styles,
-    make_spacer,
-)
+# ── Couleurs ESTV ──────────────────────────────────────────────────
+ROSE_CLAIR = HexColor('#FCE8E0')  # Fond champs saisissables
+GRIS_CLAIR = HexColor('#F2F2F2')  # Fond sections
+GRIS_LIGNE = HexColor('#CCCCCC')  # Lignes de séparation
+GRIS_TEXTE = HexColor('#666666')  # Texte secondaire
+NOIR = black
+BLANC = white
 
-PAGE_WIDTH, PAGE_HEIGHT = A4
+# ── Dimensions page A4 ────────────────────────────────────────────
+PW, PH = A4  # 595.276 x 841.89 pts
+ML = 15 * mm   # Marge gauche
+MR = 12 * mm   # Marge droite
+MT = 12 * mm   # Marge haut
+CONTENT_W = PW - ML - MR
 
+# ── Colonnes montants (droite) ─────────────────────────────────────
+AMT_X = PW - MR - 32 * mm  # x début colonne montant
+AMT_W = 30 * mm             # largeur champ montant
+SIGN_X = PW - MR - 3 * mm   # position signe +/-/=
 
-# ==============================================================================
-# Checkbox flowable
-# ==============================================================================
-
-class Checkbox(Flowable):
-    """Case a cocher propre: rectangle avec X vert si cochee."""
-
-    def __init__(self, checked=False, size=3.5 * mm, label=""):
-        super().__init__()
-        self.checked = checked
-        self.size = size
-        self.label = label
-
-    def wrap(self, avail_width, avail_height):
-        self.width = self.size + 2 * mm
-        if self.label:
-            self.width += len(self.label) * 2 * mm + 5 * mm
-        self.height = self.size + 1 * mm
-        return self.width, self.height
-
-    def draw(self):
-        c = self.canv
-        s = self.size
-        # Rectangle
-        c.setStrokeColor(ALTIUSONE_DARK)
-        c.setLineWidth(0.5)
-        c.rect(0, 0, s, s, fill=0)
-        # X en vert si coche
-        if self.checked:
-            c.setStrokeColor(ALTIUSONE_GREEN)
-            c.setLineWidth(1.2)
-            c.line(0.5 * mm, 0.5 * mm, s - 0.5 * mm, s - 0.5 * mm)
-            c.line(0.5 * mm, s - 0.5 * mm, s - 0.5 * mm, 0.5 * mm)
-        # Label
-        if self.label:
-            c.setFont("Helvetica", 7)
-            c.setFillColor(ALTIUSONE_DARK)
-            c.drawString(s + 1.5 * mm, 0.5 * mm, self.label)
-
-
-# ==============================================================================
-# Service
-# ==============================================================================
 
 class CertificatSalairePDF:
-    """Generateur PDF pour le Formulaire 11 (certificat de salaire)."""
+    """Générateur PDF Formulaire 11 conforme ESTV."""
 
     def __init__(self, certificat, style_config=None):
         self.cert = certificat
@@ -106,578 +64,548 @@ class CertificatSalairePDF:
         self.adresse_client = self.client.adresse_siege
         self.devise_code = certificat.employe.mandat.devise_id or 'CHF'
         self.style_config = style_config
-        if style_config:
-            from salaires.services.pdf_styles import get_salaires_styles_custom
-            self.styles = get_salaires_styles_custom(style_config)
-        else:
-            self.styles = get_salaires_styles()
 
     def _fmt(self, val):
-        """Formate un montant suisse, vide si 0 ou None."""
-        return format_montant_suisse(val)
+        """Montants entiers uniquement (conformité ESTV)."""
+        if val is None or val == 0:
+            return ''
+        try:
+            v = int(Decimal(str(val)).quantize(Decimal('1')))
+            # Format suisse avec apostrophe
+            s = f"{abs(v):,}".replace(',', "'")
+            return f"-{s}" if v < 0 else s
+        except Exception:
+            return str(val)
 
-    def _build_titre(self):
-        """Titre: CERTIFICAT DE SALAIRE + sous-titre + annee."""
-        elements = []
+    # ── Helpers de dessin ──────────────────────────────────────────
 
-        # Table: titre centre + annee a droite
-        title_style = ParagraphStyle(
-            'f11_title',
-            parent=self.styles['doc_title'],
-            fontSize=14,
-            spaceAfter=0,
-            spaceBefore=0,
-        )
-        subtitle_style = ParagraphStyle(
-            'f11_subtitle',
-            parent=self.styles['doc_subtitle'],
-            fontSize=8,
-            spaceAfter=0,
-        )
-        year_style = ParagraphStyle(
-            'f11_year',
-            parent=self.styles['value'],
-            fontSize=14,
-            alignment=TA_RIGHT,
-        )
+    def _checkbox(self, c, x, y, checked=False, size=3.5 * mm):
+        """Dessine une case à cocher."""
+        c.setStrokeColor(NOIR)
+        c.setLineWidth(0.5)
+        c.rect(x, y, size, size, fill=0)
+        if checked:
+            c.setStrokeColor(NOIR)
+            c.setLineWidth(1)
+            c.line(x + 0.8 * mm, y + 0.8 * mm, x + size - 0.8 * mm, y + size - 0.8 * mm)
+            c.line(x + 0.8 * mm, y + size - 0.8 * mm, x + size - 0.8 * mm, y + 0.8 * mm)
 
-        title = Paragraph("CERTIFICAT DE SALAIRE", title_style)
-        subtitle = Paragraph(
-            "Attestation de rentes, pensions et prestations en capital",
-            subtitle_style,
-        )
-        year = Paragraph(str(self.cert.annee), year_style)
+    def _field_bg(self, c, x, y, w, h):
+        """Dessine un fond rose clair pour un champ saisissable."""
+        c.setFillColor(ROSE_CLAIR)
+        c.rect(x, y, w, h, fill=1, stroke=0)
 
-        # Combine titre + sous-titre
-        title_block = Table(
-            [[title], [subtitle]],
-            colWidths=[12 * cm],
-        )
-        title_block.setStyle(TableStyle([
-            ('LEFTPADDING', (0, 0), (-1, -1), 0),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-            ('TOPPADDING', (0, 0), (-1, -1), 0),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ]))
+    def _hline(self, c, x1, x2, y, color=GRIS_LIGNE, width=0.5):
+        """Ligne horizontale."""
+        c.setStrokeColor(color)
+        c.setLineWidth(width)
+        c.line(x1, y, x2, y)
 
-        header_table = Table(
-            [[title_block, year]],
-            colWidths=[14 * cm, 3.5 * cm],
-        )
-        header_table.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('LEFTPADDING', (0, 0), (-1, -1), 0),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-            ('TOPPADDING', (0, 0), (-1, -1), 0),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-        ]))
+    def _amount_field(self, c, y, value, sign=''):
+        """Dessine un champ montant aligné à droite avec fond rose."""
+        self._field_bg(c, AMT_X, y - 1 * mm, AMT_W, 5 * mm)
+        c.setFillColor(NOIR)
+        c.setFont('Helvetica', 8)
+        c.drawRightString(AMT_X + AMT_W - 1 * mm, y, self._fmt(value))
+        if sign:
+            c.setFont('Helvetica', 7)
+            c.drawString(SIGN_X, y, sign)
 
-        elements.append(header_table)
-        elements.append(make_spacer(4))
-        return elements
+    # ── Sections du formulaire ─────────────────────────────────────
 
-    def _build_section_ab(self):
-        """Sections A-B: Informations employeur."""
-        client = self.client
-        adr = self.adresse_client
+    def _draw_header(self, c):
+        """Sections A-B : titre + checkboxes Lohnausweis/Rentenbescheinigung."""
+        y = PH - MT
+        cert = self.cert
+        is_rente = getattr(cert, 'type_attestation', '') == 'RENTE'
 
-        sect_label = ParagraphStyle(
-            'sect_label', parent=self.styles['value'],
-            fontName='Helvetica-Bold', fontSize=8, textColor=ALTIUSONE_GREEN,
-        )
-        sect_value = ParagraphStyle(
-            'sect_value', parent=self.styles['label'],
-            fontSize=8,
-        )
+        # A. Lohnausweis
+        self._checkbox(c, ML, y - 4 * mm, checked=not is_rente)
+        c.setFillColor(GRIS_CLAIR)
+        c.rect(ML + 6 * mm, y - 5.5 * mm, 8 * mm, 7 * mm, fill=1, stroke=0)
+        c.setFillColor(NOIR)
+        c.setFont('Helvetica-Bold', 12)
+        c.drawString(ML + 16 * mm, y - 4 * mm,
+                     "Lohnausweis – Certificat de salaire – Salary certificate")
 
-        data = []
-        # A. Employeur
-        a_text = client.raison_sociale
-        if adr:
-            rue = adr.rue.strip()
-            if adr.numero and adr.numero not in rue:
-                rue = f"{rue} {adr.numero}"
-            a_text += f"<br/>{rue}<br/>{adr.code_postal} {adr.localite}"
-        data.append([
-            Paragraph("A.", sect_label),
-            Paragraph("Employeur / Caisse AVS:", sect_label),
-            Paragraph(a_text, sect_value),
-        ])
+        # B. Rentenbescheinigung
+        y -= 10 * mm
+        self._checkbox(c, ML, y - 4 * mm, checked=is_rente)
+        c.setFillColor(GRIS_CLAIR)
+        c.rect(ML + 6 * mm, y - 5.5 * mm, 8 * mm, 7 * mm, fill=1, stroke=0)
+        c.setFillColor(NOIR)
+        c.setFont('Helvetica-Bold', 11)
+        c.drawString(ML + 16 * mm, y - 4 * mm,
+                     "Rentenbescheinigung – Attestation de rentes – Pension statement")
 
-        # B. IDE + AVS employeur
-        ide = client.ide_number or ''
-        avs_empl = getattr(client, 'numero_ahv_employeur', '') or ''
-        b_text = f"N\u00b0 IDE: {ide}<br/>N\u00b0 AVS employeur: {avs_empl}"
-        data.append([
-            Paragraph("B.", sect_label),
-            Paragraph("Identification:", sect_label),
-            Paragraph(b_text, sect_value),
-        ])
+        return y - 8 * mm
 
-        table = Table(data, colWidths=[8 * mm, 35 * mm, 120 * mm])
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), ALTIUSONE_GREY_LIGHT),
-            ('BOX', (0, 0), (-1, -1), 0.5, ALTIUSONE_BORDER),
-            ('INNERGRID', (0, 0), (-1, -1), 0.25, ALTIUSONE_BORDER),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('TOPPADDING', (0, 0), (-1, -1), 3),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-            ('LEFTPADDING', (0, 0), (-1, -1), 4),
-        ]))
-        return table
-
-    def _build_section_cde(self):
-        """Sections C-E: Employe, periode, adresse."""
+    def _draw_section_cdefg(self, c, y_start):
+        """Sections C-G : identité, période, checkboxes F/G."""
         emp = self.employe
         cert = self.cert
+        y = y_start
 
-        sect_label = ParagraphStyle(
-            'sect_label_cde', parent=self.styles['value'],
-            fontName='Helvetica-Bold', fontSize=8, textColor=ALTIUSONE_GREEN,
-        )
-        sect_value = ParagraphStyle(
-            'sect_value_cde', parent=self.styles['label'],
-            fontSize=8,
-        )
+        # ── C : N° AVS + Date de naissance ──
+        c.setFont('Helvetica-Bold', 7)
+        c.setFillColor(NOIR)
+        c.drawString(ML, y, "C")
 
-        # C. AVS + Periode
-        date_debut = cert.date_debut.strftime('%d.%m.%Y') if cert.date_debut else ''
-        date_fin = cert.date_fin.strftime('%d.%m.%Y') if cert.date_fin else ''
-        c_text = f"N\u00b0 AVS: {emp.avs_number or '-'}    du {date_debut}  au {date_fin}"
+        # Champ AVS (fond rose)
+        avs_x = ML + 5 * mm
+        self._field_bg(c, avs_x, y - 2 * mm, 50 * mm, 6 * mm)
+        c.setFont('Helvetica', 8)
+        c.drawString(avs_x + 1 * mm, y, emp.avs_number or '')
 
-        # D. Nom prenom
-        d_text = f"{emp.nom} {emp.prenom}"
+        # Label sous le champ
+        c.setFont('Helvetica', 5.5)
+        c.setFillColor(GRIS_TEXTE)
+        c.drawString(avs_x, y - 5 * mm, "AHV-Nr. – No AVS – OASI no.")
 
-        # E. Adresse
-        adresse_emp = emp.adresse
-        e_text = ""
-        if adresse_emp:
-            rue_emp = adresse_emp.rue.strip()
-            if adresse_emp.numero and adresse_emp.numero not in rue_emp:
-                rue_emp = f"{rue_emp} {adresse_emp.numero}"
-            e_text = f"{rue_emp}, {adresse_emp.code_postal} {adresse_emp.localite}"
+        # Date de naissance
+        geb_x = avs_x + 55 * mm
+        c.setFillColor(NOIR)
+        c.setFont('Helvetica', 5.5)
+        c.setFillColor(GRIS_TEXTE)
+        c.drawString(geb_x, y - 5 * mm, "Geburtsdatum – Date de naissance – Date of birth")
+        self._field_bg(c, geb_x, y - 2 * mm, 35 * mm, 6 * mm)
+        c.setFillColor(NOIR)
+        c.setFont('Helvetica', 8)
+        if emp.date_naissance:
+            c.drawString(geb_x + 1 * mm, y, emp.date_naissance.strftime('%d.%m.%Y'))
 
-        data = [
-            [Paragraph("C.", sect_label), Paragraph("AVS / Periode:", sect_label), Paragraph(c_text, sect_value)],
-            [Paragraph("D.", sect_label), Paragraph("Nom, prenom:", sect_label), Paragraph(d_text, sect_value)],
-            [Paragraph("E.", sect_label), Paragraph("Adresse:", sect_label), Paragraph(e_text, sect_value)],
-        ]
+        # ── F : Transport gratuit (à droite de C) ──
+        f_x = 125 * mm
+        self._checkbox(c, f_x, y - 1 * mm, checked=getattr(cert, 'transport_gratuit_fourni', False))
+        c.setFont('Helvetica-Bold', 7)
+        c.setFillColor(NOIR)
+        c.drawString(f_x + 5 * mm, y, "F")
+        c.setFont('Helvetica', 5.5)
+        c.setFillColor(GRIS_TEXTE)
+        f_label_x = f_x + 9 * mm
+        c.drawString(f_label_x, y + 1 * mm, "Unentgeltliche Beförderung zwischen Wohn- und Arbeitsort")
+        c.drawString(f_label_x, y - 2 * mm, "Transport gratuit entre le domicile et le lieu de travail")
+        c.drawString(f_label_x, y - 5 * mm, "Free transport between living place and work place")
 
-        table = Table(data, colWidths=[8 * mm, 30 * mm, 125 * mm])
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), ALTIUSONE_GREY_LIGHT),
-            ('BOX', (0, 0), (-1, -1), 0.5, ALTIUSONE_BORDER),
-            ('INNERGRID', (0, 0), (-1, -1), 0.25, ALTIUSONE_BORDER),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 2),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-            ('LEFTPADDING', (0, 0), (-1, -1), 4),
-        ]))
-        return table
+        # ── D : Année + E : Période ──
+        y -= 12 * mm
+        c.setFont('Helvetica-Bold', 7)
+        c.setFillColor(NOIR)
+        c.drawString(ML, y, "D")
+        self._field_bg(c, ML + 5 * mm, y - 2 * mm, 20 * mm, 6 * mm)
+        c.setFont('Helvetica', 8)
+        c.drawString(ML + 6 * mm, y, str(cert.annee))
+        c.setFont('Helvetica', 5.5)
+        c.setFillColor(GRIS_TEXTE)
+        c.drawString(ML + 5 * mm, y - 5 * mm, "Jahr – Année – Year")
 
-    def _build_section_fg(self):
-        """Sections F-G: Occupation et transport avec checkboxes."""
+        # E : du/au
+        e_x = ML + 30 * mm
+        c.setFont('Helvetica-Bold', 7)
+        c.setFillColor(NOIR)
+        c.drawString(e_x, y, "E")
+        # du
+        von_x = e_x + 5 * mm
+        self._field_bg(c, von_x, y - 2 * mm, 22 * mm, 6 * mm)
+        c.setFont('Helvetica', 8)
+        if cert.date_debut:
+            c.drawString(von_x + 1 * mm, y, cert.date_debut.strftime('%d.%m.%Y'))
+        c.setFont('Helvetica', 5.5)
+        c.setFillColor(GRIS_TEXTE)
+        c.drawString(von_x, y - 5 * mm, "von – du – from")
+
+        # au
+        bis_x = von_x + 27 * mm
+        self._field_bg(c, bis_x, y - 2 * mm, 22 * mm, 6 * mm)
+        c.setFillColor(NOIR)
+        c.setFont('Helvetica', 8)
+        if cert.date_fin:
+            c.drawString(bis_x + 1 * mm, y, cert.date_fin.strftime('%d.%m.%Y'))
+        c.setFont('Helvetica', 5.5)
+        c.setFillColor(GRIS_TEXTE)
+        c.drawString(bis_x, y - 5 * mm, "bis – au – to")
+
+        # ── G : Cantine / Lunch-checks (à droite de D/E) ──
+        self._checkbox(c, f_x, y - 1 * mm, checked=getattr(cert, 'repas_midi_gratuit', False))
+        c.setFont('Helvetica-Bold', 7)
+        c.setFillColor(NOIR)
+        c.drawString(f_x + 5 * mm, y, "G")
+        c.setFont('Helvetica', 5.5)
+        c.setFillColor(GRIS_TEXTE)
+        c.drawString(f_label_x, y + 1 * mm, "Kantinenverpflegung/Lunch-Checks")
+        c.drawString(f_label_x, y - 2 * mm, "Repas à la cantine/chèques-repas")
+        c.drawString(f_label_x, y - 5 * mm, "Canteen meals/lunch checks")
+
+        return y - 10 * mm
+
+    def _draw_section_h(self, c, y_start):
+        """Section H : bloc adresse employé (cadre pointillé)."""
+        emp = self.employe
+        adr = emp.adresse
+
+        # Cadre pointillé
+        y = y_start
+        h_height = 30 * mm
+        c.setStrokeColor(GRIS_LIGNE)
+        c.setLineWidth(0.5)
+        c.setDash(3, 3)
+        c.rect(ML, y - h_height, CONTENT_W, h_height, fill=0, stroke=1)
+        c.setDash()
+
+        # Label H
+        c.setFont('Helvetica-Bold', 8)
+        c.setFillColor(NOIR)
+        c.drawRightString(PW - MR - 2 * mm, y - 4 * mm, "H")
+
+        # Contenu adresse
+        c.setFont('Helvetica', 9)
+        line_y = y - 6 * mm
+        # Adresse de l'employeur (émetteur) en haut à gauche
+        client = self.client
+        adr_client = self.adresse_client
+        c.drawString(ML + 3 * mm, line_y, client.raison_sociale)
+        line_y -= 4 * mm
+        if adr_client:
+            rue = adr_client.rue.strip()
+            if adr_client.numero and adr_client.numero not in rue:
+                rue = f"{rue} {adr_client.numero}"
+            c.drawString(ML + 3 * mm, line_y, rue)
+            line_y -= 4 * mm
+            c.drawString(ML + 3 * mm, line_y, f"{adr_client.npa or ''} {adr_client.localite or ''}")
+            line_y -= 4 * mm
+
+        # Adresse de l'employé à droite
+        emp_x = 110 * mm
+        line_y = y - 6 * mm
+        c.drawString(emp_x, line_y, f"{emp.prenom} {emp.nom}")
+        line_y -= 4 * mm
+        if adr:
+            rue_emp = adr.rue.strip()
+            if adr.numero and adr.numero not in rue_emp:
+                rue_emp = f"{rue_emp} {adr.numero}"
+            c.drawString(emp_x, line_y, rue_emp)
+            line_y -= 4 * mm
+            c.drawString(emp_x, line_y, f"{adr.npa or ''} {adr.localite or ''}")
+
+        return y - h_height - 3 * mm
+
+    def _draw_chiffres(self, c, y_start):
+        """Chiffres 1-15 : revenus, déductions, frais."""
+        cert = self.cert
+        y = y_start
+        lh = 5.5 * mm  # hauteur de ligne standard
+
+        c.setFont('Helvetica', 6)
+        c.setFillColor(GRIS_TEXTE)
+        c.drawRightString(PW - MR, y + 3 * mm, "Nur ganze Frankenbeträge")
+        c.drawRightString(PW - MR, y, "Que des montants entiers")
+        c.drawRightString(PW - MR, y - 3 * mm, "Only whole amounts")
+
+        y -= 6 * mm
+
+        def _line(num, label_de, label_fr='', label_en='', value=None, sign='',
+                  bold=False, indent=0, art_field=False, art_value=''):
+            nonlocal y
+            x = ML + indent * mm
+            font = 'Helvetica-Bold' if bold else 'Helvetica'
+
+            # Numéro
+            c.setFont(font, 7)
+            c.setFillColor(NOIR)
+            c.drawString(x, y, num)
+
+            # Labels trilingues
+            label_x = x + 8 * mm + indent * mm
+            c.setFont(font, 6.5)
+            label_text = label_de
+            if label_fr:
+                label_text += f" – {label_fr}"
+            if label_en:
+                label_text += f" – {label_en}"
+            # Tronquer si trop long
+            max_w = AMT_X - label_x - 5 * mm
+            c.drawString(label_x, y, label_text[:120])
+
+            # Champ "Art – Genre – Kind" si demandé
+            if art_field:
+                c.setFont('Helvetica', 6)
+                c.setFillColor(GRIS_TEXTE)
+                y -= 3.5 * mm
+                art_label_x = label_x + 2 * mm
+                c.drawString(art_label_x, y, "Art – Genre – Kind")
+                if art_value:
+                    self._field_bg(c, art_label_x + 25 * mm, y - 1 * mm, 60 * mm, 4 * mm)
+                    c.setFillColor(NOIR)
+                    c.setFont('Helvetica', 7)
+                    c.drawString(art_label_x + 26 * mm, y, str(art_value)[:40])
+
+            # Montant
+            if value is not None:
+                self._amount_field(c, y, value, sign)
+            elif sign:
+                c.setFont('Helvetica', 7)
+                c.setFillColor(NOIR)
+                c.drawString(SIGN_X, y, sign)
+
+            y -= lh
+
+        def _separator(thick=False):
+            nonlocal y
+            self._hline(c, ML, PW - MR, y + 2 * mm,
+                        color=NOIR if thick else GRIS_LIGNE,
+                        width=1.0 if thick else 0.5)
+
+        # ── REVENUS (chiffres 1-8) ─────────────────────────────────
+
+        _line("1.", "Lohn", "Salaire", "Salary", cert.chiffre_1_salaire, '+')
+
+        _separator()
+        _line("2.", "Gehaltsnebenleistungen", "Prestations salariales accessoires", "Fringe benefits")
+        _line("2.1", "Verpflegung, Unterkunft", "Pension, logement", "Room and board",
+              cert.chiffre_2_1_repas, '+', indent=3)
+        _line("2.2", "Privatanteil Geschäftsfahrzeug", "Part privée voiture de service",
+              "Personal use of the company car", cert.chiffre_2_2_voiture, '+', indent=3)
+        _line("2.3", "Andere", "Autres", "Others", cert.chiffre_2_3_autres, '+', indent=3,
+              art_field=True, art_value=getattr(cert, 'chiffre_2_3_art', ''))
+
+        _separator()
+        _line("3.", "Unregelmässige Leistungen", "Prestations non périodiques",
+              "Irregular benefits", cert.chiffre_3_irregulier, '+',
+              art_field=True, art_value=getattr(cert, 'chiffre_3_art', ''))
+
+        _separator()
+        _line("4.", "Kapitalleistungen", "Prestations en capital", "Capital benefits",
+              cert.chiffre_4_capital, '+',
+              art_field=True, art_value=getattr(cert, 'chiffre_4_art', ''))
+
+        _line("5.", "Beteiligungsrechte gemäss Beiblatt",
+              "Droits de participation selon annexe",
+              "Ownership right in accordance with supplement",
+              cert.chiffre_5_participations, '+')
+
+        _line("6.", "Verwaltungsratsentschädigungen",
+              "Indemnités des membres de l'administration",
+              "Board of directors' compensation",
+              cert.chiffre_6_ca, '+')
+
+        _line("7.", "Andere Leistungen", "Autres prestations", "Other benefits",
+              cert.chiffre_7_autres, '+',
+              art_field=True, art_value=getattr(cert, 'chiffre_7_art', ''))
+
+        # ── Chiffre 8 : TOTAL BRUT ──
+        _separator(thick=True)
+        _line("8.", "Bruttolohn total / Rente", "Salaire brut total / Rente",
+              "Gross salary total / Pension", cert.chiffre_8_total_brut, '=', bold=True)
+
+        # ── DÉDUCTIONS (chiffres 9-11) ─────────────────────────────
+        _separator()
+        _line("9.", "Beiträge AHV/IV/EO/ALV/NBUV",
+              "Cotisations AVS/AI/APG/AC/AANP",
+              "Contributions OASI/DI/IC/UI/NBUV",
+              cert.chiffre_9_cotisations, '–')
+
+        _separator()
+        _line("10.", "Berufliche Vorsorge", "Prévoyance professionnelle", "Company pension plan")
+        _line("10.1", "Ordentliche Beiträge", "Cotisations ordinaires",
+              "Regular contributions", cert.chiffre_10_1_lpp_ordinaire, '–', indent=5)
+        _line("10.2", "Beiträge für den Einkauf", "Cotisations pour le rachat",
+              "Purchasing contribution", cert.chiffre_10_2_lpp_rachat, '–', indent=5)
+
+        # ── Chiffre 11 : NET ──
+        _separator(thick=True)
+        c.setFont('Helvetica-Bold', 7.5)
+        c.setFillColor(NOIR)
+        c.drawString(ML, y, "11.")
+        c.drawString(ML + 8 * mm, y,
+                     "Nettolohn/Rente – Salaire net/Rente – Net salary/Pension")
+        # Flèche
+        c.drawString(AMT_X - 12 * mm, y, "➡")
+        self._amount_field(c, y, cert.chiffre_11_net, '=')
+        y -= 3 * mm
+        c.setFont('Helvetica', 5.5)
+        c.setFillColor(GRIS_TEXTE)
+        c.drawString(ML + 8 * mm, y,
+                     "in die Steuererklärung übertragen – A reporter sur la déclaration d'impôt – "
+                     "Transfer to the tax declaration")
+        y -= lh
+
+        # ── Chiffre 12 : Impôt source ──
+        _separator()
+        _line("12.", "Quellensteuerabzug",
+              "Retenue de l'impôt à la source",
+              "Withholding tax deduction",
+              getattr(cert, 'chiffre_12_impot_source', None) or cert.impot_source_retenu)
+
+        # ── Chiffre 13 : Frais ──
+        _separator()
+        c.setFont('Helvetica', 6.5)
+        c.setFillColor(NOIR)
+        c.drawString(ML, y, "13.")
+        c.drawString(ML + 8 * mm, y,
+                     "Spesenvergütungen – Allocations pour frais – Expenses reimbursement")
+        y -= 3 * mm
+        c.setFont('Helvetica', 5)
+        c.setFillColor(GRIS_TEXTE)
+        c.drawString(ML + 8 * mm, y,
+                     "Nicht im Bruttolohn (Ziffer 8) enthalten – Non comprises dans le salaire brut (chiffre 8)")
+        y -= lh
+
+        # 13.1 Frais effectifs
+        c.setFont('Helvetica', 6)
+        c.setFillColor(NOIR)
+        c.drawString(ML + 5 * mm, y, "13.1  Effektive Spesen / Frais effectifs / Actual expenses")
+        y -= lh
+        _line("13.1.1", "Reise, Verpflegung, Übernachtung",
+              "Voyage, repas, nuitées", "Trip, room and board",
+              cert.chiffre_13_1_1_repas_effectif, indent=8)
+        _line("13.1.2", "Übrige", "Autres", "Others",
+              cert.chiffre_13_1_2_repas_forfait, indent=8,
+              art_field=True)
+
+        # 13.2 Forfaits
+        c.setFont('Helvetica', 6)
+        c.setFillColor(NOIR)
+        c.drawString(ML + 5 * mm, y, "13.2  Pauschalspesen / Frais forfaitaires / Overall expenses")
+        y -= lh
+        _line("13.2.1", "Repräsentation", "Représentation", "Representation",
+              getattr(cert, 'chiffre_13_2_1_representation', None), indent=8)
+        _line("13.2.2", "Auto", "Voiture", "Car",
+              getattr(cert, 'chiffre_13_2_2_auto', None), indent=8)
+        _line("13.2.3", "Übrige", "Autres", "Others",
+              getattr(cert, 'chiffre_13_2_3_autres', None), indent=8,
+              art_field=True)
+
+        # 13.3
+        _line("13.3", "Beiträge an die Weiterbildung",
+              "Contributions au perfectionnement",
+              "Contributions to further education",
+              getattr(cert, 'chiffre_13_3_formation', None), indent=3)
+
+        # ── Chiffre 14 : Autres prestations accessoires ──
+        _separator()
+        c.setFont('Helvetica', 6.5)
+        c.setFillColor(NOIR)
+        c.drawString(ML, y, "14.")
+        c.drawString(ML + 8 * mm, y,
+                     "Weitere Gehaltsnebenleistungen – Autres prestations salariales accessoires – "
+                     "Further fringe benefits")
+        y -= lh
+        # Ligne Art / Genre / Kind
+        c.setFont('Helvetica', 6)
+        c.setFillColor(GRIS_TEXTE)
+        c.drawString(ML + 60 * mm, y, "Art – Genre – Kind")
+        self._field_bg(c, ML + 85 * mm, y - 1 * mm, 80 * mm, 4 * mm)
+        if getattr(cert, 'chiffre_14_autres', None):
+            c.setFillColor(NOIR)
+            c.setFont('Helvetica', 7)
+            c.drawString(ML + 86 * mm, y, str(cert.chiffre_14_autres)[:50])
+        y -= lh
+
+        # ── Chiffre 15 : Remarques ──
+        _separator()
+        c.setFont('Helvetica', 6.5)
+        c.setFillColor(NOIR)
+        c.drawString(ML, y, "15.")
+        c.drawString(ML + 8 * mm, y,
+                     "Bemerkungen – Observations – Comments")
+        y -= 3 * mm
+        # Lignes de remarques
+        self._field_bg(c, ML + 25 * mm, y - 1 * mm, CONTENT_W - 25 * mm, 4 * mm)
+        if cert.remarques:
+            c.setFont('Helvetica', 7)
+            c.setFillColor(NOIR)
+            lignes = cert.remarques.split('\n')[:2]
+            c.drawString(ML + 26 * mm, y, lignes[0][:80] if lignes else '')
+            if len(lignes) > 1:
+                y -= 4.5 * mm
+                self._field_bg(c, ML + 25 * mm, y - 1 * mm, CONTENT_W - 25 * mm, 4 * mm)
+                c.drawString(ML + 26 * mm, y, lignes[1][:80])
+        y -= lh
+
+        return y
+
+    def _draw_section_i(self, c, y_start):
+        """Section I : lieu, date, signature, certification."""
+        y = y_start - 3 * mm
         cert = self.cert
 
-        sect_label = ParagraphStyle(
-            'sect_label_fg', parent=self.styles['value'],
-            fontName='Helvetica-Bold', fontSize=8, textColor=ALTIUSONE_GREEN,
-        )
+        self._hline(c, ML, PW - MR, y + 2 * mm, NOIR, 0.8)
 
-        # F. Activite - checkboxes
-        cb_plein = Checkbox(cert.type_occupation == 'PLEIN_TEMPS', label="Plein temps")
-        cb_partiel = Checkbox(cert.type_occupation == 'TEMPS_PARTIEL', label="Temps partiel")
-        cb_horaire = Checkbox(cert.type_occupation == 'HORAIRE', label="A l'heure")
+        # I. Ort und Datum
+        c.setFont('Helvetica-Bold', 7)
+        c.setFillColor(NOIR)
+        c.drawString(ML, y, "I")
+        c.setFont('Helvetica', 6.5)
+        c.drawString(ML + 5 * mm, y, "Ort und Datum – Lieu et date – Place and date")
 
-        taux_style = ParagraphStyle(
-            'taux_style', parent=self.styles['value'],
-            fontSize=8, alignment=TA_RIGHT,
-        )
-        taux = Paragraph(f"Taux: {cert.taux_occupation}%", taux_style)
-
-        f_data = [[
-            Paragraph("F.", sect_label),
-            Paragraph("Activite:", sect_label),
-            cb_plein, cb_partiel, cb_horaire, taux,
-        ]]
-        f_table = Table(f_data, colWidths=[8 * mm, 20 * mm, 30 * mm, 30 * mm, 30 * mm, 45 * mm])
-        f_table.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 2),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-            ('LEFTPADDING', (0, 0), (-1, -1), 4),
-        ]))
-
-        # G. Transport - checkboxes
-        cb_public = Checkbox(cert.transport_public_disponible, label="Transport public disponible")
-        cb_gratuit = Checkbox(cert.transport_gratuit_fourni, label="Transport gratuit fourni")
-
-        g_data = [[
-            Paragraph("G.", sect_label),
-            Paragraph("Transport:", sect_label),
-            cb_public, cb_gratuit,
-        ]]
-        g_table = Table(g_data, colWidths=[8 * mm, 22 * mm, 65 * mm, 65 * mm])
-        g_table.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 2),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-            ('LEFTPADDING', (0, 0), (-1, -1), 4),
-        ]))
-
-        return [f_table, g_table]
-
-    def _build_chiffres(self):
-        """Construit la table des chiffres 1-15."""
-        cert = self.cert
-        elements = []
-
-        # Style pour les montants
-        amt_style = ParagraphStyle(
-            'amt', parent=self.styles['label'],
-            fontSize=8, alignment=TA_RIGHT,
-        )
-        num_style = ParagraphStyle(
-            'num', parent=self.styles['value'],
-            fontSize=8,
-        )
-        lib_style = ParagraphStyle(
-            'lib', parent=self.styles['label'],
-            fontSize=8,
-        )
-        section_style = ParagraphStyle(
-            'section_hdr', parent=self.styles['value'],
-            fontName='Helvetica-Bold', fontSize=9, textColor=ALTIUSONE_GREEN,
-        )
-        total_num = ParagraphStyle(
-            'total_num', parent=self.styles['value'],
-            fontName='Helvetica-Bold', fontSize=9,
-        )
-        total_lib = ParagraphStyle(
-            'total_lib', parent=self.styles['value'],
-            fontName='Helvetica-Bold', fontSize=9,
-        )
-        total_amt = ParagraphStyle(
-            'total_amt', parent=self.styles['value'],
-            fontName='Helvetica-Bold', fontSize=9, alignment=TA_RIGHT,
-        )
-
-        def _row(numero, libelle, montant, indent=False, is_total=False):
-            ns = total_num if is_total else num_style
-            ls = total_lib if is_total else lib_style
-            ams = total_amt if is_total else amt_style
-            if indent:
-                libelle = f"&nbsp;&nbsp;&nbsp;&nbsp;{libelle}"
-            n = Paragraph(numero, ns)
-            l = Paragraph(libelle, ls)
-            m_str = self._fmt(montant) if montant is not None else ""
-            m = Paragraph(m_str, ams)
-            return [n, l, m]
-
-        def _section_row(text):
-            return [
-                Paragraph("", section_style),
-                Paragraph(text, section_style),
-                Paragraph(self.devise_code, section_style),
-            ]
-
-        # Build all rows
-        data = []
-        row_types = []  # Track row types for styling
-
-        # REVENUS header
-        data.append(_section_row("REVENUS"))
-        row_types.append('section')
-
-        # Chiffre 1
-        data.append(_row("1.", "Salaire (y.c. allocations, commissions, primes)", cert.chiffre_1_salaire))
-        row_types.append('normal')
-
-        # Chiffre 2
-        data.append(_row("2.", "Prestations en nature", None))
-        row_types.append('normal')
-
-        # 2.1
-        total_21 = cert.chiffre_2_1_repas or Decimal('0')
-        if cert.repas_midi_gratuit or cert.repas_soir_gratuit or total_21 > 0:
-            data.append(_row("2.1", "Repas / Logement", total_21, indent=True))
-            row_types.append('normal')
-
-        # 2.2
-        if cert.voiture_disponible or (cert.chiffre_2_2_voiture and cert.chiffre_2_2_voiture > 0):
-            data.append(_row("2.2", "Part privee vehicule de service", cert.chiffre_2_2_voiture, indent=True))
-            row_types.append('normal')
-
-        # 2.3
-        if cert.chiffre_2_3_autres and cert.chiffre_2_3_autres > 0:
-            data.append(_row("2.3", "Autres prestations en nature", cert.chiffre_2_3_autres, indent=True))
-            row_types.append('normal')
-
-        # Chiffre 3
-        data.append(_row("3.", "Prestations irregulieres (13eme, bonus, gratifications)", cert.chiffre_3_irregulier))
-        row_types.append('normal')
-
-        # Chiffre 4
-        if cert.chiffre_4_capital and cert.chiffre_4_capital > 0:
-            data.append(_row("4.", "Prestations en capital", cert.chiffre_4_capital))
-            row_types.append('normal')
-
-        # Chiffre 5
-        if cert.chiffre_5_participations and cert.chiffre_5_participations > 0:
-            data.append(_row("5.", "Droits de participation (actions, options)", cert.chiffre_5_participations))
-            row_types.append('normal')
-
-        # Chiffre 6
-        if cert.chiffre_6_ca and cert.chiffre_6_ca > 0:
-            data.append(_row("6.", "Indemnites conseil d'administration", cert.chiffre_6_ca))
-            row_types.append('normal')
-
-        # Chiffre 7
-        if cert.chiffre_7_autres and cert.chiffre_7_autres > 0:
-            data.append(_row("7.", "Autres prestations", cert.chiffre_7_autres))
-            row_types.append('normal')
-
-        # CHIFFRE 8: TOTAL BRUT
-        data.append(_row("8.", "Salaire brut total (somme des chiffres 1 a 7)", cert.chiffre_8_total_brut, is_total=True))
-        row_types.append('total_brut')
-
-        # DEDUCTIONS header
-        data.append(_section_row("DEDUCTIONS"))
-        row_types.append('section')
-
-        # Chiffre 9
-        data.append(_row("9.", "Cotisations AVS/AI/APG/AC/AANP", cert.chiffre_9_cotisations))
-        row_types.append('normal')
-
-        # Chiffre 10
-        data.append(_row("10.", "Prevoyance professionnelle", None))
-        row_types.append('normal')
-        data.append(_row("10.1", "Cotisations ordinaires", cert.chiffre_10_1_lpp_ordinaire, indent=True))
-        row_types.append('normal')
-        if cert.chiffre_10_2_lpp_rachat and cert.chiffre_10_2_lpp_rachat > 0:
-            data.append(_row("10.2", "Rachats d'annees", cert.chiffre_10_2_lpp_rachat, indent=True))
-            row_types.append('normal')
-
-        # CHIFFRE 11: NET
-        data.append(_row("11.", "Salaire net (chiffre 8 moins chiffres 9 et 10)", cert.chiffre_11_net, is_total=True))
-        row_types.append('total_net')
-
-        # FRAIS EFFECTIFS header
-        data.append(_section_row("FRAIS EFFECTIFS"))
-        row_types.append('section')
-
-        # Chiffre 12
-        if cert.chiffre_12_transport and cert.chiffre_12_transport > 0:
-            data.append(_row("12.", "Frais de deplacement (trajet domicile-travail)", cert.chiffre_12_transport))
-            row_types.append('normal')
-
-        # Chiffre 13
-        has_13 = any([
-            cert.chiffre_13_1_1_repas_effectif,
-            cert.chiffre_13_1_2_repas_forfait,
-            cert.chiffre_13_2_nuitees,
-            cert.chiffre_13_3_repas_externes,
-        ])
-        if has_13:
-            data.append(_row("13.", "Frais de repas et nuitees", None))
-            row_types.append('normal')
-            if cert.chiffre_13_1_1_repas_effectif and cert.chiffre_13_1_1_repas_effectif > 0:
-                data.append(_row("13.1.1", "Repas effectifs", cert.chiffre_13_1_1_repas_effectif, indent=True))
-                row_types.append('normal')
-            if cert.chiffre_13_1_2_repas_forfait and cert.chiffre_13_1_2_repas_forfait > 0:
-                data.append(_row("13.1.2", "Repas forfaitaires", cert.chiffre_13_1_2_repas_forfait, indent=True))
-                row_types.append('normal')
-            if cert.chiffre_13_2_nuitees and cert.chiffre_13_2_nuitees > 0:
-                data.append(_row("13.2", "Nuitees", cert.chiffre_13_2_nuitees, indent=True))
-                row_types.append('normal')
-            if cert.chiffre_13_3_repas_externes and cert.chiffre_13_3_repas_externes > 0:
-                data.append(_row("13.3", "Repas externes", cert.chiffre_13_3_repas_externes, indent=True))
-                row_types.append('normal')
-
-        # Chiffre 14
-        if cert.chiffre_14_autres_frais and cert.chiffre_14_autres_frais > 0:
-            data.append(_row("14.", "Autres frais professionnels", cert.chiffre_14_autres_frais))
-            row_types.append('normal')
-
-        # Chiffre 15
-        jours_str = str(cert.chiffre_15_jours_transport) if cert.chiffre_15_jours_transport else ""
-        data.append([
-            Paragraph("15.", num_style),
-            Paragraph("Nombre de jours avec deplacement domicile-travail:", lib_style),
-            Paragraph(jours_str, amt_style),
-        ])
-        row_types.append('normal')
-
-        # Build table
-        num_rows = len(data)
-        table = Table(data, colWidths=[12 * mm, 120 * mm, 35 * mm])
-
-        style_cmds = [
-            ('BOX', (0, 0), (-1, -1), 0.5, ALTIUSONE_BORDER),
-            ('INNERGRID', (0, 0), (-1, -1), 0.25, ALTIUSONE_BORDER),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 2),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-            ('LEFTPADDING', (0, 0), (-1, -1), 3),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 3),
-        ]
-
-        # Apply styles based on row type
-        for i, rtype in enumerate(row_types):
-            if rtype == 'section':
-                style_cmds.append(('BACKGROUND', (0, i), (-1, i), ALTIUSONE_GREEN))
-                style_cmds.append(('TEXTCOLOR', (0, i), (-1, i), ALTIUSONE_WHITE))
-            elif rtype == 'total_brut':
-                style_cmds.append(('BACKGROUND', (0, i), (-1, i), ALTIUSONE_GREEN_LIGHT))
-                style_cmds.append(('LINEABOVE', (0, i), (-1, i), 1, ALTIUSONE_GREEN))
-            elif rtype == 'total_net':
-                style_cmds.append(('BACKGROUND', (0, i), (-1, i), ALTIUSONE_GREEN_LIGHT))
-                style_cmds.append(('LINEABOVE', (0, i), (-1, i), 1, ALTIUSONE_GREEN))
-                style_cmds.append(('LINEBELOW', (0, i), (-1, i), 2, ALTIUSONE_GREEN))
-            elif i % 2 == 0 and rtype == 'normal':
-                style_cmds.append(('BACKGROUND', (0, i), (-1, i), ALTIUSONE_GREY_LIGHT))
-
-        table.setStyle(TableStyle(style_cmds))
-        elements.append(table)
-        return elements
-
-    def _build_remarques(self):
-        """Section I: Remarques."""
-        elements = []
-
-        sect_label = ParagraphStyle(
-            'remarques_label', parent=self.styles['value'],
-            fontName='Helvetica-Bold', fontSize=8, textColor=ALTIUSONE_GREEN,
-        )
-        remark_style = ParagraphStyle(
-            'remark_text', parent=self.styles['label'],
-            fontSize=7, leading=9,
-        )
-
-        elements.append(GreenLine(thickness=0.5))
-        elements.append(make_spacer(2))
-        elements.append(Paragraph("I. Remarques:", sect_label))
-
-        if self.cert.remarques:
-            # Limiter a 3 lignes, 90 car max
-            lignes = self.cert.remarques.split('\n')[:3]
-            for ligne in lignes:
-                elements.append(Paragraph(ligne[:90], remark_style))
-
-        return elements
-
-    def _build_signature(self):
-        """Section signature."""
-        cert = self.cert
-        elements = []
-
-        elements.append(make_spacer(3))
-        elements.append(GreenLine(thickness=0.5))
-        elements.append(make_spacer(3))
-
-        sig_style = ParagraphStyle(
-            'sig', parent=self.styles['label'],
-            fontSize=8,
-        )
-
-        # Lieu et date
+        # Champ lieu/date
         lieu = cert.lieu_signature or (self.adresse_client.localite if self.adresse_client else '')
         date_sig = cert.date_signature or date_class.today()
-        lieu_date = f"{lieu}, le {date_sig.strftime('%d.%m.%Y')}"
+        self._field_bg(c, ML + 5 * mm, y - 6 * mm, 50 * mm, 5 * mm)
+        c.setFont('Helvetica', 8)
+        c.setFillColor(NOIR)
+        c.drawString(ML + 6 * mm, y - 5 * mm, f"{lieu}, {date_sig.strftime('%d.%m.%Y')}")
 
-        # Tel
-        tel = ""
-        if cert.telephone_signataire:
-            tel = f"Tel.: {cert.telephone_signataire}"
+        # Certification (à droite)
+        cert_x = 100 * mm
+        c.setFont('Helvetica', 5.5)
+        c.setFillColor(NOIR)
+        c.drawString(cert_x, y, "Die Richtigkeit und Vollständigkeit bestätigt")
+        c.drawString(cert_x, y - 3 * mm, "inkl. genauer Anschrift und Telefonnummer des Arbeitgebers")
+        y -= 6 * mm
+        c.drawString(cert_x, y, "Certifié exact et complet")
+        c.drawString(cert_x, y - 3 * mm, "y.c. adresse et numéro de téléphone exacts de l'employeur")
+        y -= 6 * mm
+        c.drawString(cert_x, y, "Correct and complete")
+        c.drawString(cert_x, y - 3 * mm, "including exact address and telephone number of employer")
 
-        lieu_data = [[Paragraph(lieu_date, sig_style), Paragraph(tel, sig_style)]]
-        lieu_table = Table(lieu_data, colWidths=[90 * mm, 75 * mm])
-        lieu_table.setStyle(TableStyle([
-            ('LEFTPADDING', (0, 0), (-1, -1), 0),
-            ('TOPPADDING', (0, 0), (-1, -1), 0),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-        ]))
-        elements.append(lieu_table)
-        elements.append(make_spacer(8))
-
-        # Ligne de signature fine
-        sig_line_style = ParagraphStyle(
-            'sig_line', parent=self.styles['label'],
-            fontSize=8,
-        )
-        elements.append(Paragraph("_" * 50, sig_line_style))
-        elements.append(Paragraph("Signature de l'employeur / Timbre", sig_line_style))
+        # Ligne de signature
+        y -= 8 * mm
+        self._hline(c, ML + 5 * mm, ML + 60 * mm, y, NOIR, 0.5)
+        c.setFont('Helvetica', 6)
+        c.setFillColor(GRIS_TEXTE)
+        c.drawString(ML + 5 * mm, y - 3 * mm, "Unterschrift / Signature")
 
         if cert.nom_signataire:
-            elements.append(Paragraph(cert.nom_signataire, sig_style))
+            c.setFont('Helvetica', 7)
+            c.setFillColor(NOIR)
+            c.drawString(ML + 5 * mm, y + 2 * mm, cert.nom_signataire)
 
-        return elements
+        return y
 
-    def _build_footer(self):
-        """Pied de page: Formulaire 11 + date generation."""
-        elements = []
-        elements.append(make_spacer(5))
-        footer_style = ParagraphStyle(
-            'f11_footer', parent=self.styles['footer'],
-            fontSize=6,
-        )
-        elements.append(Paragraph("Formulaire 11 - Certificat de salaire", footer_style))
-        elements.append(Paragraph(
-            f"Genere le {date_class.today().strftime('%d.%m.%Y')} - {self.client.raison_sociale}",
-            footer_style,
-        ))
-        return elements
+    def _draw_footer(self, c):
+        """Pied de page : numéro du formulaire."""
+        c.setFont('Helvetica', 5.5)
+        c.setFillColor(GRIS_TEXTE)
+        c.drawString(ML, 8 * mm, "Form. 11 dfe 01.21")
+
+        # Texte vertical gauche (orientation 90°)
+        c.saveState()
+        c.translate(5 * mm, PH / 2)
+        c.rotate(90)
+        c.setFont('Helvetica', 5)
+        c.drawCentredString(0, 0,
+                            "Bitte die Wegleitung beachten – Observer s.v.p. la directive – "
+                            "Please consider the guidance")
+        c.restoreState()
+
+    # ── Génération principale ──────────────────────────────────────
 
     def generer(self):
-        """
-        Genere le PDF du formulaire 11 et retourne les bytes.
+        """Génère le PDF Formulaire 11 et retourne les bytes."""
+        buffer = io.BytesIO()
+        c = pdf_canvas.Canvas(buffer, pagesize=A4)
+        c.setTitle(f"Formulaire 11 - {self.employe.nom} {self.employe.prenom} - {self.cert.annee}")
 
-        Returns:
-            bytes: Contenu du PDF
-        """
-        buffer = BytesIO()
-        logo_source = self.client.get_logo() if hasattr(self.client, 'get_logo') else None
-        doc = create_salaire_doc(
-            buffer,
-            title="Formulaire 11 - Certificat de salaire",
-            confidential=False,
-            margins={'top': 16 * mm, 'bottom': 16 * mm, 'left': 12 * mm, 'right': 12 * mm},
-            logo_source=logo_source,
-        )
+        # Dessiner toutes les sections
+        y = self._draw_header(c)
+        y = self._draw_section_cdefg(c, y)
+        y = self._draw_section_h(c, y)
+        y = self._draw_chiffres(c, y)
+        self._draw_section_i(c, y)
+        self._draw_footer(c)
 
-        elements = []
-
-        # Titre
-        elements.extend(self._build_titre())
-
-        # Section A-B
-        elements.append(self._build_section_ab())
-        elements.append(make_spacer(3))
-
-        # Section C-E
-        elements.append(self._build_section_cde())
-        elements.append(make_spacer(3))
-
-        # Section F-G
-        elements.extend(self._build_section_fg())
-        elements.append(make_spacer(3))
-
-        # Chiffres 1-15
-        elements.extend(self._build_chiffres())
-        elements.append(make_spacer(3))
-
-        # Remarques
-        elements.extend(self._build_remarques())
-
-        # Signature
-        elements.extend(self._build_signature())
-
-        # Footer
-        elements.extend(self._build_footer())
-
-        build_doc(doc, elements)
-
+        c.save()
         pdf_bytes = buffer.getvalue()
         buffer.close()
         return pdf_bytes
