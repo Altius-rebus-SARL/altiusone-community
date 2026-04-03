@@ -4,10 +4,12 @@
 # 1. Validate: vérifie que Django démarre (check, migrations, imports)
 # 2. Build: construit les 3 images Docker et push vers ghcr.io
 #
-# Déclenché par:
-# - Push sur main (construit :latest)
-# - Push d'un tag v*.*.* (construit :version + :latest)
-# - Manuellement via workflow_dispatch
+# Workflow git :
+# - develop : branche de développement (build :dev, jamais déployé auto)
+# - main    : branche stable (build :latest, déployé via Portal Ansible)
+# - tags    : releases versionnées (build :version + :latest)
+#
+# Pour merger develop → main : créer une PR sur GitHub
 # =============================================================================
 
 name: Build AltiusOne Images
@@ -16,6 +18,7 @@ on:
   push:
     branches:
       - main
+      - develop
     paths:
       - '**/*.py'
       - '**/*.html'
@@ -170,16 +173,25 @@ jobs:
       - name: Extract version and image prefix
         id: version
         run: |
-          # Version
+          # Version : dev pour develop, latest pour main, version pour tags
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             VERSION="${{ github.event.inputs.version }}"
           elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             VERSION="${{ github.ref_name }}"
             VERSION="${VERSION#v}"
+          elif [[ "${{ github.ref }}" == refs/heads/develop ]]; then
+            VERSION="dev"
           else
             VERSION="latest"
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+          # Determine if we should also tag as :latest (only main and tags)
+          if [[ "$VERSION" == "latest" ]] || [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "also_latest=true" >> $GITHUB_OUTPUT
+          else
+            echo "also_latest=false" >> $GITHUB_OUTPUT
+          fi
 
           # Image prefix (GHCR exige lowercase)
           OWNER="${{ github.repository_owner }}"
@@ -199,7 +211,7 @@ jobs:
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ steps.version.outputs.prefix }}-django:${{ steps.version.outputs.version }}
-            ${{ env.REGISTRY }}/${{ steps.version.outputs.prefix }}-django:latest
+            ${{ steps.version.outputs.also_latest == 'true' && format('{0}/{1}-django:latest', env.REGISTRY, steps.version.outputs.prefix) || '' }}
           cache-from: type=gha,scope=django
           cache-to: type=gha,mode=max,scope=django
 
@@ -215,7 +227,7 @@ jobs:
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ steps.version.outputs.prefix }}-postgres:${{ steps.version.outputs.version }}
-            ${{ env.REGISTRY }}/${{ steps.version.outputs.prefix }}-postgres:latest
+            ${{ steps.version.outputs.also_latest == 'true' && format('{0}/{1}-postgres:latest', env.REGISTRY, steps.version.outputs.prefix) || '' }}
           cache-from: type=gha,scope=postgres
           cache-to: type=gha,mode=max,scope=postgres
 
@@ -231,7 +243,7 @@ jobs:
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ steps.version.outputs.prefix }}-nextcloud:${{ steps.version.outputs.version }}
-            ${{ env.REGISTRY }}/${{ steps.version.outputs.prefix }}-nextcloud:latest
+            ${{ steps.version.outputs.also_latest == 'true' && format('{0}/{1}-nextcloud:latest', env.REGISTRY, steps.version.outputs.prefix) || '' }}
           cache-from: type=gha,scope=nextcloud
           cache-to: type=gha,mode=max,scope=nextcloud
 
