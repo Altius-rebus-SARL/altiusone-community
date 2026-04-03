@@ -48,6 +48,13 @@
                         <a href="{% url 'facturation:facture-update' facture.pk %}" class="btn btn-primary">
                             <i class="ti ti-edit me-2"></i>{% trans "Modifier" %}
                         </a>
+                        <form method="post" action="{% url 'facturation:facture-delete' facture.pk %}" class="d-inline"
+                              onsubmit="return confirm('{% trans "Supprimer définitivement ce brouillon ?" %}')">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-danger">
+                                <i class="ph ph-trash me-2"></i>{% trans "Supprimer" %}
+                            </button>
+                        </form>
                         {% endif %}
 
                         {% if facture.type_facture == 'DEVIS' and facture.statut != 'ANNULEE' %}
@@ -192,13 +199,33 @@
                 </div>
             </div>
 
-            <!-- Tab Historique -->
+            <!-- Tab Historique / Informations -->
             <div class="tab-pane fade" id="historique-pane" role="tabpanel" aria-labelledby="historique-tab">
                 <div class="card">
                     <div class="card-body">
-                        <div class="text-center text-muted py-4">
-                            <i class="ph ph-clock-counter-clockwise f-s-32 mb-2 d-block"></i>
-                            <p class="mb-0">{% trans "Historique des modifications à venir" %}</p>
+                        {% if facture.mentions_legales_generees %}
+                        <h5 class="text-primary mb-3">{% trans "Mentions légales" %}</h5>
+                        <div class="mb-4 p-3 bg-light rounded">
+                            {{ facture.mentions_legales_generees|linebreaksbr }}
+                        </div>
+                        {% endif %}
+
+                        <h5 class="text-primary mb-3">{% trans "Informations" %}</h5>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <tbody>
+                                    <tr><th class="w-25">{% trans "Régime fiscal" %}</th><td>{{ facture.regime_fiscal|default:"—" }}</td></tr>
+                                    <tr><th>{% trans "Type opération TVA" %}</th><td>{{ facture.get_type_operation_tva_display }}</td></tr>
+                                    <tr><th>{% trans "Devise" %}</th><td>{{ facture.devise }}</td></tr>
+                                    <tr><th>{% trans "Créée par" %}</th><td>{{ facture.creee_par.get_full_name|default:facture.creee_par.username }} — {{ facture.created_at|date:"d.m.Y H:i" }}</td></tr>
+                                    {% if facture.validee_par %}
+                                    <tr><th>{% trans "Validée par" %}</th><td>{{ facture.validee_par.get_full_name|default:facture.validee_par.username }} — {{ facture.date_validation|date:"d.m.Y H:i" }}</td></tr>
+                                    {% endif %}
+                                    {% if facture.facture_origine %}
+                                    <tr><th>{% trans "Facture d'origine" %}</th><td><a href="{% url 'facturation:facture-detail' facture.facture_origine.pk %}">{{ facture.facture_origine.numero_facture }}</a></td></tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>

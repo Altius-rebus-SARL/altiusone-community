@@ -62,6 +62,11 @@ urlpatterns = [
         views.facture_envoyer_email,
         name="facture-envoyer-email",
     ),
+    path(
+        "factures/<uuid:pk>/supprimer/",
+        views.facture_delete,
+        name="facture-delete",
+    ),
     # Lignes de facture
     path(
         "factures/<uuid:facture_pk>/lignes/nouvelle/",

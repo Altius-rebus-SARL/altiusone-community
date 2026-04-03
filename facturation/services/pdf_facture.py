@@ -536,6 +536,17 @@ class FacturePDF:
                 p.drawString(self._margin_left, y, line)
                 y -= 0.28 * cm
 
+        # Mentions légales dynamiques (générées selon le régime fiscal)
+        mentions = self.facture.mentions_legales_generees
+        if mentions and mentions.strip():
+            y -= 0.4 * cm
+            p.setFont(self._font, 6)
+            p.setFillColor(HexColor('#999999'))
+            for line in mentions.strip().split('\n')[:5]:
+                p.drawString(self._margin_left, y, line.strip())
+                y -= 0.22 * cm
+            p.setFillColor(self._color_text)
+
     def _draw_qr_bill_page(self, p, width, height):
         """Dessine la page QR-Bill."""
         p.setFillColor(self._color_text)

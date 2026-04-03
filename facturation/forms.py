@@ -1,5 +1,6 @@
 # facturation/forms.py
 from django import forms
+from django.db import models
 from django.utils.translation import gettext_lazy as _
 from decimal import Decimal
 from datetime import datetime, timedelta, date
@@ -445,8 +446,8 @@ class LigneFactureForm(forms.ModelForm):
             "prix_unitaire_ht": forms.NumberInput(
                 attrs={"class": "form-control prix-input", "step": "0.01"}
             ),
-            "taux_tva": forms.NumberInput(
-                attrs={"class": "form-control tva-input", "step": "0.01"}
+            "taux_tva": forms.Select(
+                attrs={"class": "form-control tva-input"}
             ),
             "remise_pourcent": forms.NumberInput(
                 attrs={"class": "form-control", "step": "0.01"}
@@ -469,6 +470,28 @@ class LigneFactureForm(forms.ModelForm):
                     imputable=True,
                     type_compte='PRODUIT',
                 ).order_by('numero')
+
+        # Remplir le dropdown TVA avec les taux du régime fiscal
+        taux_choices = [('', '— TVA —')]
+        regime = getattr(mandat, 'regime_fiscal', None) if mandat else None
+        if regime:
+            from tva.models import TauxTVA
+            from django.utils import timezone
+            today = timezone.now().date()
+            taux_actifs = TauxTVA.objects.filter(
+                regime=regime,
+                date_debut__lte=today,
+            ).filter(
+                models.Q(date_fin__isnull=True) | models.Q(date_fin__gte=today)
+            ).exclude(type_taux='SSS').order_by('-taux')
+            for t in taux_actifs:
+                label = f"{t.taux}% — {t.get_type_taux_display()}"
+                taux_choices.append((str(t.taux), label))
+        taux_choices.append(('0', '0% — Exonéré'))
+        self.fields['taux_tva'].widget = forms.Select(
+            attrs={"class": "form-control tva-input"},
+            choices=taux_choices,
+        )
 
     def clean_remise_pourcent(self):
         val = self.cleaned_data.get('remise_pourcent')

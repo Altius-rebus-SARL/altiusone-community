@@ -658,13 +658,28 @@ def devis_convertir(request, pk):
 @login_required
 @require_http_methods(["POST"])
 def facture_valider(request, pk):
-    """Valide une facture (avec vérification des règles métier)"""
+    """Valide une facture (avec vérification des règles métier et conformité régime)"""
     facture = get_object_or_404(Facture, pk=pk)
 
     peut, raison = facture.peut_emettre()
     if not peut:
         messages.error(request, raison)
         return redirect("facturation:facture-detail", pk=pk)
+
+    # Générer les mentions légales selon le régime
+    if facture.regime_fiscal_id:
+        from facturation.models import MentionLegale
+        mentions = MentionLegale.objects.filter(
+            regime_fiscal=facture.regime_fiscal,
+            obligatoire=True,
+            is_active=True,
+        ).filter(
+            Q(type_document='TOUS') | Q(type_document=facture.type_facture)
+        ).order_by('ordre')
+        if mentions.exists():
+            textes = [m.texte for m in mentions]
+            facture.mentions_legales_generees = "\n".join(textes)
+            facture.save(update_fields=['mentions_legales_generees'])
 
     try:
         facture.valider(request.user)
@@ -673,6 +688,21 @@ def facture_valider(request, pk):
         messages.error(request, str(e))
 
     return redirect("facturation:facture-detail", pk=pk)
+
+
+@login_required
+@require_http_methods(["POST"])
+def facture_delete(request, pk):
+    """Supprime une facture (uniquement si les règles métier l'autorisent)."""
+    facture = get_object_or_404(Facture, pk=pk)
+    peut, raison = facture.peut_supprimer()
+    if not peut:
+        messages.error(request, raison)
+        return redirect("facturation:facture-detail", pk=pk)
+    mandat_pk = facture.mandat_id
+    facture.delete()
+    messages.success(request, _("Facture supprimée"))
+    return redirect("facturation:facture-list")
 
 
 @login_required
