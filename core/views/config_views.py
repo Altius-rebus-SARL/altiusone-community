@@ -29,6 +29,20 @@ CATEGORIES_META = {
             'fonction_contact': 'Fonctions de contact',
         }
     },
+    'regimes': {
+        'label': 'Régimes & Pays',
+        'icon': 'ti-world',
+        'is_advanced': True,
+        'categories': {
+            'regime_fiscal': 'Régimes fiscaux',
+            'type_identifiant_legal': 'Identifiants légaux',
+            'mention_legale': 'Mentions légales factures',
+            'niveau_relance': 'Niveaux de relance',
+            'compte_par_defaut': 'Comptes par défaut',
+            'taux_cotisation': 'Cotisations sociales',
+            'allocation_familiale': 'Allocations familiales',
+        }
+    },
     'salaires': {
         'label': 'Salaires',
         'icon': 'ti-users',
@@ -133,6 +147,8 @@ def configuration_index(request):
     if active_categorie:
         parametres = parametres.filter(categorie=active_categorie)
 
+    is_advanced = CATEGORIES_META.get(active_module, {}).get('is_advanced', False)
+
     return render(request, 'core/configuration/index.html', {
         'modules': modules,
         'active_module': active_module,
@@ -140,6 +156,7 @@ def configuration_index(request):
         'categories': categories,
         'parametres': parametres,
         'is_active': 'configuration',
+        'is_advanced': is_advanced,
     })
 
 
@@ -160,6 +177,41 @@ def configuration_list_partial(request, module, categorie):
         'module': module,
         'categorie': categorie,
         'categorie_label': cat_label,
+    })
+
+
+@permission_required_business('core.view_parametremetier')
+def configuration_advanced_list(request, module, categorie):
+    """Retourne le partial HTMX pour les modèles avancés (pas ParametreMetier)."""
+    MODEL_MAP = {
+        'regime_fiscal': ('tva.models', 'RegimeFiscal', ['code', 'nom', 'pays', 'taux_normal', 'nom_taxe', 'devise_defaut']),
+        'type_identifiant_legal': ('core.models', 'TypeIdentifiantLegal', ['code', 'libelle', 'pays', 'obligatoire_entreprise', 'obligatoire_client']),
+        'mention_legale': ('facturation.models', 'MentionLegale', ['regime_fiscal', 'code', 'libelle', 'type_document', 'obligatoire']),
+        'niveau_relance': ('facturation.models', 'NiveauRelance', ['regime_fiscal', 'niveau', 'libelle', 'delai_jours', 'frais', 'interets']),
+        'compte_par_defaut': ('comptabilite.models', 'CompteParDefaut', ['plan_comptable', 'type_compte', 'compte']),
+        'taux_cotisation': ('salaires.models', 'TauxCotisation', ['regime_fiscal', 'type_cotisation', 'libelle', 'taux_employe', 'taux_employeur']),
+        'allocation_familiale': ('salaires.models', 'AllocationFamiliale', ['canton', 'type_allocation', 'montant', 'date_debut']),
+    }
+
+    config = MODEL_MAP.get(categorie)
+    if not config:
+        return HttpResponse('<div class="alert alert-warning">Catégorie inconnue</div>')
+
+    module_path, model_name, display_fields = config
+    from importlib import import_module
+    mod = import_module(module_path)
+    Model = getattr(mod, model_name)
+    items = Model.objects.all().order_by(*(['-created_at'] if hasattr(Model, 'created_at') else ['pk']))[:100]
+
+    cat_label = CATEGORIES_META.get(module, {}).get('categories', {}).get(categorie, categorie)
+
+    return render(request, 'core/configuration/partials/advanced_list.html', {
+        'items': items,
+        'fields': display_fields,
+        'model_name': model_name,
+        'categorie': categorie,
+        'categorie_label': cat_label,
+        'module': module,
     })
 
 

@@ -1,0 +1,52 @@
+<!-- core/configuration/partials/advanced_list.html — Affichage des modèles avancés -->
+{% load i18n config_tags %}
+
+<div class="mb-3 d-flex justify-content-between align-items-center">
+    <h6 class="mb-0">
+        <i class="ti-world me-1"></i>{{ categorie_label }}
+        <span class="badge bg-light-primary ms-2">{{ items|length }}</span>
+    </h6>
+</div>
+
+{% if items %}
+<div class="table-responsive">
+    <table class="table table-sm table-hover mb-0">
+        <thead>
+            <tr class="table-light">
+                {% for field in fields %}
+                <th class="small fw-semibold text-uppercase" style="font-size: 0.75rem;">
+                    {{ field|cut:"_"|title }}
+                </th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                {% for field in fields %}
+                <td class="small py-1">
+                    {% with val=item|getattr:field %}
+                    {% if val == True %}
+                    <i class="ph ph-check-circle text-success"></i>
+                    {% elif val == False %}
+                    <i class="ph ph-x-circle text-muted"></i>
+                    {% elif val is None %}
+                    <span class="text-muted">—</span>
+                    {% else %}
+                    {{ val }}
+                    {% endif %}
+                    {% endwith %}
+                </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="text-center text-muted py-4">
+    <i class="ph ph-database f-s-24 d-block mb-2"></i>
+    <p class="mb-1">{% trans "Aucune donnée configurée" %}</p>
+    <small>{% trans "Lancez les commandes d'initialisation pour pré-remplir les données" %}</small>
+</div>
+{% endif %}

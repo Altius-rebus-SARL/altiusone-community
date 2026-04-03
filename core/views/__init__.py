@@ -146,6 +146,7 @@ from .admin_views import (
 from .config_views import (
     configuration_index,
     configuration_list_partial,
+    configuration_advanced_list,
     configuration_create,
     configuration_update,
     configuration_delete,

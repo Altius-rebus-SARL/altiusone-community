@@ -229,6 +229,11 @@ urlpatterns = [
     # ============================================================================
     path("configuration/", views.configuration_index, name="configuration"),
     path(
+        "configuration/avance/<str:module>/<str:categorie>/",
+        views.configuration_advanced_list,
+        name="configuration-advanced-list",
+    ),
+    path(
         "configuration/<str:module>/<str:categorie>/",
         views.configuration_list_partial,
         name="configuration-list",

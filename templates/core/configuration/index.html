@@ -56,7 +56,11 @@
 
                         <!-- Parameter List (HTMX target) -->
                         <div id="parametre-list"
+                             {% if is_advanced %}
+                             hx-get="{% url 'core:configuration-advanced-list' active_module active_categorie %}"
+                             {% else %}
                              hx-get="{% url 'core:configuration-list' active_module active_categorie %}"
+                             {% endif %}
                              hx-trigger="load"
                              hx-target="#parametre-list">
                             <div class="text-center py-4">
