@@ -104,6 +104,7 @@ class CertificatSalairePDF:
         self.employe = certificat.employe
         self.client = certificat.employe.mandat.client
         self.adresse_client = self.client.adresse_siege
+        self.devise_code = certificat.employe.mandat.devise_id or 'CHF'
         self.style_config = style_config
         if style_config:
             from salaires.services.pdf_styles import get_salaires_styles_custom
@@ -378,7 +379,7 @@ class CertificatSalairePDF:
             return [
                 Paragraph("", section_style),
                 Paragraph(text, section_style),
-                Paragraph("CHF", section_style),
+                Paragraph(self.devise_code, section_style),
             ]
 
         # Build all rows

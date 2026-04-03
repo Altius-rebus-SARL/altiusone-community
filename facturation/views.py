@@ -810,12 +810,13 @@ def facture_envoyer_email(request, pk):
         corps_html = render_to_string('facturation/email/facture_email.html', context)
     except Exception:
         # Template par défaut si le template n'existe pas
+        devise_code = facture.devise.code if facture.devise_id else 'CHF'
         corps_html = f"""
         <html>
         <body>
         <p>Bonjour,</p>
         <p>Veuillez trouver ci-joint la facture N° {facture.numero_facture}
-        d'un montant de CHF {facture.montant_ttc:,.2f}.</p>
+        d'un montant de {devise_code} {facture.montant_ttc:,.2f}.</p>
         <p>Date d'échéance : {facture.date_echeance.strftime('%d.%m.%Y')}</p>
         <p>Nous vous remercions de votre confiance.</p>
         <p>Cordialement,<br>
@@ -825,11 +826,12 @@ def facture_envoyer_email(request, pk):
         """
 
     # Corps texte simple
+    devise_code = facture.devise.code if facture.devise_id else 'CHF'
     corps_texte = f"""
 Bonjour,
 
 Veuillez trouver ci-joint la facture N° {facture.numero_facture}
-d'un montant de CHF {facture.montant_ttc:,.2f}.
+d'un montant de {devise_code} {facture.montant_ttc:,.2f}.
 
 Date d'échéance : {facture.date_echeance.strftime('%d.%m.%Y')}
 
@@ -1043,10 +1045,11 @@ def relance_create(request, facture_pk):
     try:
         relance = facture.creer_relance(user=request.user)
         info = facture.niveau_relance_suivant()
+        devise_code = facture.devise.code if facture.devise_id else 'CHF'
         messages.success(
             request,
-            _("%(label)s créée. Nouvelle échéance: %(jours)s jours, frais: %(frais)s CHF")
-            % {'label': relance.get_niveau_display(), 'jours': 10, 'frais': relance.montant_frais}
+            _("%(label)s créée. Nouvelle échéance: %(jours)s jours, frais: %(frais)s %(devise)s")
+            % {'label': relance.get_niveau_display(), 'jours': 10, 'frais': relance.montant_frais, 'devise': devise_code}
         )
         return redirect("facturation:facture-detail", pk=facture.pk)
     except Exception as e:
