@@ -1339,15 +1339,22 @@ def facture_studio(request, pk):
         'blocs_visibles': modele.blocs_visibles if modele else {},
     }
 
+    # Blocs configurables — adaptés au régime fiscal
+    regime = facture.regime_fiscal or getattr(facture.mandat, 'regime_fiscal', None)
+    nom_taxe = regime.nom_taxe if regime else 'TVA'
+    is_swiss = regime and regime.code == 'CH'
+
     blocs_config = [
         ('logo', _('Logo')),
         ('introduction', _('Introduction')),
         ('conclusion', _('Conclusion')),
         ('conditions', _('Conditions de paiement')),
-        ('qr_bill', _('QR-Bill suisse')),
         ('remise', _('Remise')),
-        ('tva', _('TVA')),
+        ('tva', nom_taxe),
     ]
+    # QR-Bill uniquement pour le régime suisse
+    if is_swiss:
+        blocs_config.insert(4, ('qr_bill', _('QR-Bill suisse')))
 
     return render(request, "facturation/facture_studio.html", {
         'facture': facture,
@@ -1358,6 +1365,9 @@ def facture_studio(request, pk):
         'save_url': reverse_lazy('core:modele-pdf-save'),
         'type_document': 'FACTURE',
         'config_extra_template': 'facturation/_studio_config_extra.html',
+        'regime': regime,
+        'is_swiss': is_swiss,
+        'nom_taxe': nom_taxe,
     })
 
 

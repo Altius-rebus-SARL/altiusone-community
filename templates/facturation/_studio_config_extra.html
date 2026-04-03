@@ -8,13 +8,32 @@
         </h6>
     </div>
     <div class="card-body py-2">
+        {% if regime %}
+        <div class="mb-2">
+            <small class="text-muted">{% trans "Régime fiscal" %} :</small>
+            <span class="badge bg-primary">{{ regime.code }}</span>
+            <span class="small">{{ regime.nom }}</span>
+        </div>
+        {% endif %}
+
+        {% if is_swiss %}
         <div class="form-check form-switch mb-1">
             <input type="checkbox" class="form-check-input"
                    id="studio-qr-bill"
                    data-studio-bloc="qr_bill">
             <label class="form-check-label small" for="studio-qr-bill">
-                {% trans "Inclure QR-Bill suisse" %}
+                {% trans "Inclure QR-Bill" %}
             </label>
         </div>
+        {% endif %}
+
+        {% if facture.mentions_legales_generees %}
+        <div class="mt-2">
+            <small class="text-muted d-block mb-1">{% trans "Mentions légales" %} :</small>
+            <div class="small text-muted bg-light rounded p-2" style="font-size: 0.75rem;">
+                {{ facture.mentions_legales_generees|linebreaksbr }}
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
