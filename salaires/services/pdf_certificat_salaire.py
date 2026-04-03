@@ -434,7 +434,7 @@ class CertificatSalairePDF:
         _line("12.", "Quellensteuerabzug",
               "Retenue de l'impôt à la source",
               "Withholding tax deduction",
-              getattr(cert, 'chiffre_12_impot_source', None) or cert.impot_source_retenu)
+              getattr(cert, 'impot_source_annuel', None))
 
         # ── Chiffre 13 : Frais ──
         _separator()
@@ -457,9 +457,9 @@ class CertificatSalairePDF:
         y -= lh
         _line("13.1.1", "Reise, Verpflegung, Übernachtung",
               "Voyage, repas, nuitées", "Trip, room and board",
-              cert.chiffre_13_1_1_repas_effectif, indent=8)
+              getattr(cert, 'chiffre_13_1_1_repas_effectif', None), indent=8)
         _line("13.1.2", "Übrige", "Autres", "Others",
-              cert.chiffre_13_1_2_repas_forfait, indent=8,
+              getattr(cert, 'chiffre_13_1_2_repas_forfait', None), indent=8,
               art_field=True)
 
         # 13.2 Forfaits
@@ -468,18 +468,18 @@ class CertificatSalairePDF:
         c.drawString(ML + 5 * mm, y, "13.2  Pauschalspesen / Frais forfaitaires / Overall expenses")
         y -= lh
         _line("13.2.1", "Repräsentation", "Représentation", "Representation",
-              getattr(cert, 'chiffre_13_2_1_representation', None), indent=8)
+              getattr(cert, 'chiffre_13_2_nuitees', None), indent=8)
         _line("13.2.2", "Auto", "Voiture", "Car",
-              getattr(cert, 'chiffre_13_2_2_auto', None), indent=8)
+              None, indent=8)
         _line("13.2.3", "Übrige", "Autres", "Others",
-              getattr(cert, 'chiffre_13_2_3_autres', None), indent=8,
+              getattr(cert, 'chiffre_13_3_repas_externes', None), indent=8,
               art_field=True)
 
         # 13.3
         _line("13.3", "Beiträge an die Weiterbildung",
               "Contributions au perfectionnement",
               "Contributions to further education",
-              getattr(cert, 'chiffre_13_3_formation', None), indent=3)
+              None, indent=3)
 
         # ── Chiffre 14 : Autres prestations accessoires ──
         _separator()
@@ -495,10 +495,10 @@ class CertificatSalairePDF:
         c.setFillColor(GRIS_TEXTE)
         c.drawString(ML + 60 * mm, y, "Art – Genre – Kind")
         self._field_bg(c, ML + 85 * mm, y - 1 * mm, 80 * mm, 4 * mm)
-        if getattr(cert, 'chiffre_14_autres', None):
+        if getattr(cert, 'chiffre_14_autres_frais', None):
             c.setFillColor(NOIR)
             c.setFont('Helvetica', 7)
-            c.drawString(ML + 86 * mm, y, str(cert.chiffre_14_autres)[:50])
+            c.drawString(ML + 86 * mm, y, str(cert.chiffre_14_autres_frais)[:50])
         y -= lh
 
         # ── Chiffre 15 : Remarques ──

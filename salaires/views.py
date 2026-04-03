@@ -567,6 +567,10 @@ class CertificatSalaireListView(SearchMixin, LoginRequiredMixin, BusinessPermiss
         context['annees_disponibles'] = CertificatSalaire.objects.values_list(
             'annee', flat=True
         ).distinct().order_by('-annee')
+        # Employés actifs pour le dropdown "Nouveau certificat"
+        context['employes_actifs'] = Employe.objects.filter(
+            statut='ACTIF'
+        ).order_by('nom', 'prenom')[:50]
         return context
 
 
