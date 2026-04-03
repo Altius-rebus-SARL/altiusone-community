@@ -530,21 +530,35 @@ class TauxCotisation(BaseModel):
         ('LAAC', _('LAAC Accidents complémentaire')),
         ('IJM', _('Indemnités journalières maladie')),
         ('AF', _('Allocations familiales')),
-        # Cameroun
+        # Cameroun (CEMAC / XAF)
         ('CNPS_VIE', _('CNPS Assurance vieillesse')),
         ('CNPS_AF', _('CNPS Allocations familiales')),
         ('CNPS_AT', _('CNPS Accidents du travail')),
-        # Sénégal
+        # Sénégal (UEMOA / XOF)
         ('CSS', _('CSS Sécurité sociale')),
         ('IPRES_GEN', _('IPRES Régime général')),
         ('IPRES_CAD', _('IPRES Régime cadre')),
         ('IPM', _('IPM Maladie')),
         ('CFCE', _('CFCE Formation professionnelle')),
-        # Côte d'Ivoire
+        # Côte d'Ivoire (UEMOA / XOF)
         ('CNPS_CI_RET', _('CNPS-CI Retraite')),
         ('CNPS_CI_PF', _('CNPS-CI Prestations familiales')),
         ('CNPS_CI_AT', _('CNPS-CI Accidents du travail')),
+        ('CMU_CI', _('CMU Couverture maladie universelle')),
         ('FNE', _('FNE Emploi')),
+        # Mali (UEMOA / XOF)
+        ('INPS_RET', _('INPS Retraite')),
+        ('INPS_PF', _('INPS Prestations familiales')),
+        ('INPS_AT', _('INPS Accidents du travail')),
+        ('AMO_ML', _('AMO Assurance maladie obligatoire')),
+        # Burkina Faso (UEMOA / XOF)
+        ('CNSS_BF_RET', _('CNSS Retraite')),
+        ('CNSS_BF_PF', _('CNSS Prestations familiales')),
+        ('CNSS_BF_AT', _('CNSS Accidents du travail')),
+        # Niger (UEMOA / XOF)
+        ('CNSS_NE_RET', _('CNSS Retraite')),
+        ('CNSS_NE_PF', _('CNSS Prestations familiales')),
+        ('CNSS_NE_AT', _('CNSS Accidents du travail')),
         # Générique
         ('AUTRE', _('Autre cotisation')),
     ]

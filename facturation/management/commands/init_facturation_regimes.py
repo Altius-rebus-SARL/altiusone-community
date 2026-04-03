@@ -111,6 +111,21 @@ class Command(BaseCommand):
                 {"niveau": 2, "libelle": "2ème rappel", "delai_jours": 15, "frais": Decimal("0"), "interets": False, "taux_interet": Decimal("0")},
                 {"niveau": 3, "libelle": "Mise en demeure", "delai_jours": 8, "frais": Decimal("0"), "interets": True, "taux_interet": Decimal("10")},
             ],
+            "ML": [
+                {"niveau": 1, "libelle": "1er rappel", "delai_jours": 15, "frais": Decimal("0"), "interets": False, "taux_interet": Decimal("0")},
+                {"niveau": 2, "libelle": "2ème rappel", "delai_jours": 15, "frais": Decimal("0"), "interets": False, "taux_interet": Decimal("0")},
+                {"niveau": 3, "libelle": "Mise en demeure", "delai_jours": 8, "frais": Decimal("0"), "interets": True, "taux_interet": Decimal("10")},
+            ],
+            "BF": [
+                {"niveau": 1, "libelle": "1er rappel", "delai_jours": 15, "frais": Decimal("0"), "interets": False, "taux_interet": Decimal("0")},
+                {"niveau": 2, "libelle": "2ème rappel", "delai_jours": 15, "frais": Decimal("0"), "interets": False, "taux_interet": Decimal("0")},
+                {"niveau": 3, "libelle": "Mise en demeure", "delai_jours": 8, "frais": Decimal("0"), "interets": True, "taux_interet": Decimal("10")},
+            ],
+            "NE": [
+                {"niveau": 1, "libelle": "1er rappel", "delai_jours": 15, "frais": Decimal("0"), "interets": False, "taux_interet": Decimal("0")},
+                {"niveau": 2, "libelle": "2ème rappel", "delai_jours": 15, "frais": Decimal("0"), "interets": False, "taux_interet": Decimal("0")},
+                {"niveau": 3, "libelle": "Mise en demeure", "delai_jours": 8, "frais": Decimal("0"), "interets": True, "taux_interet": Decimal("10")},
+            ],
         }
 
         for code, niveaux in CONFIGS.items():
