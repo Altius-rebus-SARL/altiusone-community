@@ -206,11 +206,16 @@ class Pain001GeneratorService:
             statut='VALIDE',
         ).select_related('type_piece')
 
+        # Résoudre le pays depuis le compte bancaire ou le mandat
+        pays = 'CH'
+        if hasattr(compte_bancaire, 'titulaire_adresse') and compte_bancaire.titulaire_adresse:
+            pays = getattr(compte_bancaire.titulaire_adresse, 'pays', 'CH') or 'CH'
+
         order = PaymentOrder(
             debtor_name=compte_bancaire.titulaire_nom,
             debtor_iban=compte_bancaire.iban,
             debtor_bic=compte_bancaire.bic_swift,
-            debtor_country='CH',
+            debtor_country=str(pays),
         )
 
         if compte_bancaire.titulaire_adresse:
@@ -229,10 +234,15 @@ class Pain001GeneratorService:
                 })
                 continue
 
+            # Devise depuis le mandat ou fallback devise base
+            devise_code = 'CHF'
+            if hasattr(piece, 'mandat') and piece.mandat_id:
+                devise_code = piece.mandat.devise_id or 'CHF'
+
             payment = Payment(
                 creditor_name=piece.tiers_nom or 'Fournisseur inconnu',
                 amount=amount,
-                currency='CHF',
+                currency=str(devise_code),
                 remittance_info=f"{piece.numero_piece} - {piece.libelle}"[:140],
                 execution_date=date.today(),
                 piece_id=str(piece.id),

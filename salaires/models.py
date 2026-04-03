@@ -480,24 +480,41 @@ class EnfantEmploye(BaseModel):
     def get_montant_allocation_standard(self, canton='GE'):
         """
         Retourne le montant standard d'allocation selon le canton et le type.
-        Ces montants sont indicatifs et doivent être mis à jour régulièrement.
+
+        Cherche d'abord dans AllocationFamiliale (DB), fallback sur les
+        montants fédéraux minimaux si pas de configuration.
         """
-        # Montants 2024 approximatifs (varient selon les cantons)
-        MONTANTS = {
-            'GE': {'ENFANT': 311, 'FORMATION': 415, 'NAISSANCE': 2000},
-            'VD': {'ENFANT': 300, 'FORMATION': 400, 'NAISSANCE': 1500},
-            'VS': {'ENFANT': 305, 'FORMATION': 440, 'NAISSANCE': 2000},
-            'NE': {'ENFANT': 250, 'FORMATION': 320, 'NAISSANCE': 1200},
-            'JU': {'ENFANT': 275, 'FORMATION': 325, 'NAISSANCE': 1500},
-            'FR': {'ENFANT': 285, 'FORMATION': 365, 'NAISSANCE': 1500},
-            'BE': {'ENFANT': 230, 'FORMATION': 290, 'NAISSANCE': 0},
-            'ZH': {'ENFANT': 200, 'FORMATION': 250, 'NAISSANCE': 0},
-            # Montants fédéraux minimaux par défaut
-            'DEFAULT': {'ENFANT': 200, 'FORMATION': 250, 'NAISSANCE': 0},
-        }
-        montants_canton = MONTANTS.get(canton, MONTANTS['DEFAULT'])
+        from datetime import date
         type_alloc = self.type_allocation or self.determiner_type_allocation()
-        return montants_canton.get(type_alloc, 0)
+
+        # Priorité 1 : DB (AllocationFamiliale)
+        today = date.today()
+        alloc = AllocationFamiliale.objects.filter(
+            canton=canton,
+            type_allocation=type_alloc,
+            date_debut__lte=today,
+            is_active=True,
+        ).filter(
+            Q(date_fin__isnull=True) | Q(date_fin__gte=today)
+        ).order_by('-date_debut').first()
+        if alloc:
+            return alloc.montant
+
+        # Priorité 2 : DB avec canton DEFAULT
+        alloc_default = AllocationFamiliale.objects.filter(
+            canton='DEFAULT',
+            type_allocation=type_alloc,
+            date_debut__lte=today,
+            is_active=True,
+        ).filter(
+            Q(date_fin__isnull=True) | Q(date_fin__gte=today)
+        ).order_by('-date_debut').first()
+        if alloc_default:
+            return alloc_default.montant
+
+        # Fallback : montants fédéraux minimaux en dur (dernier recours)
+        FALLBACK = {'ENFANT': 200, 'FORMATION': 250, 'NAISSANCE': 0}
+        return FALLBACK.get(type_alloc, 0)
 
 
 class TauxCotisation(BaseModel):
@@ -1089,9 +1106,9 @@ class FicheSalaire(BaseModel):
     def _calculer_allocations_familiales(self):
         """Calcule les allocations familiales basées sur les enfants de l'employé"""
         total = Decimal('0')
-        canton = 'GE'
+        canton = 'DEFAULT'
         if hasattr(self.employe, 'adresse') and self.employe.adresse_id:
-            canton = getattr(self.employe.adresse, 'canton', 'GE') or 'GE'
+            canton = getattr(self.employe.adresse, 'canton', 'DEFAULT') or 'DEFAULT'
         for enfant in self.employe.enfants.all():
             if enfant.autre_parent_recoit_allocation:
                 continue
@@ -2642,3 +2659,51 @@ class LigneCotisationFiche(BaseModel):
         if not self.libelle and self.taux_cotisation_id:
             self.libelle = self.taux_cotisation.libelle
         super().save(*args, **kwargs)
+
+
+class AllocationFamiliale(BaseModel):
+    """
+    Montants d'allocations familiales par canton/région.
+
+    Remplace le dict MONTANTS hardcodé dans EnfantEmploye.get_montant_allocation_standard().
+    Permet la mise à jour via l'interface sans modifier le code.
+    """
+    TYPE_CHOICES = [
+        ('ENFANT', _("Allocation pour enfant")),
+        ('FORMATION', _("Allocation de formation")),
+        ('NAISSANCE', _("Allocation de naissance")),
+        ('ADOPTION', _("Allocation d'adoption")),
+    ]
+    canton = models.CharField(
+        max_length=5,
+        verbose_name=_("Canton / Région"),
+        help_text=_("Code canton (GE, VD, ZH…) ou 'DEFAULT' pour le minimum fédéral"),
+    )
+    type_allocation = models.CharField(
+        max_length=20,
+        choices=TYPE_CHOICES,
+        verbose_name=_("Type d'allocation"),
+    )
+    montant = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        verbose_name=_("Montant mensuel"),
+    )
+    date_debut = models.DateField(
+        verbose_name=_("Valide dès"),
+        help_text=_("Date de début de validité de ce barème"),
+    )
+    date_fin = models.DateField(
+        null=True, blank=True,
+        verbose_name=_("Valide jusqu'au"),
+        help_text=_("Laisser vide si toujours en vigueur"),
+    )
+
+    class Meta:
+        db_table = 'allocations_familiales'
+        verbose_name = _("Allocation familiale")
+        verbose_name_plural = _("Allocations familiales")
+        ordering = ['canton', 'type_allocation', '-date_debut']
+        unique_together = ['canton', 'type_allocation', 'date_debut']
+
+    def __str__(self):
+        return f"{self.canton} — {self.get_type_allocation_display()}: {self.montant}"

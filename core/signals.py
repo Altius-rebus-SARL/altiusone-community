@@ -22,8 +22,12 @@ def creer_dossier_client(sender, instance, created, **kwargs):
             proprietaire=instance.responsable
         )
 
-        # Sous-dossiers standards
-        for nom in ['Comptabilité', 'TVA', 'Salaires', 'Contrats', 'Correspondance']:
+        # Sous-dossiers standards (nom taxe dynamique selon régime du client)
+        nom_taxe = 'TVA'
+        regime = getattr(instance, 'regime_fiscal_defaut', None)
+        if regime:
+            nom_taxe = regime.nom_taxe or 'TVA'
+        for nom in ['Comptabilité', nom_taxe, 'Salaires', 'Contrats', 'Correspondance']:
             Dossier.objects.create(
                 nom=nom,
                 type_dossier='STANDARD',
@@ -49,10 +53,13 @@ def initialiser_mandat(sender, instance, created, **kwargs):
             proprietaire=instance.responsable
         )
 
-        # Sous-dossiers par module (pour classement automatique des documents générés)
+        # Sous-dossiers par module (nom taxe dynamique selon régime du mandat)
+        nom_taxe_mandat = 'TVA'
+        if hasattr(instance, 'regime_fiscal') and instance.regime_fiscal_id:
+            nom_taxe_mandat = instance.regime_fiscal.nom_taxe or 'TVA'
         for nom_dossier in [
             'Factures', 'Pièces comptables', 'Salaires',
-            'TVA', 'Fiscalité', 'Correspondance',
+            nom_taxe_mandat, 'Fiscalité', 'Correspondance',
         ]:
             Dossier.objects.create(
                 nom=nom_dossier,
