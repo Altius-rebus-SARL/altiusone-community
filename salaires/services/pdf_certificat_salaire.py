@@ -297,7 +297,7 @@ class CertificatSalairePDF:
 
         # Cadre pointillé
         y = y_start
-        h_height = 22 * mm
+        h_height = 18 * mm
         c.setStrokeColor(GRIS_LIGNE)
         c.setLineWidth(0.5)
         c.setDash(3, 3)
@@ -526,7 +526,7 @@ class CertificatSalairePDF:
         c.setFont('Helvetica-Bold', 8)
         c.drawString(AMT_X - 10 * mm, y, "\u279E")
         self._amount_field(c, y, cert.chiffre_11_net, '=')
-        y -= 3 * mm
+        y -= 5.5 * mm
         c.setFont('Helvetica', FONT_EN)
         c.setFillColor(GRIS_TEXTE)
         c.drawString(ML + 8 * mm, y,
@@ -693,13 +693,13 @@ class CertificatSalairePDF:
         c.drawString(ML + 5 * mm, y - 2.5 * mm, "Place and date")
         c.setFillColor(NOIR)
 
-        # Champ lieu/date
+        # Champ lieu/date (décalé pour ne pas chevaucher "Place and date")
         lieu = cert.lieu_signature or (
             self.adresse_client.localite if self.adresse_client else '')
         date_sig = cert.date_signature or date_class.today()
-        self._field_bg(c, ML + 5 * mm, y - 7 * mm, 50 * mm, 5 * mm)
+        self._field_bg(c, ML + 5 * mm, y - 10 * mm, 50 * mm, 5 * mm)
         c.setFont('Helvetica', FONT_FIELD)
-        c.drawString(ML + 6 * mm, y - 6 * mm,
+        c.drawString(ML + 6 * mm, y - 9 * mm,
                      f"{lieu}, {date_sig.strftime('%d.%m.%Y')}")
 
         # Certification (à droite)
