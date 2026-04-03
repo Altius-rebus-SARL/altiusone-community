@@ -1584,8 +1584,11 @@ class Facture(BaseModel):
             return False, _("Cette facture ne peut pas être relancée.")
         if self.montant_restant <= 0:
             return False, _("Aucun solde restant à relancer.")
-        if self.nombre_relances >= 4:
-            return False, _("Nombre maximum de relances atteint (mise en demeure déjà envoyée).")
+        max_relances = 4
+        if self.regime_fiscal_id:
+            max_relances = self.regime_fiscal.nombre_relances_max
+        if self.nombre_relances >= max_relances:
+            return False, _("Nombre maximum de relances atteint.")
         return True, ""
 
     def peut_annuler(self):

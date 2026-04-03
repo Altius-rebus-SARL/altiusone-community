@@ -236,6 +236,14 @@ class FactureViewSet(PDFViewSetMixin, viewsets.ModelViewSet):
             return FactureListSerializer
         return FactureDetailSerializer
 
+    def perform_destroy(self, instance):
+        """Applique les règles métier de peut_supprimer() avant suppression API."""
+        peut, raison = instance.peut_supprimer()
+        if not peut:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied(raison)
+        instance.delete()
+
     @action(detail=True, methods=["post"])
     def generer_qr(self, request, pk=None):
         facture = self.get_object()

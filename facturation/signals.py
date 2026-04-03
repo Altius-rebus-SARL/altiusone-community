@@ -6,6 +6,60 @@ from django.dispatch import receiver
 from .models import Facture, LigneFacture, Paiement, TimeTracking, ZoneGeographique
 
 
+def _get_compte_par_defaut(plan_comptable, type_compte, fallback_numero=None):
+    """
+    Résout un compte via CompteParDefaut (DB), fallback sur numéro hardcodé.
+
+    Permet de remplacer progressivement les numéros de compte en dur
+    (1100, 1020, 2200) par une configuration par plan comptable.
+    """
+    from comptabilite.models import Compte
+    try:
+        from comptabilite.models import CompteParDefaut
+        cpd = CompteParDefaut.objects.filter(
+            plan_comptable=plan_comptable,
+            type_compte=type_compte,
+            is_active=True,
+        ).select_related('compte').first()
+        if cpd:
+            return cpd.compte
+    except Exception:
+        pass
+    if fallback_numero and plan_comptable:
+        return Compte.objects.filter(
+            plan_comptable=plan_comptable,
+            numero=fallback_numero,
+        ).first()
+    return None
+
+
+def _get_code_tva_pour_taux(regime, taux):
+    """
+    Résout le code TVA (AFC) pour un taux donné via CodeTVA (DB).
+
+    Remplace le TAUX_CODE_MAP hardcodé {8.1: '302', 2.6: '312', 3.8: '342'}.
+    """
+    try:
+        from tva.models import CodeTVA
+        code = CodeTVA.objects.filter(
+            regime=regime,
+            taux_applicable__taux=taux,
+            categorie='PRESTATIONS_IMPOSABLES',
+            actif=True,
+        ).first()
+        if code:
+            return code.code
+    except Exception:
+        pass
+    # Fallback suisse si pas de config DB
+    FALLBACK = {
+        Decimal('8.1'): '302',
+        Decimal('2.6'): '312',
+        Decimal('3.8'): '342',
+    }
+    return FALLBACK.get(taux)
+
+
 @receiver(post_save, sender=LigneFacture)
 def recalculer_facture(sender, instance, **kwargs):
     """Recalcule les totaux de la facture après ajout/modif ligne"""
@@ -55,11 +109,9 @@ def comptabiliser_facture(sender, instance, **kwargs):
                 statut='VALIDE'
             )
 
-            # Compte client (débiteur)
-            compte_client = Compte.objects.filter(
-                plan_comptable=instance.mandat.plan_comptable,
-                numero='1100'  # Créances clients
-            ).first()
+            # Compte client (débiteur) — résolu via CompteParDefaut puis fallback
+            plan = instance.mandat.plan_comptable
+            compte_client = _get_compte_par_defaut(plan, 'CREANCES_CLIENTS', '1100')
 
             # Résolution dynamique du compte TVA via config_tva
             compte_tva = None
@@ -82,10 +134,7 @@ def comptabiliser_facture(sender, instance, **kwargs):
                 pass
 
             if not compte_tva:
-                compte_tva = Compte.objects.filter(
-                    plan_comptable=instance.mandat.plan_comptable,
-                    numero='2200'  # TVA due (fallback)
-                ).first()
+                compte_tva = _get_compte_par_defaut(plan, 'TVA_DUE', '2200')
 
             if compte_client:
                 # Débit: Créance client (TTC)
@@ -107,17 +156,19 @@ def comptabiliser_facture(sender, instance, **kwargs):
                 )
 
                 # Crédits: Ventes par ligne et TVA
-                plan = instance.mandat.plan_comptable
                 ligne_num = 2
                 for ligne in instance.lignes.all():
                     # Résolution : ligne.compte_produit > prestation.compte_produit > fallback 70*
                     compte_produit = getattr(ligne, 'compte_produit', None)
                     if not compte_produit and ligne.prestation:
                         compte_produit = ligne.prestation.compte_produit
+                    if not compte_produit:
+                        compte_produit = _get_compte_par_defaut(plan, 'PRODUITS', None)
                     if not compte_produit and plan:
-                        compte_produit = Compte.objects.filter(
+                        from comptabilite.models import Compte as _Compte
+                        compte_produit = _Compte.objects.filter(
                             plan_comptable=plan,
-                            numero__startswith='70'
+                            numero__startswith='70',
                         ).first()
 
                     if compte_produit:
@@ -148,17 +199,13 @@ def comptabiliser_facture(sender, instance, **kwargs):
                         tva_par_taux[taux]['ht'] += ligne.montant_ht
                         tva_par_taux[taux]['tva'] += ligne.montant_tva
 
-                    # Mapping taux -> code AFC (302=normal 8.1%, 312=réduit 2.6%, 342=spécial 3.8%)
-                    TAUX_CODE_MAP = {
-                        Decimal('8.1'): '302',
-                        Decimal('2.6'): '312',
-                        Decimal('3.8'): '342',
-                    }
+                    # Résolution code TVA par taux via DB (CodeTVA) puis fallback
+                    regime = getattr(instance, 'regime_fiscal', None)
 
                     for taux, montants in tva_par_taux.items():
                         if montants['tva'] <= 0:
                             continue
-                        code_tva_taux = TAUX_CODE_MAP.get(taux, code_tva_ventes)
+                        code_tva_taux = _get_code_tva_pour_taux(regime, taux) or code_tva_ventes
 
                         EcritureComptable.objects.create(
                             mandat=instance.mandat,
@@ -196,15 +243,9 @@ def comptabiliser_paiement(sender, instance, created, **kwargs):
         if journal:
             numero_piece = journal.get_next_numero()
 
-            compte_banque = Compte.objects.filter(
-                plan_comptable=instance.facture.mandat.plan_comptable,
-                numero='1020'  # Compte banque
-            ).first()
-
-            compte_client = Compte.objects.filter(
-                plan_comptable=instance.facture.mandat.plan_comptable,
-                numero='1100'  # Créances clients
-            ).first()
+            plan = instance.facture.mandat.plan_comptable
+            compte_banque = _get_compte_par_defaut(plan, 'BANQUE', '1020')
+            compte_client = _get_compte_par_defaut(plan, 'CREANCES_CLIENTS', '1100')
 
             if compte_banque and compte_client:
                 # Débit: Banque
