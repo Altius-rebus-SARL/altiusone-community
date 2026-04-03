@@ -297,7 +297,7 @@ class CertificatSalairePDF:
 
         # Cadre pointillé
         y = y_start
-        h_height = 28 * mm
+        h_height = 22 * mm
         c.setStrokeColor(GRIS_LIGNE)
         c.setLineWidth(0.5)
         c.setDash(3, 3)
@@ -348,16 +348,14 @@ class CertificatSalairePDF:
 
         c.setFont('Helvetica', FONT_LABEL)
         c.setFillColor(GRIS_TEXTE)
-        c.drawRightString(PW - MR, y + 3 * mm,
-                          "Nur ganze Frankenbeträge")
+        c.drawRightString(PW - MR, y + 2.5 * mm,
+                          "Nur ganze Frankenbeträge – "
+                          "Que des montants entiers")
         c.drawRightString(PW - MR, y,
-                          "Que des montants entiers – Solo importi interi")
-        c.setFont('Helvetica', FONT_EN)
-        c.drawRightString(PW - MR, y - 2.5 * mm,
-                          "Only whole amounts")
+                          "Solo importi interi – Only whole amounts")
         c.setFillColor(NOIR)
 
-        y -= 5 * mm
+        y -= 3 * mm
 
         def _line(num, label_de, label_fr='', label_en='', value=None,
                   sign='', bold=False, indent=0, art_field=False,
@@ -559,7 +557,7 @@ class CertificatSalairePDF:
         c.setFillColor(GRIS_TEXTE)
         c.drawString(ML + 8 * mm, y - 2.5 * mm,
                      "Expenses reimbursement")
-        y -= 3 * mm
+        y -= 5.5 * mm
         c.setFont('Helvetica', FONT_EN)
         c.drawString(ML + 8 * mm, y,
                      "Nicht im Bruttolohn (Ziffer 8) enthalten – "
@@ -733,23 +731,26 @@ class CertificatSalairePDF:
         # Ligne de signature
         y -= 5 * mm
         self._hline(c, ML + 5 * mm, ML + 60 * mm, y, NOIR, 0.5)
-        c.setFont('Helvetica', FONT_LABEL)
-        c.setFillColor(GRIS_TEXTE)
-        c.drawString(ML + 5 * mm, y - 3 * mm,
-                     "Unterschrift – Signature – Firma")
-        c.setFillColor(NOIR)
 
         if cert.nom_signataire:
             c.setFont('Helvetica', 7)
+            c.setFillColor(NOIR)
             c.drawString(ML + 5 * mm, y + 2 * mm, cert.nom_signataire)
+
+        c.setFont('Helvetica', FONT_LABEL)
+        c.setFillColor(GRIS_TEXTE)
+        c.drawString(ML + 5 * mm, y - 3.5 * mm,
+                     "Unterschrift – Signature – Firma")
+
+        # Form. 11 à droite de la signature (pas en dessous)
+        c.drawRightString(PW - MR, y - 3.5 * mm,
+                          "Form. 11 dfe 01.21")
+        c.setFillColor(NOIR)
 
         return y
 
     def _draw_footer(self, c):
-        """Pied de page : numéro du formulaire."""
-        c.setFont('Helvetica', FONT_LABEL)
-        c.setFillColor(GRIS_TEXTE)
-        c.drawString(ML, 6 * mm, "Form. 11 dfe 01.21")
+        """Pied de page : texte vertical gauche uniquement."""
 
         # Texte vertical gauche (orientation 90°)
         c.saveState()
