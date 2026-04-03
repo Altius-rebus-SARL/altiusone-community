@@ -644,18 +644,6 @@ def _search_semantic(
 # =========================================================================
 
 def _fmt_chf(montant) -> str:
-    """Formate un montant au format suisse: 1'234.56 CHF"""
-    if montant is None:
-        return "0.00 CHF"
-    try:
-        val = float(montant)
-        # Separateur de milliers avec apostrophe
-        if val < 0:
-            return f"-{_fmt_chf(-val)}"
-        int_part = int(val)
-        dec_part = f"{val:.2f}".split(".")[1]
-        # Format avec apostrophes
-        s = f"{int_part:,}".replace(",", "'")
-        return f"{s}.{dec_part} CHF"
-    except (ValueError, TypeError):
-        return f"{montant} CHF"
+    """Formate un montant avec code devise (délègue à core.utils)."""
+    from core.utils import format_montant
+    return format_montant(montant, avec_code=True)

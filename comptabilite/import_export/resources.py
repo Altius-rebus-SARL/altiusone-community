@@ -256,9 +256,14 @@ class EcritureComptableResource(BaseImportExportResource):
         if not row.get('numero_ligne'):
             row['numero_ligne'] = 1
 
-        # Définir la devise par défaut
+        # Définir la devise par défaut (depuis la devise base ou fallback)
         if not row.get('devise'):
-            row['devise'] = 'CHF'
+            try:
+                from core.models import Devise
+                base = Devise.objects.filter(est_devise_base=True).first()
+                row['devise'] = base.code if base else 'CHF'
+            except Exception:
+                row['devise'] = 'CHF'
 
         # Convertir les montants vides en 0
         if not row.get('montant_debit'):

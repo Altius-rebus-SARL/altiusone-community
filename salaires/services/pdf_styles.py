@@ -124,25 +124,23 @@ def get_logo_for_client(client, width=3 * cm, height=None):
 
 
 # ==============================================================================
-# Formatage suisse
+# Formatage montants (délègue à core.utils pour le multi-régime)
 # ==============================================================================
 
-def format_montant_suisse(montant):
-    """Formate un montant au format suisse: 1'234.56"""
-    if montant is None:
+def format_montant_suisse(montant, devise=None):
+    """Formate un montant selon la devise (fallback format suisse)."""
+    from core.utils import format_montant
+    if montant is None or montant == 0:
         return ""
-    val = Decimal(str(montant))
-    if val == 0:
-        return ""
-    return f"{val:,.2f}".replace(',', "'")
+    return format_montant(montant, devise=devise)
 
 
-def format_montant_chf(montant):
-    """Formate un montant avec prefixe CHF: CHF 1'234.56"""
-    formatted = format_montant_suisse(montant)
-    if not formatted:
+def format_montant_chf(montant, devise=None):
+    """Formate un montant avec code devise."""
+    from core.utils import format_montant
+    if montant is None or montant == 0:
         return ""
-    return f"CHF {formatted}"
+    return format_montant(montant, devise=devise, avec_code=True)
 
 
 # ==============================================================================
