@@ -61,8 +61,24 @@
                         </a>
                     </div>
                     <div class="col-auto ms-auto">
-                        <a href="{% url 'salaires:certificat-generer-masse' %}" class="btn btn-sm btn-success">
-                            <i class="ph ph-plus-circle me-1"></i>{% trans "Génération en masse" %}
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-sm btn-primary dropdown-toggle" data-bs-toggle="dropdown">
+                                <i class="ph ph-plus-circle me-1"></i>{% trans "Nouveau certificat" %}
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                {% for emp in employes_actifs %}
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'salaires:generer-certificat' emp.pk %}">
+                                        {{ emp.nom }} {{ emp.prenom }}
+                                    </a>
+                                </li>
+                                {% empty %}
+                                <li><span class="dropdown-item text-muted">{% trans "Aucun employé actif" %}</span></li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        <a href="{% url 'salaires:certificat-generer-masse' %}" class="btn btn-sm btn-success ms-2">
+                            <i class="ph ph-users-three me-1"></i>{% trans "Génération en masse" %}
                         </a>
                     </div>
                 </form>
