@@ -4,7 +4,7 @@ from django.utils.translation import gettext_lazy as _
 from decimal import Decimal
 from datetime import datetime
 
-from .models import Employe, FicheSalaire, CertificatSalaire, CertificatTravail
+from .models import Employe, FicheSalaire, CertificatSalaire, CertificatTravail, DeclarationCotisations
 from core.models import Mandat, Adresse, ParametreMetier
 
 
@@ -623,3 +623,57 @@ class CertificatTravailForm(forms.ModelForm):
             )
 
         return cleaned_data
+
+
+class DeclarationCotisationsForm(forms.ModelForm):
+    """Formulaire pour une déclaration de cotisations sociales."""
+
+    auto_calculer = forms.BooleanField(
+        required=False,
+        initial=True,
+        label=_("Calculer automatiquement"),
+        help_text=_("Agrège les données des fiches de salaire validées pour la période"),
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input"})
+    )
+
+    class Meta:
+        model = DeclarationCotisations
+        fields = [
+            "mandat", "organisme", "regime_fiscal", "devise",
+            "periode_type", "annee", "mois", "trimestre",
+            "nom_caisse", "numero_affilie", "numero_contrat",
+            "numero_reference", "numero_bvr", "iban_caisse",
+            "remarques",
+        ]
+        widgets = {
+            "mandat": forms.Select(attrs={"class": "form-control select2"}),
+            "organisme": forms.Select(attrs={"class": "form-control select2"}),
+            "regime_fiscal": forms.Select(attrs={"class": "form-control select2"}),
+            "devise": forms.Select(attrs={"class": "form-control select2"}),
+            "periode_type": forms.Select(attrs={"class": "form-control", "id": "periode_type"}),
+            "annee": forms.NumberInput(attrs={"class": "form-control", "min": "2020", "max": "2099"}),
+            "mois": forms.Select(attrs={"class": "form-control", "id": "mois"}),
+            "trimestre": forms.Select(attrs={"class": "form-control", "id": "trimestre"}),
+            "nom_caisse": forms.TextInput(attrs={"class": "form-control", "placeholder": _("Ex: Caisse AVS du canton de Vaud")}),
+            "numero_affilie": forms.TextInput(attrs={"class": "form-control", "placeholder": _("Ex: 123.456.789")}),
+            "numero_contrat": forms.TextInput(attrs={"class": "form-control"}),
+            "numero_reference": forms.TextInput(attrs={"class": "form-control"}),
+            "numero_bvr": forms.TextInput(attrs={"class": "form-control"}),
+            "iban_caisse": forms.TextInput(attrs={"class": "form-control", "placeholder": _("CH00 0000 0000 0000 0000 0")}),
+            "remarques": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        optional = [
+            "regime_fiscal", "devise", "mois", "trimestre",
+            "nom_caisse", "numero_affilie", "numero_contrat",
+            "numero_reference", "numero_bvr", "iban_caisse", "remarques",
+        ]
+        for f in optional:
+            if f in self.fields:
+                self.fields[f].required = False
+
+        # Année par défaut
+        if not self.instance.pk:
+            self.fields['annee'].initial = datetime.now().year
