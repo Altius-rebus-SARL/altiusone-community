@@ -60,25 +60,20 @@
                             <i class="ph ph-x"></i>
                         </a>
                     </div>
-                    <div class="col-auto ms-auto">
-                        <div class="btn-group">
-                            <button type="button" class="btn btn-sm btn-primary dropdown-toggle" data-bs-toggle="dropdown">
-                                <i class="ph ph-plus-circle me-1"></i>{% trans "Nouveau certificat" %}
-                            </button>
-                            <ul class="dropdown-menu dropdown-menu-end">
-                                {% for emp in employes_actifs %}
-                                <li>
-                                    <a class="dropdown-item" href="{% url 'salaires:generer-certificat' emp.pk %}">
-                                        {{ emp.nom }} {{ emp.prenom }}
-                                    </a>
-                                </li>
-                                {% empty %}
-                                <li><span class="dropdown-item text-muted">{% trans "Aucun employé actif" %}</span></li>
-                                {% endfor %}
-                            </ul>
-                        </div>
-                        <a href="{% url 'salaires:certificat-generer-masse' %}" class="btn btn-sm btn-success ms-2">
-                            <i class="ph ph-users-three me-1"></i>{% trans "Génération en masse" %}
+                    <div class="col-auto ms-auto d-flex align-items-center gap-2">
+                        <select id="select-employe-certificat" class="form-select form-select-sm select2" style="min-width:250px;">
+                            <option value="">{% trans "Sélectionner un employé..." %}</option>
+                            {% for emp in employes_actifs %}
+                            <option value="{% url 'salaires:generer-certificat' emp.pk %}">
+                                {{ emp.nom }} {{ emp.prenom }}{% if emp.mandat.client %} — {{ emp.mandat.client.raison_sociale }}{% else %} (interne){% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="btn btn-sm btn-primary" id="btn-nouveau-certificat" disabled>
+                            <i class="ph ph-plus-circle me-1"></i>{% trans "Générer" %}
+                        </button>
+                        <a href="{% url 'salaires:certificat-generer-masse' %}" class="btn btn-sm btn-success">
+                            <i class="ph ph-users-three me-1"></i>{% trans "En masse" %}
                         </a>
                     </div>
                 </form>
@@ -228,4 +223,19 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(function() {
+    $('#select-employe-certificat').select2({placeholder: "{% trans 'Rechercher un employé...' %}", allowClear: true});
+    $('#select-employe-certificat').on('change', function() {
+        $('#btn-nouveau-certificat').prop('disabled', !this.value);
+    });
+    $('#btn-nouveau-certificat').on('click', function() {
+        var url = $('#select-employe-certificat').val();
+        if (url) window.location.href = url;
+    });
+});
+</script>
 {% endblock %}

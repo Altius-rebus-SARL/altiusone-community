@@ -293,7 +293,7 @@ class CertificatSalairePDF:
         """Chiffres 1-15 : revenus, déductions, frais."""
         cert = self.cert
         y = y_start
-        lh = 5.5 * mm  # hauteur de ligne standard
+        lh = 5 * mm  # hauteur de ligne standard
 
         c.setFont('Helvetica', 6)
         c.setFillColor(GRIS_TEXTE)
@@ -310,21 +310,22 @@ class CertificatSalairePDF:
             font = 'Helvetica-Bold' if bold else 'Helvetica'
 
             # Numéro
-            c.setFont(font, 7)
+            c.setFont(font, 6)
             c.setFillColor(NOIR)
             c.drawString(x, y, num)
 
-            # Labels trilingues
-            label_x = x + 8 * mm + indent * mm
-            c.setFont(font, 6.5)
-            label_text = label_de
+            # Labels : DE/FR sur la ligne, EN en dessous (plus petit)
+            label_x = x + 7 * mm + indent * mm
+            c.setFont(font, 5.5)
+            label_defr = label_de
             if label_fr:
-                label_text += f" – {label_fr}"
+                label_defr += f" – {label_fr}"
+            c.drawString(label_x, y, label_defr[:100])
             if label_en:
-                label_text += f" – {label_en}"
-            # Tronquer si trop long
-            max_w = AMT_X - label_x - 5 * mm
-            c.drawString(label_x, y, label_text[:120])
+                c.setFont('Helvetica', 4.5)
+                c.setFillColor(GRIS_TEXTE)
+                c.drawString(label_x, y - 2.5 * mm, label_en[:80])
+                c.setFillColor(NOIR)
 
             # Champ "Art – Genre – Kind" si demandé
             if art_field:

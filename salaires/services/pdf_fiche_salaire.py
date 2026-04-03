@@ -483,13 +483,13 @@ class FicheSalairePDF:
             bytes: Contenu du PDF
         """
         buffer = BytesIO()
-        logo_source = self.client.get_logo() if hasattr(self.client, 'get_logo') else None
+        # Pas de logo dans le header/footer — le logo est dans le contenu (_build_header)
         doc = create_salaire_doc(
             buffer,
             title="Fiche de salaire",
             confidential=True,
             margins={'top': 18 * mm, 'bottom': 18 * mm, 'left': 15 * mm, 'right': 15 * mm},
-            logo_source=logo_source,
+            logo_source=None,
         )
 
         elements = []
