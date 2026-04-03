@@ -12,6 +12,8 @@ from .viewset import (
     ZoneGeographiqueViewSet,
     TarifMandatViewSet,
     CategorieTempsViewSet,
+    NiveauRelanceViewSet,
+    MentionLegaleViewSet,
 )
 
 app_name = "facturation"
@@ -27,6 +29,8 @@ router.register(r"relances", RelanceViewSet, basename="relance")
 router.register(r"types-prestations", TypePrestationViewSet, basename="type-prestation")
 router.register(r"zones-geographiques", ZoneGeographiqueViewSet, basename="zone-geographique")
 router.register(r"tarifs-mandats", TarifMandatViewSet, basename="tarif-mandat")
+router.register(r"niveaux-relance", NiveauRelanceViewSet, basename="niveau-relance")
+router.register(r"mentions-legales", MentionLegaleViewSet, basename="mention-legale")
 
 urlpatterns = [
     path("", include(router.urls)),

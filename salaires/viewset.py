@@ -459,6 +459,23 @@ class CertificatSalaireViewSet(PDFViewSetMixin, viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    @action(detail=True, methods=["get"])
+    def generer_xml(self, request, pk=None):
+        """Exporter le certificat au format XML Swissdec ELM v5.
+
+        Retourne un fichier XML conforme au standard Swissdec pour
+        la transmission électronique du Lohnausweis.
+        """
+        certificat = self.get_object()
+        from salaires.services.xml_certificat_salaire import CertificatSalaireXML
+        service = CertificatSalaireXML(certificat)
+        xml_bytes = service.generer(pretty=True)
+        filename = f"lohnausweis_{certificat.employe.matricule}_{certificat.annee}.xml"
+        from django.http import HttpResponse
+        response = HttpResponse(xml_bytes, content_type='application/xml')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+
     @action(detail=True, methods=["post"])
     def valider(self, request, pk=None):
         """Marquer le certificat comme vérifié.
