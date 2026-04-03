@@ -103,12 +103,12 @@ class CertificatSalairePDF:
 
     def _amount_field(self, c, y, value, sign=''):
         """Dessine un champ montant aligné à droite avec fond rose."""
-        self._field_bg(c, AMT_X, y - 1 * mm, AMT_W, 5 * mm)
+        self._field_bg(c, AMT_X, y - 1.5 * mm, AMT_W, 4.5 * mm)
         c.setFillColor(NOIR)
-        c.setFont('Helvetica', 8)
+        c.setFont('Helvetica', 7)
         c.drawRightString(AMT_X + AMT_W - 1 * mm, y, self._fmt(value))
         if sign:
-            c.setFont('Helvetica', 7)
+            c.setFont('Helvetica', 6)
             c.drawString(SIGN_X, y, sign)
 
     # ── Sections du formulaire ─────────────────────────────────────
@@ -124,21 +124,21 @@ class CertificatSalairePDF:
         c.setFillColor(GRIS_CLAIR)
         c.rect(ML + 6 * mm, y - 5.5 * mm, 8 * mm, 7 * mm, fill=1, stroke=0)
         c.setFillColor(NOIR)
-        c.setFont('Helvetica-Bold', 12)
-        c.drawString(ML + 16 * mm, y - 4 * mm,
+        c.setFont('Helvetica-Bold', 10)
+        c.drawString(ML + 16 * mm, y - 3 * mm,
                      "Lohnausweis – Certificat de salaire – Salary certificate")
 
         # B. Rentenbescheinigung
-        y -= 10 * mm
+        y -= 9 * mm
         self._checkbox(c, ML, y - 4 * mm, checked=is_rente)
         c.setFillColor(GRIS_CLAIR)
         c.rect(ML + 6 * mm, y - 5.5 * mm, 8 * mm, 7 * mm, fill=1, stroke=0)
         c.setFillColor(NOIR)
-        c.setFont('Helvetica-Bold', 11)
-        c.drawString(ML + 16 * mm, y - 4 * mm,
+        c.setFont('Helvetica-Bold', 9)
+        c.drawString(ML + 16 * mm, y - 3 * mm,
                      "Rentenbescheinigung – Attestation de rentes – Pension statement")
 
-        return y - 8 * mm
+        return y - 7 * mm
 
     def _draw_section_cdefg(self, c, y_start):
         """Sections C-G : identité, période, checkboxes F/G."""
@@ -180,12 +180,12 @@ class CertificatSalairePDF:
         c.setFont('Helvetica-Bold', 7)
         c.setFillColor(NOIR)
         c.drawString(f_x + 5 * mm, y, "F")
-        c.setFont('Helvetica', 5.5)
+        c.setFont('Helvetica', 5)
         c.setFillColor(GRIS_TEXTE)
         f_label_x = f_x + 9 * mm
-        c.drawString(f_label_x, y + 1 * mm, "Unentgeltliche Beförderung zwischen Wohn- und Arbeitsort")
-        c.drawString(f_label_x, y - 2 * mm, "Transport gratuit entre le domicile et le lieu de travail")
-        c.drawString(f_label_x, y - 5 * mm, "Free transport between living place and work place")
+        c.drawString(f_label_x, y + 1 * mm, "Unentgeltliche Beförderung Wohn-/Arbeitsort")
+        c.drawString(f_label_x, y - 2 * mm, "Transport gratuit domicile – lieu de travail")
+        c.drawString(f_label_x, y - 5 * mm, "Free transport home – work place")
 
         # ── D : Année + E : Période ──
         y -= 12 * mm
@@ -232,9 +232,9 @@ class CertificatSalairePDF:
         c.drawString(f_x + 5 * mm, y, "G")
         c.setFont('Helvetica', 5.5)
         c.setFillColor(GRIS_TEXTE)
-        c.drawString(f_label_x, y + 1 * mm, "Kantinenverpflegung/Lunch-Checks")
-        c.drawString(f_label_x, y - 2 * mm, "Repas à la cantine/chèques-repas")
-        c.drawString(f_label_x, y - 5 * mm, "Canteen meals/lunch checks")
+        c.drawString(f_label_x, y + 1 * mm, "Kantinenverpflegung / Lunch-Checks")
+        c.drawString(f_label_x, y - 2 * mm, "Repas à la cantine / chèques-repas")
+        c.drawString(f_label_x, y - 5 * mm, "Canteen meals / lunch checks")
 
         return y - 10 * mm
 

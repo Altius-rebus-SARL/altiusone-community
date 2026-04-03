@@ -600,7 +600,8 @@ class CertificatSalaireUpdateView(LoginRequiredMixin, BusinessPermissionMixin, U
 
     def get_success_url(self):
         messages.success(self.request, _("Certificat mis à jour avec succès"))
-        return reverse_lazy("salaires:certificat-detail", kwargs={"pk": self.object.pk})
+        # Rester dans le studio après sauvegarde pour voir le résultat
+        return reverse_lazy("salaires:certificat-studio", kwargs={"pk": self.object.pk})
 
 
 @login_required
@@ -1337,16 +1338,16 @@ def fiche_studio_preview(request):
 @login_required
 @permission_required_business('salaires.view_salaires')
 def certificat_studio(request, pk):
-    """Vue Studio PDF pour un certificat de salaire."""
-    certificat = get_object_or_404(CertificatSalaire, pk=pk)
-    blocs = [
-        ('logo', _('Logo')),
-        ('remarques', _('Remarques')),
-        ('signature', _('Signature')),
-    ]
-    ctx = _get_studio_context('CERTIFICAT_SALAIRE', certificat.employe.mandat, certificat.pk,
-                              'certificat-studio-preview', blocs)
-    ctx['certificat'] = certificat
+    """Vue Studio unifiée : modification des champs + preview PDF en temps réel."""
+    certificat = get_object_or_404(
+        CertificatSalaire.objects.select_related('employe__mandat__client', 'employe__adresse'),
+        pk=pk,
+    )
+    form = CertificatSalaireForm(instance=certificat)
+    ctx = {
+        'certificat': certificat,
+        'form': form,
+    }
     return render(request, 'salaires/certificat_studio.html', ctx)
 
 
