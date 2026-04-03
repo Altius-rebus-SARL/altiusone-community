@@ -39,7 +39,7 @@ from reportlab.pdfgen import canvas as pdf_canvas
 ROSE_CLAIR = HexColor('#FCE8E0')  # Fond champs saisissables
 GRIS_CLAIR = HexColor('#F2F2F2')  # Fond sections
 GRIS_LIGNE = HexColor('#CCCCCC')  # Lignes de séparation
-GRIS_TEXTE = HexColor('#666666')  # Texte secondaire
+GRIS_TEXTE = HexColor('#555555')  # Texte secondaire (labels)
 NOIR = black
 BLANC = white
 

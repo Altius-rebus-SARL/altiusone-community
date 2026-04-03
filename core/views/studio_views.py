@@ -64,7 +64,7 @@ def modele_pdf_save(request):
         "type_document": "FACTURE",
         "config": {
             "instance_id": "<uuid>",
-            "couleur_primaire": "#088178",
+            "couleur_primaire": "#02312e",
             "couleur_accent": "#2c3e50",
             "couleur_texte": "#333333",
             "police": "Helvetica",
@@ -114,7 +114,7 @@ def modele_pdf_save(request):
     type_label = modele.get_type_document_display() if modele.pk else dict(ModeleDocumentPDF.TypeDocument.choices).get(type_document, type_document)
     mandat_label = str(mandat) if mandat else 'Système'
     modele.nom = f"{type_label} - {mandat_label}"
-    modele.couleur_primaire = config.get('couleur_primaire', '#088178')
+    modele.couleur_primaire = config.get('couleur_primaire', '#02312e')
     modele.couleur_accent = config.get('couleur_accent', '#2c3e50')
     modele.couleur_texte = config.get('couleur_texte', '#333333')
     modele.police = config.get('police', 'Helvetica')

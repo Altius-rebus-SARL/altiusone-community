@@ -1330,7 +1330,7 @@ def facture_studio(request, pk):
 
     # Convertir les HexColor en strings pour le template
     config_json = {
-        'couleur_primaire': modele.couleur_primaire if modele else '#088178',
+        'couleur_primaire': modele.couleur_primaire if modele else '#02312e',
         'couleur_accent': modele.couleur_accent if modele else '#2c3e50',
         'couleur_texte': modele.couleur_texte if modele else '#333333',
         'police': modele.police if modele else 'Helvetica',
