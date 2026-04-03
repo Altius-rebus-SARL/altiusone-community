@@ -175,6 +175,18 @@ python manage.py init_devises || echo "Warning: Currency init failed, continuing
 echo "Init default social contribution rates (Swiss 2026)"
 python manage.py init_taux_cotisations || echo "Warning: Social contribution rates init failed, continuing..."
 
+echo "Init TVA regimes (CH, ML, SN, CI, BF, NE, CM)"
+python manage.py init_tva_regimes || echo "Warning: TVA regimes init failed, continuing..."
+
+echo "Init facturation regimes (relances, mentions legales, identifiants)"
+python manage.py init_facturation_regimes || echo "Warning: Facturation regimes init failed, continuing..."
+
+echo "Init OHADA social contributions (ML, SN, CI, BF, NE, CM)"
+python manage.py init_cotisations_ohada || echo "Warning: OHADA contributions init failed, continuing..."
+
+echo "Init family allowances (Swiss cantons)"
+python manage.py init_allocations_familiales || echo "Warning: Family allowances init failed, continuing..."
+
 echo "Init support articles and categories"
 python manage.py init_support || echo "Warning: Support init failed, continuing..."
 
