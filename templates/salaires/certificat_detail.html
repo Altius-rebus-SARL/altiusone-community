@@ -114,6 +114,10 @@
                 <a href="{% url 'salaires:certificat-pdf' certificat.pk %}" class="btn btn-primary">
                     <i class="ph ph-file-pdf me-2"></i>{% trans "PDF" %}
                 </a>
+                <a href="{% url 'salaires:certificat-xml' certificat.pk %}" class="btn btn-outline-dark"
+                   title="{% trans 'Export XML Swissdec ELM' %}">
+                    <i class="ph ph-file-code me-2"></i>{% trans "XML" %}
+                </a>
             </div>
         </div>
     </div>

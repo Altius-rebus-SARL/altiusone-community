@@ -27,6 +27,7 @@
     }
     .studio-sidebar .form-check-label { font-size: 0.8rem; }
     .studio-sidebar .mb-3 { margin-bottom: 0.5rem !important; }
+    .studio-sidebar textarea.form-control { font-size: 0.8rem; }
     .studio-toolbar {
         background: #fff; border-bottom: 1px solid #dee2e6;
         padding: 0.5rem 0.75rem; display: flex; justify-content: space-between; align-items: center;
@@ -54,7 +55,11 @@
         {% endif %}
     </div>
     <div class="d-flex gap-2">
-        <button type="button" class="btn btn-sm btn-outline-info" id="btn-refresh-preview">
+        <a href="{% url 'salaires:certificat-recalculer' certificat.pk %}" class="btn btn-sm btn-outline-info"
+           title="{% trans 'Recalculer depuis les fiches de salaire' %}">
+            <i class="ph ph-calculator me-1"></i>{% trans "Recalculer" %}
+        </a>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-refresh-preview">
             <i class="ph ph-arrows-clockwise me-1"></i>{% trans "Rafraîchir" %}
         </button>
         <button type="submit" class="btn btn-sm btn-primary" form="certificat-form">
@@ -64,36 +69,48 @@
 </div>
 
 <div class="studio-container">
-    <!-- SIDEBAR : Champs du formulaire -->
+    <!-- SIDEBAR : Tous les champs du formulaire -->
     <div class="studio-sidebar">
         <form method="post" id="certificat-form" action="{% url 'salaires:certificat-edit' certificat.pk %}">
             {% csrf_token %}
 
-            <!-- Identification -->
+            <!-- Identification & Période -->
             <div class="card">
                 <div class="card-header" data-bs-toggle="collapse" data-bs-target="#sec-ident">
-                    <i class="ph ph-identification-card me-1"></i>{% trans "Identification" %}
+                    <i class="ph ph-identification-card me-1"></i>{% trans "Identification & Période" %}
                     <i class="ph ph-caret-down float-end"></i>
                 </div>
                 <div id="sec-ident" class="collapse show">
                     <div class="card-body">
                         <div class="row">
-                            <div class="col-6 mb-3">
+                            <div class="col-4 mb-3">
                                 <label class="form-label">{% trans "Année" %}</label>
                                 {{ form.annee }}
                             </div>
+                            <div class="col-4 mb-3">
+                                <label class="form-label">{% trans "Du" %}</label>
+                                {{ form.date_debut }}
+                            </div>
+                            <div class="col-4 mb-3">
+                                <label class="form-label">{% trans "Au" %}</label>
+                                {{ form.date_fin }}
+                            </div>
+                        </div>
+                        <div class="row">
                             <div class="col-6 mb-3">
                                 <label class="form-label">{% trans "Taux %" %}</label>
                                 {{ form.taux_occupation }}
                             </div>
                             <div class="col-6 mb-3">
-                                <label class="form-label">{% trans "Du" %}</label>
-                                {{ form.date_debut }}
+                                <label class="form-label">{% trans "Type occupation" %}</label>
+                                {{ form.type_occupation }}
                             </div>
-                            <div class="col-6 mb-3">
-                                <label class="form-label">{% trans "Au" %}</label>
-                                {{ form.date_fin }}
-                            </div>
+                        </div>
+                        <!-- Info employé (lecture seule) -->
+                        <div class="small text-muted border-top pt-2 mt-1">
+                            <strong>{{ certificat.employe.prenom }} {{ certificat.employe.nom }}</strong>
+                            <br>{% trans "AVS" %}: {{ certificat.employe.avs_number|default:"-" }}
+                            <br>{{ certificat.employe.mandat.client.raison_sociale }}
                         </div>
                     </div>
                 </div>
@@ -102,24 +119,26 @@
             <!-- F-G Occupation & Transport -->
             <div class="card">
                 <div class="card-header" data-bs-toggle="collapse" data-bs-target="#sec-fg">
-                    <i class="ph ph-car me-1"></i>F-G. {% trans "Occupation" %}
+                    <i class="ph ph-car me-1"></i>F-G. {% trans "Transport & Repas" %}
                     <i class="ph ph-caret-down float-end"></i>
                 </div>
                 <div id="sec-fg" class="collapse">
                     <div class="card-body">
                         <div class="form-check mb-2">
                             {{ form.transport_gratuit_fourni }}
-                            <label class="form-check-label">{% trans "F. Transport gratuit" %}</label>
+                            <label class="form-check-label">F. {% trans "Transport gratuit dom.-travail" %}</label>
+                        </div>
+                        <div class="form-check mb-2">
+                            {{ form.transport_public_disponible }}
+                            <label class="form-check-label">{% trans "Transport public disponible" %}</label>
                         </div>
                         <div class="form-check mb-2">
                             {{ form.repas_midi_gratuit }}
-                            <label class="form-check-label">{% trans "G. Cantine / Lunch-checks" %}</label>
+                            <label class="form-check-label">G. {% trans "Cantine / Lunch-checks" %}</label>
                         </div>
-                        <div class="row">
-                            <div class="col-6 mb-3">
-                                <label class="form-label">{% trans "Type occupation" %}</label>
-                                {{ form.type_occupation }}
-                            </div>
+                        <div class="form-check mb-2">
+                            {{ form.repas_soir_gratuit }}
+                            <label class="form-check-label">{% trans "Repas du soir gratuit" %}</label>
                         </div>
                     </div>
                 </div>
@@ -137,6 +156,8 @@
                             <label class="form-label">1. {% trans "Salaire" %}</label>
                             {{ form.chiffre_1_salaire }}
                         </div>
+                        <hr class="my-2">
+                        <small class="text-muted d-block mb-1">2. {% trans "Prestations en nature" %}</small>
                         <div class="mb-3">
                             <label class="form-label">2.1 {% trans "Repas / Logement" %}</label>
                             {{ form.chiffre_2_1_repas }}
@@ -145,13 +166,31 @@
                             <label class="form-label">2.2 {% trans "Véhicule de service" %}</label>
                             {{ form.chiffre_2_2_voiture }}
                         </div>
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <div class="form-check">
+                                    {{ form.voiture_disponible }}
+                                    <label class="form-check-label">{% trans "Voiture disponible" %}</label>
+                                </div>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label class="form-label">{% trans "Prix achat" %}</label>
+                                {{ form.voiture_prix_achat }}
+                            </div>
+                        </div>
                         <div class="mb-3">
                             <label class="form-label">2.3 {% trans "Autres prestations" %}</label>
                             {{ form.chiffre_2_3_autres }}
                         </div>
                         <div class="mb-3">
+                            <label class="form-label">{% trans "Détail (2.3)" %}</label>
+                            {{ form.autres_prestations_nature_detail }}
+                        </div>
+                        <hr class="my-2">
+                        <div class="mb-3">
                             <label class="form-label">3. {% trans "Prestations irrégulières" %}</label>
                             {{ form.chiffre_3_irregulier }}
+                            <small class="text-muted">{% trans "Bonus, gratifications, 13e salaire" %}</small>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">4. {% trans "Prestations en capital" %}</label>
@@ -162,15 +201,24 @@
                             {{ form.chiffre_5_participations }}
                         </div>
                         <div class="mb-3">
+                            <label class="form-label">{% trans "Détail participations (5)" %}</label>
+                            {{ form.participations_detail }}
+                        </div>
+                        <div class="mb-3">
                             <label class="form-label">6. {% trans "Indemnités CA" %}</label>
                             {{ form.chiffre_6_ca }}
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">7. {% trans "Autres" %}</label>
+                            <label class="form-label">7. {% trans "Autres prestations" %}</label>
                             {{ form.chiffre_7_autres }}
                         </div>
+                        <div class="mb-3">
+                            <label class="form-label">{% trans "Détail autres (7)" %}</label>
+                            {{ form.autres_prestations_detail }}
+                        </div>
                         <div class="alert alert-info py-1 px-2 mb-0 small">
-                            <strong>8. {% trans "Total brut" %}: {{ certificat.chiffre_8_total_brut }}</strong>
+                            <strong>8. {% trans "Total brut" %}: {{ certificat.chiffre_8_total_brut|floatformat:0 }}</strong>
+                            <span class="text-muted ms-1">({% trans "calculé" %})</span>
                         </div>
                     </div>
                 </div>
@@ -179,13 +227,13 @@
             <!-- Déductions (9-10) -->
             <div class="card">
                 <div class="card-header" data-bs-toggle="collapse" data-bs-target="#sec-deductions">
-                    <i class="ph ph-minus-circle me-1"></i>{% trans "Déductions (9-10)" %}
+                    <i class="ph ph-minus-circle me-1"></i>{% trans "Déductions (9-11)" %}
                     <i class="ph ph-caret-down float-end"></i>
                 </div>
                 <div id="sec-deductions" class="collapse">
                     <div class="card-body">
                         <div class="mb-3">
-                            <label class="form-label">9. {% trans "Cotisations AVS/AI/APG/AC" %}</label>
+                            <label class="form-label">9. {% trans "Cotisations AVS/AI/APG/AC/AANP" %}</label>
                             {{ form.chiffre_9_cotisations }}
                         </div>
                         <div class="mb-3">
@@ -197,24 +245,44 @@
                             {{ form.chiffre_10_2_lpp_rachat }}
                         </div>
                         <div class="alert alert-success py-1 px-2 mb-0 small">
-                            <strong>11. {% trans "Salaire net" %}: {{ certificat.chiffre_11_net }}</strong>
+                            <strong>11. {% trans "Salaire net" %}: {{ certificat.chiffre_11_net|floatformat:0 }}</strong>
+                            <span class="text-muted ms-1">({% trans "calculé" %})</span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Frais (12-15) -->
+            <!-- Impôt source (12) -->
+            <div class="card">
+                <div class="card-header" data-bs-toggle="collapse" data-bs-target="#sec-is">
+                    <i class="ph ph-scales me-1"></i>12. {% trans "Impôt à la source" %}
+                    <i class="ph ph-caret-down float-end"></i>
+                </div>
+                <div id="sec-is" class="collapse">
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">12. {% trans "Retenue impôt à la source" %}</label>
+                            {{ form.impot_source_annuel }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Frais (13-15) -->
             <div class="card">
                 <div class="card-header" data-bs-toggle="collapse" data-bs-target="#sec-frais">
-                    <i class="ph ph-receipt me-1"></i>{% trans "Frais (12-15)" %}
+                    <i class="ph ph-receipt me-1"></i>{% trans "Frais (13-15)" %}
                     <i class="ph ph-caret-down float-end"></i>
                 </div>
                 <div id="sec-frais" class="collapse">
                     <div class="card-body">
+                        <small class="text-muted d-block mb-2">{% trans "Non compris dans le salaire brut (chiffre 8)" %}</small>
                         <div class="mb-3">
                             <label class="form-label">12. {% trans "Frais de transport" %}</label>
                             {{ form.chiffre_12_transport }}
                         </div>
+                        <hr class="my-2">
+                        <small class="text-muted d-block mb-1">13.1 {% trans "Frais effectifs" %}</small>
                         <div class="mb-3">
                             <label class="form-label">13.1.1 {% trans "Voyage, repas, nuitées" %}</label>
                             {{ form.chiffre_13_1_1_repas_effectif }}
@@ -223,12 +291,27 @@
                             <label class="form-label">13.1.2 {% trans "Autres frais effectifs" %}</label>
                             {{ form.chiffre_13_1_2_repas_forfait }}
                         </div>
+                        <hr class="my-2">
+                        <small class="text-muted d-block mb-1">13.2 {% trans "Frais forfaitaires" %}</small>
+                        <div class="mb-3">
+                            <label class="form-label">13.2.1 {% trans "Représentation" %}</label>
+                            {{ form.chiffre_13_2_nuitees }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">13.2.3 {% trans "Autres forfaitaires" %}</label>
+                            {{ form.chiffre_13_3_repas_externes }}
+                        </div>
+                        <hr class="my-2">
                         <div class="mb-3">
                             <label class="form-label">14. {% trans "Autres frais" %}</label>
                             {{ form.chiffre_14_autres_frais }}
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">15. {% trans "Jours de transport" %}</label>
+                            <label class="form-label">{% trans "Détail autres frais (14)" %}</label>
+                            {{ form.autres_frais_detail }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">15. {% trans "Jours avec déplacement" %}</label>
                             {{ form.chiffre_15_jours_transport }}
                         </div>
                     </div>
@@ -247,22 +330,19 @@
                             <label class="form-label">{% trans "Remarques" %}</label>
                             {{ form.remarques }}
                         </div>
+                        <hr class="my-2">
                         <div class="row">
                             <div class="col-6 mb-3">
                                 <label class="form-label">{% trans "Lieu" %}</label>
                                 {{ form.lieu_signature }}
                             </div>
                             <div class="col-6 mb-3">
-                                <label class="form-label">{% trans "Date" %}</label>
-                                {{ form.date_signature }}
+                                <label class="form-label">{% trans "Signataire" %}</label>
+                                {{ form.nom_signataire }}
                             </div>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">{% trans "Signataire" %}</label>
-                            {{ form.nom_signataire }}
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">{% trans "Téléphone" %}</label>
+                            <label class="form-label">{% trans "Téléphone signataire" %}</label>
                             {{ form.telephone_signataire }}
                         </div>
                     </div>

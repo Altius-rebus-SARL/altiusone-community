@@ -234,6 +234,21 @@ urlpatterns = [
         name="configuration-advanced-list",
     ),
     path(
+        "configuration/avance/<str:module>/<str:categorie>/nouveau/",
+        views.configuration_advanced_edit,
+        name="configuration-advanced-create",
+    ),
+    path(
+        "configuration/avance/<str:module>/<str:categorie>/<uuid:pk>/",
+        views.configuration_advanced_edit,
+        name="configuration-advanced-edit",
+    ),
+    path(
+        "configuration/avance/<str:module>/<str:categorie>/<uuid:pk>/supprimer/",
+        views.configuration_advanced_delete,
+        name="configuration-advanced-delete",
+    ),
+    path(
         "configuration/<str:module>/<str:categorie>/",
         views.configuration_list_partial,
         name="configuration-list",

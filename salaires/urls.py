@@ -78,6 +78,11 @@ urlpatterns = [
         name="certificat-preview-pdf",
     ),
     path(
+        "certificats/<uuid:pk>/xml/",
+        views.certificat_export_xml,
+        name="certificat-xml",
+    ),
+    path(
         "employes/<uuid:employe_pk>/certificat/",
         views.generer_certificat,
         name="generer-certificat",

@@ -165,9 +165,9 @@
                                             <i class="ph ph-eye"></i>
                                         </a>
                                         {% if cert.statut == 'BROUILLON' or cert.statut == 'CALCULE' %}
-                                        <a href="{% url 'salaires:certificat-edit' cert.pk %}"
+                                        <a href="{% url 'salaires:certificat-studio' cert.pk %}"
                                            class="btn btn-outline-secondary"
-                                           title="{% trans 'Modifier' %}">
+                                           title="{% trans 'Studio' %}">
                                             <i class="ph ph-pencil"></i>
                                         </a>
                                         {% endif %}
