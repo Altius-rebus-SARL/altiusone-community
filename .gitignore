@@ -76,3 +76,4 @@ docker-compose.override.yml
 # Nginx conf générée par Ansible (SSL) - ne pas écraser par git pull
 nginx/conf.d/altiusone.conf
 nginx/ssl/
+certificat_salaire_EMP0004_2025 (1).pdf

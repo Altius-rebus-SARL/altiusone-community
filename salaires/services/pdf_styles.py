@@ -29,14 +29,14 @@ from reportlab.platypus import (
 # Palette de couleurs
 # ==============================================================================
 
-ALTIUSONE_GREEN = HexColor('#088178')
-ALTIUSONE_GREEN_LIGHT = HexColor('#e8f5f3')
-ALTIUSONE_DARK = HexColor('#2c3e50')
-ALTIUSONE_GREY = HexColor('#666666')
-ALTIUSONE_GREY_LIGHT = HexColor('#f8f9fa')
-ALTIUSONE_BORDER = HexColor('#dee2e6')
-ALTIUSONE_RED = HexColor('#c0392b')
-ALTIUSONE_GREEN_AMOUNT = HexColor('#27ae60')
+ALTIUSONE_GREEN = HexColor('#02312e')       # Primaire
+ALTIUSONE_GREEN_LIGHT = HexColor('#e6efee') # Primaire clair (fond)
+ALTIUSONE_DARK = HexColor('#2c3e50')        # Accent
+ALTIUSONE_GREY = HexColor('#333333')        # Texte
+ALTIUSONE_GREY_LIGHT = HexColor('#f8f9fa')  # Fond clair
+ALTIUSONE_BORDER = HexColor('#dee2e6')      # Bordures
+ALTIUSONE_RED = HexColor('#c0392b')         # Déductions
+ALTIUSONE_GREEN_AMOUNT = HexColor('#02312e') # Montants positifs (=primaire)
 ALTIUSONE_WHITE = colors.white
 
 PAGE_WIDTH, PAGE_HEIGHT = A4

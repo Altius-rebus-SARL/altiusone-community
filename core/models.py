@@ -3042,7 +3042,7 @@ class ModeleDocumentPDF(BaseModel):
 
     # Couleurs
     couleur_primaire = models.CharField(
-        max_length=7, default='#088178',
+        max_length=7, default='#02312e',
         verbose_name=_('Couleur primaire')
     )
     couleur_accent = models.CharField(
