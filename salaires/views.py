@@ -158,12 +158,23 @@ class EmployeCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView)
     template_name = "salaires/employe_form.html"
     business_permission = 'salaires.view_employes'
 
+    def _get_regime_context(self):
+        """Détecte le régime fiscal pour adapter le formulaire."""
+        from core.models import Entreprise
+        entreprise = Entreprise.get_default()
+        regime = getattr(entreprise, 'regime_fiscal', None) if entreprise else None
+        return {
+            'regime': regime,
+            'is_swiss': regime and regime.code == 'CH',
+        }
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         if self.request.POST:
             context['adresse_form'] = AdresseInlineForm(self.request.POST, prefix='adresse')
         else:
             context['adresse_form'] = AdresseInlineForm(prefix='adresse')
+        context.update(self._get_regime_context())
         return context
 
     def get_success_url(self):
@@ -199,6 +210,10 @@ class EmployeUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateView)
                 prefix='adresse',
                 instance=self.object.adresse,
             )
+        # Régime pour adapter l'affichage (IS suisse, AVS, etc.)
+        regime = getattr(self.object.mandat, 'regime_fiscal', None) if self.object.mandat_id else None
+        context['regime'] = regime
+        context['is_swiss'] = regime and regime.code == 'CH'
         return context
 
     def get_success_url(self):

@@ -139,15 +139,22 @@
 
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="form-label">{% trans "Numéro AVS" %} <span class="text-danger">*</span></label>
+                                <label class="form-label">
+                                    {% if is_swiss %}{% trans "Numéro AVS" %}{% else %}{% trans "Matricule national" %}{% endif %}
+                                </label>
                                 {{ form.avs_number|add_class:"form-control" }}
+                                {% if is_swiss %}
                                 <small class="text-muted">{% trans "Format: 756.1234.5678.90" %}</small>
+                                {% else %}
+                                <small class="text-muted">{% trans "Numéro d'identification de l'employé (selon pays)" %}</small>
+                                {% endif %}
                                 {% if form.avs_number.errors %}
                                 <div class="text-danger f-s-12 mt-1">{{ form.avs_number.errors.0 }}</div>
                                 {% endif %}
                             </div>
                         </div>
 
+                        {% if is_swiss or is_swiss == None %}
                         <div class="col-md-3">
                             <div class="mb-3">
                                 <label class="form-label">{% trans "Type permis" %}</label>
@@ -160,6 +167,7 @@
                                 <label class="form-label">{% trans "Numéro permis" %}</label>
                                 {{ form.numero_permis|add_class:"form-control" }}
                             </div>
+                        {% endif %}
                         </div>
                     </div>
                 </div>
@@ -389,10 +397,13 @@
                 </div>
             </div>
 
-            <!-- Impôt à la source -->
+            <!-- Impôt à la source (Suisse uniquement) -->
+            {% if is_swiss or is_swiss == None %}
             <div class="card">
                 <div class="card-header">
-                    <h5><i class="ph ph-scales me-2"></i>{% trans "Impôt à la source" %}</h5>
+                    <h5><i class="ph ph-scales me-2"></i>{% trans "Impôt à la source" %}
+                        <span class="badge bg-secondary ms-2">CH</span>
+                    </h5>
                 </div>
                 <div class="card-body">
                     <div class="row">
@@ -452,11 +463,23 @@
                             </div>
                         </div>
 
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- N° sécurité sociale (générique, tous pays) -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="ph ph-identification-card me-2"></i>{% trans "Sécurité sociale" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">{% trans "N° sécurité sociale" %}</label>
                                 {{ form.numero_securite_sociale|add_class:"form-control" }}
-                                <small class="text-muted">{% trans "N° AVS (CH), N° sécu (FR), INPS (Mali), etc." %}</small>
+                                <small class="text-muted">{% trans "N° AVS (CH), N° sécu (FR), INPS (Mali), CNPS (CM), etc." %}</small>
                                 {% if form.numero_securite_sociale.errors %}
                                 <div class="text-danger f-s-12 mt-1">{{ form.numero_securite_sociale.errors.0 }}</div>
                                 {% endif %}
