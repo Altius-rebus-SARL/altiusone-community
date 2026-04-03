@@ -57,7 +57,15 @@ def _get_code_tva_pour_taux(regime, taux):
         Decimal('2.6'): '312',
         Decimal('3.8'): '342',
     }
-    return FALLBACK.get(taux)
+    code = FALLBACK.get(taux)
+    if not code:
+        import logging
+        logging.getLogger(__name__).warning(
+            "Aucun CodeTVA trouvé pour regime=%s taux=%s — code_tva sera vide",
+            getattr(regime, 'code', '?'), taux,
+        )
+        code = ''
+    return code
 
 
 @receiver(post_save, sender=LigneFacture)
@@ -89,200 +97,212 @@ def generer_qr_bill(sender, instance, created, **kwargs):
 def comptabiliser_facture(sender, instance, **kwargs):
     """Crée l'écriture comptable quand la facture est émise"""
     if instance.statut == 'EMISE' and not instance.ecriture_comptable:
-        from comptabilite.models import EcritureComptable, Journal, Compte, PieceComptable
+        import logging
+        logger = logging.getLogger(__name__)
+        try:
+            _comptabiliser_facture_impl(instance)
+        except Exception as e:
+            logger.error("Erreur comptabilisation facture %s: %s", instance.numero_facture, e, exc_info=True)
 
-        journal = Journal.objects.filter(
-            mandat=instance.mandat,
-            type_journal='VTE'
-        ).first()
 
-        if journal:
-            numero_piece = journal.get_next_numero()
+def _comptabiliser_facture_impl(instance):
+    """Implémentation de la comptabilisation (séparée pour try/except propre)."""
+    from collections import defaultdict
+    from comptabilite.models import EcritureComptable, Journal, Compte, PieceComptable
 
-            # Créer la pièce comptable
-            piece = PieceComptable.objects.create(
+    journal = Journal.objects.filter(
+        mandat=instance.mandat,
+        type_journal='VTE'
+    ).first()
+    if not journal:
+        return
+
+    numero_piece = journal.get_next_numero()
+    plan = instance.mandat.plan_comptable
+
+    # Créer la pièce comptable
+    piece = PieceComptable.objects.create(
+        mandat=instance.mandat,
+        journal=journal,
+        numero_piece=numero_piece,
+        date_piece=instance.date_emission,
+        libelle=f"Facture {instance.numero_facture}",
+        statut='VALIDE'
+    )
+
+    # Compte client (débiteur)
+    compte_client = _get_compte_par_defaut(plan, 'CREANCES_CLIENTS', '1100')
+
+    # Résolution dynamique du compte TVA via config_tva
+    compte_tva = None
+    code_tva_ventes = '200'
+    try:
+        config_tva = instance.mandat.config_tva
+        if config_tva and config_tva.compte_tva_due:
+            compte_tva = config_tva.compte_tva_due
+        if config_tva and config_tva.regime:
+            from tva.models import CodeTVA
+            code_obj = CodeTVA.objects.filter(
+                regime=config_tva.regime,
+                categorie='CHIFFRE_AFFAIRES',
+                actif=True,
+            ).first()
+            if code_obj:
+                code_tva_ventes = code_obj.code
+    except Exception:
+        pass
+
+    if not compte_tva:
+        compte_tva = _get_compte_par_defaut(plan, 'TVA_DUE', '2200')
+
+    if not compte_client:
+        return
+
+    # Débit: Créance client (TTC)
+    exercice = instance.mandat.exercices.filter(statut='OUVERT').first()
+    EcritureComptable.objects.create(
+        mandat=instance.mandat,
+        exercice=exercice,
+        journal=journal,
+        numero_piece=numero_piece,
+        numero_ligne=1,
+        date_ecriture=instance.date_emission,
+        compte=compte_client,
+        compte_auxiliaire=instance.client.ide_number,
+        libelle=f"Facture {instance.numero_facture} - {instance.client.raison_sociale}",
+        montant_debit=instance.montant_ttc,
+        piece_justificative=None,
+        statut='VALIDE'
+    )
+
+    # Crédits: Ventes par ligne
+    ligne_num = 2
+    for ligne in instance.lignes.all():
+        compte_produit = getattr(ligne, 'compte_produit', None)
+        if not compte_produit and ligne.prestation:
+            compte_produit = ligne.prestation.compte_produit
+        if not compte_produit:
+            compte_produit = _get_compte_par_defaut(plan, 'PRODUITS', None)
+        if not compte_produit and plan:
+            compte_produit = Compte.objects.filter(
+                plan_comptable=plan,
+                numero__startswith='70',
+            ).first()
+
+        if compte_produit:
+            EcritureComptable.objects.create(
                 mandat=instance.mandat,
+                exercice=exercice,
                 journal=journal,
                 numero_piece=numero_piece,
-                date_piece=instance.date_emission,
-                libelle=f"Facture {instance.numero_facture}",
+                numero_ligne=ligne_num,
+                date_ecriture=instance.date_emission,
+                compte=compte_produit,
+                libelle=ligne.description[:255],
+                montant_credit=ligne.montant_ht,
                 statut='VALIDE'
             )
+            ligne_num += 1
 
-            # Compte client (débiteur) — résolu via CompteParDefaut puis fallback
-            plan = instance.mandat.plan_comptable
-            compte_client = _get_compte_par_defaut(plan, 'CREANCES_CLIENTS', '1100')
+    # Crédit: TVA due — ventilation par taux
+    if instance.montant_tva > 0 and compte_tva:
+        tva_par_taux = defaultdict(lambda: {'ht': Decimal('0'), 'tva': Decimal('0')})
+        for ligne in instance.lignes.all():
+            taux = ligne.taux_tva or Decimal('0')
+            tva_par_taux[taux]['ht'] += ligne.montant_ht
+            tva_par_taux[taux]['tva'] += ligne.montant_tva
 
-            # Résolution dynamique du compte TVA via config_tva
-            compte_tva = None
-            code_tva_ventes = '200'  # Fallback
-            try:
-                config_tva = instance.mandat.config_tva
-                if config_tva and config_tva.compte_tva_due:
-                    compte_tva = config_tva.compte_tva_due
-                # Chercher le code TVA ventes du régime
-                if config_tva and config_tva.regime:
-                    from tva.models import CodeTVA
-                    code_obj = CodeTVA.objects.filter(
-                        regime=config_tva.regime,
-                        categorie='CHIFFRE_AFFAIRES',
-                        actif=True,
-                    ).first()
-                    if code_obj:
-                        code_tva_ventes = code_obj.code
-            except Exception:
-                pass
+        regime = getattr(instance, 'regime_fiscal', None)
+        for taux, montants in tva_par_taux.items():
+            if montants['tva'] <= 0:
+                continue
+            code_tva_taux = _get_code_tva_pour_taux(regime, taux) or code_tva_ventes
 
-            if not compte_tva:
-                compte_tva = _get_compte_par_defaut(plan, 'TVA_DUE', '2200')
+            EcritureComptable.objects.create(
+                mandat=instance.mandat,
+                exercice=exercice,
+                journal=journal,
+                numero_piece=numero_piece,
+                numero_ligne=ligne_num,
+                date_ecriture=instance.date_emission,
+                compte=compte_tva,
+                libelle=f"TVA {taux}% sur facture {instance.numero_facture}",
+                montant_credit=montants['tva'],
+                code_tva=code_tva_taux,
+                montant_tva=montants['tva'],
+                statut='VALIDE'
+            )
+            ligne_num += 1
 
-            if compte_client:
-                # Débit: Créance client (TTC)
-                EcritureComptable.objects.create(
-                    mandat=instance.mandat,
-                    exercice=instance.mandat.exercices.filter(
-                        statut='OUVERT'
-                    ).first(),
-                    journal=journal,
-                    numero_piece=numero_piece,
-                    numero_ligne=1,
-                    date_ecriture=instance.date_emission,
-                    compte=compte_client,
-                    compte_auxiliaire=instance.client.ide_number,
-                    libelle=f"Facture {instance.numero_facture} - {instance.client.raison_sociale}",
-                    montant_debit=instance.montant_ttc,
-                    piece_justificative=None,
-                    statut='VALIDE'
-                )
-
-                # Crédits: Ventes par ligne et TVA
-                ligne_num = 2
-                for ligne in instance.lignes.all():
-                    # Résolution : ligne.compte_produit > prestation.compte_produit > fallback 70*
-                    compte_produit = getattr(ligne, 'compte_produit', None)
-                    if not compte_produit and ligne.prestation:
-                        compte_produit = ligne.prestation.compte_produit
-                    if not compte_produit:
-                        compte_produit = _get_compte_par_defaut(plan, 'PRODUITS', None)
-                    if not compte_produit and plan:
-                        from comptabilite.models import Compte as _Compte
-                        compte_produit = _Compte.objects.filter(
-                            plan_comptable=plan,
-                            numero__startswith='70',
-                        ).first()
-
-                    if compte_produit:
-                        # Crédit: Vente HT
-                        EcritureComptable.objects.create(
-                            mandat=instance.mandat,
-                            exercice=instance.mandat.exercices.filter(
-                                statut='OUVERT'
-                            ).first(),
-                            journal=journal,
-                            numero_piece=numero_piece,
-                            numero_ligne=ligne_num,
-                            date_ecriture=instance.date_emission,
-                            compte=compte_produit,
-                            libelle=ligne.description[:255],
-                            montant_credit=ligne.montant_ht,
-                            statut='VALIDE'
-                        )
-                        ligne_num += 1
-
-                # Crédit: TVA due - ventilation par taux
-                if instance.montant_tva > 0 and compte_tva:
-                    # Grouper les lignes facture par taux TVA
-                    from collections import defaultdict
-                    tva_par_taux = defaultdict(lambda: {'ht': Decimal('0'), 'tva': Decimal('0')})
-                    for ligne in instance.lignes.all():
-                        taux = ligne.taux_tva or Decimal('0')
-                        tva_par_taux[taux]['ht'] += ligne.montant_ht
-                        tva_par_taux[taux]['tva'] += ligne.montant_tva
-
-                    # Résolution code TVA par taux via DB (CodeTVA) puis fallback
-                    regime = getattr(instance, 'regime_fiscal', None)
-
-                    for taux, montants in tva_par_taux.items():
-                        if montants['tva'] <= 0:
-                            continue
-                        code_tva_taux = _get_code_tva_pour_taux(regime, taux) or code_tva_ventes
-
-                        EcritureComptable.objects.create(
-                            mandat=instance.mandat,
-                            exercice=instance.mandat.exercices.filter(
-                                statut='OUVERT'
-                            ).first(),
-                            journal=journal,
-                            numero_piece=numero_piece,
-                            numero_ligne=ligne_num,
-                            date_ecriture=instance.date_emission,
-                            compte=compte_tva,
-                            libelle=f"TVA {taux}% sur facture {instance.numero_facture}",
-                            montant_credit=montants['tva'],
-                            code_tva=code_tva_taux,
-                            montant_tva=montants['tva'],
-                            statut='VALIDE'
-                        )
-                        ligne_num += 1
-
-                instance.ecriture_comptable = piece
-                instance.save(update_fields=['ecriture_comptable'])
+    instance.ecriture_comptable = piece
+    instance.save(update_fields=['ecriture_comptable'])
 
 
 @receiver(post_save, sender=Paiement)
 def comptabiliser_paiement(sender, instance, created, **kwargs):
     """Crée l'écriture comptable de paiement"""
     if created and instance.valide and not instance.ecriture_comptable:
-        from comptabilite.models import EcritureComptable, Journal, Compte
+        import logging
+        logger = logging.getLogger(__name__)
+        try:
+            _comptabiliser_paiement_impl(instance)
+        except Exception as e:
+            logger.error("Erreur comptabilisation paiement facture %s: %s",
+                         instance.facture.numero_facture, e, exc_info=True)
 
-        journal = Journal.objects.filter(
-            mandat=instance.facture.mandat,
-            type_journal='BNQ'
-        ).first()
 
-        if journal:
-            numero_piece = journal.get_next_numero()
+def _comptabiliser_paiement_impl(instance):
+    """Implémentation de la comptabilisation paiement."""
+    from comptabilite.models import EcritureComptable, Journal, Compte
 
-            plan = instance.facture.mandat.plan_comptable
-            compte_banque = _get_compte_par_defaut(plan, 'BANQUE', '1020')
-            compte_client = _get_compte_par_defaut(plan, 'CREANCES_CLIENTS', '1100')
+    journal = Journal.objects.filter(
+        mandat=instance.facture.mandat,
+        type_journal='BNQ'
+    ).first()
 
-            if compte_banque and compte_client:
-                # Débit: Banque
-                EcritureComptable.objects.create(
-                    mandat=instance.facture.mandat,
-                    exercice=instance.facture.mandat.exercices.filter(
-                        statut='OUVERT'
-                    ).first(),
-                    journal=journal,
-                    numero_piece=numero_piece,
-                    numero_ligne=1,
-                    date_ecriture=instance.date_paiement,
-                    compte=compte_banque,
-                    libelle=f"Paiement facture {instance.facture.numero_facture}",
-                    montant_debit=instance.montant,
-                    statut='VALIDE'
-                )
+    if journal:
+        numero_piece = journal.get_next_numero()
 
-                # Crédit: Client
-                ecriture_client = EcritureComptable.objects.create(
-                    mandat=instance.facture.mandat,
-                    exercice=instance.facture.mandat.exercices.filter(
-                        statut='OUVERT'
-                    ).first(),
-                    journal=journal,
-                    numero_piece=numero_piece,
-                    numero_ligne=2,
-                    date_ecriture=instance.date_paiement,
-                    compte=compte_client,
-                    compte_auxiliaire=instance.facture.client.ide_number,
-                    libelle=f"Paiement facture {instance.facture.numero_facture}",
-                    montant_credit=instance.montant,
-                    statut='VALIDE'
-                )
+        plan = instance.facture.mandat.plan_comptable
+        compte_banque = _get_compte_par_defaut(plan, 'BANQUE', '1020')
+        compte_client = _get_compte_par_defaut(plan, 'CREANCES_CLIENTS', '1100')
 
-                instance.ecriture_comptable = ecriture_client
-                instance.save(update_fields=['ecriture_comptable'])
+        if compte_banque and compte_client:
+            # Débit: Banque
+            EcritureComptable.objects.create(
+                mandat=instance.facture.mandat,
+                exercice=instance.facture.mandat.exercices.filter(
+                    statut='OUVERT'
+                ).first(),
+                journal=journal,
+                numero_piece=numero_piece,
+                numero_ligne=1,
+                date_ecriture=instance.date_paiement,
+                compte=compte_banque,
+                libelle=f"Paiement facture {instance.facture.numero_facture}",
+                montant_debit=instance.montant,
+                statut='VALIDE'
+            )
+
+            # Crédit: Client
+            ecriture_client = EcritureComptable.objects.create(
+                mandat=instance.facture.mandat,
+                exercice=instance.facture.mandat.exercices.filter(
+                    statut='OUVERT'
+                ).first(),
+                journal=journal,
+                numero_piece=numero_piece,
+                numero_ligne=2,
+                date_ecriture=instance.date_paiement,
+                compte=compte_client,
+                compte_auxiliaire=instance.facture.client.ide_number,
+                libelle=f"Paiement facture {instance.facture.numero_facture}",
+                montant_credit=instance.montant,
+                statut='VALIDE'
+            )
+
+            instance.ecriture_comptable = ecriture_client
+            instance.save(update_fields=['ecriture_comptable'])
 
 
 @receiver(post_save, sender=Facture)

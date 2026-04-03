@@ -52,13 +52,17 @@
                data-row-index="{{ index }}">
     </td>
     <td>
-        <input type="number" 
-               name="{{ ligne_form.prefix }}-taux_tva" 
-               value="{{ taux_tva_defaut|default:'0' }}"
-               step="0.01" 
-               class="form-control tva-input" 
-               id="id_{{ ligne_form.prefix }}-taux_tva"
-               data-row-index="{{ index }}">
+        <select name="{{ ligne_form.prefix }}-taux_tva"
+                class="form-control tva-input"
+                id="id_{{ ligne_form.prefix }}-taux_tva"
+                data-row-index="{{ index }}">
+            {% for val, label in taux_tva_choices %}
+            <option value="{{ val }}" {% if val == taux_tva_defaut|default:'0' %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+            {% if not taux_tva_choices %}
+            <option value="0" selected>0% — Exonéré</option>
+            {% endif %}
+        </select>
     </td>
     <td class="text-end">
         <span class="ligne-total" data-row-index="{{ index }}">0.00</span> {{ DEVISE_CODE }}

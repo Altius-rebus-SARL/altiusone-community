@@ -71,8 +71,21 @@ def _get_tva_context(mandat=None):
             ).first()
             if special:
                 ctx['taux_tva_special'] = special.taux
+            # Construire la liste de choix TVA pour les templates de ligne
+            taux_actifs = TauxTVA.objects.filter(
+                regime=regime, date_debut__lte=today,
+            ).filter(
+                Q(date_fin__isnull=True) | Q(date_fin__gte=today)
+            ).exclude(type_taux='SSS').order_by('-taux')
+            choices = [('', '— TVA —')]
+            for t in taux_actifs:
+                choices.append((str(t.taux), f"{t.taux}% — {t.get_type_taux_display()}"))
+            choices.append(('0', '0% — Exonéré'))
+            ctx['taux_tva_choices'] = choices
     except Exception:
         pass
+    if 'taux_tva_choices' not in ctx:
+        ctx['taux_tva_choices'] = [('', '— TVA —'), ('0', '0% — Exonéré')]
     return ctx
 
 

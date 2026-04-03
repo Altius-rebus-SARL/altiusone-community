@@ -311,6 +311,7 @@ class FactureForm(forms.ModelForm):
             "client",
             "position",
             "type_facture",
+            "type_operation_tva",
             "regime_fiscal",
             "exercice",
             "devise",
@@ -329,6 +330,7 @@ class FactureForm(forms.ModelForm):
             "client": forms.Select(attrs={"class": "form-control select2"}),
             "position": forms.Select(attrs={"class": "form-control select2"}),
             "type_facture": forms.Select(attrs={"class": "form-control"}),
+            "type_operation_tva": forms.Select(attrs={"class": "form-control"}),
             "regime_fiscal": forms.Select(attrs={"class": "form-control select2"}),
             "exercice": forms.Select(attrs={"class": "form-control select2"}),
             "devise": forms.Select(attrs={"class": "form-control"}),
@@ -496,6 +498,31 @@ class LigneFactureForm(forms.ModelForm):
     def clean_remise_pourcent(self):
         val = self.cleaned_data.get('remise_pourcent')
         return val if val is not None else Decimal('0')
+
+    def clean_taux_tva(self):
+        """Valide que le taux TVA appartient au régime fiscal du mandat."""
+        taux = self.cleaned_data.get('taux_tva')
+        if taux is None:
+            return Decimal('0')
+        taux = Decimal(str(taux))
+        if taux == 0:
+            return taux
+        regime = getattr(self.mandat_obj, 'regime_fiscal', None) if self.mandat_obj else None
+        if regime:
+            from tva.models import TauxTVA
+            from django.utils import timezone
+            today = timezone.now().date()
+            exists = TauxTVA.objects.filter(
+                regime=regime, taux=taux, date_debut__lte=today,
+            ).filter(
+                models.Q(date_fin__isnull=True) | models.Q(date_fin__gte=today)
+            ).exists()
+            if not exists:
+                raise forms.ValidationError(
+                    _("Le taux %(taux)s%% n'est pas valide pour le régime %(regime)s."),
+                    params={'taux': taux, 'regime': regime.code},
+                )
+        return taux
 
 
 class BaseLigneFactureFormSet(forms.BaseInlineFormSet):

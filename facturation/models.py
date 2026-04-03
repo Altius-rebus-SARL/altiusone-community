@@ -1001,6 +1001,17 @@ class Facture(BaseModel):
         return self.montant_ttc < Decimal('400')
 
     def save(self, *args, **kwargs):
+        # Immutabilité : empêcher la modification des champs métier sur une facture émise
+        # (sauf update_fields explicites pour statut, paiements, etc.)
+        if self.pk and not kwargs.get('update_fields'):
+            try:
+                existing = Facture.objects.only('statut', 'numero_facture').get(pk=self.pk)
+                if existing.statut not in ('BROUILLON', 'PROFORMA') and self.numero_facture != existing.numero_facture:
+                    from django.core.exceptions import ValidationError
+                    raise ValidationError(_("Le numéro d'une facture émise ne peut pas être modifié."))
+            except Facture.DoesNotExist:
+                pass
+
         # Auto-populate regime_fiscal from mandat if not set
         if not self.regime_fiscal_id and self.mandat_id:
             self.regime_fiscal = getattr(self.mandat, 'regime_fiscal', None)
@@ -1011,22 +1022,24 @@ class Facture(BaseModel):
             jours = self.delai_paiement_jours or 30
             self.date_echeance = self.date_emission + timedelta(days=jours)
 
-        # Génération numéro facture/devis
+        # Génération numéro facture/devis (thread-safe via select_for_update)
         if not self.numero_facture:
+            from django.db import transaction
             year = self.date_emission.year
-            if self.type_facture == 'DEVIS':
-                prefix = 'DEV'
-            else:
-                prefix = 'FAC'
-            last = Facture.objects.filter(
-                numero_facture__startswith=f'{prefix}-{year}'
-            ).order_by('numero_facture').last()
-
-            if last:
-                last_num = int(last.numero_facture.split('-')[-1])
-                self.numero_facture = f'{prefix}-{year}-{last_num + 1:04d}'
-            else:
-                self.numero_facture = f'{prefix}-{year}-0001'
+            prefix = 'DEV' if self.type_facture == 'DEVIS' else 'FAC'
+            with transaction.atomic():
+                last = (
+                    Facture.objects
+                    .select_for_update()
+                    .filter(numero_facture__startswith=f'{prefix}-{year}')
+                    .order_by('numero_facture')
+                    .last()
+                )
+                if last:
+                    last_num = int(last.numero_facture.split('-')[-1])
+                    self.numero_facture = f'{prefix}-{year}-{last_num + 1:04d}'
+                else:
+                    self.numero_facture = f'{prefix}-{year}-0001'
 
         # Calcul montant restant
         self.montant_restant = self.montant_ttc - self.montant_paye

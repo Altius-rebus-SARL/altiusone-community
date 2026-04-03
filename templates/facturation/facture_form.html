@@ -87,6 +87,11 @@
                         </div>
 
                         <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Opération TVA" %}</label>
+                            {{ form.type_operation_tva }}
+                        </div>
+
+                        <div class="col-md-4 mb-3">
                             <label class="form-label">{% trans "Date d'émission" %} *</label>
                             {{ form.date_emission }}
                             {% if form.date_emission.errors %}
