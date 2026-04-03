@@ -998,7 +998,14 @@ class FicheSalaire(BaseModel):
         super().save(*args, **kwargs)
 
     def calculer(self):
-        """Calcule tous les montants de la fiche"""
+        """
+        Calcule tous les montants de la fiche.
+
+        Utilise LigneCotisationFiche pour stocker les cotisations dynamiquement
+        selon le régime fiscal (CH=AVS/AC/LPP, OHADA=CNPS/CSS/IPRES, etc.).
+        Les champs legacy (avs_employe, lpp_employe...) sont remplis en parallèle
+        pour la rétro-compatibilité suisse.
+        """
         # Salaire brut total
         self.salaire_brut_total = (
             self.salaire_base
@@ -1008,24 +1015,69 @@ class FicheSalaire(BaseModel):
             + self.treizieme_mois
         )
 
-        # Cotisations employé
-        self.avs_employe = self._calculer_cotisation('AVS', 'employe')
-        self.ac_employe = self._calculer_cotisation('AC', 'employe')
-        self.ac_supp_employe = self._calculer_cotisation('AC_SUPP', 'employe')
-        self.lpp_employe = self._calculer_cotisation('LPP', 'employe')
-        self.laa_employe = self._calculer_cotisation('LAA', 'employe')
-        self.laac_employe = self._calculer_cotisation('LAAC', 'employe')
-        self.ijm_employe = self._calculer_cotisation('IJM', 'employe')
+        # ── Cotisations dynamiques via LigneCotisationFiche ──────────
+        regime = getattr(self.employe, 'regime_fiscal', None)
+        taux_list = TauxCotisation.objects.filter(
+            is_active=True,
+        ).filter(
+            Q(regime_fiscal=regime) | Q(regime_fiscal__isnull=True)
+        ).filter(
+            Q(date_debut__lte=self.periode) & (Q(date_fin__isnull=True) | Q(date_fin__gte=self.periode))
+        ).order_by('ordre')
 
-        self.total_cotisations_employe = (
-            self.avs_employe
-            + self.ac_employe
-            + self.ac_supp_employe
-            + self.lpp_employe
-            + self.laa_employe
-            + self.laac_employe
-            + self.ijm_employe
-        )
+        if regime:
+            taux_list = taux_list.filter(regime_fiscal=regime)
+
+        # Supprimer les anciennes lignes et recalculer
+        self.lignes_cotisations.all().delete()
+
+        total_employe = Decimal('0')
+        total_employeur = Decimal('0')
+
+        # Mapping legacy CH pour rétro-compatibilité
+        LEGACY_MAP_EMPLOYE = {
+            'AVS': 'avs_employe', 'AC': 'ac_employe', 'AC_SUPP': 'ac_supp_employe',
+            'LPP': 'lpp_employe', 'LAA': 'laa_employe', 'LAAC': 'laac_employe',
+            'IJM': 'ijm_employe',
+        }
+        LEGACY_MAP_EMPLOYEUR = {
+            'AVS': 'avs_employeur', 'AC': 'ac_employeur', 'LPP': 'lpp_employeur',
+            'LAA': 'laa_employeur', 'AF': 'af_employeur',
+        }
+        # Reset legacy fields
+        for field in LEGACY_MAP_EMPLOYE.values():
+            setattr(self, field, Decimal('0'))
+        for field in LEGACY_MAP_EMPLOYEUR.values():
+            setattr(self, field, Decimal('0'))
+
+        for taux_obj in taux_list:
+            mt_employe = self._calculer_cotisation_montant(taux_obj, 'employe')
+            mt_employeur = self._calculer_cotisation_montant(taux_obj, 'employeur')
+
+            if mt_employe > 0 or mt_employeur > 0:
+                LigneCotisationFiche.objects.create(
+                    fiche=self,
+                    taux_cotisation=taux_obj,
+                    libelle=taux_obj.libelle,
+                    base_calcul=self.salaire_brut_total,
+                    taux_employe=taux_obj.taux_employe,
+                    taux_employeur=taux_obj.taux_employeur,
+                    montant_employe=mt_employe,
+                    montant_employeur=mt_employeur,
+                    ordre=taux_obj.ordre,
+                )
+                total_employe += mt_employe
+                total_employeur += mt_employeur
+
+                # Remplir les champs legacy suisses
+                type_cot = taux_obj.type_cotisation
+                if type_cot in LEGACY_MAP_EMPLOYE:
+                    setattr(self, LEGACY_MAP_EMPLOYE[type_cot], mt_employe)
+                if type_cot in LEGACY_MAP_EMPLOYEUR:
+                    setattr(self, LEGACY_MAP_EMPLOYEUR[type_cot], mt_employeur)
+
+        self.total_cotisations_employe = total_employe
+        self.total_charges_patronales = total_employeur
 
         # Allocations familiales auto-calculées si non renseignées manuellement
         if self.allocations_familiales == Decimal('0') and self.employe_id:
@@ -1048,21 +1100,6 @@ class FicheSalaire(BaseModel):
             + self.autres_allocations
         )
 
-        # Charges patronales
-        self.avs_employeur = self._calculer_cotisation('AVS', 'employeur')
-        self.ac_employeur = self._calculer_cotisation('AC', 'employeur')
-        self.lpp_employeur = self._calculer_cotisation('LPP', 'employeur')
-        self.laa_employeur = self._calculer_cotisation('LAA', 'employeur')
-        self.af_employeur = self._calculer_cotisation('AF', 'employeur')
-
-        self.total_charges_patronales = (
-            self.avs_employeur
-            + self.ac_employeur
-            + self.lpp_employeur
-            + self.laa_employeur
-            + self.af_employeur
-        )
-
         # Coût total
         self.cout_total_employeur = (
             self.salaire_brut_total
@@ -1071,36 +1108,31 @@ class FicheSalaire(BaseModel):
 
         return self.salaire_net
 
-    def _calculer_cotisation(self, type_cot, part):
-        """Calcule une cotisation spécifique"""
-        import logging
-        logger = logging.getLogger('salaires')
-        regime = getattr(self.employe, 'regime_fiscal', None)
-        taux_obj = TauxCotisation.get_taux_actif(type_cot, self.periode, regime_fiscal=regime)
-        if not taux_obj:
-            logger.warning(
-                "Taux %s introuvable pour période %s, régime %s (employé %s) — cotisation mise à 0",
-                type_cot, self.periode, regime, self.employe
-            )
-            return Decimal('0.00')
+    def _calculer_cotisation_montant(self, taux_obj, part):
+        """
+        Calcule le montant d'une cotisation pour un TauxCotisation donné.
 
+        Gère les seuils (salaire_min/max) et le cas spécial AC_SUPP
+        (cotisation sur la part au-dessus du seuil).
+        """
         base = self.salaire_brut_total
+        type_cot = taux_obj.type_cotisation
 
         if type_cot == 'AC_SUPP':
-            # AC supplément: s'applique uniquement sur la part du salaire
-            # au-dessus du seuil (148'200 CHF/an = 12'350 CHF/mois)
-            seuil_mensuel = taux_obj.salaire_min or Decimal('12350.00')
-            if base <= seuil_mensuel:
+            # AC supplément suisse : s'applique sur la part au-dessus du seuil
+            seuil_mensuel = taux_obj.salaire_min or Decimal('0')
+            if seuil_mensuel <= 0 or base <= seuil_mensuel:
                 return Decimal('0.00')
             base = base - seuil_mensuel
         else:
-            # Appliquer plafonds si nécessaire
             if taux_obj.salaire_max and base > taux_obj.salaire_max:
                 base = taux_obj.salaire_max
             if taux_obj.salaire_min and base < taux_obj.salaire_min:
                 return Decimal('0.00')
 
         taux = taux_obj.taux_employe if part == 'employe' else taux_obj.taux_employeur
+        if taux <= 0:
+            return Decimal('0.00')
         return (base * taux / 100).quantize(Decimal('0.01'))
 
     def _calculer_allocations_familiales(self):

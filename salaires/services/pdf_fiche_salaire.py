@@ -257,17 +257,27 @@ class FicheSalairePDF:
         return table
 
     def _build_cotisations(self):
-        """Construit la table des cotisations salariales."""
+        """Construit la table des cotisations salariales (dynamique selon régime)."""
         f = self.fiche
+
+        # Lire les cotisations depuis LigneCotisationFiche (multi-régime)
+        lignes = f.lignes_cotisations.select_related('taux_cotisation').order_by('ordre')
         cotisations = [
-            ("AVS/AI/APG", f.avs_employe),
-            ("AC (Assurance chomage)", f.ac_employe),
-            ("AC supplementaire", f.ac_supp_employe),
-            ("LPP (2eme pilier)", f.lpp_employe),
-            ("LAA (Accident)", f.laa_employe),
-            ("LAAC (Complementaire)", f.laac_employe),
-            ("IJM (Indemnites journalieres)", f.ijm_employe),
+            (l.libelle or l.taux_cotisation.libelle, l.montant_employe)
+            for l in lignes if l.montant_employe > 0
         ]
+
+        # Fallback legacy suisse si pas de lignes dynamiques
+        if not cotisations:
+            cotisations = [
+                ("AVS/AI/APG", f.avs_employe),
+                ("AC (Assurance chomage)", f.ac_employe),
+                ("AC supplementaire", f.ac_supp_employe),
+                ("LPP (2eme pilier)", f.lpp_employe),
+                ("LAA (Accident)", f.laa_employe),
+                ("LAAC (Complementaire)", f.laac_employe),
+                ("IJM (Indemnites journalieres)", f.ijm_employe),
+            ]
 
         header = ['COTISATIONS (part employe)', self.devise_code]
         data = [header]
@@ -393,7 +403,7 @@ class FicheSalairePDF:
     def _build_salaire_net(self):
         """Construit le bloc SALAIRE NET pleine largeur."""
         net = format_montant_suisse(self.fiche.salaire_net)
-        data = [['SALAIRE NET A PAYER', f'CHF {net}']]
+        data = [['SALAIRE NET A PAYER', f'{self.devise_code} {net}']]
         table = Table(data, colWidths=[12 * cm, 5 * cm])
         table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, -1), ALTIUSONE_GREEN),
@@ -440,13 +450,22 @@ class FicheSalairePDF:
         elements = []
         elements.append(Paragraph("Charges patronales (pour information)", charges_title))
 
-        line1 = (
-            f"AVS: {format_montant_suisse(f.avs_employeur) or '0.00'} | "
-            f"AC: {format_montant_suisse(f.ac_employeur) or '0.00'} | "
-            f"LPP: {format_montant_suisse(f.lpp_employeur) or '0.00'} | "
-            f"LAA: {format_montant_suisse(f.laa_employeur) or '0.00'} | "
-            f"AF: {format_montant_suisse(f.af_employeur) or '0.00'}"
-        )
+        # Lire les charges depuis les lignes dynamiques
+        lignes = f.lignes_cotisations.select_related('taux_cotisation').order_by('ordre')
+        charges_parts = [
+            f"{l.libelle or l.taux_cotisation.type_cotisation}: {format_montant_suisse(l.montant_employeur) or '0.00'}"
+            for l in lignes if l.montant_employeur > 0
+        ]
+        # Fallback legacy
+        if not charges_parts:
+            charges_parts = [
+                f"AVS: {format_montant_suisse(f.avs_employeur) or '0.00'}",
+                f"AC: {format_montant_suisse(f.ac_employeur) or '0.00'}",
+                f"LPP: {format_montant_suisse(f.lpp_employeur) or '0.00'}",
+                f"LAA: {format_montant_suisse(f.laa_employeur) or '0.00'}",
+                f"AF: {format_montant_suisse(f.af_employeur) or '0.00'}",
+            ]
+        line1 = " | ".join(charges_parts)
         elements.append(Paragraph(line1, charges_style))
 
         line2 = (
