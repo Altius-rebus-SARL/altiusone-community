@@ -17,6 +17,8 @@ from .models import (
     ZoneGeographique,
     TarifMandat,
     CategorieTemps,
+    NiveauRelance,
+    MentionLegale,
 )
 from .serializers import (
     PrestationSerializer,
@@ -31,6 +33,8 @@ from .serializers import (
     ZoneGeographiqueSerializer,
     TarifMandatSerializer,
     CategorieTempsSerializer,
+    NiveauRelanceSerializer,
+    MentionLegaleSerializer,
 )
 
 
@@ -504,3 +508,28 @@ class TarifMandatViewSet(viewsets.ModelViewSet):
             return qs
         accessible = user.get_accessible_mandats()
         return qs.filter(mandat__in=accessible)
+
+
+class NiveauRelanceViewSet(viewsets.ModelViewSet):
+    """ViewSet pour les niveaux de relance par régime fiscal"""
+
+    serializer_class = NiveauRelanceSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["regime_fiscal", "actif"]
+
+    def get_queryset(self):
+        return NiveauRelance.objects.select_related("regime_fiscal").order_by("niveau")
+
+
+class MentionLegaleViewSet(viewsets.ModelViewSet):
+    """ViewSet pour les mentions légales par régime fiscal"""
+
+    serializer_class = MentionLegaleSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ["regime_fiscal", "type_document", "actif"]
+    search_fields = ["code", "libelle"]
+
+    def get_queryset(self):
+        return MentionLegale.objects.select_related("regime_fiscal").order_by("position")
