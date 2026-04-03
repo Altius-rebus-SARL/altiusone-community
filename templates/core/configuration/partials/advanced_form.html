@@ -1,0 +1,56 @@
+<!-- core/configuration/partials/advanced_form.html — Formulaire HTMX pour modèle avancé -->
+{% load i18n %}
+
+<div class="card border-primary mb-3">
+    <div class="card-header bg-primary text-white py-2 d-flex justify-content-between align-items-center">
+        <span>
+            <i class="ph ph-pencil me-1"></i>
+            {% if instance %}{% trans "Modifier" %}{% else %}{% trans "Nouveau" %}{% endif %} — {{ categorie_label }}
+        </span>
+        <button type="button" class="btn btn-sm btn-light"
+                hx-get="{% url 'core:configuration-advanced-list' module categorie %}"
+                hx-target="#parametre-list"
+                hx-swap="innerHTML">
+            <i class="ph ph-x"></i>
+        </button>
+    </div>
+    <div class="card-body py-2">
+        <form hx-post="{% if instance %}{% url 'core:configuration-advanced-edit' module categorie instance.pk %}{% else %}{% url 'core:configuration-advanced-create' module categorie %}{% endif %}"
+              hx-target="#parametre-list"
+              hx-swap="innerHTML">
+            {% csrf_token %}
+
+            <div class="row g-2">
+                {% for field in form %}
+                <div class="{% if field.field.widget.input_type == 'checkbox' %}col-auto{% elif forloop.counter|divisibleby:2 %}col-md-6{% else %}col-md-6{% endif %} mb-1">
+                    {% if field.field.widget.input_type == 'checkbox' %}
+                    <div class="form-check form-switch mt-2">
+                        {{ field }}
+                        <label class="form-check-label small" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    </div>
+                    {% else %}
+                    <label class="form-label small mb-0" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% endif %}
+                    {% if field.errors %}
+                    <div class="text-danger small">{{ field.errors.0 }}</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="d-flex justify-content-end gap-2 mt-2 pt-2 border-top">
+                <button type="button" class="btn btn-sm btn-secondary"
+                        hx-get="{% url 'core:configuration-advanced-list' module categorie %}"
+                        hx-target="#parametre-list"
+                        hx-swap="innerHTML">
+                    {% trans "Annuler" %}
+                </button>
+                <button type="submit" class="btn btn-sm btn-primary">
+                    <i class="ph ph-floppy-disk me-1"></i>
+                    {% if instance %}{% trans "Mettre à jour" %}{% else %}{% trans "Créer" %}{% endif %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

@@ -47,7 +47,7 @@ PAGE_WIDTH, PAGE_HEIGHT = A4
 
 LOGO_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-    'static', 'chartes', 'logo.svg'
+    'static', 'assets', 'images', 'logo', '1.png'
 )
 
 
@@ -94,9 +94,11 @@ def get_logo_image(width=3 * cm, height=None, logo_source=None):
                     img = Image(logo_path, width=width, height=ih * ratio)
                 return img
         except Exception:
-            pass  # Fallback sur le logo statique
+            # Le logo source existe en DB mais le fichier est inaccessible
+            # → retourner None, ne PAS fallback sur le logo statique AltiusOne
+            return None
 
-    # Fallback: logo SVG statique
+    # Fallback: logo SVG statique (uniquement si aucun logo_source demandé)
     if not os.path.isfile(LOGO_PATH):
         return None
     try:

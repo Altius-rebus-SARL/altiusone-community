@@ -1,0 +1,78 @@
+<!-- core/configuration/partials/advanced_list.html — Modèles avancés avec CRUD -->
+{% load i18n config_tags %}
+
+<div class="mb-3 d-flex justify-content-between align-items-center">
+    <h6 class="mb-0">
+        <i class="ti-world me-1"></i>{{ categorie_label }}
+        <span class="badge bg-light-primary ms-2">{{ items|length }}</span>
+    </h6>
+    <button class="btn btn-sm btn-primary"
+            hx-get="{% url 'core:configuration-advanced-create' module categorie %}"
+            hx-target="#parametre-list"
+            hx-swap="innerHTML">
+        <i class="ph ph-plus-circle me-1"></i>{% trans "Nouveau" %}
+    </button>
+</div>
+
+{% if items %}
+<div class="table-responsive">
+    <table class="table table-sm table-hover mb-0">
+        <thead>
+            <tr class="table-light">
+                {% for field in fields %}
+                <th class="small fw-semibold" style="font-size: 0.75rem;">
+                    {{ field|cut:"_"|title }}
+                </th>
+                {% endfor %}
+                <th style="width: 80px;"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                {% for field in fields %}
+                <td class="small py-1">
+                    {% with val=item|getattr:field %}
+                    {% if val == True %}
+                    <i class="ph ph-check-circle text-success"></i>
+                    {% elif val == False %}
+                    <i class="ph ph-x-circle text-muted"></i>
+                    {% elif val is None %}
+                    <span class="text-muted">—</span>
+                    {% else %}
+                    {{ val }}
+                    {% endif %}
+                    {% endwith %}
+                </td>
+                {% endfor %}
+                <td class="py-1 text-end">
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary btn-sm"
+                                hx-get="{% url 'core:configuration-advanced-edit' module categorie item.pk %}"
+                                hx-target="#parametre-list"
+                                hx-swap="innerHTML"
+                                title="{% trans 'Modifier' %}">
+                            <i class="ph ph-pencil"></i>
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm"
+                                hx-post="{% url 'core:configuration-advanced-delete' module categorie item.pk %}"
+                                hx-target="#parametre-list"
+                                hx-swap="innerHTML"
+                                hx-confirm="{% trans 'Supprimer cet élément ?' %}"
+                                title="{% trans 'Supprimer' %}">
+                            <i class="ph ph-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="text-center text-muted py-4">
+    <i class="ph ph-database f-s-24 d-block mb-2"></i>
+    <p class="mb-1">{% trans "Aucune donnée configurée" %}</p>
+    <small>{% trans "Cliquez sur 'Nouveau' ou lancez les commandes d'initialisation" %}</small>
+</div>
+{% endif %}

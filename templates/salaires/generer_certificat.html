@@ -47,6 +47,9 @@
                             <p class="text-muted f-s-12 mb-0">{% trans "Matricule" %}: {{ employe.matricule }}</p>
                             <p class="text-muted f-s-12 mb-0">{% trans "AVS" %}: {{ employe.avs_number }}</p>
                             <p class="text-muted f-s-12 mb-0">{% trans "Taux" %}: {{ employe.taux_occupation }}%</p>
+                            {% if employe.date_entree %}
+                            <p class="text-muted f-s-12 mb-0">{% trans "Entrée" %}: {{ employe.date_entree|date:"d.m.Y" }}</p>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -60,6 +63,7 @@
                         <label class="form-label">{% trans "Année" %} <span class="text-danger">*</span></label>
                         <input type="number"
                                name="annee"
+                               id="annee"
                                class="form-control"
                                min="2020"
                                max="2099"
@@ -68,6 +72,31 @@
                         <small class="text-muted">
                             {% trans "Année du certificat à générer" %}
                         </small>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-6">
+                            <label class="form-label">{% trans "Début de la période" %}</label>
+                            <input type="date"
+                                   name="date_debut"
+                                   id="date_debut"
+                                   class="form-control"
+                                   value="{{ default_date_debut|date:'Y-m-d' }}">
+                            <small class="text-muted">
+                                {% trans "Laisser vide = 1er janvier" %}
+                            </small>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">{% trans "Fin de la période" %}</label>
+                            <input type="date"
+                                   name="date_fin"
+                                   id="date_fin"
+                                   class="form-control"
+                                   value="{{ default_date_fin|date:'Y-m-d' }}">
+                            <small class="text-muted">
+                                {% trans "Laisser vide = 31 décembre" %}
+                            </small>
+                        </div>
                     </div>
 
                     <!-- Option calcul automatique -->
@@ -79,15 +108,15 @@
                             </label>
                         </div>
                         <small class="text-muted ms-4">
-                            {% trans "Agrège les données des fiches de salaire validées pour l'année sélectionnée" %}
+                            {% trans "Agrège les données des fiches de salaire validées pour la période sélectionnée" %}
                         </small>
                     </div>
 
-                    <!-- Options avancées -->
+                    <!-- Options manuelles -->
                     <div class="mb-4" id="options-manuelles" style="display: none;">
                         <div class="alert alert-warning">
                             <i class="ph ph-warning me-2"></i>
-                            {% trans "Mode manuel: vous devrez saisir tous les montants manuellement après création" %}
+                            {% trans "Mode manuel: vous devrez saisir tous les montants dans le Studio après création" %}
                         </div>
                     </div>
 
@@ -95,9 +124,8 @@
                         <h6 class="mb-3"><i class="ph ph-info me-2"></i>{% trans "Information" %}</h6>
                         <ul class="mb-0 f-s-14">
                             <li class="mb-2">{% trans "Le certificat sera créé au format Formulaire 11 officiel" %}</li>
-                            <li class="mb-2">{% trans "Les montants des chiffres 8 (brut) et 11 (net) sont calculés automatiquement" %}</li>
-                            <li class="mb-2">{% trans "Vous pourrez modifier le certificat et générer le PDF ensuite" %}</li>
-                            <li>{% trans "Si un certificat existe déjà pour cette année, il ne sera pas recréé" %}</li>
+                            <li class="mb-2">{% trans "Après création, vous serez redirigé vers le Studio pour ajuster les valeurs" %}</li>
+                            <li class="mb-2">{% trans "Si un certificat existe déjà pour cette année, il ne sera pas recréé" %}</li>
                         </ul>
                     </div>
 
@@ -121,9 +149,25 @@
 document.addEventListener('DOMContentLoaded', function() {
     const autoCalculer = document.getElementById('auto_calculer');
     const optionsManuelles = document.getElementById('options-manuelles');
+    const anneeInput = document.getElementById('annee');
+    const dateDebutInput = document.getElementById('date_debut');
+    const dateFinInput = document.getElementById('date_fin');
 
     autoCalculer.addEventListener('change', function() {
         optionsManuelles.style.display = this.checked ? 'none' : 'block';
+    });
+
+    // Auto-update dates when year changes
+    anneeInput.addEventListener('change', function() {
+        const year = parseInt(this.value);
+        if (year >= 2020 && year <= 2099) {
+            if (!dateDebutInput.value) {
+                dateDebutInput.value = year + '-01-01';
+            }
+            if (!dateFinInput.value) {
+                dateFinInput.value = year + '-12-31';
+            }
+        }
     });
 });
 </script>

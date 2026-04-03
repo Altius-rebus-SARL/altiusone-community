@@ -415,6 +415,25 @@ def certificat_preview_pdf(request, pk):
 
 
 @login_required
+def certificat_export_xml(request, pk):
+    """Exporte un certificat de salaire au format XML Swissdec ELM v5"""
+    certificat = get_object_or_404(
+        CertificatSalaire.objects.select_related(
+            'employe__mandat__client__adresse_siege',
+            'employe__adresse',
+        ),
+        pk=pk,
+    )
+    from salaires.services.xml_certificat_salaire import CertificatSalaireXML
+    service = CertificatSalaireXML(certificat)
+    xml_bytes = service.generer(pretty=True)
+    filename = f"lohnausweis_{certificat.employe.matricule}_{certificat.annee}.xml"
+    response = HttpResponse(xml_bytes, content_type='application/xml')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+@login_required
 def generer_fiches_masse(request):
     """Génère les fiches de salaire pour tous les employés actifs d'un mandat"""
 
@@ -570,7 +589,7 @@ class CertificatSalaireListView(SearchMixin, LoginRequiredMixin, BusinessPermiss
         # Employés actifs pour le dropdown "Nouveau certificat"
         context['employes_actifs'] = Employe.objects.filter(
             statut='ACTIF'
-        ).order_by('nom', 'prenom')[:50]
+        ).select_related('mandat__client').order_by('nom', 'prenom')[:50]
         return context
 
 
@@ -608,6 +627,7 @@ class CertificatSalaireUpdateView(LoginRequiredMixin, BusinessPermissionMixin, U
 def generer_certificat(request, employe_pk):
     """Génère le certificat de salaire annuel pour un employé (Formulaire 11)"""
     employe = get_object_or_404(Employe, pk=employe_pk)
+    current_year = datetime.now().year
 
     if request.method == "POST":
         annee = int(request.POST.get("annee"))
@@ -617,14 +637,26 @@ def generer_certificat(request, employe_pk):
         existing = CertificatSalaire.objects.filter(employe=employe, annee=annee).first()
         if existing:
             messages.warning(request, _("Un certificat existe déjà pour cette année"))
-            return redirect("salaires:certificat-detail", pk=existing.pk)
+            return redirect("salaires:certificat-studio", pk=existing.pk)
+
+        # Dates de période (par défaut 1er jan - 31 déc)
+        date_debut_str = request.POST.get("date_debut")
+        date_fin_str = request.POST.get("date_fin")
+        if date_debut_str:
+            date_debut = datetime.strptime(date_debut_str, "%Y-%m-%d").date()
+        else:
+            date_debut = datetime(annee, 1, 1).date()
+        if date_fin_str:
+            date_fin = datetime.strptime(date_fin_str, "%Y-%m-%d").date()
+        else:
+            date_fin = datetime(annee, 12, 31).date()
 
         # Créer le certificat
         certificat = CertificatSalaire.objects.create(
             employe=employe,
             annee=annee,
-            date_debut=datetime(annee, 1, 1).date(),
-            date_fin=datetime(annee, 12, 31).date(),
+            date_debut=date_debut,
+            date_fin=date_fin,
             genere_par=request.user,
             taux_occupation=employe.taux_occupation or Decimal("100"),
         )
@@ -633,18 +665,32 @@ def generer_certificat(request, employe_pk):
         if auto_calculer:
             try:
                 certificat.calculer_depuis_fiches(save=True)
-                messages.success(request, _("Certificat de salaire généré et calculé avec succès"))
+                messages.success(request, _("Certificat généré et calculé avec succès"))
             except ValueError as e:
                 messages.warning(request, _(f"Certificat créé mais calcul impossible: {e}"))
         else:
-            messages.success(request, _("Certificat de salaire créé (en brouillon)"))
+            messages.success(request, _("Certificat créé (en brouillon)"))
 
-        return redirect("salaires:certificat-detail", pk=certificat.pk)
+        # Rediriger vers le Studio pour éditer/visualiser
+        return redirect("salaires:certificat-studio", pk=certificat.pk)
+
+    # Dates par défaut basées sur l'employé
+    default_date_debut = None
+    default_date_fin = None
+    if employe.date_entree and employe.date_entree.year == current_year:
+        default_date_debut = employe.date_entree
+    if employe.date_sortie and employe.date_sortie.year == current_year:
+        default_date_fin = employe.date_sortie
 
     return render(
         request,
         "salaires/generer_certificat.html",
-        {"employe": employe, "current_year": datetime.now().year},
+        {
+            "employe": employe,
+            "current_year": current_year,
+            "default_date_debut": default_date_debut,
+            "default_date_fin": default_date_fin,
+        },
     )
 
 
