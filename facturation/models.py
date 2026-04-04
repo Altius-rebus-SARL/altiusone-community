@@ -991,8 +991,9 @@ class Facture(BaseModel):
         ]
 
     def __str__(self):
-        devise_code = self.devise_id or self.mandat.devise_id
-        return f"{self.numero_facture} - {self.client.raison_sociale} - {self.montant_ttc} {devise_code}"
+        devise_code = self.devise_id or (self.mandat.devise_id if self.mandat_id else "")
+        client_nom = self.client.raison_sociale if self.client_id else ""
+        return f"{self.numero_facture} - {client_nom} - {self.montant_ttc} {devise_code}"
 
     @property
     def est_simplifiee(self):
