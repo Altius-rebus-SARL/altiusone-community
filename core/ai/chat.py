@@ -37,10 +37,16 @@ class LocalChatService:
         self._model_name = getattr(
             settings, 'CHAT_MODEL_NAME', 'Qwen/Qwen2.5-0.5B-Instruct'
         )
-        self._max_new_tokens = getattr(settings, 'CHAT_MAX_NEW_TOKENS', 300)
+        self._max_new_tokens = getattr(settings, 'CHAT_MAX_NEW_TOKENS', 500)
 
     def _load_model(self):
-        """Charge le modèle et le tokenizer (une seule fois)."""
+        """Charge le modèle et le tokenizer (une seule fois).
+
+        Optimisations CPU:
+        - BetterTransformer (torch.compile) si disponible
+        - torch.float32 sur CPU (float16 est plus lent sur CPU sans AVX512)
+        - torch.inference_mode() pour désactiver les gradients
+        """
         if self._model is not None:
             return
 
@@ -50,6 +56,16 @@ class LocalChatService:
         logger.info(f"Chargement du modèle chat: {self._model_name}")
         start = time.time()
 
+        # Déterminer le device et le dtype optimal
+        if torch.cuda.is_available():
+            device = "cuda"
+            dtype = torch.float16
+            logger.info("GPU CUDA détecté — utilisation float16")
+        else:
+            device = "cpu"
+            dtype = torch.float32  # float32 plus rapide que float16 sur CPU
+            logger.info("CPU uniquement — utilisation float32")
+
         self._tokenizer = AutoTokenizer.from_pretrained(
             self._model_name,
             trust_remote_code=True,
@@ -57,14 +73,23 @@ class LocalChatService:
 
         self._model = AutoModelForCausalLM.from_pretrained(
             self._model_name,
-            torch_dtype=torch.float16,
-            device_map="cpu",
+            torch_dtype=dtype,
+            device_map=device,
             trust_remote_code=True,
         )
         self._model.eval()
 
+        # Optimisation: torch.compile si disponible (PyTorch 2.0+)
+        if hasattr(torch, 'compile') and device == "cpu":
+            try:
+                self._model = torch.compile(self._model, mode="reduce-overhead")
+                logger.info("torch.compile activé (reduce-overhead)")
+            except Exception as e:
+                logger.debug(f"torch.compile non disponible: {e}")
+
+        self._device = device
         elapsed = time.time() - start
-        logger.info(f"Modèle chat chargé en {elapsed:.1f}s")
+        logger.info(f"Modèle chat chargé en {elapsed:.1f}s sur {device}")
 
     @property
     def model_name(self) -> str:
@@ -155,7 +180,8 @@ class LocalChatService:
             text = self._tokenizer.apply_chat_template(
                 messages, tokenize=False, add_generation_prompt=True
             )
-            inputs = self._tokenizer(text, return_tensors="pt")
+            device = getattr(self, '_device', 'cpu')
+            inputs = self._tokenizer(text, return_tensors="pt").to(device)
             input_len = inputs["input_ids"].shape[1]
 
             streamer = TextIteratorStreamer(
@@ -209,9 +235,10 @@ class LocalChatService:
         text = self._tokenizer.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True
         )
-        inputs = self._tokenizer(text, return_tensors="pt")
+        device = getattr(self, '_device', 'cpu')
+        inputs = self._tokenizer(text, return_tensors="pt").to(device)
 
-        with torch.no_grad():
+        with torch.inference_mode():
             outputs = self._model.generate(
                 input_ids=inputs["input_ids"],
                 attention_mask=inputs["attention_mask"],
@@ -232,7 +259,7 @@ class LocalChatService:
         """Wrapper pour model.generate dans un thread (pour le streaming)."""
         import torch
         with _model_lock:
-            with torch.no_grad():
+            with torch.inference_mode():
                 self._model.generate(**gen_kwargs)
 
     def health_check(self) -> Dict[str, Any]:

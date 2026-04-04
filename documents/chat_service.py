@@ -143,7 +143,7 @@ DONNEES TROUVEES:
         conversation,
         message: str,
         use_semantic_search: bool = True,
-        max_context_results: int = 5,
+        max_context_results: int = 10,
         similarity_threshold: float = 0.3,
         entity_types: Optional[List[EntityType]] = None
     ) -> ChatResponse:
@@ -286,7 +286,7 @@ DONNEES TROUVEES:
         conversation,
         message: str,
         use_semantic_search: bool = True,
-        max_context_results: int = 5,
+        max_context_results: int = 10,
         entity_types=None
     ):
         """
@@ -449,14 +449,24 @@ DONNEES TROUVEES:
         Returns:
             Liste de SearchResult
         """
-        # Construire le contexte de recherche
-        mandat_ids = None
+        # Construire le contexte de recherche SÉCURISÉ
+        # Priorité: mandats de la conversation > mandats accessibles par l'utilisateur
+        user = conversation.utilisateur
         mandats_qs = conversation.mandats.all()
         if mandats_qs.exists():
             mandat_ids = [str(m.id) for m in mandats_qs]
+        else:
+            # Fallback: restreindre aux mandats accessibles par l'utilisateur
+            # SÉCURITÉ: ne JAMAIS laisser mandat_ids=None (accès total)
+            if hasattr(user, 'get_accessible_mandats'):
+                accessible = user.get_accessible_mandats()
+                mandat_ids = [str(m.id) for m in accessible]
+            else:
+                # Superuser/manager: accès complet (explicite)
+                mandat_ids = None if (user.is_superuser or (hasattr(user, 'is_manager') and user.is_manager())) else []
 
         context = SearchContext(
-            user=conversation.utilisateur,
+            user=user,
             mandat_ids=mandat_ids,
             entity_types=entity_types
         )
@@ -479,26 +489,39 @@ DONNEES TROUVEES:
         search_results: List[SearchResult]
     ) -> str:
         """
-        Construit le prompt système — compact pour modèle 3B.
+        Construit le prompt système avec contexte enrichi.
 
-        Max ~2000 tokens de contexte pour éviter les timeouts.
+        Budget: ~4000 tokens de contexte (Qwen2.5-0.5B supporte 32K).
         """
         base_prompt = conversation.contexte_systeme or self.SYSTEM_PROMPT
 
         if not search_results:
             contexte = "Aucune donnee trouvee pour cette requete."
         else:
-            # Format compact — 1 ligne par résultat, max 5
+            # Format enrichi — 2-3 lignes par résultat, max 10
             lines = []
-            for r in search_results[:5]:
+            for r in search_results[:10]:
                 line = f"- [{r.entity_type.value}] {r.title}"
                 if r.subtitle:
                     line += f" | {r.subtitle}"
-                # Métadonnées importantes seulement
-                for key in ('montant_ttc', 'statut', 'date_emission', 'date_document', 'email'):
+                # Métadonnées importantes
+                important_keys = (
+                    'montant_ttc', 'montant_ht', 'statut', 'date_emission',
+                    'date_document', 'email', 'numero', 'solde', 'devise',
+                    'periode', 'annee', 'taux', 'fonction',
+                )
+                meta_parts = []
+                for key in important_keys:
                     val = r.metadata.get(key)
                     if val:
-                        line += f" | {key}: {val}"
+                        meta_parts.append(f"{key}: {val}")
+                if meta_parts:
+                    line += f" | {', '.join(meta_parts)}"
+                # Description courte si disponible
+                if r.description:
+                    desc = r.description[:200].replace('\n', ' ').strip()
+                    if desc:
+                        line += f"\n  {desc}"
                 lines.append(line)
             contexte = "\n".join(lines)
 
