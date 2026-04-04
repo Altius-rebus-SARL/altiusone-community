@@ -193,6 +193,9 @@ python manage.py init_support || echo "Warning: Support init failed, continuing.
 echo "Vectorize missing embeddings (background, non-blocking)"
 python manage.py vectorize_all --tier 1 --batch-size 50 &
 
+echo "Process pending documents for OCR (background, non-blocking)"
+python manage.py process_pending_documents --errors &
+
 echo "Setup commands done"
 
 # === DEMARRAGE DU SERVEUR ===
