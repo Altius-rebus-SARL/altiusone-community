@@ -46,7 +46,7 @@ class Command(BaseCommand):
             self.stdout.write(f"Feedbacks négatifs: {stats['feedbacks_negatifs']}")
             self.stdout.write(f"Paires estimées:    {stats['paires_estimees']}")
             self.stdout.write(f"Prêt pour training: {'Oui' if stats['ready_for_training'] else 'Non'}")
-            self.stdout.write(f"Version actuelle:   v{stats['current_version']}")
+            self.stdout.write(f"Version actuelle:   {stats['current_version']}")
             if stats['last_training']:
                 lt = stats['last_training']
                 self.stdout.write(f"Dernier training:   {lt.get('trained_at', 'N/A')}")
