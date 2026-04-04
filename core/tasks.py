@@ -190,3 +190,48 @@ def indexer_embeddings_manquants_task(tier: int = 2, batch_size: int = 50):
     if total > 0:
         logger.info(f"Embeddings manquants: {total} tâches lancées")
     return {'queued': total}
+
+
+@shared_task(
+    bind=True,
+    max_retries=1,
+    name='core.tasks.finetune_embeddings_task',
+)
+def finetune_embeddings_task(self, epochs: int = 3, reembed: bool = True):
+    """
+    Fine-tune évolutif des embeddings depuis les feedbacks utilisateur.
+
+    Collecte les paires (requête → document), fine-tune le modèle
+    sentence-transformers, et régénère tous les embeddings.
+
+    Planifié via Celery Beat: hebdomadaire (dimanche 3h00).
+    """
+    from core.ai.finetuning import finetuner
+
+    try:
+        # Vérifier s'il y a assez de données
+        stats = finetuner.get_training_stats()
+        if not stats['ready_for_training']:
+            logger.info(
+                f"Fine-tuning ignoré: {stats['total_feedbacks']} feedbacks "
+                f"(minimum {finetuner.MIN_PAIRS_FOR_TRAINING} paires)"
+            )
+            return {'status': 'skipped', 'reason': 'not enough data', **stats}
+
+        # Entraîner
+        result = finetuner.train(epochs=epochs)
+        if result['status'] != 'success':
+            return result
+
+        # Appliquer et re-embedder
+        if reembed:
+            finetuner.apply_finetuned_model()
+            reembed_stats = finetuner.reembed_all()
+            result['reembed'] = reembed_stats
+
+        logger.info(f"Fine-tuning terminé: v{result['version']}")
+        return result
+
+    except Exception as exc:
+        logger.error(f"Erreur fine-tuning: {exc}")
+        raise self.retry(exc=exc)
