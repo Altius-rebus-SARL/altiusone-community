@@ -22,7 +22,7 @@ def traiter_document_apres_upload(sender, instance, created, **kwargs):
     lors de la création (seulement pour un re-traitement manuel).
     """
     if created and instance.statut_traitement == 'UPLOAD':
-        if getattr(settings, 'OCR_SERVICE_ENABLED', False):
+        if getattr(settings, 'OCR_SERVICE_ENABLED', True):
             from documents.tasks import traiter_document_ocr
 
             logger.info(f"Déclenchement automatique traitement AI pour document {instance.id}")

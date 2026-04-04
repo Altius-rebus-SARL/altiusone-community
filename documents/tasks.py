@@ -140,6 +140,15 @@ def traiter_document_ocr(self, document_id: str):
 
         logger.info(f"Document {document_id} traite avec succes")
 
+        # Chunking automatique pour les longs documents (>5000 chars)
+        ocr_text = document.ocr_text or ''
+        if result['embedding'] and len(ocr_text) > 5000:
+            try:
+                indexer_document_chunks.delay(str(document_id), chunk_size=1000)
+                logger.info(f"Document {document_id}: chunking lancé ({len(ocr_text)} chars)")
+            except Exception as e:
+                logger.warning(f"Impossible de lancer chunking: {e}")
+
         # Declencher la decouverte de relations si embedding genere
         if result['embedding']:
             try:
