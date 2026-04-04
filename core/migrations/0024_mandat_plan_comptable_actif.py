@@ -18,15 +18,30 @@ def add_plan_comptable_actif_if_missing(apps, schema_editor):
 
 
 def set_plan_comptable_actif(apps, schema_editor):
-    Mandat = apps.get_model('core', 'Mandat')
-    PlanComptable = apps.get_model('comptabilite', 'PlanComptable')
-    for mandat in Mandat.objects.filter(plan_comptable_actif__isnull=True):
-        plan = PlanComptable.objects.filter(
-            mandat=mandat, is_template=False
-        ).first()
-        if plan:
-            mandat.plan_comptable_actif = plan
-            mandat.save(update_fields=['plan_comptable_actif'])
+    cursor = schema_editor.connection.cursor()
+    # Verifier que la colonne et la table existent avant de faire l'update
+    cursor.execute(
+        "SELECT 1 FROM information_schema.columns "
+        "WHERE table_name = 'mandats' AND column_name = 'plan_comptable_actif_id'"
+    )
+    if not cursor.fetchone():
+        return
+    cursor.execute(
+        "SELECT 1 FROM information_schema.tables "
+        "WHERE table_name = 'plans_comptables'"
+    )
+    if not cursor.fetchone():
+        return
+    cursor.execute("""
+        UPDATE mandats m SET plan_comptable_actif_id = sub.plan_id
+        FROM (
+            SELECT DISTINCT ON (pc.mandat_id) pc.mandat_id, pc.id AS plan_id
+            FROM plans_comptables pc
+            WHERE pc.is_template = FALSE
+            ORDER BY pc.mandat_id, pc.created_at DESC
+        ) sub
+        WHERE m.id = sub.mandat_id AND m.plan_comptable_actif_id IS NULL
+    """)
 
 
 class Migration(migrations.Migration):

@@ -1,6 +1,6 @@
 # core/translation.py
 from modeltranslation.translator import register, TranslationOptions
-from .models import Client, Mandat, Contact, Tache, Notification
+from .models import Client, Mandat, Tache, Notification, Periodicite
 
 
 @register(Client)
@@ -21,3 +21,8 @@ class TacheTranslationOptions(TranslationOptions):
 @register(Notification)
 class NotificationTranslationOptions(TranslationOptions):
     fields = ("titre", "message", "lien_texte")
+
+
+@register(Periodicite)
+class PeriodiciteTranslationOptions(TranslationOptions):
+    fields = ("libelle", "description")

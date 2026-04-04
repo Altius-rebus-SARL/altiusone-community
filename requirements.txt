@@ -26,6 +26,7 @@ kombu>=5.5.0
 
 # Internationalization
 django-modeltranslation>=0.19.0
+django-traduire[google]>=0.1.0
 django-countries>=7.6.0
 
 # PDF & Excel

@@ -1,6 +1,6 @@
 # documents/translation.py
 from modeltranslation.translator import register, TranslationOptions
-from .models import CategorieDocument, TypeDocument, Document, SourceDocument
+from .models import CategorieDocument, TypeDocument, Document, SourceDocument, Dossier
 
 
 @register(SourceDocument)
@@ -20,4 +20,9 @@ class TypeDocumentTranslationOptions(TranslationOptions):
 
 @register(Document)
 class DocumentTranslationOptions(TranslationOptions):
-    fields = ("description", "notes")
+    fields = ("description", "notes", "commentaire_validation")
+
+
+@register(Dossier)
+class DossierTranslationOptions(TranslationOptions):
+    fields = ("nom", "description")

@@ -38,6 +38,7 @@ if DEBUG:
 
 MAIN_APPS = [
     'modeltranslation',
+    'django_traduire',
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -196,6 +197,14 @@ LANGUAGES = [
 MODELTRANSLATION_DEFAULT_LANGUAGE = "fr"
 MODELTRANSLATION_LANGUAGES = ("fr", "de", "it", "en")
 MODELTRANSLATION_FALLBACK_LANGUAGES = ("fr", "en")
+
+# django-traduire — traduction automatique des champs vides
+TRADUIRE = {
+    "BACKEND": "django_traduire.backends.GoogleBackend",
+    "SOURCE_LANGUAGE": "fr",
+    "TARGET_LANGUAGES": ["de", "it", "en"],
+    "AUTO_TRANSLATE": True,
+}
 
 # Application specific settings
 ALTIUSONE_VERSION = "1.0.0"
