@@ -335,6 +335,11 @@ class UniversalSearchService:
         Returns:
             Liste de SearchResult tries par pertinence
         """
+        # SÉCURITÉ: si mandat_ids est une liste vide, aucun résultat
+        if context.mandat_ids is not None and len(context.mandat_ids) == 0:
+            logger.warning("Recherche refusée: utilisateur sans mandats accessibles")
+            return []
+
         # Extraire les mots-cles significatifs du message
         search_query = self._extract_search_keywords(query)
         logger.info(f"Recherche: '{query}' -> mots-cles: '{search_query}'")
