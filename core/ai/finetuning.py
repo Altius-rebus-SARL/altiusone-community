@@ -391,28 +391,36 @@ class EmbeddingFineTuner:
             'total_feedbacks': positive_count + negative_count,
             'paires_estimees': positive_count * 2,  # ~2 sources par réponse
             'ready_for_training': positive_count >= self.MIN_PAIRS_FOR_TRAINING,
-            'current_version': latest_version,
+            'current_version': f'v{latest_version}',
             'current_model_dir': latest_dir,
             'last_training': metadata,
         }
 
-    def _get_current_version(self) -> int:
-        """Retourne la version actuelle du modèle fine-tuné."""
+    def _get_current_version(self) -> str:
+        """Retourne la version actuelle du modèle fine-tuné (semver)."""
         if not os.path.isdir(FINETUNED_DIR):
-            return 0
-        versions = [
-            int(d[1:]) for d in os.listdir(FINETUNED_DIR)
-            if d.startswith('v') and d[1:].isdigit()
-        ]
-        return max(versions) if versions else 0
+            return '0.0.0'
+        versions = []
+        for d in os.listdir(FINETUNED_DIR):
+            if d.startswith('v'):
+                parts = d[1:].split('.')
+                if len(parts) == 3 and all(p.isdigit() for p in parts):
+                    versions.append(tuple(int(p) for p in parts))
+        if not versions:
+            return '0.0.0'
+        latest = max(versions)
+        return f'{latest[0]}.{latest[1]}.{latest[2]}'
 
-    def _get_next_version(self) -> int:
-        return self._get_current_version() + 1
+    def _get_next_version(self) -> str:
+        """Incrémente le patch: 0.0.1 → 0.0.2, etc."""
+        current = self._get_current_version()
+        major, minor, patch = (int(p) for p in current.split('.'))
+        return f'{major}.{minor}.{patch + 1}'
 
     def _get_latest_model_dir(self) -> Optional[str]:
         """Retourne le chemin du dernier modèle fine-tuné."""
         version = self._get_current_version()
-        if version == 0:
+        if version == '0.0.0':
             return None
         path = os.path.join(FINETUNED_DIR, f'v{version}')
         return path if os.path.isdir(path) else None
