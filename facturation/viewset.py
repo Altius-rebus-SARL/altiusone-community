@@ -511,7 +511,11 @@ class TarifMandatViewSet(viewsets.ModelViewSet):
 
 
 class NiveauRelanceViewSet(viewsets.ModelViewSet):
-    """ViewSet pour les niveaux de relance par régime fiscal"""
+    """ViewSet pour les niveaux de relance par régime fiscal.
+
+    Lecture: tous les utilisateurs authentifiés.
+    Écriture: managers uniquement.
+    """
 
     serializer_class = NiveauRelanceSerializer
     permission_classes = [IsAuthenticated]
@@ -521,9 +525,31 @@ class NiveauRelanceViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return NiveauRelance.objects.select_related("regime_fiscal").order_by("niveau")
 
+    def check_write_permission(self):
+        user = self.request.user
+        if not (user.is_superuser or (hasattr(user, 'is_manager') and user.is_manager())):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Seuls les managers peuvent modifier les niveaux de relance")
+
+    def perform_create(self, serializer):
+        self.check_write_permission()
+        serializer.save()
+
+    def perform_update(self, serializer):
+        self.check_write_permission()
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        self.check_write_permission()
+        instance.delete()
+
 
 class MentionLegaleViewSet(viewsets.ModelViewSet):
-    """ViewSet pour les mentions légales par régime fiscal"""
+    """ViewSet pour les mentions légales par régime fiscal.
+
+    Lecture: tous les utilisateurs authentifiés.
+    Écriture: managers uniquement.
+    """
 
     serializer_class = MentionLegaleSerializer
     permission_classes = [IsAuthenticated]
@@ -533,3 +559,21 @@ class MentionLegaleViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return MentionLegale.objects.select_related("regime_fiscal").order_by("position")
+
+    def check_write_permission(self):
+        user = self.request.user
+        if not (user.is_superuser or (hasattr(user, 'is_manager') and user.is_manager())):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Seuls les managers peuvent modifier les mentions légales")
+
+    def perform_create(self, serializer):
+        self.check_write_permission()
+        serializer.save()
+
+    def perform_update(self, serializer):
+        self.check_write_permission()
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        self.check_write_permission()
+        instance.delete()
