@@ -240,4 +240,55 @@ urlpatterns = [
         views.get_field_options,
         name='api-field-options'
     ),
+
+    # ==========================================================================
+    # PROCESS ENGINE (PR2) — Definitions de processus metiers
+    # ==========================================================================
+    path(
+        'processus/',
+        views.ProcessDefinitionListView.as_view(),
+        name='process-list',
+    ),
+    path(
+        'processus/nouveau/',
+        views.ProcessDefinitionCreateView.as_view(),
+        name='process-create',
+    ),
+    path(
+        'processus/<uuid:pk>/',
+        views.ProcessDefinitionDetailView.as_view(),
+        name='process-detail',
+    ),
+    path(
+        'processus/<uuid:pk>/modifier/',
+        views.ProcessDefinitionUpdateView.as_view(),
+        name='process-update',
+    ),
+    path(
+        'processus/<uuid:pk>/supprimer/',
+        views.ProcessDefinitionDeleteView.as_view(),
+        name='process-delete',
+    ),
+    path(
+        'processus/<uuid:pk>/publier/',
+        views.process_publish,
+        name='process-publish',
+    ),
+    path(
+        'processus/<uuid:pk>/nouvelle-version/',
+        views.process_new_version,
+        name='process-new-version',
+    ),
+
+    # Instances
+    path(
+        'processus-instances/',
+        views.ProcessInstanceListView.as_view(),
+        name='process-instance-list',
+    ),
+    path(
+        'processus-instances/<uuid:pk>/',
+        views.ProcessInstanceDetailView.as_view(),
+        name='process-instance-detail',
+    ),
 ]

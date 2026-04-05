@@ -9,7 +9,17 @@ from django.contrib.auth import get_user_model
 from rest_framework.test import APIRequestFactory, force_authenticate
 from rest_framework import status
 
-from .models import FormConfiguration, FormTemplate, FormSubmission, ModelFieldMapping
+from .models import (
+    FormConfiguration,
+    FormTemplate,
+    FormSubmission,
+    ModelFieldMapping,
+    ProcessDefinition,
+    ProcessStep,
+    ProcessTransition,
+    ProcessInstance,
+    StepExecution,
+)
 from .services.introspector import ModelIntrospector, EXCLUDED_MODELS
 
 
@@ -820,3 +830,268 @@ class PostActionsExecutionTests(ModelFormsPermissionsBase):
         # L'erreur est enregistree mais process continue
         self.assertEqual(len(handler.post_action_errors), 1)
         self.assertIn('nonexistent.Model', handler.post_action_errors[0]['error'])
+
+
+# =============================================================================
+# Tests PR2 (2026-04-06): moteur de processus metiers
+# =============================================================================
+
+class ProcessDefinitionModelTests(ModelFormsPermissionsBase):
+    """Tests pour ProcessDefinition et modeles lies."""
+
+    def test_create_process_definition(self):
+        process = ProcessDefinition.objects.create(
+            code='TEST_PROCESS',
+            name='Test Process',
+            category='WORKFLOW',
+            created_by=self.superuser,
+        )
+        self.assertEqual(process.version, 1)
+        self.assertTrue(process.is_draft)
+        self.assertEqual(str(process), 'Test Process (TEST_PROCESS v1)')
+
+    def test_unique_together_code_version(self):
+        ProcessDefinition.objects.create(
+            code='UNIQUE_TEST',
+            name='v1',
+            version=1,
+            created_by=self.superuser,
+        )
+        # Meme code, version differente -> OK
+        ProcessDefinition.objects.create(
+            code='UNIQUE_TEST',
+            name='v2',
+            version=2,
+            created_by=self.superuser,
+        )
+        # Meme code, meme version -> IntegrityError
+        from django.db import IntegrityError
+        with self.assertRaises(IntegrityError):
+            ProcessDefinition.objects.create(
+                code='UNIQUE_TEST',
+                name='v1 doublon',
+                version=1,
+                created_by=self.superuser,
+            )
+
+    def test_get_latest_published(self):
+        ProcessDefinition.objects.create(
+            code='LATEST_TEST', name='v1', version=1,
+            is_draft=False, created_by=self.superuser,
+        )
+        v2 = ProcessDefinition.objects.create(
+            code='LATEST_TEST', name='v2', version=2,
+            is_draft=False, created_by=self.superuser,
+        )
+        # v3 en draft n'est pas consideree comme publiee
+        ProcessDefinition.objects.create(
+            code='LATEST_TEST', name='v3', version=3,
+            is_draft=True, created_by=self.superuser,
+        )
+        latest = ProcessDefinition.get_latest_published('LATEST_TEST')
+        self.assertEqual(latest, v2)
+
+    def test_create_steps_and_transitions(self):
+        process = ProcessDefinition.objects.create(
+            code='PROC_STEPS', name='Steps test', created_by=self.superuser,
+        )
+        step1 = ProcessStep.objects.create(
+            process=process,
+            code='STEP_01',
+            name='Etape 1',
+            step_type=ProcessStep.StepType.START,
+            order=1,
+        )
+        step2 = ProcessStep.objects.create(
+            process=process,
+            code='STEP_02',
+            name='Etape 2',
+            step_type=ProcessStep.StepType.END,
+            order=2,
+        )
+        transition = ProcessTransition.objects.create(
+            from_step=step1,
+            to_step=step2,
+            label='Always',
+        )
+        self.assertEqual(process.steps.count(), 2)
+        self.assertEqual(step1.outgoing_transitions.count(), 1)
+        self.assertEqual(step2.incoming_transitions.count(), 1)
+        self.assertEqual(transition.from_step.code, 'STEP_01')
+
+    def test_unique_step_code_per_process(self):
+        process = ProcessDefinition.objects.create(
+            code='UNIQ_STEP', name='x', created_by=self.superuser,
+        )
+        ProcessStep.objects.create(
+            process=process, code='S1', name='a',
+            step_type=ProcessStep.StepType.START,
+        )
+        from django.db import IntegrityError
+        with self.assertRaises(IntegrityError):
+            ProcessStep.objects.create(
+                process=process, code='S1', name='b',
+                step_type=ProcessStep.StepType.END,
+            )
+
+    def test_process_instance_with_step_executions(self):
+        process = ProcessDefinition.objects.create(
+            code='PROC_INST', name='Instance test', created_by=self.superuser,
+        )
+        step = ProcessStep.objects.create(
+            process=process, code='S1', name='s1',
+            step_type=ProcessStep.StepType.START,
+        )
+        instance = ProcessInstance.objects.create(
+            process_def=process,
+            current_step=step,
+            status=ProcessInstance.Status.RUNNING,
+            variables={'key': 'value'},
+            triggered_by=self.user_a,
+            mandat=self.mandat_a,
+        )
+        execution = StepExecution.objects.create(
+            instance=instance,
+            step=step,
+            status=StepExecution.Status.COMPLETED,
+            input={'k': 1},
+            output={'k': 2},
+        )
+        self.assertEqual(instance.step_executions.count(), 1)
+        self.assertEqual(execution.instance, instance)
+        self.assertEqual(instance.variables['key'], 'value')
+
+    def test_step_execution_linked_to_form_submission(self):
+        """StepExecution.form_submission FK pour tracer les FORM_FILL steps."""
+        config = FormConfiguration.objects.create(
+            code='PR2_FORM', name='Form', category='AUTRE',
+            target_model='core.Client',
+            status=FormConfiguration.Status.ACTIVE,
+            created_by=self.superuser,
+        )
+        submission = FormSubmission.objects.create(
+            form_config=config,
+            submitted_data={'raison_sociale': 'Test'},
+            submitted_by=self.user_a,
+        )
+        process = ProcessDefinition.objects.create(
+            code='PROC_LINK', name='link test', created_by=self.superuser,
+        )
+        step = ProcessStep.objects.create(
+            process=process, code='FORM_STEP', name='form',
+            step_type=ProcessStep.StepType.FORM_FILL,
+            configuration={'form_config_code': 'PR2_FORM'},
+        )
+        instance = ProcessInstance.objects.create(
+            process_def=process,
+            triggered_by=self.user_a,
+        )
+        execution = StepExecution.objects.create(
+            instance=instance,
+            step=step,
+            status=StepExecution.Status.COMPLETED,
+            form_submission=submission,
+        )
+        self.assertEqual(execution.form_submission, submission)
+        # Reverse relation depuis FormSubmission
+        self.assertEqual(submission.step_executions.count(), 1)
+
+
+class ScopeProcessDefinitionsTests(ModelFormsPermissionsBase):
+    """Tests pour scope_process_definitions_by_user()."""
+
+    def setUp(self):
+        # Process global (sans mandat)
+        self.proc_global = ProcessDefinition.objects.create(
+            code='PR2_GLOBAL', name='Global',
+            is_draft=False, created_by=self.superuser,
+        )
+        # Process lie a mandat_a
+        self.proc_a = ProcessDefinition.objects.create(
+            code='PR2_A', name='Mandat A',
+            is_draft=False, created_by=self.superuser,
+        )
+        self.proc_a.mandats.add(self.mandat_a)
+        # Process lie a mandat_b
+        self.proc_b = ProcessDefinition.objects.create(
+            code='PR2_B', name='Mandat B',
+            is_draft=False, created_by=self.superuser,
+        )
+        self.proc_b.mandats.add(self.mandat_b)
+
+    def test_superuser_sees_all_processes(self):
+        from modelforms.permissions import scope_process_definitions_by_user
+        qs = scope_process_definitions_by_user(
+            ProcessDefinition.objects.all(), self.superuser,
+        )
+        codes = set(qs.values_list('code', flat=True))
+        self.assertEqual(codes, {'PR2_GLOBAL', 'PR2_A', 'PR2_B'})
+
+    def test_user_a_sees_global_and_mandat_a_only(self):
+        from modelforms.permissions import scope_process_definitions_by_user
+        qs = scope_process_definitions_by_user(
+            ProcessDefinition.objects.all(), self.user_a,
+        )
+        codes = set(qs.values_list('code', flat=True))
+        self.assertIn('PR2_GLOBAL', codes)
+        self.assertIn('PR2_A', codes)
+        self.assertNotIn('PR2_B', codes)
+
+    def test_orphan_sees_only_global_processes(self):
+        from modelforms.permissions import scope_process_definitions_by_user
+        qs = scope_process_definitions_by_user(
+            ProcessDefinition.objects.all(), self.orphan,
+        )
+        codes = set(qs.values_list('code', flat=True))
+        self.assertEqual(codes, {'PR2_GLOBAL'})
+
+
+class ScopeProcessInstancesTests(ModelFormsPermissionsBase):
+    """Tests pour scope_process_instances_by_user()."""
+
+    def setUp(self):
+        self.process = ProcessDefinition.objects.create(
+            code='PR2_INST_PROC', name='Proc', created_by=self.superuser,
+        )
+        # Instance declenchee par user_a sur mandat_a
+        self.inst_a_own = ProcessInstance.objects.create(
+            process_def=self.process,
+            triggered_by=self.user_a,
+            mandat=self.mandat_a,
+        )
+        # Instance declenchee par user_b sur mandat_b (hors scope de user_a)
+        self.inst_b_own = ProcessInstance.objects.create(
+            process_def=self.process,
+            triggered_by=self.user_b,
+            mandat=self.mandat_b,
+        )
+        # Instance declenchee par user_b sur mandat_a (user_a doit la voir
+        # via son acces a mandat_a)
+        self.inst_a_by_b = ProcessInstance.objects.create(
+            process_def=self.process,
+            triggered_by=self.user_b,
+            mandat=self.mandat_a,
+        )
+
+    def test_user_a_sees_own_and_shared_mandat_instances(self):
+        from modelforms.permissions import scope_process_instances_by_user
+        qs = scope_process_instances_by_user(
+            ProcessInstance.objects.all(), self.user_a,
+        )
+        ids = set(str(i.id) for i in qs)
+        self.assertIn(str(self.inst_a_own.id), ids)
+        self.assertIn(str(self.inst_a_by_b.id), ids)
+        self.assertNotIn(str(self.inst_b_own.id), ids)
+
+    def test_orphan_sees_only_own_instances(self):
+        from modelforms.permissions import scope_process_instances_by_user
+        inst_orphan = ProcessInstance.objects.create(
+            process_def=self.process,
+            triggered_by=self.orphan,
+            mandat=None,
+        )
+        qs = scope_process_instances_by_user(
+            ProcessInstance.objects.all(), self.orphan,
+        )
+        ids = set(str(i.id) for i in qs)
+        self.assertEqual(ids, {str(inst_orphan.id)})

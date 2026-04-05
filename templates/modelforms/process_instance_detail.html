@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Exécution" %} {{ instance.process_def.code }}{% endblock %}
+
+{% block content %}
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">
+            <i class="ph-duotone ph-lightning me-2"></i>
+            {% trans "Exécution" %} — {{ instance.process_def.name }}
+            <span class="badge {% if instance.status == 'COMPLETED' %}bg-success{% elif instance.status == 'FAILED' %}bg-danger{% elif instance.status == 'RUNNING' %}bg-info{% else %}bg-secondary{% endif %}">
+                {{ instance.get_status_display }}
+            </span>
+        </h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li><a class="f-s-14 f-w-500" href="{% url 'modelforms:process-instance-list' %}">{% trans "Exécutions" %}</a></li>
+            <li class="active"><a class="f-s-14 f-w-500" href="#">{{ instance.id|stringformat:"s"|slice:":8" }}</a></li>
+        </ul>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header"><h6 class="mb-0">{% trans "Contexte" %}</h6></div>
+            <div class="card-body">
+                <dl class="row mb-0 f-s-13">
+                    <dt class="col-5">{% trans "Processus" %}</dt>
+                    <dd class="col-7">
+                        <a href="{% url 'modelforms:process-detail' pk=instance.process_def.pk %}">
+                            {{ instance.process_def.code }} v{{ instance.process_def.version }}
+                        </a>
+                    </dd>
+
+                    <dt class="col-5">{% trans "Étape courante" %}</dt>
+                    <dd class="col-7">
+                        {% if instance.current_step %}
+                            <code>{{ instance.current_step.code }}</code>
+                        {% else %}—{% endif %}
+                    </dd>
+
+                    <dt class="col-5">{% trans "Déclencheur" %}</dt>
+                    <dd class="col-7">{{ instance.trigger_type }}</dd>
+
+                    <dt class="col-5">{% trans "Déclenché par" %}</dt>
+                    <dd class="col-7">{{ instance.triggered_by|default:"—" }}</dd>
+
+                    <dt class="col-5">{% trans "Mandat" %}</dt>
+                    <dd class="col-7">{{ instance.mandat|default:"—" }}</dd>
+
+                    <dt class="col-5">{% trans "Début" %}</dt>
+                    <dd class="col-7">{{ instance.started_at|date:"d/m/Y H:i:s"|default:"—" }}</dd>
+
+                    <dt class="col-5">{% trans "Fin" %}</dt>
+                    <dd class="col-7">{{ instance.completed_at|date:"d/m/Y H:i:s"|default:"—" }}</dd>
+                </dl>
+
+                {% if instance.error_message %}
+                <hr>
+                <div class="alert alert-danger mb-0 f-s-12">{{ instance.error_message }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header"><h6 class="mb-0">{% trans "Variables" %}</h6></div>
+            <div class="card-body">
+                <pre class="f-s-12 mb-0">{{ variables_pretty }}</pre>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">{% trans "Historique des étapes exécutées" %}</h6>
+            </div>
+            <div class="card-body p-0">
+                {% if executions %}
+                <table class="table mb-0">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>{% trans "Étape" %}</th>
+                            <th>{% trans "Type" %}</th>
+                            <th>{% trans "Statut" %}</th>
+                            <th>{% trans "Début" %}</th>
+                            <th>{% trans "Fin" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ex in executions %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>
+                                <strong>{{ ex.step.name }}</strong>
+                                <br><code class="f-s-11">{{ ex.step.code }}</code>
+                            </td>
+                            <td><span class="badge bg-light-primary">{{ ex.step.get_step_type_display }}</span></td>
+                            <td>
+                                <span class="badge {% if ex.status == 'COMPLETED' %}bg-success{% elif ex.status == 'FAILED' %}bg-danger{% elif ex.status == 'RUNNING' %}bg-info{% elif ex.status == 'SKIPPED' %}bg-secondary{% else %}bg-warning{% endif %}">
+                                    {{ ex.get_status_display }}
+                                </span>
+                                {% if ex.retries_count %}
+                                    <small class="text-muted">({{ ex.retries_count }}×)</small>
+                                {% endif %}
+                            </td>
+                            <td><small>{{ ex.started_at|date:"H:i:s"|default:"—" }}</small></td>
+                            <td><small>{{ ex.completed_at|date:"H:i:s"|default:"—" }}</small></td>
+                        </tr>
+                        {% if ex.error_message %}
+                        <tr class="bg-light-danger">
+                            <td></td>
+                            <td colspan="5"><small class="text-danger">{{ ex.error_message }}</small></td>
+                        </tr>
+                        {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p class="text-center text-muted py-4 mb-0">{% trans "Aucune étape exécutée." %}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

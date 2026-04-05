@@ -1,0 +1,198 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{{ process.name }} v{{ process.version }}{% endblock %}
+
+{% block content %}
+<div class="row m-1">
+    <div class="col-12 d-flex justify-content-between align-items-start">
+        <div>
+            <h4 class="main-title">
+                <i class="ph-duotone {{ process.icon }} me-2"></i>{{ process.name }}
+                <span class="badge bg-light-secondary">v{{ process.version }}</span>
+                {% if process.is_draft %}
+                    <span class="badge bg-warning">{% trans "Brouillon" %}</span>
+                {% else %}
+                    <span class="badge bg-success">{% trans "Publié" %}</span>
+                {% endif %}
+            </h4>
+            <ul class="app-line-breadcrumbs mb-3">
+                <li>
+                    <a class="f-s-14 f-w-500" href="{% url 'modelforms:process-list' %}">
+                        <i class="ph-duotone ph-flow-arrow f-s-16"></i> {% trans "Processus" %}
+                    </a>
+                </li>
+                <li class="active"><a class="f-s-14 f-w-500" href="#">{{ process.code }}</a></li>
+            </ul>
+        </div>
+        <div>
+            {% if process.is_draft %}
+                <a href="{% url 'modelforms:process-update' pk=process.pk %}" class="btn btn-warning">
+                    <i class="ti ti-edit me-1"></i>{% trans "Modifier" %}
+                </a>
+                <form method="post" action="{% url 'modelforms:process-publish' pk=process.pk %}" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-success"
+                            onclick="return confirm('{% trans 'Publier ce processus ?' %}')">
+                        <i class="ti ti-send me-1"></i>{% trans "Publier" %}
+                    </button>
+                </form>
+            {% else %}
+                <form method="post" action="{% url 'modelforms:process-new-version' pk=process.pk %}" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-primary">
+                        <i class="ti ti-copy me-1"></i>{% trans "Nouvelle version" %}
+                    </button>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header"><h6 class="mb-0">{% trans "Informations" %}</h6></div>
+            <div class="card-body">
+                <dl class="row mb-0 f-s-13">
+                    <dt class="col-4">{% trans "Code" %}</dt>
+                    <dd class="col-8"><code>{{ process.code }}</code></dd>
+
+                    <dt class="col-4">{% trans "Catégorie" %}</dt>
+                    <dd class="col-8">{{ process.get_category_display }}</dd>
+
+                    <dt class="col-4">{% trans "Étapes" %}</dt>
+                    <dd class="col-8">{{ steps|length }}</dd>
+
+                    <dt class="col-4">{% trans "Transitions" %}</dt>
+                    <dd class="col-8">{{ transitions|length }}</dd>
+
+                    <dt class="col-4">{% trans "Créé le" %}</dt>
+                    <dd class="col-8">{{ process.created_at|date:"d/m/Y H:i" }}</dd>
+
+                    <dt class="col-4">{% trans "Modifié le" %}</dt>
+                    <dd class="col-8">{{ process.updated_at|date:"d/m/Y H:i" }}</dd>
+                </dl>
+
+                {% if process.description %}
+                <hr>
+                <p class="f-s-13 text-muted mb-0">{{ process.description }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if recent_instances %}
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0">{% trans "Dernières exécutions" %}</h6>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    {% for inst in recent_instances %}
+                    <li class="list-group-item">
+                        <a href="{% url 'modelforms:process-instance-detail' pk=inst.pk %}"
+                           class="d-flex justify-content-between align-items-center">
+                            <span>
+                                <small class="text-muted">{{ inst.created_at|date:"d/m H:i" }}</small>
+                                {% if inst.current_step %}
+                                    <br><small>{{ inst.current_step.code }}</small>
+                                {% endif %}
+                            </span>
+                            <span class="badge {% if inst.status == 'COMPLETED' %}bg-success{% elif inst.status == 'FAILED' %}bg-danger{% elif inst.status == 'RUNNING' %}bg-info{% else %}bg-secondary{% endif %}">
+                                {{ inst.get_status_display }}
+                            </span>
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="col-lg-8">
+        <ul class="nav nav-tabs mb-3" role="tablist">
+            <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-steps">
+                <i class="ph ph-list-numbers"></i> {% trans "Étapes" %} ({{ steps|length }})
+            </a></li>
+            <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-transitions">
+                <i class="ph ph-arrow-right"></i> {% trans "Transitions" %} ({{ transitions|length }})
+            </a></li>
+            <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-json">
+                <i class="ph ph-brackets-curly"></i> {% trans "JSON brut" %}
+            </a></li>
+        </ul>
+
+        <div class="tab-content">
+            <div class="tab-pane fade show active" id="tab-steps">
+                {% if steps %}
+                <div class="card"><div class="card-body p-0">
+                    <table class="table mb-0">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>{% trans "Code" %}</th>
+                                <th>{% trans "Nom" %}</th>
+                                <th>{% trans "Type" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for s in steps %}
+                            <tr>
+                                <td>{{ s.order }}</td>
+                                <td><code>{{ s.code }}</code></td>
+                                <td>{{ s.name }}</td>
+                                <td><span class="badge bg-light-primary">{{ s.get_step_type_display }}</span></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div></div>
+                {% else %}
+                <p class="text-muted">{% trans "Aucune étape définie." %}</p>
+                {% endif %}
+            </div>
+
+            <div class="tab-pane fade" id="tab-transitions">
+                {% if transitions %}
+                <div class="card"><div class="card-body p-0">
+                    <table class="table mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "De" %}</th>
+                                <th>{% trans "Vers" %}</th>
+                                <th>{% trans "Libellé" %}</th>
+                                <th>{% trans "Condition" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for t in transitions %}
+                            <tr>
+                                <td><code>{{ t.from_step.code }}</code></td>
+                                <td><code>{{ t.to_step.code }}</code></td>
+                                <td>{{ t.label|default:"—" }}</td>
+                                <td><small class="font-monospace text-muted">{{ t.condition|default:"—" }}</small></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div></div>
+                {% else %}
+                <p class="text-muted">{% trans "Aucune transition définie." %}</p>
+                {% endif %}
+            </div>
+
+            <div class="tab-pane fade" id="tab-json">
+                <div class="card">
+                    <div class="card-header"><strong>steps</strong></div>
+                    <div class="card-body"><pre class="f-s-12 mb-0">{{ steps_json }}</pre></div>
+                </div>
+                <div class="card mt-3">
+                    <div class="card-header"><strong>transitions</strong></div>
+                    <div class="card-body"><pre class="f-s-12 mb-0">{{ transitions_json }}</pre></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

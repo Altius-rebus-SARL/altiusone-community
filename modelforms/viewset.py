@@ -18,7 +18,17 @@ from django.utils import timezone
 from django.db import models as db_models
 
 from core.permissions import IsManagerOrAbove, IsComptableOrAbove
-from .models import FormConfiguration, ModelFieldMapping, FormSubmission, FormTemplate
+from .models import (
+    FormConfiguration,
+    ModelFieldMapping,
+    FormSubmission,
+    FormTemplate,
+    ProcessDefinition,
+    ProcessStep,
+    ProcessTransition,
+    ProcessInstance,
+    StepExecution,
+)
 from .serializers import (
     FormConfigurationListSerializer,
     FormConfigurationDetailSerializer,
@@ -33,12 +43,20 @@ from .serializers import (
     ModelInfoGroupedSerializer,
     ModelSchemaSerializer,
     MobileFormSchemaSerializer,
+    ProcessDefinitionListSerializer,
+    ProcessDefinitionDetailSerializer,
+    ProcessDefinitionWriteSerializer,
+    ProcessInstanceListSerializer,
+    ProcessInstanceDetailSerializer,
+    StepExecutionSerializer,
 )
 from .services.introspector import ModelIntrospector
 from .services.submission_handler import SubmissionHandler
 from .permissions import (
     scope_form_configs_by_user,
     scope_form_submissions_by_user,
+    scope_process_definitions_by_user,
+    scope_process_instances_by_user,
     user_can_access_mandat,
     user_can_access_form_config,
 )
@@ -832,4 +850,180 @@ class FormTemplateViewSet(viewsets.ModelViewSet):
         return Response(
             FormConfigurationDetailSerializer(config).data,
             status=status.HTTP_201_CREATED
+        )
+
+
+# =============================================================================
+# Process Engine ViewSets (PR2)
+# =============================================================================
+
+class ProcessDefinitionViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet pour gerer les definitions de processus metiers.
+
+    Phase 1 (PR2): CRUD basique. L'execution (start, step execution, etc.)
+    arrive en PR3 avec le StepExecutor.
+    """
+
+    queryset = ProcessDefinition.objects.all()
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    filterset_fields = ['category', 'is_draft', 'version']
+    search_fields = ['code', 'name', 'description']
+    ordering_fields = ['name', 'created_at', 'category', 'version']
+    ordering = ['category', 'name', '-version']
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsManagerOrAbove()]
+        return [IsComptableOrAbove()]
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return ProcessDefinitionListSerializer
+        if self.action in ['create', 'update', 'partial_update']:
+            return ProcessDefinitionWriteSerializer
+        return ProcessDefinitionDetailSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset().prefetch_related(
+            'steps', 'mandats',
+        )
+        # SECURITE: mandat-scoping (reutilise helpers PR1/PR2)
+        queryset = scope_process_definitions_by_user(queryset, self.request.user)
+
+        # Non-managers: uniquement les versions publiees
+        if not self.request.user.is_manager():
+            queryset = queryset.filter(is_draft=False)
+
+        return queryset
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    @action(detail=True, methods=['post'], url_path='publish')
+    def publish(self, request, pk=None):
+        """Publie une definition (is_draft=False)."""
+        process = self.get_object()
+        if not process.is_draft:
+            return Response(
+                {'error': 'Deja publie'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        process.is_draft = False
+        process.save(update_fields=['is_draft', 'updated_at'])
+        return Response(ProcessDefinitionDetailSerializer(process).data)
+
+    @action(detail=True, methods=['post'], url_path='new-version')
+    def new_version(self, request, pk=None):
+        """
+        Cree une nouvelle version draft a partir de cette version.
+
+        Copie les steps et transitions (pas les instances).
+        """
+        from django.db import transaction
+
+        source = self.get_object()
+        with transaction.atomic():
+            # Determiner le nouveau numero de version
+            latest = ProcessDefinition.objects.filter(
+                code=source.code,
+            ).order_by('-version').first()
+            new_version = (latest.version if latest else source.version) + 1
+
+            # Creer la nouvelle definition
+            new_def = ProcessDefinition.objects.create(
+                code=source.code,
+                name=source.name,
+                description=source.description,
+                category=source.category,
+                version=new_version,
+                is_draft=True,
+                icon=source.icon,
+                created_by=request.user,
+            )
+            new_def.mandats.set(source.mandats.all())
+
+            # Copier les steps (avec mapping old_id → new_id pour les transitions)
+            step_map = {}
+            for old_step in source.steps.all():
+                new_step = ProcessStep.objects.create(
+                    process=new_def,
+                    code=old_step.code,
+                    name=old_step.name,
+                    description=old_step.description,
+                    step_type=old_step.step_type,
+                    configuration=old_step.configuration,
+                    order=old_step.order,
+                    conditions=old_step.conditions,
+                    max_retries=old_step.max_retries,
+                    retry_delay_seconds=old_step.retry_delay_seconds,
+                    timeout_seconds=old_step.timeout_seconds,
+                    position_x=old_step.position_x,
+                    position_y=old_step.position_y,
+                )
+                step_map[old_step.pk] = new_step
+
+            # Copier les transitions en remappant les FK
+            for old_step in source.steps.all():
+                for old_trans in old_step.outgoing_transitions.all():
+                    ProcessTransition.objects.create(
+                        from_step=step_map[old_trans.from_step_id],
+                        to_step=step_map[old_trans.to_step_id],
+                        label=old_trans.label,
+                        condition=old_trans.condition,
+                        order=old_trans.order,
+                    )
+
+        return Response(
+            ProcessDefinitionDetailSerializer(new_def).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class ProcessInstanceViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet en lecture seule pour les instances de processus.
+
+    En PR2, on expose juste la lecture pour inspecter les instances existantes.
+    La creation (trigger) et l'execution viennent en PR3 avec le StepExecutor.
+    """
+
+    queryset = ProcessInstance.objects.all()
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    filterset_fields = ['process_def', 'status', 'mandat', 'trigger_type']
+    search_fields = ['process_def__code', 'process_def__name']
+    ordering_fields = ['created_at', 'started_at', 'completed_at', 'status']
+    ordering = ['-created_at']
+
+    permission_classes = [IsComptableOrAbove]
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return ProcessInstanceListSerializer
+        return ProcessInstanceDetailSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related(
+            'process_def', 'current_step', 'mandat', 'triggered_by',
+        ).prefetch_related('step_executions')
+        # SECURITE: mandat-scoping
+        return scope_process_instances_by_user(queryset, self.request.user)
+
+    @action(detail=True, methods=['get'], url_path='executions')
+    def executions(self, request, pk=None):
+        """Liste les executions d'etapes de cette instance."""
+        instance = self.get_object()
+        executions = instance.step_executions.select_related(
+            'step', 'form_submission',
+        ).order_by('created_at')
+        return Response(
+            StepExecutionSerializer(executions, many=True).data,
         )

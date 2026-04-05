@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}
+    {% if process %}{% trans "Modifier le processus" %}{% else %}{% trans "Nouveau processus" %}{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">
+            {% if process %}
+                <i class="ph-duotone ph-pencil me-2"></i>{% trans "Modifier" %} — {{ process.name }} v{{ process.version }}
+            {% else %}
+                <i class="ph-duotone ph-plus-circle me-2"></i>{% trans "Nouveau processus métier" %}
+            {% endif %}
+        </h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'modelforms:process-list' %}">
+                    <i class="ph-duotone ph-flow-arrow f-s-16"></i> {% trans "Processus" %}
+                </a>
+            </li>
+            <li class="active"><a class="f-s-14 f-w-500" href="#">
+                {% if process %}{{ process.code }}{% else %}{% trans "Nouveau" %}{% endif %}
+            </a></li>
+        </ul>
+    </div>
+</div>
+
+<form method="post" class="row">
+    {% csrf_token %}
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">{% trans "Informations générales" %}</h6>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">{% trans "Code" %} <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" name="code" required
+                           value="{{ process.code|default:'' }}"
+                           {% if process %}readonly{% endif %}
+                           placeholder="ONBOARDING_CLIENT">
+                    <small class="text-muted">{% trans "Identifiant unique (majuscules, underscores)" %}</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">{% trans "Nom" %} <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" name="name" required
+                           value="{{ process.name|default:'' }}"
+                           placeholder="{% trans 'Onboarding client' %}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">{% trans "Description" %}</label>
+                    <textarea class="form-control" name="description" rows="3">{{ process.description|default:'' }}</textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">{% trans "Catégorie" %}</label>
+                    <select class="form-select" name="category">
+                        {% for code, label in categories %}
+                            <option value="{{ code }}" {% if process.category == code %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">{% trans "Icône" %}</label>
+                    <input type="text" class="form-control" name="icon" value="{{ process.icon|default:'ph-flow-arrow' }}">
+                    <small class="text-muted">{% trans "Classe Phosphor Icons" %}</small>
+                </div>
+
+                {% if process %}
+                <div class="alert alert-info f-s-12 mb-0">
+                    <strong>v{{ process.version }}</strong>
+                    {% if process.is_draft %}
+                        <span class="badge bg-warning">{% trans "Brouillon" %}</span>
+                    {% else %}
+                        <span class="badge bg-success">{% trans "Publié" %}</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0">{% trans "Types d'étapes disponibles" %}</h6>
+            </div>
+            <div class="card-body f-s-12">
+                {% for code, label in step_types %}
+                    <div class="mb-1"><code>{{ code }}</code> — {{ label }}</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="ph-duotone ph-list-numbers me-1"></i>{% trans "Étapes (JSON)" %}
+                </h6>
+                <small class="text-muted">
+                    {% trans "Liste des étapes du processus. L'éditeur visuel drag-and-drop arrive en PR4." %}
+                </small>
+            </div>
+            <div class="card-body">
+                <textarea class="form-control font-monospace f-s-13" name="steps_json" rows="18"
+                          style="tab-size: 2;">{{ steps_json }}</textarea>
+                <details class="mt-2">
+                    <summary class="text-muted f-s-12 cursor-pointer">{% trans "Exemple" %}</summary>
+                    <pre class="f-s-11 text-muted mt-1">[
+  {
+    "code": "STEP_01_COLLECT",
+    "name": "Collecte des données",
+    "step_type": "FORM_FILL",
+    "configuration": {"form_config_code": "CLIENT_RAPIDE"},
+    "order": 1
+  },
+  {
+    "code": "STEP_02_APPROVE",
+    "name": "Validation manager",
+    "step_type": "HUMAN_APPROVAL",
+    "configuration": {"assignee_role": "MANAGER", "deadline_days": 3},
+    "order": 2
+  }
+]</pre>
+                </details>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="ph-duotone ph-arrow-right me-1"></i>{% trans "Transitions (JSON)" %}
+                </h6>
+                <small class="text-muted">
+                    {% trans "Arêtes du graphe: from → to avec condition optionnelle." %}
+                </small>
+            </div>
+            <div class="card-body">
+                <textarea class="form-control font-monospace f-s-13" name="transitions_json" rows="10"
+                          style="tab-size: 2;">{{ transitions_json }}</textarea>
+                <details class="mt-2">
+                    <summary class="text-muted f-s-12 cursor-pointer">{% trans "Exemple" %}</summary>
+                    <pre class="f-s-11 text-muted mt-1">[
+  {
+    "from": "STEP_01_COLLECT",
+    "to": "STEP_02_APPROVE",
+    "label": "Toujours",
+    "condition": {},
+    "order": 0
+  },
+  {
+    "from": "STEP_02_APPROVE",
+    "to": "STEP_03_END",
+    "label": "Si approuvé",
+    "condition": {"variable": "approved", "operator": "==", "value": true},
+    "order": 0
+  }
+]</pre>
+                </details>
+            </div>
+        </div>
+
+        <div class="mt-3 text-end">
+            <a href="{% if process %}{% url 'modelforms:process-detail' pk=process.pk %}{% else %}{% url 'modelforms:process-list' %}{% endif %}"
+               class="btn btn-outline-secondary">
+                {% trans "Annuler" %}
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="ti ti-device-floppy me-1"></i>{% trans "Enregistrer" %}
+            </button>
+        </div>
+    </div>
+</form>
+{% endblock %}

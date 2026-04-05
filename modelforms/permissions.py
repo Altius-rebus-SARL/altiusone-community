@@ -123,6 +123,44 @@ def user_can_access_mandat(user, mandat) -> bool:
     return accessible.filter(pk=mandat).exists()
 
 
+def scope_process_definitions_by_user(queryset, user):
+    """
+    Filtre un queryset de ProcessDefinition selon les mandats accessibles.
+
+    Meme regle que scope_form_configs_by_user: configs sans mandat sont
+    globales. Manager/superuser voit tout.
+    """
+    if _is_manager_or_above(user):
+        return queryset
+
+    if not hasattr(user, 'get_accessible_mandats'):
+        return queryset.filter(mandats__isnull=True).distinct()
+
+    accessible = user.get_accessible_mandats()
+    return queryset.filter(
+        Q(mandats__isnull=True) | Q(mandats__in=accessible)
+    ).distinct()
+
+
+def scope_process_instances_by_user(queryset, user):
+    """
+    Filtre un queryset de ProcessInstance selon les mandats accessibles.
+
+    Regle: user voit ses instances declenchees + celles attachees a un
+    mandat accessible. Manager/superuser voit tout.
+    """
+    if _is_manager_or_above(user):
+        return queryset
+
+    if not hasattr(user, 'get_accessible_mandats'):
+        return queryset.filter(triggered_by=user)
+
+    accessible = user.get_accessible_mandats()
+    return queryset.filter(
+        Q(triggered_by=user) | Q(mandat__in=accessible)
+    ).distinct()
+
+
 def user_can_access_form_config(user, form_config) -> bool:
     """
     Verifie qu'un utilisateur peut acceder a un FormConfiguration donne.

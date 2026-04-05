@@ -585,6 +585,484 @@ class FormSubmission(BaseModel):
         return f"{self.form_config.code} - {submitter} ({self.submitted_at.strftime('%d/%m/%Y %H:%M')})"
 
 
+# =============================================================================
+# Moteur de processus metiers (Workflow Engine) — PR2 (2026-04-06)
+# =============================================================================
+#
+# 5 nouveaux modeles qui s'empilent au-dessus de FormConfiguration pour
+# permettre aux utilisateurs finaux (fiduciaires) de definir des workflows
+# complets avec etapes, transitions, conditions et actions.
+#
+# Hierarchie:
+#     ProcessDefinition (N versions)
+#       ├── ProcessStep (N)
+#       │     └── step_type: FORM_FILL, CREATE_OBJECT, SEND_EMAIL, HUMAN_APPROVAL, ...
+#       └── ProcessTransition (N)
+#             └── condition: JSON
+#     ProcessInstance (1 par execution)
+#       └── StepExecution (1 par step execute)
+#             └── form_submission: FK optionnel pour tracabilite FORM_FILL
+#
+# Les executeurs de steps vivent dans modelforms/services/step_executor.py
+# (introduit en PR3). En PR2 on a uniquement la structure de donnees.
+# =============================================================================
+
+
+class ProcessDefinition(BaseModel):
+    """
+    Definition d'un processus metier (workflow).
+
+    Un ProcessDefinition est un template reutilisable, identifie par un code
+    metier (ex: ONBOARDING_CLIENT) et versionne. Une seule version peut etre
+    publiee en meme temps (is_draft=False).
+
+    Quand un trigger se declenche (manuel, webhook, cron, signal), une
+    ProcessInstance est creee a partir du ProcessDefinition courant et
+    parcourt les ProcessStep via les ProcessTransition.
+    """
+
+    class Category(models.TextChoices):
+        CLIENT = 'CLIENT', _('Client/Prospect')
+        FACTURATION = 'FACTURATION', _('Facturation')
+        SALAIRE = 'SALAIRE', _('Salaires')
+        TVA = 'TVA', _('TVA')
+        DOCUMENT = 'DOCUMENT', _('Document')
+        WORKFLOW = 'WORKFLOW', _('Workflow generique')
+        AUTRE = 'AUTRE', _('Autre')
+
+    # Identification
+    code = models.CharField(
+        max_length=50,
+        db_index=True,
+        verbose_name=_('Code'),
+        help_text=_('Code metier du processus (ex: ONBOARDING_CLIENT). Unique par version.'),
+    )
+    name = models.CharField(
+        max_length=200,
+        verbose_name=_('Nom'),
+        help_text=_('Nom affiche du processus'),
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name=_('Description'),
+        help_text=_('Description metier du processus'),
+    )
+    category = models.CharField(
+        max_length=50,
+        choices=Category.choices,
+        default=Category.WORKFLOW,
+        db_index=True,
+        verbose_name=_('Categorie'),
+    )
+
+    # Versioning
+    version = models.PositiveIntegerField(
+        default=1,
+        verbose_name=_('Version'),
+        help_text=_('Numero de version du processus. Incremente a chaque publication.'),
+    )
+    is_draft = models.BooleanField(
+        default=True,
+        db_index=True,
+        verbose_name=_('Brouillon'),
+        help_text=_('Si coche, le processus est en edition et ne peut pas etre declenche.'),
+    )
+
+    # Apparence
+    icon = models.CharField(
+        max_length=50,
+        default='ph-flow-arrow',
+        verbose_name=_('Icone'),
+        help_text=_('Classe CSS de l\'icone (Phosphor Icons)'),
+    )
+
+    # Association Mandat (M2M, comme FormConfiguration)
+    mandats = models.ManyToManyField(
+        'core.Mandat',
+        blank=True,
+        related_name='process_definitions',
+        verbose_name=_('Mandats associes'),
+        help_text=_(
+            'Mandats pour lesquels ce processus est disponible. '
+            'Si vide, le processus est global (visible par tous).'
+        ),
+    )
+
+    class Meta:
+        db_table = 'modelforms_process_definitions'
+        verbose_name = _('Definition de processus')
+        verbose_name_plural = _('Definitions de processus')
+        ordering = ['category', 'name', '-version']
+        unique_together = [('code', 'version')]
+        indexes = [
+            models.Index(fields=['code', 'version']),
+            models.Index(fields=['category', 'is_draft']),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.code} v{self.version})"
+
+    @classmethod
+    def get_latest_published(cls, code):
+        """
+        Retourne la derniere version publiee (is_draft=False) pour un code.
+
+        Returns:
+            ProcessDefinition ou None si aucune version publiee.
+        """
+        return cls.objects.filter(
+            code=code, is_draft=False, is_active=True,
+        ).order_by('-version').first()
+
+
+class ProcessStep(BaseModel):
+    """
+    Etape (node) d'un processus.
+
+    Chaque step a un type (FORM_FILL, CREATE_OBJECT, SEND_EMAIL, etc.) et
+    une configuration JSON qui decrit son comportement. Les StepExecutor
+    (PR3) lisent `step_type` + `configuration` pour executer le step.
+    """
+
+    class StepType(models.TextChoices):
+        FORM_FILL = 'FORM_FILL', _('Remplir un formulaire')
+        DOCUMENT_UPLOAD = 'DOCUMENT_UPLOAD', _('Uploader un document')
+        HUMAN_APPROVAL = 'HUMAN_APPROVAL', _('Validation humaine')
+        CALCULATION = 'CALCULATION', _('Calcul')
+        CREATE_OBJECT = 'CREATE_OBJECT', _('Creer un objet')
+        SEND_EMAIL = 'SEND_EMAIL', _('Envoyer un email')
+        SEND_NOTIFICATION = 'SEND_NOTIFICATION', _('Envoyer une notification')
+        CREATE_TASK = 'CREATE_TASK', _('Creer une tache')
+        WEBHOOK = 'WEBHOOK', _('Appel HTTP externe')
+        CONDITIONAL = 'CONDITIONAL', _('Branche conditionnelle')
+        LOOP = 'LOOP', _('Boucle sur collection')
+        WAIT = 'WAIT', _('Attendre')
+        START = 'START', _('Debut du processus')
+        END = 'END', _('Fin du processus')
+
+    process = models.ForeignKey(
+        ProcessDefinition,
+        on_delete=models.CASCADE,
+        related_name='steps',
+        verbose_name=_('Processus'),
+    )
+
+    # Identification dans le processus
+    code = models.CharField(
+        max_length=50,
+        verbose_name=_('Code'),
+        help_text=_('Code unique du step dans le processus (ex: STEP_01_COLLECTE)'),
+    )
+    name = models.CharField(
+        max_length=200,
+        verbose_name=_('Nom'),
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name=_('Description'),
+    )
+
+    # Type et configuration
+    step_type = models.CharField(
+        max_length=30,
+        choices=StepType.choices,
+        db_index=True,
+        verbose_name=_('Type d\'etape'),
+    )
+    configuration = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name=_('Configuration'),
+        help_text=_(
+            'Configuration specifique au type d\'etape. '
+            'Ex FORM_FILL: {"form_config_code": "CLIENT_RAPIDE"}. '
+            'Ex SEND_EMAIL: {"template": "NOUVEAU_CLIENT", "to": "{{record.email}}"}'
+        ),
+    )
+
+    # Ordre d'affichage / execution par defaut (si pas de transition explicite)
+    order = models.PositiveIntegerField(
+        default=0,
+        verbose_name=_('Ordre'),
+    )
+
+    # Conditions de visibilite / execution
+    conditions = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name=_('Conditions'),
+        help_text=_('Conditions d\'execution du step (ex: {"variable": "x", "operator": "==", "value": "y"})'),
+    )
+
+    # Robustesse
+    max_retries = models.PositiveIntegerField(
+        default=0,
+        verbose_name=_('Max retries'),
+    )
+    retry_delay_seconds = models.PositiveIntegerField(
+        default=60,
+        verbose_name=_('Delai entre retries (secondes)'),
+    )
+    timeout_seconds = models.PositiveIntegerField(
+        null=True, blank=True,
+        verbose_name=_('Timeout (secondes)'),
+    )
+
+    # Position dans l'editeur visuel (PR4)
+    position_x = models.FloatField(default=0, verbose_name=_('Position X'))
+    position_y = models.FloatField(default=0, verbose_name=_('Position Y'))
+
+    class Meta:
+        db_table = 'modelforms_process_steps'
+        verbose_name = _('Etape de processus')
+        verbose_name_plural = _('Etapes de processus')
+        ordering = ['process', 'order', 'code']
+        unique_together = [('process', 'code')]
+        indexes = [
+            models.Index(fields=['process', 'step_type']),
+        ]
+
+    def __str__(self):
+        return f"{self.process.code} / {self.code} [{self.step_type}]"
+
+
+class ProcessTransition(BaseModel):
+    """
+    Transition (edge) entre deux steps d'un processus.
+
+    Represente le flux du workflow. Une transition peut avoir une condition
+    JSON qui doit etre vraie pour que le passage d'un step a l'autre ait lieu.
+    Une transition sans condition est toujours prise.
+
+    Si un step a plusieurs transitions sortantes avec conditions, elles sont
+    evaluees dans l'ordre croissant de `order`. La premiere qui matche gagne.
+    """
+
+    from_step = models.ForeignKey(
+        ProcessStep,
+        on_delete=models.CASCADE,
+        related_name='outgoing_transitions',
+        verbose_name=_('Depuis'),
+    )
+    to_step = models.ForeignKey(
+        ProcessStep,
+        on_delete=models.CASCADE,
+        related_name='incoming_transitions',
+        verbose_name=_('Vers'),
+    )
+
+    label = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name=_('Libelle'),
+        help_text=_('Libelle affiche sur l\'arete (ex: "si approuve")'),
+    )
+    condition = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name=_('Condition'),
+        help_text=_('Condition JSON. Vide = transition inconditionnelle.'),
+    )
+    order = models.PositiveIntegerField(
+        default=0,
+        verbose_name=_('Ordre d\'evaluation'),
+        help_text=_('Si plusieurs transitions sortantes, evaluees dans l\'ordre croissant.'),
+    )
+
+    class Meta:
+        db_table = 'modelforms_process_transitions'
+        verbose_name = _('Transition de processus')
+        verbose_name_plural = _('Transitions de processus')
+        ordering = ['from_step', 'order']
+        indexes = [
+            models.Index(fields=['from_step', 'order']),
+        ]
+
+    def __str__(self):
+        lbl = f" ({self.label})" if self.label else ""
+        return f"{self.from_step.code} → {self.to_step.code}{lbl}"
+
+
+class ProcessInstance(BaseModel):
+    """
+    Une execution concrete d'un ProcessDefinition.
+
+    Stocke l'etat courant (current_step), les variables accumulees pendant
+    l'execution (JSONField simple, pas de modele typage separe en Phase 1),
+    et le statut global du processus.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', _('En attente')
+        RUNNING = 'RUNNING', _('En cours')
+        WAITING = 'WAITING', _('En attente d\'action humaine')
+        COMPLETED = 'COMPLETED', _('Termine')
+        FAILED = 'FAILED', _('Echec')
+        CANCELLED = 'CANCELLED', _('Annule')
+
+    process_def = models.ForeignKey(
+        ProcessDefinition,
+        on_delete=models.PROTECT,
+        related_name='instances',
+        verbose_name=_('Definition'),
+    )
+    current_step = models.ForeignKey(
+        ProcessStep,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='+',
+        verbose_name=_('Etape courante'),
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+        verbose_name=_('Statut'),
+    )
+
+    # Variables accumulees pendant l'execution
+    variables = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name=_('Variables'),
+        help_text=_('Variables accumulees pendant l\'execution du processus.'),
+    )
+
+    # Contexte
+    mandat = models.ForeignKey(
+        'core.Mandat',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='process_instances',
+        verbose_name=_('Mandat'),
+    )
+    triggered_by = models.ForeignKey(
+        'core.User',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='triggered_process_instances',
+        verbose_name=_('Declenche par'),
+    )
+    trigger_type = models.CharField(
+        max_length=30,
+        default='MANUAL',
+        verbose_name=_('Type de declenchement'),
+        help_text=_('MANUAL, WEBHOOK, CRON, SIGNAL, etc.'),
+    )
+
+    # Timing
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    # Erreur globale
+    error_message = models.TextField(
+        blank=True,
+        verbose_name=_('Message d\'erreur'),
+    )
+
+    class Meta:
+        db_table = 'modelforms_process_instances'
+        verbose_name = _('Instance de processus')
+        verbose_name_plural = _('Instances de processus')
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['process_def', 'status']),
+            models.Index(fields=['mandat', 'status']),
+            models.Index(fields=['status', 'created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.process_def.code} #{str(self.pk)[:8]} [{self.status}]"
+
+
+class StepExecution(BaseModel):
+    """
+    Execution d'un step dans le contexte d'une ProcessInstance.
+
+    Un StepExecution est cree pour chaque step execute, meme si le step est
+    skippe (statut SKIPPED). Contient input/output snapshots des variables
+    pour debug et audit. Peut pointer vers une FormSubmission si le step
+    est de type FORM_FILL (tracabilite).
+    """
+
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', _('En attente')
+        RUNNING = 'RUNNING', _('En cours')
+        WAITING = 'WAITING', _('En attente d\'action humaine')
+        COMPLETED = 'COMPLETED', _('Termine')
+        FAILED = 'FAILED', _('Echec')
+        SKIPPED = 'SKIPPED', _('Ignore')
+
+    instance = models.ForeignKey(
+        ProcessInstance,
+        on_delete=models.CASCADE,
+        related_name='step_executions',
+        verbose_name=_('Instance'),
+    )
+    step = models.ForeignKey(
+        ProcessStep,
+        on_delete=models.PROTECT,
+        related_name='executions',
+        verbose_name=_('Step'),
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+        verbose_name=_('Statut'),
+    )
+
+    # Snapshots des variables
+    input = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name=_('Input (variables a l\'entree)'),
+    )
+    output = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name=_('Output (variables produites)'),
+    )
+    logs = models.TextField(
+        blank=True,
+        verbose_name=_('Logs'),
+        help_text=_('Logs d\'execution (stdout/stderr/events)'),
+    )
+
+    # Tracabilite FORM_FILL → lien vers la FormSubmission creee
+    form_submission = models.ForeignKey(
+        'modelforms.FormSubmission',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='step_executions',
+        verbose_name=_('Soumission liee'),
+        help_text=_('Si le step est de type FORM_FILL, reference la FormSubmission creee.'),
+    )
+
+    # Timing et robustesse
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    retries_count = models.PositiveIntegerField(default=0)
+    error_message = models.TextField(blank=True)
+
+    class Meta:
+        db_table = 'modelforms_step_executions'
+        verbose_name = _('Execution d\'etape')
+        verbose_name_plural = _('Executions d\'etapes')
+        ordering = ['instance', 'created_at']
+        indexes = [
+            models.Index(fields=['instance', 'status']),
+            models.Index(fields=['step', 'status']),
+        ]
+
+    def __str__(self):
+        return f"{self.instance} / {self.step.code} [{self.status}]"
+
+
 class FormTemplate(models.Model):
     """
     Templates prédéfinis pour les cas d'usage courants.
