@@ -368,16 +368,50 @@ class FormSubmissionCreateSerializer(serializers.Serializer):
     mandat_id = serializers.UUIDField(required=False, allow_null=True)
 
     def validate_form_config_id(self, value):
-        """Vérifie que la configuration existe et est active."""
+        """Vérifie que la configuration existe, est active, et est accessible."""
+        from .permissions import user_can_access_form_config
+
         try:
             config = FormConfiguration.objects.get(id=value)
-            if config.status != FormConfiguration.Status.ACTIVE:
-                raise serializers.ValidationError(
-                    "Cette configuration de formulaire n'est pas active"
-                )
-            return value
         except FormConfiguration.DoesNotExist:
             raise serializers.ValidationError("Configuration introuvable")
+
+        if config.status != FormConfiguration.Status.ACTIVE:
+            raise serializers.ValidationError(
+                "Cette configuration de formulaire n'est pas active"
+            )
+
+        # SECURITE: verifier l'acces au formulaire pour cet utilisateur
+        request = self.context.get('request')
+        user = getattr(request, 'user', None) if request else None
+        if user is not None and not user_can_access_form_config(user, config):
+            raise serializers.ValidationError(
+                "Vous n'avez pas acces a ce formulaire."
+            )
+
+        return value
+
+    def validate_mandat_id(self, value):
+        """Verifie que l'utilisateur peut acceder au mandat demande."""
+        from .permissions import user_can_access_mandat
+        from core.models import Mandat
+
+        if value is None:
+            return value
+
+        try:
+            mandat = Mandat.objects.get(id=value)
+        except Mandat.DoesNotExist:
+            raise serializers.ValidationError("Mandat introuvable")
+
+        request = self.context.get('request')
+        user = getattr(request, 'user', None) if request else None
+        if user is not None and not user_can_access_mandat(user, mandat):
+            raise serializers.ValidationError(
+                "Vous n'avez pas acces a ce mandat."
+            )
+
+        return value
 
     def create(self, validated_data):
         """Crée et traite la soumission."""
@@ -387,13 +421,13 @@ class FormSubmissionCreateSerializer(serializers.Serializer):
         config = FormConfiguration.objects.get(id=validated_data['form_config_id'])
         user = self.context['request'].user
 
-        # Récupérer le mandat si spécifié
+        # Récupérer le mandat si spécifié (déjà validé par validate_mandat_id)
         mandat = None
         if validated_data.get('mandat_id'):
             try:
                 mandat = Mandat.objects.get(id=validated_data['mandat_id'])
             except Mandat.DoesNotExist:
-                pass
+                mandat = None
 
         # Créer la soumission
         submission = FormSubmission.objects.create(
@@ -423,6 +457,10 @@ class FormSubmissionCreateSerializer(serializers.Serializer):
         if success:
             submission.status = FormSubmission.Status.COMPLETED
             submission.created_records = records
+            if handler.post_action_errors:
+                submission.error_details = {
+                    'post_actions': handler.post_action_errors,
+                }
         else:
             submission.status = FormSubmission.Status.FAILED
             submission.error_message = '; '.join(errors)

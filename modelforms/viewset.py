@@ -36,6 +36,12 @@ from .serializers import (
 )
 from .services.introspector import ModelIntrospector
 from .services.submission_handler import SubmissionHandler
+from .permissions import (
+    scope_form_configs_by_user,
+    scope_form_submissions_by_user,
+    user_can_access_mandat,
+    user_can_access_form_config,
+)
 
 
 class FormConfigurationViewSet(viewsets.ModelViewSet):
@@ -72,11 +78,14 @@ class FormConfigurationViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        queryset = queryset.prefetch_related('field_mappings')
+        queryset = queryset.prefetch_related('field_mappings', 'mandats')
 
         # Filtrer par statut actif par défaut pour les non-managers
         if not self.request.user.is_manager():
             queryset = queryset.filter(status=FormConfiguration.Status.ACTIVE)
+
+        # SECURITE: filtrer par les mandats accessibles (configs globales visibles)
+        queryset = scope_form_configs_by_user(queryset, self.request.user)
 
         return queryset
 
@@ -495,9 +504,9 @@ class FormSubmissionViewSet(viewsets.ModelViewSet):
             'mandat',
         )
 
-        # Non-managers ne voient que leurs soumissions
-        if not self.request.user.is_manager():
-            queryset = queryset.filter(submitted_by=self.request.user)
+        # SECURITE: filtrer par mandats accessibles (ses propres soumissions
+        # + celles attachees a un mandat auquel il a acces)
+        queryset = scope_form_submissions_by_user(queryset, self.request.user)
 
         return queryset
 
@@ -532,6 +541,11 @@ class FormSubmissionViewSet(viewsets.ModelViewSet):
             submission.validated_by = request.user
             submission.validated_at = timezone.now()
             submission.validation_notes = notes
+            # Stocker les erreurs non-bloquantes des post_actions
+            if handler.post_action_errors:
+                submission.error_details = {
+                    'post_actions': handler.post_action_errors,
+                }
             submission.save()
 
             return Response(FormSubmissionDetailSerializer(submission).data)

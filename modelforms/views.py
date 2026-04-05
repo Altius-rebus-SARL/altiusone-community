@@ -28,6 +28,12 @@ from .forms import (
 )
 from .services.introspector import ModelIntrospector
 from .services.submission_handler import SubmissionHandler
+from .permissions import (
+    scope_form_configs_by_user,
+    scope_form_submissions_by_user,
+    user_can_access_mandat,
+    user_can_access_form_config,
+)
 
 
 # =============================================================================
@@ -48,6 +54,9 @@ class FormConfigurationListView(LoginRequiredMixin, BusinessPermissionMixin, Lis
             submission_count=Count('submissions'),
             field_count=Count('field_mappings'),
         ).order_by('category', 'name')
+
+        # SECURITE: mandat-scoping (configs globales + mandats accessibles)
+        queryset = scope_form_configs_by_user(queryset, self.request.user)
 
         # Filtres
         status = self.request.GET.get('status')
@@ -87,6 +96,13 @@ class FormConfigurationDetailView(LoginRequiredMixin, BusinessPermissionMixin, D
     business_permission = 'modelforms.view_configurations'
     template_name = 'modelforms/configuration_detail.html'
     context_object_name = 'configuration'
+
+    def get_queryset(self):
+        # SECURITE: ne pas exposer les configs de mandats non-accessibles
+        return scope_form_configs_by_user(
+            FormConfiguration.objects.all(),
+            self.request.user,
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -832,11 +848,11 @@ class FormSubmissionListView(LoginRequiredMixin, BusinessPermissionMixin, ListVi
             'form_config',
             'submitted_by',
             'validated_by',
+            'mandat',
         ).order_by('-submitted_at')
 
-        # Non-managers ne voient que leurs soumissions
-        if not self.request.user.is_manager():
-            queryset = queryset.filter(submitted_by=self.request.user)
+        # SECURITE: mandat-scoping (ses propres + celles sur ses mandats)
+        queryset = scope_form_submissions_by_user(queryset, self.request.user)
 
         # Filtres
         status = self.request.GET.get('status')
@@ -877,10 +893,8 @@ class FormSubmissionDetailView(LoginRequiredMixin, BusinessPermissionMixin, Deta
             'validated_by',
             'mandat',
         )
-        # Non-managers ne voient que leurs soumissions
-        if not self.request.user.is_manager():
-            queryset = queryset.filter(submitted_by=self.request.user)
-        return queryset
+        # SECURITE: mandat-scoping
+        return scope_form_submissions_by_user(queryset, self.request.user)
 
     def get_context_data(self, **kwargs):
         import json
@@ -895,7 +909,14 @@ class FormSubmissionDetailView(LoginRequiredMixin, BusinessPermissionMixin, Deta
 @permission_required_business('modelforms.validate_submission')
 def validate_submission(request, pk):
     """Valide une soumission en attente."""
-    submission = get_object_or_404(FormSubmission, pk=pk)
+    # SECURITE: on recupere la soumission dans le queryset filtre par mandats.
+    # Un manager de mandat A ne doit pas pouvoir valider une soumission
+    # attachee uniquement au mandat B.
+    scoped = scope_form_submissions_by_user(
+        FormSubmission.objects.all(),
+        request.user,
+    )
+    submission = get_object_or_404(scoped, pk=pk)
 
     if submission.status != FormSubmission.Status.PENDING:
         messages.error(request, _('Seules les soumissions en attente peuvent être validées.'))
@@ -919,8 +940,19 @@ def validate_submission(request, pk):
         submission.validated_by = request.user
         submission.validated_at = timezone.now()
         submission.validation_notes = notes
+        if handler.post_action_errors:
+            submission.error_details = {
+                'post_actions': handler.post_action_errors,
+            }
         submission.save()
-        messages.success(request, _('Soumission validée et enregistrements créés.'))
+        if handler.post_action_errors:
+            messages.warning(
+                request,
+                _("Soumission validée, mais %(pa)d action(s) post-soumission ont échoué.")
+                % {'pa': len(handler.post_action_errors)},
+            )
+        else:
+            messages.success(request, _('Soumission validée et enregistrements créés.'))
     else:
         submission.status = FormSubmission.Status.FAILED
         submission.error_message = '; '.join(errors)
@@ -936,7 +968,12 @@ def validate_submission(request, pk):
 @permission_required_business('modelforms.reject_submission')
 def reject_submission(request, pk):
     """Rejette une soumission en attente."""
-    submission = get_object_or_404(FormSubmission, pk=pk)
+    # SECURITE: idem validate_submission, on scope par mandats accessibles.
+    scoped = scope_form_submissions_by_user(
+        FormSubmission.objects.all(),
+        request.user,
+    )
+    submission = get_object_or_404(scoped, pk=pk)
 
     if submission.status != FormSubmission.Status.PENDING:
         messages.error(request, _('Seules les soumissions en attente peuvent être rejetées.'))
@@ -1033,10 +1070,12 @@ class AvailableFormsListView(LoginRequiredMixin, ListView):
     context_object_name = 'forms'
 
     def get_queryset(self):
-        """Retourne uniquement les formulaires actifs."""
-        return FormConfiguration.objects.filter(
+        """Retourne uniquement les formulaires actifs accessibles par l'utilisateur."""
+        queryset = FormConfiguration.objects.filter(
             status=FormConfiguration.Status.ACTIVE
         ).order_by('category', 'name')
+        # SECURITE: mandat-scoping
+        return scope_form_configs_by_user(queryset, self.request.user)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1059,10 +1098,12 @@ class FormFillView(LoginRequiredMixin, DetailView):
     context_object_name = 'form_config'
 
     def get_queryset(self):
-        """Seuls les formulaires actifs peuvent être remplis."""
-        return FormConfiguration.objects.filter(
+        """Seuls les formulaires actifs accessibles par l'utilisateur peuvent etre remplis."""
+        queryset = FormConfiguration.objects.filter(
             status=FormConfiguration.Status.ACTIVE
         )
+        # SECURITE: mandat-scoping
+        return scope_form_configs_by_user(queryset, self.request.user)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1145,6 +1186,14 @@ def submit_form(request, pk):
         status=FormConfiguration.Status.ACTIVE
     )
 
+    # SECURITE: verifier que l'utilisateur a acces a cette config
+    if not user_can_access_form_config(request.user, config):
+        messages.error(
+            request,
+            _("Vous n'avez pas acces a ce formulaire.")
+        )
+        return redirect('modelforms:available-forms')
+
     # Récupérer les données du formulaire
     import json
 
@@ -1171,7 +1220,16 @@ def submit_form(request, pk):
         try:
             mandat = Mandat.objects.get(pk=mandat_id)
         except Mandat.DoesNotExist:
-            pass
+            mandat = None
+
+        # SECURITE: un utilisateur ne peut pas attacher une soumission a un
+        # mandat auquel il n'a pas acces (faille d'escalade de privilege).
+        if mandat is not None and not user_can_access_mandat(request.user, mandat):
+            messages.error(
+                request,
+                _("Vous n'avez pas acces au mandat selectionne.")
+            )
+            return redirect('modelforms:form-fill', pk=pk)
 
     # Créer la soumission
     submission = FormSubmission.objects.create(
@@ -1203,11 +1261,25 @@ def submit_form(request, pk):
     if success:
         submission.status = FormSubmission.Status.COMPLETED
         submission.created_records = records
+        # Enregistrer les erreurs non-bloquantes des post_actions (si existent)
+        if handler.post_action_errors:
+            submission.error_details = {
+                'post_actions': handler.post_action_errors,
+            }
         submission.save()
-        messages.success(
-            request,
-            _('Formulaire traité avec succès. %(count)d enregistrement(s) créé(s).') % {'count': len(records)}
-        )
+        if handler.post_action_errors:
+            messages.warning(
+                request,
+                _(
+                    "Formulaire traité (%(count)d enregistrement(s)) mais "
+                    "%(pa)d action(s) post-soumission ont échoué (voir détail)."
+                ) % {'count': len(records), 'pa': len(handler.post_action_errors)}
+            )
+        else:
+            messages.success(
+                request,
+                _('Formulaire traité avec succès. %(count)d enregistrement(s) créé(s).') % {'count': len(records)}
+            )
     else:
         submission.status = FormSubmission.Status.FAILED
         submission.error_message = '; '.join(errors)
