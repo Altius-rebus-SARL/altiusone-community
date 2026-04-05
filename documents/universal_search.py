@@ -32,6 +32,25 @@ from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
 logger = logging.getLogger(__name__)
 
 
+class NoAccessibleMandatsError(PermissionError):
+    """
+    Levee lorsqu'un utilisateur tente une recherche alors qu'il n'a
+    acces a aucun mandat. Doit etre traduite en HTTP 403 par les vues.
+
+    Code d'erreur stable (utilise cote client web et mobile):
+        NO_ACCESSIBLE_MANDATS
+    """
+
+    code = 'NO_ACCESSIBLE_MANDATS'
+    default_message = (
+        "Vous n'avez acces a aucun mandat. "
+        "Contactez votre administrateur pour obtenir un acces."
+    )
+
+    def __init__(self, message: Optional[str] = None):
+        super().__init__(message or self.default_message)
+
+
 class EntityType(Enum):
     """Types d'entites recherchables."""
     DOCUMENT = 'document'
@@ -335,10 +354,16 @@ class UniversalSearchService:
         Returns:
             Liste de SearchResult tries par pertinence
         """
-        # SÉCURITÉ: si mandat_ids est une liste vide, aucun résultat
+        # SÉCURITÉ: si mandat_ids est une liste vide, l'utilisateur n'a
+        # acces a aucun mandat — on leve une exception explicite plutot
+        # qu'un silent return. Les vues (send_message, stream_message,
+        # chat_search, search_entities) la traduisent en HTTP 403.
         if context.mandat_ids is not None and len(context.mandat_ids) == 0:
-            logger.warning("Recherche refusée: utilisateur sans mandats accessibles")
-            return []
+            logger.warning(
+                "Recherche refusée: utilisateur %s sans mandats accessibles",
+                getattr(context.user, 'username', 'anonymous'),
+            )
+            raise NoAccessibleMandatsError()
 
         # Extraire les mots-cles significatifs du message
         search_query = self._extract_search_keywords(query)

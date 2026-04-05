@@ -417,7 +417,7 @@ class ConversationCreateSerializer(serializers.Serializer):
     contexte_systeme = serializers.CharField(required=False, default='')
 
     def validate(self, data):
-        """Normalise mandat/mandats."""
+        """Normalise mandat/mandats et verifie que l'utilisateur a acces a au moins un mandat."""
         mandats = data.get('mandats')
         mandat = data.get('mandat')
 
@@ -432,6 +432,40 @@ class ConversationCreateSerializer(serializers.Serializer):
         if document and not data['mandats'] and document.mandat_id:
             data['mandats'] = [document.mandat_id]
 
+        # SECURITE: un utilisateur sans mandat accessible ne peut PAS creer
+        # de conversation IA. On bloque en amont avec un code d'erreur stable
+        # pour que le mobile et le web affichent un message clair.
+        request = self.context.get('request')
+        user = getattr(request, 'user', None) if request else None
+        if user is not None and hasattr(user, 'get_accessible_mandats'):
+            accessible = user.get_accessible_mandats()
+            if not accessible.exists():
+                raise serializers.ValidationError(
+                    {
+                        'mandats': (
+                            "Vous n'avez acces a aucun mandat. "
+                            "Contactez votre administrateur pour obtenir un acces."
+                        ),
+                        'error_code': 'NO_ACCESSIBLE_MANDATS',
+                    }
+                )
+
+            # Verifier que les mandats demandes sont bien accessibles
+            requested_ids = data['mandats']
+            if requested_ids:
+                accessible_ids = set(str(m.id) for m in accessible)
+                for mid in requested_ids:
+                    if str(mid) not in accessible_ids:
+                        raise serializers.ValidationError(
+                            {
+                                'mandats': (
+                                    "Un ou plusieurs mandats demandes "
+                                    "ne vous sont pas accessibles."
+                                ),
+                                'error_code': 'MANDAT_NOT_ACCESSIBLE',
+                            }
+                        )
+
         return data
 
     def create(self, validated_data):
@@ -445,6 +479,28 @@ class ConversationCreateSerializer(serializers.Serializer):
             mandats = Mandat.objects.filter(pk__in=mandat_ids)
             conversation.mandats.set(mandats)
         return conversation
+
+    def to_representation(self, instance):
+        """
+        Serialise la conversation creee pour la reponse HTTP.
+
+        `ConversationCreateSerializer` est un `Serializer` simple avec
+        un champ `mandats = ListField(UUIDField)`. Sans override, DRF tente
+        d'iterer `instance.mandats` (un ManyRelatedManager) ce qui leve
+        `TypeError: 'ManyRelatedManager' object is not iterable`.
+        On retourne un payload explicite avec les champs essentiels.
+        """
+        return {
+            'id': str(instance.id),
+            'titre': instance.titre or '',
+            'description': instance.description or '',
+            'mandats': [str(mid) for mid in instance.mandats.values_list('id', flat=True)],
+            'document': str(instance.document_id) if instance.document_id else None,
+            'temperature': str(instance.temperature),
+            'contexte_systeme': instance.contexte_systeme or '',
+            'statut': instance.statut,
+            'created_at': instance.created_at.isoformat() if instance.created_at else None,
+        }
 
 
 class ChatSearchSerializer(serializers.Serializer):
