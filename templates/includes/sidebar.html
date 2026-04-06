@@ -634,6 +634,21 @@
               >{% trans "Soumissions" %}</a
             >
           </li>
+          <li class="nav-small-cap"><hr class="my-1"></li>
+          <li
+            data-active="{% if ns == 'modelforms' and 'process-list' in is_active or ns == 'modelforms' and 'process-create' in is_active or ns == 'modelforms' and 'process-detail' in is_active or ns == 'modelforms' and 'process-update' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'modelforms:process-list' %}">
+              <i class="ph-duotone ph-flow-arrow me-1"></i>{% trans "Processus" %}</a
+            >
+          </li>
+          <li
+            data-active="{% if ns == 'modelforms' and 'process-instance' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'modelforms:process-instance-list' %}">
+              <i class="ph-duotone ph-lightning me-1"></i>{% trans "Exécutions" %}</a
+            >
+          </li>
         </ul>
       </li>
       {% endif %}
