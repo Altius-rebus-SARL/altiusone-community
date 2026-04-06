@@ -14,12 +14,16 @@ def creer_dossier_client(sender, instance, created, **kwargs):
     if created:
         from documents.models import Dossier
 
+        proprietaire = instance.responsable or instance.created_by
+        if not proprietaire:
+            return
+
         # Dossier racine client
         dossier_client = Dossier.objects.create(
             nom=instance.raison_sociale,
             type_dossier='CLIENT',
             client=instance,
-            proprietaire=instance.responsable
+            proprietaire=proprietaire,
         )
 
         # Sous-dossiers standards (nom taxe dynamique selon régime du client)
@@ -33,7 +37,7 @@ def creer_dossier_client(sender, instance, created, **kwargs):
                 type_dossier='STANDARD',
                 parent=dossier_client,
                 client=instance,
-                proprietaire=instance.responsable
+                proprietaire=proprietaire,
             )
 
 
