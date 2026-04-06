@@ -56,7 +56,11 @@ api_v1_router.registry.extend(graph_router.registry)
 
 class HealthCheckView(View):
     def get(self, request):
-        return JsonResponse({"status": "ok", "service": "altiusone"})
+        return JsonResponse({
+            "status": "ok",
+            "service": "altiusone",
+            "version": settings.ALTIUSONE_VERSION,
+        })
 
 
 def sw_push_view(request):

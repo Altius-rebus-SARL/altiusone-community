@@ -4,6 +4,7 @@ set -e
 # Définir un environnement par défaut si non spécifié
 : ${ENVIRONMENT:="production"}
 echo "Running in $ENVIRONMENT environment"
+echo "AltiusOne version: ${ALTIUSONE_VERSION:-unknown}"
 
 # Fonction pour initialiser une base de données avec PostGIS
 init_postgis_db() {

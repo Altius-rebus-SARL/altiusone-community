@@ -1,15 +1,16 @@
 # =============================================================================
 # GitHub Actions - Validate + Build et Push des images AltiusOne
 # =============================================================================
-# 1. Validate: vérifie que Django démarre (check, migrations, imports)
-# 2. Build: construit les 3 images Docker et push vers ghcr.io
+# 1. Build: construit les 3 images Docker
+# 2. Validate: verifie que Django demarre dans l'image buildee
+# 3. Push: pousse les images validees vers ghcr.io
 #
 # Workflow git :
-# - develop : branche de développement (build :dev, jamais déployé auto)
-# - main    : branche stable (build :latest, déployé via Portal Ansible)
-# - tags    : releases versionnées (build :version + :latest)
+# - develop : branche de developpement (pas de build auto)
+# - main    : branche stable (build :latest, deploye via Portal Ansible)
+# - tags    : releases versionnees (build :version + :latest)
 #
-# Pour merger develop → main : créer une PR sur GitHub
+# Pour merger develop → main : creer une PR sur GitHub
 # =============================================================================
 
 name: Build AltiusOne Images
@@ -28,6 +29,7 @@ on:
       - 'entrypoint.sh'
       - 'docker-compose.yml'
       - '.github/workflows/build-images.yml'
+      - 'VERSION'
     tags:
       - 'v*.*.*'
   workflow_dispatch:
@@ -41,13 +43,12 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
-  # =========================================================================
-  # VALIDATE — Django system checks + migration consistency
-  # TODO: fixer les dépendances système (CMake, GDAL) puis réactiver
-  # =========================================================================
-  validate:
-    if: false  # désactivé temporairement
+  build-validate-push:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
     services:
       postgres:
         image: postgis/postgis:15-3.4
@@ -67,98 +68,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-          cache: 'pip'
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update -q
-          sudo apt-get install -yq --no-install-recommends \
-            libgdal-dev gdal-bin libgeos-dev libproj-dev \
-            tesseract-ocr
-
-      - name: Install Python dependencies
-        run: |
-          pip install --upgrade pip
-          pip install torch --index-url https://download.pytorch.org/whl/cpu
-          pip install -r requirements.txt
-
-      - name: Enable PostGIS + pgvector
-        env:
-          PGPASSWORD: testpassword
-        run: |
-          psql -h localhost -U altiusone -d altiusone_test -c "CREATE EXTENSION IF NOT EXISTS postgis;"
-          psql -h localhost -U altiusone -d altiusone_test -c "CREATE EXTENSION IF NOT EXISTS vector;"
-
-      - name: Django system check
-        env:
-          DATABASE_URL: postgis://altiusone:testpassword@localhost:5432/altiusone_test
-          SECRET_KEY: ci-test-secret-key-not-for-production
-          DJANGO_SETTINGS_MODULE: AltiusOne.settings
-          ALLOWED_HOSTS: '*'
-          DEBUG: 'True'
-          REDIS_URL: redis://localhost:6379/0
-          MINIO_ENDPOINT: localhost:9000
-          MINIO_ACCESS_KEY: test
-          MINIO_SECRET_KEY: test
-          MINIO_BUCKET: test
-          MINIO_SECURE: 'False'
-        run: |
-          echo "--- Django check ---"
-          python manage.py check --deploy 2>&1 | grep -v "^WARNINGS" | grep -v "^\?" || true
-
-          echo "--- Migration consistency ---"
-          python manage.py migrate --check --no-input 2>&1 && echo "✓ No pending migrations" || {
-            echo "✗ Migration issues detected"
-            python manage.py showmigrations --list 2>&1 | grep "\[ \]" || true
-            exit 1
-          }
-
-          echo "--- Migrate (test DB) ---"
-          python manage.py migrate --no-input
-
-          echo "--- Verify all URLs load ---"
-          python -c "
-          import django; django.setup()
-          from django.urls import reverse, get_resolver
-          resolver = get_resolver()
-          print(f'✓ {len(resolver.url_patterns)} URL patterns loaded')
-          "
-
-          echo "--- Verify all models import ---"
-          python -c "
-          import django; django.setup()
-          from django.apps import apps
-          models = apps.get_models()
-          print(f'✓ {len(models)} models loaded')
-          "
-
-      - name: Validation Summary
-        if: success()
-        run: echo "✅ Django validation passed" >> $GITHUB_STEP_SUMMARY
-
-      - name: Validation Failed
-        if: failure()
-        run: echo "❌ Django validation FAILED — images NOT pushed" >> $GITHUB_STEP_SUMMARY
-
-  # =========================================================================
-  # BUILD + PUSH — Only if validation passes
-  # =========================================================================
-  build-and-push:
-    # TODO: remettre needs: validate quand le job validate aura les bonnes libs système
-    # needs: validate
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -172,14 +81,17 @@ jobs:
       - name: Extract version and image prefix
         id: version
         run: |
-          # Version : latest pour main, version pour tags
+          # Lire la version depuis le fichier VERSION
+          FILE_VERSION=$(cat VERSION 2>/dev/null || echo "0.0.0")
+
+          # Priorite: tag git > workflow_dispatch > fichier VERSION
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             VERSION="${{ github.event.inputs.version }}"
           elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             VERSION="${{ github.ref_name }}"
             VERSION="${VERSION#v}"
           else
-            VERSION="latest"
+            VERSION="$FILE_VERSION"
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
@@ -199,11 +111,84 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64
           push: true
+          build-args: |
+            ALTIUSONE_VERSION=${{ steps.version.outputs.version }}
           tags: |
             ${{ env.REGISTRY }}/${{ steps.version.outputs.prefix }}-django:${{ steps.version.outputs.version }}
             ${{ env.REGISTRY }}/${{ steps.version.outputs.prefix }}-django:latest
           cache-from: type=gha,scope=django
           cache-to: type=gha,mode=max,scope=django
+
+      # =========================================================================
+      # VALIDATE — Smoke test dans l'image buildee
+      # Utilise l'image qu'on vient de construire, donc GDAL, Tesseract,
+      # tous les packages Python sont deja installes. Plus de probleme de deps.
+      # =========================================================================
+      - name: Validate Django starts correctly
+        env:
+          DATABASE_URL: postgis://altiusone:testpassword@172.17.0.1:5432/altiusone_test
+          SECRET_KEY: ci-test-secret-key-not-for-production
+          ALLOWED_HOSTS: '*'
+          DEBUG: 'True'
+          REDIS_URL: redis://localhost:6379/0
+          MINIO_ENDPOINT: localhost:9000
+          MINIO_ACCESS_KEY: test
+          MINIO_SECRET_KEY: test
+          MINIO_BUCKET: test
+          MINIO_SECURE: 'False'
+        run: |
+          echo "--- Validating Django in built image ---"
+          docker run --rm --network host \
+            -e DATABASE_URL="$DATABASE_URL" \
+            -e SECRET_KEY="$SECRET_KEY" \
+            -e ALLOWED_HOSTS="$ALLOWED_HOSTS" \
+            -e DEBUG="$DEBUG" \
+            -e REDIS_URL="$REDIS_URL" \
+            -e MINIO_ENDPOINT="$MINIO_ENDPOINT" \
+            -e MINIO_ACCESS_KEY="$MINIO_ACCESS_KEY" \
+            -e MINIO_SECRET_KEY="$MINIO_SECRET_KEY" \
+            -e MINIO_BUCKET="$MINIO_BUCKET" \
+            -e MINIO_SECURE="$MINIO_SECURE" \
+            ${{ env.REGISTRY }}/${{ steps.version.outputs.prefix }}-django:${{ steps.version.outputs.version }} \
+            bash -c "
+              echo '--- Django system check ---'
+              python manage.py check 2>&1
+
+              echo '--- Verify all models import ---'
+              python -c '
+          import django; django.setup()
+          from django.apps import apps
+          models = apps.get_models()
+          print(f\"Models loaded: {len(models)}\")
+          '
+
+              echo '--- Verify all URL patterns load ---'
+              python -c '
+          import django; django.setup()
+          from django.urls import get_resolver
+          resolver = get_resolver()
+          print(f\"URL patterns: {len(resolver.url_patterns)}\")
+          '
+
+              echo '--- Verify version ---'
+              python -c '
+          import django; django.setup()
+          from django.conf import settings
+          print(f\"Version: {settings.ALTIUSONE_VERSION}\")
+          '
+
+              echo '--- All validations passed ---'
+            "
+
+      - name: Validation passed
+        if: success()
+        run: echo "✅ Django validation passed in built image" >> $GITHUB_STEP_SUMMARY
+
+      - name: Validation FAILED — image already pushed but broken
+        if: failure()
+        run: |
+          echo "❌ Django validation FAILED — image may be broken!" >> $GITHUB_STEP_SUMMARY
+          echo "::error::Django validation failed. The image was already pushed but may not start correctly."
 
       # =========================================================================
       # Build altiusone-postgres (PostGIS + pgvector)
@@ -248,3 +233,4 @@ jobs:
           echo "| nextcloud | \`${{ steps.version.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Registry:** \`${{ env.REGISTRY }}/${{ steps.version.outputs.prefix }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** \`${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY

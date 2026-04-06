@@ -213,7 +213,11 @@ TRADUIRE = {
 }
 
 # Application specific settings
-ALTIUSONE_VERSION = "1.0.0"
+_version_file = BASE_DIR / "VERSION"
+ALTIUSONE_VERSION = os.environ.get(
+    "ALTIUSONE_VERSION",
+    _version_file.read_text().strip() if _version_file.exists() else "0.0.0-dev",
+)
 ALTIUSONE_SUPPORT_EMAIL = "support@altiusone.ch"
  
 LOCALE_PATHS = (
@@ -626,6 +630,11 @@ TEMPLATES[0]['OPTIONS']['context_processors'].append(
 # Devise de base disponible dans tous les templates via {{ DEVISE_CODE }}
 TEMPLATES[0]['OPTIONS']['context_processors'].append(
     'core.context_processors.devise_context'
+)
+
+# Version disponible dans tous les templates via {{ ALTIUSONE_VERSION }}
+TEMPLATES[0]['OPTIONS']['context_processors'].append(
+    'core.version_context.version_context'
 )
 
 
