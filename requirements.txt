@@ -103,3 +103,8 @@ pywebpush>=2.0.0
 
 # AltiusOne AI SDK (OCR legacy — sera supprimé)
 # altiusone-ai>=1.3.0  # DEPRECATED: remplacé par sentence-transformers + Ollama local
+
+# Visualisation D3.js declarative (PR3+: live execution view processus,
+# PR4: editeur Force Graph drag-and-drop). Supporte 19 types dont
+# Force Graph, Sankey, Tree, Treemap, Chord, avec polling natif via poll_url.
+django-d3-bridge>=0.1.0
