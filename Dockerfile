@@ -50,9 +50,14 @@ RUN python -c "from transformers import AutoModelForCausalLM, AutoTokenizer; Aut
 # =============================================================================
 FROM python:3.12-slim-bookworm AS runtime
 
+ARG ALTIUSONE_VERSION=0.0.0-dev
+LABEL org.opencontainers.image.version=${ALTIUSONE_VERSION}
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/opt/venv/bin:$PATH" \
+    # Version de l'application (injectee par CI)
+    ALTIUSONE_VERSION=${ALTIUSONE_VERSION} \
     # Tesseract
     TESSDATA_PREFIX=/usr/share/tesseract-ocr/5/tessdata \
     # Modèles IA pré-téléchargés au build

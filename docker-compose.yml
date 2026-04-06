@@ -1,7 +1,7 @@
 services:
   # Base de données PostgreSQL avec PostGIS et pgvector
   altiusone_postgres:
-    image: ghcr.io/altius-rebus-sarl/altiusone-postgres:latest
+    image: ghcr.io/altius-rebus-sarl/altiusone-postgres:${ALTIUSONE_IMAGE_TAG:-latest}
     platform: linux/amd64
     container_name: altiusone_postgres
     restart: unless-stopped
@@ -47,7 +47,7 @@ services:
 
   # Backend Django
   django:
-    image: ghcr.io/altius-rebus-sarl/altiusone-django:latest
+    image: ghcr.io/altius-rebus-sarl/altiusone-django:${ALTIUSONE_IMAGE_TAG:-latest}
     platform: linux/amd64
     container_name: altiusone_django
     restart: unless-stopped
@@ -96,7 +96,7 @@ services:
 
   # Celery Worker
   celery:
-    image: ghcr.io/altius-rebus-sarl/altiusone-django:latest
+    image: ghcr.io/altius-rebus-sarl/altiusone-django:${ALTIUSONE_IMAGE_TAG:-latest}
     platform: linux/amd64
     container_name: altiusone_celery
     restart: unless-stopped
@@ -137,7 +137,7 @@ services:
 
   # Celery Beat (pour les tâches planifiées)
   celery-beat:
-    image: ghcr.io/altius-rebus-sarl/altiusone-django:latest
+    image: ghcr.io/altius-rebus-sarl/altiusone-django:${ALTIUSONE_IMAGE_TAG:-latest}
     platform: linux/amd64
     container_name: altiusone_celery_beat
     restart: unless-stopped
@@ -268,7 +268,7 @@ services:
       - altiusone_network
 
   altiusone_nextcloud:
-    image: ghcr.io/altius-rebus-sarl/altiusone-nextcloud:latest
+    image: ghcr.io/altius-rebus-sarl/altiusone-nextcloud:${ALTIUSONE_IMAGE_TAG:-latest}
     container_name: altiusone_nextcloud
     restart: unless-stopped
     depends_on:
