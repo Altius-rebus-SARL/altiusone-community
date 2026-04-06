@@ -520,7 +520,7 @@ class NiveauRelanceViewSet(viewsets.ModelViewSet):
     serializer_class = NiveauRelanceSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["regime_fiscal", "actif"]
+    filterset_fields = ["regime_fiscal", "is_active"]
 
     def get_queryset(self):
         return NiveauRelance.objects.select_related("regime_fiscal").order_by("niveau")
@@ -554,11 +554,11 @@ class MentionLegaleViewSet(viewsets.ModelViewSet):
     serializer_class = MentionLegaleSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ["regime_fiscal", "type_document", "actif"]
+    filterset_fields = ["regime_fiscal", "type_document", "is_active"]
     search_fields = ["code", "libelle"]
 
     def get_queryset(self):
-        return MentionLegale.objects.select_related("regime_fiscal").order_by("position")
+        return MentionLegale.objects.select_related("regime_fiscal").order_by("ordre")
 
     def check_write_permission(self):
         user = self.request.user

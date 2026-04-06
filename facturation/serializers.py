@@ -305,7 +305,7 @@ class NiveauRelanceSerializer(serializers.ModelSerializer):
         model = NiveauRelance
         fields = [
             "id", "regime_fiscal", "regime_fiscal_code",
-            "niveau", "libelle", "delai_jours", "frais", "description", "actif",
+            "niveau", "libelle", "delai_jours", "frais", "interets", "taux_interet", "is_active",
         ]
 
 
@@ -318,5 +318,5 @@ class MentionLegaleSerializer(serializers.ModelSerializer):
         model = MentionLegale
         fields = [
             "id", "regime_fiscal", "regime_fiscal_code",
-            "code", "libelle", "texte", "type_document", "position", "actif",
+            "code", "libelle", "texte", "type_document", "obligatoire", "ordre", "is_active",
         ]
