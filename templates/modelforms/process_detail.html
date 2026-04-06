@@ -1,7 +1,11 @@
 {% extends 'base.html' %}
-{% load i18n %}
+{% load i18n static d3_bridge %}
 
 {% block title %}{{ process.name }} v{{ process.version }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'modelforms/css/process_editor.css' %}">
+{% endblock %}
 
 {% block content %}
 <div class="row m-1">
@@ -33,7 +37,7 @@
                 <form method="post" action="{% url 'modelforms:process-publish' pk=process.pk %}" class="d-inline">
                     {% csrf_token %}
                     <button type="submit" class="btn btn-success"
-                            onclick="return confirm('{% trans 'Publier ce processus ?' %}')">
+                            onclick="return confirm('{% trans "Publier ce processus ?" %}')">
                         <i class="ti ti-send me-1"></i>{% trans "Publier" %}
                     </button>
                 </form>
@@ -50,28 +54,28 @@
 </div>
 
 <div class="row">
-    <div class="col-lg-4">
+    <div class="col-lg-3">
         <div class="card">
             <div class="card-header"><h6 class="mb-0">{% trans "Informations" %}</h6></div>
             <div class="card-body">
                 <dl class="row mb-0 f-s-13">
-                    <dt class="col-4">{% trans "Code" %}</dt>
-                    <dd class="col-8"><code>{{ process.code }}</code></dd>
+                    <dt class="col-5">{% trans "Code" %}</dt>
+                    <dd class="col-7"><code>{{ process.code }}</code></dd>
 
-                    <dt class="col-4">{% trans "Catégorie" %}</dt>
-                    <dd class="col-8">{{ process.get_category_display }}</dd>
+                    <dt class="col-5">{% trans "Catégorie" %}</dt>
+                    <dd class="col-7">{{ process.get_category_display }}</dd>
 
-                    <dt class="col-4">{% trans "Étapes" %}</dt>
-                    <dd class="col-8">{{ steps|length }}</dd>
+                    <dt class="col-5">{% trans "Étapes" %}</dt>
+                    <dd class="col-7">{{ steps|length }}</dd>
 
-                    <dt class="col-4">{% trans "Transitions" %}</dt>
-                    <dd class="col-8">{{ transitions|length }}</dd>
+                    <dt class="col-5">{% trans "Transitions" %}</dt>
+                    <dd class="col-7">{{ transitions|length }}</dd>
 
-                    <dt class="col-4">{% trans "Créé le" %}</dt>
-                    <dd class="col-8">{{ process.created_at|date:"d/m/Y H:i" }}</dd>
+                    <dt class="col-5">{% trans "Créé le" %}</dt>
+                    <dd class="col-7">{{ process.created_at|date:"d/m/Y H:i" }}</dd>
 
-                    <dt class="col-4">{% trans "Modifié le" %}</dt>
-                    <dd class="col-8">{{ process.updated_at|date:"d/m/Y H:i" }}</dd>
+                    <dt class="col-5">{% trans "Modifié le" %}</dt>
+                    <dd class="col-7">{{ process.updated_at|date:"d/m/Y H:i" }}</dd>
                 </dl>
 
                 {% if process.description %}
@@ -83,9 +87,7 @@
 
         {% if recent_instances %}
         <div class="card mt-3">
-            <div class="card-header">
-                <h6 class="mb-0">{% trans "Dernières exécutions" %}</h6>
-            </div>
+            <div class="card-header"><h6 class="mb-0">{% trans "Dernières exécutions" %}</h6></div>
             <div class="card-body p-0">
                 <ul class="list-group list-group-flush">
                     {% for inst in recent_instances %}
@@ -110,21 +112,35 @@
         {% endif %}
     </div>
 
-    <div class="col-lg-8">
+    <div class="col-lg-9">
         <ul class="nav nav-tabs mb-3" role="tablist">
-            <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-steps">
+            <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-graph">
+                <i class="ph ph-graph"></i> {% trans "Graphe" %}
+            </a></li>
+            <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-steps">
                 <i class="ph ph-list-numbers"></i> {% trans "Étapes" %} ({{ steps|length }})
             </a></li>
             <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-transitions">
                 <i class="ph ph-arrow-right"></i> {% trans "Transitions" %} ({{ transitions|length }})
             </a></li>
             <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-json">
-                <i class="ph ph-brackets-curly"></i> {% trans "JSON brut" %}
+                <i class="ph ph-brackets-curly"></i> JSON
             </a></li>
         </ul>
 
         <div class="tab-content">
-            <div class="tab-pane fade show active" id="tab-steps">
+            {# Graphe visuel #}
+            <div class="tab-pane fade show active" id="tab-graph">
+                <div id="process-canvas-detail" style="height:480px;border:1px solid #dee2e6;border-radius:8px;background:#fafbfc;position:relative;">
+                </div>
+                <span class="pe-hint">{% trans "Scroll = zoom · Glisser = déplacer" %}</span>
+                {# Hidden inputs for the read-only editor to parse #}
+                <textarea id="id_steps_json_detail" style="display:none">{{ steps_json }}</textarea>
+                <textarea id="id_transitions_json_detail" style="display:none">{{ transitions_json }}</textarea>
+            </div>
+
+            {# Table étapes #}
+            <div class="tab-pane fade" id="tab-steps">
                 {% if steps %}
                 <div class="card"><div class="card-body p-0">
                     <table class="table mb-0">
@@ -153,6 +169,7 @@
                 {% endif %}
             </div>
 
+            {# Table transitions #}
             <div class="tab-pane fade" id="tab-transitions">
                 {% if transitions %}
                 <div class="card"><div class="card-body p-0">
@@ -182,6 +199,7 @@
                 {% endif %}
             </div>
 
+            {# JSON brut #}
             <div class="tab-pane fade" id="tab-json">
                 <div class="card">
                     <div class="card-header"><strong>steps</strong></div>
@@ -195,4 +213,19 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{% d3_scripts %}
+<script src="{% static 'modelforms/js/process_editor.js' %}"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    ProcessEditor.init({
+        containerId: "process-canvas-detail",
+        stepsInputId: "id_steps_json_detail",
+        transitionsInputId: "id_transitions_json_detail",
+        readOnly: true,
+    });
+});
+</script>
 {% endblock %}

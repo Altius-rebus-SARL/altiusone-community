@@ -1643,6 +1643,8 @@ class ProcessDefinitionDetailView(LoginRequiredMixin, BusinessPermissionMixin, D
                     'configuration': s.configuration,
                     'conditions': s.conditions,
                     'order': s.order,
+                    'position_x': s.position_x,
+                    'position_y': s.position_y,
                 }
                 for s in context['steps']
             ],
@@ -2046,8 +2048,44 @@ class ProcessInstanceDetailView(LoginRequiredMixin, BusinessPermissionMixin, Det
         import json
         context = super().get_context_data(**kwargs)
         instance = self.object
-        context['executions'] = instance.step_executions.all().order_by('created_at')
+        process = instance.process_def
+        executions = instance.step_executions.all().order_by('created_at')
+        context['executions'] = executions
         context['variables_pretty'] = json.dumps(
             instance.variables, indent=2, ensure_ascii=False,
         )
+
+        # Graph data for live Force Graph
+        steps = process.steps.all().order_by('order', 'code')
+        transitions = ProcessTransition.objects.filter(
+            from_step__process=process,
+        ).select_related('from_step', 'to_step')
+
+        exec_status = {}
+        for ex in executions:
+            exec_status[ex.step.code] = ex.status
+
+        context['graph_steps_json'] = json.dumps([
+            {
+                'code': s.code,
+                'name': s.name,
+                'step_type': s.step_type,
+                'order': s.order,
+                'position_x': s.position_x,
+                'position_y': s.position_y,
+                'status': exec_status.get(s.code, 'PENDING'),
+                'is_current': (instance.current_step_id == s.pk),
+            }
+            for s in steps
+        ], ensure_ascii=False)
+
+        context['graph_transitions_json'] = json.dumps([
+            {
+                'from': t.from_step.code,
+                'to': t.to_step.code,
+                'label': t.label or '',
+            }
+            for t in transitions
+        ], ensure_ascii=False)
+
         return context
