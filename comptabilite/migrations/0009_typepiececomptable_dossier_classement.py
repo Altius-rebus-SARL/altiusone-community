@@ -17,7 +17,14 @@ def add_dossier_classement_if_missing(apps, schema_editor):
 
 
 def set_default_dossier_classement(apps, schema_editor):
-    TypePieceComptable = apps.get_model('comptabilite', 'TypePieceComptable')
+    cursor = schema_editor.connection.cursor()
+    # Check that the column exists before attempting updates
+    cursor.execute(
+        "SELECT 1 FROM information_schema.columns "
+        "WHERE table_name = 'types_pieces_comptables' AND column_name = 'dossier_classement'"
+    )
+    if not cursor.fetchone():
+        return
     mapping = {
         'FAC_ACH': 'Comptabilité',
         'FAC_VTE': 'Comptabilité',
@@ -30,8 +37,10 @@ def set_default_dossier_classement(apps, schema_editor):
         'OD': 'Comptabilité',
     }
     for code, dossier in mapping.items():
-        TypePieceComptable.objects.filter(code=code).update(
-            dossier_classement=dossier
+        cursor.execute(
+            'UPDATE "types_pieces_comptables" SET "dossier_classement" = %s '
+            'WHERE "code" = %s',
+            [dossier, code],
         )
 
 

@@ -9,7 +9,17 @@ from django.contrib.auth import get_user_model
 from rest_framework.test import APIRequestFactory, force_authenticate
 from rest_framework import status
 
-from .models import FormConfiguration, FormTemplate, FormSubmission, ModelFieldMapping
+from .models import (
+    FormConfiguration,
+    FormTemplate,
+    FormSubmission,
+    ModelFieldMapping,
+    ProcessDefinition,
+    ProcessStep,
+    ProcessTransition,
+    ProcessInstance,
+    StepExecution,
+)
 from .services.introspector import ModelIntrospector, EXCLUDED_MODELS
 
 
@@ -417,3 +427,671 @@ class IntrospectionAPITests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         field_names = [f['name'] for f in response.data['results']]
         self.assertIn('email', field_names)
+
+
+# =============================================================================
+# Tests PR1 (2026-04-05): mandat-scoping + post_actions
+# =============================================================================
+
+class ModelFormsPermissionsBase(TestCase):
+    """Fixtures communes pour les tests de permissions et post_actions."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from datetime import date
+        from decimal import Decimal
+        from core.models import (
+            Adresse, Client, Devise, Entreprise, Mandat,
+        )
+        from tva.models import RegimeFiscal
+
+        # Devise + regime minimum
+        cls.devise_chf, _created = Devise.objects.get_or_create(
+            code='CHF',
+            defaults={'nom': 'Franc suisse', 'symbole': 'CHF'},
+        )
+        cls.regime, _created = RegimeFiscal.objects.get_or_create(
+            code='CH',
+            defaults={
+                'nom': 'Suisse', 'pays': 'CH',
+                'devise_defaut': cls.devise_chf,
+                'taux_normal': Decimal('8.1'),
+            },
+        )
+        cls.adresse = Adresse.objects.create(
+            rue='Rue de Bourg', numero='12', npa='1003', localite='Lausanne',
+        )
+        cls.entreprise = Entreprise.objects.create(
+            raison_sociale='Test Fiduciaire SA',
+            forme_juridique='SA',
+            ide_number='CHE-111.222.333',
+            siege='Lausanne',
+            est_defaut=True,
+            adresse=cls.adresse,
+        )
+
+        # Users
+        cls.superuser = User.objects.create_superuser(
+            username='pr1_admin', password='admin', email='admin@pr1.ch',
+        )
+        cls.user_a = User.objects.create_user(
+            username='pr1_user_a', password='a', email='a@pr1.ch',
+        )
+        cls.user_b = User.objects.create_user(
+            username='pr1_user_b', password='b', email='b@pr1.ch',
+        )
+        cls.orphan = User.objects.create_user(
+            username='pr1_orphan', password='o', email='orphan@pr1.ch',
+        )
+
+        # Clients + Mandats
+        cls.client_alpha = Client.objects.create(
+            raison_sociale='Alpha SA',
+            forme_juridique='SA',
+            adresse_siege=cls.adresse,
+            email='alpha@test.ch',
+            date_debut_exercice=date(2026, 1, 1),
+            date_fin_exercice=date(2026, 12, 31),
+            entreprise=cls.entreprise,
+        )
+        cls.client_beta = Client.objects.create(
+            raison_sociale='Beta GmbH',
+            forme_juridique='GmbH',
+            adresse_siege=cls.adresse,
+            email='beta@test.ch',
+            date_debut_exercice=date(2026, 1, 1),
+            date_fin_exercice=date(2026, 12, 31),
+            entreprise=cls.entreprise,
+        )
+        cls.mandat_a = Mandat.objects.create(
+            numero='PR1-MAN-A',
+            client=cls.client_alpha,
+            date_debut=date(2026, 1, 1),
+            responsable=cls.user_a,
+            regime_fiscal=cls.regime,
+            devise=cls.devise_chf,
+            statut='ACTIF',
+        )
+        cls.mandat_b = Mandat.objects.create(
+            numero='PR1-MAN-B',
+            client=cls.client_beta,
+            date_debut=date(2026, 1, 1),
+            responsable=cls.user_b,
+            regime_fiscal=cls.regime,
+            devise=cls.devise_chf,
+            statut='ACTIF',
+        )
+
+
+class ScopeFormConfigsTests(ModelFormsPermissionsBase):
+    """Tests pour scope_form_configs_by_user()."""
+
+    def setUp(self):
+        # Config globale (aucun mandat assigne)
+        self.config_global = FormConfiguration.objects.create(
+            code='PR1_GLOBAL',
+            name='Global',
+            category='AUTRE',
+            target_model='core.Client',
+            status=FormConfiguration.Status.ACTIVE,
+            created_by=self.superuser,
+        )
+        # Config liee a mandat_a uniquement
+        self.config_a = FormConfiguration.objects.create(
+            code='PR1_CONFIG_A',
+            name='Config mandat A',
+            category='AUTRE',
+            target_model='core.Client',
+            status=FormConfiguration.Status.ACTIVE,
+            created_by=self.superuser,
+        )
+        self.config_a.mandats.add(self.mandat_a)
+        # Config liee a mandat_b uniquement
+        self.config_b = FormConfiguration.objects.create(
+            code='PR1_CONFIG_B',
+            name='Config mandat B',
+            category='AUTRE',
+            target_model='core.Client',
+            status=FormConfiguration.Status.ACTIVE,
+            created_by=self.superuser,
+        )
+        self.config_b.mandats.add(self.mandat_b)
+
+    def test_superuser_sees_all(self):
+        from modelforms.permissions import scope_form_configs_by_user
+        qs = scope_form_configs_by_user(FormConfiguration.objects.all(), self.superuser)
+        codes = set(qs.values_list('code', flat=True))
+        self.assertIn('PR1_GLOBAL', codes)
+        self.assertIn('PR1_CONFIG_A', codes)
+        self.assertIn('PR1_CONFIG_B', codes)
+
+    def test_user_a_sees_global_and_mandat_a_only(self):
+        from modelforms.permissions import scope_form_configs_by_user
+        qs = scope_form_configs_by_user(FormConfiguration.objects.all(), self.user_a)
+        codes = set(qs.values_list('code', flat=True))
+        self.assertIn('PR1_GLOBAL', codes)
+        self.assertIn('PR1_CONFIG_A', codes)
+        self.assertNotIn('PR1_CONFIG_B', codes)
+
+    def test_orphan_user_sees_only_global_configs(self):
+        from modelforms.permissions import scope_form_configs_by_user
+        qs = scope_form_configs_by_user(FormConfiguration.objects.all(), self.orphan)
+        codes = set(qs.values_list('code', flat=True))
+        self.assertIn('PR1_GLOBAL', codes)
+        self.assertNotIn('PR1_CONFIG_A', codes)
+        self.assertNotIn('PR1_CONFIG_B', codes)
+
+
+class ScopeFormSubmissionsTests(ModelFormsPermissionsBase):
+    """Tests pour scope_form_submissions_by_user()."""
+
+    def setUp(self):
+        self.config = FormConfiguration.objects.create(
+            code='PR1_SUB_CONFIG',
+            name='Sub Config',
+            category='AUTRE',
+            target_model='core.Client',
+            status=FormConfiguration.Status.ACTIVE,
+            created_by=self.superuser,
+        )
+        # user_a soumet sur mandat_a
+        self.sub_a_own = FormSubmission.objects.create(
+            form_config=self.config,
+            submitted_data={'k': 'v'},
+            submitted_by=self.user_a,
+            mandat=self.mandat_a,
+        )
+        # user_b soumet sur mandat_b
+        self.sub_b_own = FormSubmission.objects.create(
+            form_config=self.config,
+            submitted_data={'k': 'v'},
+            submitted_by=self.user_b,
+            mandat=self.mandat_b,
+        )
+        # user_b soumet sur mandat_a (mandat_a est partage car user_a en est responsable,
+        # mais user_b n'a pas acces a mandat_a — on simule qu'il l'ait eu et soumis)
+        self.sub_a_by_b = FormSubmission.objects.create(
+            form_config=self.config,
+            submitted_data={'k': 'v'},
+            submitted_by=self.user_b,
+            mandat=self.mandat_a,
+        )
+
+    def test_superuser_sees_all_submissions(self):
+        from modelforms.permissions import scope_form_submissions_by_user
+        qs = scope_form_submissions_by_user(FormSubmission.objects.all(), self.superuser)
+        self.assertEqual(qs.count(), 3)
+
+    def test_user_a_sees_own_and_mandat_a_submissions(self):
+        from modelforms.permissions import scope_form_submissions_by_user
+        qs = scope_form_submissions_by_user(FormSubmission.objects.all(), self.user_a)
+        ids = set(str(s.id) for s in qs)
+        # user_a voit sa propre soumission sur mandat_a
+        self.assertIn(str(self.sub_a_own.id), ids)
+        # ET voit la soumission de user_b sur mandat_a (mandat accessible)
+        self.assertIn(str(self.sub_a_by_b.id), ids)
+        # MAIS ne voit pas la soumission de user_b sur mandat_b (hors scope)
+        self.assertNotIn(str(self.sub_b_own.id), ids)
+
+    def test_orphan_user_sees_only_own_submissions(self):
+        from modelforms.permissions import scope_form_submissions_by_user
+        # Creer une soumission par orphan (sans mandat)
+        sub_orphan = FormSubmission.objects.create(
+            form_config=self.config,
+            submitted_data={},
+            submitted_by=self.orphan,
+            mandat=None,
+        )
+        qs = scope_form_submissions_by_user(FormSubmission.objects.all(), self.orphan)
+        ids = set(str(s.id) for s in qs)
+        self.assertEqual(ids, {str(sub_orphan.id)})
+
+
+class MandatIdLeakSecurityTests(ModelFormsPermissionsBase):
+    """Tests pour verifier que la faille mandat_id non-valide est fermee."""
+
+    def test_form_submission_create_serializer_rejects_foreign_mandat_id(self):
+        from modelforms.serializers import FormSubmissionCreateSerializer
+        from rest_framework.test import APIRequestFactory
+
+        config = FormConfiguration.objects.create(
+            code='PR1_SEC_CFG',
+            name='Sec Cfg',
+            category='AUTRE',
+            target_model='core.Client',
+            status=FormConfiguration.Status.ACTIVE,
+            created_by=self.superuser,
+        )
+
+        factory = APIRequestFactory()
+        request = factory.post('/dummy/')
+        request.user = self.user_a  # user_a a acces a mandat_a uniquement
+
+        serializer = FormSubmissionCreateSerializer(
+            data={
+                'form_config_id': str(config.id),
+                'data': {'x': 1},
+                # user_a tente de soumettre avec mandat_b (auquel il n'a pas acces)
+                'mandat_id': str(self.mandat_b.id),
+            },
+            context={'request': request},
+        )
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('mandat_id', serializer.errors)
+
+    def test_form_submission_create_serializer_accepts_own_mandat(self):
+        from modelforms.serializers import FormSubmissionCreateSerializer
+        from rest_framework.test import APIRequestFactory
+
+        config = FormConfiguration.objects.create(
+            code='PR1_SEC_CFG_OK',
+            name='Sec Cfg OK',
+            category='AUTRE',
+            target_model='core.Client',
+            status=FormConfiguration.Status.ACTIVE,
+            created_by=self.superuser,
+        )
+
+        factory = APIRequestFactory()
+        request = factory.post('/dummy/')
+        request.user = self.user_a
+
+        serializer = FormSubmissionCreateSerializer(
+            data={
+                'form_config_id': str(config.id),
+                'data': {'x': 1},
+                'mandat_id': str(self.mandat_a.id),  # user_a EST responsable de mandat_a
+            },
+            context={'request': request},
+        )
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+
+class PostActionsExecutionTests(ModelFormsPermissionsBase):
+    """Tests pour les post_actions du SubmissionHandler."""
+
+    def _make_config(self, post_actions):
+        return FormConfiguration.objects.create(
+            code=f'PR1_PA_{id(post_actions)}',
+            name='Post Actions Test',
+            category='AUTRE',
+            target_model='core.Client',
+            post_actions=post_actions,
+            status=FormConfiguration.Status.ACTIVE,
+            created_by=self.superuser,
+        )
+
+    def test_record_variable_resolution(self):
+        """{{record.id}} doit etre resolu vers l'ID du main record."""
+        from modelforms.services.submission_handler import SubmissionHandler
+
+        config = self._make_config([])
+        handler = SubmissionHandler(
+            form_config=config,
+            submitted_data={},
+            user=self.user_a,
+            mandat=self.mandat_a,
+        )
+
+        resolved = handler._resolve_action_variables(
+            '{{record.raison_sociale}}',
+            record=self.client_alpha,
+        )
+        self.assertEqual(resolved, 'Alpha SA')
+
+    def test_create_object_post_action_creates_secondary_record(self):
+        """Un create_object post_action cree un nouvel objet et l'ajoute a created_records."""
+        from modelforms.services.submission_handler import SubmissionHandler
+        from core.models import Tache
+
+        # Utiliser core.Tache comme objet secondaire
+        post_actions = [
+            {
+                'type': 'create_object',
+                'model': 'core.Tache',
+                'field_mapping': {
+                    'titre': 'Tache post-action pour {{record.raison_sociale}}',
+                    'description': 'Auto',
+                    'cree_par_id': '{{current_user}}',
+                    'created_by_id': '{{current_user}}',
+                    'priorite': 'NORMALE',
+                },
+            },
+        ]
+        config = self._make_config(post_actions)
+
+        handler = SubmissionHandler(
+            form_config=config,
+            submitted_data={},
+            user=self.user_a,
+            mandat=self.mandat_a,
+        )
+        # Appeler directement _execute_post_actions avec un record existant
+        handler._execute_post_actions(main_record=self.client_alpha)
+
+        # Verifier qu'aucune erreur
+        self.assertEqual(handler.post_action_errors, [])
+        # Verifier que la tache a ete creee avec le titre resolu
+        self.assertTrue(
+            Tache.objects.filter(
+                titre='Tache post-action pour Alpha SA',
+            ).exists()
+        )
+
+    def test_unknown_post_action_type_is_logged_not_raising(self):
+        """Un type d'action inconnu n'arrete pas les autres actions."""
+        from modelforms.services.submission_handler import SubmissionHandler
+
+        post_actions = [
+            {'type': 'unknown_type_xyz', 'foo': 'bar'},
+        ]
+        config = self._make_config(post_actions)
+
+        handler = SubmissionHandler(
+            form_config=config,
+            submitted_data={},
+            user=self.user_a,
+            mandat=self.mandat_a,
+        )
+        # Ne doit pas lever d'exception
+        handler._execute_post_actions(main_record=self.client_alpha)
+
+        # L'erreur est enregistree dans post_action_errors
+        self.assertEqual(len(handler.post_action_errors), 1)
+        self.assertEqual(
+            handler.post_action_errors[0]['type'],
+            'unknown_type_xyz',
+        )
+
+    def test_post_action_error_does_not_block_main_record(self):
+        """Une erreur dans une post_action n'arrete pas le succes de process()."""
+        from modelforms.services.submission_handler import SubmissionHandler
+
+        # Action qui va echouer : modele invalide
+        post_actions = [
+            {
+                'type': 'create_object',
+                'model': 'nonexistent.Model',
+                'field_mapping': {},
+            },
+        ]
+        config = self._make_config(post_actions)
+
+        handler = SubmissionHandler(
+            form_config=config,
+            submitted_data={},
+            user=self.user_a,
+            mandat=self.mandat_a,
+        )
+        handler._execute_post_actions(main_record=self.client_alpha)
+
+        # L'erreur est enregistree mais process continue
+        self.assertEqual(len(handler.post_action_errors), 1)
+        self.assertIn('nonexistent.Model', handler.post_action_errors[0]['error'])
+
+
+# =============================================================================
+# Tests PR2 (2026-04-06): moteur de processus metiers
+# =============================================================================
+
+class ProcessDefinitionModelTests(ModelFormsPermissionsBase):
+    """Tests pour ProcessDefinition et modeles lies."""
+
+    def test_create_process_definition(self):
+        process = ProcessDefinition.objects.create(
+            code='TEST_PROCESS',
+            name='Test Process',
+            category='WORKFLOW',
+            created_by=self.superuser,
+        )
+        self.assertEqual(process.version, 1)
+        self.assertTrue(process.is_draft)
+        self.assertEqual(str(process), 'Test Process (TEST_PROCESS v1)')
+
+    def test_unique_together_code_version(self):
+        ProcessDefinition.objects.create(
+            code='UNIQUE_TEST',
+            name='v1',
+            version=1,
+            created_by=self.superuser,
+        )
+        # Meme code, version differente -> OK
+        ProcessDefinition.objects.create(
+            code='UNIQUE_TEST',
+            name='v2',
+            version=2,
+            created_by=self.superuser,
+        )
+        # Meme code, meme version -> IntegrityError
+        from django.db import IntegrityError
+        with self.assertRaises(IntegrityError):
+            ProcessDefinition.objects.create(
+                code='UNIQUE_TEST',
+                name='v1 doublon',
+                version=1,
+                created_by=self.superuser,
+            )
+
+    def test_get_latest_published(self):
+        ProcessDefinition.objects.create(
+            code='LATEST_TEST', name='v1', version=1,
+            is_draft=False, created_by=self.superuser,
+        )
+        v2 = ProcessDefinition.objects.create(
+            code='LATEST_TEST', name='v2', version=2,
+            is_draft=False, created_by=self.superuser,
+        )
+        # v3 en draft n'est pas consideree comme publiee
+        ProcessDefinition.objects.create(
+            code='LATEST_TEST', name='v3', version=3,
+            is_draft=True, created_by=self.superuser,
+        )
+        latest = ProcessDefinition.get_latest_published('LATEST_TEST')
+        self.assertEqual(latest, v2)
+
+    def test_create_steps_and_transitions(self):
+        process = ProcessDefinition.objects.create(
+            code='PROC_STEPS', name='Steps test', created_by=self.superuser,
+        )
+        step1 = ProcessStep.objects.create(
+            process=process,
+            code='STEP_01',
+            name='Etape 1',
+            step_type=ProcessStep.StepType.START,
+            order=1,
+        )
+        step2 = ProcessStep.objects.create(
+            process=process,
+            code='STEP_02',
+            name='Etape 2',
+            step_type=ProcessStep.StepType.END,
+            order=2,
+        )
+        transition = ProcessTransition.objects.create(
+            from_step=step1,
+            to_step=step2,
+            label='Always',
+        )
+        self.assertEqual(process.steps.count(), 2)
+        self.assertEqual(step1.outgoing_transitions.count(), 1)
+        self.assertEqual(step2.incoming_transitions.count(), 1)
+        self.assertEqual(transition.from_step.code, 'STEP_01')
+
+    def test_unique_step_code_per_process(self):
+        process = ProcessDefinition.objects.create(
+            code='UNIQ_STEP', name='x', created_by=self.superuser,
+        )
+        ProcessStep.objects.create(
+            process=process, code='S1', name='a',
+            step_type=ProcessStep.StepType.START,
+        )
+        from django.db import IntegrityError
+        with self.assertRaises(IntegrityError):
+            ProcessStep.objects.create(
+                process=process, code='S1', name='b',
+                step_type=ProcessStep.StepType.END,
+            )
+
+    def test_process_instance_with_step_executions(self):
+        process = ProcessDefinition.objects.create(
+            code='PROC_INST', name='Instance test', created_by=self.superuser,
+        )
+        step = ProcessStep.objects.create(
+            process=process, code='S1', name='s1',
+            step_type=ProcessStep.StepType.START,
+        )
+        instance = ProcessInstance.objects.create(
+            process_def=process,
+            current_step=step,
+            status=ProcessInstance.Status.RUNNING,
+            variables={'key': 'value'},
+            triggered_by=self.user_a,
+            mandat=self.mandat_a,
+        )
+        execution = StepExecution.objects.create(
+            instance=instance,
+            step=step,
+            status=StepExecution.Status.COMPLETED,
+            input={'k': 1},
+            output={'k': 2},
+        )
+        self.assertEqual(instance.step_executions.count(), 1)
+        self.assertEqual(execution.instance, instance)
+        self.assertEqual(instance.variables['key'], 'value')
+
+    def test_step_execution_linked_to_form_submission(self):
+        """StepExecution.form_submission FK pour tracer les FORM_FILL steps."""
+        config = FormConfiguration.objects.create(
+            code='PR2_FORM', name='Form', category='AUTRE',
+            target_model='core.Client',
+            status=FormConfiguration.Status.ACTIVE,
+            created_by=self.superuser,
+        )
+        submission = FormSubmission.objects.create(
+            form_config=config,
+            submitted_data={'raison_sociale': 'Test'},
+            submitted_by=self.user_a,
+        )
+        process = ProcessDefinition.objects.create(
+            code='PROC_LINK', name='link test', created_by=self.superuser,
+        )
+        step = ProcessStep.objects.create(
+            process=process, code='FORM_STEP', name='form',
+            step_type=ProcessStep.StepType.FORM_FILL,
+            configuration={'form_config_code': 'PR2_FORM'},
+        )
+        instance = ProcessInstance.objects.create(
+            process_def=process,
+            triggered_by=self.user_a,
+        )
+        execution = StepExecution.objects.create(
+            instance=instance,
+            step=step,
+            status=StepExecution.Status.COMPLETED,
+            form_submission=submission,
+        )
+        self.assertEqual(execution.form_submission, submission)
+        # Reverse relation depuis FormSubmission
+        self.assertEqual(submission.step_executions.count(), 1)
+
+
+class ScopeProcessDefinitionsTests(ModelFormsPermissionsBase):
+    """Tests pour scope_process_definitions_by_user()."""
+
+    def setUp(self):
+        # Process global (sans mandat)
+        self.proc_global = ProcessDefinition.objects.create(
+            code='PR2_GLOBAL', name='Global',
+            is_draft=False, created_by=self.superuser,
+        )
+        # Process lie a mandat_a
+        self.proc_a = ProcessDefinition.objects.create(
+            code='PR2_A', name='Mandat A',
+            is_draft=False, created_by=self.superuser,
+        )
+        self.proc_a.mandats.add(self.mandat_a)
+        # Process lie a mandat_b
+        self.proc_b = ProcessDefinition.objects.create(
+            code='PR2_B', name='Mandat B',
+            is_draft=False, created_by=self.superuser,
+        )
+        self.proc_b.mandats.add(self.mandat_b)
+
+    def test_superuser_sees_all_processes(self):
+        from modelforms.permissions import scope_process_definitions_by_user
+        qs = scope_process_definitions_by_user(
+            ProcessDefinition.objects.all(), self.superuser,
+        )
+        codes = set(qs.values_list('code', flat=True))
+        self.assertEqual(codes, {'PR2_GLOBAL', 'PR2_A', 'PR2_B'})
+
+    def test_user_a_sees_global_and_mandat_a_only(self):
+        from modelforms.permissions import scope_process_definitions_by_user
+        qs = scope_process_definitions_by_user(
+            ProcessDefinition.objects.all(), self.user_a,
+        )
+        codes = set(qs.values_list('code', flat=True))
+        self.assertIn('PR2_GLOBAL', codes)
+        self.assertIn('PR2_A', codes)
+        self.assertNotIn('PR2_B', codes)
+
+    def test_orphan_sees_only_global_processes(self):
+        from modelforms.permissions import scope_process_definitions_by_user
+        qs = scope_process_definitions_by_user(
+            ProcessDefinition.objects.all(), self.orphan,
+        )
+        codes = set(qs.values_list('code', flat=True))
+        self.assertEqual(codes, {'PR2_GLOBAL'})
+
+
+class ScopeProcessInstancesTests(ModelFormsPermissionsBase):
+    """Tests pour scope_process_instances_by_user()."""
+
+    def setUp(self):
+        self.process = ProcessDefinition.objects.create(
+            code='PR2_INST_PROC', name='Proc', created_by=self.superuser,
+        )
+        # Instance declenchee par user_a sur mandat_a
+        self.inst_a_own = ProcessInstance.objects.create(
+            process_def=self.process,
+            triggered_by=self.user_a,
+            mandat=self.mandat_a,
+        )
+        # Instance declenchee par user_b sur mandat_b (hors scope de user_a)
+        self.inst_b_own = ProcessInstance.objects.create(
+            process_def=self.process,
+            triggered_by=self.user_b,
+            mandat=self.mandat_b,
+        )
+        # Instance declenchee par user_b sur mandat_a (user_a doit la voir
+        # via son acces a mandat_a)
+        self.inst_a_by_b = ProcessInstance.objects.create(
+            process_def=self.process,
+            triggered_by=self.user_b,
+            mandat=self.mandat_a,
+        )
+
+    def test_user_a_sees_own_and_shared_mandat_instances(self):
+        from modelforms.permissions import scope_process_instances_by_user
+        qs = scope_process_instances_by_user(
+            ProcessInstance.objects.all(), self.user_a,
+        )
+        ids = set(str(i.id) for i in qs)
+        self.assertIn(str(self.inst_a_own.id), ids)
+        self.assertIn(str(self.inst_a_by_b.id), ids)
+        self.assertNotIn(str(self.inst_b_own.id), ids)
+
+    def test_orphan_sees_only_own_instances(self):
+        from modelforms.permissions import scope_process_instances_by_user
+        inst_orphan = ProcessInstance.objects.create(
+            process_def=self.process,
+            triggered_by=self.orphan,
+            mandat=None,
+        )
+        qs = scope_process_instances_by_user(
+            ProcessInstance.objects.all(), self.orphan,
+        )
+        ids = set(str(i.id) for i in qs)
+        self.assertEqual(ids, {str(inst_orphan.id)})

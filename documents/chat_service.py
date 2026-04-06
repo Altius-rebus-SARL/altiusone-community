@@ -20,6 +20,7 @@ from .universal_search import (
     SearchContext,
     SearchResult,
     EntityType,
+    NoAccessibleMandatsError,
     universal_search
 )
 
@@ -256,6 +257,10 @@ DONNEES TROUVEES:
                 duree_ms=duree_ms
             )
 
+        except NoAccessibleMandatsError:
+            # Re-raise telle quelle — la vue api_views se charge du 403.
+            # Ne PAS convertir en erreur generique ni creer de message Erreur.
+            raise
         except Exception as e:
             logger.error(f"Erreur chat conversation {conversation.id}: {e}")
             duree_ms = int((time.time() - start_time) * 1000)
@@ -419,6 +424,19 @@ DONNEES TROUVEES:
             if conversation.nombre_messages <= 2:
                 conversation.generer_titre()
 
+        except NoAccessibleMandatsError as e:
+            # Utilisateur sans mandat accessible : yield un evenement d'erreur
+            # structure avec le code stable pour que le client mobile/web
+            # puisse afficher un message clair.
+            logger.warning(
+                "chat_stream bloque: user sans mandat (conv %s)",
+                conversation.id,
+            )
+            yield _json.dumps({
+                'type': 'error',
+                'error': str(e),
+                'error_code': 'NO_ACCESSIBLE_MANDATS',
+            }) + '\n'
         except Exception as e:
             logger.error(f"Erreur chat stream conversation {conversation.id}: {e}")
             error_str = str(e)

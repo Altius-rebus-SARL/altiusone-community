@@ -18,7 +18,17 @@ from django.utils import timezone
 from django.db import models as db_models
 
 from core.permissions import IsManagerOrAbove, IsComptableOrAbove
-from .models import FormConfiguration, ModelFieldMapping, FormSubmission, FormTemplate
+from .models import (
+    FormConfiguration,
+    ModelFieldMapping,
+    FormSubmission,
+    FormTemplate,
+    ProcessDefinition,
+    ProcessStep,
+    ProcessTransition,
+    ProcessInstance,
+    StepExecution,
+)
 from .serializers import (
     FormConfigurationListSerializer,
     FormConfigurationDetailSerializer,
@@ -33,9 +43,24 @@ from .serializers import (
     ModelInfoGroupedSerializer,
     ModelSchemaSerializer,
     MobileFormSchemaSerializer,
+    ProcessDefinitionListSerializer,
+    ProcessDefinitionDetailSerializer,
+    ProcessDefinitionWriteSerializer,
+    ProcessInstanceListSerializer,
+    ProcessInstanceDetailSerializer,
+    StepExecutionSerializer,
 )
 from .services.introspector import ModelIntrospector
 from .services.submission_handler import SubmissionHandler
+from .services.step_executor import ProcessExecutor
+from .permissions import (
+    scope_form_configs_by_user,
+    scope_form_submissions_by_user,
+    scope_process_definitions_by_user,
+    scope_process_instances_by_user,
+    user_can_access_mandat,
+    user_can_access_form_config,
+)
 
 
 class FormConfigurationViewSet(viewsets.ModelViewSet):
@@ -72,11 +97,14 @@ class FormConfigurationViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        queryset = queryset.prefetch_related('field_mappings')
+        queryset = queryset.prefetch_related('field_mappings', 'mandats')
 
         # Filtrer par statut actif par défaut pour les non-managers
         if not self.request.user.is_manager():
             queryset = queryset.filter(status=FormConfiguration.Status.ACTIVE)
+
+        # SECURITE: filtrer par les mandats accessibles (configs globales visibles)
+        queryset = scope_form_configs_by_user(queryset, self.request.user)
 
         return queryset
 
@@ -495,9 +523,9 @@ class FormSubmissionViewSet(viewsets.ModelViewSet):
             'mandat',
         )
 
-        # Non-managers ne voient que leurs soumissions
-        if not self.request.user.is_manager():
-            queryset = queryset.filter(submitted_by=self.request.user)
+        # SECURITE: filtrer par mandats accessibles (ses propres soumissions
+        # + celles attachees a un mandat auquel il a acces)
+        queryset = scope_form_submissions_by_user(queryset, self.request.user)
 
         return queryset
 
@@ -532,6 +560,11 @@ class FormSubmissionViewSet(viewsets.ModelViewSet):
             submission.validated_by = request.user
             submission.validated_at = timezone.now()
             submission.validation_notes = notes
+            # Stocker les erreurs non-bloquantes des post_actions
+            if handler.post_action_errors:
+                submission.error_details = {
+                    'post_actions': handler.post_action_errors,
+                }
             submission.save()
 
             return Response(FormSubmissionDetailSerializer(submission).data)
@@ -819,3 +852,457 @@ class FormTemplateViewSet(viewsets.ModelViewSet):
             FormConfigurationDetailSerializer(config).data,
             status=status.HTTP_201_CREATED
         )
+
+
+# =============================================================================
+# Process Engine ViewSets (PR2)
+# =============================================================================
+
+class ProcessDefinitionViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet pour gerer les definitions de processus metiers.
+
+    Phase 1 (PR2): CRUD basique. L'execution (start, step execution, etc.)
+    arrive en PR3 avec le StepExecutor.
+    """
+
+    queryset = ProcessDefinition.objects.all()
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    filterset_fields = ['category', 'is_draft', 'version']
+    search_fields = ['code', 'name', 'description']
+    ordering_fields = ['name', 'created_at', 'category', 'version']
+    ordering = ['category', 'name', '-version']
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsManagerOrAbove()]
+        return [IsComptableOrAbove()]
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return ProcessDefinitionListSerializer
+        if self.action in ['create', 'update', 'partial_update']:
+            return ProcessDefinitionWriteSerializer
+        return ProcessDefinitionDetailSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset().prefetch_related(
+            'steps', 'mandats',
+        )
+        # SECURITE: mandat-scoping (reutilise helpers PR1/PR2)
+        queryset = scope_process_definitions_by_user(queryset, self.request.user)
+
+        # Non-managers: uniquement les versions publiees
+        if not self.request.user.is_manager():
+            queryset = queryset.filter(is_draft=False)
+
+        return queryset
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    @action(detail=True, methods=['post'], url_path='publish')
+    def publish(self, request, pk=None):
+        """Publie une definition (is_draft=False)."""
+        process = self.get_object()
+        if not process.is_draft:
+            return Response(
+                {'error': 'Deja publie'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        process.is_draft = False
+        process.save(update_fields=['is_draft', 'updated_at'])
+        return Response(ProcessDefinitionDetailSerializer(process).data)
+
+    @action(detail=True, methods=['post'], url_path='start')
+    def start_instance(self, request, pk=None):
+        """
+        Demarre une nouvelle instance de processus et lance son execution.
+
+        Body optionnel:
+            {
+                "mandat_id": "<uuid>",   // mandat contexte
+                "variables": {...}       // variables initiales
+            }
+
+        Retourne l'instance creee avec son etat apres execution synchrone
+        des premiers steps (jusqu'a WAITING, FAILED ou COMPLETED).
+        """
+        process = self.get_object()
+
+        if process.is_draft:
+            return Response(
+                {
+                    'error': 'Impossible de demarrer un processus en brouillon',
+                    'error_code': 'PROCESS_IS_DRAFT',
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Valider le mandat si fourni
+        from core.models import Mandat
+        mandat_id = request.data.get('mandat_id')
+        mandat = None
+        if mandat_id:
+            try:
+                mandat = Mandat.objects.get(pk=mandat_id)
+            except Mandat.DoesNotExist:
+                return Response(
+                    {'error': 'Mandat introuvable'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if not user_can_access_mandat(request.user, mandat):
+                return Response(
+                    {'error': "Vous n'avez pas acces a ce mandat"},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+        initial_vars = request.data.get('variables', {}) or {}
+        if not isinstance(initial_vars, dict):
+            return Response(
+                {'error': "'variables' doit etre un dict"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Creer l'instance
+        instance = ProcessInstance.objects.create(
+            process_def=process,
+            status=ProcessInstance.Status.PENDING,
+            variables=initial_vars,
+            mandat=mandat,
+            triggered_by=request.user,
+            trigger_type=request.data.get('trigger_type', 'MANUAL'),
+        )
+
+        # Lancer l'execution synchrone
+        executor = ProcessExecutor(instance)
+        executor.start()
+
+        return Response(
+            ProcessInstanceDetailSerializer(instance).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=True, methods=['post'], url_path='new-version')
+    def new_version(self, request, pk=None):
+        """
+        Cree une nouvelle version draft a partir de cette version.
+
+        Copie les steps et transitions (pas les instances).
+        """
+        from django.db import transaction
+
+        source = self.get_object()
+        with transaction.atomic():
+            # Determiner le nouveau numero de version
+            latest = ProcessDefinition.objects.filter(
+                code=source.code,
+            ).order_by('-version').first()
+            new_version = (latest.version if latest else source.version) + 1
+
+            # Creer la nouvelle definition
+            new_def = ProcessDefinition.objects.create(
+                code=source.code,
+                name=source.name,
+                description=source.description,
+                category=source.category,
+                version=new_version,
+                is_draft=True,
+                icon=source.icon,
+                created_by=request.user,
+            )
+            new_def.mandats.set(source.mandats.all())
+
+            # Copier les steps (avec mapping old_id → new_id pour les transitions)
+            step_map = {}
+            for old_step in source.steps.all():
+                new_step = ProcessStep.objects.create(
+                    process=new_def,
+                    code=old_step.code,
+                    name=old_step.name,
+                    description=old_step.description,
+                    step_type=old_step.step_type,
+                    configuration=old_step.configuration,
+                    order=old_step.order,
+                    conditions=old_step.conditions,
+                    max_retries=old_step.max_retries,
+                    retry_delay_seconds=old_step.retry_delay_seconds,
+                    timeout_seconds=old_step.timeout_seconds,
+                    position_x=old_step.position_x,
+                    position_y=old_step.position_y,
+                )
+                step_map[old_step.pk] = new_step
+
+            # Copier les transitions en remappant les FK
+            for old_step in source.steps.all():
+                for old_trans in old_step.outgoing_transitions.all():
+                    ProcessTransition.objects.create(
+                        from_step=step_map[old_trans.from_step_id],
+                        to_step=step_map[old_trans.to_step_id],
+                        label=old_trans.label,
+                        condition=old_trans.condition,
+                        order=old_trans.order,
+                    )
+
+        return Response(
+            ProcessDefinitionDetailSerializer(new_def).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=True, methods=['get'], url_path='graph')
+    def graph(self, request, pk=None):
+        """
+        Retourne le graphe d'un processus (nodes + edges) pour le rendu
+        Force Graph (editeur et vue detail).
+
+        Chaque node contient les positions x/y pour le layout persistant.
+        """
+        process = self.get_object()
+        steps = process.steps.all().order_by('order', 'code')
+        transitions = ProcessTransition.objects.filter(
+            from_step__process=process,
+        ).select_related('from_step', 'to_step')
+
+        step_type_colors = {
+            'START': '#28a745',
+            'END': '#dc3545',
+            'FORM_FILL': '#0d6efd',
+            'DOCUMENT_UPLOAD': '#6610f2',
+            'HUMAN_APPROVAL': '#fd7e14',
+            'CALCULATION': '#20c997',
+            'CREATE_OBJECT': '#0dcaf0',
+            'SEND_EMAIL': '#6f42c1',
+            'SEND_NOTIFICATION': '#d63384',
+            'CREATE_TASK': '#ffc107',
+            'WEBHOOK': '#198754',
+            'CONDITIONAL': '#adb5bd',
+            'LOOP': '#6c757d',
+            'WAIT': '#495057',
+        }
+
+        nodes = [
+            {
+                'id': s.code,
+                'name': s.name,
+                'step_type': s.step_type,
+                'group': s.step_type,
+                'color': step_type_colors.get(s.step_type, '#6c757d'),
+                'x': s.position_x,
+                'y': s.position_y,
+                'order': s.order,
+                'configuration': s.configuration or {},
+                'conditions': s.conditions or {},
+                'pk': str(s.pk),
+            }
+            for s in steps
+        ]
+        edges = [
+            {
+                'source': t.from_step.code,
+                'target': t.to_step.code,
+                'label': t.label or '',
+                'condition': t.condition or {},
+                'pk': str(t.pk),
+            }
+            for t in transitions
+        ]
+
+        return Response({
+            'process_id': str(process.pk),
+            'process_code': process.code,
+            'process_name': process.name,
+            'is_draft': process.is_draft,
+            'nodes': nodes,
+            'links': edges,
+            'step_type_colors': step_type_colors,
+        })
+
+
+class ProcessInstanceViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet en lecture seule pour les instances de processus.
+
+    En PR2, on expose juste la lecture pour inspecter les instances existantes.
+    La creation (trigger) et l'execution viennent en PR3 avec le StepExecutor.
+    """
+
+    queryset = ProcessInstance.objects.all()
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    filterset_fields = ['process_def', 'status', 'mandat', 'trigger_type']
+    search_fields = ['process_def__code', 'process_def__name']
+    ordering_fields = ['created_at', 'started_at', 'completed_at', 'status']
+    ordering = ['-created_at']
+
+    permission_classes = [IsComptableOrAbove]
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return ProcessInstanceListSerializer
+        return ProcessInstanceDetailSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related(
+            'process_def', 'current_step', 'mandat', 'triggered_by',
+        ).prefetch_related('step_executions')
+        # SECURITE: mandat-scoping
+        return scope_process_instances_by_user(queryset, self.request.user)
+
+    @action(detail=True, methods=['get'], url_path='executions')
+    def executions(self, request, pk=None):
+        """Liste les executions d'etapes de cette instance."""
+        instance = self.get_object()
+        executions = instance.step_executions.select_related(
+            'step', 'form_submission',
+        ).order_by('created_at')
+        return Response(
+            StepExecutionSerializer(executions, many=True).data,
+        )
+
+    @action(detail=True, methods=['post'], url_path='advance')
+    def advance(self, request, pk=None):
+        """
+        Fait avancer une instance en WAITING (apres HUMAN_APPROVAL ou FORM_FILL).
+
+        Body:
+            {
+                "trigger_data": {"approved": true, ...}
+            }
+
+        Les cles de trigger_data sont merges dans les variables de l'instance
+        avant d'evaluer les transitions sortantes.
+        """
+        instance = self.get_object()
+
+        if instance.status not in (
+            ProcessInstance.Status.WAITING,
+            ProcessInstance.Status.RUNNING,
+        ):
+            return Response(
+                {
+                    'error': f"Instance en statut {instance.status}, impossible d'avancer",
+                    'error_code': 'INVALID_STATUS',
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        trigger_data = request.data.get('trigger_data', {}) or {}
+        if not isinstance(trigger_data, dict):
+            return Response(
+                {'error': "'trigger_data' doit etre un dict"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            executor = ProcessExecutor(instance)
+            executor.advance(trigger_data)
+        except ValueError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(
+            ProcessInstanceDetailSerializer(instance).data,
+        )
+
+    @action(detail=True, methods=['post'], url_path='cancel')
+    def cancel_instance(self, request, pk=None):
+        """Annule une instance en cours."""
+        instance = self.get_object()
+        if instance.status in (
+            ProcessInstance.Status.COMPLETED,
+            ProcessInstance.Status.FAILED,
+            ProcessInstance.Status.CANCELLED,
+        ):
+            return Response(
+                {'error': f"Instance deja terminee ({instance.status})"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        reason = request.data.get('reason', '')
+        executor = ProcessExecutor(instance)
+        executor.cancel(reason=reason)
+        return Response(
+            ProcessInstanceDetailSerializer(instance).data,
+        )
+
+    @action(detail=True, methods=['get'], url_path='live')
+    def live(self, request, pk=None):
+        """
+        Snapshot live de l'instance pour polling (django-d3-bridge poll_url).
+
+        Retourne un dict concis avec:
+        - status, current_step, updated_at
+        - nodes: [{id, name, step_type, status}] — un node par step
+        - edges: [{from, to, label}] — une edge par transition
+        - executions: [{step_code, status, completed_at}]
+
+        Format compatible avec django-d3-bridge Force Graph. Sera utilise
+        en PR4 pour afficher l'execution en temps reel.
+        """
+        instance = self.get_object()
+        process = instance.process_def
+
+        steps = process.steps.all().order_by('order', 'code')
+        transitions = ProcessTransition.objects.filter(
+            from_step__process=process,
+        ).select_related('from_step', 'to_step')
+
+        # Statuts par step_code (derniere execution pour chaque step)
+        exec_status_by_step = {}
+        for ex in instance.step_executions.select_related('step').order_by('created_at'):
+            exec_status_by_step[ex.step.code] = {
+                'status': ex.status,
+                'completed_at': ex.completed_at.isoformat() if ex.completed_at else None,
+                'error': ex.error_message or None,
+            }
+
+        nodes = [
+            {
+                'id': s.code,
+                'name': s.name,
+                'step_type': s.step_type,
+                'status': exec_status_by_step.get(s.code, {}).get('status', 'PENDING'),
+                'is_current': (instance.current_step_id == s.pk),
+                'error': exec_status_by_step.get(s.code, {}).get('error'),
+            }
+            for s in steps
+        ]
+        edges = [
+            {
+                'from': t.from_step.code,
+                'to': t.to_step.code,
+                'label': t.label,
+            }
+            for t in transitions
+        ]
+
+        return Response({
+            'instance_id': str(instance.pk),
+            'status': instance.status,
+            'current_step': instance.current_step.code if instance.current_step else None,
+            'updated_at': instance.updated_at.isoformat(),
+            'started_at': instance.started_at.isoformat() if instance.started_at else None,
+            'completed_at': instance.completed_at.isoformat() if instance.completed_at else None,
+            'variables': instance.variables or {},
+            'error_message': instance.error_message or None,
+            'nodes': nodes,
+            'edges': edges,
+            'executions': [
+                {
+                    'step_code': ex.step.code,
+                    'status': ex.status,
+                    'started_at': ex.started_at.isoformat() if ex.started_at else None,
+                    'completed_at': ex.completed_at.isoformat() if ex.completed_at else None,
+                    'error': ex.error_message or None,
+                }
+                for ex in instance.step_executions.select_related('step').order_by('created_at')
+            ],
+        })

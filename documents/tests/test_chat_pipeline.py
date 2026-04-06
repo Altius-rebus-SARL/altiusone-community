@@ -444,9 +444,11 @@ class TestLocalChatService(TestCase):
         svc._model.generate.return_value = mock_outputs
         svc._tokenizer.decode.return_value = "Reponse test"
 
-        with patch('core.ai.chat.torch') as mock_torch:
-            mock_torch.inference_mode.return_value.__enter__ = MagicMock()
-            mock_torch.inference_mode.return_value.__exit__ = MagicMock()
+        # torch est importe LOCALEMENT dans core.ai.chat._generate (pas au niveau
+        # module), donc on patche directement torch.inference_mode au niveau global.
+        with patch('torch.inference_mode') as mock_inference:
+            mock_inference.return_value.__enter__ = MagicMock(return_value=None)
+            mock_inference.return_value.__exit__ = MagicMock(return_value=None)
             result = svc.chat(message="Bonjour")
 
         self.assertIn('response', result)
@@ -631,15 +633,17 @@ class TestUniversalSearchSecurity(RAGTestBase):
 
     @patch.object(UniversalSearchService, '_search_entity_type', return_value=[])
     @patch.object(UniversalSearchService, '_search_semantic', return_value=[])
-    def test_empty_mandat_ids_returns_empty(self, mock_sem, mock_search):
-        """mandat_ids=[] -> aucun resultat (securite)."""
+    def test_empty_mandat_ids_raises_no_access_error(self, mock_sem, mock_search):
+        """mandat_ids=[] -> leve NoAccessibleMandatsError (fix 2026-04-05)."""
+        from documents.universal_search import NoAccessibleMandatsError
+
         context = SearchContext(
             user=self.regular_user,
             mandat_ids=[],
             entity_types=[EntityType.CLIENT],
         )
-        results = self.svc.search("test", context)
-        self.assertEqual(results, [])
+        with self.assertRaises(NoAccessibleMandatsError):
+            self.svc.search("test", context)
         # _search_entity_type ne doit JAMAIS etre appele
         mock_search.assert_not_called()
 
@@ -1095,13 +1099,15 @@ class TestSearchResultSerialization(TestCase):
 
     def test_to_dict_structure(self):
         """to_dict() contient tous les champs attendus."""
+        # NB: 0.8766 (pas 0.8765) pour eviter le banker's rounding Python 3
+        # qui arrondirait 0.8765 a 0.876 au lieu de 0.877.
         r = SearchResult(
             entity_type=EntityType.CLIENT,
             entity_id='abc-123',
             title='Client Test',
             subtitle='SA',
             description='Description',
-            score=0.8765,
+            score=0.8766,
             url='/fr/clients/abc-123/',
             icon='ph-buildings',
             color='info',
@@ -1242,28 +1248,35 @@ class TestChatServiceChat(RAGTestBase):
     def test_chat_separates_sources_and_entities(self, mock_universal):
         """Les sources (documents) et entites sont separees correctement."""
         from documents.chat_service import ChatService
+        import uuid
+
+        # entity_id DOIT etre un UUID valide : ChatService.chat() fait
+        # Document.objects.filter(id__in=doc_ids) et Document.id est un UUIDField.
+        # Un id non-UUID lance ValidationError qui casse le test silencieusement.
+        doc_uuid = str(uuid.uuid4())
+        client_uuid = str(uuid.uuid4())
 
         svc = ChatService()
         mock_universal.search.return_value = [
             SearchResult(
                 entity_type=EntityType.DOCUMENT,
-                entity_id='doc-1',
+                entity_id=doc_uuid,
                 title='facture.pdf',
                 subtitle='Facture',
                 description='',
                 score=0.9,
-                url='/fr/documents/doc-1/',
+                url=f'/fr/documents/{doc_uuid}/',
                 icon='ph-file-text',
                 color='primary',
             ),
             SearchResult(
                 entity_type=EntityType.CLIENT,
-                entity_id='cli-1',
+                entity_id=client_uuid,
                 title='Alpha SA',
                 subtitle='',
                 description='',
                 score=0.8,
-                url='/fr/clients/cli-1/',
+                url=f'/fr/clients/{client_uuid}/',
                 icon='ph-buildings',
                 color='info',
             ),
@@ -1384,5 +1397,169 @@ class TestEntityType(TestCase):
         """Les valeurs de l'enum sont en minuscules."""
         for et in EntityType:
             self.assertEqual(et.value, et.value.lower())
+
+
+# =============================================================================
+# 13. Securite — user sans mandat accessible (fix 2026-04-05)
+# =============================================================================
+
+class TestNoAccessibleMandatsSecurity(RAGTestBase):
+    """
+    Verifie que le fix du bug "IA users sans mandat" (Option A stricte) est
+    bien en place a toutes les couches:
+    - universal_search leve NoAccessibleMandatsError (plus de silent return [])
+    - ConversationCreateSerializer refuse la creation
+    - send_message / stream_message renvoient 403 avec code stable
+    - L'acces a une conversation contenant des mandats non-accessibles est bloque
+    """
+
+    def setUp(self):
+        super().setUp()
+        from rest_framework.test import APIClient
+
+        # User sans aucun mandat accessible (pas responsable, pas dans equipe,
+        # pas prestataire, pas d'AccesMandat client)
+        self.orphan_user = User.objects.create_user(
+            username='orphan', password='orphan', email='orphan@test.ch',
+        )
+        # Verifier que get_accessible_mandats retourne bien un QS vide
+        assert not self.orphan_user.get_accessible_mandats().exists()
+
+        self.orphan_client = APIClient()
+        self.orphan_client.force_authenticate(user=self.orphan_user)
+
+        self.super_client = APIClient()
+        self.super_client.force_authenticate(user=self.superuser)
+
+    def test_universal_search_raises_on_empty_mandats(self):
+        """
+        Un user sans mandat accessible declenche NoAccessibleMandatsError
+        lorsque ses mandats_ids resultent en liste vide (pas None).
+        """
+        from documents.universal_search import (
+            UniversalSearchService,
+            SearchContext,
+            NoAccessibleMandatsError,
+        )
+
+        svc = UniversalSearchService()
+        context = SearchContext(
+            user=self.orphan_user,
+            mandat_ids=[],  # liste vide explicite = user sans mandat
+            entity_types=[EntityType.CLIENT],
+        )
+
+        with self.assertRaises(NoAccessibleMandatsError) as cm:
+            svc.search(query="test", context=context, limit=10)
+
+        # Le code d'erreur stable doit etre present sur l'exception
+        self.assertEqual(cm.exception.code, 'NO_ACCESSIBLE_MANDATS')
+
+    def test_chat_service_search_raises_for_orphan_user(self):
+        """
+        ChatService._search_all_entities compose mandat_ids=[] pour un
+        orphan_user, ce qui doit declencher NoAccessibleMandatsError.
+        """
+        from documents.chat_service import ChatService
+        from documents.universal_search import NoAccessibleMandatsError
+        from documents.models import Conversation
+
+        svc = ChatService()
+        conv = Conversation.objects.create(
+            utilisateur=self.orphan_user,
+            titre='Test orphan',
+            temperature=Decimal('0.7'),
+        )
+
+        with self.assertRaises(NoAccessibleMandatsError):
+            svc._search_all_entities(
+                query="test",
+                conversation=conv,
+                limit=10,
+                entity_types=[EntityType.CLIENT],
+            )
+
+    def test_create_conversation_blocked_for_orphan_user(self):
+        """
+        POST /api/v1/chat/conversations/ renvoie 400 avec error_code
+        NO_ACCESSIBLE_MANDATS pour un user sans aucun mandat accessible.
+        """
+        url = '/api/v1/chat/conversations/'
+        response = self.orphan_client.post(url, {'titre': 'Test'}, format='json')
+
+        self.assertEqual(response.status_code, 400)
+        # Le code stable doit etre present quelque part dans la reponse
+        body = response.json()
+        self.assertIn('NO_ACCESSIBLE_MANDATS', str(body))
+
+    def test_send_message_returns_403_for_orphan_user(self):
+        """
+        send_message renvoie 403 NO_ACCESSIBLE_MANDATS pour un user sans mandat,
+        meme si la conversation a ete creee anterieurement.
+        """
+        from documents.models import Conversation
+
+        # On cree la conversation en contournant le serializer
+        # (simule un cas ou l'acces aux mandats a ete retire apres creation)
+        conv = Conversation.objects.create(
+            utilisateur=self.orphan_user,
+            titre='Legacy',
+            temperature=Decimal('0.7'),
+        )
+
+        url = f'/api/v1/chat/conversations/{conv.id}/send_message/'
+        response = self.orphan_client.post(url, {'message': 'Hello'}, format='json')
+
+        self.assertEqual(response.status_code, 403)
+        body = response.json()
+        self.assertEqual(body.get('error_code'), 'NO_ACCESSIBLE_MANDATS')
+        self.assertIn('mandat', body.get('error', '').lower())
+
+    def test_send_message_blocks_conversation_with_foreign_mandats(self):
+        """
+        Defense en profondeur : un user qui aurait acces a la conversation
+        mais pas aux mandats qu'elle contient doit recevoir 403
+        MANDAT_NOT_ACCESSIBLE.
+        """
+        from documents.models import Conversation
+
+        # Creer un user avec acces a mandat_a mais pas a mandat_b
+        user_partial = User.objects.create_user(
+            username='partial', password='partial', email='partial@test.ch',
+        )
+        self.mandat_a.responsable = user_partial
+        self.mandat_a.save(update_fields=['responsable'])
+
+        # Conversation creee avec mandat_b (auquel partial n'a pas acces)
+        conv = Conversation.objects.create(
+            utilisateur=user_partial,
+            titre='Test foreign mandat',
+            temperature=Decimal('0.7'),
+        )
+        conv.mandats.add(self.mandat_b)
+
+        from rest_framework.test import APIClient
+        partial_client = APIClient()
+        partial_client.force_authenticate(user=user_partial)
+
+        url = f'/api/v1/chat/conversations/{conv.id}/send_message/'
+        response = partial_client.post(url, {'message': 'Hello'}, format='json')
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(
+            response.json().get('error_code'),
+            'MANDAT_NOT_ACCESSIBLE',
+        )
+
+    def test_superuser_bypasses_mandat_check(self):
+        """
+        Le superuser a acces a tous les mandats actifs et peut creer une
+        conversation normalement.
+        """
+        url = '/api/v1/chat/conversations/'
+        response = self.super_client.post(url, {'titre': 'Test super'}, format='json')
+
+        # Creation autorisee (201) ou 200 selon le serializer
+        self.assertIn(response.status_code, [200, 201])
 
 

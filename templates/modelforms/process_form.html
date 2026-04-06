@@ -1,0 +1,226 @@
+{% extends 'base.html' %}
+{% load i18n static d3_bridge %}
+
+{% block title %}
+    {% if process %}{% trans "Modifier le processus" %}{% else %}{% trans "Nouveau processus" %}{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'modelforms/css/process_editor.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">
+            {% if process %}
+                <i class="ph-duotone ph-pencil me-2"></i>{% trans "Modifier" %} — {{ process.name }} v{{ process.version }}
+            {% else %}
+                <i class="ph-duotone ph-plus-circle me-2"></i>{% trans "Nouveau processus métier" %}
+            {% endif %}
+        </h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'modelforms:process-list' %}">
+                    <i class="ph-duotone ph-flow-arrow f-s-16"></i> {% trans "Processus" %}
+                </a>
+            </li>
+            <li class="active"><a class="f-s-14 f-w-500" href="#">
+                {% if process %}{{ process.code }}{% else %}{% trans "Nouveau" %}{% endif %}
+            </a></li>
+        </ul>
+    </div>
+</div>
+
+<form method="post" id="process-form" class="row">
+    {% csrf_token %}
+
+    {# ── Col gauche : infos + palette ── #}
+    <div class="col-lg-3">
+        <div class="card">
+            <div class="card-header"><h6 class="mb-0">{% trans "Informations" %}</h6></div>
+            <div class="card-body">
+                <div class="mb-2">
+                    <label class="form-label f-s-12">{% trans "Code" %} <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control form-control-sm" name="code" required
+                           value="{{ process.code|default:'' }}"
+                           {% if process %}readonly{% endif %}
+                           placeholder="ONBOARDING_CLIENT">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label f-s-12">{% trans "Nom" %} <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control form-control-sm" name="name" required
+                           value="{{ process.name|default:'' }}">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label f-s-12">{% trans "Description" %}</label>
+                    <textarea class="form-control form-control-sm" name="description" rows="2">{{ process.description|default:'' }}</textarea>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label f-s-12">{% trans "Catégorie" %}</label>
+                    <select class="form-select form-select-sm" name="category">
+                        {% for code, label in categories %}
+                            <option value="{{ code }}" {% if process.category == code %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label f-s-12">{% trans "Icône" %}</label>
+                    <input type="text" class="form-control form-control-sm" name="icon" value="{{ process.icon|default:'ph-flow-arrow' }}">
+                </div>
+                {% if process %}
+                <div class="alert alert-info f-s-12 mb-0 mt-2 py-1 px-2">
+                    <strong>v{{ process.version }}</strong>
+                    {% if process.is_draft %}
+                        <span class="badge bg-warning">{% trans "Brouillon" %}</span>
+                    {% else %}
+                        <span class="badge bg-success">{% trans "Publié" %}</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {# Palette #}
+        <div class="card mt-2">
+            <div class="card-header py-2">
+                <h6 class="mb-0 f-s-13">
+                    <i class="ph-duotone ph-puzzle-piece me-1"></i>{% trans "Étapes" %}
+                </h6>
+                <small class="text-muted f-s-11">{% trans "Glissez sur le canevas" %}</small>
+            </div>
+            <div class="card-body py-2">
+                <div class="pe-palette-item" data-step-type="START">
+                    <span class="pe-palette-dot" style="background:#28a745"></span> START
+                </div>
+                <div class="pe-palette-item" data-step-type="FORM_FILL">
+                    <span class="pe-palette-dot" style="background:#0d6efd"></span> {% trans "Formulaire" %}
+                </div>
+                <div class="pe-palette-item" data-step-type="HUMAN_APPROVAL">
+                    <span class="pe-palette-dot" style="background:#fd7e14"></span> {% trans "Approbation" %}
+                </div>
+                <div class="pe-palette-item" data-step-type="CREATE_OBJECT">
+                    <span class="pe-palette-dot" style="background:#0dcaf0"></span> {% trans "Créer objet" %}
+                </div>
+                <div class="pe-palette-item" data-step-type="SEND_EMAIL">
+                    <span class="pe-palette-dot" style="background:#6f42c1"></span> {% trans "Email" %}
+                </div>
+                <div class="pe-palette-item" data-step-type="SEND_NOTIFICATION">
+                    <span class="pe-palette-dot" style="background:#d63384"></span> {% trans "Notification" %}
+                </div>
+                <div class="pe-palette-item" data-step-type="CREATE_TASK">
+                    <span class="pe-palette-dot" style="background:#ffc107"></span> {% trans "Tâche" %}
+                </div>
+                <div class="pe-palette-item" data-step-type="DOCUMENT_UPLOAD">
+                    <span class="pe-palette-dot" style="background:#6610f2"></span> {% trans "Document" %}
+                </div>
+                <div class="pe-palette-item" data-step-type="CALCULATION">
+                    <span class="pe-palette-dot" style="background:#20c997"></span> {% trans "Calcul" %}
+                </div>
+                <div class="pe-palette-item" data-step-type="WEBHOOK">
+                    <span class="pe-palette-dot" style="background:#198754"></span> Webhook
+                </div>
+                <div class="pe-palette-item" data-step-type="CONDITIONAL">
+                    <span class="pe-palette-dot" style="background:#adb5bd"></span> {% trans "Condition" %}
+                </div>
+                <div class="pe-palette-item" data-step-type="LOOP">
+                    <span class="pe-palette-dot" style="background:#6c757d"></span> {% trans "Boucle" %}
+                </div>
+                <div class="pe-palette-item" data-step-type="WAIT">
+                    <span class="pe-palette-dot" style="background:#495057"></span> {% trans "Attente" %}
+                </div>
+                <div class="pe-palette-item" data-step-type="END">
+                    <span class="pe-palette-dot" style="background:#dc3545"></span> END
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── Col centre : canvas graphe ── #}
+    <div class="col-lg-6">
+        <div class="pe-toolbar">
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="pe-btn-zoom-fit" title="{% trans 'Recentrer' %}">
+                <i class="ti ti-arrows-maximize"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-danger" id="pe-btn-delete" title="{% trans 'Supprimer sélection' %}">
+                <i class="ti ti-trash"></i>
+            </button>
+            <div class="flex-fill"></div>
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#pe-json-debug">
+                <i class="ti ti-code"></i> JSON
+            </button>
+        </div>
+        <div id="process-canvas" style="height:520px;"></div>
+        <span class="pe-hint">{% trans "Scroll = zoom · Glisser = déplacer" %}</span>
+
+        {# Debug JSON (collapsed) #}
+        <div class="collapse mt-2" id="pe-json-debug">
+            <div class="card">
+                <div class="card-body p-2">
+                    <label class="form-label f-s-11">steps_json</label>
+                    <textarea class="form-control font-monospace f-s-11" id="id_steps_json" name="steps_json" rows="8">{{ steps_json }}</textarea>
+                    <label class="form-label f-s-11 mt-2">transitions_json</label>
+                    <textarea class="form-control font-monospace f-s-11" id="id_transitions_json" name="transitions_json" rows="6">{{ transitions_json }}</textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-3 text-end">
+            <a href="{% if process %}{% url 'modelforms:process-detail' pk=process.pk %}{% else %}{% url 'modelforms:process-list' %}{% endif %}"
+               class="btn btn-outline-secondary">
+                {% trans "Annuler" %}
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="ti ti-device-floppy me-1"></i>{% trans "Enregistrer" %}
+            </button>
+        </div>
+    </div>
+
+    {# ── Col droite : config panel ── #}
+    <div class="col-lg-3">
+        <div class="card pe-config-panel">
+            <div class="card-header py-2">
+                <h6 class="mb-0 f-s-13">
+                    <i class="ph-duotone ph-gear me-1"></i>{% trans "Propriétés" %}
+                </h6>
+            </div>
+            <div class="card-body" id="pe-config-content">
+                <p class="text-muted f-s-12 text-center mt-4">
+                    {% trans "Cliquez sur un nœud ou une transition pour modifier ses propriétés." %}<br><br>
+                    <strong>{% trans "Raccourcis" %} :</strong><br>
+                    <kbd>{% trans "Clic droit" %}</kbd> {% trans "sur nœud → créer transition" %}<br>
+                    <kbd>{% trans "Double clic" %}</kbd> {% trans "sur fond → nouveau nœud" %}<br>
+                    <kbd>Suppr</kbd> {% trans "→ supprimer sélection" %}<br>
+                    <kbd>Esc</kbd> {% trans "→ annuler" %}
+                </p>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+{% d3_scripts %}
+<script src="{% static 'modelforms/js/process_editor.js' %}"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    ProcessEditor.init({
+        containerId: "process-canvas",
+        stepsInputId: "id_steps_json",
+        transitionsInputId: "id_transitions_json",
+        readOnly: false,
+    });
+
+    // Toolbar buttons
+    document.getElementById("pe-btn-delete")?.addEventListener("click", function () {
+        var ev = new KeyboardEvent("keydown", { key: "Delete", bubbles: true });
+        document.body.dispatchEvent(ev);
+    });
+
+    // Ensure JSON is synced before submit
+    document.getElementById("process-form")?.addEventListener("submit", function () {
+        ProcessEditor.syncToInputs();
+    });
+});
+</script>
+{% endblock %}

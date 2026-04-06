@@ -147,6 +147,9 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 
+    <!-- Translated fields (multilingual tabs) -->
+    <link rel="stylesheet" href="{% static 'core/css/translated-fields.css' %}" />
+
     {% block extra_css %}{% endblock %}
   </head>
 
@@ -431,6 +434,9 @@
     {% if user.is_authenticated %}
     <script src="{% static 'js/push-notifications.js' %}" defer></script>
     {% endif %}
+
+    <!-- Translated fields (multilingual tabs) -->
+    <script src="{% static 'core/js/translated-fields.js' %}" defer></script>
 
     {% block extra_js %}{% endblock %} {% if user.is_authenticated %}
     <!-- AltiusOne FAB Styles -->

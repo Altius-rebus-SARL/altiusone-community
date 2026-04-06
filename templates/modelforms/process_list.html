@@ -1,0 +1,213 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Processus métiers" %}{% endblock %}
+
+{% block content %}
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">
+            <i class="ph-duotone ph-flow-arrow me-2"></i>{% trans "Processus métiers" %}
+        </h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'modelforms:configurations' %}">{% trans "ModelForms" %}</a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Processus" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-primary mb-0">{{ stats.total }}</h3>
+                        <p class="text-muted mb-0">{% trans "Total" %}</p>
+                    </div>
+                    <i class="ph-duotone ph-flow-arrow f-s-32 text-primary"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-success mb-0">{{ stats.published }}</h3>
+                        <p class="text-muted mb-0">{% trans "Publiés" %}</p>
+                    </div>
+                    <i class="ph-duotone ph-check-circle f-s-32 text-success"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-warning mb-0">{{ stats.drafts }}</h3>
+                        <p class="text-muted mb-0">{% trans "Brouillons" %}</p>
+                    </div>
+                    <i class="ph-duotone ph-pencil f-s-32 text-warning"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-info mb-0">{{ stats.instances }}</h3>
+                        <p class="text-muted mb-0">{% trans "Exécutions" %}</p>
+                    </div>
+                    <i class="ph-duotone ph-lightning f-s-32 text-info"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">{% trans "Définitions de processus" %}</h5>
+                <div>
+                    <a href="{% url 'modelforms:process-instance-list' %}" class="btn btn-outline-info me-2">
+                        <i class="ti ti-history me-1"></i>{% trans "Historique d'exécutions" %}
+                    </a>
+                    <a href="{% url 'modelforms:process-create' %}" class="btn btn-primary">
+                        <i class="ti ti-plus me-1"></i>{% trans "Nouveau processus" %}
+                    </a>
+                </div>
+            </div>
+
+            <div class="card-body">
+                <form method="get" class="row g-2 mb-3">
+                    <div class="col-md-5">
+                        <input type="text" class="form-control" name="q" value="{{ request.GET.q|default:'' }}"
+                               placeholder="{% trans 'Rechercher par code ou nom...' %}">
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" name="category">
+                            <option value="">{% trans "Toutes catégories" %}</option>
+                            {% for code, label in categories %}
+                                <option value="{{ code }}" {% if request.GET.category == code %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-check form-switch mt-2">
+                            <input class="form-check-input" type="checkbox" id="showDrafts" name="drafts" value="1"
+                                   {% if request.GET.drafts == '1' %}checked{% endif %}
+                                   onchange="this.form.submit()">
+                            <label class="form-check-label" for="showDrafts">{% trans "Brouillons" %}</label>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-outline-primary w-100">
+                            <i class="ti ti-filter me-1"></i>{% trans "Filtrer" %}
+                        </button>
+                    </div>
+                </form>
+
+                {% if processes %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Code" %}</th>
+                                <th>{% trans "Nom" %}</th>
+                                <th>{% trans "Catégorie" %}</th>
+                                <th>{% trans "Version" %}</th>
+                                <th>{% trans "Étapes" %}</th>
+                                <th>{% trans "Statut" %}</th>
+                                <th class="text-end">{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in processes %}
+                            <tr>
+                                <td><code>{{ p.code }}</code></td>
+                                <td>
+                                    <i class="ph-duotone {{ p.icon }} me-1"></i>
+                                    <strong>{{ p.name }}</strong>
+                                    {% if p.description %}
+                                        <br><small class="text-muted">{{ p.description|truncatechars:60 }}</small>
+                                    {% endif %}
+                                </td>
+                                <td><span class="badge bg-light-primary">{{ p.get_category_display }}</span></td>
+                                <td>v{{ p.version }}</td>
+                                <td><span class="badge bg-light-info">{{ p.steps.count }}</span></td>
+                                <td>
+                                    {% if p.is_draft %}
+                                        <span class="badge bg-warning">{% trans "Brouillon" %}</span>
+                                    {% else %}
+                                        <span class="badge bg-success">{% trans "Publié" %}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <a href="{% url 'modelforms:process-detail' pk=p.pk %}"
+                                       class="btn btn-sm btn-outline-primary" title="{% trans 'Voir' %}">
+                                        <i class="ti ti-eye"></i>
+                                    </a>
+                                    {% if p.is_draft %}
+                                    <a href="{% url 'modelforms:process-update' pk=p.pk %}"
+                                       class="btn btn-sm btn-outline-warning" title="{% trans 'Modifier' %}">
+                                        <i class="ti ti-edit"></i>
+                                    </a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                {% if is_paginated %}
+                <nav>
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">‹</a>
+                            </li>
+                        {% endif %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ page_obj.number }} / {{ paginator.num_pages }}</span>
+                        </li>
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}">›</a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="ph-duotone ph-flow-arrow f-s-48 text-muted"></i>
+                    <p class="text-muted mt-3">{% trans "Aucun processus métier défini." %}</p>
+                    <a href="{% url 'modelforms:process-create' %}" class="btn btn-primary">
+                        <i class="ti ti-plus me-1"></i>{% trans "Créer le premier processus" %}
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

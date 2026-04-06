@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Exécutions de processus" %}{% endblock %}
+
+{% block content %}
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">
+            <i class="ph-duotone ph-lightning me-2"></i>{% trans "Exécutions de processus" %}
+        </h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'modelforms:process-list' %}">{% trans "Processus" %}</a>
+            </li>
+            <li class="active"><a class="f-s-14 f-w-500" href="#">{% trans "Exécutions" %}</a></li>
+        </ul>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <form method="get" class="row g-2">
+            <div class="col-md-4">
+                <select class="form-select" name="status" onchange="this.form.submit()">
+                    <option value="">{% trans "Tous statuts" %}</option>
+                    {% for code, label in statuses %}
+                        <option value="{{ code }}" {% if request.GET.status == code %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </form>
+    </div>
+    <div class="card-body p-0">
+        {% if instances %}
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>{% trans "Processus" %}</th>
+                    <th>{% trans "Étape courante" %}</th>
+                    <th>{% trans "Statut" %}</th>
+                    <th>{% trans "Déclencheur" %}</th>
+                    <th>{% trans "Début" %}</th>
+                    <th>{% trans "Fin" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for inst in instances %}
+                <tr>
+                    <td>
+                        <a href="{% url 'modelforms:process-instance-detail' pk=inst.pk %}">
+                            <strong>{{ inst.process_def.name }}</strong>
+                            <small class="text-muted d-block">{{ inst.process_def.code }}</small>
+                        </a>
+                    </td>
+                    <td>
+                        {% if inst.current_step %}
+                            <code>{{ inst.current_step.code }}</code>
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="badge {% if inst.status == 'COMPLETED' %}bg-success{% elif inst.status == 'FAILED' %}bg-danger{% elif inst.status == 'RUNNING' %}bg-info{% elif inst.status == 'WAITING' %}bg-warning{% else %}bg-secondary{% endif %}">
+                            {{ inst.get_status_display }}
+                        </span>
+                    </td>
+                    <td><small>{{ inst.trigger_type }} — {{ inst.triggered_by|default:"—" }}</small></td>
+                    <td><small>{{ inst.started_at|date:"d/m/Y H:i"|default:"—" }}</small></td>
+                    <td><small>{{ inst.completed_at|date:"d/m/Y H:i"|default:"—" }}</small></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        {% if is_paginated %}
+        <nav class="p-3">
+            <ul class="pagination justify-content-center mb-0">
+                {% if page_obj.has_previous %}
+                    <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">‹</a></li>
+                {% endif %}
+                <li class="page-item active"><span class="page-link">{{ page_obj.number }}/{{ paginator.num_pages }}</span></li>
+                {% if page_obj.has_next %}
+                    <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">›</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="ph-duotone ph-lightning f-s-48"></i>
+            <p class="mt-3">{% trans "Aucune exécution de processus pour le moment." %}</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -6,9 +6,10 @@ Ce module gère le traitement des données soumises via les formulaires dynamiqu
 - Application des valeurs par défaut
 - Validation des données
 - Création des enregistrements (objets liés puis principal)
-- Exécution des post-actions
+- Exécution des post-actions (email, task, notification, create_object)
 - Gestion des transactions et rollback
 """
+import logging
 import re
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import date, datetime
@@ -19,6 +20,9 @@ from django.utils import timezone
 from django.core.exceptions import ValidationError
 
 from core.models import User, AuditLog
+
+
+logger = logging.getLogger(__name__)
 
 
 class SubmissionHandler:
@@ -54,6 +58,10 @@ class SubmissionHandler:
         self.mandat = mandat
         self.created_records: List[Dict[str, Any]] = []
         self.errors: List[str] = []
+        # Erreurs non-bloquantes levees lors des post_actions. Les callers
+        # peuvent les recuperer via handler.post_action_errors et les
+        # stocker dans FormSubmission.error_details pour debug.
+        self.post_action_errors: List[Dict[str, Any]] = []
 
     def process(self) -> Tuple[bool, List[Dict[str, Any]], List[str]]:
         """
@@ -410,10 +418,22 @@ class SubmissionHandler:
     def _execute_post_actions(self, main_record: models.Model):
         """
         Exécute les actions post-soumission configurées.
+
+        Les erreurs de post-actions ne bloquent JAMAIS la creation de l'objet
+        principal (qui est deja persiste a ce stade). Elles sont loggees et
+        exposees via `self.post_action_errors` pour que le caller puisse les
+        stocker dans `FormSubmission.error_details`.
+
+        Types d'actions supportes:
+        - ``email``: envoie un email (template ou inline) via mailing.EmailService
+        - ``task``: cree une core.Tache assignee a un utilisateur
+        - ``notification``: cree une core.Notification
+        - ``create_object``: cree un objet Django arbitraire (ex: Facture liee
+          au Client qui vient d'etre cree)
         """
         post_actions = self.form_config.post_actions or []
 
-        for action in post_actions:
+        for idx, action in enumerate(post_actions):
             action_type = action.get('type')
 
             try:
@@ -423,18 +443,230 @@ class SubmissionHandler:
                     self._create_task_action(action, main_record)
                 elif action_type == 'notification':
                     self._create_notification_action(action, main_record)
+                elif action_type == 'create_object':
+                    self._create_object_action(action, main_record)
+                else:
+                    logger.warning(
+                        "modelforms post_action inconnue: type=%s (form=%s, idx=%d)",
+                        action_type, self.form_config.code, idx,
+                    )
+                    self.post_action_errors.append({
+                        'index': idx,
+                        'type': action_type,
+                        'error': f"Type d'action inconnu: {action_type}",
+                    })
             except Exception as e:
-                # Les erreurs de post-action ne bloquent pas la création
-                # On les log mais on continue
-                pass
+                logger.error(
+                    "modelforms post_action #%d (%s) pour form %s: %s",
+                    idx, action_type, self.form_config.code, e,
+                    exc_info=True,
+                )
+                self.post_action_errors.append({
+                    'index': idx,
+                    'type': action_type,
+                    'error': str(e),
+                })
+
+    def _resolve_action_variables(
+        self, value: Any, record: Optional[models.Model] = None,
+    ) -> Any:
+        """
+        Resout les variables dans une valeur d'action.
+
+        Etend `_resolve_variable()` avec le support de `{{record.<attr>}}`
+        pour faire reference a l'objet principal qui vient d'etre cree.
+
+        Ex: `{{record.id}}`, `{{record.email}}`, `{{record.raison_sociale}}`
+
+        Les variables `{{current_user.*}}`, `{{today}}`, `{{now}}` restent
+        supportees comme avant.
+        """
+        if not isinstance(value, str) or '{{' not in value:
+            return value
+
+        def replace_var(match):
+            var_path = match.group(1)
+
+            # {{record.*}} — nouveau dans PR1
+            if var_path.startswith('record.') and record is not None:
+                attr_chain = var_path.split('.', 1)[1]
+                obj: Any = record
+                for attr in attr_chain.split('.'):
+                    if obj is None:
+                        return ''
+                    obj = getattr(obj, attr, None)
+                return str(obj) if obj is not None else ''
+
+            if var_path == 'today':
+                return date.today().isoformat()
+            if var_path == 'now':
+                return timezone.now().isoformat()
+            if var_path == 'current_user':
+                return str(self.user.id) if self.user else ''
+            if var_path.startswith('current_user.'):
+                attr = var_path.split('.', 1)[1]
+                if self.user and hasattr(self.user, attr):
+                    return str(getattr(self.user, attr))
+                return ''
+
+            return match.group(0)
+
+        return self.VARIABLE_PATTERN.sub(replace_var, value)
 
     def _send_email_action(self, action: Dict, record: models.Model):
         """
-        Envoie un email suite à la création.
+        Envoie un email suite a la creation de l'objet principal.
+
+        Formats supportes:
+
+        1) Template par code (recommande):
+        ``{"type": "email", "template": "NOUVEAU_CLIENT", "to": "{{record.email}}"}``
+
+        2) Email inline (pas de template):
+        ``{"type": "email", "to": "{{current_user.email}}",
+           "subject": "Nouveau {{record.raison_sociale}}",
+           "body": "..."}``
+
+        Le destinataire, le sujet et le corps supportent les variables
+        ``{{record.*}}``, ``{{current_user.*}}``, ``{{today}}``, ``{{now}}``.
         """
-        # Import local pour éviter les dépendances circulaires
-        # L'implémentation réelle dépendra du module mailing
-        pass
+        from mailing.services import EmailService
+
+        to_expr = action.get('to', '')
+        destinataire = self._resolve_action_variables(to_expr, record)
+        if not destinataire:
+            raise ValueError(
+                "post_action email: 'to' non defini ou resolution vide"
+            )
+
+        svc = EmailService()
+        template_code = action.get('template')
+
+        if template_code:
+            # Mode template: passer le record et l'user dans le contexte pour
+            # que le template puisse utiliser ses propres variables.
+            context = {
+                'record': record,
+                'user': self.user,
+                'mandat': self.mandat,
+                'form_code': self.form_config.code,
+                'form_name': self.form_config.name,
+            }
+            # Ajouter aussi les champs du record pour acces direct
+            if record is not None:
+                for field in record._meta.fields:
+                    fname = field.name
+                    try:
+                        context[fname] = getattr(record, fname)
+                    except Exception:
+                        pass
+            context.update(action.get('context', {}))
+
+            email_envoye = svc.send_template_email(
+                destinataire=destinataire,
+                template_code=template_code,
+                context=context,
+                utilisateur=self.user,
+                mandat=self.mandat,
+                content_type='modelforms_submission',
+                object_id=str(record.pk) if record else '',
+            )
+            if email_envoye is None:
+                raise ValueError(
+                    f"Template email '{template_code}' introuvable ou inactif"
+                )
+            return
+
+        # Mode inline
+        subject = self._resolve_action_variables(
+            action.get('subject', f"Nouvelle soumission: {self.form_config.name}"),
+            record,
+        )
+        body_html = self._resolve_action_variables(
+            action.get('body', action.get('body_html', '')),
+            record,
+        )
+        if not body_html:
+            raise ValueError(
+                "post_action email inline: 'body' ou 'template' requis"
+            )
+
+        svc.send_email(
+            destinataire=destinataire,
+            sujet=subject,
+            corps_html=body_html,
+            utilisateur=self.user,
+            mandat=self.mandat,
+            content_type='modelforms_submission',
+            object_id=str(record.pk) if record else '',
+        )
+
+    def _create_object_action(self, action: Dict, record: models.Model):
+        """
+        Cree un objet Django arbitraire a partir d'un mapping.
+
+        Format:
+        ``{
+            "type": "create_object",
+            "model": "facturation.Facture",
+            "field_mapping": {
+                "client_id": "{{record.id}}",
+                "montant_ht": "100.00",
+                "mandat_id": "{{mandat_id}}"
+            }
+        }``
+
+        Les valeurs du field_mapping supportent les variables
+        ``{{record.*}}``, ``{{current_user.*}}``, ``{{mandat_id}}``,
+        ``{{today}}``, ``{{now}}``.
+
+        L'objet cree est ajoute a `self.created_records`.
+        """
+        model_path = action.get('model')
+        if not model_path:
+            raise ValueError("post_action create_object: 'model' requis")
+
+        try:
+            app_label, model_name = model_path.split('.')
+            model_class = apps.get_model(app_label, model_name)
+        except (ValueError, LookupError) as e:
+            raise ValueError(
+                f"post_action create_object: modele '{model_path}' introuvable: {e}"
+            )
+
+        field_mapping = action.get('field_mapping', {})
+        if not isinstance(field_mapping, dict):
+            raise ValueError(
+                "post_action create_object: 'field_mapping' doit etre un dict"
+            )
+
+        # Resoudre les variables dans les valeurs
+        resolved_data: Dict[str, Any] = {}
+        for field_name, raw_value in field_mapping.items():
+            if isinstance(raw_value, str):
+                # Cas special {{mandat_id}}
+                if raw_value == '{{mandat_id}}':
+                    resolved_data[field_name] = (
+                        str(self.mandat.pk) if self.mandat else None
+                    )
+                    continue
+                resolved_data[field_name] = self._resolve_action_variables(
+                    raw_value, record,
+                )
+            else:
+                resolved_data[field_name] = raw_value
+
+        # Creer l'instance
+        instance = model_class(**resolved_data)
+        instance.full_clean()
+        instance.save()
+
+        self.created_records.append({
+            'model': model_path,
+            'id': str(instance.pk),
+            'repr': str(instance),
+            'source': 'post_action',
+        })
 
     def _create_task_action(self, action: Dict, record: models.Model):
         """

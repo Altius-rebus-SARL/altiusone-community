@@ -1,0 +1,192 @@
+{% extends 'base.html' %}
+{% load i18n static d3_bridge %}
+
+{% block title %}{% trans "Exécution" %} {{ instance.process_def.code }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'modelforms/css/process_editor.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">
+            <i class="ph-duotone ph-lightning me-2"></i>
+            {% trans "Exécution" %} — {{ instance.process_def.name }}
+            <span id="pe-instance-status" class="badge {% if instance.status == 'COMPLETED' %}bg-success{% elif instance.status == 'FAILED' %}bg-danger{% elif instance.status == 'RUNNING' %}bg-info{% elif instance.status == 'WAITING' %}bg-warning{% else %}bg-secondary{% endif %}">
+                {{ instance.get_status_display }}
+            </span>
+        </h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li><a class="f-s-14 f-w-500" href="{% url 'modelforms:process-instance-list' %}">{% trans "Exécutions" %}</a></li>
+            <li class="active"><a class="f-s-14 f-w-500" href="#">{{ instance.id|stringformat:"s"|slice:":8" }}</a></li>
+        </ul>
+    </div>
+</div>
+
+<div class="row">
+    {# Col gauche : contexte #}
+    <div class="col-lg-3">
+        <div class="card">
+            <div class="card-header"><h6 class="mb-0">{% trans "Contexte" %}</h6></div>
+            <div class="card-body">
+                <dl class="row mb-0 f-s-13">
+                    <dt class="col-5">{% trans "Processus" %}</dt>
+                    <dd class="col-7">
+                        <a href="{% url 'modelforms:process-detail' pk=instance.process_def.pk %}">
+                            {{ instance.process_def.code }} v{{ instance.process_def.version }}
+                        </a>
+                    </dd>
+                    <dt class="col-5">{% trans "Étape" %}</dt>
+                    <dd class="col-7">
+                        {% if instance.current_step %}
+                            <code>{{ instance.current_step.code }}</code>
+                        {% else %}—{% endif %}
+                    </dd>
+                    <dt class="col-5">{% trans "Déclencheur" %}</dt>
+                    <dd class="col-7">{{ instance.trigger_type }}</dd>
+                    <dt class="col-5">{% trans "Par" %}</dt>
+                    <dd class="col-7">{{ instance.triggered_by|default:"—" }}</dd>
+                    <dt class="col-5">{% trans "Mandat" %}</dt>
+                    <dd class="col-7">{{ instance.mandat|default:"—" }}</dd>
+                    <dt class="col-5">{% trans "Début" %}</dt>
+                    <dd class="col-7">{{ instance.started_at|date:"d/m/Y H:i:s"|default:"—" }}</dd>
+                    <dt class="col-5">{% trans "Fin" %}</dt>
+                    <dd class="col-7">{{ instance.completed_at|date:"d/m/Y H:i:s"|default:"—" }}</dd>
+                </dl>
+                {% if instance.error_message %}
+                <hr>
+                <div class="alert alert-danger mb-0 f-s-12">{{ instance.error_message }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header"><h6 class="mb-0">{% trans "Variables" %}</h6></div>
+            <div class="card-body">
+                <pre class="f-s-12 mb-0">{{ variables_pretty }}</pre>
+            </div>
+        </div>
+
+        {# Légende statuts #}
+        <div class="card mt-3">
+            <div class="card-header py-2"><h6 class="mb-0 f-s-13">{% trans "Légende" %}</h6></div>
+            <div class="card-body py-2 f-s-12">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="pe-palette-dot" style="background:#adb5bd"></span> {% trans "En attente" %}
+                </div>
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="pe-palette-dot" style="background:#0d6efd"></span> {% trans "En cours" %}
+                </div>
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="pe-palette-dot" style="background:#ffc107"></span> {% trans "En pause" %}
+                </div>
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="pe-palette-dot" style="background:#28a745"></span> {% trans "Terminé" %}
+                </div>
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="pe-palette-dot" style="background:#dc3545"></span> {% trans "Échoué" %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# Col droite : graphe live + table exécutions #}
+    <div class="col-lg-9">
+        <ul class="nav nav-tabs mb-3" role="tablist">
+            <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-live-graph">
+                <i class="ph ph-pulse"></i> {% trans "Exécution en direct" %}
+            </a></li>
+            <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-exec-log">
+                <i class="ph ph-list-numbers"></i> {% trans "Historique" %} ({{ executions|length }})
+            </a></li>
+        </ul>
+
+        <div class="tab-content">
+            {# Graphe live #}
+            <div class="tab-pane fade show active" id="tab-live-graph">
+                <div id="process-canvas-live" style="height:480px;border:1px solid #dee2e6;border-radius:8px;background:#fafbfc;position:relative;"></div>
+                <span class="pe-hint">
+                    {% if instance.status == 'RUNNING' or instance.status == 'WAITING' %}
+                        <span class="text-info">{% trans "Rafraîchissement automatique toutes les 3s" %}</span> ·
+                    {% endif %}
+                    {% trans "Scroll = zoom · Glisser = déplacer" %}
+                </span>
+                {# Hidden inputs for graph data #}
+                <textarea id="id_steps_json_live" style="display:none">{{ graph_steps_json }}</textarea>
+                <textarea id="id_transitions_json_live" style="display:none">{{ graph_transitions_json }}</textarea>
+            </div>
+
+            {# Table historique exécutions #}
+            <div class="tab-pane fade" id="tab-exec-log">
+                <div class="card">
+                    <div class="card-body p-0">
+                        {% if executions %}
+                        <table class="table mb-0">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>{% trans "Étape" %}</th>
+                                    <th>{% trans "Type" %}</th>
+                                    <th>{% trans "Statut" %}</th>
+                                    <th>{% trans "Début" %}</th>
+                                    <th>{% trans "Fin" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for ex in executions %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>
+                                        <strong>{{ ex.step.name }}</strong>
+                                        <br><code class="f-s-11">{{ ex.step.code }}</code>
+                                    </td>
+                                    <td><span class="badge bg-light-primary">{{ ex.step.get_step_type_display }}</span></td>
+                                    <td>
+                                        <span class="badge {% if ex.status == 'COMPLETED' %}bg-success{% elif ex.status == 'FAILED' %}bg-danger{% elif ex.status == 'RUNNING' %}bg-info{% elif ex.status == 'SKIPPED' %}bg-secondary{% else %}bg-warning{% endif %}">
+                                            {{ ex.get_status_display }}
+                                        </span>
+                                        {% if ex.retries_count %}
+                                            <small class="text-muted">({{ ex.retries_count }}x)</small>
+                                        {% endif %}
+                                    </td>
+                                    <td><small>{{ ex.started_at|date:"H:i:s"|default:"—" }}</small></td>
+                                    <td><small>{{ ex.completed_at|date:"H:i:s"|default:"—" }}</small></td>
+                                </tr>
+                                {% if ex.error_message %}
+                                <tr class="bg-light-danger">
+                                    <td></td>
+                                    <td colspan="5"><small class="text-danger">{{ ex.error_message }}</small></td>
+                                </tr>
+                                {% endif %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% else %}
+                        <p class="text-center text-muted py-4 mb-0">{% trans "Aucune étape exécutée." %}</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% d3_scripts %}
+<script src="{% static 'modelforms/js/process_editor.js' %}"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    var isActive = "{{ instance.status }}" === "RUNNING" || "{{ instance.status }}" === "WAITING";
+    ProcessEditor.init({
+        containerId: "process-canvas-live",
+        stepsInputId: "id_steps_json_live",
+        transitionsInputId: "id_transitions_json_live",
+        readOnly: true,
+        pollUrl: isActive ? "/api/v1/modelforms/process-instances/{{ instance.pk }}/live/" : null,
+        pollInterval: 3,
+    });
+});
+</script>
+{% endblock %}

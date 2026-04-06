@@ -60,6 +60,25 @@
             </div>
             {% endif %}
 
+            {% if not has_accessible_mandats %}
+            <div class="row mt-3">
+                <div class="col-12">
+                    <div class="alert alert-danger d-flex align-items-start" role="alert">
+                        <i class="ph-duotone ph-lock-key f-s-24 me-3 mt-1"></i>
+                        <div class="flex-grow-1">
+                            <h6 class="alert-heading mb-1">{% trans "Acces a l'assistant IA indisponible" %}</h6>
+                            <p class="mb-1">
+                                {% trans "Vous n'avez actuellement acces a aucun mandat. L'assistant IA a besoin d'au moins un mandat pour construire son contexte de recherche." %}
+                            </p>
+                            <p class="mb-0 f-s-13 text-muted">
+                                {% trans "Contactez un administrateur ou un manager pour qu'il vous assigne a un mandat (responsable, equipe, collaborateur fiduciaire ou acces client)." %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
             <!-- Chat start -->
             <div class="row position-relative chat-container-box mt-3">
                 <!-- Sidebar conversations -->
@@ -235,13 +254,13 @@
                                         <textarea class="form-control b-r-6"
                                                   id="messageInput"
                                                   rows="1"
-                                                  placeholder="{% trans 'Recherchez dans vos donnees...' %}"
-                                                  {% if not ai_enabled %}disabled{% endif %}
+                                                  placeholder="{% if not has_accessible_mandats %}{% trans 'Aucun mandat accessible — contactez votre administrateur' %}{% else %}{% trans 'Recherchez dans vos donnees...' %}{% endif %}"
+                                                  {% if not ai_enabled or not has_accessible_mandats %}disabled{% endif %}
                                                   style="resize: none; min-height: 50px; max-height: 150px;"></textarea>
                                         <button class="btn btn-primary ms-2 me-2 b-r-4"
                                                 type="button"
                                                 id="btnSend"
-                                                {% if not ai_enabled %}disabled{% endif %}>
+                                                {% if not ai_enabled or not has_accessible_mandats %}disabled{% endif %}>
                                             <i class="ti ti-send"></i> <span>{% trans "Envoyer" %}</span>
                                         </button>
                                     </div>
@@ -1033,6 +1052,32 @@ $(function() {
     }
 
     function showError(message, xhr) {
+        // Cas special : utilisateur sans mandat accessible → message clair
+        // avec code d'erreur stable NO_ACCESSIBLE_MANDATS (backend).
+        if (xhr && xhr.status === 403 && xhr.responseJSON
+                && xhr.responseJSON.error_code === 'NO_ACCESSIBLE_MANDATS') {
+            const friendly = xhr.responseJSON.error
+                || "{% trans 'Vous n\'avez acces a aucun mandat. Contactez votre administrateur.' %}";
+            console.warn('Chat bloque: NO_ACCESSIBLE_MANDATS');
+            const $block = $(`
+                <div class="position-relative">
+                    <span class="chatdp h-45 w-45 b-r-50 position-absolute start-0 bg-danger">
+                        <i class="ph-duotone ph-lock-key f-s-20 text-white d-flex h-100 align-items-center justify-content-center"></i>
+                    </span>
+                    <div class="chat-box">
+                        <div>
+                            <p class="chat-text text-danger mb-1"><strong>{% trans "Acces refuse" %}</strong></p>
+                            <p class="chat-text">${escapeHtml(friendly)}</p>
+                        </div>
+                    </div>
+                </div>
+            `);
+            $messages.append($block);
+            scrollToBottom();
+            $('#messageInput, #btnSend').prop('disabled', true);
+            return;
+        }
+
         let errorDetails = message;
         if (xhr && xhr.responseJSON && xhr.responseJSON.detail) {
             errorDetails += ': ' + xhr.responseJSON.detail;
