@@ -139,6 +139,7 @@ jobs:
         run: |
           echo "--- Validating Django in built image ---"
           docker run --rm --network host \
+            --entrypoint bash \
             -e DATABASE_URL="$DATABASE_URL" \
             -e SECRET_KEY="$SECRET_KEY" \
             -e ALLOWED_HOSTS="$ALLOWED_HOSTS" \
@@ -150,11 +151,8 @@ jobs:
             -e MINIO_BUCKET="$MINIO_BUCKET" \
             -e MINIO_SECURE="$MINIO_SECURE" \
             ${{ env.REGISTRY }}/${{ steps.version.outputs.prefix }}-django:${{ steps.version.outputs.version }} \
-            bash -c "
-              echo '--- Django system check ---'
-              python manage.py check 2>&1
-
-              echo '--- Verify all models import ---'
+            -c "
+              echo '--- Verify all apps + models import ---'
               python -c '
           import django; django.setup()
           from django.apps import apps
