@@ -24,7 +24,7 @@ from .models import (
     DeclarationCotisations,
     DeclarationCotisationsLigne,
 )
-from .forms import EmployeForm, AdresseInlineForm, FicheSalaireForm, CertificatSalaireForm, CertificatTravailForm
+from .forms import EmployeForm, AdresseInlineForm, FicheSalaireForm, CertificatSalaireForm, CertificatTravailForm, DeclarationCotisationsForm
 from .filters import EmployeFilter, FicheSalaireFilter
 from core.models import Mandat, Adresse
 
@@ -158,12 +158,23 @@ class EmployeCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView)
     template_name = "salaires/employe_form.html"
     business_permission = 'salaires.view_employes'
 
+    def _get_regime_context(self):
+        """Détecte le régime fiscal pour adapter le formulaire."""
+        from core.models import Entreprise
+        entreprise = Entreprise.get_default()
+        regime = getattr(entreprise, 'regime_fiscal', None) if entreprise else None
+        return {
+            'regime': regime,
+            'is_swiss': regime and regime.code == 'CH',
+        }
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         if self.request.POST:
             context['adresse_form'] = AdresseInlineForm(self.request.POST, prefix='adresse')
         else:
             context['adresse_form'] = AdresseInlineForm(prefix='adresse')
+        context.update(self._get_regime_context())
         return context
 
     def get_success_url(self):
@@ -199,6 +210,10 @@ class EmployeUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateView)
                 prefix='adresse',
                 instance=self.object.adresse,
             )
+        # Régime pour adapter l'affichage (IS suisse, AVS, etc.)
+        regime = getattr(self.object.mandat, 'regime_fiscal', None) if self.object.mandat_id else None
+        context['regime'] = regime
+        context['is_swiss'] = regime and regime.code == 'CH'
         return context
 
     def get_success_url(self):
@@ -400,6 +415,25 @@ def certificat_preview_pdf(request, pk):
 
 
 @login_required
+def certificat_export_xml(request, pk):
+    """Exporte un certificat de salaire au format XML Swissdec ELM v5"""
+    certificat = get_object_or_404(
+        CertificatSalaire.objects.select_related(
+            'employe__mandat__client__adresse_siege',
+            'employe__adresse',
+        ),
+        pk=pk,
+    )
+    from salaires.services.xml_certificat_salaire import CertificatSalaireXML
+    service = CertificatSalaireXML(certificat)
+    xml_bytes = service.generer(pretty=True)
+    filename = f"lohnausweis_{certificat.employe.matricule}_{certificat.annee}.xml"
+    response = HttpResponse(xml_bytes, content_type='application/xml')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+@login_required
 def generer_fiches_masse(request):
     """Génère les fiches de salaire pour tous les employés actifs d'un mandat"""
 
@@ -552,6 +586,10 @@ class CertificatSalaireListView(SearchMixin, LoginRequiredMixin, BusinessPermiss
         context['annees_disponibles'] = CertificatSalaire.objects.values_list(
             'annee', flat=True
         ).distinct().order_by('-annee')
+        # Employés actifs pour le dropdown "Nouveau certificat"
+        context['employes_actifs'] = Employe.objects.filter(
+            statut='ACTIF'
+        ).select_related('mandat__client').order_by('nom', 'prenom')[:50]
         return context
 
 
@@ -581,13 +619,15 @@ class CertificatSalaireUpdateView(LoginRequiredMixin, BusinessPermissionMixin, U
 
     def get_success_url(self):
         messages.success(self.request, _("Certificat mis à jour avec succès"))
-        return reverse_lazy("salaires:certificat-detail", kwargs={"pk": self.object.pk})
+        # Rester dans le studio après sauvegarde pour voir le résultat
+        return reverse_lazy("salaires:certificat-studio", kwargs={"pk": self.object.pk})
 
 
 @login_required
 def generer_certificat(request, employe_pk):
     """Génère le certificat de salaire annuel pour un employé (Formulaire 11)"""
     employe = get_object_or_404(Employe, pk=employe_pk)
+    current_year = datetime.now().year
 
     if request.method == "POST":
         annee = int(request.POST.get("annee"))
@@ -597,14 +637,26 @@ def generer_certificat(request, employe_pk):
         existing = CertificatSalaire.objects.filter(employe=employe, annee=annee).first()
         if existing:
             messages.warning(request, _("Un certificat existe déjà pour cette année"))
-            return redirect("salaires:certificat-detail", pk=existing.pk)
+            return redirect("salaires:certificat-studio", pk=existing.pk)
+
+        # Dates de période (par défaut 1er jan - 31 déc)
+        date_debut_str = request.POST.get("date_debut")
+        date_fin_str = request.POST.get("date_fin")
+        if date_debut_str:
+            date_debut = datetime.strptime(date_debut_str, "%Y-%m-%d").date()
+        else:
+            date_debut = datetime(annee, 1, 1).date()
+        if date_fin_str:
+            date_fin = datetime.strptime(date_fin_str, "%Y-%m-%d").date()
+        else:
+            date_fin = datetime(annee, 12, 31).date()
 
         # Créer le certificat
         certificat = CertificatSalaire.objects.create(
             employe=employe,
             annee=annee,
-            date_debut=datetime(annee, 1, 1).date(),
-            date_fin=datetime(annee, 12, 31).date(),
+            date_debut=date_debut,
+            date_fin=date_fin,
             genere_par=request.user,
             taux_occupation=employe.taux_occupation or Decimal("100"),
         )
@@ -613,18 +665,32 @@ def generer_certificat(request, employe_pk):
         if auto_calculer:
             try:
                 certificat.calculer_depuis_fiches(save=True)
-                messages.success(request, _("Certificat de salaire généré et calculé avec succès"))
+                messages.success(request, _("Certificat généré et calculé avec succès"))
             except ValueError as e:
                 messages.warning(request, _(f"Certificat créé mais calcul impossible: {e}"))
         else:
-            messages.success(request, _("Certificat de salaire créé (en brouillon)"))
+            messages.success(request, _("Certificat créé (en brouillon)"))
 
-        return redirect("salaires:certificat-detail", pk=certificat.pk)
+        # Rediriger vers le Studio pour éditer/visualiser
+        return redirect("salaires:certificat-studio", pk=certificat.pk)
+
+    # Dates par défaut basées sur l'employé
+    default_date_debut = None
+    default_date_fin = None
+    if employe.date_entree and employe.date_entree.year == current_year:
+        default_date_debut = employe.date_entree
+    if employe.date_sortie and employe.date_sortie.year == current_year:
+        default_date_fin = employe.date_sortie
 
     return render(
         request,
         "salaires/generer_certificat.html",
-        {"employe": employe, "current_year": datetime.now().year},
+        {
+            "employe": employe,
+            "current_year": current_year,
+            "default_date_debut": default_date_debut,
+            "default_date_fin": default_date_fin,
+        },
     )
 
 
@@ -984,15 +1050,12 @@ class DeclarationCotisationsCreateView(LoginRequiredMixin, BusinessPermissionMix
     """Création d'une déclaration de cotisations"""
 
     model = DeclarationCotisations
+    form_class = DeclarationCotisationsForm
     business_permission = 'salaires.manage_cotisations'
     template_name = "salaires/declaration_cotisations_form.html"
-    fields = ['mandat', 'regime_fiscal', 'devise', 'organisme', 'periode_type', 'annee', 'mois', 'trimestre',
-              'nom_caisse', 'numero_affilie', 'numero_contrat']
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['mandats'] = Mandat.objects.select_related('client').filter(is_active=True)
-        context['organismes'] = DeclarationCotisations.ORGANISME_CHOICES
         context['current_year'] = datetime.now().year
         context['current_month'] = datetime.now().month
         return context
@@ -1022,7 +1085,7 @@ class DeclarationCotisationsCreateView(LoginRequiredMixin, BusinessPermissionMix
         declaration.save()
 
         # Calculer automatiquement si demandé
-        if self.request.POST.get('auto_calculer'):
+        if form.cleaned_data.get('auto_calculer'):
             declaration.calculer_depuis_fiches()
             declaration.calculer_echeance()
             messages.success(self.request, _("Déclaration créée et calculée avec succès"))
@@ -1260,7 +1323,7 @@ def _get_studio_context(type_document, mandat, instance_pk, preview_url_name, bl
 
     modele = ModeleDocumentPDF.get_effectif(type_document, mandat)
     config_json = {
-        'couleur_primaire': modele.couleur_primaire if modele else '#088178',
+        'couleur_primaire': modele.couleur_primaire if modele else '#02312e',
         'couleur_accent': modele.couleur_accent if modele else '#2c3e50',
         'couleur_texte': modele.couleur_texte if modele else '#333333',
         'police': modele.police if modele else 'Helvetica',
@@ -1318,16 +1381,16 @@ def fiche_studio_preview(request):
 @login_required
 @permission_required_business('salaires.view_salaires')
 def certificat_studio(request, pk):
-    """Vue Studio PDF pour un certificat de salaire."""
-    certificat = get_object_or_404(CertificatSalaire, pk=pk)
-    blocs = [
-        ('logo', _('Logo')),
-        ('remarques', _('Remarques')),
-        ('signature', _('Signature')),
-    ]
-    ctx = _get_studio_context('CERTIFICAT_SALAIRE', certificat.employe.mandat, certificat.pk,
-                              'certificat-studio-preview', blocs)
-    ctx['certificat'] = certificat
+    """Vue Studio unifiée : modification des champs + preview PDF en temps réel."""
+    certificat = get_object_or_404(
+        CertificatSalaire.objects.select_related('employe__mandat__client', 'employe__adresse'),
+        pk=pk,
+    )
+    form = CertificatSalaireForm(instance=certificat)
+    ctx = {
+        'certificat': certificat,
+        'form': form,
+    }
     return render(request, 'salaires/certificat_studio.html', ctx)
 
 

@@ -35,7 +35,7 @@ class Command(BaseCommand):
                 type_document=type_code,
                 mandat=None,
                 est_defaut=True,
-                couleur_primaire=defaults.get('couleur_primaire', '#088178'),
+                couleur_primaire=defaults.get('couleur_primaire', '#02312e'),
                 couleur_accent=defaults.get('couleur_accent', '#2c3e50'),
                 couleur_texte=defaults.get('couleur_texte', '#333333'),
                 police=defaults.get('police', 'Helvetica'),

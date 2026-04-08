@@ -439,7 +439,7 @@ class CompteCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView):
 
     def get_initial(self):
         initial = super().get_initial()
-        plan_pk = self.kwargs.get("plan_pk")
+        plan_pk = self.kwargs.get("plan_pk") or self.request.GET.get("plan")
         if plan_pk:
             initial["plan_comptable"] = get_object_or_404(PlanComptable, pk=plan_pk)
         return initial

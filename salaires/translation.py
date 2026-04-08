@@ -5,4 +5,4 @@ from .models import Employe
 
 @register(Employe)
 class EmployeTranslationOptions(TranslationOptions):
-    fields = ("fonction", "remarques")
+    fields = ("fonction", "remarques", "departement")

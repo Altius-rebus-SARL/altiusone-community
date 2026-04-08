@@ -31,7 +31,7 @@ class FacturePDF:
         self.style = merge_style_config(defaults, style_config or {})
 
         # Couleurs resolues
-        self._color_primary = self._hex(self.style.get('couleur_primaire', '#088178'))
+        self._color_primary = self._hex(self.style.get('couleur_primaire', '#02312e'))
         self._color_accent = self._hex(self.style.get('couleur_accent', '#2c3e50'))
         self._color_text = self._hex(self.style.get('couleur_texte', '#333333'))
 

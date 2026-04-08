@@ -97,7 +97,7 @@
                 <a href="{% url 'salaires:certificat-recalculer' certificat.pk %}" class="btn btn-outline-info">
                     <i class="ph ph-arrows-clockwise me-2"></i>{% trans "Recalculer" %}
                 </a>
-                <a href="{% url 'salaires:certificat-edit' certificat.pk %}" class="btn btn-outline-secondary">
+                <a href="{% url 'salaires:certificat-studio' certificat.pk %}" class="btn btn-outline-primary">
                     <i class="ph ph-pencil me-2"></i>{% trans "Modifier" %}
                 </a>
                 {% endif %}
@@ -111,395 +111,49 @@
                     <i class="ph ph-signature me-2"></i>{% trans "Signer" %}
                 </a>
                 {% endif %}
-                <button class="btn btn-outline-secondary" onclick="window.print()">
-                    <i class="ph ph-printer me-2"></i>{% trans "Imprimer" %}
-                </button>
-                <a href="{% url 'salaires:certificat-preview-pdf' certificat.pk %}" class="btn btn-outline-primary" target="_blank">
-                    <i class="ph ph-eye me-2"></i>{% trans "Aperçu PDF" %}
-                </a>
                 <a href="{% url 'salaires:certificat-pdf' certificat.pk %}" class="btn btn-primary">
-                    <i class="ph ph-file-pdf me-2"></i>{% trans "PDF Formulaire 11" %}
+                    <i class="ph ph-file-pdf me-2"></i>{% trans "PDF" %}
                 </a>
-                <a href="{% url 'salaires:certificat-studio' certificat.pk %}" class="btn btn-info">
-                    <i class="ph ph-paint-brush me-2"></i>{% trans "Studio PDF" %}
+                <a href="{% url 'salaires:certificat-xml' certificat.pk %}" class="btn btn-outline-dark"
+                   title="{% trans 'Export XML Swissdec ELM' %}">
+                    <i class="ph ph-file-code me-2"></i>{% trans "XML" %}
                 </a>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Certificat Formulaire 11 -->
+<!-- Certificat Formulaire 11 — Aperçu PDF inline -->
 <div class="container">
     <div class="row">
         <div class="col-12">
-            <div class="card formulaire-11">
-                <div class="card-body">
-                    <!-- En-tête -->
-                    <div class="text-center mb-4">
-                        <h3 class="fw-bold">{% trans "CERTIFICAT DE SALAIRE" %}</h3>
-                        <p class="text-muted mb-0">{% trans "Attestation de rentes, pensions et prestations en capital" %}</p>
-                        <h4 class="mt-2">
-                            <span class="badge bg-primary fs-4">{{ certificat.annee }}</span>
-                            {% if certificat.regime_fiscal %}
-                            <span class="badge bg-info fs-6 ms-2">{{ certificat.regime_fiscal.nom }}</span>
-                            {% endif %}
-                            {% if certificat.devise_id %}
-                            <span class="badge bg-secondary fs-6 ms-2">{{ certificat.devise_id }}</span>
-                            {% endif %}
-                        </h4>
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center py-2">
+                    <div>
+                        <span class="fw-bold">{% trans "Formulaire 11" %} — {{ certificat.annee }}</span>
+                        <span class="badge bg-primary ms-2">{{ certificat.employe.nom }} {{ certificat.employe.prenom }}</span>
                     </div>
-
-                    <hr>
-
-                    <!-- Section A-B: Employeur -->
-                    <div class="row mb-4">
-                        <div class="col-md-6">
-                            <h6 class="fw-bold text-primary">A. {% trans "Employeur" %}</h6>
-                            <p class="mb-1">
-                                <strong>{{ certificat.employe.mandat.client.raison_sociale }}</strong>
-                            </p>
-                            {% if certificat.employe.mandat.client.adresse_siege %}
-                            <p class="mb-1 text-muted">
-                                {{ certificat.employe.mandat.client.adresse_siege.rue }} {{ certificat.employe.mandat.client.adresse_siege.numero }}<br>
-                                {{ certificat.employe.mandat.client.adresse_siege.code_postal }} {{ certificat.employe.mandat.client.adresse_siege.localite }}
-                            </p>
-                            {% endif %}
-                        </div>
-                        <div class="col-md-6">
-                            <h6 class="fw-bold text-primary">B. {% trans "Identifiants" %}</h6>
-                            <p class="mb-1">{% trans "IDE" %}: <strong>{{ certificat.employe.mandat.client.ide_number|default:"-" }}</strong></p>
-                            <p class="mb-0">{% trans "N° AVS employeur" %}: {{ certificat.employe.mandat.client.numero_ahv_employeur|default:"-" }}</p>
-                        </div>
+                    <div>
+                        {% if certificat.regime_fiscal %}
+                        <span class="badge bg-info">{{ certificat.regime_fiscal.code }}</span>
+                        {% endif %}
+                        {% if certificat.devise_id %}
+                        <span class="badge bg-secondary">{{ certificat.devise_id }}</span>
+                        {% endif %}
                     </div>
+                </div>
+                <div class="card-body p-0">
+                    <iframe
+                        src="{% url 'salaires:certificat-preview-pdf' certificat.pk %}"
+                        style="width: 100%; height: 85vh; border: none;"
+                        title="{% trans 'Aperçu certificat de salaire' %} {{ certificat.annee }}"
+                    ></iframe>
+                </div>
 
-                    <!-- Section C-E: Employé -->
-                    <div class="row mb-4">
-                        <div class="col-md-6">
-                            <h6 class="fw-bold text-primary">C-D. {% trans "Employé" %}</h6>
-                            <p class="mb-1">
-                                <strong>{{ certificat.employe.prenom }} {{ certificat.employe.nom }}</strong>
-                            </p>
-                            <p class="mb-1">{% trans "N° AVS" %}: <strong>{{ certificat.employe.avs_number }}</strong></p>
-                            {% if certificat.employe.adresse %}
-                            <p class="mb-0 text-muted">
-                                {{ certificat.employe.adresse.rue }} {{ certificat.employe.adresse.numero }},
-                                {{ certificat.employe.adresse.code_postal }} {{ certificat.employe.adresse.localite }}
-                            </p>
-                            {% endif %}
-                        </div>
-                        <div class="col-md-6">
-                            <h6 class="fw-bold text-primary">{% trans "Période d'emploi" %}</h6>
-                            <p class="mb-0">
-                                {% trans "Du" %} <strong>{{ certificat.date_debut|date:"d.m.Y" }}</strong>
-                                {% trans "au" %} <strong>{{ certificat.date_fin|date:"d.m.Y" }}</strong>
-                            </p>
-                        </div>
-                    </div>
-
-                    <!-- Section F-G: Occupation et transport -->
-                    <div class="row mb-4">
-                        <div class="col-md-6">
-                            <h6 class="fw-bold text-primary">F. {% trans "Activité" %}</h6>
-                            <p class="mb-1">
-                                {% trans "Type" %}: <strong>{{ certificat.get_type_occupation_display }}</strong>
-                            </p>
-                            <p class="mb-0">
-                                {% trans "Taux d'occupation" %}: <strong>{{ certificat.taux_occupation }}%</strong>
-                            </p>
-                        </div>
-                        <div class="col-md-6">
-                            <h6 class="fw-bold text-primary">G. {% trans "Transport" %}</h6>
-                            <div class="checkbox-field mb-1">
-                                <i class="ph {% if certificat.transport_public_disponible %}ph-check-square checked{% else %}ph-square unchecked{% endif %} check-icon"></i>
-                                <span>{% trans "Transport public disponible" %}</span>
-                            </div>
-                            <div class="checkbox-field">
-                                <i class="ph {% if certificat.transport_gratuit_fourni %}ph-check-square checked{% else %}ph-square unchecked{% endif %} check-icon"></i>
-                                <span>{% trans "Transport gratuit fourni" %}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <hr>
-
-                    <!-- REVENUS (Chiffres 1-7) -->
-                    <div class="section-header mb-2">
-                        <i class="ph ph-currency-circle-dollar me-2"></i>{% trans "REVENUS" %}
-                        <span class="float-end">{{ DEVISE_CODE }}</span>
-                    </div>
-
-                    <!-- Chiffre 1 -->
-                    <div class="chiffre-row">
-                        <span class="chiffre-numero">1.</span>
-                        <span class="chiffre-libelle">{% trans "Salaire (y.c. allocations, commissions, primes à l'ancienneté)" %}</span>
-                        <span class="chiffre-montant">{{ certificat.chiffre_1_salaire|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
-                    </div>
-
-                    <!-- Chiffre 2: Prestations en nature -->
-                    <div class="chiffre-row">
-                        <span class="chiffre-numero">2.</span>
-                        <span class="chiffre-libelle">{% trans "Prestations en nature" %}</span>
-                        <span class="chiffre-montant"></span>
-                    </div>
-
-                    {% if certificat.chiffre_2_1_repas > 0 or certificat.repas_midi_gratuit or certificat.repas_soir_gratuit %}
-                    <div class="chiffre-row sub-item">
-                        <span class="chiffre-numero">2.1</span>
-                        <span class="chiffre-libelle">
-                            {% trans "Repas" %}
-                            {% if certificat.repas_midi_gratuit %}<span class="badge bg-light-info">{% trans "Midi" %}</span>{% endif %}
-                            {% if certificat.repas_soir_gratuit %}<span class="badge bg-light-info">{% trans "Soir" %}</span>{% endif %}
-                        </span>
-                        <span class="chiffre-montant">{{ certificat.chiffre_2_1_repas|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
-                    </div>
-                    {% endif %}
-
-                    {% if certificat.chiffre_2_2_voiture > 0 or certificat.voiture_disponible %}
-                    <div class="chiffre-row sub-item">
-                        <span class="chiffre-numero">2.2</span>
-                        <span class="chiffre-libelle">
-                            {% trans "Part privée véhicule de service" %}
-                            {% if certificat.voiture_disponible %}<span class="badge bg-light-warning">{% trans "Véhicule fourni" %}</span>{% endif %}
-                        </span>
-                        <span class="chiffre-montant">{{ certificat.chiffre_2_2_voiture|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
-                    </div>
-                    {% endif %}
-
-                    {% if certificat.chiffre_2_3_autres > 0 %}
-                    <div class="chiffre-row sub-item">
-                        <span class="chiffre-numero">2.3</span>
-                        <span class="chiffre-libelle">{% trans "Autres prestations en nature" %}</span>
-                        <span class="chiffre-montant">{{ certificat.chiffre_2_3_autres|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
-                    </div>
-                    {% endif %}
-
-                    <!-- Chiffre 3 -->
-                    {% if certificat.chiffre_3_irregulier > 0 %}
-                    <div class="chiffre-row">
-                        <span class="chiffre-numero">3.</span>
-                        <span class="chiffre-libelle">{% trans "Prestations irrégulières (13ème, bonus, gratifications)" %}</span>
-                        <span class="chiffre-montant">{{ certificat.chiffre_3_irregulier|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
-                    </div>
-                    {% endif %}
-
-                    <!-- Chiffre 4 -->
-                    {% if certificat.chiffre_4_capital > 0 %}
-                    <div class="chiffre-row">
-                        <span class="chiffre-numero">4.</span>
-                        <span class="chiffre-libelle">{% trans "Prestations en capital" %}</span>
-                        <span class="chiffre-montant">{{ certificat.chiffre_4_capital|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
-                    </div>
-                    {% endif %}
-
-                    <!-- Chiffre 5 -->
-                    {% if certificat.chiffre_5_participations > 0 %}
-                    <div class="chiffre-row">
-                        <span class="chiffre-numero">5.</span>
-                        <span class="chiffre-libelle">{% trans "Droits de participation (actions, options)" %}</span>
-                        <span class="chiffre-montant">{{ certificat.chiffre_5_participations|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
-                    </div>
-                    {% endif %}
-
-                    <!-- Chiffre 6 -->
-                    {% if certificat.chiffre_6_ca > 0 %}
-                    <div class="chiffre-row">
-                        <span class="chiffre-numero">6.</span>
-                        <span class="chiffre-libelle">{% trans "Indemnités conseil d'administration" %}</span>
-                        <span class="chiffre-montant">{{ certificat.chiffre_6_ca|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
-                    </div>
-                    {% endif %}
-
-                    <!-- Chiffre 7 -->
-                    {% if certificat.chiffre_7_autres > 0 %}
-                    <div class="chiffre-row">
-                        <span class="chiffre-numero">7.</span>
-                        <span class="chiffre-libelle">{% trans "Autres prestations" %}</span>
-                        <span class="chiffre-montant">{{ certificat.chiffre_7_autres|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
-                    </div>
-                    {% endif %}
-
-                    <!-- Chiffre 8: Total brut -->
-                    <div class="chiffre-row total-row mt-2">
-                        <span class="chiffre-numero">8.</span>
-                        <span class="chiffre-libelle">{% trans "SALAIRE BRUT TOTAL" %}</span>
-                        <span class="chiffre-montant text-primary">{{ certificat.chiffre_8_total_brut|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
-                    </div>
-
-                    <hr>
-
-                    <!-- DÉDUCTIONS (Chiffres 9-10) -->
-                    <div class="section-header mb-2">
-                        <i class="ph ph-minus-circle me-2"></i>{% trans "DÉDUCTIONS" %}
-                    </div>
-
-                    <!-- Chiffre 9 -->
-                    <div class="chiffre-row">
-                        <span class="chiffre-numero">9.</span>
-                        <span class="chiffre-libelle">{% trans "Cotisations AVS/AI/APG/AC/AANP" %}</span>
-                        <span class="chiffre-montant text-danger">-{{ certificat.chiffre_9_cotisations|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
-                    </div>
-
-                    <!-- Chiffre 10 -->
-                    <div class="chiffre-row">
-                        <span class="chiffre-numero">10.</span>
-                        <span class="chiffre-libelle">{% trans "Prévoyance professionnelle (LPP)" %}</span>
-                        <span class="chiffre-montant"></span>
-                    </div>
-
-                    <div class="chiffre-row sub-item">
-                        <span class="chiffre-numero">10.1</span>
-                        <span class="chiffre-libelle">{% trans "Cotisations ordinaires" %}</span>
-                        <span class="chiffre-montant text-danger">-{{ certificat.chiffre_10_1_lpp_ordinaire|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
-                    </div>
-
-                    {% if certificat.chiffre_10_2_lpp_rachat > 0 %}
-                    <div class="chiffre-row sub-item">
-                        <span class="chiffre-numero">10.2</span>
-                        <span class="chiffre-libelle">{% trans "Rachats d'années" %}</span>
-                        <span class="chiffre-montant text-danger">-{{ certificat.chiffre_10_2_lpp_rachat|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
-                    </div>
-                    {% endif %}
-
-                    <!-- Chiffre 11: Salaire net -->
-                    <div class="chiffre-row total-row mt-2">
-                        <span class="chiffre-numero">11.</span>
-                        <span class="chiffre-libelle">{% trans "SALAIRE NET" %}</span>
-                        <span class="chiffre-montant text-success fw-bold">{{ certificat.chiffre_11_net|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
-                    </div>
-
-                    <hr>
-
-                    <!-- FRAIS EFFECTIFS (Chiffres 12-15) -->
-                    {% if certificat.chiffre_12_transport > 0 or certificat.chiffre_13_1_1_repas_effectif > 0 or certificat.chiffre_13_1_2_repas_forfait > 0 or certificat.chiffre_13_2_nuitees > 0 or certificat.chiffre_14_autres_frais > 0 or certificat.chiffre_15_jours_transport > 0 %}
-                    <div class="section-header mb-2">
-                        <i class="ph ph-receipt me-2"></i>{% trans "FRAIS EFFECTIFS" %}
-                    </div>
-
-                    {% if certificat.chiffre_12_transport > 0 %}
-                    <div class="chiffre-row">
-                        <span class="chiffre-numero">12.</span>
-                        <span class="chiffre-libelle">{% trans "Frais de déplacement (trajet domicile-travail)" %}</span>
-                        <span class="chiffre-montant">{{ certificat.chiffre_12_transport|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
-                    </div>
-                    {% endif %}
-
-                    {% if certificat.chiffre_13_1_1_repas_effectif > 0 or certificat.chiffre_13_1_2_repas_forfait > 0 or certificat.chiffre_13_2_nuitees > 0 or certificat.chiffre_13_3_repas_externes > 0 %}
-                    <div class="chiffre-row">
-                        <span class="chiffre-numero">13.</span>
-                        <span class="chiffre-libelle">{% trans "Frais de repas et nuitées" %}</span>
-                        <span class="chiffre-montant"></span>
-                    </div>
-
-                    {% if certificat.chiffre_13_1_1_repas_effectif > 0 %}
-                    <div class="chiffre-row sub-item">
-                        <span class="chiffre-numero">13.1.1</span>
-                        <span class="chiffre-libelle">{% trans "Repas effectifs" %}</span>
-                        <span class="chiffre-montant">{{ certificat.chiffre_13_1_1_repas_effectif|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
-                    </div>
-                    {% endif %}
-
-                    {% if certificat.chiffre_13_1_2_repas_forfait > 0 %}
-                    <div class="chiffre-row sub-item">
-                        <span class="chiffre-numero">13.1.2</span>
-                        <span class="chiffre-libelle">{% trans "Repas forfaitaires" %}</span>
-                        <span class="chiffre-montant">{{ certificat.chiffre_13_1_2_repas_forfait|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
-                    </div>
-                    {% endif %}
-
-                    {% if certificat.chiffre_13_2_nuitees > 0 %}
-                    <div class="chiffre-row sub-item">
-                        <span class="chiffre-numero">13.2</span>
-                        <span class="chiffre-libelle">{% trans "Nuitées" %}</span>
-                        <span class="chiffre-montant">{{ certificat.chiffre_13_2_nuitees|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
-                    </div>
-                    {% endif %}
-
-                    {% if certificat.chiffre_13_3_repas_externes > 0 %}
-                    <div class="chiffre-row sub-item">
-                        <span class="chiffre-numero">13.3</span>
-                        <span class="chiffre-libelle">{% trans "Repas externes" %}</span>
-                        <span class="chiffre-montant">{{ certificat.chiffre_13_3_repas_externes|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
-                    </div>
-                    {% endif %}
-                    {% endif %}
-
-                    {% if certificat.chiffre_14_autres_frais > 0 %}
-                    <div class="chiffre-row">
-                        <span class="chiffre-numero">14.</span>
-                        <span class="chiffre-libelle">{% trans "Autres frais professionnels" %}</span>
-                        <span class="chiffre-montant">{{ certificat.chiffre_14_autres_frais|devise:DEVISE_TAUX|floatformat:2|intcomma }}</span>
-                    </div>
-                    {% endif %}
-
-                    {% if certificat.chiffre_15_jours_transport > 0 %}
-                    <div class="chiffre-row">
-                        <span class="chiffre-numero">15.</span>
-                        <span class="chiffre-libelle">{% trans "Nombre de jours avec déplacement domicile-travail" %}</span>
-                        <span class="chiffre-montant">{{ certificat.chiffre_15_jours_transport }} {% trans "jours" %}</span>
-                    </div>
-                    {% endif %}
-                    {% endif %}
-
-                    <!-- Remarques -->
-                    {% if certificat.remarques %}
-                    <hr>
-                    <div class="section-header mb-2">
-                        <i class="ph ph-note me-2"></i>I. {% trans "REMARQUES" %}
-                    </div>
-                    <div class="p-3 bg-light rounded">
-                        {{ certificat.remarques|linebreaks }}
-                    </div>
-                    {% endif %}
-
-                    <!-- Impôt à la source (info) -->
-                    {% if certificat.impot_source_annuel > 0 %}
-                    <hr>
-                    <div class="alert alert-info mb-0">
-                        <i class="ph ph-info me-2"></i>
-                        {% trans "Impôt à la source retenu" %}: <strong>{{ certificat.impot_source_annuel|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</strong>
-                        <small class="text-muted">({% trans "Information uniquement, non déclaré sur le formulaire 11" %})</small>
-                    </div>
-                    {% endif %}
-
-                    <hr>
-
-                    <!-- Signature -->
-                    <div class="row mt-4">
-                        <div class="col-md-6">
-                            <p class="mb-1">
-                                <strong>{{ certificat.lieu_signature|default:certificat.employe.mandat.client.adresse_siege.localite }}</strong>,
-                                {% trans "le" %} {{ certificat.date_signature|date:"d.m.Y"|default:certificat.date_generation|date:"d.m.Y" }}
-                            </p>
-                            {% if certificat.telephone_signataire %}
-                            <p class="text-muted mb-0">{% trans "Tél." %}: {{ certificat.telephone_signataire }}</p>
-                            {% endif %}
-                        </div>
-                        <div class="col-md-6 text-end">
-                            {% if certificat.est_signe %}
-                            <p class="text-success mb-1">
-                                <i class="ph ph-check-circle me-1"></i>{% trans "Signé par" %}: <strong>{{ certificat.nom_signataire }}</strong>
-                            </p>
-                            <p class="text-muted mb-0">{% trans "le" %} {{ certificat.date_signature|date:"d.m.Y" }}</p>
-                            {% else %}
-                            <p class="mt-4 mb-0">
-                                _________________________<br>
-                                <small class="text-muted">{% trans "Signature employeur" %}</small>
-                            </p>
-                            {% endif %}
-                        </div>
-                    </div>
-
-                    <!-- Métadonnées -->
-                    <hr>
-                    <div class="row text-muted small">
-                        <div class="col-md-6">
-                            <p class="mb-0">{% trans "Généré le" %}: {{ certificat.date_generation|date:"d.m.Y H:i" }}</p>
-                            <p class="mb-0">{% trans "Par" %}: {{ certificat.genere_par.get_full_name|default:"-" }}</p>
-                        </div>
-                        <div class="col-md-6 text-end">
-                            <p class="mb-0">{% trans "Formulaire 11 - AFC Suisse" %}</p>
-                        </div>
-                    </div>
+                <!-- Métadonnées sous l'iframe -->
+                <div class="card-footer small text-muted d-flex justify-content-between">
+                    <span>{% trans "Généré le" %}: {{ certificat.date_generation|date:"d.m.Y H:i" }} — {{ certificat.genere_par.get_full_name|default:"-" }}</span>
+                    <span>{% trans "Formulaire 11 - AFC Suisse" %}</span>
                 </div>
             </div>
         </div>

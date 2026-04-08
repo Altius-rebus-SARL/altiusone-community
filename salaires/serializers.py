@@ -156,6 +156,12 @@ class CertificatSalaireListSerializer(serializers.ModelSerializer):
     type_occupation_display = serializers.CharField(
         source="get_type_occupation_display", read_only=True
     )
+    regime_fiscal_code = serializers.CharField(
+        source="regime_fiscal.code", read_only=True, default=None
+    )
+    devise_code = serializers.CharField(
+        source="devise.code", read_only=True, default=None
+    )
     periode_formatted = serializers.SerializerMethodField()
 
     class Meta:
@@ -168,6 +174,10 @@ class CertificatSalaireListSerializer(serializers.ModelSerializer):
             "date_debut",
             "date_fin",
             "periode_formatted",
+            "regime_fiscal",
+            "regime_fiscal_code",
+            "devise",
+            "devise_code",
             "statut",
             "statut_display",
             "type_occupation",
@@ -256,6 +266,8 @@ class CertificatSalaireCreateSerializer(serializers.ModelSerializer):
         model = CertificatSalaire
         fields = [
             "employe",
+            "regime_fiscal",
+            "devise",
             "annee",
             "date_debut",
             "date_fin",
@@ -263,28 +275,59 @@ class CertificatSalaireCreateSerializer(serializers.ModelSerializer):
             "taux_occupation",
             "transport_public_disponible",
             "transport_gratuit_fourni",
+            "repas_midi_gratuit",
+            "repas_soir_gratuit",
             "auto_calculer",
-            # Optionnel: valeurs manuelles si pas de calcul auto
+            # Revenus
             "chiffre_1_salaire",
             "chiffre_2_1_repas",
             "chiffre_2_2_voiture",
+            "voiture_disponible",
+            "voiture_prix_achat",
             "chiffre_2_3_autres",
+            "autres_prestations_nature_detail",
             "chiffre_3_irregulier",
+            "chiffre_4_capital",
+            "chiffre_5_participations",
+            "participations_detail",
+            "chiffre_6_ca",
+            "chiffre_7_autres",
+            "autres_prestations_detail",
+            # Déductions
             "chiffre_9_cotisations",
             "chiffre_10_1_lpp_ordinaire",
+            "chiffre_10_2_lpp_rachat",
+            # Frais
+            "chiffre_12_transport",
+            "chiffre_13_1_1_repas_effectif",
+            "chiffre_13_1_2_repas_forfait",
+            "chiffre_13_2_nuitees",
+            "chiffre_13_3_repas_externes",
+            "chiffre_14_autres_frais",
+            "autres_frais_detail",
+            "chiffre_15_jours_transport",
+            # Signature
+            "lieu_signature",
+            "nom_signataire",
+            "telephone_signataire",
+            "impot_source_annuel",
             "remarques",
         ]
-        extra_kwargs = {
-            "date_debut": {"required": False},
-            "date_fin": {"required": False},
-            "chiffre_1_salaire": {"required": False},
-            "chiffre_2_1_repas": {"required": False},
-            "chiffre_2_2_voiture": {"required": False},
-            "chiffre_2_3_autres": {"required": False},
-            "chiffre_3_irregulier": {"required": False},
-            "chiffre_9_cotisations": {"required": False},
-            "chiffre_10_1_lpp_ordinaire": {"required": False},
-        }
+        extra_kwargs = {f: {"required": False} for f in [
+            "regime_fiscal", "devise", "date_debut", "date_fin",
+            "chiffre_1_salaire", "chiffre_2_1_repas", "chiffre_2_2_voiture",
+            "chiffre_2_3_autres", "chiffre_3_irregulier", "chiffre_4_capital",
+            "chiffre_5_participations", "chiffre_6_ca", "chiffre_7_autres",
+            "chiffre_9_cotisations", "chiffre_10_1_lpp_ordinaire",
+            "chiffre_10_2_lpp_rachat", "chiffre_12_transport",
+            "chiffre_13_1_1_repas_effectif", "chiffre_13_1_2_repas_forfait",
+            "chiffre_13_2_nuitees", "chiffre_13_3_repas_externes",
+            "chiffre_14_autres_frais", "voiture_prix_achat",
+            "autres_prestations_nature_detail", "participations_detail",
+            "autres_prestations_detail", "autres_frais_detail",
+            "lieu_signature", "nom_signataire", "telephone_signataire",
+            "impot_source_annuel",
+        ]}
 
     def create(self, validated_data):
         auto_calculer = validated_data.pop("auto_calculer", False)
@@ -359,11 +402,19 @@ class DeclarationCotisationsListSerializer(serializers.ModelSerializer):
     periode_display = serializers.CharField(source="get_periode_display", read_only=True)
     mandat_numero = serializers.CharField(source="mandat.numero", read_only=True)
     client_nom = serializers.CharField(source="mandat.client.raison_sociale", read_only=True)
+    regime_fiscal_code = serializers.CharField(
+        source="regime_fiscal.code", read_only=True, default=None
+    )
+    devise_code = serializers.CharField(
+        source="devise.code", read_only=True, default=None
+    )
 
     class Meta:
         model = DeclarationCotisations
         fields = [
             'id', 'mandat', 'mandat_numero', 'client_nom',
+            'regime_fiscal', 'regime_fiscal_code',
+            'devise', 'devise_code',
             'organisme', 'organisme_display',
             'periode_type', 'annee', 'mois', 'trimestre', 'periode_display',
             'periode_debut', 'periode_fin',
@@ -381,12 +432,20 @@ class DeclarationCotisationsDetailSerializer(serializers.ModelSerializer):
     periode_display = serializers.CharField(source="get_periode_display", read_only=True)
     mandat_numero = serializers.CharField(source="mandat.numero", read_only=True)
     client_nom = serializers.CharField(source="mandat.client.raison_sociale", read_only=True)
+    regime_fiscal_code = serializers.CharField(
+        source="regime_fiscal.code", read_only=True, default=None
+    )
+    devise_code = serializers.CharField(
+        source="devise.code", read_only=True, default=None
+    )
     lignes = DeclarationCotisationsLigneSerializer(many=True, read_only=True)
 
     class Meta:
         model = DeclarationCotisations
         fields = [
             'id', 'mandat', 'mandat_numero', 'client_nom',
+            'regime_fiscal', 'regime_fiscal_code',
+            'devise', 'devise_code',
             'organisme', 'organisme_display',
             'nom_caisse', 'numero_affilie', 'numero_contrat',
             'periode_type', 'annee', 'mois', 'trimestre', 'periode_display',
@@ -425,10 +484,20 @@ class DeclarationCotisationsCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = DeclarationCotisations
         fields = [
-            'mandat', 'organisme', 'periode_type', 'annee', 'mois', 'trimestre',
+            'mandat', 'organisme', 'regime_fiscal', 'devise',
+            'periode_type', 'annee', 'mois', 'trimestre',
             'nom_caisse', 'numero_affilie', 'numero_contrat',
-            'auto_calculer'
+            'auto_calculer',
         ]
+        extra_kwargs = {
+            'regime_fiscal': {'required': False},
+            'devise': {'required': False},
+            'mois': {'required': False},
+            'trimestre': {'required': False},
+            'nom_caisse': {'required': False},
+            'numero_affilie': {'required': False},
+            'numero_contrat': {'required': False},
+        }
 
     def create(self, validated_data):
         from calendar import monthrange

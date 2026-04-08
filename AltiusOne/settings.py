@@ -38,6 +38,7 @@ if DEBUG:
 
 MAIN_APPS = [
     'modeltranslation',
+    'django_traduire',
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -66,6 +67,9 @@ EXTERNAL_APPS = [
     'oauth2_provider',
     # Push Notifications (FCM, APNs, Web Push)
     'push_notifications',
+    # D3.js chart bridge pour visualisation (PR3+: live execution view
+    # des processus metiers, PR4: editeur Force Graph drag-and-drop)
+    'd3_bridge',
 ]
 
 
@@ -144,7 +148,10 @@ DATABASES = {
         'CONN_MAX_AGE': 600,
         'OPTIONS': {
             'connect_timeout': 10,
-        }
+        },
+        'TEST': {
+            'TEMPLATE': 'template_postgis',
+        },
     }
 }
 
@@ -197,8 +204,20 @@ MODELTRANSLATION_DEFAULT_LANGUAGE = "fr"
 MODELTRANSLATION_LANGUAGES = ("fr", "de", "it", "en")
 MODELTRANSLATION_FALLBACK_LANGUAGES = ("fr", "en")
 
+# django-traduire — traduction automatique des champs vides
+TRADUIRE = {
+    "BACKEND": "django_traduire.backends.GoogleBackend",
+    "SOURCE_LANGUAGE": "fr",
+    "TARGET_LANGUAGES": ["de", "it", "en"],
+    "AUTO_TRANSLATE": True,
+}
+
 # Application specific settings
-ALTIUSONE_VERSION = "1.0.0"
+_version_file = BASE_DIR / "VERSION"
+ALTIUSONE_VERSION = os.environ.get(
+    "ALTIUSONE_VERSION",
+    _version_file.read_text().strip() if _version_file.exists() else "0.0.0-dev",
+)
 ALTIUSONE_SUPPORT_EMAIL = "support@altiusone.ch"
  
 LOCALE_PATHS = (
@@ -613,6 +632,11 @@ TEMPLATES[0]['OPTIONS']['context_processors'].append(
     'core.context_processors.devise_context'
 )
 
+# Version disponible dans tous les templates via {{ ALTIUSONE_VERSION }}
+TEMPLATES[0]['OPTIONS']['context_processors'].append(
+    'core.version_context.version_context'
+)
+
 
 # ============================================================================
 # S3/MINIO STORAGE CONFIGURATION
@@ -925,3 +949,21 @@ OAUTH2_PROVIDER = {
 # Utilise geo.admin.ch (gratuit, sans authentification) par défaut.
 # Swiss Post Address API (OAuth2, nécessite approbation) sera ajoutée quand disponible.
 # Voir: https://developer.post.ch/en -> "Address verification"
+
+# ============================================================================
+# TEST MODE — overrides appliqués uniquement quand `manage.py test` est lancé.
+# But : accélérer massivement la suite (PBKDF2 très lent, bruit de logs, etc.)
+# ============================================================================
+import sys as _sys
+if 'test' in _sys.argv:
+    # PBKDF2 par défaut fait 600k itérations = ~500ms par User.create_user().
+    # MD5 en test : ~0.1ms. Gain typique : tests ×10 à ×50 plus rapides.
+    PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
+
+    # Silence le bruit 'Type d'ontologie introuvable: Personne/Entreprise/Mandat'
+    # qui pollue les logs de test (voir audit — à terme : seed via data migration).
+    import logging as _logging
+    _logging.getLogger('graph').setLevel(_logging.ERROR)
+
+    # S'assure que les tâches Celery ne bloquent pas les tests (no-op si pas de broker)
+    CELERY_TASK_ALWAYS_EAGER = False

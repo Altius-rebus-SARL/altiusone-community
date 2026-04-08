@@ -212,7 +212,7 @@ class AltiusAIService:
             raise AIServiceError(f"Erreur lors de l'extraction OCR: {str(e)}")
 
     def _ocr_image(self, image_bytes: bytes, language: str, start_time: float) -> OCRResult:
-        """OCR d'une image avec Tesseract."""
+        """OCR d'une image avec Tesseract — scores de confiance réels."""
         import time as _time
         import pytesseract
         from PIL import Image
@@ -222,17 +222,36 @@ class AltiusAIService:
         img = Image.open(io.BytesIO(image_bytes))
 
         text = pytesseract.image_to_string(img, lang=lang)
-        processing_ms = (_time.time() - start_time) * 1000
 
+        # Score de confiance réel depuis Tesseract (mot par mot)
+        confidence = self._get_tesseract_confidence(img, lang)
+
+        processing_ms = (_time.time() - start_time) * 1000
         detected_lang = language if language != 'auto' else 'fr'
 
         return OCRResult(
             text=text.strip(),
-            confidence=90.0,
+            confidence=confidence,
             pages=1,
             language=detected_lang,
             processing_time=processing_ms
         )
+
+    @staticmethod
+    def _get_tesseract_confidence(img, lang: str) -> float:
+        """Calcule le score de confiance moyen réel depuis Tesseract."""
+        import pytesseract
+        try:
+            data = pytesseract.image_to_data(img, lang=lang, output_type=pytesseract.Output.DICT)
+            confidences = [
+                int(c) for c in data.get('conf', [])
+                if str(c).lstrip('-').isdigit() and int(c) > 0
+            ]
+            if confidences:
+                return round(sum(confidences) / len(confidences), 1)
+        except Exception:
+            pass
+        return 0.0
 
     def _ocr_pdf(self, pdf_bytes: bytes, language: str, start_time: float) -> OCRResult:
         """OCR d'un PDF: texte embarque d'abord, puis OCR sur pages images."""
@@ -273,17 +292,25 @@ class AltiusAIService:
         images = convert_from_bytes(pdf_bytes, dpi=300)
         num_pages = len(images)
         text_parts = []
+        page_confidences = []
 
         for img in images:
             page_text = pytesseract.image_to_string(img, lang=lang)
             if page_text and page_text.strip():
                 text_parts.append(page_text.strip())
+                page_confidences.append(self._get_tesseract_confidence(img, lang))
 
         processing_ms = (_time.time() - start_time) * 1000
 
+        # Confiance moyenne sur toutes les pages
+        avg_confidence = (
+            round(sum(page_confidences) / len(page_confidences), 1)
+            if page_confidences else 0.0
+        )
+
         return OCRResult(
             text='\n\n'.join(text_parts),
-            confidence=85.0,
+            confidence=avg_confidence,
             pages=num_pages,
             language=language if language != 'auto' else 'fr',
             processing_time=processing_ms

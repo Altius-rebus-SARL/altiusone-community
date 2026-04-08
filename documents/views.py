@@ -62,6 +62,14 @@ class ChatView(LoginRequiredMixin, TemplateView):
                 statut='ACTIF'
             ).distinct().select_related('client')
 
+        # Flag de securite : un utilisateur sans aucun mandat accessible ne
+        # peut pas utiliser l'IA (bloque cote API avec 403). Le template
+        # affiche un bandeau explicite et desactive le champ de saisie.
+        if hasattr(user, 'get_accessible_mandats'):
+            context['has_accessible_mandats'] = user.get_accessible_mandats().exists()
+        else:
+            context['has_accessible_mandats'] = bool(getattr(user, 'is_superuser', False))
+
         # Conversation selectionnee (si ID dans l'URL)
         conversation_id = self.request.GET.get('conversation')
         if conversation_id:

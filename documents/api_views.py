@@ -28,7 +28,34 @@ from .serializers import (
     ChatSearchSerializer,
 )
 from .chat_service import chat_service
-from .universal_search import universal_search, SearchContext, EntityType
+from .universal_search import (
+    universal_search,
+    SearchContext,
+    EntityType,
+    NoAccessibleMandatsError,
+)
+
+
+def _no_accessible_mandats_response():
+    """Reponse standard 403 pour utilisateur sans mandat accessible."""
+    return Response(
+        {
+            'error': (
+                "Vous n'avez acces a aucun mandat. "
+                "Contactez votre administrateur pour obtenir un acces."
+            ),
+            'error_code': 'NO_ACCESSIBLE_MANDATS',
+        },
+        status=status.HTTP_403_FORBIDDEN,
+    )
+
+
+def _user_has_accessible_mandats(user) -> bool:
+    """Retourne True si l'utilisateur a acces a au moins un mandat."""
+    if not hasattr(user, 'get_accessible_mandats'):
+        # Superuser sans methode metier : traitement permissif
+        return bool(getattr(user, 'is_superuser', False))
+    return user.get_accessible_mandats().exists()
 
 
 class ConversationViewSet(viewsets.ModelViewSet):
@@ -106,6 +133,44 @@ class ConversationViewSet(viewsets.ModelViewSet):
                 # Liste vide explicite → clear (retour recherche globale)
                 conversation.mandats.clear()
 
+    def _check_mandats_access(self, conversation):
+        """
+        Verifie que l'utilisateur a au moins un mandat accessible ET
+        que les mandats attaches a la conversation font partie de ses
+        mandats accessibles.
+
+        Retourne une Response d'erreur si blocage, None sinon.
+        """
+        user = self.request.user
+
+        # 1. L'utilisateur doit avoir au moins un mandat accessible
+        if not _user_has_accessible_mandats(user):
+            return _no_accessible_mandats_response()
+
+        # 2. Les mandats de la conversation doivent etre accessibles
+        #    (defense en profondeur — une conversation existante pourrait
+        #    avoir ete creee avant que l'acces ait ete retire)
+        if hasattr(user, 'get_accessible_mandats'):
+            accessible_ids = set(
+                str(mid) for mid in user.get_accessible_mandats().values_list('id', flat=True)
+            )
+            conv_mandat_ids = set(
+                str(mid) for mid in conversation.mandats.values_list('id', flat=True)
+            )
+            if conv_mandat_ids and not conv_mandat_ids.issubset(accessible_ids):
+                return Response(
+                    {
+                        'error': (
+                            "Cette conversation contient des mandats "
+                            "auxquels vous n'avez plus acces."
+                        ),
+                        'error_code': 'MANDAT_NOT_ACCESSIBLE',
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+        return None
+
     @action(detail=True, methods=['post'])
     def send_message(self, request, pk=None):
         """
@@ -126,6 +191,13 @@ class ConversationViewSet(viewsets.ModelViewSet):
         }
         """
         conversation = self.get_object()
+
+        # SECURITE: bloquer l'acces si l'utilisateur n'a aucun mandat
+        # accessible ou si la conversation contient des mandats non-autorises.
+        access_error = self._check_mandats_access(conversation)
+        if access_error is not None:
+            return access_error
+
         serializer = MessageCreateSerializer(data=request.data)
 
         if not serializer.is_valid():
@@ -138,12 +210,17 @@ class ConversationViewSet(viewsets.ModelViewSet):
         self._update_conversation_mandats(conversation, serializer.validated_data)
 
         # Envoyer le message via le service
-        response = chat_service.chat(
-            conversation=conversation,
-            message=serializer.validated_data['message'],
-            use_semantic_search=serializer.validated_data.get('use_semantic_search', True),
-            max_context_results=serializer.validated_data.get('max_context_docs', 10)
-        )
+        try:
+            response = chat_service.chat(
+                conversation=conversation,
+                message=serializer.validated_data['message'],
+                use_semantic_search=serializer.validated_data.get('use_semantic_search', True),
+                max_context_results=serializer.validated_data.get('max_context_docs', 10)
+            )
+        except NoAccessibleMandatsError:
+            # Defense en profondeur : universal_search peut aussi lever
+            # cette exception si le contexte de recherche se retrouve vide.
+            return _no_accessible_mandats_response()
 
         # Recuperer le dernier message assistant
         assistant_message = conversation.messages.filter(
@@ -184,6 +261,13 @@ class ConversationViewSet(viewsets.ModelViewSet):
         {"type":"message_saved","message_id":"uuid"}
         """
         conversation = self.get_object()
+
+        # SECURITE: bloquer l'acces si l'utilisateur n'a aucun mandat
+        # accessible ou si la conversation contient des mandats non-autorises.
+        access_error = self._check_mandats_access(conversation)
+        if access_error is not None:
+            return access_error
+
         serializer = MessageCreateSerializer(data=request.data)
 
         if not serializer.is_valid():
@@ -204,13 +288,16 @@ class ConversationViewSet(viewsets.ModelViewSet):
             ):
                 yield f"data: {event}\n\n"
 
-        response = StreamingHttpResponse(
-            event_stream(),
-            content_type='text/event-stream',
-        )
-        response['Cache-Control'] = 'no-cache'
-        response['X-Accel-Buffering'] = 'no'
-        return response
+        try:
+            response = StreamingHttpResponse(
+                event_stream(),
+                content_type='text/event-stream',
+            )
+            response['Cache-Control'] = 'no-cache'
+            response['X-Accel-Buffering'] = 'no'
+            return response
+        except NoAccessibleMandatsError:
+            return _no_accessible_mandats_response()
 
     @action(detail=True, methods=['get'])
     def messages(self, request, pk=None):
@@ -333,6 +420,10 @@ def chat_search(request):
             except ValueError:
                 pass  # Ignorer les types inconnus
 
+    # SECURITE: user sans mandat accessible — bloquer avant de construire le contexte
+    if not _user_has_accessible_mandats(request.user):
+        return _no_accessible_mandats_response()
+
     # Construire le contexte de recherche
     context = SearchContext(
         user=request.user,
@@ -341,11 +432,14 @@ def chat_search(request):
     )
 
     # Recherche universelle
-    results = universal_search.search(
-        query=query,
-        context=context,
-        limit=limit
-    )
+    try:
+        results = universal_search.search(
+            query=query,
+            context=context,
+            limit=limit
+        )
+    except NoAccessibleMandatsError:
+        return _no_accessible_mandats_response()
 
     # Separer documents et autres entites
     documents = []
@@ -413,6 +507,11 @@ def search_entities(request):
             except ValueError:
                 pass
 
+    # SECURITE: user sans mandat accessible — retour liste vide (pas d'erreur
+    # pour ne pas casser l'autocomplete, mais aucune fuite de donnees)
+    if not _user_has_accessible_mandats(request.user):
+        return Response({'results': [], 'count': 0})
+
     # Construire le contexte
     context = SearchContext(
         user=request.user,
@@ -421,11 +520,14 @@ def search_entities(request):
     )
 
     # Recherche
-    results = universal_search.search(
-        query=query,
-        context=context,
-        limit=limit
-    )
+    try:
+        results = universal_search.search(
+            query=query,
+            context=context,
+            limit=limit
+        )
+    except NoAccessibleMandatsError:
+        return Response({'results': [], 'count': 0})
 
     return Response({
         'results': [r.to_dict() for r in results],
@@ -475,6 +577,10 @@ def quick_chat(request):
             {'error': 'Parameter q is required'},
             status=status.HTTP_400_BAD_REQUEST
         )
+
+    # SECURITE: user sans mandat accessible ne peut pas utiliser l'IA
+    if not _user_has_accessible_mandats(request.user):
+        return _no_accessible_mandats_response()
 
     from .ai_service import ai_service
 

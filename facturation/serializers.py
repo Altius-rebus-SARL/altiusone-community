@@ -11,6 +11,8 @@ from .models import (
     ZoneGeographique,
     TarifMandat,
     CategorieTemps,
+    NiveauRelance,
+    MentionLegale,
 )
 from core.serializers import MandatListSerializer, UserSerializer, ClientListSerializer
 
@@ -292,3 +294,29 @@ class TarifMandatSerializer(serializers.ModelSerializer):
     class Meta:
         model = TarifMandat
         fields = "__all__"
+
+
+class NiveauRelanceSerializer(serializers.ModelSerializer):
+    regime_fiscal_code = serializers.CharField(
+        source="regime_fiscal.code", read_only=True, default=None
+    )
+
+    class Meta:
+        model = NiveauRelance
+        fields = [
+            "id", "regime_fiscal", "regime_fiscal_code",
+            "niveau", "libelle", "delai_jours", "frais", "interets", "taux_interet", "is_active",
+        ]
+
+
+class MentionLegaleSerializer(serializers.ModelSerializer):
+    regime_fiscal_code = serializers.CharField(
+        source="regime_fiscal.code", read_only=True, default=None
+    )
+
+    class Meta:
+        model = MentionLegale
+        fields = [
+            "id", "regime_fiscal", "regime_fiscal_code",
+            "code", "libelle", "texte", "type_document", "obligatoire", "ordre", "is_active",
+        ]

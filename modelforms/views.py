@@ -17,7 +17,17 @@ from django.db.models import Count, Q
 from django.utils import timezone
 
 from core.permissions import BusinessPermissionMixin, permission_required_business
-from .models import FormConfiguration, ModelFieldMapping, FormSubmission, FormTemplate
+from .models import (
+    FormConfiguration,
+    ModelFieldMapping,
+    FormSubmission,
+    FormTemplate,
+    ProcessDefinition,
+    ProcessStep,
+    ProcessTransition,
+    ProcessInstance,
+    StepExecution,
+)
 from .forms import (
     FormConfigurationForm,
     FormConfigurationAdvancedForm,
@@ -28,6 +38,14 @@ from .forms import (
 )
 from .services.introspector import ModelIntrospector
 from .services.submission_handler import SubmissionHandler
+from .permissions import (
+    scope_form_configs_by_user,
+    scope_form_submissions_by_user,
+    scope_process_definitions_by_user,
+    scope_process_instances_by_user,
+    user_can_access_mandat,
+    user_can_access_form_config,
+)
 
 
 # =============================================================================
@@ -48,6 +66,9 @@ class FormConfigurationListView(LoginRequiredMixin, BusinessPermissionMixin, Lis
             submission_count=Count('submissions'),
             field_count=Count('field_mappings'),
         ).order_by('category', 'name')
+
+        # SECURITE: mandat-scoping (configs globales + mandats accessibles)
+        queryset = scope_form_configs_by_user(queryset, self.request.user)
 
         # Filtres
         status = self.request.GET.get('status')
@@ -87,6 +108,13 @@ class FormConfigurationDetailView(LoginRequiredMixin, BusinessPermissionMixin, D
     business_permission = 'modelforms.view_configurations'
     template_name = 'modelforms/configuration_detail.html'
     context_object_name = 'configuration'
+
+    def get_queryset(self):
+        # SECURITE: ne pas exposer les configs de mandats non-accessibles
+        return scope_form_configs_by_user(
+            FormConfiguration.objects.all(),
+            self.request.user,
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -832,11 +860,11 @@ class FormSubmissionListView(LoginRequiredMixin, BusinessPermissionMixin, ListVi
             'form_config',
             'submitted_by',
             'validated_by',
+            'mandat',
         ).order_by('-submitted_at')
 
-        # Non-managers ne voient que leurs soumissions
-        if not self.request.user.is_manager():
-            queryset = queryset.filter(submitted_by=self.request.user)
+        # SECURITE: mandat-scoping (ses propres + celles sur ses mandats)
+        queryset = scope_form_submissions_by_user(queryset, self.request.user)
 
         # Filtres
         status = self.request.GET.get('status')
@@ -877,10 +905,8 @@ class FormSubmissionDetailView(LoginRequiredMixin, BusinessPermissionMixin, Deta
             'validated_by',
             'mandat',
         )
-        # Non-managers ne voient que leurs soumissions
-        if not self.request.user.is_manager():
-            queryset = queryset.filter(submitted_by=self.request.user)
-        return queryset
+        # SECURITE: mandat-scoping
+        return scope_form_submissions_by_user(queryset, self.request.user)
 
     def get_context_data(self, **kwargs):
         import json
@@ -895,7 +921,14 @@ class FormSubmissionDetailView(LoginRequiredMixin, BusinessPermissionMixin, Deta
 @permission_required_business('modelforms.validate_submission')
 def validate_submission(request, pk):
     """Valide une soumission en attente."""
-    submission = get_object_or_404(FormSubmission, pk=pk)
+    # SECURITE: on recupere la soumission dans le queryset filtre par mandats.
+    # Un manager de mandat A ne doit pas pouvoir valider une soumission
+    # attachee uniquement au mandat B.
+    scoped = scope_form_submissions_by_user(
+        FormSubmission.objects.all(),
+        request.user,
+    )
+    submission = get_object_or_404(scoped, pk=pk)
 
     if submission.status != FormSubmission.Status.PENDING:
         messages.error(request, _('Seules les soumissions en attente peuvent être validées.'))
@@ -919,8 +952,19 @@ def validate_submission(request, pk):
         submission.validated_by = request.user
         submission.validated_at = timezone.now()
         submission.validation_notes = notes
+        if handler.post_action_errors:
+            submission.error_details = {
+                'post_actions': handler.post_action_errors,
+            }
         submission.save()
-        messages.success(request, _('Soumission validée et enregistrements créés.'))
+        if handler.post_action_errors:
+            messages.warning(
+                request,
+                _("Soumission validée, mais %(pa)d action(s) post-soumission ont échoué.")
+                % {'pa': len(handler.post_action_errors)},
+            )
+        else:
+            messages.success(request, _('Soumission validée et enregistrements créés.'))
     else:
         submission.status = FormSubmission.Status.FAILED
         submission.error_message = '; '.join(errors)
@@ -936,7 +980,12 @@ def validate_submission(request, pk):
 @permission_required_business('modelforms.reject_submission')
 def reject_submission(request, pk):
     """Rejette une soumission en attente."""
-    submission = get_object_or_404(FormSubmission, pk=pk)
+    # SECURITE: idem validate_submission, on scope par mandats accessibles.
+    scoped = scope_form_submissions_by_user(
+        FormSubmission.objects.all(),
+        request.user,
+    )
+    submission = get_object_or_404(scoped, pk=pk)
 
     if submission.status != FormSubmission.Status.PENDING:
         messages.error(request, _('Seules les soumissions en attente peuvent être rejetées.'))
@@ -1033,10 +1082,12 @@ class AvailableFormsListView(LoginRequiredMixin, ListView):
     context_object_name = 'forms'
 
     def get_queryset(self):
-        """Retourne uniquement les formulaires actifs."""
-        return FormConfiguration.objects.filter(
+        """Retourne uniquement les formulaires actifs accessibles par l'utilisateur."""
+        queryset = FormConfiguration.objects.filter(
             status=FormConfiguration.Status.ACTIVE
         ).order_by('category', 'name')
+        # SECURITE: mandat-scoping
+        return scope_form_configs_by_user(queryset, self.request.user)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1059,10 +1110,12 @@ class FormFillView(LoginRequiredMixin, DetailView):
     context_object_name = 'form_config'
 
     def get_queryset(self):
-        """Seuls les formulaires actifs peuvent être remplis."""
-        return FormConfiguration.objects.filter(
+        """Seuls les formulaires actifs accessibles par l'utilisateur peuvent etre remplis."""
+        queryset = FormConfiguration.objects.filter(
             status=FormConfiguration.Status.ACTIVE
         )
+        # SECURITE: mandat-scoping
+        return scope_form_configs_by_user(queryset, self.request.user)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1145,6 +1198,14 @@ def submit_form(request, pk):
         status=FormConfiguration.Status.ACTIVE
     )
 
+    # SECURITE: verifier que l'utilisateur a acces a cette config
+    if not user_can_access_form_config(request.user, config):
+        messages.error(
+            request,
+            _("Vous n'avez pas acces a ce formulaire.")
+        )
+        return redirect('modelforms:available-forms')
+
     # Récupérer les données du formulaire
     import json
 
@@ -1171,7 +1232,16 @@ def submit_form(request, pk):
         try:
             mandat = Mandat.objects.get(pk=mandat_id)
         except Mandat.DoesNotExist:
-            pass
+            mandat = None
+
+        # SECURITE: un utilisateur ne peut pas attacher une soumission a un
+        # mandat auquel il n'a pas acces (faille d'escalade de privilege).
+        if mandat is not None and not user_can_access_mandat(request.user, mandat):
+            messages.error(
+                request,
+                _("Vous n'avez pas acces au mandat selectionne.")
+            )
+            return redirect('modelforms:form-fill', pk=pk)
 
     # Créer la soumission
     submission = FormSubmission.objects.create(
@@ -1203,11 +1273,25 @@ def submit_form(request, pk):
     if success:
         submission.status = FormSubmission.Status.COMPLETED
         submission.created_records = records
+        # Enregistrer les erreurs non-bloquantes des post_actions (si existent)
+        if handler.post_action_errors:
+            submission.error_details = {
+                'post_actions': handler.post_action_errors,
+            }
         submission.save()
-        messages.success(
-            request,
-            _('Formulaire traité avec succès. %(count)d enregistrement(s) créé(s).') % {'count': len(records)}
-        )
+        if handler.post_action_errors:
+            messages.warning(
+                request,
+                _(
+                    "Formulaire traité (%(count)d enregistrement(s)) mais "
+                    "%(pa)d action(s) post-soumission ont échoué (voir détail)."
+                ) % {'count': len(records), 'pa': len(handler.post_action_errors)}
+            )
+        else:
+            messages.success(
+                request,
+                _('Formulaire traité avec succès. %(count)d enregistrement(s) créé(s).') % {'count': len(records)}
+            )
     else:
         submission.status = FormSubmission.Status.FAILED
         submission.error_message = '; '.join(errors)
@@ -1465,3 +1549,543 @@ class FormQRCodeView(LoginRequiredMixin, View):
         response = HttpResponse(png_bytes, content_type='image/png')
         response['Content-Disposition'] = f'attachment; filename="qrcode-{config.code}.png"'
         return response
+
+
+# =============================================================================
+# Process Engine Views (PR2)
+# =============================================================================
+#
+# Vues HTMX minimales pour Phase 1: liste, detail, creation/edition en JSON,
+# suppression, publication et nouvelle version. L'editeur drag-and-drop
+# (django-d3-bridge Force Graph) arrive en PR4.
+# =============================================================================
+
+
+class ProcessDefinitionListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+    """Liste des definitions de processus metiers."""
+
+    model = ProcessDefinition
+    business_permission = 'modelforms.view_configurations'
+    template_name = 'modelforms/process_list.html'
+    context_object_name = 'processes'
+    paginate_by = 30
+
+    def get_queryset(self):
+        queryset = ProcessDefinition.objects.prefetch_related(
+            'steps', 'mandats',
+        ).order_by('category', 'name', '-version')
+
+        # SECURITE: mandat-scoping
+        queryset = scope_process_definitions_by_user(queryset, self.request.user)
+
+        # Filtres optionnels
+        category = self.request.GET.get('category')
+        if category:
+            queryset = queryset.filter(category=category)
+
+        show_drafts = self.request.GET.get('drafts') == '1'
+        if not show_drafts and not self.request.user.is_manager():
+            queryset = queryset.filter(is_draft=False)
+
+        q = self.request.GET.get('q')
+        if q:
+            queryset = queryset.filter(
+                Q(code__icontains=q) | Q(name__icontains=q)
+            )
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['categories'] = ProcessDefinition.Category.choices
+        context['stats'] = {
+            'total': ProcessDefinition.objects.count(),
+            'published': ProcessDefinition.objects.filter(is_draft=False).count(),
+            'drafts': ProcessDefinition.objects.filter(is_draft=True).count(),
+            'instances': ProcessInstance.objects.count(),
+        }
+        return context
+
+
+class ProcessDefinitionDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
+    """Detail d'une definition de processus."""
+
+    model = ProcessDefinition
+    business_permission = 'modelforms.view_configurations'
+    template_name = 'modelforms/process_detail.html'
+    context_object_name = 'process'
+
+    def get_queryset(self):
+        return scope_process_definitions_by_user(
+            ProcessDefinition.objects.prefetch_related(
+                'steps', 'mandats',
+            ),
+            self.request.user,
+        )
+
+    def get_context_data(self, **kwargs):
+        import json
+        context = super().get_context_data(**kwargs)
+        process = self.object
+        context['steps'] = process.steps.all().order_by('order', 'code')
+        context['transitions'] = ProcessTransition.objects.filter(
+            from_step__process=process,
+        ).select_related('from_step', 'to_step').order_by('from_step__order', 'order')
+        context['recent_instances'] = process.instances.order_by(
+            '-created_at',
+        )[:10]
+        context['steps_json'] = json.dumps(
+            [
+                {
+                    'code': s.code,
+                    'name': s.name,
+                    'step_type': s.step_type,
+                    'configuration': s.configuration,
+                    'conditions': s.conditions,
+                    'order': s.order,
+                    'position_x': s.position_x,
+                    'position_y': s.position_y,
+                }
+                for s in context['steps']
+            ],
+            indent=2,
+            ensure_ascii=False,
+        )
+        context['transitions_json'] = json.dumps(
+            [
+                {
+                    'from': t.from_step.code,
+                    'to': t.to_step.code,
+                    'label': t.label,
+                    'condition': t.condition,
+                    'order': t.order,
+                }
+                for t in context['transitions']
+            ],
+            indent=2,
+            ensure_ascii=False,
+        )
+        return context
+
+
+def _parse_process_json_fields(request):
+    """
+    Parse les fields JSON (steps, transitions) depuis le POST.
+
+    Retourne (steps_data, transitions_data, errors) ou (None, None, errors).
+    """
+    import json
+
+    errors = []
+    steps_raw = request.POST.get('steps_json', '[]')
+    transitions_raw = request.POST.get('transitions_json', '[]')
+
+    try:
+        steps_data = json.loads(steps_raw) if steps_raw.strip() else []
+    except json.JSONDecodeError as e:
+        errors.append(f"Format JSON steps invalide: {e}")
+        steps_data = None
+
+    try:
+        transitions_data = json.loads(transitions_raw) if transitions_raw.strip() else []
+    except json.JSONDecodeError as e:
+        errors.append(f"Format JSON transitions invalide: {e}")
+        transitions_data = None
+
+    return steps_data, transitions_data, errors
+
+
+def _apply_steps_and_transitions(process, steps_data, transitions_data):
+    """
+    Applique (remplace) les steps et transitions d'un processus.
+
+    Supprime les anciens et recree a partir des donnees JSON.
+    """
+    from django.db import transaction
+
+    with transaction.atomic():
+        ProcessTransition.objects.filter(from_step__process=process).delete()
+        process.steps.all().delete()
+
+        step_map = {}  # code → instance
+        for s in steps_data or []:
+            step = ProcessStep.objects.create(
+                process=process,
+                code=s.get('code', ''),
+                name=s.get('name', s.get('code', '')),
+                description=s.get('description', ''),
+                step_type=s.get('step_type', 'START'),
+                configuration=s.get('configuration', {}),
+                order=s.get('order', 0),
+                conditions=s.get('conditions', {}),
+                max_retries=s.get('max_retries', 0),
+                retry_delay_seconds=s.get('retry_delay_seconds', 60),
+                timeout_seconds=s.get('timeout_seconds'),
+                position_x=s.get('position_x', 0),
+                position_y=s.get('position_y', 0),
+            )
+            step_map[step.code] = step
+
+        for t in transitions_data or []:
+            from_code = t.get('from')
+            to_code = t.get('to')
+            if from_code not in step_map or to_code not in step_map:
+                continue
+            ProcessTransition.objects.create(
+                from_step=step_map[from_code],
+                to_step=step_map[to_code],
+                label=t.get('label', ''),
+                condition=t.get('condition', {}),
+                order=t.get('order', 0),
+            )
+
+
+class ProcessDefinitionCreateView(LoginRequiredMixin, BusinessPermissionMixin, View):
+    """Creation d'une definition de processus."""
+
+    business_permission = 'modelforms.add_configuration'
+
+    def get(self, request):
+        return render(request, 'modelforms/process_form.html', {
+            'process': None,
+            'steps_json': '[]',
+            'transitions_json': '[]',
+            'categories': ProcessDefinition.Category.choices,
+            'step_types': ProcessStep.StepType.choices,
+        })
+
+    def post(self, request):
+        code = request.POST.get('code', '').strip()
+        name = request.POST.get('name', '').strip()
+        if not code or not name:
+            messages.error(request, _('Le code et le nom sont obligatoires.'))
+            return redirect('modelforms:process-create')
+
+        if ProcessDefinition.objects.filter(code=code, version=1).exists():
+            messages.error(
+                request,
+                _("Un processus avec le code '%(code)s' et version 1 existe déjà.") % {'code': code},
+            )
+            return redirect('modelforms:process-create')
+
+        steps_data, transitions_data, errors = _parse_process_json_fields(request)
+        if errors:
+            for err in errors:
+                messages.error(request, err)
+            return redirect('modelforms:process-create')
+
+        process = ProcessDefinition.objects.create(
+            code=code,
+            name=name,
+            description=request.POST.get('description', ''),
+            category=request.POST.get('category', 'WORKFLOW'),
+            icon=request.POST.get('icon', 'ph-flow-arrow'),
+            version=1,
+            is_draft=True,
+            created_by=request.user,
+        )
+
+        _apply_steps_and_transitions(process, steps_data, transitions_data)
+
+        messages.success(request, _('Processus créé avec succès.'))
+        return redirect('modelforms:process-detail', pk=process.pk)
+
+
+class ProcessDefinitionUpdateView(LoginRequiredMixin, BusinessPermissionMixin, View):
+    """Modification d'une definition de processus."""
+
+    business_permission = 'modelforms.change_configuration'
+
+    def _get_object(self, request, pk):
+        return get_object_or_404(
+            scope_process_definitions_by_user(
+                ProcessDefinition.objects.all(), request.user,
+            ),
+            pk=pk,
+        )
+
+    def get(self, request, pk):
+        import json
+        process = self._get_object(request, pk)
+        steps = process.steps.all().order_by('order', 'code')
+        transitions = ProcessTransition.objects.filter(
+            from_step__process=process,
+        ).select_related('from_step', 'to_step').order_by('order')
+
+        steps_json = json.dumps(
+            [
+                {
+                    'code': s.code,
+                    'name': s.name,
+                    'description': s.description,
+                    'step_type': s.step_type,
+                    'configuration': s.configuration,
+                    'conditions': s.conditions,
+                    'order': s.order,
+                    'max_retries': s.max_retries,
+                    'retry_delay_seconds': s.retry_delay_seconds,
+                    'timeout_seconds': s.timeout_seconds,
+                    'position_x': s.position_x,
+                    'position_y': s.position_y,
+                }
+                for s in steps
+            ],
+            indent=2,
+            ensure_ascii=False,
+        )
+        transitions_json = json.dumps(
+            [
+                {
+                    'from': t.from_step.code,
+                    'to': t.to_step.code,
+                    'label': t.label,
+                    'condition': t.condition,
+                    'order': t.order,
+                }
+                for t in transitions
+            ],
+            indent=2,
+            ensure_ascii=False,
+        )
+
+        return render(request, 'modelforms/process_form.html', {
+            'process': process,
+            'steps_json': steps_json,
+            'transitions_json': transitions_json,
+            'categories': ProcessDefinition.Category.choices,
+            'step_types': ProcessStep.StepType.choices,
+        })
+
+    def post(self, request, pk):
+        process = self._get_object(request, pk)
+
+        if not process.is_draft:
+            messages.error(
+                request,
+                _("Impossible de modifier une version publiée. Créez une nouvelle version."),
+            )
+            return redirect('modelforms:process-detail', pk=process.pk)
+
+        process.name = request.POST.get('name', process.name)
+        process.description = request.POST.get('description', process.description)
+        process.category = request.POST.get('category', process.category)
+        process.icon = request.POST.get('icon', process.icon)
+        process.save()
+
+        steps_data, transitions_data, errors = _parse_process_json_fields(request)
+        if errors:
+            for err in errors:
+                messages.error(request, err)
+            return redirect('modelforms:process-update', pk=pk)
+
+        _apply_steps_and_transitions(process, steps_data, transitions_data)
+
+        messages.success(request, _('Processus mis à jour.'))
+        return redirect('modelforms:process-detail', pk=process.pk)
+
+
+class ProcessDefinitionDeleteView(LoginRequiredMixin, BusinessPermissionMixin, View):
+    """Suppression d'une definition de processus."""
+
+    business_permission = 'modelforms.delete_configuration'
+
+    def post(self, request, pk):
+        process = get_object_or_404(
+            scope_process_definitions_by_user(
+                ProcessDefinition.objects.all(), request.user,
+            ),
+            pk=pk,
+        )
+        if process.instances.exists():
+            messages.error(
+                request,
+                _("Impossible de supprimer un processus qui a des instances."),
+            )
+            return redirect('modelforms:process-detail', pk=pk)
+
+        process.delete()
+        messages.success(request, _('Processus supprimé.'))
+        return redirect('modelforms:process-list')
+
+
+@login_required
+@require_POST
+@permission_required_business('modelforms.change_configuration')
+def process_publish(request, pk):
+    """Publie un processus (is_draft=False)."""
+    process = get_object_or_404(
+        scope_process_definitions_by_user(
+            ProcessDefinition.objects.all(), request.user,
+        ),
+        pk=pk,
+    )
+    if not process.is_draft:
+        messages.info(request, _('Ce processus est déjà publié.'))
+    else:
+        if not process.steps.exists():
+            messages.error(
+                request,
+                _("Impossible de publier un processus sans aucune étape."),
+            )
+            return redirect('modelforms:process-detail', pk=pk)
+        process.is_draft = False
+        process.save(update_fields=['is_draft', 'updated_at'])
+        messages.success(request, _('Processus publié.'))
+    return redirect('modelforms:process-detail', pk=pk)
+
+
+@login_required
+@require_POST
+@permission_required_business('modelforms.add_configuration')
+def process_new_version(request, pk):
+    """Crée une nouvelle version draft à partir d'un processus existant."""
+    from django.db import transaction
+
+    source = get_object_or_404(
+        scope_process_definitions_by_user(
+            ProcessDefinition.objects.all(), request.user,
+        ),
+        pk=pk,
+    )
+
+    with transaction.atomic():
+        latest_version = ProcessDefinition.objects.filter(
+            code=source.code,
+        ).order_by('-version').values_list('version', flat=True).first()
+        new_version_num = (latest_version or source.version) + 1
+
+        new_def = ProcessDefinition.objects.create(
+            code=source.code,
+            name=source.name,
+            description=source.description,
+            category=source.category,
+            version=new_version_num,
+            is_draft=True,
+            icon=source.icon,
+            created_by=request.user,
+        )
+        new_def.mandats.set(source.mandats.all())
+
+        step_map = {}
+        for old_step in source.steps.all():
+            new_step = ProcessStep.objects.create(
+                process=new_def,
+                code=old_step.code,
+                name=old_step.name,
+                description=old_step.description,
+                step_type=old_step.step_type,
+                configuration=old_step.configuration,
+                order=old_step.order,
+                conditions=old_step.conditions,
+                max_retries=old_step.max_retries,
+                retry_delay_seconds=old_step.retry_delay_seconds,
+                timeout_seconds=old_step.timeout_seconds,
+                position_x=old_step.position_x,
+                position_y=old_step.position_y,
+            )
+            step_map[old_step.pk] = new_step
+
+        for old_step in source.steps.all():
+            for old_trans in old_step.outgoing_transitions.all():
+                ProcessTransition.objects.create(
+                    from_step=step_map[old_trans.from_step_id],
+                    to_step=step_map[old_trans.to_step_id],
+                    label=old_trans.label,
+                    condition=old_trans.condition,
+                    order=old_trans.order,
+                )
+
+    messages.success(
+        request,
+        _('Nouvelle version %(v)d créée (brouillon).') % {'v': new_version_num},
+    )
+    return redirect('modelforms:process-update', pk=new_def.pk)
+
+
+class ProcessInstanceListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+    """Liste des instances de processus (historique d'exécutions)."""
+
+    model = ProcessInstance
+    business_permission = 'modelforms.view_submissions'
+    template_name = 'modelforms/process_instance_list.html'
+    context_object_name = 'instances'
+    paginate_by = 30
+
+    def get_queryset(self):
+        queryset = ProcessInstance.objects.select_related(
+            'process_def', 'current_step', 'triggered_by', 'mandat',
+        ).order_by('-created_at')
+        queryset = scope_process_instances_by_user(queryset, self.request.user)
+
+        status = self.request.GET.get('status')
+        if status:
+            queryset = queryset.filter(status=status)
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['statuses'] = ProcessInstance.Status.choices
+        return context
+
+
+class ProcessInstanceDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
+    """Détail d'une instance de processus avec son historique d'exécutions."""
+
+    model = ProcessInstance
+    business_permission = 'modelforms.view_submissions'
+    template_name = 'modelforms/process_instance_detail.html'
+    context_object_name = 'instance'
+
+    def get_queryset(self):
+        return scope_process_instances_by_user(
+            ProcessInstance.objects.select_related(
+                'process_def', 'current_step', 'triggered_by', 'mandat',
+            ).prefetch_related('step_executions__step', 'step_executions__form_submission'),
+            self.request.user,
+        )
+
+    def get_context_data(self, **kwargs):
+        import json
+        context = super().get_context_data(**kwargs)
+        instance = self.object
+        process = instance.process_def
+        executions = instance.step_executions.all().order_by('created_at')
+        context['executions'] = executions
+        context['variables_pretty'] = json.dumps(
+            instance.variables, indent=2, ensure_ascii=False,
+        )
+
+        # Graph data for live Force Graph
+        steps = process.steps.all().order_by('order', 'code')
+        transitions = ProcessTransition.objects.filter(
+            from_step__process=process,
+        ).select_related('from_step', 'to_step')
+
+        exec_status = {}
+        for ex in executions:
+            exec_status[ex.step.code] = ex.status
+
+        context['graph_steps_json'] = json.dumps([
+            {
+                'code': s.code,
+                'name': s.name,
+                'step_type': s.step_type,
+                'order': s.order,
+                'position_x': s.position_x,
+                'position_y': s.position_y,
+                'status': exec_status.get(s.code, 'PENDING'),
+                'is_current': (instance.current_step_id == s.pk),
+            }
+            for s in steps
+        ], ensure_ascii=False)
+
+        context['graph_transitions_json'] = json.dumps([
+            {
+                'from': t.from_step.code,
+                'to': t.to_step.code,
+                'label': t.label or '',
+            }
+            for t in transitions
+        ], ensure_ascii=False)
+
+        return context

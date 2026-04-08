@@ -29,6 +29,20 @@ CATEGORIES_META = {
             'fonction_contact': 'Fonctions de contact',
         }
     },
+    'regimes': {
+        'label': 'Régimes & Pays',
+        'icon': 'ti-world',
+        'is_advanced': True,
+        'categories': {
+            'regime_fiscal': 'Régimes fiscaux',
+            'type_identifiant_legal': 'Identifiants légaux',
+            'mention_legale': 'Mentions légales factures',
+            'niveau_relance': 'Niveaux de relance',
+            'compte_par_defaut': 'Comptes par défaut',
+            'taux_cotisation': 'Cotisations sociales',
+            'allocation_familiale': 'Allocations familiales',
+        }
+    },
     'salaires': {
         'label': 'Salaires',
         'icon': 'ti-users',
@@ -133,6 +147,8 @@ def configuration_index(request):
     if active_categorie:
         parametres = parametres.filter(categorie=active_categorie)
 
+    is_advanced = CATEGORIES_META.get(active_module, {}).get('is_advanced', False)
+
     return render(request, 'core/configuration/index.html', {
         'modules': modules,
         'active_module': active_module,
@@ -140,6 +156,7 @@ def configuration_index(request):
         'categories': categories,
         'parametres': parametres,
         'is_active': 'configuration',
+        'is_advanced': is_advanced,
     })
 
 
@@ -161,6 +178,142 @@ def configuration_list_partial(request, module, categorie):
         'categorie': categorie,
         'categorie_label': cat_label,
     })
+
+
+# ============================================================================
+# Modèles avancés — CRUD pour RegimeFiscal, TauxCotisation, etc.
+# ============================================================================
+
+ADVANCED_MODEL_MAP = {
+    'regime_fiscal': {
+        'module': 'tva.models', 'model': 'RegimeFiscal',
+        'fields': ['code', 'nom', 'pays', 'taux_normal', 'nom_taxe', 'devise_defaut'],
+        'form_fields': ['code', 'nom', 'pays', 'devise_defaut', 'taux_normal', 'nom_taxe',
+                        'a_taux_reduit', 'a_taux_special', 'supporte_xml',
+                        'suppression_facture_emise', 'seuil_facture_simplifiee',
+                        'delai_paiement_defaut', 'nombre_relances_max'],
+    },
+    'type_identifiant_legal': {
+        'module': 'core.models', 'model': 'TypeIdentifiantLegal',
+        'fields': ['code', 'libelle', 'pays', 'obligatoire_entreprise', 'obligatoire_client'],
+        'form_fields': ['code', 'libelle', 'pays', 'regime_fiscal', 'format_validation',
+                        'exemple', 'obligatoire_entreprise', 'obligatoire_client', 'afficher_sur_facture'],
+    },
+    'mention_legale': {
+        'module': 'facturation.models', 'model': 'MentionLegale',
+        'fields': ['regime_fiscal', 'code', 'libelle', 'type_document', 'obligatoire'],
+        'form_fields': ['regime_fiscal', 'code', 'libelle', 'texte', 'type_document', 'obligatoire', 'ordre'],
+    },
+    'niveau_relance': {
+        'module': 'facturation.models', 'model': 'NiveauRelance',
+        'fields': ['regime_fiscal', 'niveau', 'libelle', 'delai_jours', 'frais', 'interets'],
+        'form_fields': ['regime_fiscal', 'niveau', 'libelle', 'delai_jours', 'frais', 'interets', 'taux_interet'],
+    },
+    'compte_par_defaut': {
+        'module': 'comptabilite.models', 'model': 'CompteParDefaut',
+        'fields': ['plan_comptable', 'type_compte', 'compte'],
+        'form_fields': ['plan_comptable', 'type_compte', 'compte'],
+    },
+    'taux_cotisation': {
+        'module': 'salaires.models', 'model': 'TauxCotisation',
+        'fields': ['regime_fiscal', 'type_cotisation', 'libelle', 'taux_employe', 'taux_employeur'],
+        'form_fields': ['regime_fiscal', 'type_cotisation', 'libelle', 'taux_employe', 'taux_employeur',
+                        'taux_total', 'salaire_min', 'salaire_max', 'devise', 'date_debut', 'date_fin'],
+    },
+    'allocation_familiale': {
+        'module': 'salaires.models', 'model': 'AllocationFamiliale',
+        'fields': ['canton', 'type_allocation', 'montant', 'date_debut'],
+        'form_fields': ['canton', 'type_allocation', 'montant', 'date_debut', 'date_fin'],
+    },
+}
+
+
+def _get_advanced_model(categorie):
+    """Résout le modèle Django depuis ADVANCED_MODEL_MAP."""
+    config = ADVANCED_MODEL_MAP.get(categorie)
+    if not config:
+        return None, None, None
+    from importlib import import_module as _imp
+    mod = _imp(config['module'])
+    Model = getattr(mod, config['model'])
+    return Model, config, config['fields']
+
+
+@permission_required_business('core.view_parametremetier')
+def configuration_advanced_list(request, module, categorie):
+    """Retourne le partial HTMX pour les modèles avancés."""
+    Model, config, display_fields = _get_advanced_model(categorie)
+    if not Model:
+        return HttpResponse('<div class="alert alert-warning">Catégorie inconnue</div>')
+
+    items = Model.objects.all().order_by(*(['-created_at'] if hasattr(Model, 'created_at') else ['pk']))[:100]
+    cat_label = CATEGORIES_META.get(module, {}).get('categories', {}).get(categorie, categorie)
+
+    return render(request, 'core/configuration/partials/advanced_list.html', {
+        'items': items,
+        'fields': display_fields,
+        'model_name': config['model'],
+        'categorie': categorie,
+        'categorie_label': cat_label,
+        'module': module,
+        'form_fields': config.get('form_fields', []),
+    })
+
+
+@permission_required_business('core.change_parametremetier')
+@require_http_methods(["GET", "POST"])
+def configuration_advanced_edit(request, module, categorie, pk=None):
+    """Créer ou modifier un item d'un modèle avancé (HTMX modal ou inline)."""
+    from django.forms import modelform_factory
+
+    Model, config, _ = _get_advanced_model(categorie)
+    if not Model:
+        return HttpResponse('<div class="alert alert-danger">Modèle inconnu</div>', status=400)
+
+    form_fields = config.get('form_fields', [])
+    Form = modelform_factory(Model, fields=form_fields)
+    instance = get_object_or_404(Model, pk=pk) if pk else None
+
+    if request.method == 'POST':
+        form = Form(request.POST, instance=instance)
+        if form.is_valid():
+            form.save()
+            messages.success(request, _("Enregistré avec succès"))
+            # Retourner la liste mise à jour
+            return configuration_advanced_list(request, module, categorie)
+    else:
+        form = Form(instance=instance)
+
+    # Ajouter les classes Bootstrap aux champs
+    for field in form.fields.values():
+        css = field.widget.attrs.get('class', '')
+        if 'form-check-input' not in css:
+            field.widget.attrs['class'] = f"{css} form-control form-control-sm".strip()
+
+    cat_label = CATEGORIES_META.get(module, {}).get('categories', {}).get(categorie, categorie)
+
+    return render(request, 'core/configuration/partials/advanced_form.html', {
+        'form': form,
+        'instance': instance,
+        'categorie': categorie,
+        'categorie_label': cat_label,
+        'module': module,
+        'model_name': config['model'],
+    })
+
+
+@permission_required_business('core.delete_parametremetier')
+@require_http_methods(["POST"])
+def configuration_advanced_delete(request, module, categorie, pk):
+    """Supprime un item d'un modèle avancé."""
+    Model, config, _ = _get_advanced_model(categorie)
+    if not Model:
+        return HttpResponse(status=400)
+
+    obj = get_object_or_404(Model, pk=pk)
+    obj.delete()
+    messages.success(request, _("Supprimé avec succès"))
+    return configuration_advanced_list(request, module, categorie)
 
 
 @permission_required_business('core.change_parametremetier')

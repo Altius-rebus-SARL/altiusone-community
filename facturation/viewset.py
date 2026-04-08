@@ -17,6 +17,8 @@ from .models import (
     ZoneGeographique,
     TarifMandat,
     CategorieTemps,
+    NiveauRelance,
+    MentionLegale,
 )
 from .serializers import (
     PrestationSerializer,
@@ -31,6 +33,8 @@ from .serializers import (
     ZoneGeographiqueSerializer,
     TarifMandatSerializer,
     CategorieTempsSerializer,
+    NiveauRelanceSerializer,
+    MentionLegaleSerializer,
 )
 
 
@@ -504,3 +508,72 @@ class TarifMandatViewSet(viewsets.ModelViewSet):
             return qs
         accessible = user.get_accessible_mandats()
         return qs.filter(mandat__in=accessible)
+
+
+class NiveauRelanceViewSet(viewsets.ModelViewSet):
+    """ViewSet pour les niveaux de relance par régime fiscal.
+
+    Lecture: tous les utilisateurs authentifiés.
+    Écriture: managers uniquement.
+    """
+
+    serializer_class = NiveauRelanceSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["regime_fiscal", "is_active"]
+
+    def get_queryset(self):
+        return NiveauRelance.objects.select_related("regime_fiscal").order_by("niveau")
+
+    def check_write_permission(self):
+        user = self.request.user
+        if not (user.is_superuser or (hasattr(user, 'is_manager') and user.is_manager())):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Seuls les managers peuvent modifier les niveaux de relance")
+
+    def perform_create(self, serializer):
+        self.check_write_permission()
+        serializer.save()
+
+    def perform_update(self, serializer):
+        self.check_write_permission()
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        self.check_write_permission()
+        instance.delete()
+
+
+class MentionLegaleViewSet(viewsets.ModelViewSet):
+    """ViewSet pour les mentions légales par régime fiscal.
+
+    Lecture: tous les utilisateurs authentifiés.
+    Écriture: managers uniquement.
+    """
+
+    serializer_class = MentionLegaleSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ["regime_fiscal", "type_document", "is_active"]
+    search_fields = ["code", "libelle"]
+
+    def get_queryset(self):
+        return MentionLegale.objects.select_related("regime_fiscal").order_by("ordre")
+
+    def check_write_permission(self):
+        user = self.request.user
+        if not (user.is_superuser or (hasattr(user, 'is_manager') and user.is_manager())):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Seuls les managers peuvent modifier les mentions légales")
+
+    def perform_create(self, serializer):
+        self.check_write_permission()
+        serializer.save()
+
+    def perform_update(self, serializer):
+        self.check_write_permission()
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        self.check_write_permission()
+        instance.delete()

@@ -29,14 +29,14 @@ from reportlab.platypus import (
 # Palette de couleurs
 # ==============================================================================
 
-ALTIUSONE_GREEN = HexColor('#088178')
-ALTIUSONE_GREEN_LIGHT = HexColor('#e8f5f3')
-ALTIUSONE_DARK = HexColor('#2c3e50')
-ALTIUSONE_GREY = HexColor('#666666')
-ALTIUSONE_GREY_LIGHT = HexColor('#f8f9fa')
-ALTIUSONE_BORDER = HexColor('#dee2e6')
-ALTIUSONE_RED = HexColor('#c0392b')
-ALTIUSONE_GREEN_AMOUNT = HexColor('#27ae60')
+ALTIUSONE_GREEN = HexColor('#02312e')       # Primaire
+ALTIUSONE_GREEN_LIGHT = HexColor('#e6efee') # Primaire clair (fond)
+ALTIUSONE_DARK = HexColor('#2c3e50')        # Accent
+ALTIUSONE_GREY = HexColor('#333333')        # Texte
+ALTIUSONE_GREY_LIGHT = HexColor('#f8f9fa')  # Fond clair
+ALTIUSONE_BORDER = HexColor('#dee2e6')      # Bordures
+ALTIUSONE_RED = HexColor('#c0392b')         # Déductions
+ALTIUSONE_GREEN_AMOUNT = HexColor('#02312e') # Montants positifs (=primaire)
 ALTIUSONE_WHITE = colors.white
 
 PAGE_WIDTH, PAGE_HEIGHT = A4
@@ -47,7 +47,7 @@ PAGE_WIDTH, PAGE_HEIGHT = A4
 
 LOGO_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-    'static', 'chartes', 'logo.svg'
+    'static', 'assets', 'images', 'logo', '1.png'
 )
 
 
@@ -94,9 +94,11 @@ def get_logo_image(width=3 * cm, height=None, logo_source=None):
                     img = Image(logo_path, width=width, height=ih * ratio)
                 return img
         except Exception:
-            pass  # Fallback sur le logo statique
+            # Le logo source existe en DB mais le fichier est inaccessible
+            # → retourner None, ne PAS fallback sur le logo statique AltiusOne
+            return None
 
-    # Fallback: logo SVG statique
+    # Fallback: logo SVG statique (uniquement si aucun logo_source demandé)
     if not os.path.isfile(LOGO_PATH):
         return None
     try:
@@ -118,8 +120,15 @@ def get_logo_image(width=3 * cm, height=None, logo_source=None):
 
 
 def get_logo_for_client(client, width=3 * cm, height=None):
-    """Retourne le logo flowable pour un client (client.logo -> entreprise.logo -> SVG statique)."""
+    """
+    Retourne le logo flowable pour un client.
+
+    Résolution : client.logo → entreprise.logo → None (pas de fallback SVG statique).
+    Le logo de l'app n'a rien à faire sur les documents d'un client.
+    """
     logo_source = client.get_logo() if client else None
+    if not logo_source:
+        return None
     return get_logo_image(width=width, height=height, logo_source=logo_source)
 
 

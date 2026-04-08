@@ -1,0 +1,73 @@
+/* ==========================================================================
+   Translated Fields — Onglets multilingues avec drapeaux
+   Utilise avec {% translated_field form "field_name" %}
+   ========================================================================== */
+
+.translated-field-group {
+    position: relative;
+}
+
+/* Onglets compacts */
+.translated-tabs {
+    border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+}
+
+.translated-tabs .nav-link {
+    font-size: 0.85rem;
+    border-radius: 0.375rem 0.375rem 0 0;
+    border: 1px solid transparent;
+    transition: all 0.15s ease-in-out;
+    color: var(--bs-secondary-color, #6c757d);
+}
+
+.translated-tabs .nav-link:hover {
+    border-color: var(--bs-border-color, #dee2e6) var(--bs-border-color, #dee2e6) transparent;
+    color: var(--bs-body-color, #333);
+}
+
+.translated-tabs .nav-link.active {
+    color: var(--bs-primary, #02312e);
+    font-weight: 600;
+    background-color: var(--bs-body-bg, #fff);
+    border-color: var(--bs-border-color, #dee2e6) var(--bs-border-color, #dee2e6) var(--bs-body-bg, #fff);
+}
+
+/* Indicateur d'erreur sur l'onglet */
+.translated-tabs .nav-link.text-danger {
+    border-color: rgba(220, 53, 69, 0.3) rgba(220, 53, 69, 0.3) transparent;
+}
+
+/* Contenu des onglets */
+.translated-tab-content {
+    background-color: var(--bs-body-bg, #fff);
+    border-color: var(--bs-border-color, #dee2e6);
+}
+
+.translated-tab-content .form-control {
+    border: none;
+    box-shadow: none;
+    padding: 0.375rem 0.5rem;
+    background-color: transparent;
+}
+
+.translated-tab-content .form-control:focus {
+    box-shadow: none;
+    background-color: var(--bs-tertiary-bg, #f8f9fa);
+}
+
+/* Icone d'aide a cote du label */
+.translated-field-help {
+    line-height: 1;
+}
+
+/* Badge de langue rempli (indicateur visuel de contenu) */
+.translated-tabs .nav-link[data-filled="true"]::after {
+    content: "";
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--bs-success, #198754);
+    margin-left: 0.35rem;
+    vertical-align: middle;
+}

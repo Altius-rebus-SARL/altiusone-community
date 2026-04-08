@@ -23,6 +23,10 @@ MODEL_EMBEDDING_CONFIG = {
     'salaires.Employe': {
         'tier': 1,
     },
+    'documents.Document': {
+        'tier': 1,
+        'filter': {'ocr_text__regex': r'.{20,}'},  # seulement les docs avec texte OCR > 20 chars
+    },
 
     # ===== TIER 2 : Entités comptables et projets =====
     'comptabilite.PieceComptable': {

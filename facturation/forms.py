@@ -373,7 +373,7 @@ class FactureForm(forms.ModelForm):
         self.fields["date_service_fin"].input_formats = ["%Y-%m-%d"]
 
         # Position : filtrer par mandat si disponible
-        mandat_for_position = self.mandat or (self.instance.mandat if self.instance and self.instance.pk else None)
+        mandat_for_position = self.mandat or (self.instance.mandat if not self.instance._state.adding and self.instance.mandat_id else None)
         if mandat_for_position:
             self.fields['position'].queryset = Position.objects.filter(
                 mandat=mandat_for_position, is_active=True

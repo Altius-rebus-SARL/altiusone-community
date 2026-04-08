@@ -15,6 +15,8 @@ from .viewset import (
     FormSubmissionViewSet,
     IntrospectionViewSet,
     FormTemplateViewSet,
+    ProcessDefinitionViewSet,
+    ProcessInstanceViewSet,
 )
 
 app_name = 'modelforms'
@@ -24,6 +26,8 @@ router.register(r'configurations', FormConfigurationViewSet, basename='configura
 router.register(r'submissions', FormSubmissionViewSet, basename='submission')
 router.register(r'templates', FormTemplateViewSet, basename='template')
 router.register(r'introspection', IntrospectionViewSet, basename='introspection')
+router.register(r'processes', ProcessDefinitionViewSet, basename='process-definition')
+router.register(r'process-instances', ProcessInstanceViewSet, basename='process-instance')
 
 urlpatterns = [
     path('', include(router.urls)),

@@ -9,7 +9,17 @@ Pattern List/Detail comme dans core/ et salaires/:
 Supporte les formulaires multi-modèles avec champs provenant de différentes apps.
 """
 from rest_framework import serializers
-from .models import FormConfiguration, ModelFieldMapping, FormSubmission, FormTemplate
+from .models import (
+    FormConfiguration,
+    ModelFieldMapping,
+    FormSubmission,
+    FormTemplate,
+    ProcessDefinition,
+    ProcessStep,
+    ProcessTransition,
+    ProcessInstance,
+    StepExecution,
+)
 from core.serializers import UserSerializer, MandatListSerializer
 
 
@@ -368,16 +378,50 @@ class FormSubmissionCreateSerializer(serializers.Serializer):
     mandat_id = serializers.UUIDField(required=False, allow_null=True)
 
     def validate_form_config_id(self, value):
-        """Vérifie que la configuration existe et est active."""
+        """Vérifie que la configuration existe, est active, et est accessible."""
+        from .permissions import user_can_access_form_config
+
         try:
             config = FormConfiguration.objects.get(id=value)
-            if config.status != FormConfiguration.Status.ACTIVE:
-                raise serializers.ValidationError(
-                    "Cette configuration de formulaire n'est pas active"
-                )
-            return value
         except FormConfiguration.DoesNotExist:
             raise serializers.ValidationError("Configuration introuvable")
+
+        if config.status != FormConfiguration.Status.ACTIVE:
+            raise serializers.ValidationError(
+                "Cette configuration de formulaire n'est pas active"
+            )
+
+        # SECURITE: verifier l'acces au formulaire pour cet utilisateur
+        request = self.context.get('request')
+        user = getattr(request, 'user', None) if request else None
+        if user is not None and not user_can_access_form_config(user, config):
+            raise serializers.ValidationError(
+                "Vous n'avez pas acces a ce formulaire."
+            )
+
+        return value
+
+    def validate_mandat_id(self, value):
+        """Verifie que l'utilisateur peut acceder au mandat demande."""
+        from .permissions import user_can_access_mandat
+        from core.models import Mandat
+
+        if value is None:
+            return value
+
+        try:
+            mandat = Mandat.objects.get(id=value)
+        except Mandat.DoesNotExist:
+            raise serializers.ValidationError("Mandat introuvable")
+
+        request = self.context.get('request')
+        user = getattr(request, 'user', None) if request else None
+        if user is not None and not user_can_access_mandat(user, mandat):
+            raise serializers.ValidationError(
+                "Vous n'avez pas acces a ce mandat."
+            )
+
+        return value
 
     def create(self, validated_data):
         """Crée et traite la soumission."""
@@ -387,13 +431,13 @@ class FormSubmissionCreateSerializer(serializers.Serializer):
         config = FormConfiguration.objects.get(id=validated_data['form_config_id'])
         user = self.context['request'].user
 
-        # Récupérer le mandat si spécifié
+        # Récupérer le mandat si spécifié (déjà validé par validate_mandat_id)
         mandat = None
         if validated_data.get('mandat_id'):
             try:
                 mandat = Mandat.objects.get(id=validated_data['mandat_id'])
             except Mandat.DoesNotExist:
-                pass
+                mandat = None
 
         # Créer la soumission
         submission = FormSubmission.objects.create(
@@ -423,6 +467,10 @@ class FormSubmissionCreateSerializer(serializers.Serializer):
         if success:
             submission.status = FormSubmission.Status.COMPLETED
             submission.created_records = records
+            if handler.post_action_errors:
+                submission.error_details = {
+                    'post_actions': handler.post_action_errors,
+                }
         else:
             submission.status = FormSubmission.Status.FAILED
             submission.error_message = '; '.join(errors)
@@ -570,3 +618,253 @@ class MobileFormSchemaSerializer(serializers.Serializer):
     default_values = serializers.DictField()
     validation_rules = serializers.ListField()
     related_models = serializers.ListField()
+
+
+# =============================================================================
+# Process Engine Serializers (PR2)
+# =============================================================================
+
+class ProcessStepSerializer(serializers.ModelSerializer):
+    """Serializer pour une etape de processus."""
+
+    step_type_display = serializers.CharField(
+        source='get_step_type_display', read_only=True,
+    )
+
+    class Meta:
+        model = ProcessStep
+        fields = [
+            'id',
+            'code',
+            'name',
+            'description',
+            'step_type',
+            'step_type_display',
+            'configuration',
+            'order',
+            'conditions',
+            'max_retries',
+            'retry_delay_seconds',
+            'timeout_seconds',
+            'position_x',
+            'position_y',
+        ]
+
+
+class ProcessTransitionSerializer(serializers.ModelSerializer):
+    """Serializer pour une transition de processus."""
+
+    from_step_code = serializers.CharField(source='from_step.code', read_only=True)
+    to_step_code = serializers.CharField(source='to_step.code', read_only=True)
+
+    class Meta:
+        model = ProcessTransition
+        fields = [
+            'id',
+            'from_step',
+            'to_step',
+            'from_step_code',
+            'to_step_code',
+            'label',
+            'condition',
+            'order',
+        ]
+
+
+class ProcessDefinitionListSerializer(serializers.ModelSerializer):
+    """Serializer leger pour la liste des processus."""
+
+    step_count = serializers.SerializerMethodField()
+    instance_count = serializers.SerializerMethodField()
+    category_display = serializers.CharField(
+        source='get_category_display', read_only=True,
+    )
+
+    class Meta:
+        model = ProcessDefinition
+        fields = [
+            'id',
+            'code',
+            'name',
+            'description',
+            'category',
+            'category_display',
+            'version',
+            'is_draft',
+            'icon',
+            'step_count',
+            'instance_count',
+            'created_at',
+            'updated_at',
+        ]
+
+    def get_step_count(self, obj):
+        return obj.steps.count()
+
+    def get_instance_count(self, obj):
+        return obj.instances.count()
+
+
+class ProcessDefinitionDetailSerializer(serializers.ModelSerializer):
+    """Serializer detaille avec steps et transitions imbriques."""
+
+    steps = ProcessStepSerializer(many=True, read_only=True)
+    transitions = serializers.SerializerMethodField()
+    mandats = MandatListSerializer(many=True, read_only=True)
+    category_display = serializers.CharField(
+        source='get_category_display', read_only=True,
+    )
+
+    class Meta:
+        model = ProcessDefinition
+        fields = [
+            'id',
+            'code',
+            'name',
+            'description',
+            'category',
+            'category_display',
+            'version',
+            'is_draft',
+            'icon',
+            'mandats',
+            'steps',
+            'transitions',
+            'created_at',
+            'updated_at',
+        ]
+
+    def get_transitions(self, obj):
+        # Toutes les transitions du processus (agregees depuis chaque step)
+        transitions = ProcessTransition.objects.filter(
+            from_step__process=obj,
+        ).select_related('from_step', 'to_step')
+        return ProcessTransitionSerializer(transitions, many=True).data
+
+
+class ProcessDefinitionWriteSerializer(serializers.ModelSerializer):
+    """Serializer pour create/update d'une definition de processus."""
+
+    class Meta:
+        model = ProcessDefinition
+        fields = [
+            'code',
+            'name',
+            'description',
+            'category',
+            'version',
+            'is_draft',
+            'icon',
+            'mandats',
+        ]
+
+    def validate(self, data):
+        """Verifie l'unicite de (code, version) a la creation."""
+        code = data.get('code')
+        version = data.get('version', 1)
+        instance = self.instance
+
+        qs = ProcessDefinition.objects.filter(code=code, version=version)
+        if instance:
+            qs = qs.exclude(pk=instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError(
+                f"Une definition avec code='{code}' et version={version} existe deja."
+            )
+        return data
+
+
+class StepExecutionSerializer(serializers.ModelSerializer):
+    """Serializer pour une execution d'etape."""
+
+    step_code = serializers.CharField(source='step.code', read_only=True)
+    step_name = serializers.CharField(source='step.name', read_only=True)
+    step_type = serializers.CharField(source='step.step_type', read_only=True)
+    status_display = serializers.CharField(
+        source='get_status_display', read_only=True,
+    )
+
+    class Meta:
+        model = StepExecution
+        fields = [
+            'id',
+            'instance',
+            'step',
+            'step_code',
+            'step_name',
+            'step_type',
+            'status',
+            'status_display',
+            'input',
+            'output',
+            'logs',
+            'form_submission',
+            'started_at',
+            'completed_at',
+            'retries_count',
+            'error_message',
+            'created_at',
+        ]
+
+
+class ProcessInstanceListSerializer(serializers.ModelSerializer):
+    """Serializer leger pour la liste des instances."""
+
+    process_code = serializers.CharField(source='process_def.code', read_only=True)
+    process_name = serializers.CharField(source='process_def.name', read_only=True)
+    current_step_code = serializers.CharField(
+        source='current_step.code', read_only=True, allow_null=True,
+    )
+    status_display = serializers.CharField(
+        source='get_status_display', read_only=True,
+    )
+
+    class Meta:
+        model = ProcessInstance
+        fields = [
+            'id',
+            'process_def',
+            'process_code',
+            'process_name',
+            'status',
+            'status_display',
+            'current_step',
+            'current_step_code',
+            'trigger_type',
+            'triggered_by',
+            'mandat',
+            'started_at',
+            'completed_at',
+            'created_at',
+        ]
+
+
+class ProcessInstanceDetailSerializer(serializers.ModelSerializer):
+    """Serializer detaille pour une instance avec historique des executions."""
+
+    process_def = ProcessDefinitionListSerializer(read_only=True)
+    step_executions = StepExecutionSerializer(many=True, read_only=True)
+    current_step = ProcessStepSerializer(read_only=True)
+    status_display = serializers.CharField(
+        source='get_status_display', read_only=True,
+    )
+
+    class Meta:
+        model = ProcessInstance
+        fields = [
+            'id',
+            'process_def',
+            'status',
+            'status_display',
+            'current_step',
+            'variables',
+            'trigger_type',
+            'triggered_by',
+            'mandat',
+            'started_at',
+            'completed_at',
+            'error_message',
+            'step_executions',
+            'created_at',
+            'updated_at',
+        ]

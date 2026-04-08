@@ -134,7 +134,7 @@ class CompteForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Limiter les comptes parents au même plan
-        if self.instance and self.instance.plan_comptable:
+        if self.instance and self.instance.plan_comptable_id:
             self.fields["compte_parent"].queryset = Compte.objects.filter(
                 plan_comptable=self.instance.plan_comptable
             ).exclude(pk=self.instance.pk)

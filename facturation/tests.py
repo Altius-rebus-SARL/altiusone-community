@@ -492,7 +492,7 @@ class StudioPreviewTest(FacturationTestBase):
         factory = RequestFactory()
         body = json.dumps({
             'instance_id': str(self.facture.pk),
-            'couleur_primaire': '#088178',
+            'couleur_primaire': '#02312e',
             'couleur_accent': '#2c3e50',
             'couleur_texte': '#333333',
             'police': 'Helvetica',

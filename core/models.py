@@ -1249,16 +1249,32 @@ class Entreprise(models.Model):
         verbose_name=_('Forme juridique')
     )
 
-    # Numéros officiels suisses
+    # Régime fiscal et devise de l'entreprise
+    regime_fiscal = models.ForeignKey(
+        'tva.RegimeFiscal',
+        on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name='entreprises',
+        verbose_name=_('Régime fiscal'),
+        help_text=_('Détermine la TVA, les cotisations, le plan comptable et la devise par défaut')
+    )
+    devise = models.ForeignKey(
+        'core.Devise',
+        on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name='entreprises',
+        verbose_name=_('Devise'),
+        help_text=_('Devise principale de l\'entreprise (auto-remplie depuis le régime si vide)')
+    )
+
+    # Numéros officiels (legacy suisse — utiliser IdentifiantLegal pour les nouveaux)
     ide_number = models.CharField(
         max_length=20,
         unique=True,
-        validators=[RegexValidator(
-            r'^CHE-\d{3}\.\d{3}\.\d{3}$',
-            'Format IDE invalide (CHE-XXX.XXX.XXX)'
-        )],
+        blank=True,
+        null=True,
         verbose_name=_('Numéro IDE'),
-        help_text=_('Numéro d\'identification des entreprises (CHE-XXX.XXX.XXX)')
+        help_text=_('Identifiant suisse CHE-XXX.XXX.XXX (optionnel, utiliser Identifiants légaux)')
     )
     ch_id = models.CharField(
         max_length=30,
@@ -1391,7 +1407,13 @@ class Entreprise(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.raison_sociale} ({self.ide_number})"
+        return f"{self.raison_sociale} ({self.ide_number or self.forme_juridique})"
+
+    def save(self, *args, **kwargs):
+        # Auto-remplir la devise depuis le régime fiscal si non définie
+        if not self.devise_id and self.regime_fiscal_id:
+            self.devise = self.regime_fiscal.devise_defaut
+        super().save(*args, **kwargs)
 
     @classmethod
     def get_default(cls):
@@ -2224,6 +2246,15 @@ class Mandat(BaseModel):
                         'regime': self.regime_fiscal,
                     }
                 })
+        # Vérifier cohérence devise / régime fiscal
+        if self.regime_fiscal_id and self.devise_id:
+            devise_attendue = self.regime_fiscal.devise_defaut
+            if devise_attendue and self.devise != devise_attendue:
+                import logging
+                logging.getLogger(__name__).warning(
+                    "Mandat %s: devise %s ≠ devise par défaut du régime %s (%s)",
+                    self.numero, self.devise, self.regime_fiscal.code, devise_attendue
+                )
 
     def texte_pour_embedding(self):
         """Texte pour vectorisation sémantique."""
@@ -3011,7 +3042,7 @@ class ModeleDocumentPDF(BaseModel):
 
     # Couleurs
     couleur_primaire = models.CharField(
-        max_length=7, default='#088178',
+        max_length=7, default='#02312e',
         verbose_name=_('Couleur primaire')
     )
     couleur_accent = models.CharField(
