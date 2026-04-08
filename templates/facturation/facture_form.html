@@ -45,7 +45,8 @@
 <!-- Form -->
 <form method="post" id="facture-form">
     {% csrf_token %}
-    
+    {{ form.devise }}
+
     <div class="row">
         <div class="col-12">
             <!-- Informations générales -->
@@ -83,6 +84,11 @@
                             {% if form.type_facture.errors %}
                             <div class="text-danger f-s-12">{{ form.type_facture.errors.0 }}</div>
                             {% endif %}
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{% trans "Opération TVA" %}</label>
+                            {{ form.type_operation_tva }}
                         </div>
 
                         <div class="col-md-4 mb-3">
@@ -274,6 +280,15 @@ function updateFormsetTotal() {
     $('#id_lignes-TOTAL_FORMS').val(ligneIndex);
 }
 
+// Supprimer une ligne (marquer DELETE + masquer)
+function supprimerLigne(btn) {
+    var $row = $(btn).closest('.ligne-row');
+    $row.find('.delete-checkbox').prop('checked', true);
+    $row.hide();
+    // Recalcul des totaux après suppression
+    $(document).trigger('lignes-changed');
+}
+
 $(document).ready(function() {
     // Calculer date d'échéance
     function calculerEcheance() {
@@ -331,6 +346,7 @@ $(document).ready(function() {
 
     // Événements sur les inputs (délégué pour les nouvelles lignes)
     $(document).on('input change', '.quantite-input, .prix-input, .tva-input, #id_remise_pourcent', calculerTotaux);
+    $(document).on('lignes-changed', calculerTotaux);
 
     // Sélection de prestation (délégué)
     $(document).on('change', '.prestation-select', function() {

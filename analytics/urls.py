@@ -6,13 +6,20 @@ from . import views
 app_name = "analytics"
 
 urlpatterns = [
-    # Dashboard Exécutif (page principale)
+    # Hub Analytics (page principale unifiée)
     path(
         "",
-        views.DashboardExecutifView.as_view(),
+        views.AnalyticsHubView.as_view(),
         name="dashboard-executif",
     ),
-    # Visualisations D3.js
+    # HTMX partials pour les tabs du Hub
+    path("htmx/tab-overview/", views.hub_tab_overview, name="hub-tab-overview"),
+    path("htmx/tab-financier/", views.hub_tab_financier, name="hub-tab-financier"),
+    path("htmx/tab-clients/", views.hub_tab_clients, name="hub-tab-clients"),
+    path("htmx/tab-visualisations/", views.hub_tab_visualisations, name="hub-tab-visualisations"),
+    path("htmx/tab-rapports/", views.hub_tab_rapports, name="hub-tab-rapports"),
+    path("htmx/tab-alertes/", views.hub_tab_alertes, name="hub-tab-alertes"),
+    # Visualisations D3.js (accès direct conservé)
     path(
         "visualisations/",
         views.D3DashboardView.as_view(),

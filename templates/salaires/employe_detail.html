@@ -116,7 +116,47 @@
                                         </span>
                                     </li>
                                     {% endif %}
+                                    {% if employe.numero_securite_sociale %}
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "N° sécurité sociale" %}</span>
+                                        <span class="f-w-500">{{ employe.numero_securite_sociale }}</span>
+                                    </li>
+                                    {% endif %}
                                 </ul>
+
+                                {% if employe.soumis_is %}
+                                <div class="app-divider-v dashed my-3"></div>
+
+                                <h6 class="f-w-600 mb-3">{% trans "Impôt à la source" %}</h6>
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Canton imposition" %}</span>
+                                        <span class="f-w-500">{{ employe.canton_imposition|default:"—" }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Barème IS" %}</span>
+                                        <span class="f-w-500">{{ employe.barreme_is|default:"—" }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Taux IS" %}</span>
+                                        <span class="f-w-500">{% if employe.taux_is %}{{ employe.taux_is }}%{% else %}—{% endif %}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Impôt ecclésiastique" %}</span>
+                                        <span class="f-w-500">
+                                            {% if employe.eglise_is %}
+                                            <i class="ph ph-check-circle text-success"></i> {% trans "Oui" %}
+                                            {% else %}
+                                            <i class="ph ph-x-circle text-danger"></i> {% trans "Non" %}
+                                            {% endif %}
+                                        </span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Nombre d'enfants IS" %}</span>
+                                        <span class="f-w-500">{{ employe.nombre_enfants_is }}</span>
+                                    </li>
+                                </ul>
+                                {% endif %}
 
                                 <div class="app-divider-v dashed my-3"></div>
 

@@ -12,7 +12,7 @@ from .models import (
     OptimisationFiscale,
     TauxImposition,
 )
-from core.models import Mandat, ExerciceComptable
+from core.models import Mandat, ExerciceComptable, ParametreMetier
 
 
 class DeclarationFiscaleForm(forms.ModelForm):
@@ -40,8 +40,9 @@ class DeclarationFiscaleForm(forms.ModelForm):
             "impot_federal",
             "impot_cantonal",
             "impot_communal",
+            "devise",
             "remarques",
-        ] 
+        ]
         widgets = {
             "mandat": forms.Select(attrs={"class": "form-control select2"}),
             "regime_fiscal": forms.Select(attrs={"class": "form-control"}),
@@ -80,8 +81,34 @@ class DeclarationFiscaleForm(forms.ModelForm):
             "impot_communal": forms.NumberInput(
                 attrs={"class": "form-control", "step": "0.01"}
             ),
+            "devise": forms.Select(attrs={"class": "form-control"}),
             "remarques": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
         }
+
+    _numeric_optional = [
+        'benefice_avant_impots', 'benefice_imposable',
+        'capital_propre', 'capital_imposable',
+        'impot_federal', 'impot_cantonal', 'impot_communal',
+    ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['type_declaration'].choices = ParametreMetier.get_choices_with_default(
+            'fiscalite', 'type_declaration', DeclarationFiscale.TYPE_DECLARATION_CHOICES
+        )
+        self.fields['type_impot'].choices = ParametreMetier.get_choices_with_default(
+            'fiscalite', 'type_impot', DeclarationFiscale.TYPE_IMPOT_CHOICES
+        )
+        for field_name in self._numeric_optional:
+            if field_name in self.fields:
+                self.fields[field_name].required = False
+
+    def clean(self):
+        cleaned_data = super().clean()
+        for field_name in self._numeric_optional:
+            if field_name in cleaned_data and cleaned_data[field_name] is None:
+                cleaned_data[field_name] = Decimal('0')
+        return cleaned_data
 
 
 class AnnexeFiscaleForm(forms.ModelForm):
@@ -96,6 +123,12 @@ class AnnexeFiscaleForm(forms.ModelForm):
             "donnees": forms.Textarea(attrs={"class": "form-control", "rows": 10}),
             "fichier": forms.FileInput(attrs={"class": "form-control"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['type_annexe'].choices = ParametreMetier.get_choices_with_default(
+            'fiscalite', 'type_annexe', AnnexeFiscale.TYPE_ANNEXE_CHOICES
+        )
 
 
 class CorrectionFiscaleForm(forms.ModelForm):
@@ -125,6 +158,17 @@ class CorrectionFiscaleForm(forms.ModelForm):
             "justification": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
             "reference_legale": forms.TextInput(attrs={"class": "form-control"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['type_correction'].choices = ParametreMetier.get_choices_with_default(
+            'fiscalite', 'type_correction', CorrectionFiscale.TYPE_CORRECTION_CHOICES
+        )
+        self.fields['montant_comptable'].required = False
+
+    def clean_montant_comptable(self):
+        val = self.cleaned_data.get('montant_comptable')
+        return val if val is not None else Decimal('0')
 
 
 class ReportPerteForm(forms.ModelForm):
@@ -200,6 +244,12 @@ class OptimisationFiscaleForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['categorie'].choices = ParametreMetier.get_choices_with_default(
+            'fiscalite', 'categorie_optimisation', OptimisationFiscale.CATEGORIE_CHOICES
+        )
+
 
 class TauxImpositionForm(forms.ModelForm):
     """Formulaire pour un taux d'imposition"""
@@ -214,6 +264,7 @@ class TauxImpositionForm(forms.ModelForm):
             "commune",
             "subdivision",
             "taux_fixe",
+            "bareme",
             "multiplicateur_cantonal",
             "multiplicateur_communal",
             "actif",
@@ -227,6 +278,10 @@ class TauxImpositionForm(forms.ModelForm):
             "subdivision": forms.TextInput(attrs={"class": "form-control"}),
             "taux_fixe": forms.NumberInput(
                 attrs={"class": "form-control", "step": "0.01"}
+            ),
+            "bareme": forms.Textarea(
+                attrs={"class": "form-control font-monospace", "rows": 6,
+                       "placeholder": '{"tranches": [{"min": 0, "max": 50000, "taux": 10}, ...]}'}
             ),
             "multiplicateur_cantonal": forms.NumberInput(
                 attrs={"class": "form-control", "step": "0.01"}

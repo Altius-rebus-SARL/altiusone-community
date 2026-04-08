@@ -98,7 +98,18 @@
             <div class="card-header">
                 <div class="d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">{% trans "Déclarations fiscales" %}</h5>
-                    <div class="d-flex gap-2">
+                    <div class="d-flex gap-2 align-items-center">
+                        <form method="get" class="app-form app-icon-form">
+                            <div class="position-relative">
+                                <input aria-label="Search"
+                                       class="form-control search"
+                                       placeholder="{% trans 'Rechercher...' %}"
+                                       type="search"
+                                       name="q"
+                                       value="{{ request.GET.q }}">
+                                <i class="ti ti-search text-dark"></i>
+                            </div>
+                        </form>
                         <button class="btn btn-light-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse">
                             <i class="ph ph-funnel me-2"></i>{% trans "Filtres" %}
                         </button>

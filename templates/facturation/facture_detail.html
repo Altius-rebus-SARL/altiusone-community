@@ -20,6 +20,9 @@
                         <p class="text-muted mb-0">
                             <a href="{% url 'core:mandat-detail' facture.mandat.pk %}">{{ facture.mandat.numero }}</a>
                             — {{ facture.mandat.client.raison_sociale }}
+                            {% if facture.position %}
+                            <br><i class="ph ph-folder-simple me-1"></i>{{ facture.position.titre }}
+                            {% endif %}
                         </p>
                         <span class="badge bg-light-primary mt-2">{{ facture.get_type_facture_display }}</span>
                         {% if facture.statut == 'BROUILLON' %}
@@ -45,6 +48,13 @@
                         <a href="{% url 'facturation:facture-update' facture.pk %}" class="btn btn-primary">
                             <i class="ti ti-edit me-2"></i>{% trans "Modifier" %}
                         </a>
+                        <form method="post" action="{% url 'facturation:facture-delete' facture.pk %}" class="d-inline"
+                              onsubmit="return confirm('{% trans "Supprimer définitivement ce brouillon ?" %}')">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-danger">
+                                <i class="ph ph-trash me-2"></i>{% trans "Supprimer" %}
+                            </button>
+                        </form>
                         {% endif %}
 
                         {% if facture.type_facture == 'DEVIS' and facture.statut != 'ANNULEE' %}
@@ -129,228 +139,15 @@
         </ul>
 
         <div class="tab-content mt-3" id="factureTabsContent">
-            <!-- Tab Facture -->
+            <!-- Tab Facture — Aperçu PDF inline (identique au document final) -->
             <div class="tab-pane fade show active" id="facture-pane" role="tabpanel" aria-labelledby="facture-tab">
-                <div class="container invoice-container">
-                    <div class="card">
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table">
-                                    <!-- Header -->
-                                    <tr>
-                                        <td>
-                                            <table class="table table-lg w-100 invoice-header">
-                                                <tbody>
-                                                <tr>
-                                                    <td>
-                                                        <div class="mb-3">
-                                                            <div class="mb-3">
-                                                                {% if facture.mandat.client.logo %}
-                                                                <img alt="{{ facture.mandat.client.nom }}"
-                                                                     class="w-200"
-                                                                     src="{{ facture.mandat.client.logo.url }}">
-                                                                {% else %}
-                                                                <h3>{{ facture.mandat.client.nom }}</h3>
-                                                                {% endif %}
-                                                            </div>
-                                                            <div>
-                                                                <address>
-                                                                    {% if facture.mandat.client.adresse %}{{ facture.mandat.client.adresse }}{% endif %}<br>
-                                                                    {% if facture.mandat.client.complement_adresse %}
-                                                                    {{ facture.mandat.client.complement_adresse }}<br>
-                                                                    {% endif %}
-                                                                    {% if facture.mandat.client.code_postal and facture.mandat.client.ville %}
-                                                                    {{ facture.mandat.client.code_postal }} {{ facture.mandat.client.ville }}<br>
-                                                                    {% endif %}
-                                                                    {% if facture.mandat.client.email %}
-                                                                    {{ facture.mandat.client.email }}
-                                                                    {% endif %}
-                                                                </address>
-                                                                {% if facture.mandat.client.telephone %}
-                                                                {{ facture.mandat.client.telephone }}
-                                                                {% endif %}
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td>
-                                                        <div class="text-end">
-                                                            <div class="mb-1">
-                                                                <h3 class="text-primary">{% trans "FACTURE" %}</h3>
-                                                            </div>
-                                                            <p>{% trans "Facture" %} <strong>{{ facture.numero_facture }}</strong></p>
-                                                            <p>{% trans "Date d'émission" %} <strong>{{ facture.date_emission|date:"d.m.Y" }}</strong></p>
-                                                            <p>{% trans "Date d'échéance" %} <strong>{{ facture.date_echeance|date:"d.m.Y" }}</strong></p>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                                </tbody>
-                                            </table>
-                                        </td>
-                                    </tr>
-
-                                    <!-- Details -->
-                                    <tr>
-                                        <td>
-                                            <table class="invoice-details-table table table-lg w-100">
-                                                <tbody>
-                                                <tr>
-                                                    <td>
-                                                        <div class="mb-3">
-                                                            <h6 class="f-w-600">{% trans "Facturé par" %}</h6>
-                                                            {{ facture.mandat.client.nom }}
-                                                            <address>
-                                                                {% if facture.mandat.client.adresse %}{{ facture.mandat.client.adresse }}<br>{% endif %}
-                                                                {% if facture.mandat.client.complement_adresse %}
-                                                                {{ facture.mandat.client.complement_adresse }}<br>
-                                                                {% endif %}
-                                                                {% if facture.mandat.client.code_postal and facture.mandat.client.ville %}
-                                                                {{ facture.mandat.client.code_postal }} {{ facture.mandat.client.ville }}<br>
-                                                                {% endif %}
-                                                                {% if facture.mandat.client.email %}
-                                                                {{ facture.mandat.client.email }}
-                                                                {% endif %}
-                                                            </address>
-                                                            {% if facture.mandat.client.telephone %}
-                                                            {{ facture.mandat.client.telephone }}
-                                                            {% endif %}
-                                                        </div>
-                                                    </td>
-                                                    <td>
-                                                        <div class="mb-3">
-                                                            <h6 class="f-w-600">{% trans "Facturé à" %}</h6>
-                                                            {{ facture.client.nom }}
-                                                            <address>
-                                                                {% if facture.client.adresse %}{{ facture.client.adresse }}<br>{% endif %}
-                                                                {% if facture.client.complement_adresse %}
-                                                                {{ facture.client.complement_adresse }}<br>
-                                                                {% endif %}
-                                                                {% if facture.client.code_postal and facture.client.ville %}
-                                                                {{ facture.client.code_postal }} {{ facture.client.ville }}<br>
-                                                                {% endif %}
-                                                                {% if facture.client.email %}
-                                                                {{ facture.client.email }}
-                                                                {% endif %}
-                                                            </address>
-                                                            {% if facture.client.telephone %}
-                                                            {{ facture.client.telephone }}
-                                                            {% endif %}
-                                                        </div>
-                                                    </td>
-                                                    <td>
-                                                        <div class="text-end mb-3">
-                                                            <h6 class="f-w-600">{% trans "Détails" %}</h6>
-                                                            <p>{% trans "Mandat" %}: {{ facture.mandat.numero }}</p>
-                                                            {% if facture.regime_fiscal %}
-                                                            <p>{% trans "Régime" %}: {{ facture.regime_fiscal.nom }}</p>
-                                                            {% endif %}
-                                                            {% if facture.date_service_debut and facture.date_service_fin %}
-                                                            <p>{% trans "Période" %}: {{ facture.date_service_debut|date:"d.m.Y" }} - {{ facture.date_service_fin|date:"d.m.Y" }}</p>
-                                                            {% endif %}
-                                                            <p>{% trans "Délai de paiement" %}: {{ facture.delai_paiement_jours }} {% trans "jours" %}</p>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                                </tbody>
-                                            </table>
-                                        </td>
-                                    </tr>
-
-                                    <!-- Lines -->
-                                    <tr>
-                                        <td>
-                                            <table class="table table-lg table-bottom-border invoice-table w-100">
-                                                <thead>
-                                                <tr>
-                                                    <th scope="col">#</th>
-                                                    <th scope="col">{% trans "Description" %}</th>
-                                                    <th scope="col">{% trans "Qté" %}</th>
-                                                    <th scope="col">{% trans "Prix unit. HT" %}</th>
-                                                    <th scope="col">{% trans "TVA" %}</th>
-                                                    <th scope="col" class="text-end">{% trans "Total HT" %}</th>
-                                                </tr>
-                                                </thead>
-                                                <tbody>
-                                                {% for ligne in facture.lignes.all %}
-                                                <tr>
-                                                    <td>{{ forloop.counter }}</td>
-                                                    <td>
-                                                        <strong>{{ ligne.description }}</strong>
-                                                        {% if ligne.description_detaillee %}
-                                                        <p class="text-muted f-s-12 mb-0">{{ ligne.description_detaillee|truncatewords:20 }}</p>
-                                                        {% endif %}
-                                                    </td>
-                                                    <td>{{ ligne.quantite|floatformat:2 }} {{ ligne.unite }}</td>
-                                                    <td>{{ ligne.prix_unitaire_ht|devise:DEVISE_TAUX|floatformat:2 }}</td>
-                                                    <td>{{ ligne.taux_tva|floatformat:1 }}%</td>
-                                                    <td class="text-end">{{ ligne.montant_ht|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</td>
-                                                </tr>
-                                                {% endfor %}
-
-                                                <tr>
-                                                    <td colspan="3"></td>
-                                                    <td colspan="3">
-                                                        <table class="table mb-0">
-                                                            <tbody>
-                                                            <tr>
-                                                                <td>{% trans "Sous-total HT" %}</td>
-                                                                <td class="text-end">{{ facture.montant_ht|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</td>
-                                                            </tr>
-                                                            {% if facture.remise_montant > 0 %}
-                                                            <tr>
-                                                                <td>{% trans "Remise" %} ({{ facture.remise_pourcent }}%)</td>
-                                                                <td class="text-end">-{{ facture.remise_montant|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</td>
-                                                            </tr>
-                                                            {% endif %}
-                                                            <tr>
-                                                                <td>{% trans "TVA" %}</td>
-                                                                <td class="text-end">{{ facture.montant_tva|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</td>
-                                                            </tr>
-                                                            <tr>
-                                                                <th class="border-0 pb-0">{% trans "Total TTC" %}</th>
-                                                                <th class="border-0 text-end pb-0">{{ facture.montant_ttc|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</th>
-                                                            </tr>
-                                                            {% if facture.montant_paye > 0 %}
-                                                            <tr>
-                                                                <td>{% trans "Déjà payé" %}</td>
-                                                                <td class="text-end text-success">{{ facture.montant_paye|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</td>
-                                                            </tr>
-                                                            <tr>
-                                                                <th class="border-0 pb-0">{% trans "Restant dû" %}</th>
-                                                                <th class="border-0 text-end pb-0 text-danger">{{ facture.montant_restant|devise:DEVISE_TAUX|floatformat:2 }} {{ DEVISE_CODE }}</th>
-                                                            </tr>
-                                                            {% endif %}
-                                                            </tbody>
-                                                        </table>
-                                                    </td>
-                                                </tr>
-                                                </tbody>
-                                            </table>
-                                        </td>
-                                    </tr>
-                                </table>
-                            </div>
-
-                            <!-- QR-Bill Section -->
-                            {% if facture.qr_code_image %}
-                            <div class="row mt-4">
-                                <div class="col-12">
-                                    <div class="alert alert-info">
-                                        <h6>{% trans "QR-Bill Suisse" %}</h6>
-                                        <p class="mb-0">{% trans "Référence" %}: {{ facture.qr_reference }}</p>
-                                    </div>
-                                </div>
-                            </div>
-                            {% endif %}
-
-                            <!-- Notes -->
-                            {% if facture.conclusion %}
-                            <div class="row mt-3">
-                                <div class="col-12">
-                                    <p class="text-muted">{{ facture.conclusion }}</p>
-                                </div>
-                            </div>
-                            {% endif %}
-                        </div>
+                <div class="card">
+                    <div class="card-body p-0">
+                        <iframe
+                            src="{% url 'facturation:facture-preview-pdf' facture.pk %}"
+                            style="width: 100%; height: 80vh; border: none; border-radius: 0 0 8px 8px;"
+                            title="{% trans 'Aperçu facture' %} {{ facture.numero_facture }}"
+                        ></iframe>
                     </div>
                 </div>
             </div>
@@ -402,13 +199,33 @@
                 </div>
             </div>
 
-            <!-- Tab Historique -->
+            <!-- Tab Historique / Informations -->
             <div class="tab-pane fade" id="historique-pane" role="tabpanel" aria-labelledby="historique-tab">
                 <div class="card">
                     <div class="card-body">
-                        <div class="text-center text-muted py-4">
-                            <i class="ph ph-clock-counter-clockwise f-s-32 mb-2 d-block"></i>
-                            <p class="mb-0">{% trans "Historique des modifications à venir" %}</p>
+                        {% if facture.mentions_legales_generees %}
+                        <h5 class="text-primary mb-3">{% trans "Mentions légales" %}</h5>
+                        <div class="mb-4 p-3 bg-light rounded">
+                            {{ facture.mentions_legales_generees|linebreaksbr }}
+                        </div>
+                        {% endif %}
+
+                        <h5 class="text-primary mb-3">{% trans "Informations" %}</h5>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <tbody>
+                                    <tr><th class="w-25">{% trans "Régime fiscal" %}</th><td>{{ facture.regime_fiscal|default:"—" }}</td></tr>
+                                    <tr><th>{% trans "Type opération TVA" %}</th><td>{{ facture.get_type_operation_tva_display }}</td></tr>
+                                    <tr><th>{% trans "Devise" %}</th><td>{{ facture.devise }}</td></tr>
+                                    <tr><th>{% trans "Créée par" %}</th><td>{{ facture.creee_par.get_full_name|default:facture.creee_par.username }} — {{ facture.created_at|date:"d.m.Y H:i" }}</td></tr>
+                                    {% if facture.validee_par %}
+                                    <tr><th>{% trans "Validée par" %}</th><td>{{ facture.validee_par.get_full_name|default:facture.validee_par.username }} — {{ facture.date_validation|date:"d.m.Y H:i" }}</td></tr>
+                                    {% endif %}
+                                    {% if facture.facture_origine %}
+                                    <tr><th>{% trans "Facture d'origine" %}</th><td><a href="{% url 'facturation:facture-detail' facture.facture_origine.pk %}">{{ facture.facture_origine.numero_facture }}</a></td></tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>

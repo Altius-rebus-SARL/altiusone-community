@@ -14,6 +14,9 @@ from .viewset import (
     CollaborateurFiduciaireViewSet,
     AdresseViewSet,
     GraphViewSet,
+    FichierJointViewSet,
+    ModeleContratViewSet,
+    ContratViewSet,
 )
 
 app_name = "core"
@@ -31,6 +34,9 @@ router.register(r"collaborateurs", CollaborateurFiduciaireViewSet, basename="col
 router.register(r"devises", DeviseViewSet, basename="devise")
 router.register(r"adresses", AdresseViewSet, basename="adresse")
 router.register(r"graph", GraphViewSet, basename="graph")
+router.register(r"fichiers-joints", FichierJointViewSet, basename="fichier-joint")
+router.register(r"modeles-contrat", ModeleContratViewSet, basename="modele-contrat")
+router.register(r"contrats", ContratViewSet, basename="contrat")
 
 urlpatterns = [
     path("", include(router.urls)),
@@ -112,4 +118,13 @@ TÂCHES:
 AUDIT LOGS (lecture seule):
 - GET    /api/v1/core/audit-logs/               Logs d'audit
 - GET    /api/v1/core/audit-logs/{id}/          Détail log
+
+FICHIERS JOINTS (pièces jointes génériques):
+- GET    /api/v1/core/fichiers-joints/                    Liste fichiers joints
+- POST   /api/v1/core/fichiers-joints/                    Upload fichier joint
+- GET    /api/v1/core/fichiers-joints/{id}/               Détail fichier joint
+- PUT    /api/v1/core/fichiers-joints/{id}/               Modifier fichier joint
+- DELETE /api/v1/core/fichiers-joints/{id}/               Supprimer fichier joint
+- GET    /api/v1/core/fichiers-joints/{id}/download/      Télécharger fichier
+- GET    /api/v1/core/fichiers-joints/par_objet/?content_type_model=X&object_id=Y  Fichiers par objet
 """

@@ -1,0 +1,320 @@
+<!-- core/contrat_detail.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Contrat" %} {{ contrat.numero|default:contrat.titre }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <!-- Header -->
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h4 class="text-primary mb-1">{{ contrat.titre }}</h4>
+                        <p class="text-muted mb-0">
+                            {% if contrat.numero %}{{ contrat.numero }} — {% endif %}
+                            <a href="{% url 'core:client-detail' contrat.client.pk %}">
+                                {{ contrat.client.raison_sociale }}
+                            </a>
+                            {% if contrat.mandat %}
+                            — <a href="{% url 'core:mandat-detail' contrat.mandat.pk %}">{{ contrat.mandat.numero }}</a>
+                            {% endif %}
+                        </p>
+                        {% if contrat.sens == 'EMIS' %}
+                        <span class="badge bg-primary mt-2">{% trans "Émis" %}</span>
+                        {% elif contrat.sens == 'RECU' %}
+                        <span class="badge bg-info mt-2">{% trans "Reçu" %}</span>
+                        {% endif %}
+
+                        {% if contrat.statut == 'BROUILLON' %}
+                        <span class="badge bg-secondary mt-2">{% trans "Brouillon" %}</span>
+                        {% elif contrat.statut == 'ENVOYE' %}
+                        <span class="badge bg-info mt-2">{% trans "Envoyé" %}</span>
+                        {% elif contrat.statut == 'SIGNE' %}
+                        <span class="badge bg-primary mt-2">{% trans "Signé" %}</span>
+                        {% elif contrat.statut == 'ACTIF' %}
+                        <span class="badge bg-success mt-2">{% trans "Actif" %}</span>
+                        {% elif contrat.statut == 'EXPIRE' %}
+                        <span class="badge bg-warning mt-2">{% trans "Expiré" %}</span>
+                        {% elif contrat.statut == 'RESILIE' %}
+                        <span class="badge bg-danger mt-2">{% trans "Résilié" %}</span>
+                        {% elif contrat.statut == 'ANNULE' %}
+                        <span class="badge bg-dark mt-2">{% trans "Annulé" %}</span>
+                        {% endif %}
+                    </div>
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'core:contrat-update' contrat.pk %}" class="btn btn-primary">
+                            <i class="ti ti-edit me-2"></i>{% trans "Modifier" %}
+                        </a>
+                        {% if contrat.document %}
+                        <a href="{% url 'documents:document-detail' contrat.document.pk %}" class="btn btn-outline-primary">
+                            <i class="ph ph-file me-2"></i>{% trans "Voir document" %}
+                        </a>
+                        {% endif %}
+                        <a href="{% url 'core:contrat-list' %}" class="btn btn-secondary">
+                            <i class="ti ti-arrow-left me-2"></i>{% trans "Retour" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Onglets -->
+        <ul class="nav nav-tabs app-tabs-primary mt-4" id="contratTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="infos-tab" data-bs-toggle="tab"
+                        data-bs-target="#infos-pane" type="button" role="tab"
+                        aria-controls="infos-pane" aria-selected="true">
+                    <i class="ti ti-file-description me-1"></i> {% trans "Informations" %}
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="document-tab" data-bs-toggle="tab"
+                        data-bs-target="#document-pane" type="button" role="tab"
+                        aria-controls="document-pane" aria-selected="false">
+                    <i class="ti ti-file me-1"></i> {% trans "Document" %}
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="historique-tab" data-bs-toggle="tab"
+                        data-bs-target="#historique-pane" type="button" role="tab"
+                        aria-controls="historique-pane" aria-selected="false">
+                    <i class="ti ti-history me-1"></i> {% trans "Historique" %}
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content mt-3" id="contratTabsContent">
+
+            <!-- Tab Informations -->
+            <div class="tab-pane fade show active" id="infos-pane" role="tabpanel" aria-labelledby="infos-tab">
+                <div class="row">
+                    <!-- Identification -->
+                    <div class="col-lg-6">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="text-primary mb-3">{% trans "Identification" %}</h5>
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Titre" %}</span>
+                                        <span class="f-w-500">{{ contrat.titre }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Numéro" %}</span>
+                                        <span class="f-w-500">{{ contrat.numero|default:"—" }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Catégorie" %}</span>
+                                        <span class="f-w-500">{{ contrat.categorie|default:"—" }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Sens" %}</span>
+                                        <span class="f-w-500">{{ contrat.get_sens_display }}</span>
+                                    </li>
+                                    {% if contrat.modele_source %}
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Modèle source" %}</span>
+                                        <span class="f-w-500">{{ contrat.modele_source.nom }}</span>
+                                    </li>
+                                    {% endif %}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Client / Mandat -->
+                    <div class="col-lg-6">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="text-primary mb-3">{% trans "Client / Mandat" %}</h5>
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Client" %}</span>
+                                        <a href="{% url 'core:client-detail' contrat.client.pk %}" class="f-w-500">
+                                            {{ contrat.client.raison_sociale }}
+                                        </a>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Mandat" %}</span>
+                                        {% if contrat.mandat %}
+                                        <a href="{% url 'core:mandat-detail' contrat.mandat.pk %}" class="f-w-500">
+                                            {{ contrat.mandat.numero }}
+                                        </a>
+                                        {% else %}
+                                        <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dates -->
+                    <div class="col-lg-6">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="text-primary mb-3">{% trans "Dates" %}</h5>
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Date d'émission" %}</span>
+                                        <span class="f-w-500">{{ contrat.date_emission|date:"d.m.Y"|default:"—" }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Date de signature" %}</span>
+                                        <span class="f-w-500">{{ contrat.date_signature|date:"d.m.Y"|default:"—" }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Date de début" %}</span>
+                                        <span class="f-w-500">{{ contrat.date_debut|date:"d.m.Y"|default:"—" }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Date de fin" %}</span>
+                                        <span class="f-w-500">{{ contrat.date_fin|date:"d.m.Y"|default:"Durée indéterminée" }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Tacite reconduction" %}</span>
+                                        <span class="f-w-500">
+                                            {% if contrat.tacite_reconduction %}
+                                            <i class="ph ph-check-circle text-success"></i> {% trans "Oui" %}
+                                            {% else %}
+                                            <i class="ph ph-x-circle text-muted"></i> {% trans "Non" %}
+                                            {% endif %}
+                                        </span>
+                                    </li>
+                                    {% if contrat.delai_resiliation_jours %}
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Délai de résiliation" %}</span>
+                                        <span class="f-w-500">{{ contrat.delai_resiliation_jours }} {% trans "jours" %}</span>
+                                    </li>
+                                    {% endif %}
+                                    {% if contrat.date_prochaine_echeance %}
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Prochaine échéance" %}</span>
+                                        <span class="f-w-500">{{ contrat.date_prochaine_echeance|date:"d.m.Y" }}</span>
+                                    </li>
+                                    {% endif %}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Financier -->
+                    <div class="col-lg-6">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="text-primary mb-3">{% trans "Financier" %}</h5>
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Montant" %}</span>
+                                        <span class="f-w-500">
+                                            {% if contrat.montant %}
+                                            {{ contrat.montant|floatformat:2 }}
+                                            {% if contrat.devise %}{{ contrat.devise.code }}{% endif %}
+                                            {% else %}
+                                            —
+                                            {% endif %}
+                                        </span>
+                                    </li>
+                                </ul>
+
+                                <h5 class="text-primary mb-3 mt-4">{% trans "Signataires" %}</h5>
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Signataire interne" %}</span>
+                                        <span class="f-w-500">{{ contrat.signataire_interne|default:"—" }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span class="text-muted">{% trans "Signataire externe" %}</span>
+                                        <span class="f-w-500">{{ contrat.signataire_externe|default:"—" }}</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Description & Notes -->
+                    {% if contrat.description or contrat.notes %}
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-body">
+                                {% if contrat.description %}
+                                <h5 class="text-primary mb-3">{% trans "Description" %}</h5>
+                                <p>{{ contrat.description|linebreaksbr }}</p>
+                                {% endif %}
+                                {% if contrat.notes %}
+                                <h5 class="text-primary mb-3">{% trans "Notes" %}</h5>
+                                <p>{{ contrat.notes|linebreaksbr }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Tab Document -->
+            <div class="tab-pane fade" id="document-pane" role="tabpanel" aria-labelledby="document-tab">
+                <div class="card">
+                    <div class="card-body">
+                        {% if contrat.document %}
+                        <h5 class="text-primary mb-3">{% trans "Document associé" %}</h5>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">{% trans "Nom" %}</span>
+                                <a href="{% url 'documents:document-detail' contrat.document.pk %}" class="f-w-500">
+                                    {{ contrat.document.nom }}
+                                </a>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">{% trans "Type" %}</span>
+                                <span class="f-w-500">{{ contrat.document.type_fichier|default:"—" }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">{% trans "Date d'ajout" %}</span>
+                                <span class="f-w-500">{{ contrat.document.created_at|date:"d.m.Y H:i" }}</span>
+                            </li>
+                        </ul>
+                        <div class="mt-3">
+                            <a href="{% url 'documents:document-detail' contrat.document.pk %}" class="btn btn-primary">
+                                <i class="ph ph-file me-2"></i>{% trans "Ouvrir le document" %}
+                            </a>
+                        </div>
+                        {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="ph ph-file-dashed f-s-32 mb-2 d-block"></i>
+                            <p class="mb-0">{% trans "Aucun document associé à ce contrat." %}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Historique -->
+            <div class="tab-pane fade" id="historique-pane" role="tabpanel" aria-labelledby="historique-tab">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="text-primary mb-3">{% trans "Historique" %}</h5>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">{% trans "Créé le" %}</span>
+                                <span class="f-w-500">{{ contrat.created_at|date:"d.m.Y H:i" }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">{% trans "Créé par" %}</span>
+                                <span class="f-w-500">{{ contrat.created_by.get_full_name|default:contrat.created_by.username|default:"—" }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">{% trans "Dernière modification" %}</span>
+                                <span class="f-w-500">{{ contrat.updated_at|date:"d.m.Y H:i" }}</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

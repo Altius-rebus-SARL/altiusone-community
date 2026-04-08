@@ -89,10 +89,9 @@
                                 <!-- Filtres de recherche -->
                                 <div class="mb-3">
                                     <label class="form-label f-s-12 text-muted mb-1">
-                                        <i class="ph ph-briefcase me-1"></i>{% trans "Contexte mandat (optionnel)" %}
+                                        <i class="ph ph-briefcase me-1"></i>{% trans "Contexte mandats (optionnel)" %}
                                     </label>
-                                    <select class="form-control select2" id="selectMandat" data-placeholder="{% trans 'Tous les documents...' %}">
-                                        <option value="">{% trans "Tous les documents" %}</option>
+                                    <select class="form-control select2" id="selectMandat" multiple data-placeholder="{% trans 'Tous les documents...' %}">
                                         {% for mandat in mandats %}
                                         <option value="{{ mandat.id }}">{{ mandat.numero }} - {{ mandat.client.raison_sociale|truncatechars:25 }}</option>
                                         {% endfor %}
@@ -146,18 +145,20 @@
                                     {% for conv in conversations %}
                                     <div class="chat-contactbox {% if current_conversation.id == conv.id %}active{% endif %}" data-id="{{ conv.id }}">
                                         <div class="position-absolute">
-                                            <span class="h-45 w-45 d-flex-center b-r-50 position-relative {% if conv.mandat %}bg-primary{% else %}bg-secondary{% endif %}">
+                                            <span class="h-45 w-45 d-flex-center b-r-50 position-relative {% if conv.mandats.exists %}bg-primary{% else %}bg-secondary{% endif %}">
                                                 <i class="ph-duotone ph-chat-circle-text f-s-20 text-white"></i>
                                             </span>
                                         </div>
                                         <div class="flex-grow-1 text-start mg-s-50">
                                             <p class="mb-0 f-w-500 text-dark txt-ellipsis-1">{{ conv.titre|default:"Nouvelle conversation" }}</p>
                                             <p class="text-secondary mb-0 f-s-12 chat-message">
-                                                {% if conv.mandat %}
-                                                <i class="ph ph-briefcase"></i> {{ conv.mandat.numero }}
+                                                {% with conv_mandats=conv.mandats.all %}
+                                                {% if conv_mandats %}
+                                                <i class="ph ph-briefcase"></i> {% for m in conv_mandats %}{{ m.numero }}{% if not forloop.last %}, {% endif %}{% endfor %}
                                                 {% else %}
                                                 <i class="ph ph-chat-dots"></i> {% trans "Recherche globale" %}
                                                 {% endif %}
+                                                {% endwith %}
                                             </p>
                                         </div>
                                         <div>
@@ -456,8 +457,8 @@ $(function() {
 
     // Creer nouvelle conversation
     $('#btnNewConversation').on('click', function() {
-        const mandatId = $('#selectMandat').val();
-        createConversation(mandatId);
+        const mandatIds = $('#selectMandat').val() || [];
+        createConversation(mandatIds);
     });
 
     // Selectionner conversation
@@ -498,13 +499,13 @@ $(function() {
     }
 
     // Creer une conversation
-    function createConversation(mandatId) {
+    function createConversation(mandatIds) {
         $.ajax({
             url: `${API_BASE}/conversations/`,
             method: 'POST',
             contentType: 'application/json',
             data: JSON.stringify({
-                mandat: mandatId || null,
+                mandats: mandatIds || [],
                 titre: ''
             }),
             success: function(data) {
@@ -558,12 +559,12 @@ $(function() {
 
         // Si pas de conversation, en creer une
         if (!currentConversationId) {
-            const mandatId = $('#selectMandat').val();
+            const mandatIds = $('#selectMandat').val() || [];
             $.ajax({
                 url: `${API_BASE}/conversations/`,
                 method: 'POST',
                 contentType: 'application/json',
-                data: JSON.stringify({ mandat: mandatId || null }),
+                data: JSON.stringify({ mandats: mandatIds }),
                 success: function(data) {
                     console.log('Conversation created for message:', data);
                     if (data && data.id) {
@@ -647,6 +648,7 @@ $(function() {
             },
             body: JSON.stringify({
                 message: message,
+                mandats: $('#selectMandat').val() || [],
                 use_semantic_search: true,
                 max_context_docs: 10
             })
@@ -824,6 +826,7 @@ $(function() {
             contentType: 'application/json',
             data: JSON.stringify({
                 message: message,
+                mandats: $('#selectMandat').val() || [],
                 use_semantic_search: true,
                 max_context_docs: 10
             }),
@@ -994,17 +997,23 @@ $(function() {
     };
 
     function addConversationToList(conv) {
+        const hasMandats = conv.mandats && conv.mandats.length > 0;
+        const mandatsLabel = hasMandats && conv.mandats_display
+            ? conv.mandats_display.map(m => m.numero).join(', ')
+            : null;
         const html = `
             <div class="chat-contactbox active" data-id="${conv.id}">
                 <div class="position-absolute">
-                    <span class="h-45 w-45 d-flex-center b-r-50 position-relative ${conv.mandat ? 'bg-primary' : 'bg-secondary'}">
+                    <span class="h-45 w-45 d-flex-center b-r-50 position-relative ${hasMandats ? 'bg-primary' : 'bg-secondary'}">
                         <i class="ph-duotone ph-chat-circle-text f-s-20 text-white"></i>
                     </span>
                 </div>
                 <div class="flex-grow-1 text-start mg-s-50">
                     <p class="mb-0 f-w-500 text-dark txt-ellipsis-1">${conv.titre || "{% trans 'Nouvelle conversation' %}"}</p>
                     <p class="text-secondary mb-0 f-s-12 chat-message">
-                        <i class="ph ph-chat-dots"></i> {% trans "Maintenant" %}
+                        ${mandatsLabel
+                            ? '<i class="ph ph-briefcase"></i> ' + mandatsLabel
+                            : '<i class="ph ph-chat-dots"></i> {% trans "Recherche globale" %}'}
                     </p>
                 </div>
                 <div>
@@ -1425,8 +1434,8 @@ $(function() {
     function startUnreadPolling() {
         updateUnreadBadge();
         // Also poll unread count every 15s
-        if (!window._unreadInterval) {
-            window._unreadInterval = setInterval(updateUnreadBadge, 15000);
+        if (!window.unreadInterval) {
+            window.unreadInterval = setInterval(updateUnreadBadge, 15000);
         }
     }
 

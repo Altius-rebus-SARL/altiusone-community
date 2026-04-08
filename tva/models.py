@@ -1,6 +1,7 @@
 # apps/tva/models.py
 from django.db import models
 from core.models import BaseModel, Mandat, User, Periodicite
+from core.storage import TVAStorage
 from decimal import Decimal
 from django.db.models import Q
 from io import BytesIO
@@ -82,6 +83,46 @@ class RegimeFiscal(BaseModel):
         default=list,
         verbose_name=_('Méthodes disponibles'),
         help_text=_('Liste des méthodes de calcul disponibles pour ce regime')
+    )
+
+    # ── Configuration facturation ──────────────────────────────────
+    suppression_facture_emise = models.BooleanField(
+        default=False,
+        verbose_name=_("Autoriser suppression facture émise"),
+        help_text=_("Si False, seules les factures en brouillon peuvent être supprimées (recommandé)")
+    )
+    seuil_facture_simplifiee = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        verbose_name=_("Seuil facture simplifiée"),
+        help_text=_("Montant TTC en dessous duquel la facture est simplifiée (ex: 400 CHF en Suisse, 150 EUR en France)")
+    )
+    delai_paiement_defaut = models.IntegerField(
+        default=30,
+        verbose_name=_("Délai de paiement par défaut (jours)"),
+    )
+    penalite_retard_taux = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        verbose_name=_("Taux pénalités de retard (%)"),
+        help_text=_("Taux annuel applicable en cas de retard de paiement")
+    )
+    indemnite_recouvrement = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name=_("Indemnité forfaitaire de recouvrement"),
+        help_text=_("Montant fixe ajouté en cas de recouvrement (ex: 40 EUR en France)")
+    )
+    mentions_obligatoires = models.JSONField(
+        default=list, blank=True,
+        verbose_name=_("Mentions légales obligatoires"),
+        help_text=_("Liste des mentions requises sur les factures. Ex: [{code, texte, type_document}]")
+    )
+    identifiants_requis = models.JSONField(
+        default=list, blank=True,
+        verbose_name=_("Types d'identifiants requis"),
+        help_text=_("Codes des TypeIdentifiantLegal requis pour ce régime. Ex: ['IDE', 'TVA']")
+    )
+    nombre_relances_max = models.PositiveIntegerField(
+        default=4,
+        verbose_name=_("Nombre maximum de relances"),
     )
 
     class Meta:
@@ -554,12 +595,18 @@ class DeclarationTVA(BaseModel):
 
     # Fichiers
     fichier_xml = models.FileField(
-        upload_to='tva/xml/', null=True, blank=True,
+        upload_to='tva/xml/',
+        storage=TVAStorage(),
+        max_length=500,
+        null=True, blank=True,
         verbose_name=_('Fichier XML'),
         help_text=_('Export XML pour soumission électronique')
     )
     fichier_pdf = models.FileField(
-        upload_to='tva/pdf/', null=True, blank=True,
+        upload_to='tva/pdf/',
+        storage=TVAStorage(),
+        max_length=500,
+        null=True, blank=True,
         verbose_name=_('Fichier PDF'),
         help_text=_('Version PDF de la déclaration')
     )
@@ -575,6 +622,15 @@ class DeclarationTVA(BaseModel):
         verbose_name=_('Commentaires AFC'),
         help_text=_('Commentaires reçus de l\'AFC')
     )
+
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            f"Déclaration TVA {self.numero_declaration}",
+            f"{self.type_decompte} {self.annee}",
+            self.mandat.client.raison_sociale if self.mandat and self.mandat.client else '',
+        ]
+        return ' '.join(filter(None, parts))
 
     class Meta:
         db_table = 'declarations_tva'
@@ -725,6 +781,13 @@ class DeclarationTVA(BaseModel):
             code_tva_sss = CodeTVA.objects.filter(
                 regime__code='CH', code='500'
             ).first()
+
+        if not code_tva_sss:
+            import logging
+            logging.getLogger(__name__).warning(
+                "Déclaration %s: codes TVA 321/500 introuvables pour régime CH",
+                self.numero_declaration,
+            )
 
         if code_tva_sss:
             LigneTVA.objects.create(
@@ -998,11 +1061,22 @@ class DeclarationTVA(BaseModel):
         pretty_xml = reparsed.toprettyxml(indent="  ", encoding="utf-8")
 
         # Sauvegarder le fichier dans le modèle
-        self.fichier_xml.save(
-            f"TVA_{self.numero_declaration}.xml",
-            ContentFile(pretty_xml),
-            save=True
-        )
+        filename = f"TVA_{self.numero_declaration}.xml"
+        self.fichier_xml.save(filename, ContentFile(pretty_xml), save=True)
+
+        # Classer dans la GED
+        try:
+            from core.pdf import auto_file_to_ged
+            auto_file_to_ged(
+                mandat=self.mandat,
+                file_bytes=pretty_xml,
+                filename=filename,
+                dossier_nom='TVA',
+                mime_type='application/xml',
+                description=f"Déclaration TVA {self.numero_declaration} — XML AFC",
+            )
+        except Exception:
+            pass  # Le XML est sauvegardé sur le modèle même si le filing échoue
 
         return self.fichier_xml
 

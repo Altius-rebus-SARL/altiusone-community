@@ -103,6 +103,18 @@
                     <a href="{% url 'facturation:timetracking-create' %}" class="btn btn-primary">
                         <i class="ph ph-plus me-2"></i>{% trans "Saisir du temps" %}
                     </a>
+                    <div class="d-flex gap-2 align-items-center">
+                        <form method="get" class="app-form app-icon-form">
+                            <div class="position-relative">
+                                <input aria-label="Search"
+                                       class="form-control search"
+                                       placeholder="{% trans 'Rechercher...' %}"
+                                       type="search"
+                                       name="q"
+                                       value="{{ request.GET.q }}">
+                                <i class="ti ti-search text-dark"></i>
+                            </div>
+                        </form>
                     <form method="get" class="d-flex gap-2">
                         <input type="date" name="date_debut" class="form-control"
                                value="{{ request.GET.date_debut }}"
@@ -121,6 +133,7 @@
                         </a>
                         {% endif %}
                     </form>
+                    </div>
                 </div>
 
                 <!-- Table -->
@@ -132,6 +145,7 @@
                                 <th>{% trans "Utilisateur" %}</th>
                                 <th>{% trans "Mandat" %}</th>
                                 <th>{% trans "Prestation" %}</th>
+                                <th>{% trans "Position" %}</th>
                                 <th>{% trans "Description" %}</th>
                                 <th>{% trans "Durée" %}</th>
                                 {% if is_manager %}
@@ -159,6 +173,18 @@
                                     </a>
                                 </td>
                                 <td>{{ temps.prestation.libelle|truncatewords:3 }}</td>
+                                <td>
+                                    {% if temps.position %}
+                                    <a href="#" class="text-muted f-s-12">
+                                        {{ temps.position.titre|truncatewords:3 }}
+                                    </a>
+                                    {% if temps.operation %}
+                                    <br><span class="f-s-11 text-secondary">{{ temps.operation.titre|truncatewords:3 }}</span>
+                                    {% endif %}
+                                    {% else %}
+                                    <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
                                 <td>
                                     <span class="text-muted">{{ temps.description|truncatewords:8 }}</span>
                                 </td>

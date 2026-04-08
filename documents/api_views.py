@@ -55,12 +55,12 @@ class ConversationViewSet(viewsets.ModelViewSet):
         qs = Conversation.objects.filter(
             utilisateur=user,
             statut__in=['ACTIVE', 'ARCHIVEE']
-        ).select_related('mandat', 'document')
+        ).prefetch_related('mandats').select_related('document')
 
         # Filtre par mandat
         mandat_id = self.request.query_params.get('mandat')
         if mandat_id:
-            qs = qs.filter(mandat_id=mandat_id)
+            qs = qs.filter(mandats__id=mandat_id)
 
         # Filtre par statut
         statut = self.request.query_params.get('statut')
@@ -81,6 +81,30 @@ class ConversationViewSet(viewsets.ModelViewSet):
         """Archive la conversation au lieu de la supprimer."""
         instance.statut = 'SUPPRIMEE'
         instance.save(update_fields=['statut'])
+
+    def _update_conversation_mandats(self, conversation, validated_data):
+        """Met à jour les mandats de la conversation.
+
+        Accepte mandats[] (liste) ou mandat (single, backward compat).
+        mandats=[] explicite → clear tous les mandats (recherche globale).
+        mandats=None et mandat=None → pas de changement.
+        """
+        from core.models import Mandat
+
+        mandat_ids = validated_data.get('mandats')
+        single_mandat = validated_data.get('mandat')
+
+        # Backward compat : single mandat → list
+        if mandat_ids is None and single_mandat:
+            mandat_ids = [single_mandat]
+
+        if mandat_ids is not None:
+            if mandat_ids:
+                mandats = Mandat.objects.filter(pk__in=mandat_ids)
+                conversation.mandats.set(mandats)
+            else:
+                # Liste vide explicite → clear (retour recherche globale)
+                conversation.mandats.clear()
 
     @action(detail=True, methods=['post'])
     def send_message(self, request, pk=None):
@@ -109,6 +133,9 @@ class ConversationViewSet(viewsets.ModelViewSet):
                 serializer.errors,
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        # Mettre à jour les mandats si fournis (changement de contexte)
+        self._update_conversation_mandats(conversation, serializer.validated_data)
 
         # Envoyer le message via le service
         response = chat_service.chat(
@@ -164,6 +191,9 @@ class ConversationViewSet(viewsets.ModelViewSet):
                 serializer.errors,
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        # Mettre à jour les mandats si fournis (changement de contexte)
+        self._update_conversation_mandats(conversation, serializer.validated_data)
 
         def event_stream():
             for event in chat_service.chat_stream(

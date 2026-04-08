@@ -12,10 +12,33 @@ import uuid
 
 def document_upload_path(instance, filename):
     """
-    Génère le chemin d'upload pour un document.
-    Format: {mandat_id}/{uuid}/{filename}
+    Génère le chemin d'upload pour un document dans MinIO/S3.
+    Format: {client_id}/{mandat_id}/{dossier_chemin_ou_non_classes}/{uuid}/{filename}
+
+    L'arborescence MinIO reflète la hiérarchie métier :
+    Client → Mandat → Dossier (ou _non_classes) → fichier
     """
-    return f"{instance.mandat_id}/{uuid.uuid4()}/{filename}"
+    parts = []
+
+    # Client (via le mandat)
+    if instance.mandat_id:
+        if hasattr(instance, 'mandat') and instance.mandat:
+            parts.append(str(instance.mandat.client_id))
+        parts.append(str(instance.mandat_id))
+
+    # Dossier ou non classé
+    if instance.dossier_id and hasattr(instance, 'dossier') and instance.dossier:
+        # Utiliser le chemin du dossier (remplacer / par _ pour compatibilité S3)
+        chemin = instance.dossier.chemin_complet.replace('/', '_')
+        parts.append(chemin)
+    else:
+        parts.append('_non_classes')
+
+    # UUID unique pour éviter les collisions de noms
+    parts.append(str(uuid.uuid4()))
+    parts.append(filename)
+
+    return '/'.join(parts)
 
 
 class Dossier(BaseModel):
@@ -136,8 +159,35 @@ class Dossier(BaseModel):
     def __str__(self):
         return self.chemin_complet
 
+    def clean(self):
+        """Validation métier : cohérence client/mandat."""
+        from django.core.exceptions import ValidationError
+
+        # Si mandat et client sont fournis, vérifier la cohérence
+        if self.mandat_id and self.client_id:
+            if self.mandat.client_id != self.client_id:
+                raise ValidationError({
+                    'client': _('Le client doit correspondre au client du mandat.'),
+                })
+
+        # Si mandat est fourni sans client, auto-remplir le client
+        if self.mandat_id and not self.client_id:
+            self.client = self.mandat.client
+
     def save(self, *args, **kwargs):
+        # Auto-remplir le client depuis le mandat
+        if self.mandat_id and not self.client_id:
+            self.client_id = self.mandat.client_id
+
         # Calcul du chemin complet
+        old_chemin = None
+        if self.pk:
+            try:
+                old = Dossier.objects.only('chemin_complet').get(pk=self.pk)
+                old_chemin = old.chemin_complet
+            except Dossier.DoesNotExist:
+                pass
+
         if self.parent:
             self.chemin_complet = f"{self.parent.chemin_complet}/{self.nom}"
             self.niveau = self.parent.niveau + 1
@@ -146,6 +196,29 @@ class Dossier(BaseModel):
             self.niveau = 0
 
         super().save(*args, **kwargs)
+
+        # Propager le changement de chemin aux sous-dossiers
+        if old_chemin and old_chemin != self.chemin_complet:
+            self._propager_chemin_enfants(old_chemin, self.chemin_complet)
+
+    def _propager_chemin_enfants(self, ancien_prefixe, nouveau_prefixe):
+        """Propage le changement de chemin à tous les sous-dossiers."""
+        for enfant in self.sous_dossiers.all():
+            enfant.chemin_complet = enfant.chemin_complet.replace(
+                ancien_prefixe, nouveau_prefixe, 1
+            )
+            enfant.save(update_fields=['chemin_complet'])
+
+    def mettre_a_jour_stats(self):
+        """Met à jour les champs dénormalisés nombre_documents et taille_totale."""
+        from django.db.models import Count, Sum
+        stats = self.documents.filter(is_active=True).aggregate(
+            count=Count('id'),
+            size=Sum('taille')
+        )
+        self.nombre_documents = stats['count'] or 0
+        self.taille_totale = stats['size'] or 0
+        self.save(update_fields=['nombre_documents', 'taille_totale'])
 
     def get_path_display(self, include_context=True):
         """
@@ -208,6 +281,95 @@ class Dossier(BaseModel):
         for sous_dossier in self.sous_dossiers.filter(is_active=True):
             total += sous_dossier.get_total_size_recursive()
         return total
+
+
+class SourceDocument(BaseModel):
+    """
+    Source/origine d'un document dans la GED.
+
+    Table dynamique avec données prédéfinies. La distinction interne/externe
+    reflète le type d'utilisateur à l'origine du document :
+
+    - INTERNE : document produit par un collaborateur STAFF de la fiduciaire
+      (employé ou prestataire). Inclut les uploads manuels, les PDF générés
+      par les modules (facturation, salaires, comptabilité, etc.), les exports.
+
+    - EXTERNE : document produit par un utilisateur CLIENT (client externe
+      ou ses collaborateurs) via le portail client, par email, par scan, etc.
+      Ces documents ne sont visibles que sur les mandats concernés (AccesMandat).
+    """
+
+    ORIGINE_INTERNE = 'INTERNE'
+    ORIGINE_EXTERNE = 'EXTERNE'
+    ORIGINE_CHOICES = [
+        (ORIGINE_INTERNE, _('Interne (collaborateur fiduciaire)')),
+        (ORIGINE_EXTERNE, _('Externe (client et ses collaborateurs)')),
+    ]
+
+    code = models.CharField(
+        max_length=50, unique=True,
+        verbose_name=_('Code'),
+        help_text=_('Code technique unique de la source')
+    )
+    libelle = models.CharField(
+        max_length=150,
+        verbose_name=_('Libellé'),
+        help_text=_('Nom affiché de la source')
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name=_('Description'),
+        help_text=_('Description détaillée de la source')
+    )
+    origine = models.CharField(
+        max_length=10,
+        choices=ORIGINE_CHOICES,
+        verbose_name=_('Origine'),
+        help_text=_(
+            'Interne = collaborateur STAFF de la fiduciaire, '
+            'Externe = utilisateur CLIENT et ses collaborateurs'
+        )
+    )
+
+    # Module applicatif associé (si la source est liée à un module)
+    module_applicatif = models.CharField(
+        max_length=50, blank=True,
+        verbose_name=_('Module applicatif'),
+        help_text=_('Nom du module Django associé (ex: facturation, salaires)')
+    )
+
+    # Icône pour UI
+    icone = models.CharField(
+        max_length=50, blank=True,
+        verbose_name=_('Icône'),
+        help_text=_('Nom de l\'icône (ex: upload, file-invoice)')
+    )
+
+    # Ordre d'affichage
+    ordre = models.IntegerField(
+        default=0,
+        verbose_name=_('Ordre'),
+        help_text=_('Position d\'affichage dans les listes')
+    )
+
+    class Meta:
+        db_table = 'sources_document'
+        verbose_name = _('Source de document')
+        verbose_name_plural = _('Sources de document')
+        ordering = ['origine', 'ordre', 'libelle']
+
+    def __str__(self):
+        return f"[{self.get_origine_display()}] {self.libelle}"
+
+    @property
+    def est_interne(self):
+        """Source provenant d'un collaborateur STAFF de la fiduciaire."""
+        return self.origine == self.ORIGINE_INTERNE
+
+    @property
+    def est_externe(self):
+        """Source provenant d'un utilisateur CLIENT externe."""
+        return self.origine == self.ORIGINE_EXTERNE
 
 
 class CategorieDocument(BaseModel):
@@ -385,11 +547,11 @@ class Document(BaseModel):
         help_text=_('Mandat auquel appartient ce document')
     )
     dossier = models.ForeignKey(
-        Dossier, on_delete=models.CASCADE,
+        Dossier, on_delete=models.SET_NULL,
         related_name='documents',
         null=True, blank=True,
         verbose_name=_('Dossier'),
-        help_text=_('Dossier de classement')
+        help_text=_('Dossier de classement. SET_NULL si le dossier est supprimé (le document reste).')
     )
 
     # Fichier
@@ -420,17 +582,27 @@ class Document(BaseModel):
 
     # Stockage - FileField avec storage S3/MinIO
     fichier = models.FileField(
-        storage=DocumentStorage,
+        storage=DocumentStorage(),
         upload_to=document_upload_path,
+        max_length=500,
         null=True,
         blank=True,
         verbose_name=_('Fichier'),
         help_text=_('Fichier stocké dans S3/MinIO')
     )
     hash_fichier = models.CharField(
-        max_length=64, unique=True, db_index=True,
+        max_length=64, db_index=True,
         verbose_name=_('Hash du fichier'),
-        help_text=_('Empreinte SHA-256 pour déduplication')
+        help_text=_('Empreinte SHA-256 pour déduplication (non unique : un même fichier peut être dans plusieurs mandats)')
+    )
+
+    # Source / Origine
+    source = models.ForeignKey(
+        SourceDocument, on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='documents',
+        verbose_name=_('Source'),
+        help_text=_('Origine du document (upload, module interne, import, etc.)')
     )
 
     # Classification
@@ -569,20 +741,6 @@ class Document(BaseModel):
         help_text=_('Fiche de salaire associée')
     )
 
-    # Versioning
-    version = models.IntegerField(
-        default=1,
-        verbose_name=_('Version'),
-        help_text=_('Numéro de version du document')
-    )
-    document_parent = models.ForeignKey(
-        'self', on_delete=models.SET_NULL,
-        null=True, blank=True,
-        related_name='versions',
-        verbose_name=_('Document parent'),
-        help_text=_('Version précédente du document')
-    )
-
     # Sécurité
     confidentiel = models.BooleanField(
         default=False,
@@ -628,15 +786,25 @@ class Document(BaseModel):
 
         super().save(*args, **kwargs)
 
-    def generer_path_storage(self):
-        """Génère le chemin de stockage S3/Minio"""
-        date = self.created_at
-        # Structure: mandat_id/annee/mois/hash_8premiers_caracteres/nom_fichier
-        return f"{self.mandat.id}/{date.year}/{date.month:02d}/{self.hash_fichier[:8]}/{self.nom_fichier}"
+    def get_s3_path(self):
+        """Retourne le chemin actuel du fichier dans S3/MinIO."""
+        if self.fichier:
+            return self.fichier.name
+        return None
+
+
+def version_upload_path(instance, filename):
+    """Chemin de stockage pour les versions de documents dans MinIO."""
+    return f"versions/{instance.document.mandat_id}/{instance.document_id}/{instance.numero_version}/{filename}"
 
 
 class VersionDocument(BaseModel):
-    """Historique des versions d'un document"""
+    """
+    Historique des versions d'un document.
+
+    Seul système de versioning : stocke une copie du fichier dans MinIO
+    à chaque modification, avec les métadonnées de la version.
+    """
 
     document = models.ForeignKey(
         Document, on_delete=models.CASCADE,
@@ -649,10 +817,13 @@ class VersionDocument(BaseModel):
         verbose_name=_('Numéro de version'),
         help_text=_('Numéro séquentiel de la version')
     )
-    path_storage = models.CharField(
-        max_length=500,
-        verbose_name=_('Chemin de stockage'),
-        help_text=_('Emplacement du fichier dans le stockage')
+    fichier = models.FileField(
+        storage=DocumentStorage(),
+        upload_to=version_upload_path,
+        null=True,
+        blank=True,
+        verbose_name=_('Fichier de cette version'),
+        help_text=_('Copie du fichier dans MinIO/S3 pour cette version')
     )
     hash_fichier = models.CharField(
         max_length=64,
@@ -666,7 +837,8 @@ class VersionDocument(BaseModel):
     )
 
     modifie_par = models.ForeignKey(
-        User, on_delete=models.PROTECT,
+        User, on_delete=models.SET_NULL,
+        null=True,
         verbose_name=_('Modifié par'),
         help_text=_('Utilisateur ayant créé cette version')
     )
@@ -691,6 +863,40 @@ class VersionDocument(BaseModel):
 
     def __str__(self):
         return f"{self.document.nom_fichier} - v{self.numero_version}"
+
+    @classmethod
+    def creer_version(cls, document, user, commentaire=''):
+        """
+        Crée une nouvelle version à partir de l'état actuel du document.
+        Copie le fichier dans MinIO avant toute modification.
+        """
+        dernier = cls.objects.filter(document=document).order_by('-numero_version').first()
+        nouveau_numero = (dernier.numero_version + 1) if dernier else 1
+
+        version = cls.objects.create(
+            document=document,
+            numero_version=nouveau_numero,
+            hash_fichier=document.hash_fichier,
+            taille=document.taille,
+            modifie_par=user,
+            commentaire=commentaire,
+        )
+
+        # Copier le fichier actuel dans la version
+        if document.fichier:
+            from django.core.files.base import ContentFile
+            try:
+                content = document.fichier.read()
+                document.fichier.seek(0)
+                version.fichier.save(
+                    document.nom_fichier,
+                    ContentFile(content),
+                    save=True
+                )
+            except Exception:
+                pass
+
+        return version
 
 
 class TraitementDocument(BaseModel):
@@ -1106,14 +1312,12 @@ class Conversation(BaseModel):
         verbose_name=_('Utilisateur'),
         help_text=_('Utilisateur propriétaire de la conversation')
     )
-    mandat = models.ForeignKey(
+    mandats = models.ManyToManyField(
         Mandat,
-        on_delete=models.CASCADE,
-        null=True,
         blank=True,
         related_name='conversations',
-        verbose_name=_('Mandat'),
-        help_text=_('Mandat pour le contexte documentaire')
+        verbose_name=_('Mandats'),
+        help_text=_('Mandats pour le contexte documentaire')
     )
     document = models.ForeignKey(
         Document,
@@ -1187,7 +1391,6 @@ class Conversation(BaseModel):
         ordering = ['-updated_at']
         indexes = [
             models.Index(fields=['utilisateur', 'statut']),
-            models.Index(fields=['mandat', 'statut']),
         ]
 
     def __str__(self):
@@ -1215,9 +1418,10 @@ class Conversation(BaseModel):
         if self.document:
             return [self.document]
 
-        if self.mandat:
+        mandat_ids = list(self.mandats.values_list('id', flat=True))
+        if mandat_ids:
             return Document.objects.filter(
-                mandat=self.mandat,
+                mandat_id__in=mandat_ids,
                 is_active=True,
                 ocr_text__isnull=False
             ).exclude(ocr_text='').order_by('-date_upload')[:limit]

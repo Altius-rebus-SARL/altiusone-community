@@ -2,6 +2,7 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from core.models import BaseModel, Mandat, User, Adresse
+from core.storage import SalairesStorage
 from decimal import Decimal
 from django.db.models import Q
 from django.core.validators import RegexValidator
@@ -286,9 +287,25 @@ class Employe(BaseModel):
     # Impôt à la source
     soumis_is = models.BooleanField(_('Soumis impôt à la source'), default=False)
     barreme_is = models.CharField(_('Barème IS'), max_length=10, blank=True,
-                                   help_text=_('Ex: A, B, C, etc.'))
+                                   help_text=_('Ex: A0, A1, B0, B1, C0, C1, etc.'))
     taux_is = models.DecimalField(_('Taux IS'), max_digits=5, decimal_places=2,
                                    null=True, blank=True)
+    canton_imposition = models.CharField(
+        _('Canton imposition IS'), max_length=2, blank=True,
+        help_text=_('Canton pour le barème impôt source (ex: GE, VD, ZH)')
+    )
+    eglise_is = models.BooleanField(
+        _('Impôt ecclésiastique'), default=False,
+        help_text=_('Affecte le barème IS dans certains cantons')
+    )
+    nombre_enfants_is = models.IntegerField(
+        _("Nombre d'enfants IS"), default=0,
+        help_text=_("Nombre d'enfants pour le calcul du barème IS")
+    )
+    numero_securite_sociale = models.CharField(
+        _('N° sécurité sociale'), max_length=50, blank=True,
+        help_text=_('Numéro universel (N° AVS en CH, N° sécu en FR, INPS au Mali, etc.)')
+    )
     
     # Configuration paie
     config_cotisations = models.JSONField(
@@ -304,6 +321,17 @@ class Employe(BaseModel):
         help_text=_('Notes et observations')
     )
 
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            f"{self.prenom} {self.nom}",
+            f"Matricule {self.matricule}",
+            self.fonction,
+            self.departement,
+            self.remarques,
+        ]
+        return ' '.join(filter(None, parts))
+
     class Meta:
         db_table = 'employes'
         verbose_name = _('Employé')
@@ -316,7 +344,19 @@ class Employe(BaseModel):
     
     def __str__(self):
         return f"{self.prenom} {self.nom} ({self.matricule})"
-    
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        errors = {}
+        if self.date_sortie and self.date_entree and self.date_sortie < self.date_entree:
+            errors['date_sortie'] = _("La date de sortie ne peut pas être antérieure à la date d'entrée.")
+        if self.date_fin_periode_essai and self.date_entree and self.date_fin_periode_essai < self.date_entree:
+            errors['date_fin_periode_essai'] = _("La fin de période d'essai ne peut pas être antérieure à la date d'entrée.")
+        if self.salaire_brut_mensuel and self.salaire_brut_mensuel < 0:
+            errors['salaire_brut_mensuel'] = _("Le salaire ne peut pas être négatif.")
+        if errors:
+            raise ValidationError(errors)
+
     @property
     def age(self):
         from datetime import date
@@ -440,24 +480,41 @@ class EnfantEmploye(BaseModel):
     def get_montant_allocation_standard(self, canton='GE'):
         """
         Retourne le montant standard d'allocation selon le canton et le type.
-        Ces montants sont indicatifs et doivent être mis à jour régulièrement.
+
+        Cherche d'abord dans AllocationFamiliale (DB), fallback sur les
+        montants fédéraux minimaux si pas de configuration.
         """
-        # Montants 2024 approximatifs (varient selon les cantons)
-        MONTANTS = {
-            'GE': {'ENFANT': 311, 'FORMATION': 415, 'NAISSANCE': 2000},
-            'VD': {'ENFANT': 300, 'FORMATION': 400, 'NAISSANCE': 1500},
-            'VS': {'ENFANT': 305, 'FORMATION': 440, 'NAISSANCE': 2000},
-            'NE': {'ENFANT': 250, 'FORMATION': 320, 'NAISSANCE': 1200},
-            'JU': {'ENFANT': 275, 'FORMATION': 325, 'NAISSANCE': 1500},
-            'FR': {'ENFANT': 285, 'FORMATION': 365, 'NAISSANCE': 1500},
-            'BE': {'ENFANT': 230, 'FORMATION': 290, 'NAISSANCE': 0},
-            'ZH': {'ENFANT': 200, 'FORMATION': 250, 'NAISSANCE': 0},
-            # Montants fédéraux minimaux par défaut
-            'DEFAULT': {'ENFANT': 200, 'FORMATION': 250, 'NAISSANCE': 0},
-        }
-        montants_canton = MONTANTS.get(canton, MONTANTS['DEFAULT'])
+        from datetime import date
         type_alloc = self.type_allocation or self.determiner_type_allocation()
-        return montants_canton.get(type_alloc, 0)
+
+        # Priorité 1 : DB (AllocationFamiliale)
+        today = date.today()
+        alloc = AllocationFamiliale.objects.filter(
+            canton=canton,
+            type_allocation=type_alloc,
+            date_debut__lte=today,
+            is_active=True,
+        ).filter(
+            Q(date_fin__isnull=True) | Q(date_fin__gte=today)
+        ).order_by('-date_debut').first()
+        if alloc:
+            return alloc.montant
+
+        # Priorité 2 : DB avec canton DEFAULT
+        alloc_default = AllocationFamiliale.objects.filter(
+            canton='DEFAULT',
+            type_allocation=type_alloc,
+            date_debut__lte=today,
+            is_active=True,
+        ).filter(
+            Q(date_fin__isnull=True) | Q(date_fin__gte=today)
+        ).order_by('-date_debut').first()
+        if alloc_default:
+            return alloc_default.montant
+
+        # Fallback : montants fédéraux minimaux en dur (dernier recours)
+        FALLBACK = {'ENFANT': 200, 'FORMATION': 250, 'NAISSANCE': 0}
+        return FALLBACK.get(type_alloc, 0)
 
 
 class TauxCotisation(BaseModel):
@@ -878,7 +935,10 @@ class FicheSalaire(BaseModel):
 
     # Fichier PDF
     fichier_pdf = models.FileField(
-        upload_to='salaires/fiches/', null=True, blank=True,
+        upload_to='salaires/fiches/',
+        storage=SalairesStorage(),
+        max_length=500,
+        null=True, blank=True,
         verbose_name=_('Fichier PDF'),
         help_text=_('Fiche de salaire au format PDF')
     )
@@ -899,6 +959,15 @@ class FicheSalaire(BaseModel):
         verbose_name=_('Remarques'),
         help_text=_('Notes et observations')
     )
+
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            f"Fiche salaire {self.numero_fiche}",
+            f"{self.employe.prenom} {self.employe.nom}" if self.employe else '',
+            f"{self.mois}/{self.annee}",
+        ]
+        return ' '.join(filter(None, parts))
 
     class Meta:
         db_table = 'fiches_salaire'
@@ -932,29 +1001,36 @@ class FicheSalaire(BaseModel):
         """Calcule tous les montants de la fiche"""
         # Salaire brut total
         self.salaire_brut_total = (
-            self.salaire_base 
-            + self.heures_supp_montant 
-            + self.primes 
+            self.salaire_base
+            + self.heures_supp_montant
+            + self.primes
             + self.indemnites
             + self.treizieme_mois
         )
-        
+
         # Cotisations employé
         self.avs_employe = self._calculer_cotisation('AVS', 'employe')
         self.ac_employe = self._calculer_cotisation('AC', 'employe')
+        self.ac_supp_employe = self._calculer_cotisation('AC_SUPP', 'employe')
         self.lpp_employe = self._calculer_cotisation('LPP', 'employe')
-        # ... autres cotisations
-        
+        self.laa_employe = self._calculer_cotisation('LAA', 'employe')
+        self.laac_employe = self._calculer_cotisation('LAAC', 'employe')
+        self.ijm_employe = self._calculer_cotisation('IJM', 'employe')
+
         self.total_cotisations_employe = (
-            self.avs_employe 
-            + self.ac_employe 
+            self.avs_employe
+            + self.ac_employe
             + self.ac_supp_employe
-            + self.lpp_employe 
-            + self.laa_employe 
+            + self.lpp_employe
+            + self.laa_employe
             + self.laac_employe
             + self.ijm_employe
         )
-        
+
+        # Allocations familiales auto-calculées si non renseignées manuellement
+        if self.allocations_familiales == Decimal('0') and self.employe_id:
+            self.allocations_familiales = self._calculer_allocations_familiales()
+
         # Déductions totales
         self.total_deductions = (
             self.total_cotisations_employe
@@ -963,7 +1039,7 @@ class FicheSalaire(BaseModel):
             + self.saisie_salaire
             + self.autres_deductions
         )
-        
+
         # Salaire net
         self.salaire_net = (
             self.salaire_brut_total
@@ -971,12 +1047,14 @@ class FicheSalaire(BaseModel):
             + self.allocations_familiales
             + self.autres_allocations
         )
-        
+
         # Charges patronales
         self.avs_employeur = self._calculer_cotisation('AVS', 'employeur')
         self.ac_employeur = self._calculer_cotisation('AC', 'employeur')
-        # ... autres charges
-        
+        self.lpp_employeur = self._calculer_cotisation('LPP', 'employeur')
+        self.laa_employeur = self._calculer_cotisation('LAA', 'employeur')
+        self.af_employeur = self._calculer_cotisation('AF', 'employeur')
+
         self.total_charges_patronales = (
             self.avs_employeur
             + self.ac_employeur
@@ -984,33 +1062,63 @@ class FicheSalaire(BaseModel):
             + self.laa_employeur
             + self.af_employeur
         )
-        
+
         # Coût total
         self.cout_total_employeur = (
             self.salaire_brut_total
             + self.total_charges_patronales
         )
-        
-        self.save()
+
         return self.salaire_net
-    
+
     def _calculer_cotisation(self, type_cot, part):
         """Calcule une cotisation spécifique"""
+        import logging
+        logger = logging.getLogger('salaires')
         regime = getattr(self.employe, 'regime_fiscal', None)
         taux_obj = TauxCotisation.get_taux_actif(type_cot, self.periode, regime_fiscal=regime)
         if not taux_obj:
+            logger.warning(
+                "Taux %s introuvable pour période %s, régime %s (employé %s) — cotisation mise à 0",
+                type_cot, self.periode, regime, self.employe
+            )
             return Decimal('0.00')
-        
+
         base = self.salaire_brut_total
-        
-        # Appliquer plafonds si nécessaire
-        if taux_obj.salaire_max and base > taux_obj.salaire_max:
-            base = taux_obj.salaire_max
-        if taux_obj.salaire_min and base < taux_obj.salaire_min:
-            return Decimal('0.00')
-        
+
+        if type_cot == 'AC_SUPP':
+            # AC supplément: s'applique uniquement sur la part du salaire
+            # au-dessus du seuil (148'200 CHF/an = 12'350 CHF/mois)
+            seuil_mensuel = taux_obj.salaire_min or Decimal('12350.00')
+            if base <= seuil_mensuel:
+                return Decimal('0.00')
+            base = base - seuil_mensuel
+        else:
+            # Appliquer plafonds si nécessaire
+            if taux_obj.salaire_max and base > taux_obj.salaire_max:
+                base = taux_obj.salaire_max
+            if taux_obj.salaire_min and base < taux_obj.salaire_min:
+                return Decimal('0.00')
+
         taux = taux_obj.taux_employe if part == 'employe' else taux_obj.taux_employeur
         return (base * taux / 100).quantize(Decimal('0.01'))
+
+    def _calculer_allocations_familiales(self):
+        """Calcule les allocations familiales basées sur les enfants de l'employé"""
+        total = Decimal('0')
+        canton = 'DEFAULT'
+        if hasattr(self.employe, 'adresse') and self.employe.adresse_id:
+            canton = getattr(self.employe.adresse, 'canton', 'DEFAULT') or 'DEFAULT'
+        for enfant in self.employe.enfants.all():
+            if enfant.autre_parent_recoit_allocation:
+                continue
+            montant = enfant.montant_allocation
+            if not montant:
+                montant = Decimal(str(enfant.get_montant_allocation_standard(canton)))
+            if enfant.garde_partagee and enfant.pourcentage_garde < 100:
+                montant = (montant * Decimal(str(enfant.pourcentage_garde)) / 100).quantize(Decimal('0.01'))
+            total += montant
+        return total
 
     def generer_pdf(self):
         """
@@ -1387,7 +1495,10 @@ class CertificatSalaire(BaseModel):
 
     # ==================== FICHIER PDF ====================
     fichier_pdf = models.FileField(
-        upload_to='salaires/certificats/', null=True, blank=True,
+        upload_to='salaires/certificats/',
+        storage=SalairesStorage(),
+        max_length=500,
+        null=True, blank=True,
         verbose_name=_('Fichier PDF'),
         help_text=_('Certificat de salaire au format PDF')
     )
@@ -1402,6 +1513,14 @@ class CertificatSalaire(BaseModel):
         verbose_name=_('Généré par'),
         help_text=_('Utilisateur ayant généré le certificat')
     )
+
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            f"Certificat salaire {self.annee}",
+            f"{self.employe.prenom} {self.employe.nom}" if self.employe else '',
+        ]
+        return ' '.join(filter(None, parts))
 
     class Meta:
         db_table = 'certificats_salaire'
@@ -1908,6 +2027,8 @@ class DeclarationCotisations(BaseModel):
     # Documents
     fichier_declaration = models.FileField(
         upload_to='salaires/declarations/',
+        storage=SalairesStorage(),
+        max_length=500,
         null=True, blank=True,
         verbose_name=_('Fichier déclaration'),
         help_text=_('Document de déclaration généré')
@@ -2370,6 +2491,8 @@ class CertificatTravail(BaseModel):
     # Fichier
     fichier_pdf = models.FileField(
         upload_to='salaires/certificats_travail/',
+        storage=SalairesStorage(),
+        max_length=500,
         null=True, blank=True
     )
 
@@ -2465,3 +2588,122 @@ class CertificatTravail(BaseModel):
         type_suffix = self.type_certificat.lower()
         filename = f"certificat_travail_{self.employe.matricule}_{type_suffix}_{date.today().strftime('%Y%m%d')}.pdf"
         return save_pdf_overwrite(self, 'fichier_pdf', pdf_bytes, filename)
+
+
+# ══════════════════════════════════════════════════════════════
+# LIGNES DE COTISATION — remplace les colonnes hardcodées sur FicheSalaire
+# ══════════════════════════════════════════════════════════════
+
+class LigneCotisationFiche(BaseModel):
+    """
+    Ligne de cotisation sur une fiche de salaire.
+
+    Remplace les 15+ colonnes hardcodées suisses (avs_employe, ac_employe, etc.)
+    par un modèle générique lié à TauxCotisation.
+    Fonctionne pour tous les régimes : CH (AVS/AC/LPP), FR (URSSAF/CSG),
+    OHADA (CNPS/IPRES/CSS), etc.
+    """
+
+    fiche = models.ForeignKey(
+        FicheSalaire, on_delete=models.CASCADE,
+        related_name='lignes_cotisations',
+        verbose_name=_('Fiche de salaire')
+    )
+    taux_cotisation = models.ForeignKey(
+        TauxCotisation, on_delete=models.PROTECT,
+        related_name='lignes_fiches',
+        verbose_name=_('Type de cotisation'),
+        help_text=_('Référence au taux configuré (type, régime, taux)')
+    )
+    libelle = models.CharField(
+        max_length=200, blank=True,
+        verbose_name=_('Libellé'),
+        help_text=_('Auto-rempli depuis TauxCotisation si vide')
+    )
+    base_calcul = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name=_('Base de calcul'),
+        help_text=_('Salaire soumis à cette cotisation')
+    )
+    taux_employe = models.DecimalField(
+        max_digits=6, decimal_places=3, default=0,
+        verbose_name=_('Taux employé (%)')
+    )
+    taux_employeur = models.DecimalField(
+        max_digits=6, decimal_places=3, default=0,
+        verbose_name=_('Taux employeur (%)')
+    )
+    montant_employe = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name=_('Montant employé')
+    )
+    montant_employeur = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name=_('Montant employeur')
+    )
+    ordre = models.IntegerField(default=0, verbose_name=_('Ordre'))
+
+    class Meta:
+        db_table = 'lignes_cotisation_fiche'
+        verbose_name = _('Ligne de cotisation')
+        verbose_name_plural = _('Lignes de cotisation')
+        ordering = ['fiche', 'ordre']
+        indexes = [
+            models.Index(fields=['fiche', 'taux_cotisation']),
+        ]
+
+    def __str__(self):
+        return f"{self.libelle or self.taux_cotisation.libelle} — {self.montant_employe + self.montant_employeur}"
+
+    def save(self, *args, **kwargs):
+        if not self.libelle and self.taux_cotisation_id:
+            self.libelle = self.taux_cotisation.libelle
+        super().save(*args, **kwargs)
+
+
+class AllocationFamiliale(BaseModel):
+    """
+    Montants d'allocations familiales par canton/région.
+
+    Remplace le dict MONTANTS hardcodé dans EnfantEmploye.get_montant_allocation_standard().
+    Permet la mise à jour via l'interface sans modifier le code.
+    """
+    TYPE_CHOICES = [
+        ('ENFANT', _("Allocation pour enfant")),
+        ('FORMATION', _("Allocation de formation")),
+        ('NAISSANCE', _("Allocation de naissance")),
+        ('ADOPTION', _("Allocation d'adoption")),
+    ]
+    canton = models.CharField(
+        max_length=5,
+        verbose_name=_("Canton / Région"),
+        help_text=_("Code canton (GE, VD, ZH…) ou 'DEFAULT' pour le minimum fédéral"),
+    )
+    type_allocation = models.CharField(
+        max_length=20,
+        choices=TYPE_CHOICES,
+        verbose_name=_("Type d'allocation"),
+    )
+    montant = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        verbose_name=_("Montant mensuel"),
+    )
+    date_debut = models.DateField(
+        verbose_name=_("Valide dès"),
+        help_text=_("Date de début de validité de ce barème"),
+    )
+    date_fin = models.DateField(
+        null=True, blank=True,
+        verbose_name=_("Valide jusqu'au"),
+        help_text=_("Laisser vide si toujours en vigueur"),
+    )
+
+    class Meta:
+        db_table = 'allocations_familiales'
+        verbose_name = _("Allocation familiale")
+        verbose_name_plural = _("Allocations familiales")
+        ordering = ['canton', 'type_allocation', '-date_debut']
+        unique_together = ['canton', 'type_allocation', 'date_debut']
+
+    def __str__(self):
+        return f"{self.canton} — {self.get_type_allocation_display()}: {self.montant}"

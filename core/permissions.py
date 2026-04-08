@@ -198,6 +198,12 @@ PERMISSIONS_METIER = {
         'change_mandat': _('Modifier les mandats'),
         'delete_mandat': _('Supprimer des mandats'),
 
+        # Contrats
+        'view_contrat': _('Consulter les contrats'),
+        'add_contrat': _('Créer des contrats'),
+        'change_contrat': _('Modifier les contrats'),
+        'delete_contrat': _('Supprimer des contrats'),
+
         # Utilisateurs
         'view_users': _('Consulter les utilisateurs'),
         'add_user': _('Créer des utilisateurs'),
@@ -373,6 +379,10 @@ ROLE_PERMISSIONS = {
         'core.view_all_mandats',
         'core.add_mandat',
         'core.change_mandat',
+        'core.view_contrat',
+        'core.add_contrat',
+        'core.change_contrat',
+        'core.delete_contrat',
         'core.view_users',
         'core.view_audit_log',
 
@@ -471,6 +481,9 @@ ROLE_PERMISSIONS = {
         # Core
         'core.view_clients',
         'core.view_mandats',
+        'core.view_contrat',
+        'core.add_contrat',
+        'core.change_contrat',
 
         # Modelforms (soumission)
         'modelforms.view_configurations',

@@ -2,6 +2,7 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from core.models import BaseModel, Mandat, Client, User, ExerciceComptable, SwissCantons
+from core.storage import FiscaliteStorage
 from decimal import Decimal
 
 
@@ -224,12 +225,16 @@ class DeclarationFiscale(BaseModel):
     # Fichiers
     fichier_declaration = models.FileField(
         upload_to='fiscalite/declarations/',
+        storage=FiscaliteStorage(),
+        max_length=500,
         null=True, blank=True,
         verbose_name=_('Fichier déclaration'),
         help_text=_('Document PDF de la déclaration déposée')
     )
     fichier_taxation = models.FileField(
         upload_to='fiscalite/taxations/',
+        storage=FiscaliteStorage(),
+        max_length=500,
         null=True, blank=True,
         verbose_name=_('Fichier taxation'),
         help_text=_('Document PDF de la décision de taxation')
@@ -241,6 +246,16 @@ class DeclarationFiscale(BaseModel):
         verbose_name=_('Remarques'),
         help_text=_('Notes et observations sur cette déclaration')
     )
+
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            f"Déclaration fiscale {self.numero_declaration}",
+            f"{self.canton} {self.commune}",
+            self.remarques,
+            self.mandat.client.raison_sociale if self.mandat and self.mandat.client else '',
+        ]
+        return ' '.join(filter(None, parts))
 
     class Meta:
         db_table = 'declarations_fiscales'
@@ -322,6 +337,8 @@ class AnnexeFiscale(BaseModel):
     # Fichier associé
     fichier = models.FileField(
         upload_to='fiscalite/annexes/',
+        storage=FiscaliteStorage(),
+        max_length=500,
         null=True, blank=True,
         verbose_name=_('Fichier'),
         help_text=_('Document PDF ou autre pièce jointe')
@@ -403,6 +420,15 @@ class CorrectionFiscale(BaseModel):
         verbose_name=_('Référence légale'),
         help_text=_('Article de loi, circulaire AFC ou jurisprudence')
     )
+
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            self.description,
+            self.justification,
+            self.reference_legale,
+        ]
+        return ' '.join(filter(None, parts))
 
     class Meta:
         db_table = 'corrections_fiscales'
@@ -705,12 +731,16 @@ class ReclamationFiscale(BaseModel):
 
     fichier_reclamation = models.FileField(
         upload_to='fiscalite/reclamations/',
+        storage=FiscaliteStorage(),
+        max_length=500,
         null=True, blank=True,
         verbose_name=_('Fichier réclamation'),
         help_text=_('Document PDF de la réclamation déposée')
     )
     fichier_decision = models.FileField(
         upload_to='fiscalite/decisions/',
+        storage=FiscaliteStorage(),
+        max_length=500,
         null=True, blank=True,
         verbose_name=_('Fichier décision'),
         help_text=_('Document PDF de la décision reçue')
@@ -835,3 +865,203 @@ class OptimisationFiscale(BaseModel):
 
     def __str__(self):
         return f"{self.titre} - Économie: {self.economie_estimee}"
+
+
+# ══════════════════════════════════════════════════════════════
+# ACOMPTES D'IMPÔTS
+# ══════════════════════════════════════════════════════════════
+
+class AcompteFiscal(BaseModel):
+    """
+    Acompte provisionnel d'impôt (versements trimestriels).
+
+    Suivi des paiements provisionnels à l'AFC (fédéral),
+    au canton et à la commune. Lié à une déclaration fiscale
+    ou directement au mandat + année.
+    """
+
+    STATUT_CHOICES = [
+        ('PLANIFIE', _('Planifié')),
+        ('PAYE', _('Payé')),
+        ('EN_RETARD', _('En retard')),
+        ('ANNULE', _('Annulé')),
+    ]
+
+    TYPE_CHOICES = [
+        ('IFD', _('Impôt fédéral direct')),
+        ('ICC', _('Impôt cantonal et communal')),
+        ('IS', _('Impôt à la source')),
+        ('AUTRE', _('Autre')),
+    ]
+
+    mandat = models.ForeignKey(
+        Mandat, on_delete=models.CASCADE,
+        related_name='acomptes_fiscaux',
+        verbose_name=_('Mandat')
+    )
+    declaration = models.ForeignKey(
+        'fiscalite.DeclarationFiscale', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='acomptes',
+        verbose_name=_('Déclaration liée')
+    )
+    type_acompte = models.CharField(
+        max_length=20, choices=TYPE_CHOICES, default='ICC',
+        verbose_name=_("Type d'acompte")
+    )
+    annee_fiscale = models.IntegerField(verbose_name=_('Année fiscale'))
+    numero_acompte = models.IntegerField(
+        default=1, verbose_name=_("N° d'acompte"),
+        help_text=_('1er, 2e, 3e, 4e trimestre, etc.')
+    )
+    date_echeance = models.DateField(verbose_name=_("Date d'échéance"))
+    montant = models.DecimalField(
+        max_digits=15, decimal_places=2,
+        verbose_name=_('Montant')
+    )
+    montant_paye = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name=_('Montant payé')
+    )
+    date_paiement = models.DateField(
+        null=True, blank=True, verbose_name=_('Date de paiement')
+    )
+    reference_paiement = models.CharField(
+        max_length=100, blank=True, verbose_name=_('Référence paiement')
+    )
+    statut = models.CharField(
+        max_length=20, choices=STATUT_CHOICES, default='PLANIFIE',
+        db_index=True, verbose_name=_('Statut')
+    )
+    notes = models.TextField(blank=True, verbose_name=_('Notes'))
+
+    class Meta:
+        db_table = 'acomptes_fiscaux'
+        verbose_name = _('Acompte fiscal')
+        verbose_name_plural = _('Acomptes fiscaux')
+        ordering = ['annee_fiscale', 'date_echeance']
+        indexes = [
+            models.Index(fields=['mandat', 'annee_fiscale']),
+        ]
+
+    def __str__(self):
+        return f"{self.get_type_acompte_display()} {self.annee_fiscale} — Acompte {self.numero_acompte}"
+
+    def texte_pour_embedding(self):
+        parts = [
+            f"Acompte {self.get_type_acompte_display()} {self.annee_fiscale}",
+            f"N° {self.numero_acompte}",
+            f"Montant: {self.montant}",
+            f"Échéance: {self.date_echeance}",
+            f"Statut: {self.get_statut_display()}",
+        ]
+        return ' '.join(filter(None, parts))
+
+
+# ══════════════════════════════════════════════════════════════
+# IMPÔT ANTICIPÉ (IA)
+# ══════════════════════════════════════════════════════════════
+
+class ImpotAnticipe(BaseModel):
+    """
+    Impôt anticipé (35% en Suisse sur dividendes/intérêts).
+
+    Gère la retenue et la demande de remboursement (DA-1).
+    Extensible pour d'autres pays (retenue à la source sur dividendes).
+    """
+
+    TYPE_CHOICES = [
+        ('DIVIDENDE', _('Dividende')),
+        ('INTERET', _('Intérêt')),
+        ('PRESTATION_ASSURANCE', _("Prestation d'assurance")),
+        ('LOT_LOTERIE', _('Lot de loterie')),
+        ('AUTRE', _('Autre')),
+    ]
+
+    STATUT_CHOICES = [
+        ('RETENU', _('Retenu')),
+        ('REMBOURSEMENT_DEMANDE', _('Remboursement demandé')),
+        ('REMBOURSE', _('Remboursé')),
+        ('REFUSE', _('Refusé')),
+        ('PRESCRIT', _('Prescrit')),
+    ]
+
+    mandat = models.ForeignKey(
+        Mandat, on_delete=models.CASCADE,
+        related_name='impots_anticipes',
+        verbose_name=_('Mandat')
+    )
+    type_revenu = models.CharField(
+        max_length=30, choices=TYPE_CHOICES, default='DIVIDENDE',
+        verbose_name=_('Type de revenu')
+    )
+    annee = models.IntegerField(verbose_name=_('Année'))
+    date_revenu = models.DateField(verbose_name=_('Date du revenu'))
+    montant_brut = models.DecimalField(
+        max_digits=15, decimal_places=2,
+        verbose_name=_('Montant brut')
+    )
+    taux_retenue = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal('35.00'),
+        verbose_name=_('Taux de retenue (%)'),
+        help_text=_('35% en Suisse')
+    )
+    montant_retenu = models.DecimalField(
+        max_digits=15, decimal_places=2,
+        verbose_name=_('Montant retenu')
+    )
+    debiteur = models.CharField(
+        max_length=255, blank=True,
+        verbose_name=_('Débiteur'),
+        help_text=_('Société qui verse le dividende/intérêt')
+    )
+
+    # Remboursement
+    date_demande_remboursement = models.DateField(
+        null=True, blank=True, verbose_name=_('Date demande remboursement')
+    )
+    numero_formulaire = models.CharField(
+        max_length=50, blank=True,
+        verbose_name=_('N° formulaire'),
+        help_text=_('DA-1, R-US, etc.')
+    )
+    montant_rembourse = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name=_('Montant remboursé')
+    )
+    date_remboursement = models.DateField(
+        null=True, blank=True, verbose_name=_('Date remboursement')
+    )
+
+    statut = models.CharField(
+        max_length=30, choices=STATUT_CHOICES, default='RETENU',
+        db_index=True, verbose_name=_('Statut')
+    )
+    fichier = models.FileField(
+        upload_to='fiscalite/impot_anticipe/',
+        storage=FiscaliteStorage(),
+        max_length=500, null=True, blank=True,
+        verbose_name=_('Fichier')
+    )
+    notes = models.TextField(blank=True, verbose_name=_('Notes'))
+
+    class Meta:
+        db_table = 'impots_anticipes'
+        verbose_name = _('Impôt anticipé')
+        verbose_name_plural = _('Impôts anticipés')
+        ordering = ['-annee', '-date_revenu']
+        indexes = [
+            models.Index(fields=['mandat', 'annee']),
+        ]
+
+    def __str__(self):
+        return f"IA {self.get_type_revenu_display()} {self.annee} — {self.montant_retenu}"
+
+    def texte_pour_embedding(self):
+        parts = [
+            f"Impôt anticipé: {self.get_type_revenu_display()}",
+            f"Année: {self.annee}",
+            f"Brut: {self.montant_brut}, retenu: {self.montant_retenu}",
+            f"Débiteur: {self.debiteur}" if self.debiteur else '',
+            f"Statut: {self.get_statut_display()}",
+        ]
+        return ' '.join(filter(None, parts))

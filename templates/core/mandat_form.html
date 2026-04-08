@@ -249,6 +249,7 @@
                                     {{ form.responsable.label }} <span class="text-danger">*</span>
                                 </label>
                                 {{ form.responsable }}
+                                <small class="text-muted">{% trans "Collaborateur interne responsable de ce mandat" %}</small>
                                 {% if form.responsable.errors %}
                                 <div class="text-danger f-s-12 mt-1">{{ form.responsable.errors }}</div>
                                 {% endif %}
@@ -260,6 +261,7 @@
                                     {{ form.equipe.label }}
                                 </label>
                                 {{ form.equipe }}
+                                <small class="text-muted">{% trans "Collaborateurs internes travaillant sur ce mandat (Ctrl+clic pour sélection multiple)" %}</small>
                                 {% if form.equipe.errors %}
                                 <div class="text-danger f-s-12 mt-1">{{ form.equipe.errors }}</div>
                                 {% endif %}
@@ -457,7 +459,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         this.disabled = true;
-        fetch(`/api/quick-create/${currentModelType}/`, {
+        fetch(`{% url 'core:quick-create-reference' model_type='__MODEL__' %}`.replace('__MODEL__', currentModelType), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -499,5 +501,58 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+{% if not object %}
+// Auto-complétion depuis le client sélectionné
+(function() {
+    const clientSelect = document.getElementById('{{ form.client.id_for_label }}');
+    if (!clientSelect) return;
+
+    clientSelect.addEventListener('change', function() {
+        const clientId = this.value;
+        if (!clientId) return;
+
+        fetch(`/api/v1/core/clients/${clientId}/`, {
+            headers: { 'Accept': 'application/json' },
+            credentials: 'same-origin',
+        })
+        .then(r => { if (r.ok) return r.json(); throw new Error(); })
+        .then(data => {
+            // Responsable : reprendre celui du client si défini
+            const respSelect = document.getElementById('{{ form.responsable.id_for_label }}');
+            if (data.responsable && respSelect) {
+                const respId = typeof data.responsable === 'object' ? data.responsable.id : data.responsable;
+                if (respId && respSelect.querySelector(`option[value="${respId}"]`)) {
+                    respSelect.value = respId;
+                }
+            }
+
+            // Dates d'exercice → date début / fin du mandat
+            const debutInput = document.getElementById('{{ form.date_debut.id_for_label }}');
+            const finInput = document.getElementById('{{ form.date_fin.id_for_label }}');
+            if (data.date_debut_exercice && debutInput && !debutInput.value) {
+                debutInput.value = data.date_debut_exercice;
+            }
+            if (data.date_fin_exercice && finInput && !finInput.value) {
+                finInput.value = data.date_fin_exercice;
+            }
+
+            // Régime fiscal par défaut du client
+            if (data.regime_fiscal_defaut) {
+                const rfSelect = document.getElementById('{{ form.regime_fiscal.id_for_label }}');
+                if (rfSelect && rfSelect.querySelector(`option[value="${data.regime_fiscal_defaut}"]`)) {
+                    rfSelect.value = data.regime_fiscal_defaut;
+                }
+            }
+
+            // Feedback visuel
+            const filled = [respSelect, debutInput, finInput].filter(f => f && f.value);
+            filled.forEach(f => f.classList.add('is-valid'));
+            setTimeout(() => filled.forEach(f => f.classList.remove('is-valid')), 2000);
+        })
+        .catch(() => { /* silencieux */ });
+    });
+})();
+{% endif %}
 </script>
 {% endblock %}

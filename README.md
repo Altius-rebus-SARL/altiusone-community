@@ -1,97 +1,107 @@
-# AltiusOne Community Edition
+# AltiusOne
 
-Open-source business management platform for SMEs, accounting firms, and enterprises.
+Plateforme de gestion d'entreprise tout-en-un — comptabilite, facturation, salaires, documents, analytics, IA.
 
-Built with Django 6, PostgreSQL, Bootstrap 5 + HTMX.
+## Branches
 
-## Features
+Ce repo contient 3 branches paralleles. **Ne jamais merger entre elles.**
 
-- **Accounting** — Swiss & OHADA charts of accounts, journal entries, trial balance, financial statements
-- **Invoicing** — Quotes, invoices, Swiss QR-bills, time tracking, payment management
-- **Payroll** — Employee management, salary slips, Swiss social contributions, certificates
-- **VAT** — VAT declarations, rates, reconciliation (Swiss-compliant)
-- **Tax** — Tax declarations, corrections, multi-regime support
-- **Documents** — Document management (GED), OCR, full-text + semantic search
-- **Analytics** — Dashboards, KPIs, custom reports, data export
-- **Projects** — Project management, task tracking, Gantt charts
-- **Graph** — Relational knowledge graph, anomaly detection, ontology management
-- **Email** — Campaign management, SMTP configuration, templates
-- **MCP Server** — Model Context Protocol endpoint for connecting any LLM
-- **API** — Full REST API with JWT authentication, OpenAPI documentation
-- **Multi-language** — French, German, Italian, English
+| Branche | Usage | Settings | Requirements |
+|---|---|---|---|
+| `main` | Version cloud (payante, provisionnee par portal/) | `AltiusOne.settings` | `requirements.txt` |
+| `desktop` | Version bureau (Electron, PostgreSQL local) | `AltiusOne.settings_desktop` | `requirements_desktop.txt` |
+| `community` | Version open-source (AGPL-3.0, repo public) | `AltiusOne.settings_community` | `requirements_community.txt` |
 
-## Quick Start
+### Differences entre les branches
+
+Chaque branche ne differe de `main` que par quelques fichiers specifiques :
+
+**desktop** (3-4 fichiers) :
+- `AltiusOne/settings_desktop.py` — PostgreSQL local, LocMemCache, Celery synchrone
+- `requirements_desktop.txt` — Sans Redis, sans Gunicorn, sans GCS
+
+**community** (6-7 fichiers) :
+- `AltiusOne/settings_community.py` — Sans Docs, sans Nextcloud, licence AGPL
+- `requirements_community.txt` — Sans altiusone-ai SDK, sans GCS
+- `docker-compose.yml` — Sans Nextcloud, sans OnlyOffice
+- `Dockerfile` — Utilise requirements_community.txt
+- `LICENSE`, `CONTRIBUTING.md`, `README.md`, `.env.example`
+
+Le code metier (15 apps Django) est **identique** sur les 3 branches.
+
+## Workflow quotidien
 
 ```bash
-# Clone the repository
-git clone https://github.com/Altius-rebus-SARL/altiusone-community.git
-cd altiusone-community
+# Verifier la branche courante AVANT tout commit
+git branch --show-current
 
-# Copy environment config
-cp .env.example .env
-# Edit .env — change passwords!
+# Travailler sur la version cloud
+git checkout main
 
-# Start all services
+# Travailler sur la version desktop
+git checkout desktop
+
+# Travailler sur la version community
+git checkout community
+```
+
+### Propagation des changements metier
+
+Si tu modifies du code metier (apps, templates, static, migrations), il faut le propager aux autres branches :
+
+```bash
+# Depuis main, propager un commit vers community
+git checkout community
+git cherry-pick <commit-hash>
+git checkout main
+
+# Depuis main, propager vers desktop
+git checkout desktop
+git cherry-pick <commit-hash>
+git checkout main
+```
+
+### Sync vers le repo public community
+
+```bash
+# Pousser la branche community vers le repo public
+git push community community:main
+```
+
+Le remote `community` pointe vers `https://github.com/Altius-rebus-SARL/altiusone-community.git`.
+
+## Demarrage rapide (version cloud)
+
+```bash
+# Configurer l'environnement
+cp .env.example .env  # ou utiliser le .env genere par portal/
+
+# Lancer tous les services
 docker compose up -d
 
-# Run migrations and create admin user
-docker compose exec django python manage.py migrate
-docker compose exec django python manage.py createsuperuser
-
-# Access the app
-open http://localhost:8011
+# L'entrypoint gere automatiquement :
+# - Extensions PostGIS + pgvector
+# - Migrations
+# - Collecte des fichiers statiques
+# - Chargement des plans comptables (Swiss, OHADA)
+# - Init des roles, devises, cotisations, ontologie, PDF templates
 ```
 
 ## Architecture
 
 ```
-Services (Docker Compose):
-  django        Django 6 + Gunicorn (port 8011)
-  postgres      PostgreSQL 15 + PostGIS + pgvector
-  redis         Cache + Celery broker
-  celery        Background task worker
-  celery-beat   Scheduled tasks
-  minio         S3-compatible object storage
-  nginx         Reverse proxy
+Repo prive (altiusone)          Repo public (altiusone-community)
+  main ──── version cloud         main ──── miroir de community
+  desktop ── version bureau
+  community ─ version AGPL ──────── push ──────────────┘
 ```
 
-## AI Integration (Optional)
+## Repos lies
 
-AltiusOne works fully without AI. To add AI capabilities:
-
-1. **MCP Server** — The built-in MCP endpoint (`/mcp/`) lets you connect any LLM (Claude, GPT, Ollama, etc.) to your business data
-2. **OpenAI-compatible API** — Set `AI_API_URL` and `AI_API_KEY` in `.env` to enable OCR, embeddings, and AI chat via any compatible API (Ollama, vLLM, LiteLLM)
-
-## Community vs Cloud
-
-| | Community (this repo) | Cloud |
-|---|---|---|
-| Core business apps | All 15 modules | All 15 modules |
-| Self-hosted | Docker Compose | Managed hosting |
-| AI | BYO via MCP / API | Integrated AI service |
-| Collaboration | - | Nextcloud + OnlyOffice |
-| Provisioning | Manual | Automated (Terraform) |
-| Support | Community (GitHub Issues) | Professional support |
-| License | AGPL-3.0 | Proprietary |
-
-## Development
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, code conventions, and how to submit pull requests.
-
-```bash
-# Install dependencies (without Docker)
-pip install -r requirements_community.txt
-
-# Run with community settings
-DJANGO_SETTINGS_MODULE=AltiusOne.settings_community python manage.py runserver
-```
-
-## License
-
-[AGPL-3.0](LICENSE) — Free to use, modify, and distribute. If you modify and deploy AltiusOne as a service, you must share your changes under the same license.
-
-## Links
-
-- **Cloud Edition**: [altiusone.ch](https://altiusone.ch)
-- **Issues**: [GitHub Issues](https://github.com/Altius-rebus-SARL/altiusone-community/issues)
-- **Contributing**: [CONTRIBUTING.md](CONTRIBUTING.md)
+| Repo | Description |
+|---|---|
+| `altiusone` (prive) | Ce repo — apps Django (cloud, desktop, community) |
+| `altiusone-community` (public) | Miroir de la branche community |
+| `portal/` (prive) | Plateforme SaaS, provisioning Terraform/Ansible |
+| `mobile/` (prive) | App React Native iOS/Android |
+| `desktop/` (prive) | App Electron (CI/CD GitHub Actions) |

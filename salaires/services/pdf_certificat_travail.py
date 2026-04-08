@@ -68,9 +68,10 @@ class CertificatTravailPDF:
 
         employer_lines = [f"<b>{self.client.raison_sociale}</b>"]
         if self.adresse_client:
-            employer_lines.append(
-                f"{self.adresse_client.rue} {self.adresse_client.numero or ''}"
-            )
+            rue = self.adresse_client.rue.strip()
+            if self.adresse_client.numero and self.adresse_client.numero not in rue:
+                rue = f"{rue} {self.adresse_client.numero}"
+            employer_lines.append(rue)
             employer_lines.append(
                 f"{self.adresse_client.code_postal} {self.adresse_client.localite}"
             )
@@ -97,8 +98,11 @@ class CertificatTravailPDF:
                 self.styles['employer_name']
             ))
             if self.adresse_client:
+                rue2 = self.adresse_client.rue.strip()
+                if self.adresse_client.numero and self.adresse_client.numero not in rue2:
+                    rue2 = f"{rue2} {self.adresse_client.numero}"
                 elements.append(Paragraph(
-                    f"{self.adresse_client.rue} {self.adresse_client.numero or ''}<br/>"
+                    f"{rue2}<br/>"
                     f"{self.adresse_client.code_postal} {self.adresse_client.localite}",
                     self.styles['employer_detail']
                 ))

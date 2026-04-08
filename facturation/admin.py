@@ -2,7 +2,7 @@
 from django.contrib import admin
 from .models import (
     TypePrestation, Prestation, TimeTracking, Facture, LigneFacture, Paiement, Relance,
-    ZoneGeographique, TarifMandat,
+    ZoneGeographique, TarifMandat, CategorieTemps,
 )
 
 
@@ -41,16 +41,26 @@ class LigneFactureInline(admin.TabularInline):
     extra = 1
 
 
+@admin.register(CategorieTemps)
+class CategorieTempsAdmin(admin.ModelAdmin):
+    list_display = ["code", "libelle", "type_categorie", "decompte_vacances", "decompte_maladie", "ordre", "is_active"]
+    list_filter = ["type_categorie", "is_active"]
+    search_fields = ["code", "libelle"]
+    ordering = ["type_categorie", "ordre"]
+
+
 @admin.register(TimeTracking)
 class TimeTrackingAdmin(admin.ModelAdmin):
     list_display = [
         "date_travail",
+        "type_entree",
         "utilisateur",
         "mandat",
+        "categorie",
         "duree_minutes",
         "facturable",
     ]
-    list_filter = ["facturable", "valide"]
+    list_filter = ["type_entree", "facturable", "valide"]
     date_hierarchy = "date_travail"
 
 

@@ -20,7 +20,7 @@ class CamtEntry:
     booking_date: Optional[date] = None
     value_date: Optional[date] = None
     amount: Decimal = Decimal('0')
-    currency: str = 'CHF'
+    currency: str = ''  # Lu depuis le XML (Ccy attribute)
     credit_debit: str = ''  # CRDT ou DBIT
     counterparty_name: str = ''
     counterparty_iban: str = ''
@@ -34,7 +34,7 @@ class CamtEntry:
 class CamtStatement:
     statement_id: str = ''
     iban: str = ''
-    currency: str = 'CHF'
+    currency: str = ''  # Lu depuis le XML
     opening_balance: Decimal = Decimal('0')
     closing_balance: Decimal = Decimal('0')
     entries: list = field(default_factory=list)
@@ -155,7 +155,9 @@ class Camt053ParserService:
                 entry.amount = Decimal(amt_elem.text)
             except InvalidOperation:
                 return None
-            entry.currency = amt_elem.get('Ccy', 'CHF')
+            entry.currency = amt_elem.get('Ccy', '')
+            if not entry.currency:
+                logger.warning("Attribut Ccy absent du XML camt053 — devise non déterminée")
 
         # Credit/Debit
         entry.credit_debit = ntry_elem.findtext('ns:CdtDbtInd', '', nsmap)

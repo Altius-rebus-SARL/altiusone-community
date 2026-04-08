@@ -1,10 +1,7 @@
 services:
   # Base de données PostgreSQL avec PostGIS et pgvector
   altiusone_postgres:
-    build:
-      context: .
-      dockerfile: Dockerfile.postgres
-    image: altiusone-postgres
+    image: ghcr.io/altius-rebus-sarl/altiusone-postgres:latest
     platform: linux/amd64
     container_name: altiusone_postgres
     restart: unless-stopped
@@ -49,10 +46,7 @@ services:
 
   # Backend Django
   django:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: altiusone-django
+    image: ghcr.io/altius-rebus-sarl/altiusone-django:latest
     platform: linux/amd64
     container_name: altiusone_django
     restart: unless-stopped
@@ -71,12 +65,16 @@ services:
       - AWS_STORAGE_BUCKET_NAME=${AWS_STORAGE_BUCKET_NAME:-altiusone-media}
       - AWS_S3_ENDPOINT_URL=http://minio:9000
       - AWS_S3_REGION_NAME=us-east-1
-      - DJANGO_SETTINGS_MODULE=AltiusOne.settings_community
+      # Chat LLM local (transformers direct, pas d'Ollama)
+      - CHAT_MODEL_NAME=${CHAT_MODEL_NAME:-Qwen/Qwen2.5-0.5B-Instruct}
     command: /app/entrypoint.sh
     volumes:
       - media:/app/media
       - static:/app/staticfiles
       - logs:/app/logs
+      - ./oidc_rsa_key.pem:/app/oidc_rsa_key.pem:ro
+      - ./firebase-credentials.json:/app/firebase-credentials.json:ro
+      - ./apns-auth-key.p8:/app/apns-auth-key.p8:ro
     ports:
       - "${DJANGO_PORT:-8011}:8000"
     depends_on:
@@ -97,8 +95,7 @@ services:
 
   # Celery Worker
   celery:
-    image: altiusone-django
-    pull_policy: never
+    image: ghcr.io/altius-rebus-sarl/altiusone-django:latest
     platform: linux/amd64
     container_name: altiusone_celery
     restart: unless-stopped
@@ -119,10 +116,14 @@ services:
       - AWS_STORAGE_BUCKET_NAME=${AWS_STORAGE_BUCKET_NAME:-altiusone-media}
       - AWS_S3_ENDPOINT_URL=http://minio:9000
       - AWS_S3_REGION_NAME=us-east-1
-      - DJANGO_SETTINGS_MODULE=AltiusOne.settings_community
+      # Chat LLM local (transformers direct, pas d'Ollama)
+      - CHAT_MODEL_NAME=${CHAT_MODEL_NAME:-Qwen/Qwen2.5-0.5B-Instruct}
     volumes:
       - media:/app/media
       - logs:/app/logs
+      - ./oidc_rsa_key.pem:/app/oidc_rsa_key.pem:ro
+      - ./firebase-credentials.json:/app/firebase-credentials.json:ro
+      - ./apns-auth-key.p8:/app/apns-auth-key.p8:ro
     depends_on:
       altiusone_postgres:
         condition: service_healthy
@@ -135,8 +136,7 @@ services:
 
   # Celery Beat (pour les tâches planifiées)
   celery-beat:
-    image: altiusone-django
-    pull_policy: never
+    image: ghcr.io/altius-rebus-sarl/altiusone-django:latest
     platform: linux/amd64
     container_name: altiusone_celery_beat
     restart: unless-stopped
@@ -160,6 +160,9 @@ services:
       - DJANGO_SETTINGS_MODULE=AltiusOne.settings_community
     volumes:
       - logs:/app/logs
+      - ./oidc_rsa_key.pem:/app/oidc_rsa_key.pem:ro
+      - ./firebase-credentials.json:/app/firebase-credentials.json:ro
+      - ./apns-auth-key.p8:/app/apns-auth-key.p8:ro
     depends_on:
       altiusone_postgres:
         condition: service_healthy
@@ -232,6 +235,100 @@ services:
     volumes:
       - ./docker/minio/init-buckets.sh:/init-buckets.sh:ro
     entrypoint: ["/bin/sh", "/init-buckets.sh"]
+    networks:
+      - altiusone_network
+
+  # ===========================================================================
+  # Nextcloud - Collaboration et stockage de fichiers
+  # ===========================================================================
+  altiusone_nextcloud_db:
+    image: postgres:17-alpine
+    container_name: altiusone_nextcloud_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud_user
+      POSTGRES_PASSWORD: ${NEXTCLOUD_DB_PASSWORD:-NextCloud@2026}
+    volumes:
+      - nextcloud_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nextcloud_user -d nextcloud"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - altiusone_network
+
+  altiusone_nextcloud:
+    image: ghcr.io/altius-rebus-sarl/altiusone-nextcloud:latest
+    container_name: altiusone_nextcloud
+    restart: unless-stopped
+    depends_on:
+      altiusone_nextcloud_db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      # PostgreSQL
+      POSTGRES_HOST: altiusone_nextcloud_db
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud_user
+      POSTGRES_PASSWORD: ${NEXTCLOUD_DB_PASSWORD:-NextCloud@2026}
+      # Redis (reuses AltiusOne Redis, database 1)
+      REDIS_HOST: redis
+      # MinIO S3 Storage
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minio}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minio123}
+      MINIO_BUCKET: ${AWS_STORAGE_BUCKET_NAME:-altiusone-media}
+      # OIDC SSO with AltiusOne (URL externe, pas http://django:8000
+      # car Nextcloud bloque les adresses locales - protection SSRF)
+      OIDC_PROVIDER_URL: https://${DOMAIN:-localhost}
+      OIDC_CLIENT_ID: ${NEXTCLOUD_OIDC_CLIENT_ID:-nextcloud}
+      OIDC_CLIENT_SECRET: ${NEXTCLOUD_OIDC_CLIENT_SECRET:-nextcloud-secret-change-me}
+      # Nextcloud Admin
+      NEXTCLOUD_ADMIN_USER: ${NEXTCLOUD_ADMIN_USER:-admin}
+      NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_ADMIN_PASSWORD:-admin123}
+      NEXTCLOUD_TRUSTED_DOMAINS: ${NEXTCLOUD_TRUSTED_DOMAINS:-localhost nextcloud.localhost}
+      # Reverse proxy settings
+      OVERWRITEPROTOCOL: https
+      OVERWRITEHOST: ${NEXTCLOUD_DOMAIN:-nextcloud.localhost}
+      # OnlyOffice
+      ONLYOFFICE_JWT_SECRET: ${ONLYOFFICE_JWT_SECRET:-onlyoffice-jwt-secret}
+      ONLYOFFICE_PUBLIC_URL: ${ONLYOFFICE_PUBLIC_URL:-http://localhost:9980/}
+    volumes:
+      - nextcloud_data:/var/www/html
+      - nextcloud_config:/var/www/html/config
+      - nextcloud_apps:/var/www/html/custom_apps
+    ports:
+      - "${NEXTCLOUD_PORT:-8585}:80"
+    networks:
+      - altiusone_network
+
+  # ===========================================================================
+  # OnlyOffice Document Server
+  # ===========================================================================
+  altiusone_onlyoffice:
+    image: onlyoffice/documentserver:latest
+    container_name: altiusone_onlyoffice
+    restart: unless-stopped
+    environment:
+      JWT_ENABLED: "true"
+      JWT_SECRET: ${ONLYOFFICE_JWT_SECRET:-onlyoffice-jwt-secret}
+    volumes:
+      - onlyoffice_data:/var/www/onlyoffice/Data
+      - onlyoffice_logs:/var/log/onlyoffice
+    ports:
+      - "${ONLYOFFICE_PORT:-9980}:80"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     networks:
       - altiusone_network
 

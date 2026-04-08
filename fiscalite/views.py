@@ -5,6 +5,7 @@ from django.views.decorators.http import require_http_methods
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.views.generic import ListView, DetailView, CreateView, UpdateView
 from core.permissions import BusinessPermissionMixin, permission_required_business
+from core.mixins import SearchMixin
 from django.db.models import Q, Count, Sum, Avg, F, Max
 from django.urls import reverse_lazy
 from django.contrib import messages
@@ -41,7 +42,7 @@ from core.models import Mandat, ExerciceComptable
 # ============ DÉCLARATIONS FISCALES ============
 
 
-class DeclarationFiscaleListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class DeclarationFiscaleListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des déclarations fiscales"""
 
     model = DeclarationFiscale
@@ -49,6 +50,7 @@ class DeclarationFiscaleListView(LoginRequiredMixin, BusinessPermissionMixin, Li
     context_object_name = "declarations"
     paginate_by = 50
     business_permission = 'fiscalite.view_declarations_fiscales'
+    search_fields = ['mandat__numero', 'mandat__client__raison_sociale', 'numero_contribuable', 'commune']
 
     def get_queryset(self):
         queryset = DeclarationFiscale.objects.select_related(
@@ -64,7 +66,7 @@ class DeclarationFiscaleListView(LoginRequiredMixin, BusinessPermissionMixin, Li
 
         # Appliquer les filtres
         self.filterset = DeclarationFiscaleFilter(self.request.GET, queryset=queryset)
-        return self.filterset.qs.order_by("-annee_fiscale", "-date_creation")
+        return self.apply_search(self.filterset.qs.order_by("-annee_fiscale", "-date_creation"))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -178,7 +180,7 @@ class DeclarationFiscaleCreateView(
         return super().form_valid(form)
 
 
-@login_required
+@permission_required_business('fiscalite.change_declaration_fiscale')
 @require_http_methods(["POST"])
 def declaration_valider(request, pk):
     """Valide une déclaration fiscale"""
@@ -193,7 +195,7 @@ def declaration_valider(request, pk):
     return redirect("fiscalite:declaration-detail", pk=pk)
 
 
-@login_required
+@permission_required_business('fiscalite.change_declaration_fiscale')
 @require_http_methods(["POST"])
 def declaration_populate_comptabilite(request, pk):
     """Pré-remplit les montants depuis la comptabilité"""
@@ -214,7 +216,7 @@ def declaration_populate_comptabilite(request, pk):
     return redirect("fiscalite:declaration-detail", pk=pk)
 
 
-@login_required
+@permission_required_business('fiscalite.change_declaration_fiscale')
 @require_http_methods(["POST"])
 def declaration_deposer(request, pk):
     """Marque une déclaration comme déposée"""
@@ -237,7 +239,7 @@ def declaration_deposer(request, pk):
 # ============ ANNEXES FISCALES ============
 
 
-@login_required
+@permission_required_business('fiscalite.add_declaration_fiscale')
 def annexe_create(request, declaration_pk):
     """Crée une annexe fiscale"""
     declaration = get_object_or_404(DeclarationFiscale, pk=declaration_pk)
@@ -271,7 +273,7 @@ def annexe_create(request, declaration_pk):
 # ============ CORRECTIONS FISCALES ============
 
 
-@login_required
+@permission_required_business('fiscalite.change_declaration_fiscale')
 def correction_create(request, declaration_pk):
     """Crée une correction fiscale"""
     declaration = get_object_or_404(DeclarationFiscale, pk=declaration_pk)
@@ -298,13 +300,14 @@ def correction_create(request, declaration_pk):
 # ============ REPORTS DE PERTES ============
 
 
-class ReportPerteListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class ReportPerteListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des reports de pertes"""
 
     model = ReportPerte
     template_name = "fiscalite/report_perte_list.html"
     context_object_name = "reports"
     business_permission = 'fiscalite.view_declarations_fiscales'
+    search_fields = ['mandat__numero', 'mandat__client__raison_sociale']
 
     def get_queryset(self):
         queryset = ReportPerte.objects.select_related("mandat__client")
@@ -316,7 +319,7 @@ class ReportPerteListView(LoginRequiredMixin, BusinessPermissionMixin, ListView)
                 Q(mandat__responsable=user) | Q(mandat__equipe=user)
             ).distinct()
 
-        return queryset.order_by("annee_expiration", "annee_origine")
+        return self.apply_search(queryset.order_by("annee_expiration", "annee_origine"))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -357,21 +360,24 @@ class ReportPerteDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailV
 # ============ RÉCLAMATIONS FISCALES ============
 
 
-class ReclamationFiscaleListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class ReclamationFiscaleListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des réclamations fiscales"""
 
     model = ReclamationFiscale
     template_name = "fiscalite/reclamation_list.html"
     context_object_name = "reclamations"
     business_permission = 'fiscalite.view_declarations_fiscales'
+    search_fields = ['declaration__mandat__numero', 'motif']
 
     def get_queryset(self):
-        return ReclamationFiscale.objects.select_related(
-            "declaration__mandat__client"
-        ).order_by("-date_reclamation")
+        return self.apply_search(
+            ReclamationFiscale.objects.select_related(
+                "declaration__mandat__client"
+            ).order_by("-date_reclamation")
+        )
 
 
-@login_required
+@permission_required_business('fiscalite.change_declaration_fiscale')
 def reclamation_create(request, declaration_pk):
     """Crée une réclamation fiscale"""
     declaration = get_object_or_404(DeclarationFiscale, pk=declaration_pk)
@@ -398,7 +404,7 @@ def reclamation_create(request, declaration_pk):
 # ============ OPTIMISATIONS FISCALES ============
 
 
-class OptimisationFiscaleListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class OptimisationFiscaleListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des optimisations fiscales"""
 
     model = OptimisationFiscale
@@ -406,6 +412,7 @@ class OptimisationFiscaleListView(LoginRequiredMixin, BusinessPermissionMixin, L
     context_object_name = "optimisations"
     paginate_by = 50
     business_permission = 'fiscalite.view_declarations_fiscales'
+    search_fields = ['titre', 'description', 'mandat__numero', 'mandat__client__raison_sociale']
 
     def get_queryset(self):
         queryset = OptimisationFiscale.objects.select_related("mandat__client")
@@ -419,7 +426,7 @@ class OptimisationFiscaleListView(LoginRequiredMixin, BusinessPermissionMixin, L
 
         # Appliquer les filtres
         self.filterset = OptimisationFiscaleFilter(self.request.GET, queryset=queryset)
-        return self.filterset.qs.order_by("-economie_estimee")
+        return self.apply_search(self.filterset.qs.order_by("-economie_estimee"))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -471,7 +478,7 @@ class OptimisationFiscaleCreateView(
         return super().form_valid(form)
 
 
-@login_required
+@permission_required_business('fiscalite.change_declaration_fiscale')
 @require_http_methods(["POST"])
 def optimisation_changer_statut(request, pk):
     """Change le statut d'une optimisation fiscale"""
@@ -500,16 +507,19 @@ def optimisation_changer_statut(request, pk):
 # ============ TAUX D'IMPOSITION ============
 
 
-class TauxImpositionListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class TauxImpositionListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des taux d'imposition avec onglets par régime fiscal"""
 
     model = TauxImposition
     template_name = "fiscalite/taux_imposition_list.html"
     context_object_name = "taux"
     business_permission = 'fiscalite.view_declarations_fiscales'
+    search_fields = ['commune', 'subdivision']
 
     def get_queryset(self):
-        return TauxImposition.objects.filter(actif=True).select_related('regime_fiscal')
+        return self.apply_search(
+            TauxImposition.objects.filter(actif=True).select_related('regime_fiscal')
+        )
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -583,7 +593,7 @@ class TauxImpositionUpdateView(LoginRequiredMixin, BusinessPermissionMixin, Upda
         return super().form_valid(form)
 
 
-@login_required
+@permission_required_business('fiscalite.change_declaration_fiscale')
 @require_http_methods(["POST"])
 def taux_imposition_delete(request, pk):
     """Suppression d'un taux d'imposition"""
@@ -596,10 +606,10 @@ def taux_imposition_delete(request, pk):
 # ============ RAPPORTS FISCAUX ============
 
 
-@login_required
+@permission_required_business('fiscalite.view_declarations_fiscales')
 def rapport_fiscal_annuel(request, mandat_pk):
     """Génère un rapport fiscal annuel pour un mandat"""
-    mandat = get_object_or_404(Mandat, pk=mandat_pk)
+    mandat = get_object_or_404(Mandat.objects.select_related("client"), pk=mandat_pk)
 
     annee = request.GET.get("annee", datetime.now().year)
 

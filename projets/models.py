@@ -80,6 +80,16 @@ class Position(BaseModel):
     )
     est_sous_traite = models.BooleanField(default=False, verbose_name=_("Sous-traité"))
 
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            f"{self.numero} {self.titre}",
+            self.description,
+            self.adresse,
+            self.prestataire_nom,
+        ]
+        return ' '.join(filter(None, parts))
+
     class Meta:
         db_table = "positions"
         verbose_name = _("Position")
@@ -131,11 +141,18 @@ class Position(BaseModel):
         )
 
     def recalculer_budget_reel(self):
-        """Recalcule le budget réel à partir des coûts des opérations, puis propage au mandat."""
-        total = self.operations.filter(is_active=True).aggregate(
+        """Recalcule le budget réel à partir des opérations + temps directs, puis propage au mandat."""
+        # Coûts des opérations
+        total_operations = self.operations.filter(is_active=True).aggregate(
             total=models.Sum("cout_reel")
         )["total"] or Decimal("0")
-        self.budget_reel = total
+        # Temps liés directement à la position (sans opération)
+        total_temps_directs = self.temps_passes.filter(
+            is_active=True, operation__isnull=True
+        ).aggregate(
+            total=models.Sum("montant_ht")
+        )["total"] or Decimal("0")
+        self.budget_reel = total_operations + total_temps_directs
         self.save(update_fields=["budget_reel"])
         self.mandat.recalculer_budget_reel()
 
@@ -217,6 +234,14 @@ class Operation(BaseModel):
     # Ordre
     ordre = models.PositiveIntegerField(default=0, verbose_name=_("Ordre"))
 
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            f"{self.numero} {self.titre}" if self.numero else self.titre,
+            self.description,
+        ]
+        return ' '.join(filter(None, parts))
+
     class Meta:
         db_table = "operations"
         verbose_name = _("Opération")
@@ -259,6 +284,10 @@ class OperationNote(BaseModel):
         verbose_name=_("Auteur"),
     )
     contenu = models.TextField(verbose_name=_("Contenu"))
+
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        return self.contenu or ''
 
     class Meta:
         db_table = "operation_notes"

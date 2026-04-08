@@ -30,6 +30,9 @@
         <p class="text-muted f-s-12 mb-0">
           {{ user.role.nom|default:'Utilisateur' }}
         </p>
+        {% if CONNEXION_LABEL %}
+        <span class="badge bg-light-{{ CONNEXION_COLOR }} text-{{ CONNEXION_COLOR }} f-s-10 mt-1">{{ CONNEXION_LABEL }}</span>
+        {% endif %}
       </div>
 
       <div class="dropdown profile-menu-dropdown">
@@ -83,11 +86,20 @@
 
       <li
         class="no-sub"
-        data-active="{% if ns == 'analytics' and is_active == 'dashboard-executif' %}true{% endif %}"
+        data-active="{% if ns == 'analytics' and is_active != 'visualisations' %}true{% endif %}"
       >
         <a href="{% url 'analytics:dashboard-executif' %}">
           <i class="ti ti-chart-infographic f-s-30"></i>
-          {% trans "Dashboard Exécutif" %}
+          {% trans "Analytics" %}
+        </a>
+      </li>
+      <li
+        class="no-sub"
+        data-active="{% if ns == 'analytics' and is_active == 'visualisations' %}true{% endif %}"
+      >
+        <a href="{% url 'analytics:visualisations' %}">
+          <i class="ti ti-chart-dots-3 f-s-30"></i>
+          {% trans "Visualisations" %}
         </a>
       </li>
 
@@ -96,7 +108,7 @@
       <!-- CORE Module -->
       {% with is_core_menu=ns|add:":"|add:is_active %}
       <li
-        data-active="{% if 'core:client' in is_core_menu or 'core:mandat' in is_core_menu or 'core:exercice' in is_core_menu or 'core:tache' in is_core_menu or 'core:entreprise' in is_core_menu or ns == 'modelforms' and 'available' in is_active or ns == 'modelforms' and 'form-fill' in is_active %}true{% endif %}"
+        data-active="{% if 'core:client' in is_core_menu or 'core:mandat' in is_core_menu or 'core:exercice' in is_core_menu or 'core:tache' in is_core_menu or 'core:entreprise' in is_core_menu or 'core:contrat' in is_core_menu or ns == 'modelforms' and 'available' in is_active or ns == 'modelforms' and 'form-fill' in is_active %}true{% endif %}"
       >
         <a
           data-expanded="{% if ns == 'core' and is_active in 'client-list,client-detail,client-create,client-update,mandat-list,mandat-detail,mandat-create,mandat-update,exercice-list,exercice-detail,exercice-create,exercice-update,tache-list,tache-detail,tache-create,tache-update,entreprise-list,entreprise-detail,entreprise-create,entreprise-update' or ns == 'modelforms' and 'available' in is_active or ns == 'modelforms' and 'form-fill' in is_active %}true{% else %}false{% endif %}"
@@ -145,14 +157,19 @@
               {% trans "Formulaires" %}
             </a>
           </li>
+          <li
+            data-active="{% if ns == 'core' and 'contrat' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'core:contrat-list' %}">{% trans "Contrats" %}</a>
+          </li>
         </ul>
       </li>
       {% endwith %}
 
       <!-- COMPTABILITÉ Module -->
-      <li data-active="{% if ns == 'comptabilite' %}true{% endif %}">
+      <li data-active="{% if ns == 'comptabilite' or ns == 'core' and 'exercice' in is_active %}true{% endif %}">
         <a
-          data-expanded="{% if ns == 'comptabilite' %}true{% else %}false{% endif %}"
+          data-expanded="{% if ns == 'comptabilite' or ns == 'core' and 'exercice' in is_active %}true{% else %}false{% endif %}"
           data-bs-toggle="collapse"
           href="#comptabiliteMenu"
         >
@@ -190,6 +207,34 @@
           >
             <a href="{% url 'comptabilite:journal-list' %}"
               >{% trans "Journaux" %}</a
+            >
+          </li>
+          <li
+            data-active="{% if ns == 'core' and 'exercice' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'core:exercice-list' %}"
+              >{% trans "Exercices comptables" %}</a
+            >
+          </li>
+          <li
+            data-active="{% if ns == 'comptabilite' and 'immobilisation' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'comptabilite:immobilisation-list' %}"
+              >{% trans "Immobilisations" %}</a
+            >
+          </li>
+          <li
+            data-active="{% if ns == 'comptabilite' and 'axe' in is_active or ns == 'comptabilite' and 'section' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'comptabilite:axe-list' %}"
+              >{% trans "Analytique" %}</a
+            >
+          </li>
+          <li
+            data-active="{% if ns == 'comptabilite' and 'releve' in is_active %}true{% endif %}"
+          >
+            <a href="{% url 'comptabilite:releve-list' %}"
+              >{% trans "Rapprochement bancaire" %}</a
             >
           </li>
         </ul>
@@ -416,60 +461,15 @@
         </ul>
       </li>
 
-      <li class="menu-title"><span>{% trans "Analyse" %}</span></li>
-
-      <!-- ANALYTICS Module -->
-      <li data-active="{% if ns == 'analytics' %}true{% endif %}">
-        <a
-          data-expanded="{% if ns == 'analytics' %}true{% else %}false{% endif %}"
-          data-bs-toggle="collapse"
-          href="#analyticsMenu"
-        >
-          <i class="ti ti-chart-bar f-s-30"></i>
-          {% trans "Analytics" %}
+      <!-- Support / Aide -->
+      <li class="no-sub" data-active="{% if ns == 'support' %}true{% endif %}">
+        <a href="{% url 'support:hub' %}">
+          <i class="ti ti-help-circle f-s-30"></i>
+          {% trans "Aide & Support" %}
         </a>
-        <ul
-          class="collapse"
-          data-show="{% if ns == 'analytics' %}true{% endif %}"
-          id="analyticsMenu"
-        >
-          <li
-            data-active="{% if ns == 'analytics' and 'tableau-bord' in is_active %}true{% endif %}"
-          >
-            <a href="{% url 'analytics:tableau-bord-list' %}"
-              >{% trans "Tableaux de bord" %}</a
-            >
-          </li>
-          <li
-            data-active="{% if ns == 'analytics' and is_active == 'visualisations' %}true{% endif %}"
-          >
-            <a href="{% url 'analytics:visualisations' %}"
-              >{% trans "Visualisations" %}</a
-            >
-          </li>
-          <li
-            data-active="{% if ns == 'analytics' and 'rapport' in is_active %}true{% endif %}"
-          >
-            <a href="{% url 'analytics:rapport-list' %}"
-              >{% trans "Rapports" %}</a
-            >
-          </li>
-          <li
-            data-active="{% if ns == 'analytics' and 'alerte' in is_active %}true{% endif %}"
-          >
-            <a href="{% url 'analytics:alerte-list' %}"
-              >{% trans "Alertes" %}</a
-            >
-          </li>
-          <li
-            data-active="{% if ns == 'analytics' and 'export' in is_active %}true{% endif %}"
-          >
-            <a href="{% url 'analytics:export-list' %}"
-              >{% trans "Exports" %}</a
-            >
-          </li>
-        </ul>
       </li>
+
+      <!-- Analytics est maintenant un lien unique en haut du sidebar -->
 
       {% if user.is_client_user %}
       <li

@@ -1,0 +1,142 @@
+<!-- core/modele_contrat_list.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Modèles de contrat" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Modèles de contrat" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:contrat-list' %}">
+                    <span>{% trans "Contrats" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Modèles" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Main Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{% trans "Modèles de contrat disponibles" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="overflow-auto app-scroll">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Nom" %}</th>
+                                <th>{% trans "Source" %}</th>
+                                <th>{% trans "Langue" %}</th>
+                                <th>{% trans "Catégorie" %}</th>
+                                <th>{% trans "Document" %}</th>
+                                <th>{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for modele in modeles %}
+                            <tr>
+                                <td class="f-w-500">{{ modele.nom }}</td>
+                                <td>
+                                    {% if modele.source == 'CONFEDERATION' %}
+                                    <span class="badge bg-primary">{% trans "Confédération" %}</span>
+                                    {% elif modele.source == 'FIDUCIAIRE' %}
+                                    <span class="badge bg-success">{% trans "Fiduciaire" %}</span>
+                                    {% elif modele.source == 'PERSONNALISE' %}
+                                    <span class="badge bg-secondary">{% trans "Personnalisé" %}</span>
+                                    {% else %}
+                                    <span class="badge bg-light-dark">{{ modele.get_source_display }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ modele.langue|upper }}</td>
+                                <td>{{ modele.categorie|default:"—" }}</td>
+                                <td>
+                                    {% if modele.document %}
+                                    <a href="{% url 'documents:document-detail' modele.document.pk %}" class="btn btn-sm btn-light-primary">
+                                        <i class="ph ph-file me-1"></i>{% trans "Ouvrir" %}
+                                    </a>
+                                    {% else %}
+                                    <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{% url 'core:contrat-create' %}?modele_source={{ modele.pk }}"
+                                       class="btn btn-sm btn-light-success"
+                                       data-bs-toggle="tooltip"
+                                       title="{% trans 'Créer un contrat depuis ce modèle' %}">
+                                        <i class="ph ph-plus me-1"></i>{% trans "Créer un contrat" %}
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center py-5">
+                                    <i class="ph ph-files f-s-50 text-muted"></i>
+                                    <p class="text-muted mt-2">{% trans "Aucun modèle de contrat disponible" %}</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if is_paginated %}
+                <div class="list-pagination mt-3">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1">
+                                <i class="ph ph-caret-double-left"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                                <i class="ph ph-caret-left"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                            <li class="page-item active"><a class="page-link">{{ num }}</a></li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                                <i class="ph ph-caret-right"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">
+                                <i class="ph ph-caret-double-right"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

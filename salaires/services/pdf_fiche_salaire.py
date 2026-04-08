@@ -57,6 +57,8 @@ class FicheSalairePDF:
         self.client = fiche.employe.mandat.client
         self.adresse = self.client.adresse_siege
         self.style_config = style_config
+        # Devise dynamique depuis le mandat
+        self.devise_code = fiche.employe.mandat.devise_id or 'CHF'
         if style_config:
             from salaires.services.pdf_styles import get_salaires_styles_custom
             self.styles = get_salaires_styles_custom(style_config)
@@ -76,7 +78,10 @@ class FicheSalairePDF:
         # Colonne gauche: employeur
         employer_lines = [f"<b>{self.client.raison_sociale}</b>"]
         if self.adresse:
-            employer_lines.append(f"{self.adresse.rue} {self.adresse.numero or ''}")
+            rue = self.adresse.rue.strip()
+            if self.adresse.numero and self.adresse.numero not in rue:
+                rue = f"{rue} {self.adresse.numero}"
+            employer_lines.append(rue)
             employer_lines.append(f"{self.adresse.code_postal} {self.adresse.localite}")
         employer_text = Paragraph("<br/>".join(employer_lines), self.styles['employer_detail'])
 
@@ -211,7 +216,7 @@ class FicheSalairePDF:
             ("13eme salaire", f.treizieme_mois),
         ]
 
-        header = ['SALAIRE BRUT', 'CHF']
+        header = ['SALAIRE BRUT', self.devise_code]
         data = [header]
         for libelle, montant in lignes:
             if montant and montant > 0:
@@ -264,7 +269,7 @@ class FicheSalairePDF:
             ("IJM (Indemnites journalieres)", f.ijm_employe),
         ]
 
-        header = ['COTISATIONS (part employe)', 'CHF']
+        header = ['COTISATIONS (part employe)', self.devise_code]
         data = [header]
         for libelle, montant in cotisations:
             if montant and montant > 0:
@@ -317,7 +322,7 @@ class FicheSalairePDF:
         if not has_deductions:
             return None
 
-        header = ['AUTRES DEDUCTIONS', 'CHF']
+        header = ['AUTRES DEDUCTIONS', self.devise_code]
         data = [header]
         for libelle, montant in deductions:
             if montant and montant > 0:
@@ -356,7 +361,7 @@ class FicheSalairePDF:
         if not has_alloc:
             return None
 
-        header = ['ALLOCATIONS', 'CHF']
+        header = ['ALLOCATIONS', self.devise_code]
         data = [header]
         if f.allocations_familiales and f.allocations_familiales > 0:
             data.append(['Allocations familiales', f"+{format_montant_suisse(f.allocations_familiales)}"])
@@ -445,8 +450,8 @@ class FicheSalairePDF:
         elements.append(Paragraph(line1, charges_style))
 
         line2 = (
-            f"Total charges patronales: CHF {format_montant_suisse(f.total_charges_patronales) or '0.00'} | "
-            f"Cout total employeur: CHF {format_montant_suisse(f.cout_total_employeur) or '0.00'}"
+            f"Total charges patronales: {self.devise_code} {format_montant_suisse(f.total_charges_patronales) or '0.00'} | "
+            f"Cout total employeur: {self.devise_code} {format_montant_suisse(f.cout_total_employeur) or '0.00'}"
         )
         elements.append(Paragraph(line2, charges_style))
         return elements

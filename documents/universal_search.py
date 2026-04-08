@@ -24,6 +24,7 @@ import logging
 from typing import List, Dict, Any, Optional, Set
 from dataclasses import dataclass, field
 from enum import Enum
+from django.conf import settings
 from django.db.models import Q, Value, CharField
 from django.db.models.functions import Concat
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
@@ -51,6 +52,11 @@ class EntityType(Enum):
     PLAN_COMPTABLE = 'plan_comptable'
     JOURNAL = 'journal'
     UTILISATEUR = 'utilisateur'
+    CONTRAT = 'contrat'
+    IMMOBILISATION = 'immobilisation'
+    POSITION = 'position'
+    OPERATION = 'operation'
+    RELEVE_BANCAIRE = 'releve_bancaire'
 
 
 @dataclass
@@ -217,6 +223,31 @@ class UniversalSearchService:
             'url_pattern': '/fr/admin/utilisateurs/{id}/',
             'search_fields': ['first_name', 'last_name', 'email', 'username'],
         },
+        EntityType.CONTRAT: {
+            'icon': 'ph-file-text',
+            'color': 'primary',
+            'url_pattern': '/fr/contrats/{id}/',
+        },
+        EntityType.IMMOBILISATION: {
+            'icon': 'ph-buildings',
+            'color': 'info',
+            'url_pattern': '/fr/comptabilite/immobilisations/{id}/',
+        },
+        EntityType.POSITION: {
+            'icon': 'ph-folder-open',
+            'color': 'success',
+            'url_pattern': '/fr/projets/positions/{id}/',
+        },
+        EntityType.OPERATION: {
+            'icon': 'ph-list-checks',
+            'color': 'warning',
+            'url_pattern': '/fr/projets/operations/{id}/',
+        },
+        EntityType.RELEVE_BANCAIRE: {
+            'icon': 'ph-bank',
+            'color': 'secondary',
+            'url_pattern': '/fr/comptabilite/releves/{id}/',
+        },
     }
 
     def __init__(self):
@@ -239,6 +270,52 @@ class UniversalSearchService:
             self._ai_service = ai_service
         return self._ai_service
 
+    # Mots vides a ignorer lors de l'extraction de mots-cles
+    STOP_WORDS = frozenset({
+        # Francais
+        'le', 'la', 'les', 'un', 'une', 'des', 'du', 'de', 'au', 'aux',
+        'ce', 'ces', 'cet', 'cette', 'mon', 'ton', 'son', 'ma', 'ta', 'sa',
+        'mes', 'tes', 'ses', 'nos', 'vos', 'leur', 'leurs',
+        'je', 'tu', 'il', 'elle', 'nous', 'vous', 'ils', 'elles', 'on',
+        'me', 'te', 'se', 'lui', 'y', 'en',
+        'et', 'ou', 'mais', 'donc', 'ni', 'car', 'que', 'qui', 'quoi',
+        'est', 'sont', 'a', 'ont', 'fait', 'font', 'dit', 'va', 'vont',
+        'dans', 'sur', 'sous', 'avec', 'pour', 'par', 'chez', 'entre',
+        'pas', 'plus', 'moins', 'bien', 'mal', 'tout', 'tous', 'toute',
+        'quel', 'quelle', 'quels', 'quelles', 'comment', 'pourquoi',
+        'quand', 'combien',
+        "c'est", "qu'est", "l'", "d'", "j'", "n'", "s'",
+        'oui', 'non', 'si', 'ne', 'tres', 'aussi', 'comme',
+        'moi', 'toi', 'eux', 'nous',
+        'etre', 'avoir', 'faire', 'dire', 'aller', 'voir', 'savoir',
+        'pouvoir', 'vouloir', 'falloir', 'devoir',
+        # Questions courantes
+        'quoi', 'donne', 'montre', 'affiche', 'trouve', 'cherche',
+        'explique', 'raconte', 'parle',
+    })
+
+    def _extract_search_keywords(self, message: str) -> str:
+        """
+        Extrait les mots-cles significatifs d'un message utilisateur.
+
+        Supprime les mots vides pour ne garder que les termes pertinents
+        pour la recherche dans la base de donnees.
+        """
+        import re
+        # Nettoyer la ponctuation sauf apostrophes internes
+        clean = re.sub(r"[^\w\s'-]", ' ', message.lower())
+        # Gerer les apostrophes en debut de mot (l', d', etc.)
+        clean = re.sub(r"\b[a-z]'", ' ', clean)
+
+        words = clean.split()
+        keywords = [w for w in words if w not in self.STOP_WORDS and len(w) > 1]
+
+        if not keywords:
+            # Fallback: utiliser le message original
+            return message.strip()
+
+        return ' '.join(keywords)
+
     def search(
         self,
         query: str,
@@ -250,7 +327,7 @@ class UniversalSearchService:
         Recherche universelle dans toutes les entites.
 
         Args:
-            query: Requete de recherche
+            query: Requete de recherche (message utilisateur brut)
             context: Contexte (user, filtres, permissions)
             limit: Nombre max de resultats
             semantic_weight: Poids de la recherche semantique (0-1)
@@ -258,6 +335,10 @@ class UniversalSearchService:
         Returns:
             Liste de SearchResult tries par pertinence
         """
+        # Extraire les mots-cles significatifs du message
+        search_query = self._extract_search_keywords(query)
+        logger.info(f"Recherche: '{query}' -> mots-cles: '{search_query}'")
+
         results = []
         entity_types = context.entity_types or list(EntityType)
 
@@ -267,7 +348,7 @@ class UniversalSearchService:
         for entity_type in entity_types:
             try:
                 type_results = self._search_entity_type(
-                    query=query,
+                    query=search_query,
                     entity_type=entity_type,
                     context=context,
                     limit=limit_per_type,
@@ -276,6 +357,55 @@ class UniversalSearchService:
                 results.extend(type_results)
             except Exception as e:
                 logger.error(f"Erreur recherche {entity_type.value}: {e}")
+
+        # Si pas de resultats avec les mots-cles, essayer avec la requete brute
+        if not results and search_query != query.strip():
+            logger.info(f"Aucun resultat avec mots-cles, retry avec requete brute")
+            for entity_type in entity_types:
+                try:
+                    type_results = self._search_entity_type(
+                        query=query.strip(),
+                        entity_type=entity_type,
+                        context=context,
+                        limit=limit_per_type,
+                        semantic_weight=semantic_weight
+                    )
+                    results.extend(type_results)
+                except Exception as e:
+                    pass
+
+        # Recherche sémantique (ModelEmbedding pgvector)
+        if semantic_weight > 0:
+            try:
+                semantic_results = self._search_semantic(
+                    query=query,
+                    context=context,
+                    limit=limit,
+                    threshold=float(getattr(settings, 'SEARCH_SEMANTIC_THRESHOLD', 0.5)),
+                )
+
+                # Fusionner: pondérer les scores
+                fulltext_weight = 1 - semantic_weight
+                seen_ids = set()
+
+                for r in results:
+                    r.score *= fulltext_weight
+                    seen_ids.add((r.entity_type.value, r.entity_id))
+
+                for r in semantic_results:
+                    key = (r.entity_type.value, r.entity_id)
+                    if key in seen_ids:
+                        # Bonus: trouvé en fulltext ET sémantique
+                        for existing in results:
+                            if existing.entity_type.value == key[0] and existing.entity_id == key[1]:
+                                existing.score += r.score * semantic_weight
+                                break
+                    else:
+                        r.score *= semantic_weight
+                        results.append(r)
+                        seen_ids.add(key)
+            except Exception as e:
+                logger.debug(f"Recherche sémantique ignorée: {e}")
 
         # Trier par score decroissant
         results.sort(key=lambda r: r.score, reverse=True)
@@ -328,6 +458,16 @@ class UniversalSearchService:
             return self._search_journaux(query, context, limit)
         elif entity_type == EntityType.UTILISATEUR:
             return self._search_utilisateurs(query, context, limit)
+        elif entity_type == EntityType.CONTRAT:
+            return self._search_contrats(query, context, limit)
+        elif entity_type == EntityType.IMMOBILISATION:
+            return self._search_immobilisations(query, context, limit)
+        elif entity_type == EntityType.POSITION:
+            return self._search_positions(query, context, limit)
+        elif entity_type == EntityType.OPERATION:
+            return self._search_operations(query, context, limit)
+        elif entity_type == EntityType.RELEVE_BANCAIRE:
+            return self._search_releves_bancaires(query, context, limit)
 
         return []
 
@@ -384,6 +524,24 @@ class UniversalSearchService:
 
         return results
 
+    def _build_term_filter(self, query: str, fields: List[str]) -> Q:
+        """
+        Construit un filtre Q qui cherche CHAQUE terme individuellement
+        dans les champs specifies. Tous les termes doivent matcher (AND).
+        """
+        terms = query.lower().split()
+        if not terms:
+            return Q(pk__isnull=True)  # Aucun resultat
+
+        combined = Q()
+        for term in terms:
+            term_q = Q()
+            for field_name in fields:
+                term_q |= Q(**{f'{field_name}__icontains': term})
+            combined &= term_q
+
+        return combined
+
     def _search_clients(self, query: str, context: SearchContext, limit: int) -> List[SearchResult]:
         """Recherche dans les clients."""
         from core.models import Client
@@ -391,15 +549,10 @@ class UniversalSearchService:
         results = []
         config = self.ENTITY_CONFIG[EntityType.CLIENT]
 
-        # Construire la requete
-        q_filter = Q(is_active=True) & (
-            Q(raison_sociale__icontains=query) |
-            Q(nom_commercial__icontains=query) |
-            Q(ide_number__icontains=query) |
-            Q(tva_number__icontains=query) |
-            Q(email__icontains=query) |
-            Q(telephone__icontains=query)
-        )
+        # Chercher chaque mot-cle dans les champs (AND entre termes)
+        search_fields = ['raison_sociale', 'nom_commercial', 'ide_number',
+                         'tva_number', 'email', 'telephone']
+        q_filter = Q(is_active=True) & self._build_term_filter(query, search_fields)
 
         # Filtrer par mandats si specifie
         if context.mandat_ids:
@@ -444,12 +597,8 @@ class UniversalSearchService:
         results = []
         config = self.ENTITY_CONFIG[EntityType.MANDAT]
 
-        q_filter = Q(is_active=True) & (
-            Q(numero__icontains=query) |
-            Q(description__icontains=query) |
-            Q(type_mandat__icontains=query) |
-            Q(client__raison_sociale__icontains=query)
-        )
+        search_fields = ['numero', 'description', 'type_mandat', 'client__raison_sociale']
+        q_filter = Q(is_active=True) & self._build_term_filter(query, search_fields)
 
         # Filtrer par mandats autorises
         if context.mandat_ids:
@@ -496,19 +645,11 @@ class UniversalSearchService:
         results = []
         config = self.ENTITY_CONFIG[EntityType.EMPLOYE]
 
-        q_filter = Q(is_active=True) & (
-            Q(nom__icontains=query) |
-            Q(prenom__icontains=query) |
-            Q(matricule__icontains=query) |
-            Q(email__icontains=query) |
-            Q(fonction__icontains=query) |
-            Q(avs_number__icontains=query)
-        )
+        search_fields = ['nom', 'prenom', 'matricule', 'email', 'fonction', 'avs_number']
+        q_filter = Q(is_active=True) & self._build_term_filter(query, search_fields)
 
-        # Multi-word: also search concatenated full name ("Laetitia Barman")
-        q_fullname = Q(full_name__icontains=query)
-        # Also try reversed order ("Barman Laetitia")
-        q_fullname_rev = Q(full_name_rev__icontains=query)
+        # Multi-word: also search concatenated full name
+        q_fullname = self._build_term_filter(query, ['full_name', 'full_name_rev'])
 
         if context.mandat_ids:
             q_filter &= Q(mandat_id__in=context.mandat_ids)
@@ -516,7 +657,7 @@ class UniversalSearchService:
         employes = Employe.objects.annotate(
             full_name=Concat('prenom', Value(' '), 'nom', output_field=CharField()),
             full_name_rev=Concat('nom', Value(' '), 'prenom', output_field=CharField()),
-        ).filter(q_filter | q_fullname | q_fullname_rev).select_related('mandat').distinct()[:limit]
+        ).filter(q_filter | q_fullname).select_related('mandat').distinct()[:limit]
 
         for emp in employes:
             score = self._calculate_text_score(query, [
@@ -618,10 +759,8 @@ class UniversalSearchService:
         results = []
         config = self.ENTITY_CONFIG[EntityType.FACTURE]
 
-        q_filter = Q(is_active=True) & (
-            Q(numero_facture__icontains=query) |
-            Q(client__raison_sociale__icontains=query)
-        )
+        search_fields = ['numero_facture', 'client__raison_sociale', 'qr_reference']
+        q_filter = Q(is_active=True) & self._build_term_filter(query, search_fields)
 
         if context.mandat_ids:
             q_filter &= Q(mandat_id__in=context.mandat_ids)
@@ -1374,6 +1513,368 @@ class UniversalSearchService:
                 lines.append(f"{key}: {value}")
 
         return "\n".join(lines)
+
+    def _search_contrats(self, query: str, context: SearchContext, limit: int) -> List[SearchResult]:
+        """Recherche dans les contrats."""
+        from core.models import Contrat
+
+        results = []
+        config = self.ENTITY_CONFIG[EntityType.CONTRAT]
+
+        q_filter = Q(is_active=True) & (
+            Q(numero__icontains=query) |
+            Q(titre__icontains=query) |
+            Q(description__icontains=query) |
+            Q(client__raison_sociale__icontains=query)
+        )
+
+        if context.mandat_ids:
+            q_filter &= Q(mandat_id__in=context.mandat_ids)
+
+        contrats = Contrat.objects.filter(q_filter).select_related('client', 'mandat')[:limit]
+
+        for contrat in contrats:
+            score = self._calculate_text_score(query, [
+                contrat.titre,
+                contrat.numero or '',
+                contrat.description or '',
+            ])
+
+            results.append(SearchResult(
+                entity_type=EntityType.CONTRAT,
+                entity_id=str(contrat.id),
+                title=contrat.titre,
+                subtitle=f"{contrat.get_sens_display()} - {contrat.get_statut_display()}",
+                description=contrat.description[:150] if contrat.description else '',
+                score=score,
+                url=config['url_pattern'].format(id=contrat.id),
+                icon=config['icon'],
+                color=config['color'],
+                metadata={
+                    'statut': contrat.statut,
+                    'sens': contrat.sens,
+                    'client_nom': contrat.client.raison_sociale if contrat.client else None,
+                    'montant': str(contrat.montant) if contrat.montant else None,
+                    'date_debut': contrat.date_debut.isoformat() if contrat.date_debut else None,
+                }
+            ))
+
+        return results
+
+    def _search_immobilisations(self, query: str, context: SearchContext, limit: int) -> List[SearchResult]:
+        """Recherche dans les immobilisations."""
+        from comptabilite.models import Immobilisation
+
+        results = []
+        config = self.ENTITY_CONFIG[EntityType.IMMOBILISATION]
+
+        q_filter = Q(is_active=True) & (
+            Q(numero__icontains=query) |
+            Q(designation__icontains=query) |
+            Q(fournisseur__icontains=query)
+        )
+
+        if context.mandat_ids:
+            q_filter &= Q(mandat_id__in=context.mandat_ids)
+
+        immobilisations = Immobilisation.objects.filter(q_filter)[:limit]
+
+        for immo in immobilisations:
+            score = self._calculate_text_score(query, [
+                immo.designation,
+                immo.numero or '',
+                immo.fournisseur or '',
+            ])
+
+            results.append(SearchResult(
+                entity_type=EntityType.IMMOBILISATION,
+                entity_id=str(immo.id),
+                title=immo.designation,
+                subtitle=f"N° {immo.numero} - VNC: {immo.valeur_nette_comptable}",
+                description=f"Acquisition: {immo.valeur_acquisition}" if immo.valeur_acquisition else '',
+                score=score,
+                url=config['url_pattern'].format(id=immo.id),
+                icon=config['icon'],
+                color=config['color'],
+                metadata={
+                    'statut': immo.statut,
+                    'valeur_acquisition': str(immo.valeur_acquisition) if immo.valeur_acquisition else None,
+                    'valeur_nette_comptable': str(immo.valeur_nette_comptable) if immo.valeur_nette_comptable else None,
+                }
+            ))
+
+        return results
+
+    def _search_positions(self, query: str, context: SearchContext, limit: int) -> List[SearchResult]:
+        """Recherche dans les positions."""
+        from projets.models import Position
+
+        results = []
+        config = self.ENTITY_CONFIG[EntityType.POSITION]
+
+        q_filter = Q(is_active=True) & (
+            Q(numero__icontains=query) |
+            Q(titre__icontains=query) |
+            Q(description__icontains=query)
+        )
+
+        if context.mandat_ids:
+            q_filter &= Q(mandat_id__in=context.mandat_ids)
+
+        positions = Position.objects.filter(q_filter).select_related('mandat')[:limit]
+
+        for pos in positions:
+            score = self._calculate_text_score(query, [
+                pos.titre,
+                pos.numero or '',
+                pos.description or '',
+            ])
+
+            results.append(SearchResult(
+                entity_type=EntityType.POSITION,
+                entity_id=str(pos.id),
+                title=pos.titre,
+                subtitle=f"N° {pos.numero} - {pos.get_statut_display()}",
+                description=pos.description[:150] if pos.description else '',
+                score=score,
+                url=config['url_pattern'].format(id=pos.id),
+                icon=config['icon'],
+                color=config['color'],
+                metadata={
+                    'statut': pos.statut,
+                    'budget_prevu': str(pos.budget_prevu) if pos.budget_prevu else None,
+                    'budget_reel': str(pos.budget_reel) if pos.budget_reel else None,
+                }
+            ))
+
+        return results
+
+    def _search_operations(self, query: str, context: SearchContext, limit: int) -> List[SearchResult]:
+        """Recherche dans les operations."""
+        from projets.models import Operation
+
+        results = []
+        config = self.ENTITY_CONFIG[EntityType.OPERATION]
+
+        q_filter = Q(is_active=True) & (
+            Q(numero__icontains=query) |
+            Q(titre__icontains=query) |
+            Q(description__icontains=query)
+        )
+
+        if context.mandat_ids:
+            q_filter &= Q(position__mandat_id__in=context.mandat_ids)
+
+        operations = Operation.objects.filter(q_filter).select_related('position', 'position__mandat')[:limit]
+
+        for op in operations:
+            score = self._calculate_text_score(query, [
+                op.titre,
+                op.numero or '',
+                op.description or '',
+            ])
+
+            results.append(SearchResult(
+                entity_type=EntityType.OPERATION,
+                entity_id=str(op.id),
+                title=op.titre,
+                subtitle=f"N° {op.numero} - {op.get_statut_display()}",
+                description=op.description[:150] if op.description else '',
+                score=score,
+                url=config['url_pattern'].format(id=op.id),
+                icon=config['icon'],
+                color=config['color'],
+                metadata={
+                    'statut': op.statut,
+                    'priorite': op.priorite,
+                    'cout_reel': str(op.cout_reel) if op.cout_reel else None,
+                }
+            ))
+
+        return results
+
+    def _search_releves_bancaires(self, query: str, context: SearchContext, limit: int) -> List[SearchResult]:
+        """Recherche dans les releves bancaires."""
+        from comptabilite.models import ReleveBancaire
+
+        results = []
+        config = self.ENTITY_CONFIG[EntityType.RELEVE_BANCAIRE]
+
+        q_filter = Q(is_active=True) & (
+            Q(reference__icontains=query) |
+            Q(compte_bancaire__libelle__icontains=query)
+        )
+
+        if context.mandat_ids:
+            q_filter &= Q(mandat_id__in=context.mandat_ids)
+
+        releves = ReleveBancaire.objects.filter(q_filter).select_related('compte_bancaire')[:limit]
+
+        for releve in releves:
+            score = self._calculate_text_score(query, [
+                releve.reference or '',
+                releve.compte_bancaire.libelle if releve.compte_bancaire else '',
+            ])
+
+            results.append(SearchResult(
+                entity_type=EntityType.RELEVE_BANCAIRE,
+                entity_id=str(releve.id),
+                title=f"Relevé {releve.compte_bancaire.libelle if releve.compte_bancaire_id else ''}",
+                subtitle=f"{releve.date_debut} — {releve.date_fin}",
+                description=f"Ref: {releve.reference}" if releve.reference else '',
+                score=score,
+                url=config['url_pattern'].format(id=releve.id),
+                icon=config['icon'],
+                color=config['color'],
+                metadata={
+                    'statut': releve.statut,
+                    'solde_debut': str(releve.solde_debut) if releve.solde_debut else None,
+                    'solde_fin': str(releve.solde_fin) if releve.solde_fin else None,
+                    'nb_lignes': releve.nb_lignes if hasattr(releve, 'nb_lignes') else None,
+                }
+            ))
+
+        return results
+
+    # =========================================================================
+    # RECHERCHE SÉMANTIQUE (ModelEmbedding pgvector)
+    # =========================================================================
+
+    def _search_semantic(
+        self,
+        query: str,
+        context: SearchContext,
+        limit: int = 20,
+        threshold: float = 0.5,
+    ) -> List[SearchResult]:
+        """
+        Recherche sémantique sur tous les types via ModelEmbedding.
+
+        Génère un embedding de la query, puis cherche les voisins les plus
+        proches dans la table ModelEmbedding (pgvector cosine distance).
+        """
+        try:
+            from core.ai.embeddings import embedding_service
+            from core.models import ModelEmbedding
+            from django.contrib.contenttypes.models import ContentType
+
+            query_embedding = embedding_service.generate_embedding(query)
+            if query_embedding is None:
+                return []
+
+            # Chercher les plus proches voisins
+            similar = ModelEmbedding.search_similar(
+                embedding=query_embedding,
+                limit=limit,
+                threshold=threshold,
+            )
+
+            results = []
+            for me in similar:
+                try:
+                    obj = me.content_object
+                    if obj is None or not getattr(obj, 'is_active', True):
+                        continue
+
+                    # Filtrer par mandat si contexte mandat
+                    if context.mandat_ids:
+                        obj_mandat_id = None
+                        if hasattr(obj, 'mandat_id'):
+                            obj_mandat_id = str(obj.mandat_id) if obj.mandat_id else None
+                        elif hasattr(obj, 'id') and me.content_type.model == 'mandat':
+                            obj_mandat_id = str(obj.id)
+                        elif hasattr(obj, 'mandats'):
+                            # Client → vérifier s'il a un mandat dans le filtre
+                            obj_mandat_ids = set(str(m) for m in obj.mandats.values_list('id', flat=True))
+                            if not obj_mandat_ids.intersection(set(context.mandat_ids)):
+                                continue
+                            obj_mandat_id = None  # skip le check suivant
+                        if obj_mandat_id is not None and obj_mandat_id not in context.mandat_ids:
+                            continue
+
+                    # Déterminer le type d'entité
+                    model_name = me.content_type.model
+                    entity_type = self._model_to_entity_type(model_name)
+                    if entity_type is None:
+                        continue
+
+                    # Vérifier que le type est dans les filtres
+                    if context.entity_types and entity_type not in context.entity_types:
+                        continue
+
+                    # Construire le résultat
+                    config = self.ENTITY_CONFIG.get(entity_type, {})
+                    similarity = 1 - me.distance  # distance cosinus -> similarité
+
+                    result = SearchResult(
+                        entity_type=entity_type,
+                        entity_id=str(obj.pk),
+                        title=self._get_object_title(obj, entity_type),
+                        subtitle=self._get_object_subtitle(obj, entity_type),
+                        description=me.text_preview or '',
+                        score=similarity,
+                        url=config.get('url_pattern', '').replace('{id}', str(obj.pk)),
+                        icon=config.get('icon', 'ph-magnifying-glass'),
+                        color=config.get('color', 'secondary'),
+                    )
+                    results.append(result)
+
+                except Exception as e:
+                    logger.debug(f"Erreur résultat sémantique {me.pk}: {e}")
+                    continue
+
+            return results
+
+        except Exception as e:
+            logger.warning(f"Recherche sémantique échouée: {e}")
+            return []
+
+    def _model_to_entity_type(self, model_name: str) -> Optional[EntityType]:
+        """Mappe un nom de modèle Django vers EntityType."""
+        mapping = {
+            'client': EntityType.CLIENT,
+            'mandat': EntityType.MANDAT,
+            'employe': EntityType.EMPLOYE,
+            'contact': EntityType.CONTACT,
+            'facture': EntityType.FACTURE,
+            'ecriturecomptable': EntityType.ECRITURE,
+            'piececomptable': EntityType.PIECE_COMPTABLE,
+            'compte': EntityType.COMPTE,
+            'journal': EntityType.JOURNAL,
+            'declarationtva': EntityType.DECLARATION_TVA,
+            'declarationfiscale': EntityType.DECLARATION_FISCALE,
+            'document': EntityType.DOCUMENT,
+            'tiers': EntityType.CLIENT,  # fallback
+            'position': EntityType.TACHE,
+            'operation': EntityType.TACHE,
+        }
+        return mapping.get(model_name)
+
+    def _get_object_title(self, obj, entity_type: EntityType) -> str:
+        """Titre lisible d'un objet pour les résultats."""
+        if hasattr(obj, 'raison_sociale'):
+            return obj.raison_sociale
+        if hasattr(obj, 'numero_facture'):
+            return obj.numero_facture
+        if hasattr(obj, 'nom') and hasattr(obj, 'prenom'):
+            return f"{obj.prenom} {obj.nom}"
+        if hasattr(obj, 'nom'):
+            return obj.nom
+        if hasattr(obj, 'titre'):
+            return obj.titre
+        if hasattr(obj, 'numero'):
+            return str(obj.numero)
+        if hasattr(obj, 'libelle'):
+            return obj.libelle
+        return str(obj)
+
+    def _get_object_subtitle(self, obj, entity_type: EntityType) -> str:
+        """Sous-titre d'un objet."""
+        if hasattr(obj, 'statut'):
+            return str(obj.statut)
+        if hasattr(obj, 'fonction'):
+            return obj.fonction or ''
+        return ''
 
 
 # Instance singleton

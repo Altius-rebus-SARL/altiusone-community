@@ -64,6 +64,8 @@ EXTERNAL_APPS = [
     'import_export',
     # OAuth2/OIDC Provider pour Docs
     'oauth2_provider',
+    # Push Notifications (FCM, APNs, Web Push)
+    'push_notifications',
 ]
 
 
@@ -82,6 +84,7 @@ LOCAL_APPS = [
     "modelforms",
     "projets",
     "graph",
+    "support",
 ]
 
 
@@ -346,6 +349,11 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'documents.tasks_intelligence.generer_digests_mensuels',
         'schedule': crontab(hour=6, minute=0, day_of_month=1),
     },
+    # Indexer les embeddings manquants toutes les 30 minutes
+    'indexer-embeddings-manquants': {
+        'task': 'core.tasks.indexer_embeddings_manquants_task',
+        'schedule': 1800.0,  # 30 minutes
+    },
 }
 
 
@@ -595,6 +603,11 @@ TEMPLATES[0]['OPTIONS']['context_processors'].append(
     'core.permissions.permissions_context'
 )
 
+# Type de connexion disponible dans tous les templates via {{ CONNEXION_LABEL }} / {{ CONNEXION_COLOR }}
+TEMPLATES[0]['OPTIONS']['context_processors'].append(
+    'core.context_processors.connexion_context'
+)
+
 # Devise de base disponible dans tous les templates via {{ DEVISE_CODE }}
 TEMPLATES[0]['OPTIONS']['context_processors'].append(
     'core.context_processors.devise_context'
@@ -712,46 +725,66 @@ else:
 
 
 # ============================================================================
-# ALTIUSONE AI SDK
+# PUSH NOTIFICATIONS (FCM, APNs, Web Push)
 # ============================================================================
-# Service AI unifie pour OCR, Embeddings, Classification et Extraction.
-# Utilise le SDK AltiusOne AI (https://pypi.org/project/altiusone-ai/)
-#
-# Configuration:
-# - AI_API_URL: URL de l'API (https://ai.altiusone.ch)
-# - AI_API_KEY: Cle API pour l'authentification
-#
-# Fonctionnalites:
-# - OCR: Extraction de texte depuis images/PDFs
-# - Embeddings: Vecteurs 768D pour recherche semantique (compatible PGVector)
-# - Classification: Detection automatique du type de document
-# - Extraction: Extraction structuree de donnees (factures, contrats, etc.)
-# - Chat: Assistant conversationnel IA
+# - Android: FCM v1 (Firebase, seule option pour Android)
+# - iOS: APNs direct (pas de Firebase, token .p8 d'Apple Developer)
+# - Web: VAPID / Web Push (pas de Firebase, juste une paire de clés)
+# Par défaut désactivé = aucun impact sur les instances existantes.
 
-AI_API_URL = os.environ.get('AI_API_URL', 'https://ai.altiusone.ch')
-AI_API_KEY = os.environ.get('AI_API_KEY', '')
+PUSH_NOTIFICATIONS_ENABLED = os.environ.get('PUSH_NOTIFICATIONS_ENABLED', 'False').lower() in ('true', '1', 'yes')
+
+if PUSH_NOTIFICATIONS_ENABLED:
+    PUSH_NOTIFICATIONS_SETTINGS = {
+        # --- Android: FCM v1 ---
+        # Auth via GOOGLE_APPLICATION_CREDENTIALS env var → firebase-credentials.json
+        "FCM_API_VERSION": "v1",
+        "FCM_FIREBASE_APP": None,
+
+        # --- iOS: APNs direct (pas de Firebase) ---
+        "APNS_AUTH_KEY": os.environ.get('APNS_AUTH_KEY_FILE', ''),
+        "APNS_AUTH_KEY_ID": os.environ.get('APNS_AUTH_KEY_ID', ''),
+        "APNS_TEAM_ID": os.environ.get('APNS_TEAM_ID', ''),
+        "APNS_TOPIC": os.environ.get('APNS_TOPIC', 'com.altiusone.mobile'),
+        "APNS_USE_SANDBOX": os.environ.get('APNS_USE_SANDBOX', 'False').lower() in ('true', '1', 'yes'),
+
+        # --- Web: VAPID (pas de Firebase) ---
+        "WP_PRIVATE_KEY": os.environ.get('VAPID_PRIVATE_KEY', ''),
+        "WP_PUBLIC_KEY": os.environ.get('VAPID_PUBLIC_KEY', ''),
+        "WP_CLAIMS": {
+            "sub": "mailto:{}".format(os.environ.get('VAPID_ADMIN_EMAIL', 'admin@altiusone.ch')),
+        },
+
+        "UPDATE_ON_DUPLICATE_REG_ID": True,
+    }
+
+
+# ============================================================================
+# IA LOCALE (100% on-instance)
+# ============================================================================
+# Tout le traitement IA tourne en local sur chaque instance:
+# - Embeddings: sentence-transformers (paraphrase-multilingual-mpnet-base-v2, 768D)
+# - Chat LLM: transformers direct (Qwen2.5-0.5B-Instruct, ~500MB RAM, pas d'Ollama)
+# - OCR: Tesseract local (déjà en place)
+#
+# Aucune dépendance externe. Aucune donnée ne quitte l'instance.
+
+# Embeddings locaux (sentence-transformers)
+EMBEDDING_MODEL = os.environ.get('EMBEDDING_MODEL', 'sentence-transformers/paraphrase-multilingual-mpnet-base-v2')
+EMBEDDING_DIMENSIONS = int(os.environ.get('EMBEDDING_DIMENSIONS', '768'))
+
+# Chat LLM local (transformers direct, pas d'Ollama)
+CHAT_MODEL_NAME = os.environ.get('CHAT_MODEL_NAME', 'Qwen/Qwen2.5-0.5B-Instruct')
+CHAT_MAX_NEW_TOKENS = int(os.environ.get('CHAT_MAX_NEW_TOKENS', '300'))
 
 # Recherche hybride - ponderation des scores
 SEARCH_FULLTEXT_WEIGHT = float(os.environ.get('SEARCH_FULLTEXT_WEIGHT', '0.4'))
 SEARCH_SEMANTIC_WEIGHT = float(os.environ.get('SEARCH_SEMANTIC_WEIGHT', '0.6'))
 SEARCH_SEMANTIC_THRESHOLD = float(os.environ.get('SEARCH_SEMANTIC_THRESHOLD', '0.5'))
 
-# ============================================================================
-# LEGACY - SERVICE OCR EXTERNE (DEPRECIE)
-# ============================================================================
-# Ces parametres sont conserves pour compatibilite mais ne sont plus utilises.
-# Tout le traitement AI passe maintenant par le SDK AltiusOne AI.
-
-OCR_SERVICE_ENABLED = False  # Deprecie - utiliser AI_API_KEY
-OCR_SERVICE_URL = os.environ.get('OCR_SERVICE_URL', '')
-OCR_SERVICE_API_KEY = os.environ.get('OCR_SERVICE_API_KEY', '')
-OCR_SERVICE_TIMEOUT = int(os.environ.get('OCR_SERVICE_TIMEOUT', '60'))
-
-# LEGACY - Configuration embeddings (DEPRECIE)
-# Le SDK AltiusOne AI genere des embeddings 768D directement
-EMBEDDING_BACKEND = 'altiusone'  # Fixe - utilise toujours le SDK
-OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')  # Non utilise
-LOCAL_EMBEDDING_MODEL = ''  # Non utilise
+# LEGACY — conservé pour compatibilité (sera supprimé)
+AI_API_URL = os.environ.get('AI_API_URL', '')
+AI_API_KEY = os.environ.get('AI_API_KEY', '')
 
 
 

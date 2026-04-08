@@ -3,6 +3,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from core.permissions import BusinessPermissionMixin, permission_required_business
+from core.mixins import SearchMixin
 from django.views.generic import (
     ListView,
     DetailView,
@@ -43,6 +44,7 @@ from .forms import (
     EcritureComptableForm,
     PieceComptableForm,
     LettrageForm,
+    EcritureInlineFormSet,
 )
 from .filters import (
     CompteFilter,
@@ -168,7 +170,7 @@ class ClasseComptableListView(LoginRequiredMixin, BusinessPermissionMixin, ListV
 from .filters import PlanComptableFilter
 
 
-class PlanComptableListView(LoginRequiredMixin, BusinessPermissionMixin, FilterView):
+class PlanComptableListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, FilterView):
     """Liste des plans comptables"""
 
     model = PlanComptable
@@ -177,6 +179,7 @@ class PlanComptableListView(LoginRequiredMixin, BusinessPermissionMixin, FilterV
     paginate_by = 25
     filterset_class = PlanComptableFilter
     business_permission = 'comptabilite.view_plan_comptable'
+    search_fields = ['nom_fr', 'nom_de', 'description_fr', 'mandat__numero', 'mandat__client__raison_sociale']
 
     def get_queryset(self):
         queryset = PlanComptable.objects.select_related("mandat", "type_plan").annotate(
@@ -188,7 +191,7 @@ class PlanComptableListView(LoginRequiredMixin, BusinessPermissionMixin, FilterV
         if type_pk:
             queryset = queryset.filter(type_plan_id=type_pk)
 
-        return queryset.order_by("-created_at")
+        return self.apply_search(queryset.order_by("-created_at"))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -309,7 +312,7 @@ class PlanComptableUpdateView(LoginRequiredMixin, BusinessPermissionMixin, Updat
 # ============ COMPTES ============
 
 
-class CompteListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class CompteListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des comptes avec filtres avancés"""
 
     model = Compte
@@ -317,6 +320,7 @@ class CompteListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     context_object_name = "comptes"
     paginate_by = 50
     business_permission = 'comptabilite.view_plan_comptable'
+    search_fields = ['numero', 'libelle_fr', 'libelle_de']
 
     def get_queryset(self):
         # Récupérer le plan comptable depuis l'URL ou les paramètres
@@ -331,7 +335,7 @@ class CompteListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
 
         # Appliquer les filtres
         self.filterset = CompteFilter(self.request.GET, queryset=queryset)
-        return self.filterset.qs.order_by("numero")
+        return self.apply_search(self.filterset.qs.order_by("numero"))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -468,13 +472,14 @@ class CompteUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateView):
 # ============ JOURNAUX ============
 
 
-class JournalListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class JournalListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des journaux"""
 
     model = Journal
     template_name = "comptabilite/journal_list.html"
     context_object_name = "journaux"
     business_permission = 'comptabilite.view_ecritures'
+    search_fields = ['code', 'libelle', 'mandat__numero']
 
     def get_queryset(self):
         queryset = Journal.objects.select_related("mandat").annotate(
@@ -486,7 +491,7 @@ class JournalListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
         if mandat_id:
             queryset = queryset.filter(mandat_id=mandat_id)
 
-        return queryset.order_by("code")
+        return self.apply_search(queryset.order_by("code"))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -588,7 +593,7 @@ class JournalUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateView)
 # ============ ÉCRITURES COMPTABLES ============
 
 
-class EcritureComptableListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class EcritureComptableListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des écritures comptables"""
 
     model = EcritureComptable
@@ -596,6 +601,7 @@ class EcritureComptableListView(LoginRequiredMixin, BusinessPermissionMixin, Lis
     context_object_name = "ecritures"
     paginate_by = 100
     business_permission = 'comptabilite.view_ecritures'
+    search_fields = ['libelle', 'numero_piece', 'compte__numero', 'compte__libelle_fr', 'mandat__numero']
 
     def get_queryset(self):
         queryset = EcritureComptable.objects.select_related(
@@ -611,9 +617,9 @@ class EcritureComptableListView(LoginRequiredMixin, BusinessPermissionMixin, Lis
 
         # Appliquer les filtres
         self.filterset = EcritureComptableFilter(self.request.GET, queryset=queryset)
-        return self.filterset.qs.order_by(
+        return self.apply_search(self.filterset.qs.order_by(
             "-date_ecriture", "numero_piece", "numero_ligne"
-        )
+        ))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -693,17 +699,25 @@ class EcritureComptableCreateView(
     template_name = "comptabilite/ecriture_form.html"
     business_permission = 'comptabilite.add_ecriture'
 
+    def _get_mandat(self):
+        mandat_id = self.request.GET.get("mandat")
+        if mandat_id:
+            return get_object_or_404(Mandat, pk=mandat_id)
+        return None
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['mandat'] = self._get_mandat()
+        return kwargs
+
     def get_initial(self):
         initial = super().get_initial()
 
-        # Préremplir avec le mandat si fourni
-        mandat_id = self.request.GET.get("mandat")
-        if mandat_id:
-            mandat = get_object_or_404(Mandat, pk=mandat_id)
+        mandat = self._get_mandat()
+        if mandat:
             initial["mandat"] = mandat
             initial["exercice"] = mandat.exercices.filter(statut="OUVERT").first()
 
-        # Préremplir la date
         initial["date_ecriture"] = datetime.now().date()
 
         return initial
@@ -729,6 +743,11 @@ class EcritureComptableUpdateView(
     template_name = "comptabilite/ecriture_form.html"
     business_permission = 'comptabilite.view_ecritures'
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['mandat'] = self.object.mandat if self.object else None
+        return kwargs
+
     def get_queryset(self):
         # Ne peut modifier que les écritures en brouillon
         return super().get_queryset().filter(statut="BROUILLON")
@@ -746,7 +765,7 @@ class EcritureComptableUpdateView(
 # ============ PIÈCES COMPTABLES ============
 
 
-class PieceComptableListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class PieceComptableListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des pièces comptables"""
 
     model = PieceComptable
@@ -754,6 +773,7 @@ class PieceComptableListView(LoginRequiredMixin, BusinessPermissionMixin, ListVi
     context_object_name = "pieces"
     paginate_by = 50
     business_permission = 'comptabilite.view_ecritures'
+    search_fields = ['numero_piece', 'libelle', 'reference_externe', 'tiers_nom', 'mandat__numero']
 
     def get_queryset(self):
         queryset = PieceComptable.objects.select_related("mandat", "journal").annotate(
@@ -772,7 +792,7 @@ class PieceComptableListView(LoginRequiredMixin, BusinessPermissionMixin, ListVi
 
         # Appliquer les filtres
         self.filterset = PieceComptableFilter(self.request.GET, queryset=queryset)
-        return self.filterset.qs.order_by("-date_piece", "numero_piece")
+        return self.apply_search(self.filterset.qs.order_by("-date_piece", "numero_piece"))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -821,30 +841,34 @@ class PieceComptableDetailView(LoginRequiredMixin, BusinessPermissionMixin, Deta
 
 
 class PieceComptableCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView):
-    """Création d'une pièce comptable avec upload de documents"""
+    """Création d'une pièce comptable avec upload de documents et écritures inline"""
 
     model = PieceComptable
     form_class = PieceComptableForm
     template_name = "comptabilite/piece_form.html"
     business_permission = 'comptabilite.add_ecritures'
 
+    def _get_mandat_from_request(self):
+        mandat_id = self.request.GET.get('mandat') or self.request.POST.get('mandat')
+        if mandat_id:
+            try:
+                return Mandat.objects.get(pk=mandat_id)
+            except Mandat.DoesNotExist:
+                pass
+        return None
+
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs['user'] = self.request.user
-        # Passer le mandat initial pour le filtrage des journaux/dossiers
-        mandat_id = self.request.GET.get('mandat')
-        if mandat_id:
-            try:
-                kwargs['mandat'] = Mandat.objects.get(pk=mandat_id)
-            except Mandat.DoesNotExist:
-                pass
+        mandat = self._get_mandat_from_request()
+        if mandat:
+            kwargs['mandat'] = mandat
         return kwargs
 
     def get_initial(self):
         initial = super().get_initial()
         from datetime import date
         initial['date_piece'] = date.today()
-        # Pré-sélectionner le mandat si fourni en paramètre
         mandat_id = self.request.GET.get('mandat')
         if mandat_id:
             initial['mandat'] = mandat_id
@@ -854,19 +878,70 @@ class PieceComptableCreateView(LoginRequiredMixin, BusinessPermissionMixin, Crea
         context = super().get_context_data(**kwargs)
         context['title'] = _("Nouvelle pièce comptable")
         context['submit_text'] = _("Créer la pièce")
+
+        mandat = self._get_mandat_from_request()
+
+        if 'formset' not in context:
+            if self.request.method == 'POST':
+                context['formset'] = EcritureInlineFormSet(
+                    self.request.POST,
+                    instance=self.object if hasattr(self, 'object') and self.object else None,
+                    mandat=mandat,
+                )
+            else:
+                context['formset'] = EcritureInlineFormSet(
+                    instance=None,
+                    mandat=mandat,
+                )
         return context
 
     def form_valid(self, form):
         from django.contrib import messages
         from documents.models import Document
-        from documents.storage import storage_service
+
+        mandat = self._get_mandat_from_request() or form.cleaned_data.get('mandat')
+
+        # Valider le formset
+        formset = EcritureInlineFormSet(
+            self.request.POST,
+            instance=None,
+            mandat=mandat,
+        )
+
+        if not formset.is_valid():
+            return self.form_invalid(form, formset=formset)
 
         # Sauvegarder la pièce
         piece = form.save(commit=False)
         piece.created_by = self.request.user
         piece.save()
         form.save_m2m()
-        self.object = piece  # Nécessaire pour get_success_url()
+        self.object = piece
+
+        # Sauvegarder les écritures inline
+        formset.instance = piece
+        ecritures = formset.save(commit=False)
+
+        exercice = piece.mandat.exercices.filter(statut='OUVERT').first()
+
+        for i, ecriture in enumerate(ecritures):
+            ecriture.mandat = piece.mandat
+            ecriture.journal = piece.journal
+            ecriture.exercice = exercice
+            ecriture.date_ecriture = piece.date_piece
+            ecriture.numero_piece = piece.numero_piece
+            ecriture.numero_ligne = i + 1
+            ecriture.piece = piece
+            ecriture.statut = 'BROUILLON'
+            ecriture.created_by = self.request.user
+            ecriture.save()
+
+        # Supprimer les écritures marquées pour suppression
+        for obj in formset.deleted_objects:
+            obj.delete()
+
+        # Recalculer l'équilibre de la pièce
+        piece.calculer_equilibre()
 
         # Traiter les fichiers uploadés
         fichiers = self.request.FILES.getlist('fichiers')
@@ -877,16 +952,13 @@ class PieceComptableCreateView(LoginRequiredMixin, BusinessPermissionMixin, Crea
                 import hashlib
                 import os
 
-                # Calculer le hash du fichier
                 fichier.seek(0)
                 file_content = fichier.read()
                 file_hash = hashlib.sha256(file_content).hexdigest()
                 fichier.seek(0)
 
-                # Extension
                 _, ext = os.path.splitext(fichier.name)
 
-                # Créer le document
                 document = Document(
                     mandat=piece.mandat,
                     dossier=piece.dossier,
@@ -900,12 +972,10 @@ class PieceComptableCreateView(LoginRequiredMixin, BusinessPermissionMixin, Crea
                     created_by=self.request.user,
                 )
 
-                # Sauvegarder le document puis le fichier
                 document.save()
                 document.fichier.save(fichier.name, fichier, save=True)
                 documents_crees.append(document)
 
-                # Lancer le traitement OCR en arrière-plan
                 from documents.tasks import traiter_document_ocr
                 traiter_document_ocr.delay(str(document.id))
 
@@ -918,7 +988,6 @@ class PieceComptableCreateView(LoginRequiredMixin, BusinessPermissionMixin, Crea
                     }
                 )
 
-        # Associer les documents à la pièce
         if documents_crees:
             piece.documents_justificatifs.add(*documents_crees)
             messages.success(
@@ -927,6 +996,9 @@ class PieceComptableCreateView(LoginRequiredMixin, BusinessPermissionMixin, Crea
                     'count': len(documents_crees)
                 }
             )
+
+        # Auto-classement (Phase 3)
+        self._auto_classer_documents(piece)
 
         messages.success(
             self.request,
@@ -937,12 +1009,51 @@ class PieceComptableCreateView(LoginRequiredMixin, BusinessPermissionMixin, Crea
 
         return redirect(self.get_success_url())
 
+    def form_invalid(self, form, formset=None):
+        if formset is None:
+            mandat = self._get_mandat_from_request()
+            formset = EcritureInlineFormSet(
+                self.request.POST,
+                instance=None,
+                mandat=mandat,
+            )
+        return self.render_to_response(
+            self.get_context_data(form=form, formset=formset)
+        )
+
+    def _auto_classer_documents(self, piece):
+        """Phase 3.2 : auto-classement des documents selon le type de pièce."""
+        if piece.dossier or not piece.type_piece:
+            return  # Dossier déjà assigné ou pas de type
+
+        dossier_cible = piece.type_piece.dossier_classement
+        if not dossier_cible:
+            return
+
+        from documents.models import Dossier
+        from django.db.models import Q
+
+        # Chercher le sous-dossier correspondant pour le client
+        dossier = Dossier.objects.filter(
+            Q(client=piece.mandat.client) | Q(mandat=piece.mandat),
+            nom=dossier_cible,
+            is_active=True,
+        ).first()
+
+        if dossier:
+            piece.dossier = dossier
+            piece.save(update_fields=['dossier'])
+            # Aussi classer les documents attachés
+            for doc in piece.documents_justificatifs.filter(dossier__isnull=True):
+                doc.dossier = dossier
+                doc.save(update_fields=['dossier'])
+
     def get_success_url(self):
         return reverse('comptabilite:piece-detail', kwargs={'pk': self.object.pk})
 
 
 class PieceComptableUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateView):
-    """Modification d'une pièce comptable"""
+    """Modification d'une pièce comptable avec écritures inline"""
 
     model = PieceComptable
     form_class = PieceComptableForm
@@ -962,14 +1073,66 @@ class PieceComptableUpdateView(LoginRequiredMixin, BusinessPermissionMixin, Upda
         }
         context['submit_text'] = _("Enregistrer les modifications")
         context['documents'] = self.object.documents_justificatifs.all()
+
+        mandat = self.object.mandat
+
+        if 'formset' not in context:
+            if self.request.method == 'POST':
+                context['formset'] = EcritureInlineFormSet(
+                    self.request.POST,
+                    instance=self.object,
+                    mandat=mandat,
+                )
+            else:
+                context['formset'] = EcritureInlineFormSet(
+                    instance=self.object,
+                    mandat=mandat,
+                )
         return context
 
     def form_valid(self, form):
         from django.contrib import messages
         from documents.models import Document
-        from documents.storage import storage_service
+
+        mandat = self.object.mandat
+
+        # Valider le formset
+        formset = EcritureInlineFormSet(
+            self.request.POST,
+            instance=self.object,
+            mandat=mandat,
+        )
+
+        if not formset.is_valid():
+            return self.form_invalid(form, formset=formset)
 
         piece = form.save()
+
+        # Sauvegarder les écritures inline
+        ecritures = formset.save(commit=False)
+
+        exercice = piece.mandat.exercices.filter(statut='OUVERT').first()
+
+        # Numéroter les nouvelles écritures
+        existing_max = piece.ecritures.count()
+        for i, ecriture in enumerate(ecritures):
+            if not ecriture.pk:
+                ecriture.mandat = piece.mandat
+                ecriture.journal = piece.journal
+                ecriture.exercice = exercice
+                ecriture.date_ecriture = piece.date_piece
+                ecriture.numero_piece = piece.numero_piece
+                ecriture.numero_ligne = existing_max + i + 1
+                ecriture.piece = piece
+                ecriture.statut = 'BROUILLON'
+                ecriture.created_by = self.request.user
+            ecriture.save()
+
+        for obj in formset.deleted_objects:
+            obj.delete()
+
+        # Recalculer l'équilibre
+        piece.calculer_equilibre()
 
         # Traiter les nouveaux fichiers uploadés
         fichiers = self.request.FILES.getlist('fichiers')
@@ -980,13 +1143,11 @@ class PieceComptableUpdateView(LoginRequiredMixin, BusinessPermissionMixin, Upda
                 import hashlib
                 import os
 
-                # Calculer le hash du fichier
                 fichier.seek(0)
                 file_content = fichier.read()
                 file_hash = hashlib.sha256(file_content).hexdigest()
                 fichier.seek(0)
 
-                # Extension
                 _, ext = os.path.splitext(fichier.name)
 
                 document = Document(
@@ -1002,7 +1163,6 @@ class PieceComptableUpdateView(LoginRequiredMixin, BusinessPermissionMixin, Upda
                     created_by=self.request.user,
                 )
 
-                # Sauvegarder le document puis le fichier
                 document.save()
                 document.fichier.save(fichier.name, fichier, save=True)
                 documents_crees.append(document)
@@ -1028,6 +1188,17 @@ class PieceComptableUpdateView(LoginRequiredMixin, BusinessPermissionMixin, Upda
 
         messages.success(self.request, _("Pièce comptable mise à jour"))
         return redirect(self.get_success_url())
+
+    def form_invalid(self, form, formset=None):
+        if formset is None:
+            formset = EcritureInlineFormSet(
+                self.request.POST,
+                instance=self.object,
+                mandat=self.object.mandat,
+            )
+        return self.render_to_response(
+            self.get_context_data(form=form, formset=formset)
+        )
 
     def get_success_url(self):
         return reverse('comptabilite:piece-detail', kwargs={'pk': self.object.pk})
@@ -1206,7 +1377,7 @@ def api_dossiers_par_mandat(request, mandat_pk):
     from django.db.models import Q
 
     # Récupérer le mandat pour avoir accès au client
-    mandat = get_object_or_404(Mandat, pk=mandat_pk)
+    mandat = get_object_or_404(Mandat.objects.select_related('client'), pk=mandat_pk)
 
     # Dossiers liés au mandat OU au client du mandat
     dossiers = Dossier.objects.filter(
@@ -1224,6 +1395,36 @@ def api_dossiers_par_mandat(request, mandat_pk):
                 'display': d.get_path_display(include_context=True)
             }
             for d in dossiers
+        ]
+    })
+
+
+@login_required
+def api_comptes_par_mandat(request, mandat_pk):
+    """Retourne les comptes imputables du plan actif d'un mandat (AJAX)"""
+    mandat = get_object_or_404(Mandat, pk=mandat_pk)
+    plan = mandat.plan_comptable
+
+    if not plan:
+        return JsonResponse({'comptes': []})
+
+    comptes = Compte.objects.filter(
+        plan_comptable=plan,
+        imputable=True,
+        is_active=True,
+    ).order_by('numero').values('id', 'numero', 'libelle', 'type_compte', 'classe')
+
+    return JsonResponse({
+        'comptes': [
+            {
+                'id': str(c['id']),
+                'numero': c['numero'],
+                'libelle': c['libelle'],
+                'type_compte': c['type_compte'],
+                'classe': c['classe'],
+                'display': f"{c['numero']} - {c['libelle']}",
+            }
+            for c in comptes
         ]
     })
 
@@ -1257,7 +1458,7 @@ def api_types_pieces(request):
 # ============ LETTRAGE ============
 
 
-class LettrageListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class LettrageListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des lettrages"""
 
     model = Lettrage
@@ -1265,17 +1466,22 @@ class LettrageListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     context_object_name = "lettrages"
     paginate_by = 50
     business_permission = 'comptabilite.view_ecritures'
+    search_fields = ['code_lettrage', 'compte__numero', 'compte__libelle_fr']
 
     def get_queryset(self):
-        return Lettrage.objects.select_related(
+        return self.apply_search(Lettrage.objects.select_related(
             "mandat", "compte", "lettre_par"
-        ).order_by("-date_lettrage")
+        ).order_by("-date_lettrage"))
 
 
 @login_required
 def lettrage_compte(request, compte_pk):
     """Interface de lettrage d'un compte"""
-    compte = get_object_or_404(Compte, pk=compte_pk, lettrable=True)
+    compte = get_object_or_404(
+        Compte.objects.select_related('plan_comptable__mandat'),
+        pk=compte_pk, lettrable=True,
+    )
+    mandat = compte.plan_comptable.mandat
 
     # Écritures non lettrées du compte
     ecritures = EcritureComptable.objects.filter(
@@ -1298,7 +1504,7 @@ def lettrage_compte(request, compte_pk):
             if total_debit == total_credit:
                 # Générer code de lettrage
                 dernier_lettrage = (
-                    Lettrage.objects.filter(mandat=compte.plan_comptable.mandat)
+                    Lettrage.objects.filter(mandat=mandat)
                     .order_by("code_lettrage")
                     .last()
                 )
@@ -1312,7 +1518,7 @@ def lettrage_compte(request, compte_pk):
 
                 # Créer le lettrage
                 lettrage = Lettrage.objects.create(
-                    mandat=compte.plan_comptable.mandat,
+                    mandat=mandat,
                     compte=compte,
                     code_lettrage=code_lettrage,
                     montant_total=total_debit,
@@ -1350,7 +1556,7 @@ def lettrage_compte(request, compte_pk):
 @login_required
 def balance_generale(request, mandat_pk):
     """Balance générale d'un mandat"""
-    mandat = get_object_or_404(Mandat, pk=mandat_pk)
+    mandat = get_object_or_404(Mandat.objects.select_related('client'), pk=mandat_pk)
 
     # Exercice
     exercice_id = request.GET.get("exercice")
@@ -1360,7 +1566,7 @@ def balance_generale(request, mandat_pk):
         exercice = mandat.exercices.filter(statut="OUVERT").first()
 
     # Plan comptable
-    plan = mandat.plans_comptables.first()
+    plan = mandat.plan_comptable
     if not plan:
         messages.error(request, _("Aucun plan comptable trouvé pour ce mandat"))
         return redirect("core:mandat-detail", pk=mandat.pk)
@@ -1557,7 +1763,7 @@ def grand_livre(request, compte_pk):
 @login_required
 def bilan(request, mandat_pk):
     """Bilan (Actifs vs Passifs) d'un mandat — PME suisse classes 1 et 2"""
-    mandat = get_object_or_404(Mandat, pk=mandat_pk)
+    mandat = get_object_or_404(Mandat.objects.select_related('client'), pk=mandat_pk)
 
     exercice_id = request.GET.get("exercice")
     if exercice_id:
@@ -1565,7 +1771,7 @@ def bilan(request, mandat_pk):
     else:
         exercice = mandat.exercices.filter(statut="OUVERT").first()
 
-    plan = mandat.plans_comptables.first()
+    plan = mandat.plan_comptable
     if not plan:
         messages.error(request, _("Aucun plan comptable trouvé pour ce mandat"))
         return redirect("core:mandat-detail", pk=mandat.pk)
@@ -1615,7 +1821,7 @@ def bilan(request, mandat_pk):
 @login_required
 def compte_resultat(request, mandat_pk):
     """Compte de résultat (Produits vs Charges) — PME suisse classes 3-8"""
-    mandat = get_object_or_404(Mandat, pk=mandat_pk)
+    mandat = get_object_or_404(Mandat.objects.select_related('client'), pk=mandat_pk)
 
     exercice_id = request.GET.get("exercice")
     if exercice_id:
@@ -1623,7 +1829,7 @@ def compte_resultat(request, mandat_pk):
     else:
         exercice = mandat.exercices.filter(statut="OUVERT").first()
 
-    plan = mandat.plans_comptables.first()
+    plan = mandat.plan_comptable
     if not plan:
         messages.error(request, _("Aucun plan comptable trouvé pour ce mandat"))
         return redirect("core:mandat-detail", pk=mandat.pk)
@@ -1675,7 +1881,7 @@ def cloture_exercice(request, mandat_pk):
     """Workflow de clôture d'exercice comptable"""
     from django.utils import timezone
 
-    mandat = get_object_or_404(Mandat, pk=mandat_pk)
+    mandat = get_object_or_404(Mandat.objects.select_related('client'), pk=mandat_pk)
 
     exercice_id = request.GET.get("exercice")
     if exercice_id:
@@ -1687,7 +1893,7 @@ def cloture_exercice(request, mandat_pk):
         messages.error(request, _("Aucun exercice ouvert trouvé"))
         return redirect("core:mandat-detail", pk=mandat.pk)
 
-    plan = mandat.plans_comptables.first()
+    plan = mandat.plan_comptable
 
     # Vérifications pré-clôture
     ecritures_brouillon = EcritureComptable.objects.filter(
@@ -2021,4 +2227,318 @@ class PaiementListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
         context["comptes_bancaires"] = CompteBancaire.objects.filter(
             client__mandats__fiduciaire=self.request.user.fiduciaire, actif=True
         ).distinct()
+        return context
+
+
+# =============================================================================
+# COMPTABILITÉ ANALYTIQUE
+# =============================================================================
+
+from .models import AxeAnalytique, SectionAnalytique, Immobilisation, ReleveBancaire, LigneReleve
+from .forms import AxeAnalytiqueForm, SectionAnalytiqueForm, ImmobilisationForm
+
+
+class AxeAnalytiqueListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+    """Liste des axes analytiques avec sections."""
+
+    model = AxeAnalytique
+    template_name = "comptabilite/axe_analytique_list.html"
+    context_object_name = "axes"
+    business_permission = 'comptabilite.view_plan_comptable'
+
+    def get_queryset(self):
+        queryset = AxeAnalytique.objects.filter(
+            is_active=True
+        ).annotate(
+            nb_sections=Count('sections')
+        ).order_by('ordre', 'code')
+
+        mandat_id = self.request.GET.get('mandat')
+        if mandat_id:
+            queryset = queryset.filter(mandat_id=mandat_id)
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Mandats disponibles
+        user = self.request.user
+        if user.is_manager():
+            context['mandats'] = Mandat.objects.filter(statut='ACTIF')
+        else:
+            context['mandats'] = Mandat.objects.filter(
+                Q(responsable=user) | Q(equipe=user), statut='ACTIF'
+            ).distinct()
+
+        # Axe sélectionné pour afficher les sections
+        axe_id = self.request.GET.get('axe')
+        if axe_id:
+            try:
+                axe = AxeAnalytique.objects.get(pk=axe_id)
+                context['axe_selectionne'] = axe
+                context['sections'] = axe.sections.filter(
+                    is_active=True
+                ).select_related('parent', 'responsable').order_by('ordre', 'code')
+            except AxeAnalytique.DoesNotExist:
+                pass
+
+        # Formulaires pour création HTMX inline
+        context['axe_form'] = AxeAnalytiqueForm()
+        context['section_form'] = SectionAnalytiqueForm()
+
+        return context
+
+
+class SectionAnalytiqueListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+    """Liste des sections analytiques filtrées par axe."""
+
+    model = SectionAnalytique
+    template_name = "comptabilite/axe_analytique_list.html"
+    context_object_name = "sections"
+    business_permission = 'comptabilite.view_plan_comptable'
+
+    def get_queryset(self):
+        queryset = SectionAnalytique.objects.filter(
+            is_active=True
+        ).select_related('axe', 'parent', 'responsable').order_by('axe', 'ordre', 'code')
+
+        axe_id = self.request.GET.get('axe')
+        if axe_id:
+            queryset = queryset.filter(axe_id=axe_id)
+
+        return queryset
+
+
+# =============================================================================
+# IMMOBILISATIONS
+# =============================================================================
+
+
+class ImmobilisationListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
+    """Liste des immobilisations avec recherche et filtres."""
+
+    model = Immobilisation
+    template_name = "comptabilite/immobilisation_list.html"
+    context_object_name = "immobilisations"
+    paginate_by = 25
+    business_permission = 'comptabilite.view_plan_comptable'
+    search_fields = ['numero', 'designation', 'fournisseur', 'description']
+
+    def get_queryset(self):
+        queryset = Immobilisation.objects.filter(
+            is_active=True
+        ).select_related('mandat', 'compte_immobilisation', 'devise')
+
+        # Filtrer par mandat
+        mandat_id = self.request.GET.get('mandat')
+        if mandat_id:
+            queryset = queryset.filter(mandat_id=mandat_id)
+
+        # Filtrer par statut
+        statut = self.request.GET.get('statut')
+        if statut:
+            queryset = queryset.filter(statut=statut)
+
+        # Filtrer par catégorie
+        categorie = self.request.GET.get('categorie')
+        if categorie:
+            queryset = queryset.filter(categorie=categorie)
+
+        return self.apply_search(queryset.order_by('numero'))
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Mandats disponibles
+        user = self.request.user
+        if user.is_manager():
+            context['mandats'] = Mandat.objects.filter(statut='ACTIF')
+        else:
+            context['mandats'] = Mandat.objects.filter(
+                Q(responsable=user) | Q(equipe=user), statut='ACTIF'
+            ).distinct()
+
+        # Statistiques
+        qs = self.get_queryset()
+        context['stats'] = {
+            'total_actifs': qs.filter(statut='ACTIF').count(),
+            'vnc_totale': qs.filter(statut='ACTIF').aggregate(
+                total=Sum('valeur_nette_comptable')
+            )['total'] or Decimal('0'),
+            'amort_cumules': qs.filter(statut='ACTIF').aggregate(
+                total=Sum('amortissement_cumule')
+            )['total'] or Decimal('0'),
+        }
+
+        return context
+
+
+class ImmobilisationDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
+    """Détail d'une immobilisation avec amortissement."""
+
+    model = Immobilisation
+    template_name = "comptabilite/immobilisation_detail.html"
+    context_object_name = "immobilisation"
+    business_permission = 'comptabilite.view_plan_comptable'
+
+    def get_queryset(self):
+        return Immobilisation.objects.select_related(
+            'mandat', 'compte_immobilisation', 'compte_amortissement',
+            'compte_amort_cumule', 'devise'
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        immo = self.object
+
+        # Calcul du pourcentage d'amortissement
+        if immo.valeur_acquisition and immo.valeur_acquisition > 0:
+            context['pct_amorti'] = min(
+                100,
+                int(immo.amortissement_cumule * 100 / immo.valeur_acquisition)
+            )
+        else:
+            context['pct_amorti'] = 0
+
+        return context
+
+
+class ImmobilisationCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView):
+    """Création d'une immobilisation."""
+
+    model = Immobilisation
+    form_class = ImmobilisationForm
+    template_name = "comptabilite/immobilisation_form.html"
+    business_permission = 'comptabilite.view_plan_comptable'
+
+    def get_success_url(self):
+        return reverse_lazy('comptabilite:immobilisation-detail', kwargs={'pk': self.object.pk})
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = _("Nouvelle immobilisation")
+        context['submit_text'] = _("Créer")
+        return context
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        # Initialiser VNC = valeur acquisition
+        if not form.instance.valeur_nette_comptable:
+            form.instance.valeur_nette_comptable = form.instance.valeur_acquisition
+        messages.success(self.request, _("Immobilisation créée avec succès"))
+        return super().form_valid(form)
+
+
+class ImmobilisationUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateView):
+    """Modification d'une immobilisation."""
+
+    model = Immobilisation
+    form_class = ImmobilisationForm
+    template_name = "comptabilite/immobilisation_form.html"
+    business_permission = 'comptabilite.view_plan_comptable'
+
+    def get_success_url(self):
+        return reverse_lazy('comptabilite:immobilisation-detail', kwargs={'pk': self.object.pk})
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = _("Modifier l'immobilisation")
+        context['submit_text'] = _("Enregistrer")
+        return context
+
+    def form_valid(self, form):
+        messages.success(self.request, _("Immobilisation modifiée avec succès"))
+        return super().form_valid(form)
+
+
+# =============================================================================
+# RAPPROCHEMENT BANCAIRE
+# =============================================================================
+
+
+class ReleveBancaireListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
+    """Liste des relevés bancaires."""
+
+    model = ReleveBancaire
+    template_name = "comptabilite/releve_bancaire_list.html"
+    context_object_name = "releves"
+    paginate_by = 25
+    business_permission = 'comptabilite.view_plan_comptable'
+    search_fields = ['reference', 'compte_bancaire__libelle']
+
+    def get_queryset(self):
+        queryset = ReleveBancaire.objects.filter(
+            is_active=True
+        ).select_related('mandat', 'compte_bancaire', 'devise')
+
+        # Filtrer par mandat
+        mandat_id = self.request.GET.get('mandat')
+        if mandat_id:
+            queryset = queryset.filter(mandat_id=mandat_id)
+
+        # Filtrer par statut
+        statut = self.request.GET.get('statut')
+        if statut:
+            queryset = queryset.filter(statut=statut)
+
+        return self.apply_search(queryset.order_by('-date_fin'))
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Mandats disponibles
+        user = self.request.user
+        if user.is_manager():
+            context['mandats'] = Mandat.objects.filter(statut='ACTIF')
+        else:
+            context['mandats'] = Mandat.objects.filter(
+                Q(responsable=user) | Q(equipe=user), statut='ACTIF'
+            ).distinct()
+
+        # Statistiques
+        qs = self.get_queryset()
+        agg = qs.aggregate(
+            total_lignes=Sum('nb_lignes'),
+            total_rapprochees=Sum('nb_rapprochees'),
+        )
+        context['stats'] = {
+            'total_releves': qs.count(),
+            'total_lignes': agg['total_lignes'] or 0,
+            'total_rapprochees': agg['total_rapprochees'] or 0,
+        }
+
+        return context
+
+
+class ReleveBancaireDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
+    """Détail d'un relevé bancaire avec lignes."""
+
+    model = ReleveBancaire
+    template_name = "comptabilite/releve_bancaire_detail.html"
+    context_object_name = "releve"
+    business_permission = 'comptabilite.view_plan_comptable'
+
+    def get_queryset(self):
+        return ReleveBancaire.objects.select_related(
+            'mandat', 'compte_bancaire', 'journal', 'devise'
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        releve = self.object
+
+        context['lignes'] = releve.lignes.select_related(
+            'ecriture'
+        ).order_by('date_valeur')
+
+        # Stats lignes
+        lignes = releve.lignes.all()
+        context['stats_lignes'] = {
+            'total': lignes.count(),
+            'rapprochees': lignes.filter(statut='RAPPROCHEE').count(),
+            'non_rapprochees': lignes.filter(statut='NON_RAPPROCHEE').count(),
+            'ignorees': lignes.filter(statut='IGNOREE').count(),
+        }
+
         return context

@@ -2,6 +2,7 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from core.models import BaseModel, Mandat, User, Client, Periodicite
+from core.storage import ExportStorage
 from decimal import Decimal
 
 
@@ -463,7 +464,10 @@ class Rapport(BaseModel):
         help_text=_('Format du fichier généré')
     )
     fichier = models.FileField(
-        upload_to='rapports/', null=True, blank=True,
+        upload_to='rapports/',
+        storage=ExportStorage(),
+        max_length=500,
+        null=True, blank=True,
         verbose_name=_('Fichier'),
         help_text=_('Fichier du rapport généré')
     )
@@ -893,7 +897,10 @@ class ExportDonnees(BaseModel):
 
     # Fichier
     fichier = models.FileField(
-        upload_to='exports/', null=True, blank=True,
+        upload_to='exports/',
+        storage=ExportStorage(),
+        max_length=500,
+        null=True, blank=True,
         verbose_name=_('Fichier'),
         help_text=_("Fichier d\'export généré")
     )

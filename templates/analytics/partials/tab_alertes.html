@@ -1,0 +1,191 @@
+{% load i18n %}
+{% load humanize %}
+
+<!-- Stats alertes -->
+<div class="row mb-4">
+    <div class="col-md-6 col-lg-3 mb-3">
+        <div class="card border-danger">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-danger mb-0">{{ alertes_stats.critiques }}</h3>
+                        <p class="text-muted mb-0">{% trans "Critiques" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-danger">
+                        <i class="ph ph-warning-octagon f-s-24 text-danger"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-3 mb-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="text-warning mb-0">{{ alertes_stats.actives }}</h3>
+                        <p class="text-muted mb-0">{% trans "Actives" %}</p>
+                    </div>
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-light-warning">
+                        <i class="ph ph-bell-ringing f-s-24 text-warning"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Alertes actives -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">{% trans "Alertes actives" %}</h5>
+                <a href="{% url 'analytics:alerte-list' %}" class="btn btn-sm btn-light-secondary">
+                    {% trans "Historique complet" %} <i class="ph ph-arrow-right ms-1"></i>
+                </a>
+            </div>
+            <div class="card-body">
+                {% for alerte in alertes_actives %}
+                <div class="alert
+                    {% if alerte.niveau == 'CRITIQUE' %}alert-danger
+                    {% elif alerte.niveau == 'ATTENTION' %}alert-warning
+                    {% else %}alert-info{% endif %}
+                    d-flex justify-content-between align-items-start mb-3">
+                    <div class="d-flex">
+                        <div class="me-3">
+                            {% if alerte.niveau == 'CRITIQUE' %}
+                            <i class="ph ph-warning-octagon f-s-30"></i>
+                            {% elif alerte.niveau == 'ATTENTION' %}
+                            <i class="ph ph-warning-circle f-s-30"></i>
+                            {% else %}
+                            <i class="ph ph-info f-s-30"></i>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <h6 class="mb-1">{{ alerte.indicateur.nom }}</h6>
+                            <p class="mb-2">{{ alerte.message }}</p>
+                            <div class="d-flex gap-3 small">
+                                <span>
+                                    <i class="ph ph-chart-line me-1"></i>
+                                    {% trans "Valeur:" %} <strong>{{ alerte.valeur_detectee }}</strong>
+                                    ({% trans "Seuil:" %} {{ alerte.seuil_depasse }})
+                                </span>
+                                {% if alerte.mandat %}
+                                <span>
+                                    <i class="ph ph-folder me-1"></i>
+                                    {{ alerte.mandat.client.raison_sociale|truncatewords:3 }}
+                                </span>
+                                {% endif %}
+                                <span>
+                                    <i class="ph ph-clock me-1"></i>
+                                    {{ alerte.date_detection|date:"d.m.Y H:i" }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        {% if alerte.statut == 'ACTIVE' %}
+                        <form method="post" action="{% url 'analytics:alerte-acquitter' alerte.pk %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-light" title="{% trans 'Acquitter' %}">
+                                <i class="ph ph-check me-1"></i>{% trans "Acquitter" %}
+                            </button>
+                        </form>
+                        {% endif %}
+                        <a href="{% url 'analytics:indicateur-detail' alerte.indicateur.pk %}"
+                           class="btn btn-sm btn-light-primary">
+                            <i class="ph ph-chart-line"></i>
+                        </a>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center py-4">
+                    <i class="ph ph-check-circle f-s-50 text-success"></i>
+                    <p class="text-muted mt-3">{% trans "Aucune alerte active" %}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Exports de données -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">{% trans "Exports de données" %}</h5>
+                <a href="{% url 'analytics:export-create' %}" class="btn btn-sm btn-primary">
+                    <i class="ph ph-export me-1"></i>{% trans "Nouvel export" %}
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bottom-border align-middle">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Nom" %}</th>
+                                <th>{% trans "Type" %}</th>
+                                <th>{% trans "Période" %}</th>
+                                <th>{% trans "Format" %}</th>
+                                <th>{% trans "Taille" %}</th>
+                                <th>{% trans "Date" %}</th>
+                                <th>{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for export in exports %}
+                            <tr>
+                                <td><strong>{{ export.nom }}</strong></td>
+                                <td>
+                                    <span class="badge
+                                        {% if export.type_export == 'COMPTABILITE' %}bg-primary
+                                        {% elif export.type_export == 'TVA' %}bg-info
+                                        {% elif export.type_export == 'SALAIRES' %}bg-warning
+                                        {% elif export.type_export == 'FACTURATION' %}bg-success
+                                        {% else %}bg-secondary{% endif %}">
+                                        {{ export.get_type_export_display }}
+                                    </span>
+                                </td>
+                                <td>{{ export.date_debut|date:"d.m.Y" }} - {{ export.date_fin|date:"d.m.Y" }}</td>
+                                <td>
+                                    {% if export.format_export == 'CSV' %}
+                                    <i class="ph ph-file-csv text-primary me-1"></i>
+                                    {% elif export.format_export == 'EXCEL' %}
+                                    <i class="ph ph-file-xls text-success me-1"></i>
+                                    {% elif export.format_export == 'JSON' %}
+                                    <i class="ph ph-brackets-curly text-warning me-1"></i>
+                                    {% elif export.format_export == 'XML' %}
+                                    <i class="ph ph-file-code text-info me-1"></i>
+                                    {% endif %}
+                                    {{ export.format_export }}
+                                </td>
+                                <td>{% if export.taille_fichier %}{{ export.taille_fichier|filesizeformat }}{% else %}-{% endif %}</td>
+                                <td>{{ export.date_demande|date:"d.m.Y H:i" }}</td>
+                                <td>
+                                    {% if export.fichier %}
+                                    <a href="{% url 'analytics:export-telecharger' export.pk %}"
+                                       class="btn btn-sm btn-light-primary" title="{% trans 'Télécharger' %}">
+                                        <i class="ph ph-download"></i>
+                                    </a>
+                                    {% else %}
+                                    <span class="badge bg-warning"><i class="ph ph-spinner"></i></span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center py-4">
+                                    <i class="ph ph-database f-s-40 text-muted"></i>
+                                    <p class="text-muted mt-2">{% trans "Aucun export effectué" %}</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

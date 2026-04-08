@@ -1,5 +1,6 @@
 # facturation/forms.py
 from django import forms
+from django.db import models
 from django.utils.translation import gettext_lazy as _
 from decimal import Decimal
 from datetime import datetime, timedelta, date
@@ -10,7 +11,8 @@ from .models import (
     ZoneGeographique, TarifMandat,
 )
 from django.db.models import Q
-from core.models import Mandat, Client, User
+from core.models import Mandat, Client, User, ParametreMetier
+from projets.models import Position
 from projets.forms import CoordonneesMixin
 
 
@@ -24,6 +26,7 @@ class PrestationForm(forms.ModelForm):
             "libelle",
             "description",
             "type_prestation",
+            "types_mandats",
             "prix_unitaire_ht",
             "unite",
             "taux_horaire",
@@ -37,6 +40,7 @@ class PrestationForm(forms.ModelForm):
             "libelle": forms.TextInput(attrs={"class": "form-control"}),
             "description": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
             "type_prestation": forms.Select(attrs={"class": "form-control select2"}),
+            "types_mandats": forms.SelectMultiple(attrs={"class": "form-control select2", "multiple": "multiple"}),
             "prix_unitaire_ht": forms.NumberInput(
                 attrs={"class": "form-control", "step": "0.01"}
             ),
@@ -51,6 +55,30 @@ class PrestationForm(forms.ModelForm):
             "compte_produit": forms.Select(attrs={"class": "form-control select2"}),
             "actif": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
+
+
+class MultipleFileInput(forms.ClearableFileInput):
+    """Widget pour upload de plusieurs fichiers."""
+    allow_multiple_selected = True
+
+
+class MultipleFileField(forms.FileField):
+    """Champ de formulaire acceptant plusieurs fichiers."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault('widget', MultipleFileInput(attrs={
+            'class': 'form-control',
+            'accept': '.pdf,.jpg,.jpeg,.png,.gif,.tiff,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip',
+        }))
+        super().__init__(*args, **kwargs)
+
+    def clean(self, data, initial=None):
+        single_file_clean = super().clean
+        if isinstance(data, (list, tuple)):
+            result = [single_file_clean(d, initial) for d in data]
+        else:
+            result = [single_file_clean(data, initial)]
+        return result
 
 
 class TimeTrackingForm(CoordonneesMixin, forms.ModelForm):
@@ -73,6 +101,13 @@ class TimeTrackingForm(CoordonneesMixin, forms.ModelForm):
     coordonnees = forms.CharField(
         required=False,
         widget=forms.HiddenInput(attrs={"id": "id_coordonnees"}),
+    )
+
+    # Pièces jointes (preuves du travail effectué)
+    fichiers = MultipleFileField(
+        required=False,
+        label=_("Pièces jointes"),
+        help_text=_("Joindre des fichiers comme preuve du travail effectué (captures, documents, etc.)"),
     )
 
     class Meta:
@@ -274,7 +309,9 @@ class FactureForm(forms.ModelForm):
         fields = [
             "mandat",
             "client",
+            "position",
             "type_facture",
+            "type_operation_tva",
             "regime_fiscal",
             "exercice",
             "devise",
@@ -291,7 +328,9 @@ class FactureForm(forms.ModelForm):
         widgets = {
             "mandat": forms.Select(attrs={"class": "form-control select2"}),
             "client": forms.Select(attrs={"class": "form-control select2"}),
+            "position": forms.Select(attrs={"class": "form-control select2"}),
             "type_facture": forms.Select(attrs={"class": "form-control"}),
+            "type_operation_tva": forms.Select(attrs={"class": "form-control"}),
             "regime_fiscal": forms.Select(attrs={"class": "form-control select2"}),
             "exercice": forms.Select(attrs={"class": "form-control select2"}),
             "devise": forms.Select(attrs={"class": "form-control"}),
@@ -319,17 +358,60 @@ class FactureForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.mandat = kwargs.pop('mandat', None)
         super().__init__(*args, **kwargs)
+        # Charger les types de facture depuis ParametreMetier
+        self.fields['type_facture'].choices = ParametreMetier.get_choices_with_default(
+            'facturation', 'type_facture', Facture.TYPE_CHOICES
+        )
+        # remise_pourcent: pas obligatoire (default 0 sur le modèle)
+        self.fields['remise_pourcent'].required = False
+        # devise: auto-remplie depuis le mandat, pas obligatoire côté formulaire
+        self.fields['devise'].required = False
+        self.fields['devise'].widget = forms.HiddenInput()
         # Forcer le format de date
         self.fields["date_emission"].input_formats = ["%Y-%m-%d"]
         self.fields["date_service_debut"].input_formats = ["%Y-%m-%d"]
         self.fields["date_service_fin"].input_formats = ["%Y-%m-%d"]
 
-        # Pré-peupler la devise et le régime fiscal depuis le mandat
-        if not self.instance.pk and self.mandat:
+        # Position : filtrer par mandat si disponible
+        mandat_for_position = self.mandat or (self.instance.mandat if self.instance and self.instance.pk else None)
+        if mandat_for_position:
+            self.fields['position'].queryset = Position.objects.filter(
+                mandat=mandat_for_position, is_active=True
+            )
+        else:
+            self.fields['position'].queryset = Position.objects.filter(is_active=True)
+        self.fields['position'].required = False
+
+        # Pré-peupler depuis le mandat (en création uniquement)
+        if self.instance._state.adding and self.mandat:
             if hasattr(self.mandat, 'devise_id') and self.mandat.devise_id:
-                self.fields["devise"].initial = self.mandat.devise_id
+                self.initial["devise"] = self.mandat.devise_id
             if hasattr(self.mandat, 'regime_fiscal_id') and self.mandat.regime_fiscal_id:
-                self.fields["regime_fiscal"].initial = self.mandat.regime_fiscal_id
+                self.initial["regime_fiscal"] = self.mandat.regime_fiscal_id
+            # Exercice: filtrer par mandat et pré-sélectionner l'exercice ouvert
+            from core.models import ExerciceComptable
+            self.fields["exercice"].queryset = ExerciceComptable.objects.filter(
+                mandat=self.mandat
+            )
+            exercice_ouvert = self.mandat.exercices.filter(statut="OUVERT").first()
+            if exercice_ouvert:
+                self.initial["exercice"] = exercice_ouvert.pk
+
+    def clean_remise_pourcent(self):
+        val = self.cleaned_data.get('remise_pourcent')
+        return val if val is not None else Decimal('0')
+
+    def clean(self):
+        cleaned_data = super().clean()
+        # Auto-remplir devise depuis le mandat si non fournie
+        if not cleaned_data.get('devise'):
+            mandat = cleaned_data.get('mandat')
+            if mandat and hasattr(mandat, 'devise') and mandat.devise:
+                cleaned_data['devise'] = mandat.devise
+            else:
+                from core.models import Devise
+                cleaned_data['devise'] = Devise.get_devise_base()
+        return cleaned_data
 
 
 class LigneFactureForm(forms.ModelForm):
@@ -339,6 +421,7 @@ class LigneFactureForm(forms.ModelForm):
         model = LigneFacture
         fields = [
             "prestation",
+            "compte_produit",
             "description",
             "description_detaillee",
             "quantite",
@@ -351,6 +434,9 @@ class LigneFactureForm(forms.ModelForm):
             "prestation": forms.Select(
                 attrs={"class": "form-control select2 prestation-select"}
             ),
+            "compte_produit": forms.Select(
+                attrs={"class": "form-control select2"}
+            ),
             "description": forms.TextInput(attrs={"class": "form-control"}),
             "description_detaillee": forms.Textarea(
                 attrs={"class": "form-control", "rows": 2}
@@ -362,13 +448,94 @@ class LigneFactureForm(forms.ModelForm):
             "prix_unitaire_ht": forms.NumberInput(
                 attrs={"class": "form-control prix-input", "step": "0.01"}
             ),
-            "taux_tva": forms.NumberInput(
-                attrs={"class": "form-control tva-input", "step": "0.01"}
+            "taux_tva": forms.Select(
+                attrs={"class": "form-control tva-input"}
             ),
             "remise_pourcent": forms.NumberInput(
                 attrs={"class": "form-control", "step": "0.01"}
             ),
         }
+
+    def __init__(self, *args, mandat=None, **kwargs):
+        self.mandat_obj = mandat
+        super().__init__(*args, **kwargs)
+        self.fields['remise_pourcent'].required = False
+        self.fields['compte_produit'].required = False
+
+        # Filtrer les comptes produit par le plan du mandat
+        if mandat:
+            plan = mandat.plan_comptable
+            if plan:
+                from comptabilite.models import Compte
+                self.fields['compte_produit'].queryset = Compte.objects.filter(
+                    plan_comptable=plan,
+                    imputable=True,
+                    type_compte='PRODUIT',
+                ).order_by('numero')
+
+        # Remplir le dropdown TVA avec les taux du régime fiscal
+        taux_choices = [('', '— TVA —')]
+        regime = getattr(mandat, 'regime_fiscal', None) if mandat else None
+        if regime:
+            from tva.models import TauxTVA
+            from django.utils import timezone
+            today = timezone.now().date()
+            taux_actifs = TauxTVA.objects.filter(
+                regime=regime,
+                date_debut__lte=today,
+            ).filter(
+                models.Q(date_fin__isnull=True) | models.Q(date_fin__gte=today)
+            ).exclude(type_taux='SSS').order_by('-taux')
+            for t in taux_actifs:
+                label = f"{t.taux}% — {t.get_type_taux_display()}"
+                taux_choices.append((str(t.taux), label))
+        taux_choices.append(('0', '0% — Exonéré'))
+        self.fields['taux_tva'].widget = forms.Select(
+            attrs={"class": "form-control tva-input"},
+            choices=taux_choices,
+        )
+
+    def clean_remise_pourcent(self):
+        val = self.cleaned_data.get('remise_pourcent')
+        return val if val is not None else Decimal('0')
+
+    def clean_taux_tva(self):
+        """Valide que le taux TVA appartient au régime fiscal du mandat."""
+        taux = self.cleaned_data.get('taux_tva')
+        if taux is None:
+            return Decimal('0')
+        taux = Decimal(str(taux))
+        if taux == 0:
+            return taux
+        regime = getattr(self.mandat_obj, 'regime_fiscal', None) if self.mandat_obj else None
+        if regime:
+            from tva.models import TauxTVA
+            from django.utils import timezone
+            today = timezone.now().date()
+            exists = TauxTVA.objects.filter(
+                regime=regime, taux=taux, date_debut__lte=today,
+            ).filter(
+                models.Q(date_fin__isnull=True) | models.Q(date_fin__gte=today)
+            ).exists()
+            if not exists:
+                raise forms.ValidationError(
+                    _("Le taux %(taux)s%% n'est pas valide pour le régime %(regime)s."),
+                    params={'taux': taux, 'regime': regime.code},
+                )
+        return taux
+
+
+class BaseLigneFactureFormSet(forms.BaseInlineFormSet):
+    """Formset de base qui passe le mandat aux formulaires."""
+
+    def __init__(self, *args, mandat=None, **kwargs):
+        self.mandat_obj = mandat
+        super().__init__(*args, **kwargs)
+
+    def get_form_kwargs(self, index):
+        kwargs = super().get_form_kwargs(index)
+        kwargs['mandat'] = self.mandat_obj
+        return kwargs
 
 
 # Formset pour les lignes de facture
@@ -376,7 +543,8 @@ LigneFactureFormSet = inlineformset_factory(
     Facture,
     LigneFacture,
     form=LigneFactureForm,
-    extra=1,  # 1 ligne vide par défaut
+    formset=BaseLigneFactureFormSet,
+    extra=0,
     can_delete=True,
     min_num=1,
     validate_min=True,
@@ -409,6 +577,12 @@ class PaiementForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['mode_paiement'].choices = ParametreMetier.get_choices_with_default(
+            'facturation', 'mode_paiement', Paiement.MODE_PAIEMENT_CHOICES
+        )
+
 
 class RelanceForm(forms.ModelForm):
     """Formulaire pour une relance"""
@@ -428,6 +602,19 @@ class RelanceForm(forms.ModelForm):
             ),
             "notes": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['montant_frais'].required = False
+        self.fields['montant_interets'].required = False
+
+    def clean_montant_frais(self):
+        val = self.cleaned_data.get('montant_frais')
+        return val if val is not None else Decimal('0')
+
+    def clean_montant_interets(self):
+        val = self.cleaned_data.get('montant_interets')
+        return val if val is not None else Decimal('0')
 
 
 class FacturationGroupeeForm(forms.Form):

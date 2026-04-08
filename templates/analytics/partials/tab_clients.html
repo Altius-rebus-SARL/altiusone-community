@@ -1,0 +1,176 @@
+{% load i18n %}
+{% load humanize %}
+{% load devise_tags %}
+
+<!-- KPIs clients résumé -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card kpi-card h-100 bg-light-info">
+            <div class="card-body py-3">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="badge bg-info p-2 rounded-circle">
+                        <i class="ti ti-users f-s-18"></i>
+                    </span>
+                    <div>
+                        <p class="kpi-label mb-0">{% trans "Clients Actifs" %}</p>
+                        <h5 class="mb-0 f-w-700">{{ kpis.nb_clients_actifs.valeur }}</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card kpi-card h-100 bg-light-warning">
+            <div class="card-body py-3">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="badge bg-warning p-2 rounded-circle">
+                        <i class="ti ti-file-invoice f-s-18"></i>
+                    </span>
+                    <div>
+                        <p class="kpi-label mb-0">{% trans "Encours" %}</p>
+                        <h5 class="mb-0 f-w-700">{{ DEVISE_CODE }} {{ kpis.encours_clients.valeur|devise:DEVISE_TAUX|floatformat:0|intcomma }}</h5>
+                        <small class="text-muted">{{ kpis.encours_clients.nb_factures }} {% trans "facture(s)" %}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card kpi-card h-100 {% if kpis.dso.valeur <= 30 %}bg-light-success{% elif kpis.dso.valeur <= 45 %}bg-light-warning{% else %}bg-light-danger{% endif %}">
+            <div class="card-body py-3">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="badge {% if kpis.dso.valeur <= 30 %}bg-success{% elif kpis.dso.valeur <= 45 %}bg-warning{% else %}bg-danger{% endif %} p-2 rounded-circle">
+                        <i class="ti ti-clock f-s-18"></i>
+                    </span>
+                    <div>
+                        <p class="kpi-label mb-0">{% trans "DSO Moyen" %}</p>
+                        <h5 class="mb-0 f-w-700">{{ kpis.dso.valeur|floatformat:0 }} {% trans "jours" %}</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card kpi-card h-100 {% if kpis.factures_impayees.montant > 0 %}bg-light-danger{% else %}bg-light-success{% endif %}">
+            <div class="card-body py-3">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="badge {% if kpis.factures_impayees.montant > 0 %}bg-danger{% else %}bg-success{% endif %} p-2 rounded-circle">
+                        <i class="ti ti-alert-triangle f-s-18"></i>
+                    </span>
+                    <div>
+                        <p class="kpi-label mb-0">{% trans "Impayés" %}</p>
+                        <h5 class="mb-0 f-w-700">{{ DEVISE_CODE }} {{ kpis.factures_impayees.montant|devise:DEVISE_TAUX|floatformat:0|intcomma }}</h5>
+                        <small class="text-muted">{{ kpis.factures_impayees.valeur }} {% trans "facture(s)" %}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Graphiques -->
+<div class="row mb-4">
+    <!-- Top Clients -->
+    <div class="col-xl-6 mb-4">
+        <div class="card chart-card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">{% trans "Top 10 Clients" %}</h5>
+                <a href="{% url 'core:client-list' %}" class="btn btn-sm btn-light-primary">
+                    {% trans "Voir tous" %}
+                </a>
+            </div>
+            <div class="card-body">
+                <div id="chart-top-clients" style="height: 350px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Aging Analysis -->
+    <div class="col-xl-6 mb-4">
+        <div class="card chart-card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">{% trans "Analyse des Créances" %}</h5>
+                <a href="{% url 'facturation:facture-list' %}?statut=EN_RETARD" class="btn btn-sm btn-light-warning">
+                    {% trans "Factures en retard" %}
+                </a>
+            </div>
+            <div class="card-body">
+                <div id="chart-aging" style="height: 350px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pareto -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card chart-card">
+            <div class="card-header">
+                <h5 class="mb-0">{% trans "Analyse Pareto (80/20)" %}</h5>
+                <small class="text-muted">{% trans "Concentration du CA par client" %}</small>
+            </div>
+            <div class="card-body">
+                <div id="chart-pareto" style="height: 350px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    if (typeof AltiusCharts === 'undefined') return;
+
+    var topClientsData = {{ chart_top_clients|safe }};
+    var agingData = {{ chart_aging|safe }};
+    var paretoData = {{ chart_pareto|safe }};
+
+    // Top Clients
+    if (topClientsData.categories && topClientsData.categories.length > 0) {
+        AltiusCharts.horizontalBar('chart-top-clients', topClientsData, {
+            height: 350,
+            colors: ['#3b82f6'],
+            distributed: false
+        });
+    } else {
+        document.getElementById('chart-top-clients').innerHTML =
+            '<div class="d-flex align-items-center justify-content-center h-100 text-muted">' +
+            '<div class="text-center"><i class="ti ti-users f-s-50 mb-2"></i>' +
+            '<p>{% trans "Aucun client facturé" %}</p></div></div>';
+    }
+
+    // Aging Analysis
+    AltiusCharts.bar('chart-aging', agingData, {
+        height: 350,
+        colors: ['#10b981', '#f59e0b', '#f97316', '#ef4444'],
+        plotOptions: {
+            bar: {
+                distributed: true,
+                borderRadius: 6,
+                columnWidth: '50%'
+            }
+        },
+        legend: { show: false }
+    });
+
+    // Pareto
+    if (paretoData.categories && paretoData.categories.length > 0) {
+        AltiusCharts.mixed('chart-pareto', paretoData, {
+            height: 350,
+            stroke: { width: [0, 3] },
+            colors: ['#3b82f6', '#ef4444'],
+            yaxis: [
+                {
+                    title: { text: '{% trans "CA" %}' },
+                    labels: { formatter: function(val) { return AltiusCharts.formatCurrency(val); } }
+                },
+                {
+                    opposite: true,
+                    title: { text: '{% trans "% Cumulé" %}' },
+                    max: 100,
+                    labels: { formatter: function(val) { return val + '%'; } }
+                }
+            ]
+        });
+    }
+})();
+</script>

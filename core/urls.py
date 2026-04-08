@@ -136,6 +136,9 @@ urlpatterns = [
         views.update_user_preferences,
         name="update-preferences",
     ),
+    path("settings/2fa/setup/", views.TwoFactorSetupWebView.as_view(), name="2fa-setup"),
+    path("settings/2fa/enable/", views.TwoFactorEnableWebView.as_view(), name="2fa-enable"),
+    path("settings/2fa/disable/", views.TwoFactorDisableWebView.as_view(), name="2fa-disable"),
     # ============================================================================
     # DEVISES & TAUX DE CHANGE
     # ============================================================================
@@ -275,6 +278,14 @@ urlpatterns = [
     # CHANGEMENT MOT DE PASSE OBLIGATOIRE
     # ============================================================================
     path("force-password-change/", views.ForcePasswordChangeView.as_view(), name="force-password-change"),
+    # ============================================================================
+    # CONTRATS
+    # ============================================================================
+    path("contrats/", views.ContratListView.as_view(), name="contrat-list"),
+    path("contrats/nouveau/", views.ContratCreateView.as_view(), name="contrat-create"),
+    path("contrats/<uuid:pk>/", views.ContratDetailView.as_view(), name="contrat-detail"),
+    path("contrats/<uuid:pk>/modifier/", views.ContratUpdateView.as_view(), name="contrat-update"),
+    path("modeles-contrat/", views.ModeleContratListView.as_view(), name="modele-contrat-list"),
     # ============================================================================
     # GRAPHE RELATIONNEL
     # ============================================================================

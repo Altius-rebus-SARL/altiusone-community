@@ -3,6 +3,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from core.permissions import BusinessPermissionMixin, permission_required_business
+from core.mixins import SearchMixin
 from django.views.generic import ListView, DetailView, CreateView, UpdateView
 from django.db.models import Q, Count, Sum, F, Max
 from django.urls import reverse_lazy
@@ -49,16 +50,19 @@ from core.models import Mandat
 # ============ CONFIGURATION TVA ============
 
 
-class ConfigurationTVAListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class ConfigurationTVAListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des configurations TVA"""
 
     model = ConfigurationTVA
     template_name = "tva/configuration_list.html"
     context_object_name = "configurations"
     business_permission = 'tva.config_tva'
+    search_fields = ['mandat__numero', 'mandat__client__raison_sociale']
 
     def get_queryset(self):
-        return ConfigurationTVA.objects.select_related("mandat__client")
+        return self.apply_search(
+            ConfigurationTVA.objects.select_related("mandat__client")
+        )
 
 
 class ConfigurationTVADetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView):
@@ -101,7 +105,7 @@ class ConfigurationTVAUpdateView(
 # ============ DÉCLARATIONS TVA ============
 
 
-class DeclarationTVAListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class DeclarationTVAListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des déclarations TVA"""
 
     model = DeclarationTVA
@@ -109,6 +113,7 @@ class DeclarationTVAListView(LoginRequiredMixin, BusinessPermissionMixin, ListVi
     context_object_name = "declarations"
     paginate_by = 50
     business_permission = 'tva.view_declarations'
+    search_fields = ['mandat__numero', 'mandat__client__raison_sociale']
 
     def get_queryset(self):
         queryset = DeclarationTVA.objects.select_related(
@@ -124,7 +129,7 @@ class DeclarationTVAListView(LoginRequiredMixin, BusinessPermissionMixin, ListVi
 
         # Appliquer les filtres
         self.filterset = DeclarationTVAFilter(self.request.GET, queryset=queryset)
-        return self.filterset.qs.order_by("-annee", "-trimestre", "-semestre")
+        return self.apply_search(self.filterset.qs.order_by("-annee", "-trimestre", "-semestre"))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -311,7 +316,7 @@ def declaration_preview_pdf(request, pk):
 # ============ OPÉRATIONS TVA ============
 
 
-class OperationTVAListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class OperationTVAListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des opérations TVA"""
 
     model = OperationTVA
@@ -319,6 +324,7 @@ class OperationTVAListView(LoginRequiredMixin, BusinessPermissionMixin, ListView
     context_object_name = "operations"
     paginate_by = 100
     business_permission = 'tva.view_operations'
+    search_fields = ['tiers', 'description', 'code_tva', 'mandat__numero']
 
     def get_queryset(self):
         queryset = OperationTVA.objects.select_related(
@@ -334,7 +340,7 @@ class OperationTVAListView(LoginRequiredMixin, BusinessPermissionMixin, ListView
 
         # Appliquer les filtres
         self.filterset = OperationTVAFilter(self.request.GET, queryset=queryset)
-        return self.filterset.qs.order_by("-date_operation")
+        return self.apply_search(self.filterset.qs.order_by("-date_operation"))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

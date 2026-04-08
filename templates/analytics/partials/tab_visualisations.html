@@ -1,0 +1,57 @@
+{% load i18n %}
+{% load static %}
+
+<!-- Row 1: Calendar Heatmap (full width) -->
+<div class="row mb-4">
+    <div class="col-12">
+        {% include 'analytics/components/d3_calendar.html' %}
+    </div>
+</div>
+
+<!-- Row 2: Sunburst + Sankey -->
+<div class="row mb-4">
+    <div class="col-xl-6 mb-4 mb-xl-0">
+        {% include 'analytics/components/d3_sunburst.html' %}
+    </div>
+    <div class="col-xl-6">
+        {% include 'analytics/components/d3_sankey.html' %}
+    </div>
+</div>
+
+<!-- Row 3: Network + Icicle -->
+<div class="row mb-4">
+    <div class="col-xl-6 mb-4 mb-xl-0">
+        {% include 'analytics/components/d3_network.html' %}
+    </div>
+    <div class="col-xl-6">
+        {% include 'analytics/components/d3_icicle.html' %}
+    </div>
+</div>
+
+<!-- Row 4: Timeline (full width) -->
+<div class="row mb-4">
+    <div class="col-12">
+        {% include 'analytics/components/d3_timeline.html' %}
+    </div>
+</div>
+
+<!-- D3.js Libraries -->
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12"></script>
+
+<!-- Configuration -->
+<script>
+    window.D3_CONFIG = {
+        annee: '{{ annee_selectionnee }}',
+        {% if mandat_selectionne %}mandat: '{{ mandat_selectionne.pk }}',{% endif %}
+    };
+</script>
+
+<!-- Common utilities + Visualisations (ordre garanti par HTMX) -->
+<script src="{% static 'analytics/js/d3-common.js' %}"></script>
+<script src="{% static 'analytics/js/d3-calendar.js' %}"></script>
+<script src="{% static 'analytics/js/d3-sunburst.js' %}"></script>
+<script src="{% static 'analytics/js/d3-sankey.js' %}"></script>
+<script src="{% static 'analytics/js/d3-network.js' %}"></script>
+<script src="{% static 'analytics/js/d3-icicle.js' %}"></script>
+<script src="{% static 'analytics/js/d3-timeline.js' %}"></script>

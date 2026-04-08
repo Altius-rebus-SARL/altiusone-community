@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Articles d'aide" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Articles d'aide" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'support:hub' %}">
+                    <span><i class="ph-duotone ph-lifebuoy f-s-16"></i> {% trans "Support" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Articles" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Sidebar: filtres par categorie -->
+    <div class="col-md-3 mb-3">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="ph ph-funnel me-2"></i>{% trans "Categories" %}</h6>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    <a href="{% url 'support:article-list' %}{% if q %}?q={{ q }}{% endif %}"
+                       class="list-group-item list-group-item-action {% if not current_categorie %}active{% endif %}">
+                        <i class="ph ph-list me-2"></i>{% trans "Toutes les categories" %}
+                    </a>
+                    {% for cat in categories %}
+                    <a href="{% url 'support:article-list' %}?categorie={{ cat.code }}{% if q %}&q={{ q }}{% endif %}"
+                       class="list-group-item list-group-item-action {% if current_categorie == cat.code %}active{% endif %}">
+                        <i class="{{ cat.icone|default:'ph ph-circle' }} me-2"></i>{{ cat.nom }}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main content: articles -->
+    <div class="col-md-9">
+        <!-- Search -->
+        <div class="card mb-3">
+            <div class="card-body py-2">
+                <form method="get" class="d-flex gap-2 align-items-center">
+                    {% if current_categorie %}
+                    <input type="hidden" name="categorie" value="{{ current_categorie }}">
+                    {% endif %}
+                    <div class="position-relative flex-grow-1 app-form app-icon-form">
+                        <input type="search" name="q" class="form-control search"
+                               placeholder="{% trans 'Rechercher un article...' %}" value="{{ q }}">
+                        <i class="ti ti-search text-dark"></i>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="ph ph-magnifying-glass me-1"></i>{% trans "Rechercher" %}
+                    </button>
+                    {% if q or current_categorie %}
+                    <a href="{% url 'support:article-list' %}" class="btn btn-light btn-sm">
+                        <i class="ph ph-x me-1"></i>{% trans "Reset" %}
+                    </a>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+
+        <!-- Articles grid -->
+        <div class="row">
+            {% for article in articles %}
+            <div class="col-md-6 mb-3">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <span class="badge bg-light-{{ article.categorie.couleur|default:'primary' }} text-{{ article.categorie.couleur|default:'primary' }} f-s-10">
+                                {{ article.categorie.nom }}
+                            </span>
+                            <small class="text-muted">{{ article.created_at|date:"d.m.Y" }}</small>
+                        </div>
+                        <h6 class="mb-2">
+                            <a href="{% url 'support:article-detail' article.slug %}" class="text-dark text-decoration-none">
+                                {{ article.titre }}
+                            </a>
+                        </h6>
+                        {% if article.resume %}
+                        <p class="text-muted f-s-13 mb-0">{{ article.resume|truncatewords:20 }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="card-footer bg-transparent border-0 pt-0">
+                        <a href="{% url 'support:article-detail' article.slug %}" class="btn btn-sm btn-light-primary">
+                            {% trans "Lire l'article" %} <i class="ph ph-arrow-right ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body text-center py-5">
+                        <i class="ph ph-article f-s-48 text-muted d-block mb-3"></i>
+                        <p class="text-muted">{% trans "Aucun article trouve." %}</p>
+                        {% if q or current_categorie %}
+                        <a href="{% url 'support:article-list' %}" class="btn btn-sm btn-light-primary">
+                            {% trans "Reinitialiser les filtres" %}
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Pagination -->
+        {% if is_paginated %}
+        <nav class="mt-3">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if current_categorie %}&categorie={{ current_categorie }}{% endif %}{% if q %}&q={{ q }}{% endif %}">
+                        &laquo;
+                    </a>
+                </li>
+                {% endif %}
+                <li class="page-item active">
+                    <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                </li>
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if current_categorie %}&categorie={{ current_categorie }}{% endif %}{% if q %}&q={{ q }}{% endif %}">
+                        &raquo;
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

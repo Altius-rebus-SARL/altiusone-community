@@ -11,6 +11,7 @@ from .viewset import (
     TypePrestationViewSet,
     ZoneGeographiqueViewSet,
     TarifMandatViewSet,
+    CategorieTempsViewSet,
 )
 
 app_name = "facturation"
@@ -18,6 +19,7 @@ app_name = "facturation"
 router = DefaultRouter()
 router.register(r"prestations", PrestationViewSet, basename="prestation")
 router.register(r"temps", TimeTrackingViewSet, basename="temps")
+router.register(r"categories-temps", CategorieTempsViewSet, basename="categorie-temps")
 router.register(r"factures", FactureViewSet, basename="facture")
 router.register(r"lignes", LigneFactureViewSet, basename="ligne")
 router.register(r"paiements", PaiementViewSet, basename="paiement")
@@ -40,14 +42,27 @@ PRESTATIONS:
 - PUT    /api/v1/facturation/prestations/{id}/         Modifier prestation
 - DELETE /api/v1/facturation/prestations/{id}/         Supprimer prestation
 
-TIME TRACKING:
-- GET    /api/v1/facturation/temps/                    Liste temps
+CATÉGORIES DE TEMPS (interne & absences):
+- GET    /api/v1/facturation/categories-temps/              Liste catégories
+- POST   /api/v1/facturation/categories-temps/              Créer catégorie
+- GET    /api/v1/facturation/categories-temps/{id}/         Détail catégorie
+- PUT    /api/v1/facturation/categories-temps/{id}/         Modifier catégorie
+- DELETE /api/v1/facturation/categories-temps/{id}/         Supprimer catégorie
+- GET    /api/v1/facturation/categories-temps/internes/     Catégories internes actives
+- GET    /api/v1/facturation/categories-temps/absences/     Catégories absences actives
+
+TIME TRACKING (client + interne + absences):
+- GET    /api/v1/facturation/temps/                    Liste temps (filtrable par type_entree)
 - POST   /api/v1/facturation/temps/                    Créer entrée temps
 - GET    /api/v1/facturation/temps/{id}/               Détail temps
 - PUT    /api/v1/facturation/temps/{id}/               Modifier temps
 - DELETE /api/v1/facturation/temps/{id}/               Supprimer temps
-- GET    /api/v1/facturation/temps/non_factures/       Temps non facturés
+- GET    /api/v1/facturation/temps/non_factures/       Temps client non facturés
 - POST   /api/v1/facturation/temps/{id}/valider/       Valider temps
+- POST   /api/v1/facturation/temps/{id}/calculer_montant/  Calculer montant (client)
+- GET    /api/v1/facturation/temps/mes_temps/          Mes entrées de temps
+- GET    /api/v1/facturation/temps/solde_vacances/     Solde vacances utilisateur
+- GET    /api/v1/facturation/temps/statistiques/       Stats temps par type/catégorie
 
 FACTURES:
 - GET    /api/v1/facturation/factures/                 Liste factures

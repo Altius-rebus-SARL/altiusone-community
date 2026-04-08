@@ -2,7 +2,9 @@
 from django.db import models
 from django.contrib.gis.db import models as gis_models
 from django.utils.translation import gettext_lazy as _
-from core.models import BaseModel, Devise, Mandat, Client, User
+from django.contrib.contenttypes.fields import GenericRelation
+from core.models import BaseModel, Devise, Mandat, Client, User, FichierJoint
+from core.storage import InvoiceStorage
 from decimal import Decimal
 from datetime import datetime, date, timedelta
 from tva.utils import get_taux_tva_defaut
@@ -118,11 +120,28 @@ class Prestation(BaseModel):
         help_text=_("Compte comptable de produit associé")
     )
 
+    # Lien avec les types de mandats
+    types_mandats = models.ManyToManyField(
+        'core.TypeMandat',
+        blank=True,
+        related_name='prestations',
+        verbose_name=_("Types de mandats"),
+        help_text=_("Types de mandats auxquels cette prestation est associée")
+    )
+
     actif = models.BooleanField(
         default=True,
         verbose_name=_("Actif"),
         help_text=_("Indique si la prestation est active")
     )
+
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            f"{self.code} {self.libelle}",
+            self.description,
+        ]
+        return ' '.join(filter(None, parts))
 
     class Meta:
         db_table = 'prestations'
@@ -247,16 +266,118 @@ class TarifMandat(BaseModel):
         return True
 
 
-class TimeTracking(BaseModel):
-    """Suivi du temps de travail sur les prestations"""
+class CategorieTemps(models.Model):
+    """Catégorie pour le temps interne et les absences.
 
-    # Rattachement
+    Permet de classifier le temps non lié à un mandat client :
+    - INTERNE : formation, réunion, admin, prospection...
+    - ABSENCE : vacances, maladie, congé personnel, service militaire...
+    """
+
+    TYPE_CHOICES = [
+        ('INTERNE', _('Temps interne')),
+        ('ABSENCE', _('Absence')),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    code = models.CharField(
+        max_length=30, unique=True,
+        verbose_name=_('Code'),
+        help_text=_('Code technique unique (ex: FORMATION, VACANCES)')
+    )
+    libelle = models.CharField(
+        max_length=100,
+        verbose_name=_('Libellé'),
+        help_text=_('Nom affiché (ex: Formation, Vacances)')
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name=_('Description'),
+    )
+    type_categorie = models.CharField(
+        max_length=10,
+        choices=TYPE_CHOICES,
+        verbose_name=_('Type'),
+        help_text=_('Interne = temps de travail non facturable, Absence = jour non travaillé')
+    )
+    icone = models.CharField(
+        max_length=50, blank=True, default='ph-clock',
+        verbose_name=_('Icône'),
+    )
+    couleur = models.CharField(
+        max_length=20, blank=True, default='secondary',
+        verbose_name=_('Couleur'),
+    )
+    # Pour les absences : impacte-t-il le solde vacances ?
+    decompte_vacances = models.BooleanField(
+        default=False,
+        verbose_name=_('Décompte vacances'),
+        help_text=_('Si coché, cette catégorie décompte du solde de jours de vacances')
+    )
+    # Pour les absences : impacte-t-il le compteur maladie ?
+    decompte_maladie = models.BooleanField(
+        default=False,
+        verbose_name=_('Décompte maladie'),
+        help_text=_('Si coché, cette catégorie incrémente le compteur jours maladie')
+    )
+    ordre = models.IntegerField(default=0, verbose_name=_('Ordre'))
+    is_active = models.BooleanField(default=True, verbose_name=_('Actif'))
+
+    class Meta:
+        db_table = 'categories_temps'
+        verbose_name = _('Catégorie de temps')
+        verbose_name_plural = _('Catégories de temps')
+        ordering = ['type_categorie', 'ordre', 'libelle']
+
+    def __str__(self):
+        return f"[{self.get_type_categorie_display()}] {self.libelle}"
+
+    @property
+    def est_interne(self):
+        return self.type_categorie == 'INTERNE'
+
+    @property
+    def est_absence(self):
+        return self.type_categorie == 'ABSENCE'
+
+
+class TimeTracking(BaseModel):
+    """Suivi du temps de travail sur les prestations, temps interne et absences"""
+
+    TYPE_ENTREE_CHOICES = [
+        ('CLIENT', _('Temps client (mandat)')),
+        ('INTERNE', _('Temps interne')),
+        ('ABSENCE', _('Absence')),
+    ]
+
+    # Type d'entrée
+    type_entree = models.CharField(
+        max_length=10,
+        choices=TYPE_ENTREE_CHOICES,
+        default='CLIENT',
+        db_index=True,
+        verbose_name=_("Type d'entrée"),
+        help_text=_("CLIENT=mandat, INTERNE=formation/admin, ABSENCE=vacances/maladie")
+    )
+
+    # Catégorie interne/absence (obligatoire si type_entree != CLIENT)
+    categorie = models.ForeignKey(
+        CategorieTemps,
+        on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name='temps',
+        verbose_name=_("Catégorie"),
+        help_text=_("Catégorie de temps interne ou type d'absence")
+    )
+
+    # Rattachement (mandat/prestation optionnels si INTERNE ou ABSENCE)
     mandat = models.ForeignKey(
         Mandat,
         on_delete=models.CASCADE,
+        null=True, blank=True,
         related_name='temps_travail',
         verbose_name=_("Mandat"),
-        help_text=_("Mandat concerné par ce temps de travail")
+        help_text=_("Mandat concerné (obligatoire pour type CLIENT)")
     )
     utilisateur = models.ForeignKey(
         User,
@@ -268,9 +389,10 @@ class TimeTracking(BaseModel):
     prestation = models.ForeignKey(
         Prestation,
         on_delete=models.PROTECT,
+        null=True, blank=True,
         related_name='temps_travail',
         verbose_name=_("Prestation"),
-        help_text=_("Type de prestation effectuée")
+        help_text=_("Type de prestation (obligatoire pour type CLIENT)")
     )
 
     # Temps
@@ -316,12 +438,14 @@ class TimeTracking(BaseModel):
     taux_horaire = models.DecimalField(
         max_digits=10,
         decimal_places=2,
+        default=0,
         verbose_name=_("Taux horaire"),
         help_text=_("Taux horaire appliqué pour ce travail")
     )
     montant_ht = models.DecimalField(
         max_digits=10,
         decimal_places=2,
+        default=0,
         verbose_name=_("Montant HT"),
         help_text=_("Montant hors taxes calculé")
     )
@@ -412,6 +536,22 @@ class TimeTracking(BaseModel):
         help_text=_("Utilisateur ayant validé ce temps")
     )
 
+    # Pièces jointes (preuves du travail effectué)
+    fichiers_joints = GenericRelation(
+        FichierJoint,
+        verbose_name=_("Fichiers joints"),
+        help_text=_("Pièces jointes : preuves du travail effectué (captures, documents, etc.)")
+    )
+
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            self.description,
+            self.notes_internes,
+            self.prestation.libelle if self.prestation else '',
+        ]
+        return ' '.join(filter(None, parts))
+
     class Meta:
         db_table = 'time_tracking'
         verbose_name = _('Suivi du temps')
@@ -421,10 +561,27 @@ class TimeTracking(BaseModel):
             models.Index(fields=['mandat', 'date_travail']),
             models.Index(fields=['utilisateur', 'date_travail']),
             models.Index(fields=['facturable', 'facture']),
+            models.Index(fields=['type_entree', 'utilisateur', 'date_travail']),
         ]
 
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        errors = {}
+        if self.type_entree == 'CLIENT':
+            if not self.mandat_id:
+                errors['mandat'] = _('Le mandat est obligatoire pour une entrée de type client.')
+            if not self.prestation_id:
+                errors['prestation'] = _('La prestation est obligatoire pour une entrée de type client.')
+        else:
+            if not self.categorie_id:
+                errors['categorie'] = _('La catégorie est obligatoire pour le temps interne ou les absences.')
+        if errors:
+            raise ValidationError(errors)
+
     def __str__(self):
-        return f"{self.date_travail} - {self.utilisateur.username} - {self.duree_minutes}min"
+        prefix = self.get_type_entree_display() if self.type_entree != 'CLIENT' else ''
+        base = f"{self.date_travail} - {self.utilisateur.username} - {self.duree_minutes}min"
+        return f"[{prefix}] {base}" if prefix else base
 
     @property
     def duree_heures(self):
@@ -495,6 +652,7 @@ class Facture(BaseModel):
 
     TYPE_CHOICES = [
         ('FACTURE', _('Facture')),
+        ('DEVIS', _('Devis')),
         ('AVOIR', _('Avoir')),
         ('ACOMPTE', _("Facture d'acompte")),
     ]
@@ -520,6 +678,15 @@ class Facture(BaseModel):
         related_name='factures',
         verbose_name=_("Client"),
         help_text=_("Client facturé")
+    )
+    position = models.ForeignKey(
+        'projets.Position',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='factures',
+        verbose_name=_("Position"),
+        help_text=_("Position/lot du projet concerné")
     )
 
     type_facture = models.CharField(
@@ -622,6 +789,8 @@ class Facture(BaseModel):
     )
     qr_code_image = models.ImageField(
         upload_to='factures/qr/',
+        storage=InvoiceStorage(),
+        max_length=500,
         null=True,
         blank=True,
         verbose_name=_("Image QR code"),
@@ -693,6 +862,8 @@ class Facture(BaseModel):
     # Fichiers
     fichier_pdf = models.FileField(
         upload_to='factures/pdf/',
+        storage=InvoiceStorage(),
+        max_length=500,
         null=True,
         blank=True,
         verbose_name=_("Fichier PDF"),
@@ -718,6 +889,24 @@ class Facture(BaseModel):
         related_name='factures',
         verbose_name=_("Régime fiscal"),
         help_text=_("Régime fiscal applicable à cette facture")
+    )
+    TYPE_OPERATION_TVA_CHOICES = [
+        ('NATIONALE', _('Vente nationale')),
+        ('EXPORT', _('Exportation')),
+        ('INTRACOM', _('Intracommunautaire')),
+        ('AUTOLIQUIDATION', _('Autoliquidation')),
+    ]
+    type_operation_tva = models.CharField(
+        max_length=20,
+        choices=TYPE_OPERATION_TVA_CHOICES,
+        default='NATIONALE',
+        verbose_name=_("Type d'opération TVA"),
+        help_text=_("Détermine le traitement TVA : nationale, export (0%), intracommunautaire, autoliquidation")
+    )
+    mentions_legales_generees = models.TextField(
+        blank=True,
+        verbose_name=_("Mentions légales"),
+        help_text=_("Mentions légales générées automatiquement selon le régime fiscal")
     )
     # Exercice comptable
     exercice = models.ForeignKey(
@@ -778,6 +967,17 @@ class Facture(BaseModel):
         help_text=_("Utilisateur ayant validé la facture")
     )
 
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            f"Facture {self.numero_facture}",
+            self.client.raison_sociale if self.client else '',
+            self.introduction,
+            self.conclusion,
+            self.notes,
+        ]
+        return ' '.join(filter(None, parts))
+
     class Meta:
         db_table = 'factures'
         verbose_name = _('Facture')
@@ -801,35 +1001,107 @@ class Facture(BaseModel):
         return self.montant_ttc < Decimal('400')
 
     def save(self, *args, **kwargs):
+        # Immutabilité : empêcher la modification des champs métier sur une facture émise
+        # (sauf update_fields explicites pour statut, paiements, etc.)
+        if self.pk and not kwargs.get('update_fields'):
+            try:
+                existing = Facture.objects.only('statut', 'numero_facture').get(pk=self.pk)
+                if existing.statut not in ('BROUILLON', 'PROFORMA') and self.numero_facture != existing.numero_facture:
+                    from django.core.exceptions import ValidationError
+                    raise ValidationError(_("Le numéro d'une facture émise ne peut pas être modifié."))
+            except Facture.DoesNotExist:
+                pass
+
         # Auto-populate regime_fiscal from mandat if not set
         if not self.regime_fiscal_id and self.mandat_id:
             self.regime_fiscal = getattr(self.mandat, 'regime_fiscal', None)
 
-        # Génération numéro facture
-        if not self.numero_facture:
-            year = self.date_emission.year
-            last = Facture.objects.filter(
-                numero_facture__startswith=f'FAC-{year}'
-            ).order_by('numero_facture').last()
+        # Auto-calculer date_echeance si absente
+        if not self.date_echeance and self.date_emission:
+            from datetime import timedelta
+            jours = self.delai_paiement_jours or 30
+            self.date_echeance = self.date_emission + timedelta(days=jours)
 
-            if last:
-                last_num = int(last.numero_facture.split('-')[-1])
-                self.numero_facture = f'FAC-{year}-{last_num + 1:04d}'
-            else:
-                self.numero_facture = f'FAC-{year}-0001'
+        # Génération numéro facture/devis (thread-safe via select_for_update)
+        if not self.numero_facture:
+            from django.db import transaction
+            year = self.date_emission.year
+            prefix = 'DEV' if self.type_facture == 'DEVIS' else 'FAC'
+            with transaction.atomic():
+                last = (
+                    Facture.objects
+                    .select_for_update()
+                    .filter(numero_facture__startswith=f'{prefix}-{year}')
+                    .order_by('numero_facture')
+                    .last()
+                )
+                if last:
+                    last_num = int(last.numero_facture.split('-')[-1])
+                    self.numero_facture = f'{prefix}-{year}-{last_num + 1:04d}'
+                else:
+                    self.numero_facture = f'{prefix}-{year}-0001'
 
         # Calcul montant restant
         self.montant_restant = self.montant_ttc - self.montant_paye
 
         # Mise à jour statut basé sur paiement
-        if self.montant_paye >= self.montant_ttc and self.statut != 'PAYEE':
+        # (seulement si montant_ttc > 0 pour éviter 0 >= 0 = PAYEE sur création)
+        if self.montant_ttc > 0 and self.montant_paye >= self.montant_ttc and self.statut not in ('PAYEE', 'ANNULEE', 'AVOIR'):
             self.statut = 'PAYEE'
             if not self.date_paiement_complet:
-                self.date_paiement_complet = models.functions.Now()
-        elif self.montant_paye > 0 and self.statut == 'EMISE':
+                from django.utils import timezone
+                self.date_paiement_complet = timezone.now()
+        elif self.montant_paye > 0 and self.montant_paye < self.montant_ttc and self.statut in ('EMISE', 'ENVOYEE', 'RELANCEE', 'EN_RETARD'):
             self.statut = 'PARTIELLEMENT_PAYEE'
 
         super().save(*args, **kwargs)
+
+    def convertir_en_facture(self):
+        """Convertit un devis en facture. Crée une nouvelle facture depuis ce devis."""
+        if self.type_facture != 'DEVIS':
+            raise ValueError("Seul un devis peut être converti en facture.")
+
+        facture = Facture(
+            mandat=self.mandat,
+            client=self.client,
+            type_facture='FACTURE',
+            regime_fiscal=self.regime_fiscal,
+            exercice=self.exercice,
+            devise=self.devise,
+            date_emission=date.today(),
+            delai_paiement_jours=self.delai_paiement_jours,
+            conditions_paiement=self.conditions_paiement,
+            remise_pourcent=self.remise_pourcent,
+            introduction=self.introduction,
+            conclusion=self.conclusion,
+            notes=f"Converti depuis devis {self.numero_facture}",
+            date_service_debut=self.date_service_debut,
+            date_service_fin=self.date_service_fin,
+            statut='BROUILLON',
+        )
+        facture.save()
+
+        # Copier les lignes
+        for ligne in self.lignes.all():
+            LigneFacture.objects.create(
+                facture=facture,
+                prestation=ligne.prestation,
+                description=ligne.description,
+                quantite=ligne.quantite,
+                unite=ligne.unite,
+                prix_unitaire_ht=ligne.prix_unitaire_ht,
+                taux_tva=ligne.taux_tva,
+                remise_ligne_pourcent=ligne.remise_ligne_pourcent,
+            )
+
+        facture.calculer_totaux()
+
+        # Marquer le devis comme converti
+        self.statut = 'EMISE'
+        self.notes = (self.notes or '') + f"\nConverti en facture {facture.numero_facture}"
+        self.save(update_fields=['statut', 'notes'])
+
+        return facture
 
     def generer_qr_reference(self):
         """Génère la référence QR structurée selon norme suisse"""
@@ -865,69 +1137,130 @@ class Facture(BaseModel):
             carry = table[(carry + int(char)) % 10]
         return (10 - carry) % 10
 
-    def generer_qr_bill(self):
+    def _resolve_iban_and_creditor(self):
         """
-        Génère le QR code Swiss QR-Bill au format PNG.
+        Résout l'IBAN et l'entreprise créancière pour le QR-Bill.
 
-        Le QR code contient toutes les données de paiement selon la norme
-        Swiss Payment Standards (ISO 20022).
+        Chaîne de résolution :
+        1. qr_iban sur la facture (override manuel)
+        2. Compte lié au mandat
+        3. Compte principal de l'entreprise du client (Client → Entreprise → Compte)
+        4. Compte principal de l'entreprise par défaut
+        5. N'importe quel compte actif de l'entreprise par défaut
+        6. N'importe quel compte actif dans le système
         """
-        try:
-            import qrcode
-            from qrcode.image.pil import PilImage
-        except ImportError:
-            raise ImportError("Le package 'qrcode' et 'pillow' sont requis.")
+        from core.models import CompteBancaire, Entreprise
 
-        from django.core.files.base import ContentFile
-        import io
-
-        # Générer la référence QR si pas encore fait
-        if not self.qr_reference:
-            self.generer_qr_reference()
-
-        # Récupérer les adresses
-        adresse_creancier = self.mandat.client.adresse_siege
-        adresse_debiteur = self.client.adresse_correspondance or self.client.adresse_siege
-
-        # IBAN du compte - Ordre de priorité:
-        # 1. qr_iban de la facture (si défini manuellement)
-        # 2. Compte bancaire associé au mandat
-        # 3. Compte bancaire principal de la fiduciaire
         iban = None
-        compte_bancaire = None
+        entreprise_creancier = None
+        compte = None
 
         if self.qr_iban:
             iban = self.qr_iban
         else:
-            from core.models import CompteBancaire
-            # Chercher un compte associé au mandat
-            compte_bancaire = CompteBancaire.objects.filter(
+            # 1. Compte directement lié au mandat
+            compte = CompteBancaire.objects.filter(
                 mandat=self.mandat, actif=True
-            ).first()
+            ).order_by('-est_compte_principal').first()
 
-            if not compte_bancaire:
-                # Chercher le compte principal de l'entreprise du client
-                entreprise = getattr(self.mandat.client, 'entreprise', None)
-                if entreprise:
-                    compte_bancaire = CompteBancaire.objects.filter(
-                        entreprise=entreprise, est_compte_principal=True, actif=True
-                    ).first()
+            # 2. Via le client → son entreprise → compte de l'entreprise
+            if not compte and self.client and self.client.entreprise_id:
+                entreprise_creancier = self.client.entreprise
+                compte = CompteBancaire.objects.filter(
+                    entreprise=entreprise_creancier, actif=True
+                ).order_by('-est_compte_principal').first()
 
-            if not compte_bancaire:
-                # Fallback: compte principal global
-                compte_bancaire = CompteBancaire.objects.filter(
-                    est_compte_principal=True, actif=True
-                ).first()
+            # 3. Entreprise par défaut → compte principal
+            if not compte:
+                entreprise_creancier = Entreprise.objects.filter(est_defaut=True).first()
+                if entreprise_creancier:
+                    compte = CompteBancaire.objects.filter(
+                        entreprise=entreprise_creancier, actif=True
+                    ).order_by('-est_compte_principal').first()
 
-            if compte_bancaire:
-                iban = compte_bancaire.iban
+            # 4. N'importe quel compte actif
+            if not compte:
+                compte = CompteBancaire.objects.filter(
+                    actif=True
+                ).order_by('-est_compte_principal').first()
+
+            if compte:
+                iban = compte.iban
+                if not entreprise_creancier and compte.entreprise:
+                    entreprise_creancier = compte.entreprise
+
+        if not entreprise_creancier:
+            entreprise_creancier = Entreprise.objects.filter(est_defaut=True).first()
 
         if not iban:
-            raise ValueError("Aucun IBAN configuré. Créez un compte bancaire principal ou associez-en un au mandat.")
-        iban = iban.replace(" ", "").upper()
+            raise ValueError(
+                "Aucun IBAN configuré. Ajoutez un compte bancaire actif "
+                "à votre entreprise dans Configuration > Entreprise."
+            )
 
-        # Construire le payload QR selon Swiss QR Bill standard
-        # Format: https://www.paymentstandards.ch/dam/downloads/ig-qr-bill-fr.pdf
+        return iban.replace(" ", "").upper(), entreprise_creancier
+
+    def generer_qr_bill(self):
+        """
+        Génère le QR-Bill suisse complet (SVG) avec la librairie qrbill.
+
+        Le SVG contient le récépissé, la section paiement et le QR code
+        selon la norme Swiss Payment Standards (ISO 20022).
+        """
+        from qrbill import QRBill
+        from django.core.files.base import ContentFile
+        import io
+
+        if not self.qr_reference:
+            self.generer_qr_reference()
+
+        iban, entreprise_creancier = self._resolve_iban_and_creditor()
+
+        # Adresse du créancier = l'entreprise (fiduciaire)
+        adresse_creancier = getattr(entreprise_creancier, 'adresse', None)
+        if adresse_creancier:
+            creditor = {
+                'name': (entreprise_creancier.raison_sociale if entreprise_creancier else "")[:70],
+                'pcode': adresse_creancier.npa or "0000",
+                'city': (adresse_creancier.localite or "Suisse")[:35],
+                'country': 'CH',
+            }
+            if adresse_creancier.rue:
+                creditor['street'] = adresse_creancier.rue[:70]
+            if adresse_creancier.numero:
+                creditor['house_num'] = adresse_creancier.numero[:16]
+        else:
+            # Fallback: parser le champ siege "Rue Num, NPA Ville"
+            creditor = {
+                'name': (entreprise_creancier.raison_sociale if entreprise_creancier else "")[:70],
+                'pcode': '0000',
+                'city': 'Suisse',
+                'country': 'CH',
+            }
+            siege = getattr(entreprise_creancier, 'siege', '') or ''
+            if siege:
+                import re
+                # Format suisse: "Rue ..., NPA Ville" ou juste "Ville"
+                match = re.match(r'^(.+?),\s*(\d{4})\s+(.+)$', siege)
+                if match:
+                    creditor['street'] = match.group(1).strip()[:70]
+                    creditor['pcode'] = match.group(2)
+                    creditor['city'] = match.group(3).strip()[:35]
+                else:
+                    creditor['city'] = siege[:35]
+
+        # Adresse du débiteur = le client facturé
+        adresse_debiteur = self.client.adresse_correspondance or self.client.adresse_siege
+        debtor = {
+            'name': self.client.raison_sociale[:70],
+            'pcode': (adresse_debiteur.npa if adresse_debiteur else "") or "0000",
+            'city': ((adresse_debiteur.localite if adresse_debiteur else "") or "Suisse")[:35],
+            'country': 'CH',
+        }
+        if adresse_debiteur and adresse_debiteur.rue:
+            debtor['street'] = adresse_debiteur.rue[:70]
+        if adresse_debiteur and adresse_debiteur.numero:
+            debtor['house_num'] = adresse_debiteur.numero[:16]
 
         # Déterminer si c'est un QR-IBAN (IID 30000-31999)
         is_qr_iban = False
@@ -938,66 +1271,35 @@ class Facture(BaseModel):
             except ValueError:
                 pass
 
-        qr_data_lines = [
-            "SPC",  # QR Type
-            "0200",  # Version
-            "1",  # Coding Type (UTF-8)
-            iban,  # IBAN
-            # Creditor (Address Type S = Structured)
-            "S",  # Address Type
-            self.mandat.client.raison_sociale[:70],  # Name
-            f"{adresse_creancier.rue} {adresse_creancier.numero}"[:70] if adresse_creancier else "",  # Street
-            "",  # Building number (included in street)
-            adresse_creancier.npa if adresse_creancier else "",  # Postal code
-            adresse_creancier.localite[:35] if adresse_creancier else "",  # City
-            "CH",  # Country
-            # Ultimate Creditor (empty)
-            "", "", "", "", "", "", "",
-            # Payment Amount
-            f"{float(self.montant_ttc):.2f}",  # Amount
-            self.devise_id if self.devise_id in ('CHF', 'EUR') else "CHF",  # Currency (QR-Bill: CHF/EUR only)
-            # Ultimate Debtor (Address Type S)
-            "S",
-            self.client.raison_sociale[:70],
-            f"{adresse_debiteur.rue} {adresse_debiteur.numero}"[:70] if adresse_debiteur else "",
-            "",
-            adresse_debiteur.npa if adresse_debiteur else "",
-            adresse_debiteur.localite[:35] if adresse_debiteur else "",
-            "CH",
-            # Reference Type and Reference
-            "QRR" if is_qr_iban else "NON",  # QRR only with QR-IBAN
-            self.qr_reference if is_qr_iban else "",  # Reference (only with QRR)
-            # Unstructured message
-            f"Facture {self.numero_facture}",
-            "EPD",  # Trailer
-            # Additional info (billing info) - optional
-            "",
-        ]
+        devise = self.devise_id if self.devise_id in ('CHF', 'EUR') else 'CHF'
 
-        qr_payload = "\r\n".join(qr_data_lines)
+        qr_kwargs = {
+            'account': iban,
+            'creditor': creditor,
+            'debtor': debtor,
+            'amount': str(self.montant_ttc),
+            'currency': devise,
+            'additional_information': f"Facture {self.numero_facture}",
+            'language': 'fr',
+            'top_line': True,
+            'payment_line': True,
+        }
 
-        # Créer le QR code
-        qr = qrcode.QRCode(
-            version=None,  # Auto-size
-            error_correction=qrcode.constants.ERROR_CORRECT_M,
-            box_size=10,
-            border=0,  # Pas de bordure, on la gère manuellement
-        )
-        qr.add_data(qr_payload)
-        qr.make(fit=True)
+        # QRR reference seulement avec QR-IBAN
+        if is_qr_iban and self.qr_reference:
+            qr_kwargs['reference_number'] = self.qr_reference
 
-        # Générer l'image PNG
-        img = qr.make_image(fill_color="black", back_color="white")
+        bill = QRBill(**qr_kwargs)
 
-        # Sauvegarder en PNG
-        buffer = io.BytesIO()
-        img.save(buffer, format='PNG')
-        buffer.seek(0)
+        # Générer le SVG
+        svg_buf = io.StringIO()
+        bill.as_svg(svg_buf)
+        svg_content = svg_buf.getvalue()
 
-        # Sauvegarder comme fichier Django
+        # Sauvegarder le SVG comme fichier Django
         self.qr_code_image.save(
-            f"qr_code_{self.numero_facture}.png",
-            ContentFile(buffer.read()),
+            f"qr_bill_{self.numero_facture}.svg",
+            ContentFile(svg_content.encode('utf-8')),
             save=True,
         )
 
@@ -1040,204 +1342,75 @@ class Facture(BaseModel):
         return lines
 
     def _ajouter_qr_bill(self, canvas, page_width, page_height):
-        """Ajoute le QR-Bill suisse en bas de la facture"""
+        """Ajoute le QR-Bill suisse en bas de la facture via le SVG qrbill."""
+        from reportlab.lib.units import mm
+        from reportlab.graphics import renderPDF
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        # Générer le SVG si pas encore fait
+        if not self.qr_code_image or not self.qr_code_image.name:
+            try:
+                self.generer_qr_bill()
+                self.refresh_from_db(fields=['qr_code_image'])
+            except Exception as e:
+                logger.warning(f"Impossible de générer le QR-Bill: {e}")
+                self._draw_qr_bill_fallback(canvas, page_width, str(e))
+                return
+
+        # Lire le SVG et le convertir en drawing ReportLab
+        try:
+            from svglib.svglib import svg2rlg
+            import tempfile, os
+
+            svg_content = self.qr_code_image.read().decode('utf-8')
+            self.qr_code_image.seek(0)
+
+            with tempfile.NamedTemporaryFile(suffix='.svg', mode='w', delete=False) as f:
+                f.write(svg_content)
+                tmp_path = f.name
+
+            drawing = svg2rlg(tmp_path)
+            os.unlink(tmp_path)
+
+            if not drawing:
+                raise ValueError("Impossible de parser le SVG")
+
+            # Dimensionner pour occuper le bas de la page A4 (210mm x 105mm)
+            qr_bill_height = 105 * mm
+            scale_x = page_width / drawing.width
+            scale_y = qr_bill_height / drawing.height
+            scale = min(scale_x, scale_y)
+
+            drawing.width *= scale
+            drawing.height *= scale
+            drawing.scale(scale, scale)
+
+            # Dessiner en bas de page
+            renderPDF.draw(drawing, canvas, 0, 0)
+
+        except Exception as e:
+            logger.warning(f"Erreur rendu QR-Bill SVG: {e}")
+            self._draw_qr_bill_fallback(canvas, page_width, str(e))
+
+    def _draw_qr_bill_fallback(self, canvas, page_width, error_msg=""):
+        """Fallback si le SVG QR-Bill n'est pas disponible."""
         from reportlab.lib.units import mm
         from reportlab.lib import colors
 
-        # Swiss QR-Bill spec only allows CHF and EUR
-        devise_qr = self.devise_id if self.devise_id in ('CHF', 'EUR') else 'CHF'
-
-        # Récupérer l'IBAN depuis CompteBancaire
-        iban = None
-        if self.qr_iban:
-            iban = self.qr_iban
-        else:
-            from core.models import CompteBancaire
-            compte = CompteBancaire.objects.filter(
-                mandat=self.mandat, actif=True
-            ).first()
-            if not compte:
-                compte = CompteBancaire.objects.filter(
-                    est_compte_principal=True, actif=True
-                ).first()
-            if compte:
-                iban = compte.iban_formate  # IBAN formaté avec espaces
-
-        if not iban:
-            iban = "IBAN NON CONFIGURÉ"
-
-        # Dimensions du QR-Bill suisse: 210mm x 105mm (bas de page A4)
         qr_height = 105 * mm
-        qr_y = 0  # En bas de page
-
-        # Ligne de découpe perforée
         canvas.setStrokeColor(colors.Color(0.7, 0.7, 0.7))
         canvas.setDash(3, 3)
         canvas.line(0, qr_height, page_width, qr_height)
         canvas.setDash()
 
-        # Symbole ciseaux
-        canvas.setFont("Helvetica", 10)
-        canvas.drawString(5 * mm, qr_height + 2 * mm, "✂")
-
-        # Section Récépissé (gauche: 62mm)
-        receipt_width = 62 * mm
-
         canvas.setFont("Helvetica-Bold", 11)
-        canvas.drawString(5 * mm, qr_height - 10 * mm, "Récépissé")
-
-        canvas.setFont("Helvetica-Bold", 6)
-        canvas.drawString(5 * mm, qr_height - 18 * mm, "Compte / Payable à")
-
+        canvas.drawString(5 * mm, qr_height - 10 * mm, "QR-Bill non disponible")
         canvas.setFont("Helvetica", 8)
-        y_receipt = qr_height - 23 * mm
-
-        # IBAN
-        canvas.drawString(5 * mm, y_receipt, iban)
-        y_receipt -= 4 * mm
-
-        # Créancier
-        canvas.drawString(5 * mm, y_receipt, self.mandat.client.raison_sociale[:30])
-        y_receipt -= 4 * mm
-        adresse = self.mandat.client.adresse_siege
-        if adresse:
-            canvas.drawString(5 * mm, y_receipt, f"{adresse.rue} {adresse.numero}"[:30])
-            y_receipt -= 4 * mm
-            canvas.drawString(5 * mm, y_receipt, f"{adresse.npa} {adresse.localite}"[:30])
-
-        # Référence
-        y_receipt -= 8 * mm
-        canvas.setFont("Helvetica-Bold", 6)
-        canvas.drawString(5 * mm, y_receipt, "Référence")
-        y_receipt -= 4 * mm
-        canvas.setFont("Helvetica", 8)
-        ref = self.qr_reference or self.numero_facture
-        canvas.drawString(5 * mm, y_receipt, ref)
-
-        # Payable par
-        y_receipt -= 8 * mm
-        canvas.setFont("Helvetica-Bold", 6)
-        canvas.drawString(5 * mm, y_receipt, "Payable par")
-        y_receipt -= 4 * mm
-        canvas.setFont("Helvetica", 8)
-        canvas.drawString(5 * mm, y_receipt, self.client.raison_sociale[:30])
-        y_receipt -= 4 * mm
-        adresse_client = self.client.adresse_correspondance or self.client.adresse_siege
-        if adresse_client:
-            canvas.drawString(5 * mm, y_receipt, f"{adresse_client.rue} {adresse_client.numero}"[:30])
-            y_receipt -= 4 * mm
-            canvas.drawString(5 * mm, y_receipt, f"{adresse_client.npa} {adresse_client.localite}"[:30])
-
-        # Montant
-        canvas.setFont("Helvetica-Bold", 6)
-        canvas.drawString(5 * mm, 15 * mm, "Monnaie")
-        canvas.drawString(20 * mm, 15 * mm, "Montant")
-        canvas.setFont("Helvetica", 8)
-        canvas.drawString(5 * mm, 10 * mm, devise_qr)
-        canvas.drawString(20 * mm, 10 * mm, f"{self.montant_ttc:.2f}")
-
-        # Point d'acceptation
-        canvas.setFont("Helvetica-Bold", 6)
-        canvas.drawString(35 * mm, 20 * mm, "Point de dépôt")
-
-        # Ligne séparatrice verticale
-        canvas.setStrokeColor(colors.black)
-        canvas.line(receipt_width, 0, receipt_width, qr_height)
-
-        # Section Bulletin de paiement (droite: 148mm)
-        payment_x = receipt_width + 5 * mm
-
-        canvas.setFont("Helvetica-Bold", 11)
-        canvas.drawString(payment_x, qr_height - 10 * mm, "Section paiement")
-
-        # Zone QR Code (46mm x 46mm) - norme Swiss QR Bill
-        qr_code_x = payment_x
-        qr_code_y = qr_height - 60 * mm
-        qr_code_size = 46 * mm
-
-        # Dessiner le QR code PNG si disponible
-        qr_drawn = False
-        if self.qr_code_image and self.qr_code_image.name:
-            try:
-                import os
-                qr_path = self.qr_code_image.path
-                if os.path.exists(qr_path):
-                    # Dessiner l'image PNG directement
-                    canvas.drawImage(
-                        qr_path,
-                        qr_code_x,
-                        qr_code_y,
-                        width=qr_code_size,
-                        height=qr_code_size,
-                        preserveAspectRatio=True,
-                        mask='auto'
-                    )
-                    qr_drawn = True
-            except Exception as e:
-                import logging
-                logging.getLogger(__name__).warning(f"Erreur dessin QR: {e}")
-
-        if not qr_drawn:
-            # Fallback: cadre vide avec texte
-            canvas.setStrokeColor(colors.black)
-            canvas.setLineWidth(0.5)
-            canvas.rect(qr_code_x, qr_code_y, qr_code_size, qr_code_size, stroke=1, fill=0)
-            canvas.setFont("Helvetica", 8)
-            canvas.drawCentredString(qr_code_x + qr_code_size/2, qr_code_y + qr_code_size/2, "QR Code")
-
-        # Informations à droite du QR code
-        info_x = qr_code_x + qr_code_size + 5 * mm
-
-        canvas.setFont("Helvetica-Bold", 8)
-        canvas.drawString(info_x, qr_height - 18 * mm, "Compte / Payable à")
-
-        canvas.setFont("Helvetica", 10)
-        y_info = qr_height - 25 * mm
-        canvas.drawString(info_x, y_info, iban)
-        y_info -= 5 * mm
-        canvas.drawString(info_x, y_info, self.mandat.client.raison_sociale[:40])
-        y_info -= 5 * mm
-        if adresse:
-            canvas.drawString(info_x, y_info, f"{adresse.rue} {adresse.numero}"[:40])
-            y_info -= 5 * mm
-            canvas.drawString(info_x, y_info, f"{adresse.npa} {adresse.localite}"[:40])
-
-        # Référence
-        y_info -= 10 * mm
-        canvas.setFont("Helvetica-Bold", 8)
-        canvas.drawString(info_x, y_info, "Référence")
-        y_info -= 5 * mm
-        canvas.setFont("Helvetica", 10)
-        canvas.drawString(info_x, y_info, ref)
-
-        # Informations supplémentaires
-        y_info -= 10 * mm
-        canvas.setFont("Helvetica-Bold", 8)
-        canvas.drawString(info_x, y_info, "Informations supplémentaires")
-        y_info -= 5 * mm
-        canvas.setFont("Helvetica", 9)
-        canvas.drawString(info_x, y_info, f"Facture {self.numero_facture}")
-
-        # Payable par
-        y_info -= 10 * mm
-        canvas.setFont("Helvetica-Bold", 8)
-        canvas.drawString(info_x, y_info, "Payable par")
-        y_info -= 5 * mm
-        canvas.setFont("Helvetica", 10)
-        canvas.drawString(info_x, y_info, self.client.raison_sociale[:40])
-        y_info -= 5 * mm
-        if adresse_client:
-            canvas.drawString(info_x, y_info, f"{adresse_client.rue} {adresse_client.numero}"[:40])
-            y_info -= 5 * mm
-            canvas.drawString(info_x, y_info, f"{adresse_client.npa} {adresse_client.localite}"[:40])
-
-        # Montant en bas
-        canvas.setFont("Helvetica-Bold", 8)
-        canvas.drawString(payment_x, 20 * mm, "Monnaie")
-        canvas.drawString(payment_x + 25 * mm, 20 * mm, "Montant")
-        canvas.setFont("Helvetica", 12)
-        canvas.drawString(payment_x, 12 * mm, devise_qr)
-        canvas.drawString(payment_x + 25 * mm, 12 * mm, f"{self.montant_ttc:.2f}")
+        canvas.setFillColor(colors.Color(0.5, 0.5, 0.5))
+        if error_msg:
+            canvas.drawString(5 * mm, qr_height - 20 * mm, error_msg[:100])
 
     def calculer_totaux(self):
         """Recalcule tous les totaux à partir des lignes"""
@@ -1276,6 +1449,7 @@ class Facture(BaseModel):
                 "montant_ttc",
                 "remise_montant",
                 "montant_restant",
+                "statut",
             ]
         )
 
@@ -1352,21 +1526,20 @@ class Facture(BaseModel):
         return avoir
 
     def creer_relance(self, niveau=None, user=None):
-        """Crée une relance pour cette facture"""
-        niveau_relance = niveau or (self.nombre_relances + 1)
+        """
+        Crée une relance pour cette facture.
 
-        # Frais selon le niveau
-        frais = Decimal("0")
-        if niveau_relance == 2:
-            frais = Decimal("20.00")
-        elif niveau_relance >= 3:
-            frais = Decimal("40.00")
+        Les frais et délais sont lus depuis NiveauRelance (DB) pour le régime
+        fiscal de la facture. Fallback sur des valeurs par défaut si non configuré.
+        """
+        niveau_relance = niveau or (self.nombre_relances + 1)
+        params = self.niveau_relance_suivant()
 
         relance = Relance.objects.create(
             facture=self,
             niveau=niveau_relance,
-            date_echeance=date.today() + timedelta(days=15),
-            montant_frais=frais,
+            date_echeance=date.today() + timedelta(days=params['delai_jours']),
+            montant_frais=params['frais'],
         )
 
         # Mettre à jour la facture
@@ -1378,19 +1551,129 @@ class Facture(BaseModel):
 
         return relance
 
+    # =========================================================================
+    # Règles métier
+    # =========================================================================
+
+    def peut_emettre(self):
+        """Vérifie si la facture peut être émise/validée."""
+        if self.statut != 'BROUILLON':
+            return False, _("Seule une facture en brouillon peut être émise.")
+        if not self.lignes.exists():
+            return False, _("La facture doit avoir au moins une ligne.")
+        if self.montant_ttc <= 0 and self.type_facture != 'AVOIR':
+            return False, _("Le montant TTC doit être positif.")
+        if not self.client_id:
+            return False, _("Un client doit être renseigné.")
+        return True, ""
+
+    def peut_supprimer(self):
+        """
+        Vérifie si la facture peut être supprimée.
+
+        Par défaut (et conformément aux législations FR, CH, OHADA),
+        seules les factures en brouillon sont supprimables.
+        Le régime fiscal peut autoriser la suppression de factures émises
+        sans paiement via `suppression_facture_emise`.
+        """
+        if self.statut == 'BROUILLON':
+            return True, ""
+        if self.paiements.filter(valide=True).exists():
+            return False, _("Impossible de supprimer une facture avec des paiements validés. Créez un avoir.")
+        if self.statut in ['PAYEE', 'PARTIELLEMENT_PAYEE']:
+            return False, _("Impossible de supprimer une facture payée. Créez un avoir.")
+        # Vérifier si le régime autorise la suppression après émission
+        if self.statut == 'EMISE' and self.regime_fiscal and self.regime_fiscal.suppression_facture_emise:
+            return True, ""
+        if self.statut != 'BROUILLON':
+            return False, _("Une facture émise ne peut pas être supprimée. Créez un avoir.")
+        return False, _("Cette facture ne peut pas être supprimée dans son statut actuel.")
+
+    def peut_relancer(self):
+        """Vérifie si la facture peut faire l'objet d'une relance."""
+        if self.type_facture in ['DEVIS', 'AVOIR']:
+            return False, _("Seules les factures peuvent être relancées.")
+        if self.statut in ['BROUILLON', 'PAYEE', 'ANNULEE']:
+            return False, _("Cette facture ne peut pas être relancée.")
+        if self.montant_restant <= 0:
+            return False, _("Aucun solde restant à relancer.")
+        max_relances = 4
+        if self.regime_fiscal_id:
+            max_relances = self.regime_fiscal.nombre_relances_max
+        if self.nombre_relances >= max_relances:
+            return False, _("Nombre maximum de relances atteint.")
+        return True, ""
+
+    def peut_annuler(self):
+        """Vérifie si la facture peut être annulée."""
+        if self.statut in ['ANNULEE', 'AVOIR']:
+            return False, _("Cette facture est déjà annulée.")
+        if self.paiements.filter(valide=True).exists():
+            return False, _("Créez un avoir plutôt qu'annuler une facture avec des paiements.")
+        return True, ""
+
     def est_en_retard(self):
-        """Vérifie si la facture est en retard"""
+        """Vérifie si la facture est en retard."""
         return (
-            self.date_echeance < date.today()
+            self.date_echeance
+            and self.date_echeance < date.today()
             and self.montant_restant > 0
             and self.statut not in ["PAYEE", "ANNULEE", "AVOIR"]
         )
 
     def jours_retard(self):
-        """Retourne le nombre de jours de retard"""
+        """Retourne le nombre de jours de retard."""
         if self.est_en_retard():
             return (date.today() - self.date_echeance).days
         return 0
+
+    def niveau_relance_suivant(self):
+        """
+        Retourne le prochain niveau de relance et ses paramètres.
+
+        Cherche d'abord dans NiveauRelance (DB) pour le régime fiscal,
+        puis fallback sur la configuration suisse par défaut.
+        """
+        niveau = self.nombre_relances + 1
+
+        # Chercher en DB pour le régime fiscal de la facture
+        if self.regime_fiscal_id:
+            from facturation.models import NiveauRelance
+            config = NiveauRelance.objects.filter(
+                regime_fiscal=self.regime_fiscal,
+                niveau=niveau,
+                is_active=True,
+            ).first()
+            if config:
+                return {
+                    'label': config.libelle,
+                    'delai_jours': config.delai_jours,
+                    'frais': config.frais,
+                    'interets': config.interets,
+                    'taux_interet': config.taux_interet,
+                }
+            # Si pas de config pour ce niveau, prendre le dernier niveau configuré
+            dernier = NiveauRelance.objects.filter(
+                regime_fiscal=self.regime_fiscal,
+                is_active=True,
+            ).order_by('-niveau').first()
+            if dernier:
+                return {
+                    'label': dernier.libelle,
+                    'delai_jours': dernier.delai_jours,
+                    'frais': dernier.frais,
+                    'interets': dernier.interets,
+                    'taux_interet': dernier.taux_interet,
+                }
+
+        # Fallback : configuration suisse par défaut
+        NIVEAUX_DEFAUT = {
+            1: {'label': _('1ère relance'), 'delai_jours': 15, 'frais': Decimal('0'), 'interets': False, 'taux_interet': Decimal('0')},
+            2: {'label': _('2ème relance'), 'delai_jours': 10, 'frais': Decimal('20.00'), 'interets': False, 'taux_interet': Decimal('0')},
+            3: {'label': _('3ème relance'), 'delai_jours': 10, 'frais': Decimal('40.00'), 'interets': True, 'taux_interet': Decimal('5')},
+            4: {'label': _('Mise en demeure'), 'delai_jours': 10, 'frais': Decimal('50.00'), 'interets': True, 'taux_interet': Decimal('5')},
+        }
+        return NIVEAUX_DEFAUT.get(niveau, NIVEAUX_DEFAUT[4])
 
 
 class LigneFacture(BaseModel):
@@ -1419,6 +1702,17 @@ class LigneFacture(BaseModel):
         blank=True,
         verbose_name=_("Prestation"),
         help_text=_("Prestation associée à cette ligne")
+    )
+
+    # Compte de produit override (prioritaire sur prestation.compte_produit)
+    compte_produit = models.ForeignKey(
+        'comptabilite.Compte',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='lignes_facture',
+        verbose_name=_("Compte de produit"),
+        help_text=_("Compte comptable de produit (override la prestation)")
     )
 
     # Description
@@ -1730,6 +2024,8 @@ class Relance(BaseModel):
 
     fichier_pdf = models.FileField(
         upload_to='factures/relances/',
+        storage=InvoiceStorage(),
+        max_length=500,
         null=True,
         blank=True,
         verbose_name=_("Fichier PDF"),
@@ -1750,3 +2046,113 @@ class Relance(BaseModel):
 
     def __str__(self):
         return f"Relance niv.{self.niveau} - {self.facture.numero_facture}"
+
+
+class NiveauRelance(BaseModel):
+    """
+    Configuration des niveaux de relance par régime fiscal.
+
+    Remplace les frais et délais hardcodés (système suisse 0/20/40/50 CHF)
+    par une configuration en base, adaptable par pays/régime.
+    """
+    regime_fiscal = models.ForeignKey(
+        'tva.RegimeFiscal',
+        on_delete=models.CASCADE,
+        related_name='niveaux_relance',
+        verbose_name=_("Régime fiscal"),
+    )
+    niveau = models.PositiveIntegerField(
+        verbose_name=_("Niveau"),
+        help_text=_("Numéro du niveau de relance (1, 2, 3, 4…)")
+    )
+    libelle = models.CharField(
+        max_length=100,
+        verbose_name=_("Libellé"),
+        help_text=_("Ex: 1ère relance, Mise en demeure, Sommation")
+    )
+    delai_jours = models.PositiveIntegerField(
+        verbose_name=_("Délai accordé (jours)"),
+        help_text=_("Nouveau délai de paiement accordé en jours")
+    )
+    frais = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name=_("Frais de relance"),
+        help_text=_("Montant des frais facturés pour cette relance")
+    )
+    interets = models.BooleanField(
+        default=False,
+        verbose_name=_("Intérêts moratoires"),
+        help_text=_("Appliquer des intérêts de retard à ce niveau")
+    )
+    taux_interet = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        verbose_name=_("Taux d'intérêt annuel (%)"),
+        help_text=_("Taux annuel des intérêts moratoires (ex: 5% en Suisse)")
+    )
+
+    class Meta:
+        db_table = 'niveaux_relance'
+        verbose_name = _("Niveau de relance")
+        verbose_name_plural = _("Niveaux de relance")
+        ordering = ['regime_fiscal', 'niveau']
+        unique_together = ['regime_fiscal', 'niveau']
+
+    def __str__(self):
+        return f"{self.regime_fiscal.code} — Niv.{self.niveau}: {self.libelle}"
+
+
+class MentionLegale(BaseModel):
+    """
+    Mention légale obligatoire ou optionnelle par régime fiscal.
+
+    Chaque régime définit ses mentions : N° TVA, SIRET, RCCM,
+    conditions de pénalités, mentions d'exonération, etc.
+    Le texte supporte des variables : {tva_number}, {ide_number}, {raison_sociale}…
+    """
+    regime_fiscal = models.ForeignKey(
+        'tva.RegimeFiscal',
+        on_delete=models.CASCADE,
+        related_name='mentions_legales',
+        verbose_name=_("Régime fiscal"),
+    )
+    code = models.CharField(
+        max_length=50,
+        verbose_name=_("Code"),
+        help_text=_("Code technique (ex: TVA_NUMBER, PENALITES_RETARD, EXONERATION)")
+    )
+    libelle = models.CharField(
+        max_length=200,
+        verbose_name=_("Libellé"),
+    )
+    texte = models.TextField(
+        verbose_name=_("Texte de la mention"),
+        help_text=_("Supporte les variables : {tva_number}, {ide_number}, {raison_sociale}, {siret}, {rccm}")
+    )
+    TYPE_DOCUMENT_CHOICES = [
+        ('TOUS', _('Tous les documents')),
+        ('FACTURE', _('Factures uniquement')),
+        ('DEVIS', _('Devis uniquement')),
+        ('AVOIR', _('Avoirs uniquement')),
+    ]
+    type_document = models.CharField(
+        max_length=20,
+        choices=TYPE_DOCUMENT_CHOICES,
+        default='TOUS',
+        verbose_name=_("Type de document"),
+    )
+    obligatoire = models.BooleanField(
+        default=True,
+        verbose_name=_("Obligatoire"),
+        help_text=_("Si True, la mention est ajoutée automatiquement au document")
+    )
+    ordre = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = 'mentions_legales'
+        verbose_name = _("Mention légale")
+        verbose_name_plural = _("Mentions légales")
+        ordering = ['regime_fiscal', 'ordre']
+        unique_together = ['regime_fiscal', 'code']
+
+    def __str__(self):
+        return f"{self.regime_fiscal.code} — {self.code}: {self.libelle}"

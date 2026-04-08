@@ -17,6 +17,7 @@ from .models import (
     Notification,
     Tache,
     CollaborateurFiduciaire,
+    FichierJoint,
 )
 from .serializers import (
     UserSerializer,
@@ -33,6 +34,9 @@ from .serializers import (
     TacheSerializer,
     CollaborateurFiduciaireListSerializer,
     CollaborateurFiduciaireDetailSerializer,
+    FichierJointListSerializer,
+    FichierJointDetailSerializer,
+    FichierJointUploadSerializer,
 )
 
 
@@ -41,7 +45,6 @@ class UserViewSet(viewsets.ModelViewSet):
     ViewSet pour gérer les utilisateurs
     """
 
-    queryset = User.objects.all()
     permission_classes = [IsAuthenticated]
     filter_backends = [
         DjangoFilterBackend,
@@ -52,6 +55,32 @@ class UserViewSet(viewsets.ModelViewSet):
     search_fields = ["username", "first_name", "last_name", "email"]
     ordering_fields = ["username", "date_joined", "last_name"]
     ordering = ["-date_joined"]
+
+    def get_queryset(self):
+        qs = User.objects.all()
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        if user.is_client_user():
+            # CLIENT users see: themselves + users who share at least one mandat
+            from core.models import AccesMandat
+            my_mandat_ids = AccesMandat.objects.filter(
+                utilisateur=user, is_active=True
+            ).values_list('mandat_id', flat=True)
+            colleague_ids = AccesMandat.objects.filter(
+                mandat_id__in=my_mandat_ids, is_active=True
+            ).values_list('utilisateur_id', flat=True)
+            return qs.filter(Q(pk=user.pk) | Q(pk__in=colleague_ids)).distinct()
+        # Staff non-manager: see all staff + client users on accessible mandats
+        from core.models import AccesMandat
+        accessible = user.get_accessible_mandats()
+        client_user_ids = AccesMandat.objects.filter(
+            mandat__in=accessible, is_active=True
+        ).values_list('utilisateur_id', flat=True)
+        return qs.filter(
+            Q(type_utilisateur=User.TypeUtilisateur.STAFF) |
+            Q(pk__in=client_user_ids)
+        ).distinct()
 
     def get_serializer_class(self):
         if self.action == "create":
@@ -91,6 +120,203 @@ class UserViewSet(viewsets.ModelViewSet):
 
         return Response({"message": "Mot de passe changé avec succès"})
 
+    # =========================================================================
+    # 2FA (TOTP) endpoints
+    # =========================================================================
+
+    @action(detail=False, methods=["post"], url_path="2fa/setup")
+    def setup_2fa(self, request):
+        """
+        Étape 1: Génère un secret TOTP + QR code.
+        L'utilisateur scanne le QR dans son app authenticator.
+        POST /api/v1/core/users/2fa/setup/
+        """
+        user = request.user
+        if user.two_factor_enabled:
+            return Response(
+                {"error": "2FA déjà activée"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        raw_secret = user.generate_totp_secret()
+        user.save(update_fields=["totp_secret"])
+
+        uri = user.get_totp_uri()
+        from .services.two_factor_service import generate_qr_code_base64
+        qr_base64 = generate_qr_code_base64(uri)
+
+        return Response({
+            "secret": raw_secret,
+            "qr_code": f"data:image/png;base64,{qr_base64}",
+            "otpauth_uri": uri,
+        })
+
+    @action(detail=False, methods=["post"], url_path="2fa/enable")
+    def enable_2fa(self, request):
+        """
+        Étape 2: Vérifie le premier code TOTP et active la 2FA.
+        Retourne les codes de secours (à sauvegarder par l'utilisateur).
+        POST /api/v1/core/users/2fa/enable/ { "code": "123456" }
+        """
+        user = request.user
+        if user.two_factor_enabled:
+            return Response(
+                {"error": "2FA déjà activée"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not user.totp_secret:
+            return Response(
+                {"error": "Veuillez d'abord appeler /2fa/setup/"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        code = request.data.get("code", "").strip()
+        if not code or not user.verify_totp(code):
+            return Response(
+                {"error": "Code invalide"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        backup_codes = user.generate_backup_codes()
+        user.enable_2fa()
+        user.save(update_fields=["backup_codes"])
+
+        return Response({
+            "message": "2FA activée avec succès",
+            "backup_codes": backup_codes,
+        })
+
+    @action(detail=False, methods=["post"], url_path="2fa/disable")
+    def disable_2fa(self, request):
+        """
+        Désactive la 2FA (nécessite le mot de passe pour confirmer).
+        POST /api/v1/core/users/2fa/disable/ { "password": "..." }
+        """
+        user = request.user
+        if not user.two_factor_enabled:
+            return Response(
+                {"error": "2FA n'est pas activée"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        password = request.data.get("password", "")
+        if not user.check_password(password):
+            return Response(
+                {"error": "Mot de passe incorrect"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user.disable_2fa()
+        return Response({"message": "2FA désactivée avec succès"})
+
+    @action(detail=False, methods=["get"], url_path="2fa/status")
+    def status_2fa(self, request):
+        """
+        Retourne le statut 2FA de l'utilisateur.
+        GET /api/v1/core/users/2fa/status/
+        """
+        user = request.user
+        return Response({
+            "two_factor_enabled": user.two_factor_enabled,
+            "backup_codes_remaining": len(user.backup_codes) if user.backup_codes else 0,
+        })
+
+    # =========================================================================
+    # Push Notifications — device registration
+    # =========================================================================
+
+    @action(detail=False, methods=["post"], url_path="devices/register")
+    def register_device(self, request):
+        """
+        Enregistre un device pour recevoir des push notifications.
+        POST /api/v1/core/users/devices/register/
+        {
+            "token": "fcm-or-webpush-token",
+            "device_type": "android" | "ios" | "web",
+            "device_id": "optional-unique-id",
+            "name": "optional-device-name"
+        }
+        """
+        token = request.data.get("token", "").strip()
+        device_type = request.data.get("device_type", "").strip().lower()
+
+        if not token:
+            return Response(
+                {"error": "Le token est requis"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if device_type not in ("android", "ios", "web"):
+            return Response(
+                {"error": "device_type doit être 'android', 'ios' ou 'web'"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from .services.push_notification_service import register_device, is_push_enabled
+        if not is_push_enabled():
+            return Response(
+                {"message": "Push notifications non activées sur cette instance", "registered": False},
+                status=status.HTTP_200_OK,
+            )
+
+        device = register_device(
+            user=request.user,
+            token=token,
+            device_type=device_type,
+            device_id=request.data.get("device_id"),
+            name=request.data.get("name"),
+        )
+
+        return Response({
+            "registered": device is not None,
+            "device_type": device_type,
+        })
+
+    @action(detail=False, methods=["post"], url_path="devices/unregister")
+    def unregister_device(self, request):
+        """
+        Désactive un device pour ne plus recevoir de notifications.
+        POST /api/v1/core/users/devices/unregister/
+        { "token": "fcm-or-webpush-token" }
+        """
+        token = request.data.get("token", "").strip()
+        if not token:
+            return Response(
+                {"error": "Le token est requis"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from .services.push_notification_service import unregister_device, is_push_enabled
+        if not is_push_enabled():
+            return Response({"unregistered": False}, status=status.HTTP_200_OK)
+
+        success = unregister_device(user=request.user, token=token)
+        return Response({"unregistered": success})
+
+    @action(detail=False, methods=["get"], url_path="push/config")
+    def push_config(self, request):
+        """
+        Retourne la configuration push notifications pour le client.
+        GET /api/v1/core/users/push/config/
+        """
+        from .services.push_notification_service import is_push_enabled
+        from django.conf import settings as django_settings
+
+        if not is_push_enabled():
+            return Response({
+                "enabled": False,
+                "vapid_public_key": None,
+            })
+
+        push_settings = getattr(django_settings, 'PUSH_NOTIFICATIONS_SETTINGS', {})
+        # Extraire la clé publique VAPID pour Web Push
+        vapid_public_key = push_settings.get('WP_PUBLIC_KEY', '')
+
+        return Response({
+            "enabled": True,
+            "vapid_public_key": vapid_public_key,
+        })
+
 
 class ClientViewSet(viewsets.ModelViewSet):
     """
@@ -115,6 +341,11 @@ class ClientViewSet(viewsets.ModelViewSet):
             "responsable",
             "contact_principal",
         ).prefetch_related("contacts", "mandats")
+
+        user = self.request.user
+        if not (user.is_superuser or user.is_manager()):
+            accessible = user.get_accessible_mandats()
+            queryset = queryset.filter(mandats__in=accessible).distinct()
 
         # Filtre par statut
         statut = self.request.query_params.get("statut", None)
@@ -152,12 +383,13 @@ class ClientViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"])
     def statistics(self, request):
         """Statistiques sur les clients"""
+        qs = self.get_queryset()
         stats = {
-            "total": Client.objects.count(),
-            "actifs": Client.objects.filter(statut="ACTIF").count(),
-            "prospects": Client.objects.filter(statut="PROSPECT").count(),
+            "total": qs.count(),
+            "actifs": qs.filter(statut="ACTIF").count(),
+            "prospects": qs.filter(statut="PROSPECT").count(),
             "par_forme_juridique": dict(
-                Client.objects.values("forme_juridique")
+                qs.values("forme_juridique")
                 .annotate(count=Count("id"))
                 .values_list("forme_juridique", "count")
             ),
@@ -285,7 +517,6 @@ class ContactViewSet(viewsets.ModelViewSet):
     ViewSet pour gérer les contacts
     """
 
-    queryset = Contact.objects.all()
     serializer_class = ContactSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [
@@ -297,6 +528,14 @@ class ContactViewSet(viewsets.ModelViewSet):
     search_fields = ["nom", "prenom", "email", "telephone"]
     ordering_fields = ["nom", "prenom"]
     ordering = ["nom", "prenom"]
+
+    def get_queryset(self):
+        qs = Contact.objects.all()
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(client__mandats__in=accessible).distinct()
 
 
 class MandatViewSet(viewsets.ModelViewSet):
@@ -317,8 +556,14 @@ class MandatViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = Mandat.objects.select_related(
-            "client", "responsable"
+            "client", "responsable", "plan_comptable_actif",
+            "plan_comptable_actif__type_plan",
         ).prefetch_related("equipe", "exercices")
+
+        user = self.request.user
+        if not (user.is_superuser or user.is_manager()):
+            accessible = user.get_accessible_mandats()
+            queryset = queryset.filter(pk__in=accessible)
 
         # Filtrer par utilisateur si demandé
         user_id = self.request.query_params.get("user", None)
@@ -372,13 +617,20 @@ class ExerciceComptableViewSet(viewsets.ModelViewSet):
     ViewSet pour gérer les exercices comptables
     """
 
-    queryset = ExerciceComptable.objects.all()
     serializer_class = ExerciceComptableSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ["mandat", "annee", "statut"]
     ordering_fields = ["annee", "date_debut"]
     ordering = ["-annee"]
+
+    def get_queryset(self):
+        qs = ExerciceComptable.objects.all()
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(mandat__in=accessible)
 
     @action(detail=True, methods=["post"])
     def cloturer(self, request, pk=None):
@@ -474,11 +726,21 @@ class NotificationViewSet(viewsets.ModelViewSet):
 
 class TacheViewSet(viewsets.ModelViewSet):
     """
-    ViewSet pour gérer les tâches
+    ViewSet pour gérer les tâches.
+
+    Permissions:
+    - list/retrieve/mes_taches/calendar_events: tout utilisateur authentifié
+    - create/update/partial_update/destroy/change_status: staff uniquement (pas CLIENT)
     """
 
     serializer_class = TacheSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        if self.action in ('create', 'update', 'partial_update', 'destroy', 'change_status'):
+            from core.permissions import IsStaffOrAbove
+            return [IsAuthenticated(), IsStaffOrAbove()]
+        return [IsAuthenticated()]
     filter_backends = [
         DjangoFilterBackend,
         filters.SearchFilter,
@@ -495,10 +757,23 @@ class TacheViewSet(viewsets.ModelViewSet):
             'cree_par', 'mandat__client', 'prestation'
         )
 
-        # Par défaut, montrer les tâches assignées à l'utilisateur
-        if not user.is_staff:
+        if user.is_superuser or user.is_manager():
+            pass  # Full access
+        elif user.is_client_user():
+            # CLIENT users: only tasks assigned to them or on their accessible mandats
+            accessible = user.get_accessible_mandats()
+            queryset = queryset.filter(
+                Q(assignes=user) | Q(cree_par=user) | Q(mandat__in=accessible)
+            ).distinct()
+        elif not user.is_staff:
             queryset = queryset.filter(
                 Q(assignes=user) | Q(cree_par=user)
+            ).distinct()
+        else:
+            # Staff non-manager: tasks on accessible mandats + assigned to them
+            accessible = user.get_accessible_mandats()
+            queryset = queryset.filter(
+                Q(assignes=user) | Q(cree_par=user) | Q(mandat__in=accessible)
             ).distinct()
 
         # Filtre par assigné
@@ -546,6 +821,41 @@ class TacheViewSet(viewsets.ModelViewSet):
         ).distinct()
         serializer = self.get_serializer(taches, many=True)
         return Response(serializer.data)
+
+    @action(detail=False, methods=["get"])
+    def calendar_events(self, request):
+        """Retourne les tâches au format calendrier pour le mobile"""
+        start = request.query_params.get("start")
+        end = request.query_params.get("end")
+
+        taches = self.get_queryset().exclude(statut="ANNULEE")
+
+        if start:
+            taches = taches.filter(
+                Q(date_echeance__gte=start) | Q(date_echeance__isnull=True, date_debut__gte=start)
+            )
+        if end:
+            taches = taches.filter(
+                Q(date_echeance__lte=end) | Q(date_echeance__isnull=True, date_debut__lte=end)
+            )
+
+        taches = taches.distinct()
+
+        events = []
+        for t in taches:
+            event_date = t.date_echeance or (t.date_debut.date() if t.date_debut else None)
+            if not event_date:
+                continue
+            events.append({
+                "id": str(t.pk),
+                "title": t.titre,
+                "start": event_date.isoformat(),
+                "priorite": t.priorite,
+                "statut": t.statut,
+                "description": (t.description[:100] if t.description else ""),
+            })
+
+        return Response(events)
 
 
 class IsManagerOrAbove:
@@ -800,3 +1110,126 @@ class GraphViewSet(viewsets.ViewSet):
                 continue
 
         return Response({'stats': stats})
+
+
+class FichierJointViewSet(viewsets.ModelViewSet):
+    """ViewSet pour les fichiers joints (pièces jointes génériques).
+
+    Supporte l'upload multipart et base64 (mobile).
+    Filtrable par content_type et object_id pour récupérer les pièces jointes
+    d'un objet spécifique.
+    """
+
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ["content_type", "object_id"]
+    ordering = ["ordre", "created_at"]
+
+    def get_queryset(self):
+        from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+        return FichierJoint.objects.select_related("content_type")
+
+    def get_parsers(self):
+        from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+        return [MultiPartParser(), FormParser(), JSONParser()]
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return FichierJointListSerializer
+        if self.action == "create":
+            return FichierJointUploadSerializer
+        return FichierJointDetailSerializer
+
+    @action(detail=True, methods=["get"])
+    def download(self, request, pk=None):
+        """Télécharger un fichier joint"""
+        fichier_joint = self.get_object()
+        if not fichier_joint.fichier:
+            return Response(
+                {"error": "Aucun fichier disponible"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response({
+            "url": fichier_joint.fichier.url,
+            "nom_fichier": fichier_joint.nom_original,
+            "mime_type": fichier_joint.mime_type,
+            "taille": fichier_joint.taille,
+        })
+
+    @action(detail=False, methods=["get"])
+    def par_objet(self, request):
+        """Récupérer les fichiers joints d'un objet par content_type et object_id.
+
+        ?content_type_model=timetracking&object_id=uuid
+        """
+        from django.contrib.contenttypes.models import ContentType
+
+        model_name = request.query_params.get("content_type_model")
+        object_id = request.query_params.get("object_id")
+
+        if not model_name or not object_id:
+            return Response(
+                {"error": "content_type_model et object_id sont requis"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            ct = ContentType.objects.get(model=model_name.lower())
+        except ContentType.DoesNotExist:
+            return Response(
+                {"error": f"Type de contenu '{model_name}' introuvable"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        qs = self.get_queryset().filter(content_type=ct, object_id=object_id)
+        serializer = FichierJointListSerializer(qs, many=True)
+        return Response(serializer.data)
+
+
+# ══════════════════════════════════════════════════════════════
+# CONTRATS
+# ══════════════════════════════════════════════════════════════
+
+from .models import ModeleContrat, Contrat
+from .serializers import (
+    ModeleContratSerializer,
+    ContratListSerializer,
+    ContratDetailSerializer,
+    ContratCreateSerializer,
+)
+
+
+class ModeleContratViewSet(viewsets.ModelViewSet):
+    queryset = ModeleContrat.objects.filter(is_active=True)
+    serializer_class = ModeleContratSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['source', 'categorie', 'langue']
+    search_fields = ['nom', 'description']
+    ordering = ['ordre', 'nom']
+
+
+class ContratViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['client', 'mandat', 'statut', 'sens', 'categorie']
+    search_fields = ['numero', 'titre', 'description', 'client__raison_sociale']
+    ordering_fields = ['date_emission', 'date_debut', 'created_at', 'titre']
+    ordering = ['-created_at']
+
+    def get_queryset(self):
+        qs = Contrat.objects.filter(
+            is_active=True
+        ).select_related('client', 'mandat', 'document', 'modele_source', 'devise')
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(mandat__in=accessible)
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return ContratListSerializer
+        if self.action == 'create':
+            return ContratCreateSerializer
+        return ContratDetailSerializer

@@ -64,6 +64,7 @@ from core.models import (
 )
 from core.forms import (
     ClientForm,
+    ContactPrincipalForm,
     MandatForm,
     ContactForm,
     TacheForm,
@@ -73,6 +74,7 @@ from core.forms import (
     ProfileForm,
 )
 from core.filters import ClientFilter, MandatFilter, TacheFilter
+from core.mixins import SearchMixin
 
 from comptabilite.models import EcritureComptable, Compte
 from facturation.models import Facture
@@ -148,13 +150,18 @@ class DashboardView(LoginRequiredMixin, ListView):
 # ============ CLIENTS ============
 
 
-class ClientListView(LoginRequiredMixin, ListView):
+class ClientListView(SearchMixin, LoginRequiredMixin, ListView):
     """Liste des clients avec filtres avancés"""
 
     model = Client
     template_name = "core/client_list.html"
     context_object_name = "clients"
     paginate_by = 25
+    search_fields = [
+        'raison_sociale', 'ide_number', 'rc_number',
+        'adresse_siege__localite', 'adresse_siege__canton',
+        'email', 'responsable__first_name', 'responsable__last_name',
+    ]
 
     def get_queryset(self):
         queryset = (
@@ -170,7 +177,7 @@ class ClientListView(LoginRequiredMixin, ListView):
 
         # Appliquer les filtres
         self.filterset = ClientFilter(self.request.GET, queryset=queryset)
-        return self.filterset.qs.order_by("-created_at")
+        return self.apply_search(self.filterset.qs.order_by("-created_at"))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -260,24 +267,41 @@ class ClientCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     permission_required = "core.add_client"
     success_url = reverse_lazy("core:client-list")
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['current_user'] = self.request.user
+        return kwargs
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         if self.request.POST:
             context['adresse_form'] = AdresseForm(self.request.POST, prefix='adresse')
+            context['contact_form'] = ContactPrincipalForm(self.request.POST, prefix='contact')
         else:
             context['adresse_form'] = AdresseForm(prefix='adresse')
+            context['contact_form'] = ContactPrincipalForm(prefix='contact')
         return context
 
     def form_valid(self, form):
         adresse_form = AdresseForm(self.request.POST, prefix='adresse')
-        if adresse_form.is_valid():
-            adresse = adresse_form.save()
-            form.instance.adresse_siege = adresse
-            form.instance.created_by = self.request.user
-            messages.success(self.request, _("Client créé avec succès"))
-            return super().form_valid(form)
-        else:
+        contact_form = ContactPrincipalForm(self.request.POST, prefix='contact')
+        if not adresse_form.is_valid():
             return self.form_invalid(form)
+        adresse = adresse_form.save()
+        form.instance.adresse_siege = adresse
+        form.instance.created_by = self.request.user
+        # Sauvegarder le client d'abord
+        response = super().form_valid(form)
+        # Créer le contact principal si nom et prénom renseignés
+        if contact_form.is_valid() and contact_form.cleaned_data.get('nom') and contact_form.cleaned_data.get('prenom'):
+            contact = contact_form.save(commit=False)
+            contact.client = self.object
+            contact.principal = True
+            contact.save()
+            self.object.contact_principal = contact
+            self.object.save(update_fields=['contact_principal'])
+        messages.success(self.request, _("Client créé avec succès"))
+        return response
 
 
 class ClientUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
@@ -287,6 +311,11 @@ class ClientUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     form_class = ClientForm
     template_name = "core/client_form.html"
     permission_required = "core.change_client"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['current_user'] = self.request.user
+        return kwargs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -326,6 +355,11 @@ class MandatUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     template_name = "core/mandat_form.html"
     permission_required = "core.change_mandat"
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['current_user'] = self.request.user
+        return kwargs
+
     def get_success_url(self):
         return reverse_lazy("core:mandat-detail", kwargs={"pk": self.object.pk})
 
@@ -336,13 +370,18 @@ class MandatUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
 # ============ MANDATS ============
 
 
-class MandatListView(LoginRequiredMixin, ListView):
+class MandatListView(SearchMixin, LoginRequiredMixin, ListView):
     """Liste des mandats"""
 
     model = Mandat
     template_name = "core/mandat_list.html"
     context_object_name = "mandats"
     paginate_by = 25
+    search_fields = [
+        'numero', 'description', 'client__raison_sociale',
+        'responsable__first_name', 'responsable__last_name',
+        'type_mandat',
+    ]
 
     def get_queryset(self):
         user = self.request.user
@@ -360,7 +399,7 @@ class MandatListView(LoginRequiredMixin, ListView):
 
         # Appliquer filtres
         self.filterset = MandatFilter(self.request.GET, queryset=queryset)
-        return self.filterset.qs.order_by("-date_debut")
+        return self.apply_search(self.filterset.qs.order_by("-date_debut"))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -507,6 +546,11 @@ class MandatCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     template_name = "core/mandat_form.html"
     permission_required = "core.add_mandat"
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['current_user'] = self.request.user
+        return kwargs
+
     def get_success_url(self):
         return reverse_lazy("core:mandat-detail", kwargs={"pk": self.object.pk})
 
@@ -519,13 +563,16 @@ class MandatCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
 # ============ TÂCHES ============
 
 
-class TacheListView(LoginRequiredMixin, ListView):
+class TacheListView(SearchMixin, LoginRequiredMixin, ListView):
     """Liste des tâches"""
 
     model = Tache
     template_name = "core/tache_list.html"
     context_object_name = "taches"
     paginate_by = 50
+    search_fields = [
+        'titre', 'description', 'mandat__numero', 'mandat__client__raison_sociale',
+    ]
 
     def get_queryset(self):
         queryset = Tache.objects.prefetch_related('assignes').select_related(
@@ -541,7 +588,7 @@ class TacheListView(LoginRequiredMixin, ListView):
 
         # Appliquer filtres
         self.filterset = TacheFilter(self.request.GET, queryset=queryset)
-        return self.filterset.qs.order_by("date_echeance", "-priorite")
+        return self.apply_search(self.filterset.qs.order_by("date_echeance", "-priorite"))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -854,6 +901,9 @@ class GlobalSearchView(LoginRequiredMixin, TemplateView):
         'tache': 'Tâches', 'compte': 'Comptes', 'dossier': 'Dossiers',
         'type_plan_comptable': 'Types de plans', 'classe_comptable': 'Classes comptables',
         'plan_comptable': 'Plans comptables', 'journal': 'Journaux',
+        'contrat': 'Contrats', 'immobilisation': 'Immobilisations',
+        'position': 'Positions', 'operation': 'Opérations',
+        'releve_bancaire': 'Relevés bancaires',
     }
 
     def get_context_data(self, **kwargs):
@@ -920,6 +970,9 @@ def omnibar_search(request):
         'tache': 'Tâches', 'compte': 'Comptes', 'dossier': 'Dossiers',
         'type_plan_comptable': 'Types de plans', 'classe_comptable': 'Classes comptables',
         'plan_comptable': 'Plans comptables', 'journal': 'Journaux',
+        'contrat': 'Contrats', 'immobilisation': 'Immobilisations',
+        'position': 'Positions', 'operation': 'Opérations',
+        'releve_bancaire': 'Relevés bancaires',
     }
 
     groups = {}
@@ -1181,8 +1234,12 @@ class SettingsView(LoginRequiredMixin, TemplateView):
         context["security"] = {
             "last_login": user.last_login,
             "date_joined": user.date_joined,
-            "two_factor_enabled": False,  # À implémenter si nécessaire
+            "two_factor_enabled": user.two_factor_enabled,
         }
+
+        # 2FA setup data (from session, set by TwoFactorSetupWebView)
+        context["two_factor_setup"] = self.request.session.pop("2fa_setup", None)
+        context["two_factor_backup_codes"] = self.request.session.pop("2fa_backup_codes", None)
 
         return context
 
@@ -1477,13 +1534,16 @@ def get_dashboard_stats(request):
 # ============================================================================
 
 
-class ExerciceListView(LoginRequiredMixin, ListView):
+class ExerciceListView(SearchMixin, LoginRequiredMixin, ListView):
     """Liste des exercices comptables"""
 
     model = ExerciceComptable
     template_name = "core/exercice_list.html"
     context_object_name = "exercices"
     paginate_by = 25
+    search_fields = [
+        'mandat__numero', 'mandat__client__raison_sociale',
+    ]
 
     def get_queryset(self):
         queryset = ExerciceComptable.objects.select_related(
@@ -1500,7 +1560,7 @@ class ExerciceListView(LoginRequiredMixin, ListView):
         if statut:
             queryset = queryset.filter(statut=statut)
 
-        return queryset
+        return self.apply_search(queryset)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

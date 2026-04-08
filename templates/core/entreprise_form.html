@@ -174,19 +174,21 @@
                     <h5>{% trans "Coordonnees" %}</h5>
                 </div>
                 <div class="card-body">
+                    <!-- Adresse du siège -->
+                    <h6 class="text-primary mb-3">{% trans "Adresse du siège" %}</h6>
+                    {% include "includes/adresse_fields.html" with prefix="adresse" adresse_form=adresse_form %}
+
+                    {{ form.siege }}
+
+                    <hr class="my-3">
                     <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="{{ form.siege.id_for_label }}" class="form-label">
-                                {% trans "Siege" %} <span class="text-danger">*</span>
-                            </label>
-                            {{ form.siege }}
-                            {% if form.siege.errors %}<div class="text-danger f-s-12">{{ form.siege.errors|join:", " }}</div>{% endif %}
-                        </div>
                         <div class="col-md-6 mb-3">
                             <label for="{{ form.canton_rc.id_for_label }}" class="form-label">{% trans "Canton RC" %}</label>
                             {{ form.canton_rc }}
                             {% if form.canton_rc.errors %}<div class="text-danger f-s-12">{{ form.canton_rc.errors|join:", " }}</div>{% endif %}
                         </div>
+                    </div>
+                    <div class="row">
                         <div class="col-md-4 mb-3">
                             <label for="{{ form.email.id_for_label }}" class="form-label">{% trans "Email" %}</label>
                             {{ form.email }}
@@ -233,6 +235,136 @@
                             {{ form.statut }}
                             {% if form.statut.errors %}<div class="text-danger f-s-12">{{ form.statut.errors|join:", " }}</div>{% endif %}
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comptes bancaires -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5>{% trans "Comptes bancaires" %}</h5>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="add-compte">
+                        <i class="ti ti-plus me-1"></i>{% trans "Ajouter un compte" %}
+                    </button>
+                </div>
+                <div class="card-body">
+                    {{ comptes_formset.management_form }}
+                    {% for compte_form in comptes_formset %}
+                    <div class="compte-bancaire-form border rounded p-3 mb-3 {% if compte_form.instance.pk %}{% else %}{% if not forloop.first %}d-none empty-form{% endif %}{% endif %}">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="mb-0 text-primary">
+                                <i class="ti ti-building-bank me-1"></i>
+                                {% trans "Compte" %} <span class="compte-number">{{ forloop.counter }}</span>
+                            </h6>
+                            <div class="d-flex align-items-center gap-2">
+                                {% if compte_form.DELETE %}
+                                <div class="form-check">
+                                    {{ compte_form.DELETE }}
+                                    <label class="form-check-label text-danger f-s-12" for="{{ compte_form.DELETE.id_for_label }}">
+                                        {% trans "Supprimer" %}
+                                    </label>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% for hidden in compte_form.hidden_fields %}
+                            {{ hidden }}
+                        {% endfor %}
+                        {% if compte_form.non_field_errors %}
+                        <div class="alert alert-danger f-s-12">{{ compte_form.non_field_errors }}</div>
+                        {% endif %}
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">{% trans "Libellé" %} <span class="text-danger">*</span></label>
+                                {{ compte_form.libelle }}
+                                {% if compte_form.libelle.errors %}<div class="text-danger f-s-12">{{ compte_form.libelle.errors|join:", " }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">{% trans "Type" %}</label>
+                                {{ compte_form.type_compte }}
+                                {% if compte_form.type_compte.errors %}<div class="text-danger f-s-12">{{ compte_form.type_compte.errors|join:", " }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">{% trans "Devise" %} <span class="text-danger">*</span></label>
+                                {{ compte_form.devise }}
+                                {% if compte_form.devise.errors %}<div class="text-danger f-s-12">{{ compte_form.devise.errors|join:", " }}</div>{% endif %}
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">{% trans "IBAN" %} <span class="text-danger">*</span></label>
+                                {{ compte_form.iban }}
+                                {% if compte_form.iban.errors %}<div class="text-danger f-s-12">{{ compte_form.iban.errors|join:", " }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">{% trans "BIC/SWIFT" %}</label>
+                                {{ compte_form.bic_swift }}
+                                {% if compte_form.bic_swift.errors %}<div class="text-danger f-s-12">{{ compte_form.bic_swift.errors|join:", " }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">{% trans "Clearing" %}</label>
+                                {{ compte_form.clearing }}
+                                {% if compte_form.clearing.errors %}<div class="text-danger f-s-12">{{ compte_form.clearing.errors|join:", " }}</div>{% endif %}
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">{% trans "Nom de la banque" %} <span class="text-danger">*</span></label>
+                                {{ compte_form.nom_banque }}
+                                {% if compte_form.nom_banque.errors %}<div class="text-danger f-s-12">{{ compte_form.nom_banque.errors|join:", " }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">{% trans "Adresse de la banque" %}</label>
+                                {{ compte_form.adresse_banque }}
+                                {% if compte_form.adresse_banque.errors %}<div class="text-danger f-s-12">{{ compte_form.adresse_banque.errors|join:", " }}</div>{% endif %}
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">{% trans "Titulaire du compte" %} <span class="text-danger">*</span></label>
+                                {{ compte_form.titulaire_nom }}
+                                {% if compte_form.titulaire_nom.errors %}<div class="text-danger f-s-12">{{ compte_form.titulaire_nom.errors|join:", " }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">{% trans "Notes" %}</label>
+                                {{ compte_form.notes }}
+                                {% if compte_form.notes.errors %}<div class="text-danger f-s-12">{{ compte_form.notes.errors|join:", " }}</div>{% endif %}
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-3 mb-3">
+                                <div class="form-check mt-2">
+                                    {{ compte_form.est_compte_principal }}
+                                    <label class="form-check-label" for="{{ compte_form.est_compte_principal.id_for_label }}">
+                                        {% trans "Compte principal" %}
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <div class="form-check mt-2">
+                                    {{ compte_form.est_qr_iban }}
+                                    <label class="form-check-label" for="{{ compte_form.est_qr_iban.id_for_label }}">
+                                        {% trans "QR-IBAN" %}
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">{% trans "Type référence QR" %}</label>
+                                {{ compte_form.qr_reference_type }}
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <div class="form-check mt-2">
+                                    {{ compte_form.actif }}
+                                    <label class="form-check-label" for="{{ compte_form.actif.id_for_label }}">
+                                        {% trans "Actif" %}
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    <div id="empty-form-template" class="d-none">
+                        {# Template for JS cloning — uses __prefix__ #}
                     </div>
                 </div>
             </div>
@@ -297,6 +429,14 @@
                     <strong>{% trans "IDE" %}:</strong><br>
                     {% trans "Numero d'identification des entreprises au format CHE-XXX.XXX.XXX" %}
                 </p>
+                <p class="text-muted f-s-14 mt-3">
+                    <strong>{% trans "Comptes bancaires" %}:</strong><br>
+                    {% trans "Configurez les comptes bancaires de l'entreprise pour la generation des QR-Bills sur les factures. Le compte principal est utilise par defaut." %}
+                </p>
+                <p class="text-muted f-s-14 mt-3">
+                    <strong>{% trans "QR-IBAN" %}:</strong><br>
+                    {% trans "Pour les QR-Bills suisses, utilisez un QR-IBAN (IID 30000-31999). Cochez 'QR-IBAN' et selectionnez le type de reference QRR." %}
+                </p>
             </div>
         </div>
     </div>
@@ -314,6 +454,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const cantonRcSelect = document.getElementById('{{ form.canton_rc.id_for_label }}');
     const formeJuridiqueSelect = document.getElementById('{{ form.forme_juridique.id_for_label }}');
     const resultsContainer = document.getElementById('autocomplete-results');
+    // Champs adresse structurés
+    const rueInput = document.getElementById('{{ adresse_form.rue.id_for_label }}');
+    const numeroInput = document.getElementById('{{ adresse_form.numero.id_for_label }}');
+    const npaInput = document.getElementById('{{ adresse_form.code_postal.id_for_label }}');
+    const localiteInput = document.getElementById('{{ adresse_form.localite.id_for_label }}');
+    const cantonAdresseSelect = document.getElementById('{{ adresse_form.canton.id_for_label }}');
 
     if (!raisonSocialeInput || !resultsContainer) return;
 
@@ -406,6 +552,11 @@ document.addEventListener('DOMContentLoaded', function() {
         raisonSocialeInput.value = company.name;
         if (ideInput) ideInput.value = company.ide_number;
 
+        // Remplir la localité dans l'adresse structurée
+        if (localiteInput && company.legal_seat) {
+            localiteInput.value = company.legal_seat;
+        }
+        // Synchroniser le champ siege caché
         if (siegeInput && company.legal_seat) {
             siegeInput.value = company.legal_seat;
         }
@@ -413,6 +564,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (cantonRcSelect && company.canton) {
             const option = cantonRcSelect.querySelector(`option[value="${company.canton}"]`);
             if (option) cantonRcSelect.value = company.canton;
+        }
+        // Aussi sur le canton de l'adresse
+        if (cantonAdresseSelect && company.canton) {
+            const option = cantonAdresseSelect.querySelector(`option[value="${company.canton}"]`);
+            if (option) cantonAdresseSelect.value = company.canton;
         }
 
         // Map legal form
@@ -463,6 +619,20 @@ document.addEventListener('DOMContentLoaded', function() {
                         : full.ch_id;
                 }
                 if (ofrcIdInput && full.ofrc_id) ofrcIdInput.value = full.ofrc_id;
+                // Remplir l'adresse structurée depuis les détails complets
+                if (full.address) {
+                    if (rueInput && full.address.street) rueInput.value = full.address.street;
+                    if (numeroInput && full.address.house_number) numeroInput.value = full.address.house_number;
+                    if (npaInput && full.address.postal_code) npaInput.value = full.address.postal_code;
+                    if (localiteInput && full.address.city) localiteInput.value = full.address.city;
+                    // Mettre à jour siege caché
+                    if (siegeInput) {
+                        const parts = [];
+                        if (full.address.street) parts.push(full.address.street + (full.address.house_number ? ' ' + full.address.house_number : ''));
+                        if (full.address.postal_code && full.address.city) parts.push(full.address.postal_code + ' ' + full.address.city);
+                        siegeInput.value = parts.join(', ') || company.legal_seat || '';
+                    }
+                }
             })
             .catch(() => {});
         }
@@ -470,7 +640,7 @@ document.addEventListener('DOMContentLoaded', function() {
         hideResults();
 
         // Visual feedback
-        const filledFields = [raisonSocialeInput, ideInput, siegeInput].filter(f => f && f.value);
+        const filledFields = [raisonSocialeInput, ideInput, rueInput, npaInput, localiteInput].filter(f => f && f.value);
         filledFields.forEach(field => field.classList.add('is-valid'));
         setTimeout(() => filledFields.forEach(field => field.classList.remove('is-valid')), 2000);
     }
@@ -515,6 +685,67 @@ document.addEventListener('DOMContentLoaded', function() {
     // Show on focus with existing results
     raisonSocialeInput.addEventListener('focus', function() {
         if (currentResults.length > 0 && this.value.length >= 3) resultsContainer.classList.add('show');
+    });
+});
+
+// Gestion dynamique du formset comptes bancaires
+document.addEventListener('DOMContentLoaded', function() {
+    const addBtn = document.getElementById('add-compte');
+    if (!addBtn) return;
+
+    const totalFormsInput = document.getElementById('id_comptes-TOTAL_FORMS');
+
+    addBtn.addEventListener('click', function() {
+        const forms = document.querySelectorAll('.compte-bancaire-form');
+        // Check if there's a hidden empty form to show first
+        const hiddenEmpty = document.querySelector('.compte-bancaire-form.empty-form.d-none');
+        if (hiddenEmpty) {
+            hiddenEmpty.classList.remove('d-none', 'empty-form');
+            return;
+        }
+
+        // Clone the last form and clear it
+        const lastForm = forms[forms.length - 1];
+        const newForm = lastForm.cloneNode(true);
+        const formIdx = parseInt(totalFormsInput.value);
+
+        // Update all field names and IDs
+        newForm.innerHTML = newForm.innerHTML.replace(
+            /comptes-(\d+)-/g,
+            `comptes-${formIdx}-`
+        );
+        newForm.innerHTML = newForm.innerHTML.replace(
+            /comptes-\d+-id/g,
+            `comptes-${formIdx}-id`
+        );
+
+        // Clear values
+        newForm.querySelectorAll('input[type="text"], input[type="number"], textarea').forEach(function(input) {
+            input.value = '';
+        });
+        newForm.querySelectorAll('input[type="checkbox"]').forEach(function(input) {
+            input.checked = input.name.includes('actif') ? true : false;
+        });
+        newForm.querySelectorAll('select').forEach(function(select) {
+            select.selectedIndex = 0;
+        });
+        // Clear hidden PK field
+        newForm.querySelectorAll('input[type="hidden"]').forEach(function(input) {
+            if (input.name.includes('-id')) input.value = '';
+        });
+
+        // Update counter
+        newForm.querySelector('.compte-number').textContent = formIdx + 1;
+
+        // Show the form
+        newForm.classList.remove('d-none', 'empty-form');
+
+        // Insert before the empty-form-template
+        const template = document.getElementById('empty-form-template');
+        template.parentNode.insertBefore(newForm, template);
+
+        // Update total forms count
+        totalFormsInput.value = formIdx + 1;
     });
 });
 </script>

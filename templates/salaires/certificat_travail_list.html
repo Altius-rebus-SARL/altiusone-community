@@ -31,10 +31,23 @@
 
 <!-- Actions -->
 <div class="row mb-3">
-    <div class="col-12 text-end">
-        <a href="{% url 'salaires:certificat-travail-create' %}" class="btn btn-primary">
-            <i class="ph ph-plus me-2"></i>{% trans "Nouveau certificat" %}
-        </a>
+    <div class="col-12">
+        <div class="d-flex justify-content-end align-items-center gap-3">
+            <form method="get" class="app-form app-icon-form">
+                <div class="position-relative">
+                    <input aria-label="Search"
+                           class="form-control search"
+                           placeholder="{% trans 'Rechercher...' %}"
+                           type="search"
+                           name="q"
+                           value="{{ request.GET.q }}">
+                    <i class="ti ti-search text-dark"></i>
+                </div>
+            </form>
+            <a href="{% url 'salaires:certificat-travail-create' %}" class="btn btn-primary">
+                <i class="ph ph-plus me-2"></i>{% trans "Nouveau certificat" %}
+            </a>
+        </div>
     </div>
 </div>
 

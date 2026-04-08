@@ -1,0 +1,35 @@
+{% comment %}
+Composant réutilisable : Icône de fichier selon l'extension.
+
+Usage:
+  {% include "components/documents/file_icon.html" with extension=doc.extension size="24" %}
+  {% include "components/documents/file_icon.html" with extension=doc.extension size="80" %}
+  {% include "components/documents/file_icon.html" with extension=doc.extension size="120" %}
+
+Paramètres:
+  - extension : extension du fichier (avec ou sans point : ".pdf" ou "pdf")
+  - size : taille en pixels (défaut: 24). Utilise f-s-{size} pour <=24, sinon style inline.
+{% endcomment %}
+{% load i18n %}
+
+{% with ext=extension|lower %}
+{% if ext == '.pdf' or ext == 'pdf' %}
+    <i class="ph-duotone ph-file-pdf text-danger{% if size == '24' or not size %} f-s-24{% endif %}" {% if size and size != '24' %}style="font-size: {{ size }}px;"{% endif %} title="PDF"></i>
+{% elif ext in '.jpg,.jpeg,.png,.gif,.webp,jpg,jpeg,png,gif,webp' %}
+    <i class="ph-duotone ph-file-image text-info{% if size == '24' or not size %} f-s-24{% endif %}" {% if size and size != '24' %}style="font-size: {{ size }}px;"{% endif %} title="{% trans 'Image' %}"></i>
+{% elif ext in '.doc,.docx,doc,docx' %}
+    <i class="ph-duotone ph-file-doc text-primary{% if size == '24' or not size %} f-s-24{% endif %}" {% if size and size != '24' %}style="font-size: {{ size }}px;"{% endif %} title="Word"></i>
+{% elif ext in '.xls,.xlsx,xls,xlsx' %}
+    <i class="ph-duotone ph-file-xls text-success{% if size == '24' or not size %} f-s-24{% endif %}" {% if size and size != '24' %}style="font-size: {{ size }}px;"{% endif %} title="Excel"></i>
+{% elif ext in '.ppt,.pptx,ppt,pptx' %}
+    <i class="ph-duotone ph-file-ppt text-warning{% if size == '24' or not size %} f-s-24{% endif %}" {% if size and size != '24' %}style="font-size: {{ size }}px;"{% endif %} title="PowerPoint"></i>
+{% elif ext in '.zip,.rar,.7z,zip,rar,7z' %}
+    <i class="ph-duotone ph-file-zip text-secondary{% if size == '24' or not size %} f-s-24{% endif %}" {% if size and size != '24' %}style="font-size: {{ size }}px;"{% endif %} title="{% trans 'Archive' %}"></i>
+{% elif ext in '.csv,csv' %}
+    <i class="ph-duotone ph-file-csv text-success{% if size == '24' or not size %} f-s-24{% endif %}" {% if size and size != '24' %}style="font-size: {{ size }}px;"{% endif %} title="CSV"></i>
+{% elif ext in '.txt,txt' %}
+    <i class="ph-duotone ph-file-text text-secondary{% if size == '24' or not size %} f-s-24{% endif %}" {% if size and size != '24' %}style="font-size: {{ size }}px;"{% endif %} title="{% trans 'Texte' %}"></i>
+{% else %}
+    <i class="ph-duotone ph-file text-secondary{% if size == '24' or not size %} f-s-24{% endif %}" {% if size and size != '24' %}style="font-size: {{ size }}px;"{% endif %} title="{{ ext }}"></i>
+{% endif %}
+{% endwith %}

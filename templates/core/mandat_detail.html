@@ -50,7 +50,7 @@
                         data-bs-target="#positions" type="button" role="tab"
                         aria-controls="positions" aria-selected="false"
                         hx-get="{% url 'projets:position-list' mandat.pk %}"
-                        hx-trigger="click once"
+                        hx-trigger="click"
                         hx-target="#positions">
                     <i class="ti ti-layout-list me-1"></i> {% trans "Positions" %}
                 </button>
@@ -60,7 +60,7 @@
                         data-bs-target="#timeline" type="button" role="tab"
                         aria-controls="timeline" aria-selected="false"
                         hx-get="{% url 'projets:gantt-view' mandat.pk %}"
-                        hx-trigger="click once"
+                        hx-trigger="click"
                         hx-target="#timeline">
                     <i class="ti ti-chart-gantt me-1"></i> {% trans "Timeline" %}
                 </button>
@@ -70,7 +70,7 @@
                         data-bs-target="#budget" type="button" role="tab"
                         aria-controls="budget" aria-selected="false"
                         hx-get="{% url 'projets:budget-summary' mandat.pk %}"
-                        hx-trigger="click once"
+                        hx-trigger="click"
                         hx-target="#budget">
                     <i class="ti ti-currency-dollar me-1"></i> {% trans "Budget" %}
                 </button>
@@ -80,7 +80,7 @@
                         data-bs-target="#carte" type="button" role="tab"
                         aria-controls="carte" aria-selected="false"
                         hx-get="{% url 'projets:map-view' mandat.pk %}"
-                        hx-trigger="click once"
+                        hx-trigger="click"
                         hx-target="#carte">
                     <i class="ti ti-map-pin me-1"></i> {% trans "Carte" %}
                 </button>
@@ -466,7 +466,7 @@ function analyserMandat(mandatPk) {
     btn.disabled = true;
     btn.innerHTML = '<i class="ti ti-loader me-2"></i>Analyse en cours...';
 
-    fetch('/documents/mandats/' + mandatPk + '/analyser/', {
+    fetch('{% url "documents:mandat-analyser" mandat_pk=object.pk %}', {
         method: 'POST',
         headers: {
             'X-CSRFToken': getCookie('csrftoken'),
@@ -489,7 +489,8 @@ function analyserMandat(mandatPk) {
 
 function marquerTraite(el) {
     const insightId = el.getAttribute('data-insight-id');
-    fetch('/documents/insights/' + insightId + '/traiter/', {
+    const url = '{% url "documents:insight-traiter" pk="00000000-0000-0000-0000-000000000000" %}'.replace('00000000-0000-0000-0000-000000000000', insightId);
+    fetch(url, {
         method: 'POST',
         headers: {
             'X-CSRFToken': getCookie('csrftoken'),

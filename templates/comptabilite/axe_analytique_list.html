@@ -1,0 +1,384 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Comptabilite analytique" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb start -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Comptabilite analytique" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li class="">
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span>
+                        <i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}
+                    </span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Analytique" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb end -->
+
+<!-- Filtre mandat -->
+<div class="row mb-3">
+    <div class="col-md-4">
+        <form method="get" class="app-form">
+            <select name="mandat" class="form-select select-basic" onchange="this.form.submit()">
+                <option value="">{% trans "Tous les mandats" %}</option>
+                {% for m in mandats %}
+                <option value="{{ m.pk }}" {% if request.GET.mandat == m.pk|slugify %}selected{% endif %}>
+                    {{ m.numero }} - {{ m.client.raison_sociale }}
+                </option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Colonne gauche : Axes -->
+    <div class="col-md-5">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="ph ph-chart-pie-slice me-2"></i>{% trans "Axes analytiques" %}
+                </h5>
+                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalAxe">
+                    <i class="ph ph-plus me-1"></i>{% trans "Nouvel axe" %}
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for axe in axes %}
+                    <div class="list-group-item d-flex justify-content-between align-items-center {% if axe_selectionne.pk == axe.pk %}active{% endif %}">
+                        <a href="?axe={{ axe.pk }}{% if request.GET.mandat %}&mandat={{ request.GET.mandat }}{% endif %}"
+                           class="text-decoration-none flex-grow-1 {% if axe_selectionne.pk == axe.pk %}text-white{% endif %}">
+                            <span class="badge bg-light-dark f-w-600 me-2">{{ axe.code }}</span>
+                            {{ axe.libelle }}
+                            {% if axe.obligatoire %}
+                            <span class="badge bg-warning-subtle text-warning ms-2">{% trans "Obligatoire" %}</span>
+                            {% endif %}
+                        </a>
+                        <div class="d-flex align-items-center gap-1">
+                            <span class="badge bg-primary rounded-pill me-2">{{ axe.nb_sections }}</span>
+                            {# TODO: add axe-update and axe-delete views #}
+                            <button type="button" class="btn btn-sm {% if axe_selectionne.pk == axe.pk %}btn-light{% else %}btn-light-primary{% endif %}" data-bs-toggle="modal" data-bs-target="#modalEditAxe{{ axe.pk }}" title="{% trans 'Modifier' %}">
+                                <i class="ph ph-pencil f-s-14"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm {% if axe_selectionne.pk == axe.pk %}btn-light{% else %}btn-light-danger{% endif %}" data-bs-toggle="modal" data-bs-target="#modalDeleteAxe{{ axe.pk }}" title="{% trans 'Supprimer' %}">
+                                <i class="ph ph-trash f-s-14"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center py-5">
+                        <i class="ph ph-chart-pie-slice f-s-50 text-muted"></i>
+                        <p class="text-muted mt-2">{% trans "Aucun axe analytique" %}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Colonne droite : Sections de l'axe selectionne -->
+    <div class="col-md-7">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="ph ph-tree-structure me-2"></i>
+                    {% if axe_selectionne %}
+                        {% trans "Sections" %} — {{ axe_selectionne.libelle }}
+                    {% else %}
+                        {% trans "Sections analytiques" %}
+                    {% endif %}
+                </h5>
+                {% if axe_selectionne %}
+                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalSection">
+                    <i class="ph ph-plus me-1"></i>{% trans "Nouvelle section" %}
+                </button>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if axe_selectionne %}
+                <div class="overflow-auto app-scroll">
+                    <table class="table table-bottom-border align-middle mb-0">
+                        <thead>
+                            <tr class="app-sort">
+                                <th scope="col">{% trans "Code" %}</th>
+                                <th scope="col">{% trans "Libelle" %}</th>
+                                <th scope="col">{% trans "Parent" %}</th>
+                                <th scope="col" class="text-end">{% trans "Budget annuel" %}</th>
+                                <th scope="col">{% trans "Responsable" %}</th>
+                                <th scope="col" class="text-center">{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for section in sections %}
+                            <tr>
+                                <td>
+                                    <span class="badge bg-light-dark f-w-600">{{ section.code }}</span>
+                                </td>
+                                <td>{{ section.libelle }}</td>
+                                <td>
+                                    {% if section.parent %}
+                                    {{ section.parent.code }}
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    {% if section.budget_annuel %}
+                                    {{ section.budget_annuel|floatformat:2 }}
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if section.responsable %}
+                                    {{ section.responsable.get_full_name|default:section.responsable.username }}
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {# TODO: add section-update and section-delete views #}
+                                    <button type="button" class="btn btn-sm btn-light-primary" data-bs-toggle="modal" data-bs-target="#modalEditSection{{ section.pk }}" title="{% trans 'Modifier' %}">
+                                        <i class="ph ph-pencil"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-light-danger" data-bs-toggle="modal" data-bs-target="#modalDeleteSection{{ section.pk }}" title="{% trans 'Supprimer' %}">
+                                        <i class="ph ph-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center py-5">
+                                    <i class="ph ph-tree-structure f-s-50 text-muted"></i>
+                                    <p class="text-muted mt-2">{% trans "Aucune section pour cet axe" %}</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="ph ph-arrow-left f-s-50 text-muted"></i>
+                    <p class="text-muted mt-2">{% trans "Selectionnez un axe pour voir ses sections" %}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nouvel Axe -->
+<div class="modal fade" id="modalAxe" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{% url 'comptabilite:axe-list' %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">{% trans "Nouvel axe analytique" %}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body app-form">
+                    {% for field in axe_form %}
+                    <div class="mb-3">
+                        <label for="{{ field.id_for_label }}" class="form-label">
+                            {{ field.label }}
+                            {% if field.field.required %}<span class="text-danger">*</span>{% endif %}
+                        </label>
+                        {% if field.name == 'obligatoire' %}
+                        <div class="form-check">
+                            {{ field }}
+                            <label class="form-check-label" for="{{ field.id_for_label }}">
+                                {% trans "Ventilation obligatoire" %}
+                            </label>
+                        </div>
+                        {% else %}
+                        {{ field }}
+                        {% endif %}
+                        {% if field.errors %}
+                        <div class="text-danger f-s-12 mt-1">{{ field.errors }}</div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Annuler" %}</button>
+                    <button type="submit" class="btn btn-primary">{% trans "Creer" %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nouvelle Section -->
+{% if axe_selectionne %}
+<div class="modal fade" id="modalSection" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{% url 'comptabilite:section-list' %}?axe={{ axe_selectionne.pk }}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">{% trans "Nouvelle section" %} — {{ axe_selectionne.libelle }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body app-form">
+                    {% for field in section_form %}
+                    <div class="mb-3">
+                        <label for="{{ field.id_for_label }}" class="form-label">
+                            {{ field.label }}
+                            {% if field.field.required %}<span class="text-danger">*</span>{% endif %}
+                        </label>
+                        {{ field }}
+                        {% if field.errors %}
+                        <div class="text-danger f-s-12 mt-1">{{ field.errors }}</div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Annuler" %}</button>
+                    <button type="submit" class="btn btn-primary">{% trans "Creer" %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{# --- Edit/Delete modals for axes --- #}
+{% for axe in axes %}
+<!-- Modal Edit Axe {{ axe.code }} -->
+<div class="modal fade" id="modalEditAxe{{ axe.pk }}" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            {# TODO: add axe-update URL and replace action #}
+            <form method="post" action="{% url 'comptabilite:axe-list' %}?action=update&pk={{ axe.pk }}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">{% trans "Modifier l'axe" %} — {{ axe.code }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body app-form">
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Code" %} <span class="text-danger">*</span></label>
+                        <input type="text" name="code" class="form-control" value="{{ axe.code }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Libellé" %} <span class="text-danger">*</span></label>
+                        <input type="text" name="libelle" class="form-control" value="{{ axe.libelle }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input type="checkbox" name="obligatoire" class="form-check-input" id="edit_obligatoire_{{ axe.pk }}" {% if axe.obligatoire %}checked{% endif %}>
+                            <label class="form-check-label" for="edit_obligatoire_{{ axe.pk }}">{% trans "Ventilation obligatoire" %}</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Annuler" %}</button>
+                    <button type="submit" class="btn btn-primary">{% trans "Enregistrer" %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Delete Axe {{ axe.code }} -->
+<div class="modal fade" id="modalDeleteAxe{{ axe.pk }}" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            {# TODO: add axe-delete URL and replace action #}
+            <form method="post" action="{% url 'comptabilite:axe-list' %}?action=delete&pk={{ axe.pk }}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">{% trans "Supprimer l'axe" %}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>{% trans "Voulez-vous vraiment supprimer l'axe" %} <strong>{{ axe.code }} — {{ axe.libelle }}</strong> ?</p>
+                    <p class="text-danger f-s-12 mb-0">{% trans "Cette action supprimera aussi toutes les sections associées." %}</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Annuler" %}</button>
+                    <button type="submit" class="btn btn-danger">{% trans "Supprimer" %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{# --- Edit/Delete modals for sections --- #}
+{% if axe_selectionne %}
+{% for section in sections %}
+<!-- Modal Edit Section {{ section.code }} -->
+<div class="modal fade" id="modalEditSection{{ section.pk }}" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            {# TODO: add section-update URL and replace action #}
+            <form method="post" action="{% url 'comptabilite:section-list' %}?axe={{ axe_selectionne.pk }}&action=update&pk={{ section.pk }}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">{% trans "Modifier la section" %} — {{ section.code }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body app-form">
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Code" %} <span class="text-danger">*</span></label>
+                        <input type="text" name="code" class="form-control" value="{{ section.code }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Libellé" %} <span class="text-danger">*</span></label>
+                        <input type="text" name="libelle" class="form-control" value="{{ section.libelle }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{% trans "Budget annuel" %}</label>
+                        <input type="number" name="budget_annuel" class="form-control" value="{{ section.budget_annuel|default_if_none:'' }}" step="0.01">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Annuler" %}</button>
+                    <button type="submit" class="btn btn-primary">{% trans "Enregistrer" %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Delete Section {{ section.code }} -->
+<div class="modal fade" id="modalDeleteSection{{ section.pk }}" tabindex="-1">
+    <div class="modal-sm modal-dialog">
+        <div class="modal-content">
+            {# TODO: add section-delete URL and replace action #}
+            <form method="post" action="{% url 'comptabilite:section-list' %}?axe={{ axe_selectionne.pk }}&action=delete&pk={{ section.pk }}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">{% trans "Supprimer la section" %}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>{% trans "Voulez-vous vraiment supprimer la section" %} <strong>{{ section.code }} — {{ section.libelle }}</strong> ?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Annuler" %}</button>
+                    <button type="submit" class="btn btn-danger">{% trans "Supprimer" %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endif %}
+
+{% endblock %}

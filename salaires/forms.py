@@ -5,7 +5,7 @@ from decimal import Decimal
 from datetime import datetime
 
 from .models import Employe, FicheSalaire, CertificatSalaire, CertificatTravail
-from core.models import Mandat, Adresse
+from core.models import Mandat, Adresse, ParametreMetier
 
 
 class AdresseInlineForm(forms.ModelForm):
@@ -62,6 +62,7 @@ class EmployeForm(forms.ModelForm):
             "jours_vacances_annuel",
             "treizieme_salaire",
             "montant_13eme",
+            "devise_salaire",
             "iban",
             "banque",
             "statut",
@@ -69,6 +70,10 @@ class EmployeForm(forms.ModelForm):
             "soumis_is",
             "barreme_is",
             "taux_is",
+            "canton_imposition",
+            "eglise_is",
+            "nombre_enfants_is",
+            "numero_securite_sociale",
             "config_cotisations",
             "remarques",
         ]
@@ -125,6 +130,7 @@ class EmployeForm(forms.ModelForm):
             "montant_13eme": forms.NumberInput(
                 attrs={"class": "form-control", "step": "0.01"}
             ),
+            "devise_salaire": forms.Select(attrs={"class": "form-control select2"}),
             "iban": forms.TextInput(attrs={"class": "form-control"}),
             "banque": forms.TextInput(attrs={"class": "form-control"}),
             "statut": forms.Select(attrs={"class": "form-control"}),
@@ -133,14 +139,42 @@ class EmployeForm(forms.ModelForm):
             "taux_is": forms.NumberInput(
                 attrs={"class": "form-control", "step": "0.01"}
             ),
+            "canton_imposition": forms.TextInput(
+                attrs={"class": "form-control", "maxlength": "2", "placeholder": "GE"}
+            ),
+            "eglise_is": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "nombre_enfants_is": forms.NumberInput(
+                attrs={"class": "form-control", "min": "0"}
+            ),
+            "numero_securite_sociale": forms.TextInput(attrs={"class": "form-control"}),
             "config_cotisations": forms.Textarea(
                 attrs={"class": "form-control", "rows": 4}
             ),
             "remarques": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
         }
 
+    _numeric_optional = [
+        "nombre_enfants", "salaire_horaire", "montant_13eme", "taux_is",
+        "jours_vacances_annuel", "nombre_enfants_is",
+    ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Charger les choix depuis ParametreMetier (DB) avec fallback sur les CHOICES du modèle
+        self.fields['type_contrat'].choices = ParametreMetier.get_choices_with_default(
+            'salaires', 'type_contrat', Employe.TYPE_CONTRAT_CHOICES
+        )
+        for field_name in self._numeric_optional:
+            if field_name in self.fields:
+                self.fields[field_name].required = False
+
     def clean(self):
         cleaned_data = super().clean()
+
+        # Convertir les champs numériques vides en valeur par défaut
+        for field_name in self._numeric_optional:
+            if field_name in cleaned_data and cleaned_data[field_name] is None:
+                cleaned_data[field_name] = Decimal('0')
 
         # Si 13ème salaire activé, vérifier le montant
         if cleaned_data.get("treizieme_salaire"):
@@ -153,6 +187,15 @@ class EmployeForm(forms.ModelForm):
 
 class FicheSalaireForm(forms.ModelForm):
     """Formulaire pour une fiche de salaire"""
+
+    # Champs numériques avec default=0 sur le modèle
+    _numeric_optional = [
+        "jours_travailles", "heures_travaillees", "heures_supplementaires",
+        "jours_absence", "jours_vacances", "jours_maladie",
+        "salaire_base", "heures_supp_montant", "primes", "indemnites",
+        "treizieme_mois", "allocations_familiales", "autres_allocations",
+        "avance_salaire", "saisie_salaire", "autres_deductions",
+    ]
 
     class Meta:
         model = FicheSalaire
@@ -232,6 +275,19 @@ class FicheSalaireForm(forms.ModelForm):
             ),
             "remarques": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field_name in self._numeric_optional:
+            if field_name in self.fields:
+                self.fields[field_name].required = False
+
+    def clean(self):
+        cleaned_data = super().clean()
+        for field_name in self._numeric_optional:
+            if field_name in cleaned_data and cleaned_data[field_name] is None:
+                cleaned_data[field_name] = Decimal('0')
+        return cleaned_data
 
 
 class CertificatSalaireForm(forms.ModelForm):
@@ -529,6 +585,13 @@ class CertificatTravailForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Charger les choix depuis ParametreMetier
+        self.fields['type_certificat'].choices = ParametreMetier.get_choices_with_default(
+            'salaires', 'type_certificat_travail', CertificatTravail.TYPE_CERTIFICAT_CHOICES
+        )
+        self.fields['motif_depart'].choices = [('', '---------')] + ParametreMetier.get_choices_with_default(
+            'salaires', 'motif_depart', CertificatTravail.MOTIF_DEPART_CHOICES
+        )
         # Ajouter des choices vides pour les évaluations
         for field_name in [
             'evaluation_qualite_travail',

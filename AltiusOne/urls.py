@@ -3,8 +3,9 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views import View
+from django.views.static import serve as static_serve
 from django.conf.urls.i18n import i18n_patterns
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import (
@@ -20,6 +21,7 @@ from drf_spectacular.views import (
 )
 
 from core.auth_views import simple_login, check_auth, simple_logout
+from core.views.two_factor_views import TwoFactorVerifyView
 
 # Import des routers de chaque app
 from core.api_urls import router as core_router
@@ -57,9 +59,23 @@ class HealthCheckView(View):
         return JsonResponse({"status": "ok", "service": "altiusone"})
 
 
+def sw_push_view(request):
+    """Serve the push notification Service Worker from root scope."""
+    import os
+    sw_path = os.path.join(settings.BASE_DIR, 'static', 'js', 'sw-push.js')
+    try:
+        with open(sw_path, 'r') as f:
+            return HttpResponse(f.read(), content_type='application/javascript')
+    except FileNotFoundError:
+        return HttpResponse('', content_type='application/javascript', status=404)
+
+
 urlpatterns = [
     # Health check
     path("health/", HealthCheckView.as_view(), name="health"),
+
+    # Service Worker for Web Push (must be served from root for scope)
+    path("sw-push.js", sw_push_view, name="sw-push"),
 
     # Admin
     path("admin/", admin.site.urls),
@@ -90,11 +106,17 @@ urlpatterns = [
     # API v1 - Chat & Messagerie (team messaging + AI)
     path("api/v1/messaging/", include("chat.api_urls")),
 
+    # API v1 - Analytics dashboard (endpoints hors-router)
+    path("api/v1/analytics/", include("analytics.api_urls")),
+
     # API v1 - Graphe relationnel (URLs additionnelles)
     path("api/v1/graph-analytics/", include(graph_extra_urls)),
 
     # API v1 - Éditeur collaboratif
     path("api/v1/editeur/", include(editeur_api_urls)),
+
+    # API v1 - Support (articles, vidéos, nouveautés)
+    path("api/v1/support/", include("support.api_urls")),
 
     # MCP Server (Model Context Protocol)
     path("mcp/", include("mcp.urls", namespace="mcp")),
@@ -109,6 +131,7 @@ urlpatterns = [
     path("api/v1/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("api/v1/auth/token/verify/", TokenVerifyView.as_view(), name="token_verify"),
     path("api/v1/auth/token/blacklist/", TokenBlacklistView.as_view(), name="token_blacklist"),
+    path("api/v1/auth/2fa/verify/", TwoFactorVerifyView.as_view(), name="2fa-verify"),
     
     # =========================================================================
     # API Documentation (drf-spectacular)
@@ -138,6 +161,7 @@ urlpatterns += i18n_patterns(
     path("modelforms/", include("modelforms.urls", namespace="modelforms")),
     path("projets/", include("projets.urls", namespace="projets")),
     path("graph/", include("graph.urls", namespace="graph")),
+    path("support/", include("support.urls", namespace="support")),
     # Import/Export générique pour tous les modèles
     path("import-export/", include("core.import_export.urls", namespace="import_export")),
     prefix_default_language=True,

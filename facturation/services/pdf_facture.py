@@ -24,7 +24,8 @@ class FacturePDF:
     def __init__(self, facture, style_config=None, avec_qr_bill=False):
         self.facture = facture
         self.avec_qr_bill = avec_qr_bill
-        self._devise_code = None
+        self._devise_cache = None
+        self._regime_cache = None
 
         defaults = get_default_style_config('FACTURE')
         self.style = merge_style_config(defaults, style_config or {})
@@ -60,18 +61,39 @@ class FacturePDF:
         self._blocs = self.style.get('blocs_visibles', {})
 
     @property
-    def devise_code(self):
-        """Code devise depuis le regime fiscal du mandat, fallback CHF."""
-        if self._devise_code is None:
-            try:
-                self._devise_code = self.facture.mandat.config_tva.regime.devise_defaut.code
-            except (AttributeError, Exception):
-                self._devise_code = 'CHF'
-        return self._devise_code
+    def _regime(self):
+        """Régime fiscal résolu (cache)."""
+        if self._regime_cache is None:
+            self._regime_cache = self.facture.regime_fiscal or getattr(
+                self.facture.mandat, 'regime_fiscal', None
+            ) or False  # False = "déjà cherché, pas trouvé"
+        return self._regime_cache or None
 
-    @staticmethod
-    def _fmt(value):
-        """Formate un montant selon la convention suisse : 1'234.56"""
+    @property
+    def _devise_obj(self):
+        """Objet Devise résolu depuis la facture (cache)."""
+        if self._devise_cache is None:
+            try:
+                self._devise_cache = self.facture.devise
+            except Exception:
+                from core.models import Devise
+                self._devise_cache = Devise.objects.filter(code='CHF').first()
+        return self._devise_cache
+
+    @property
+    def devise_code(self):
+        """Code devise (CHF, EUR, XAF…)."""
+        d = self._devise_obj
+        return d.code if d else 'CHF'
+
+    @property
+    def _nom_taxe(self):
+        """Nom de la taxe selon le régime (TVA, VAT, IVA…)."""
+        r = self._regime
+        return r.nom_taxe if r else 'TVA'
+
+    def _fmt(self, value):
+        """Formate un montant selon la devise de la facture (séparateurs dynamiques)."""
         from decimal import Decimal, InvalidOperation
         if value is None:
             return '0.00'
@@ -79,17 +101,22 @@ class FacturePDF:
             val = Decimal(str(value))
         except (InvalidOperation, TypeError, ValueError):
             return f"{value:.2f}"
+        d = self._devise_obj
+        sep_milliers = d.separateur_milliers if d else "'"
+        sep_decimal = d.separateur_decimal if d else '.'
+        decimales = d.decimales if d else 2
         is_negative = val < 0
         val = abs(val)
-        parts = f"{val:.2f}".split('.')
+        fmt_str = f"{{:.{decimales}f}}"
+        parts = fmt_str.format(val).split('.')
         entier = parts[0]
-        decimale = parts[1]
+        partie_dec = parts[1] if len(parts) > 1 else '00'
         result = ''
         for i, digit in enumerate(reversed(entier)):
             if i > 0 and i % 3 == 0:
-                result = "'" + result
+                result = sep_milliers + result
             result = digit + result
-        formatted = f"{result}.{decimale}"
+        formatted = f"{result}{sep_decimal}{partie_dec}"
         if is_negative:
             formatted = f"-{formatted}"
         return formatted
@@ -121,14 +148,13 @@ class FacturePDF:
 
         y = self._draw_header(p, width, height)
         y = self._draw_emetteur(p, y)
-        if not facture.est_simplifiee:
-            self._draw_destinataire(p, width, height)
+        self._draw_destinataire(p, width, height)
         y = self._draw_info_facture(p, y, width, height)
         y = self._draw_lignes(p, y, width, height)
         y = self._draw_totaux(p, y, width)
         self._draw_conditions(p, y)
 
-        if self.avec_qr_bill:
+        if self.avec_qr_bill and self._regime and self._regime.code == 'CH':
             p.showPage()
             self._draw_qr_bill_page(p, width, height)
 
@@ -137,13 +163,75 @@ class FacturePDF:
         buffer.close()
         return pdf_content
 
-    def _draw_header(self, p, width, height):
-        """Dessine l'en-tete de la facture."""
-        y = height - self._margin_top
+    def _get_entreprise(self):
+        """Retourne l'entreprise émettrice (fiduciaire), avec cache."""
+        if not hasattr(self, '_entreprise'):
+            from core.models import Entreprise
+            self._entreprise = Entreprise.objects.filter(est_defaut=True).first()
+        return self._entreprise
 
+    def _draw_header(self, p, width, height):
+        """Dessine l'en-tete avec logo de l'entreprise."""
+        y = height - self._margin_top
+        entreprise = self._get_entreprise()
+
+        # Logo de l'entreprise (gauche)
+        logo_drawn = False
+        if self._blocs.get('logo', True) and entreprise and entreprise.logo and entreprise.logo.name:
+            try:
+                from reportlab.lib.utils import ImageReader
+                import io as _io
+
+                # Lire le fichier logo (compatible S3 et local)
+                logo_data = entreprise.logo.read()
+                entreprise.logo.seek(0)
+
+                logo_name = entreprise.logo.name.lower()
+                if logo_name.endswith('.svg'):
+                    # SVG → convertir via svglib
+                    import tempfile, os
+                    from svglib.svglib import svg2rlg
+                    from reportlab.graphics import renderPDF
+
+                    with tempfile.NamedTemporaryFile(suffix='.svg', delete=False) as tmp:
+                        tmp.write(logo_data)
+                        tmp_path = tmp.name
+                    drawing = svg2rlg(tmp_path)
+                    os.unlink(tmp_path)
+                    if drawing:
+                        logo_height = 1.5 * cm
+                        scale = logo_height / drawing.height
+                        logo_width = drawing.width * scale
+                        if logo_width > 5 * cm:
+                            logo_width = 5 * cm
+                            scale = logo_width / drawing.width
+                        drawing.width *= scale
+                        drawing.height *= scale
+                        drawing.scale(scale, scale)
+                        renderPDF.draw(drawing, p, self._margin_left, y - logo_height + 0.3 * cm)
+                        logo_drawn = True
+                else:
+                    # PNG/JPG → ImageReader
+                    logo_reader = ImageReader(_io.BytesIO(logo_data))
+                    logo_height = 1.5 * cm
+                    logo_width = 4 * cm
+                    p.drawImage(
+                        logo_reader,
+                        self._margin_left, y - logo_height + 0.3 * cm,
+                        width=logo_width, height=logo_height,
+                        preserveAspectRatio=True, mask='auto',
+                    )
+                    logo_drawn = True
+            except Exception:
+                pass
+
+        # Titre dynamique selon le type
+        TITRES = {'FACTURE': 'FACTURE', 'DEVIS': 'DEVIS', 'AVOIR': 'AVOIR', 'ACOMPTE': 'ACOMPTE'}
+        titre = TITRES.get(self.facture.type_facture, 'FACTURE')
+        title_x = self._margin_left + (4.5 * cm if logo_drawn else 0)
         p.setFillColor(self._color_accent)
         p.setFont(self._font_bold, 18)
-        p.drawString(self._margin_left, y, "FACTURE")
+        p.drawString(title_x, y, titre)
 
         p.setFont(self._font_bold, 12)
         p.drawRightString(width - self._margin_right, y, f"N° {self.facture.numero_facture}")
@@ -152,27 +240,59 @@ class FacturePDF:
         return y
 
     def _draw_emetteur(self, p, y_start):
-        """Dessine les informations de l'emetteur (gauche)."""
+        """Dessine les informations de l'émetteur = Entreprise (fiduciaire, gauche)."""
         y = y_start - 2 * cm
+        entreprise = self._get_entreprise()
+
+        if not entreprise:
+            return y
 
         p.setFillColor(self._color_accent)
         p.setFont(self._font_bold, 10)
-        p.drawString(self._margin_left, y, self.facture.mandat.client.raison_sociale)
+        p.drawString(self._margin_left, y, entreprise.raison_sociale)
 
         p.setFillColor(self._color_text)
         p.setFont(self._font, 9)
         y -= 0.45 * cm
-        adresse = self.facture.mandat.client.adresse_siege
+
+        adresse = getattr(entreprise, 'adresse', None)
         if adresse:
-            p.drawString(self._margin_left, y, f"{adresse.rue} {adresse.numero}")
-            y -= 0.4 * cm
-            if adresse.complement:
-                p.drawString(self._margin_left, y, adresse.complement)
+            if adresse.rue:
+                rue_ligne = adresse.rue.strip()
+                # Ajouter le numéro seulement s'il n'est pas déjà dans la rue
+                if adresse.numero and adresse.numero not in rue_ligne:
+                    rue_ligne = f"{rue_ligne} {adresse.numero}"
+                p.drawString(self._margin_left, y, rue_ligne)
                 y -= 0.4 * cm
-            p.drawString(self._margin_left, y, f"{adresse.npa} {adresse.localite}")
+            p.drawString(self._margin_left, y, f"{adresse.npa or ''} {adresse.localite or ''}")
             y -= 0.4 * cm
-        if self.facture.mandat.client.tva_number:
-            p.drawString(self._margin_left, y, f"N° TVA: {self.facture.mandat.client.tva_number}")
+        elif entreprise.siege:
+            p.drawString(self._margin_left, y, entreprise.siege)
+            y -= 0.4 * cm
+
+        # Identifiants légaux dynamiques (depuis IdentifiantLegal ou champs legacy)
+        identifiants_affiches = False
+        try:
+            from core.models import IdentifiantLegal
+            idents = IdentifiantLegal.objects.filter(
+                entreprise=entreprise, is_active=True,
+                type_identifiant__afficher_sur_facture=True,
+            ).select_related('type_identifiant').order_by('type_identifiant__ordre')
+            for ident in idents[:3]:
+                p.drawString(self._margin_left, y, f"{ident.type_identifiant.code}: {ident.valeur}")
+                y -= 0.4 * cm
+                identifiants_affiches = True
+        except Exception:
+            pass
+        # Fallback : champs legacy si pas d'identifiants en DB
+        if not identifiants_affiches and entreprise.tva_number:
+            p.drawString(self._margin_left, y, f"N° {self._nom_taxe}: {entreprise.tva_number}")
+            y -= 0.4 * cm
+        if entreprise.telephone:
+            p.drawString(self._margin_left, y, f"Tél: {entreprise.telephone}")
+            y -= 0.4 * cm
+        if entreprise.email:
+            p.drawString(self._margin_left, y, entreprise.email)
 
         return y
 
@@ -193,15 +313,32 @@ class FacturePDF:
 
         adresse_client = self.facture.client.adresse_correspondance or self.facture.client.adresse_siege
         if adresse_client:
-            p.drawString(x_right, y_right, f"{adresse_client.rue} {adresse_client.numero}")
+            rue_dest = adresse_client.rue.strip()
+            if adresse_client.numero and adresse_client.numero not in rue_dest:
+                rue_dest = f"{rue_dest} {adresse_client.numero}"
+            p.drawString(x_right, y_right, rue_dest)
             y_right -= 0.4 * cm
             if adresse_client.complement:
                 p.drawString(x_right, y_right, adresse_client.complement)
                 y_right -= 0.4 * cm
             p.drawString(x_right, y_right, f"{adresse_client.npa} {adresse_client.localite}")
             y_right -= 0.4 * cm
-        if self.facture.client.tva_number:
-            p.drawString(x_right, y_right, f"N° TVA: {self.facture.client.tva_number}")
+        # Identifiants légaux du client
+        client_idents_affiches = False
+        try:
+            from core.models import IdentifiantLegal
+            client_idents = IdentifiantLegal.objects.filter(
+                client=self.facture.client, is_active=True,
+                type_identifiant__afficher_sur_facture=True,
+            ).select_related('type_identifiant').order_by('type_identifiant__ordre')
+            for ident in client_idents[:2]:
+                p.drawString(x_right, y_right, f"{ident.type_identifiant.code}: {ident.valeur}")
+                y_right -= 0.4 * cm
+                client_idents_affiches = True
+        except Exception:
+            pass
+        if not client_idents_affiches and self.facture.client.tva_number:
+            p.drawString(x_right, y_right, f"N° {self._nom_taxe}: {self.facture.client.tva_number}")
 
     def _draw_info_facture(self, p, y_start, width, height):
         """Dessine le bloc d'informations de la facture."""
@@ -257,7 +394,7 @@ class FacturePDF:
             x += col_widths[1]
             canvas.drawRightString(x - 0.2 * cm, y_pos - 0.3 * cm, "Prix unit.")
             x += col_widths[2]
-            canvas.drawRightString(x - 0.2 * cm, y_pos - 0.3 * cm, "TVA")
+            canvas.drawRightString(x - 0.2 * cm, y_pos - 0.3 * cm, self._nom_taxe)
             x += col_widths[3]
             canvas.drawRightString(x - 0.2 * cm, y_pos - 0.3 * cm, "Total HT")
 
@@ -391,20 +528,20 @@ class FacturePDF:
             for taux, montants in tva_par_taux.items():
                 if montants['tva'] > 0:
                     p.drawString(label_x, y,
-                                 f"TVA {taux:.1f}% (sur {self._fmt(montants['base'])}):")
+                                 f"{self._nom_taxe} {taux:.1f}% (sur {self._fmt(montants['base'])}):")
                     p.drawRightString(value_x, y, f"{self._fmt(montants['tva'])} {devise}")
                     tva_totale += montants['tva']
                     y -= 0.35 * cm
 
             # Total TVA
             p.setFont(self._font_bold, 8)
-            p.drawString(label_x, y, "Total TVA:")
+            p.drawString(label_x, y, f"Total {self._nom_taxe}:")
             p.drawRightString(value_x, y, f"{self._fmt(tva_totale)} {devise}")
             p.setFont(self._font, 8)
             y -= 0.35 * cm
         else:
             # Taux unique : ligne simple
-            p.drawString(label_x, y, "TVA:")
+            p.drawString(label_x, y, f"{self._nom_taxe}:")
             p.drawRightString(value_x, y, f"{self._fmt(self.facture.montant_tva)} {devise}")
             y -= 0.35 * cm
 
@@ -456,6 +593,17 @@ class FacturePDF:
             for line in concl_lines[:2]:
                 p.drawString(self._margin_left, y, line)
                 y -= 0.28 * cm
+
+        # Mentions légales dynamiques (générées selon le régime fiscal)
+        mentions = self.facture.mentions_legales_generees
+        if mentions and mentions.strip():
+            y -= 0.4 * cm
+            p.setFont(self._font, 6)
+            p.setFillColor(HexColor('#999999'))
+            for line in mentions.strip().split('\n')[:5]:
+                p.drawString(self._margin_left, y, line.strip())
+                y -= 0.22 * cm
+            p.setFillColor(self._color_text)
 
     def _draw_qr_bill_page(self, p, width, height):
         """Dessine la page QR-Bill."""

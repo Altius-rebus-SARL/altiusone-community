@@ -11,12 +11,12 @@ def generer_embedding_entite(entite):
     Génère un embedding vectoriel pour une entité.
 
     Concatène type.nom + nom + description + attributs, puis
-    appelle le service d'embedding partagé de documents/.
+    appelle le service d'embedding local.
 
     Returns:
         list[float] | None: Vecteur 768D ou None si erreur
     """
-    from documents.embeddings import embedding_service
+    from core.ai.embeddings import embedding_service
 
     texte = entite.texte_pour_embedding()
     if not texte or not texte.strip():

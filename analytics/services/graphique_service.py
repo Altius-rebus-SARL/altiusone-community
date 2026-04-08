@@ -395,16 +395,26 @@ class GraphiqueService:
             date_ecriture__lte=date_fin,
         )
 
-        # TVA collectée (compte 2200)
+        # TVA collectée — résolu via ConfigurationTVA ou CompteParDefaut, fallback 2200
+        compte_tva_due = '2200'
+        compte_tva_prealable = '1170'
+        try:
+            config_tva = mandat.config_tva
+            if config_tva.compte_tva_due_id:
+                compte_tva_due = config_tva.compte_tva_due.numero
+            if config_tva.compte_tva_prealable_id:
+                compte_tva_prealable = config_tva.compte_tva_prealable.numero
+        except Exception:
+            pass
+
         tva_collectee = ecritures.filter(
-            compte__numero__startswith='2200'
+            compte__numero__startswith=compte_tva_due
         ).aggregate(
             total=Sum(F('montant_credit') - F('montant_debit'))
         )['total'] or Decimal('0')
 
-        # TVA déductible (compte 1170)
         tva_deductible = ecritures.filter(
-            compte__numero__startswith='1170'
+            compte__numero__startswith=compte_tva_prealable
         ).aggregate(
             total=Sum(F('montant_debit') - F('montant_credit'))
         )['total'] or Decimal('0')
@@ -420,7 +430,7 @@ class GraphiqueService:
         elif agregation == 'sum_by_month':
             # TVA nette par mois
             mouvements_collectee = ecritures.filter(
-                compte__numero__startswith='2200'
+                compte__numero__startswith=compte_tva_due
             ).annotate(
                 mois=TruncMonth('date_ecriture')
             ).values('mois').annotate(
@@ -428,7 +438,7 @@ class GraphiqueService:
             )
 
             mouvements_deductible = ecritures.filter(
-                compte__numero__startswith='1170'
+                compte__numero__startswith=compte_tva_prealable
             ).annotate(
                 mois=TruncMonth('date_ecriture')
             ).values('mois').annotate(

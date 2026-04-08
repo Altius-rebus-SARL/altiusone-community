@@ -1,0 +1,206 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Centre d'aide" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Centre d'aide" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Centre d'aide" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Header with search -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card bg-light-primary border-0">
+            <div class="card-body text-center py-5">
+                <h2 class="text-primary mb-3">
+                    <i class="ti ti-help-circle me-2"></i>{% trans "Comment pouvons-nous vous aider ?" %}
+                </h2>
+                <form method="get" action="{% url 'support:article-list' %}" class="mx-auto" style="max-width: 500px;">
+                    <div class="position-relative">
+                        <input type="search" name="q" class="form-control form-control-lg"
+                               placeholder="{% trans 'Rechercher dans les articles...' %}">
+                        <button type="submit" class="btn btn-primary position-absolute top-0 end-0 h-100">
+                            <i class="ti ti-search"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Section 1: Guide utilisateur — Categories -->
+<div class="row mb-2">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="ph-duotone ph-book-open me-2"></i>{% trans "Guide utilisateur" %}
+            </h5>
+            <a href="{% url 'support:article-list' %}" class="btn btn-sm btn-light-primary">
+                {% trans "Tous les articles" %} <i class="ph ph-arrow-right ms-1"></i>
+            </a>
+        </div>
+    </div>
+</div>
+<div class="row mb-4">
+    {% for cat in categories %}
+    <div class="col-md-4 col-lg-3 mb-3">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-body text-center">
+                <div class="h-60 w-60 d-flex-center rounded-circle bg-light-{{ cat.couleur|default:'primary' }} mx-auto mb-3">
+                    <i class="{{ cat.icone|default:'ti ti-file-text' }} f-s-28 text-{{ cat.couleur|default:'primary' }}"></i>
+                </div>
+                <h6 class="mb-1">{{ cat.nom }}</h6>
+                {% if cat.description %}
+                <p class="text-muted f-s-12 mb-2">{{ cat.description|truncatewords:12 }}</p>
+                {% endif %}
+                <div class="d-flex justify-content-center gap-3 mb-3">
+                    <span class="f-s-12 text-muted">
+                        <i class="ph ph-article me-1"></i>{{ cat.nb_articles }} {% trans "article" %}{{ cat.nb_articles|pluralize:"s" }}
+                    </span>
+                    {% if cat.nb_videos %}
+                    <span class="f-s-12 text-muted">
+                        <i class="ph ph-video me-1"></i>{{ cat.nb_videos }} {% trans "video" %}{{ cat.nb_videos|pluralize:"s" }}
+                    </span>
+                    {% endif %}
+                </div>
+                <a href="{% url 'support:article-list' %}?categorie={{ cat.code }}" class="btn btn-sm btn-outline-{{ cat.couleur|default:'primary' }}">
+                    {% trans "Consulter" %}
+                </a>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-4">
+                <i class="ph ph-book-open f-s-48 text-muted d-block mb-2"></i>
+                <p class="text-muted">{% trans "Aucune catégorie disponible pour le moment." %}</p>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Section 2: Tutoriels video -->
+<div class="row mb-2">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="ph-duotone ph-video me-2"></i>{% trans "Tutoriels vidéo" %}
+            </h5>
+            <a href="{% url 'support:video-list' %}" class="btn btn-sm btn-light-primary">
+                {% trans "Toutes les vidéos" %} <i class="ph ph-arrow-right ms-1"></i>
+            </a>
+        </div>
+    </div>
+</div>
+<div class="row mb-4">
+    {% for video in videos_recentes %}
+    <div class="col-md-6 col-lg-3 mb-3">
+        <div class="card h-100 border-0 shadow-sm overflow-hidden">
+            <a href="{{ video.youtube_url }}" target="_blank" rel="noopener" class="position-relative d-block">
+                <img src="{{ video.thumbnail_url }}" alt="{{ video.titre }}" class="card-img-top" style="height: 180px; object-fit: cover;">
+                <div class="position-absolute top-50 start-50 translate-middle">
+                    <div class="h-50 w-50 d-flex-center rounded-circle bg-dark bg-opacity-75">
+                        <i class="ph-fill ph-play text-white f-s-24"></i>
+                    </div>
+                </div>
+                {% if video.duree_display %}
+                <span class="position-absolute bottom-0 end-0 m-2 badge bg-dark bg-opacity-75">
+                    {{ video.duree_display }}
+                </span>
+                {% endif %}
+            </a>
+            <div class="card-body">
+                <h6 class="mb-1">
+                    <a href="{{ video.youtube_url }}" target="_blank" rel="noopener" class="text-dark text-decoration-none">
+                        {{ video.titre }}
+                    </a>
+                </h6>
+                <span class="badge bg-light-{{ video.categorie.couleur|default:'primary' }} text-{{ video.categorie.couleur|default:'primary' }} f-s-10">
+                    {{ video.categorie.nom }}
+                </span>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-4">
+                <i class="ph ph-video f-s-48 text-muted d-block mb-2"></i>
+                <p class="text-muted">{% trans "Aucun tutoriel vidéo disponible pour le moment." %}</p>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Section 3: Nouveautes / Changelog -->
+<div class="row mb-2">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="ph-duotone ph-megaphone me-2"></i>{% trans "Nouveautés" %}
+            </h5>
+            <a href="{% url 'support:nouveaute-list' %}" class="btn btn-sm btn-light-primary">
+                {% trans "Voir tout" %} <i class="ph ph-arrow-right ms-1"></i>
+            </a>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body p-0">
+                {% for item in nouveautes %}
+                <div class="d-flex align-items-start p-3 {% if not forloop.last %}border-bottom{% endif %}">
+                    <div class="me-3">
+                        {% if item.type_changement == 'NOUVEAU' %}
+                        <span class="badge bg-success">{% trans "Nouveau" %}</span>
+                        {% elif item.type_changement == 'AMELIORATION' %}
+                        <span class="badge bg-info">{% trans "Amélioration" %}</span>
+                        {% elif item.type_changement == 'CORRECTION' %}
+                        <span class="badge bg-warning text-dark">{% trans "Correction" %}</span>
+                        {% elif item.type_changement == 'RUPTURE' %}
+                        <span class="badge bg-danger">{% trans "Important" %}</span>
+                        {% endif %}
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">{{ item.titre }}</h6>
+                            <div class="d-flex gap-2 align-items-center">
+                                <span class="badge bg-light-primary text-primary f-s-10">v{{ item.version }}</span>
+                                <small class="text-muted">{{ item.date_publication|date:"d.m.Y" }}</small>
+                            </div>
+                        </div>
+                        {% if item.contenu %}
+                        <p class="text-muted mb-0 mt-1 f-s-13">{{ item.contenu|truncatewords:25 }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center py-4">
+                    <i class="ph ph-megaphone f-s-48 text-muted d-block mb-2"></i>
+                    <p class="text-muted">{% trans "Aucune nouveauté pour le moment." %}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -45,6 +45,11 @@ urlpatterns = [
     ),
     path("factures/<uuid:pk>/valider/", views.facture_valider, name="facture-valider"),
     path(
+        "factures/<uuid:pk>/convertir-devis/",
+        views.devis_convertir,
+        name="devis-convertir",
+    ),
+    path(
         "factures/<uuid:pk>/pdf/", views.facture_generer_pdf, name="facture-generer-pdf"
     ),
     path(
@@ -56,6 +61,11 @@ urlpatterns = [
         "factures/<uuid:pk>/envoyer/",
         views.facture_envoyer_email,
         name="facture-envoyer-email",
+    ),
+    path(
+        "factures/<uuid:pk>/supprimer/",
+        views.facture_delete,
+        name="facture-delete",
     ),
     # Lignes de facture
     path(

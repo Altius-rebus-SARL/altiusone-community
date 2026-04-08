@@ -399,6 +399,14 @@ class Compte(BaseModel):
         help_text=_("Cumul des montants au crédit")
     )
 
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            f"{self.numero} {self.libelle}",
+            self.libelle_court,
+        ]
+        return ' '.join(filter(None, parts))
+
     class Meta:
         db_table = 'comptes'
         verbose_name = _('Compte')
@@ -512,6 +520,10 @@ class Journal(BaseModel):
         verbose_name=_("Dernier numéro"),
         help_text=_("Dernier numéro de pièce utilisé dans ce journal")
     )
+
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        return f"Journal {self.code} {self.libelle}"
 
     class Meta:
         db_table = 'journaux'
@@ -758,6 +770,16 @@ class EcritureComptable(BaseModel):
         help_text=_("Écriture d'origine si celle-ci est une extourne")
     )
 
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            self.libelle,
+            self.libelle_complement,
+            f"Pièce {self.numero_piece}" if self.numero_piece else '',
+            f"Compte {self.compte.numero} {self.compte.libelle}" if self.compte else '',
+        ]
+        return ' '.join(filter(None, parts))
+
     class Meta:
         db_table = 'ecritures_comptables'
         verbose_name = _('Écriture comptable')
@@ -895,6 +917,14 @@ class TypePieceComptable(BaseModel):
         help_text=_("Ordre d'affichage dans les listes de sélection")
     )
 
+    # Dossier de classement automatique
+    dossier_classement = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name=_("Dossier de classement"),
+        help_text=_("Nom du sous-dossier cible pour le classement automatique (ex: Comptabilité, Salaires)")
+    )
+
     # Est un type système (non supprimable)
     is_system = models.BooleanField(
         default=False,
@@ -910,6 +940,53 @@ class TypePieceComptable(BaseModel):
 
     def __str__(self):
         return f"{self.code} - {self.libelle}"
+
+    # Mapping catégorie → type_journal
+    CATEGORIE_JOURNAL_MAP = {
+        'ACHAT': 'ACH',
+        'VENTE': 'VTE',
+        'BANQUE': 'BNQ',
+        'CAISSE': 'CAS',
+        'OD': 'OD',
+        'SALAIRE': 'OD',
+        'AUTRE': 'OD',
+    }
+
+    def resoudre_journal(self, mandat):
+        """Résout le journal depuis la catégorie du type de pièce.
+
+        Résolution : type exact → OD fallback → premier journal.
+        """
+        type_journal = self.CATEGORIE_JOURNAL_MAP.get(self.categorie, 'OD')
+        journal = Journal.objects.filter(
+            mandat=mandat, type_journal=type_journal
+        ).first()
+        if not journal:
+            # Fallback : journal OD, puis n'importe quel journal
+            journal = Journal.objects.filter(
+                mandat=mandat, type_journal='OD'
+            ).first() or Journal.objects.filter(mandat=mandat).first()
+        return journal
+
+    def resoudre_compte_charge(self, plan):
+        """Résout le compte de charge par défaut dans le plan du mandat.
+
+        Les comptes par défaut sont des comptes template. On les résout
+        par numéro dans le plan actif du mandat.
+        """
+        if not self.compte_charge_defaut or not plan:
+            return None
+        return plan.comptes.filter(
+            numero=self.compte_charge_defaut.numero
+        ).first()
+
+    def resoudre_compte_produit(self, plan):
+        """Résout le compte de produit par défaut dans le plan du mandat."""
+        if not self.compte_produit_defaut or not plan:
+            return None
+        return plan.comptes.filter(
+            numero=self.compte_produit_defaut.numero
+        ).first()
 
     @classmethod
     def get_default_types(cls):
@@ -1124,6 +1201,16 @@ class PieceComptable(BaseModel):
         help_text=_("Date et heure de validation de la pièce")
     )
 
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            f"Pièce {self.numero_piece}",
+            self.libelle,
+            self.reference_externe,
+            self.tiers_nom,
+        ]
+        return ' '.join(filter(None, parts))
+
     class Meta:
         db_table = "pieces_comptables"
         verbose_name = _("Pièce comptable")
@@ -1140,6 +1227,12 @@ class PieceComptable(BaseModel):
 
     def __str__(self):
         return f"{self.numero_piece} - {self.date_piece}"
+
+    def save(self, *args, **kwargs):
+        # Auto-résoudre le journal depuis le type de pièce si non défini
+        if not self.journal_id and self.type_piece_id and self.mandat_id:
+            self.journal = self.type_piece.resoudre_journal(self.mandat)
+        super().save(*args, **kwargs)
 
     def calculer_equilibre(self):
         """Vérifie l'équilibre débit/crédit"""
@@ -1292,3 +1385,517 @@ class Lettrage(BaseModel):
 
     def __str__(self):
         return f"{self.code_lettrage} - {self.compte.numero}"
+
+
+# ══════════════════════════════════════════════════════════════
+# COMPTABILITE ANALYTIQUE
+# ══════════════════════════════════════════════════════════════
+
+class AxeAnalytique(BaseModel):
+    """
+    Dimension d'analyse : centre de coût, département, projet, etc.
+
+    Chaque mandat peut définir ses propres axes. Un axe regroupe
+    des sections analytiques qui servent à ventiler les écritures.
+    """
+
+    mandat = models.ForeignKey(
+        'core.Mandat', on_delete=models.CASCADE,
+        related_name='axes_analytiques',
+        verbose_name=_('Mandat')
+    )
+    code = models.CharField(max_length=50, verbose_name=_('Code'))
+    libelle = models.CharField(max_length=200, verbose_name=_('Libellé'))
+    description = models.TextField(blank=True, verbose_name=_('Description'))
+    obligatoire = models.BooleanField(
+        default=False,
+        verbose_name=_('Obligatoire'),
+        help_text=_('Si coché, chaque écriture doit être ventilée sur cet axe')
+    )
+    ordre = models.IntegerField(default=0, verbose_name=_('Ordre'))
+
+    class Meta:
+        db_table = 'axes_analytiques'
+        verbose_name = _('Axe analytique')
+        verbose_name_plural = _('Axes analytiques')
+        ordering = ['ordre', 'code']
+        unique_together = [['mandat', 'code']]
+
+    def __str__(self):
+        return f"{self.code} - {self.libelle}"
+
+    def texte_pour_embedding(self):
+        parts = [
+            f"Axe analytique: {self.libelle}",
+            f"Code: {self.code}",
+            self.description,
+        ]
+        return ' '.join(filter(None, parts))
+
+
+class SectionAnalytique(BaseModel):
+    """
+    Valeur dans un axe analytique.
+
+    Ex: axe "Département" → sections "Marketing", "R&D", "Direction".
+    Hiérarchique (parent optionnel) pour les structures arborescentes.
+    """
+
+    axe = models.ForeignKey(
+        AxeAnalytique, on_delete=models.CASCADE,
+        related_name='sections',
+        verbose_name=_('Axe')
+    )
+    parent = models.ForeignKey(
+        'self', on_delete=models.CASCADE,
+        null=True, blank=True, related_name='sous_sections',
+        verbose_name=_('Section parente')
+    )
+    code = models.CharField(max_length=50, verbose_name=_('Code'))
+    libelle = models.CharField(max_length=200, verbose_name=_('Libellé'))
+    description = models.TextField(blank=True, verbose_name=_('Description'))
+    budget_annuel = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        verbose_name=_('Budget annuel')
+    )
+    responsable = models.ForeignKey(
+        'core.User', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='+',
+        verbose_name=_('Responsable')
+    )
+    ordre = models.IntegerField(default=0, verbose_name=_('Ordre'))
+
+    class Meta:
+        db_table = 'sections_analytiques'
+        verbose_name = _('Section analytique')
+        verbose_name_plural = _('Sections analytiques')
+        ordering = ['axe', 'ordre', 'code']
+        unique_together = [['axe', 'code']]
+
+    def __str__(self):
+        return f"{self.axe.code}/{self.code} - {self.libelle}"
+
+    def texte_pour_embedding(self):
+        parts = [
+            f"Section analytique: {self.libelle}",
+            f"Axe: {self.axe.libelle}",
+            f"Code: {self.axe.code}/{self.code}",
+            f"Budget: {self.budget_annuel}" if self.budget_annuel else '',
+            self.description,
+        ]
+        return ' '.join(filter(None, parts))
+
+
+class VentilationAnalytique(BaseModel):
+    """
+    Répartition d'une écriture comptable sur une section analytique.
+
+    Une écriture peut être ventilée sur plusieurs sections
+    (ex: 60% Marketing, 40% R&D). Le total des pourcentages
+    par axe doit faire 100% (vérifié côté applicatif).
+    """
+
+    ecriture = models.ForeignKey(
+        'comptabilite.EcritureComptable', on_delete=models.CASCADE,
+        related_name='ventilations_analytiques',
+        verbose_name=_('Écriture')
+    )
+    section = models.ForeignKey(
+        SectionAnalytique, on_delete=models.CASCADE,
+        related_name='ventilations',
+        verbose_name=_('Section')
+    )
+    pourcentage = models.DecimalField(
+        max_digits=6, decimal_places=2,
+        verbose_name=_('Pourcentage'),
+        help_text=_('Part de l\'écriture affectée à cette section (0-100)')
+    )
+    montant = models.DecimalField(
+        max_digits=15, decimal_places=2,
+        verbose_name=_('Montant'),
+        help_text=_('Montant calculé (écriture × pourcentage / 100)')
+    )
+
+    class Meta:
+        db_table = 'ventilations_analytiques'
+        verbose_name = _('Ventilation analytique')
+        verbose_name_plural = _('Ventilations analytiques')
+        indexes = [
+            models.Index(fields=['ecriture', 'section']),
+        ]
+
+    def __str__(self):
+        return f"{self.ecriture} → {self.section} ({self.pourcentage}%)"
+
+
+# ══════════════════════════════════════════════════════════════
+# IMMOBILISATIONS & AMORTISSEMENTS
+# ══════════════════════════════════════════════════════════════
+
+class Immobilisation(BaseModel):
+    """
+    Actif immobilisé (matériel, véhicule, licence, etc.).
+
+    Suit le plan comptable suisse : immobilisations corporelles (1500-1599)
+    et incorporelles (1700-1799). Génère les écritures d'amortissement.
+    """
+
+    METHODE_CHOICES = [
+        ('LINEAIRE', _('Linéaire')),
+        ('DEGRESSIF', _('Dégressif')),
+        ('UNITE_PRODUCTION', _('Unités de production')),
+    ]
+
+    STATUT_CHOICES = [
+        ('ACTIF', _('Actif')),
+        ('AMORTI', _('Totalement amorti')),
+        ('CEDE', _('Cédé')),
+        ('MIS_AU_REBUT', _('Mis au rebut')),
+    ]
+
+    mandat = models.ForeignKey(
+        Mandat, on_delete=models.CASCADE,
+        related_name='immobilisations',
+        verbose_name=_('Mandat')
+    )
+    numero = models.CharField(
+        max_length=50, verbose_name=_('Numéro inventaire')
+    )
+    designation = models.CharField(
+        max_length=255, verbose_name=_('Désignation')
+    )
+    description = models.TextField(blank=True, verbose_name=_('Description'))
+    categorie = models.CharField(
+        max_length=50, blank=True,
+        verbose_name=_('Catégorie'),
+        help_text=_('Code ParametreMetier (module=comptabilite, categorie=type_immobilisation)')
+    )
+
+    # Acquisition
+    date_acquisition = models.DateField(verbose_name=_("Date d'acquisition"))
+    date_mise_en_service = models.DateField(
+        null=True, blank=True, verbose_name=_('Date de mise en service')
+    )
+    valeur_acquisition = models.DecimalField(
+        max_digits=15, decimal_places=2,
+        verbose_name=_("Valeur d'acquisition")
+    )
+    fournisseur = models.CharField(
+        max_length=255, blank=True, verbose_name=_('Fournisseur')
+    )
+    numero_facture = models.CharField(
+        max_length=100, blank=True, verbose_name=_('N° facture')
+    )
+
+    # Comptes
+    compte_immobilisation = models.ForeignKey(
+        'comptabilite.Compte', on_delete=models.PROTECT,
+        related_name='immobilisations_actif',
+        verbose_name=_('Compte immobilisation'),
+        help_text=_('Compte actif au bilan (ex: 1500)')
+    )
+    compte_amortissement = models.ForeignKey(
+        'comptabilite.Compte', on_delete=models.PROTECT,
+        related_name='immobilisations_amort',
+        verbose_name=_('Compte amortissement'),
+        help_text=_('Compte de charge (ex: 6800)')
+    )
+    compte_amort_cumule = models.ForeignKey(
+        'comptabilite.Compte', on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name='immobilisations_amort_cumule',
+        verbose_name=_('Compte amort. cumulé'),
+        help_text=_('Correctif actif, si méthode indirecte (ex: 1509)')
+    )
+
+    # Amortissement
+    methode_amortissement = models.CharField(
+        max_length=20, choices=METHODE_CHOICES, default='LINEAIRE',
+        verbose_name=_("Méthode d'amortissement")
+    )
+    duree_amortissement_mois = models.IntegerField(
+        verbose_name=_('Durée amort. (mois)'),
+        help_text=_('Durée de vie utile en mois')
+    )
+    taux_amortissement = models.DecimalField(
+        max_digits=6, decimal_places=2, null=True, blank=True,
+        verbose_name=_("Taux d'amortissement (%)"),
+        help_text=_('Pour méthode dégressive (ex: 25.00)')
+    )
+    valeur_residuelle = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name=_('Valeur résiduelle')
+    )
+
+    # État actuel
+    amortissement_cumule = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name=_('Amortissement cumulé')
+    )
+    valeur_nette_comptable = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name=_('Valeur nette comptable')
+    )
+
+    # Cession
+    date_cession = models.DateField(
+        null=True, blank=True, verbose_name=_('Date de cession')
+    )
+    prix_cession = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        verbose_name=_('Prix de cession')
+    )
+
+    statut = models.CharField(
+        max_length=20, choices=STATUT_CHOICES, default='ACTIF',
+        db_index=True, verbose_name=_('Statut')
+    )
+    devise = models.ForeignKey(
+        Devise, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='+',
+        verbose_name=_('Devise')
+    )
+    notes = models.TextField(blank=True, verbose_name=_('Notes'))
+
+    class Meta:
+        db_table = 'immobilisations'
+        verbose_name = _('Immobilisation')
+        verbose_name_plural = _('Immobilisations')
+        ordering = ['numero']
+        indexes = [
+            models.Index(fields=['mandat', 'statut']),
+        ]
+        unique_together = [['mandat', 'numero']]
+
+    def __str__(self):
+        return f"{self.numero} - {self.designation}"
+
+    def texte_pour_embedding(self):
+        parts = [
+            f"Immobilisation: {self.designation}",
+            f"N° {self.numero}",
+            f"Catégorie: {self.categorie}" if self.categorie else '',
+            f"Acquisition: {self.date_acquisition} — {self.valeur_acquisition}",
+            f"Amort. {self.get_methode_amortissement_display()} {self.duree_amortissement_mois} mois",
+            f"VNC: {self.valeur_nette_comptable}",
+            f"Statut: {self.get_statut_display()}",
+            self.description,
+        ]
+        return ' '.join(filter(None, parts))
+
+
+# ══════════════════════════════════════════════════════════════
+# RAPPROCHEMENT BANCAIRE
+# ══════════════════════════════════════════════════════════════
+
+class ReleveBancaire(BaseModel):
+    """
+    Relevé de compte bancaire importé (CSV, MT940, CAMT.053).
+
+    Contient les lignes brutes du relevé. Le rapprochement consiste
+    à matcher chaque ligne avec une écriture comptable existante.
+    """
+
+    STATUT_CHOICES = [
+        ('IMPORTE', _('Importé')),
+        ('EN_COURS', _('Rapprochement en cours')),
+        ('RAPPROCHE', _('Rapproché')),
+        ('VALIDE', _('Validé')),
+    ]
+
+    mandat = models.ForeignKey(
+        Mandat, on_delete=models.CASCADE,
+        related_name='releves_bancaires',
+        verbose_name=_('Mandat')
+    )
+    compte_bancaire = models.ForeignKey(
+        'core.CompteBancaire', on_delete=models.CASCADE,
+        related_name='releves',
+        verbose_name=_('Compte bancaire')
+    )
+    journal = models.ForeignKey(
+        'comptabilite.Journal', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='releves_bancaires',
+        verbose_name=_('Journal bancaire')
+    )
+
+    # Période
+    date_debut = models.DateField(verbose_name=_('Date début'))
+    date_fin = models.DateField(verbose_name=_('Date fin'))
+    reference = models.CharField(
+        max_length=100, blank=True, verbose_name=_('Référence')
+    )
+
+    # Soldes
+    solde_debut = models.DecimalField(
+        max_digits=15, decimal_places=2,
+        verbose_name=_('Solde début')
+    )
+    solde_fin = models.DecimalField(
+        max_digits=15, decimal_places=2,
+        verbose_name=_('Solde fin')
+    )
+    devise = models.ForeignKey(
+        Devise, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='+',
+        verbose_name=_('Devise')
+    )
+
+    # Import
+    format_import = models.CharField(
+        max_length=20, blank=True,
+        verbose_name=_('Format'),
+        help_text=_('CSV, MT940, CAMT.053, etc.')
+    )
+    fichier_source = models.ForeignKey(
+        'documents.Document', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='releves_bancaires',
+        verbose_name=_('Fichier source')
+    )
+
+    # Statistiques
+    nb_lignes = models.IntegerField(default=0, verbose_name=_('Nb lignes'))
+    nb_rapprochees = models.IntegerField(
+        default=0, verbose_name=_('Nb rapprochées')
+    )
+    ecart = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name=_('Écart'),
+        help_text=_('Différence entre solde relevé et solde comptable')
+    )
+
+    statut = models.CharField(
+        max_length=20, choices=STATUT_CHOICES, default='IMPORTE',
+        db_index=True, verbose_name=_('Statut')
+    )
+
+    class Meta:
+        db_table = 'releves_bancaires'
+        verbose_name = _('Relevé bancaire')
+        verbose_name_plural = _('Relevés bancaires')
+        ordering = ['-date_fin']
+        indexes = [
+            models.Index(fields=['mandat', 'compte_bancaire']),
+        ]
+
+    def __str__(self):
+        return f"Relevé {self.compte_bancaire} {self.date_debut}—{self.date_fin}"
+
+    def texte_pour_embedding(self):
+        parts = [
+            f"Relevé bancaire: {self.compte_bancaire}" if self.compte_bancaire_id else 'Relevé bancaire',
+            f"Période: {self.date_debut} au {self.date_fin}",
+            f"Solde: {self.solde_debut} → {self.solde_fin}",
+            f"Statut: {self.get_statut_display()}",
+            f"{self.nb_rapprochees}/{self.nb_lignes} lignes rapprochées",
+        ]
+        return ' '.join(filter(None, parts))
+
+
+class LigneReleve(BaseModel):
+    """
+    Ligne d'un relevé bancaire.
+
+    Chaque ligne peut être rapprochée avec une écriture comptable
+    existante, ou générer une nouvelle écriture.
+    """
+
+    STATUT_CHOICES = [
+        ('NON_RAPPROCHEE', _('Non rapprochée')),
+        ('RAPPROCHEE', _('Rapprochée')),
+        ('IGNOREE', _('Ignorée')),
+    ]
+
+    releve = models.ForeignKey(
+        ReleveBancaire, on_delete=models.CASCADE,
+        related_name='lignes',
+        verbose_name=_('Relevé')
+    )
+    date_valeur = models.DateField(verbose_name=_('Date valeur'))
+    date_operation = models.DateField(
+        null=True, blank=True, verbose_name=_('Date opération')
+    )
+    libelle = models.CharField(max_length=500, verbose_name=_('Libellé'))
+    reference = models.CharField(
+        max_length=200, blank=True, verbose_name=_('Référence')
+    )
+    montant = models.DecimalField(
+        max_digits=15, decimal_places=2,
+        verbose_name=_('Montant'),
+        help_text=_('Positif = crédit, négatif = débit')
+    )
+
+    # Rapprochement
+    ecriture = models.ForeignKey(
+        'comptabilite.EcritureComptable', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='lignes_releve',
+        verbose_name=_('Écriture rapprochée')
+    )
+    statut = models.CharField(
+        max_length=20, choices=STATUT_CHOICES, default='NON_RAPPROCHEE',
+        db_index=True, verbose_name=_('Statut')
+    )
+    date_rapprochement = models.DateTimeField(
+        null=True, blank=True, verbose_name=_('Date rapprochement')
+    )
+
+    class Meta:
+        db_table = 'lignes_releve'
+        verbose_name = _('Ligne de relevé')
+        verbose_name_plural = _('Lignes de relevé')
+        ordering = ['date_valeur']
+        indexes = [
+            models.Index(fields=['releve', 'statut']),
+        ]
+
+    def __str__(self):
+        return f"{self.date_valeur} | {self.libelle[:40]} | {self.montant}"
+
+
+class CompteParDefaut(BaseModel):
+    """
+    Mapping des comptes comptables par défaut pour un plan comptable.
+
+    Remplace les numéros de compte hardcodés dans les signaux
+    (1100 = créances clients, 1020 = banque, 2200 = TVA due, etc.)
+    par une configuration en base, adaptable par plan comptable / régime.
+    """
+    TYPES_COMPTE = [
+        ('CREANCES_CLIENTS', _('Créances clients')),
+        ('BANQUE', _('Compte banque principal')),
+        ('TVA_DUE', _('TVA due')),
+        ('TVA_PREALABLE', _('Impôt préalable (TVA récupérable)')),
+        ('PRODUITS', _('Compte de produits (ventes)')),
+        ('CHARGES', _('Compte de charges (achats)')),
+        ('CAISSE', _('Caisse')),
+        ('CAPITAL', _('Capital')),
+    ]
+    plan_comptable = models.ForeignKey(
+        'comptabilite.PlanComptable',
+        on_delete=models.CASCADE,
+        related_name='comptes_par_defaut',
+        verbose_name=_("Plan comptable"),
+    )
+    type_compte = models.CharField(
+        max_length=30,
+        choices=TYPES_COMPTE,
+        verbose_name=_("Type de compte"),
+        help_text=_("Rôle fonctionnel de ce compte dans le plan comptable")
+    )
+    compte = models.ForeignKey(
+        'comptabilite.Compte',
+        on_delete=models.PROTECT,
+        related_name='roles_par_defaut',
+        verbose_name=_("Compte"),
+        help_text=_("Compte comptable utilisé par défaut pour ce rôle")
+    )
+
+    class Meta:
+        db_table = 'comptes_par_defaut'
+        verbose_name = _("Compte par défaut")
+        verbose_name_plural = _("Comptes par défaut")
+        unique_together = ['plan_comptable', 'type_compte']
+        ordering = ['plan_comptable', 'type_compte']
+
+    def __str__(self):
+        return f"{self.plan_comptable} — {self.get_type_compte_display()}: {self.compte.numero}"

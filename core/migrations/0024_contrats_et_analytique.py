@@ -1,0 +1,140 @@
+# Safe idempotent migration — skips columns that already exist.
+
+import django.db.models.deletion
+import uuid
+from django.conf import settings
+from django.db import migrations, models
+
+
+def safe_add_columns(apps, schema_editor):
+    """Add langue_saisie + plan_comptable_actif only if not already present."""
+    conn = schema_editor.connection
+    cursor = conn.cursor()
+
+    def col_exists(table, column):
+        cursor.execute(
+            "SELECT 1 FROM information_schema.columns "
+            "WHERE table_name = %s AND column_name = %s", [table, column]
+        )
+        return cursor.fetchone() is not None
+
+    # langue_saisie on all core tables
+    for table in [
+        'acces_mandats', 'clients', 'collaborateurs_fiduciaire', 'contacts',
+        'exercices_comptables', 'fichiers_joints', 'invitations', 'mandats',
+        'modeles_document_pdf', 'notifications', 'parametres_metier',
+        'taches', 'tiers',
+    ]:
+        if not col_exists(table, 'langue_saisie'):
+            cursor.execute(
+                f'ALTER TABLE "{table}" ADD COLUMN "langue_saisie" '
+                f"varchar(5) NOT NULL DEFAULT ''"
+            )
+
+    # plan_comptable_actif on mandats
+    if not col_exists('mandats', 'plan_comptable_actif_id'):
+        cursor.execute(
+            'ALTER TABLE "mandats" ADD COLUMN "plan_comptable_actif_id" uuid NULL '
+            'REFERENCES "plans_comptables"("id") ON DELETE SET NULL'
+        )
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ('comptabilite', '0011_contrats_et_analytique'),
+        ('core', '0023_modelembedding'),
+        ('documents', '0009_contrats_et_analytique'),
+    ]
+
+    operations = [
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                migrations.AddField(model_name='accesmandat', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='client', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='collaborateurfiduciaire', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='contact', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='exercicecomptable', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='fichierjoint', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='invitation', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='mandat', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='modeledocumentpdf', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='notification', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='parametremetier', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='tache', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(model_name='tiers', name='langue_saisie', field=models.CharField(blank=True, db_index=True, default='', help_text='Langue de saisie', max_length=5, verbose_name='Langue de saisie')),
+                migrations.AddField(
+                    model_name='mandat',
+                    name='plan_comptable_actif',
+                    field=models.ForeignKey(blank=True, help_text='Plan comptable utilisé par ce mandat', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='mandats_actifs', to='comptabilite.plancomptable', verbose_name='Plan comptable actif'),
+                ),
+            ],
+            database_operations=[
+                migrations.RunPython(safe_add_columns, migrations.RunPython.noop),
+            ],
+        ),
+        migrations.CreateModel(
+            name='ModeleContrat',
+            fields=[
+                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
+                ('created_at', models.DateTimeField(auto_now_add=True, db_index=True, verbose_name='Date de création')),
+                ('updated_at', models.DateTimeField(auto_now=True, verbose_name='Date de modification')),
+                ('is_active', models.BooleanField(db_index=True, default=True, verbose_name='Actif')),
+                ('langue_saisie', models.CharField(blank=True, db_index=True, default='', max_length=5, verbose_name='Langue de saisie')),
+                ('nom', models.CharField(max_length=255, verbose_name='Nom')),
+                ('description', models.TextField(blank=True, verbose_name='Description')),
+                ('categorie', models.CharField(blank=True, max_length=50, verbose_name='Catégorie')),
+                ('source', models.CharField(choices=[('CONFEDERATION', 'Standard Confédération'), ('FIDUCIAIRE', 'Standard fiduciaire'), ('PERSONNALISE', 'Personnalisé')], default='FIDUCIAIRE', max_length=20, verbose_name='Source')),
+                ('langue', models.CharField(default='fr', max_length=5, verbose_name='Langue')),
+                ('ordre', models.IntegerField(default=0, verbose_name='Ordre')),
+                ('created_by', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to=settings.AUTH_USER_MODEL, verbose_name='Créé par')),
+                ('document', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='modeles_contrat', to='documents.document', verbose_name='Document template')),
+            ],
+            options={
+                'verbose_name': 'Modèle de contrat',
+                'verbose_name_plural': 'Modèles de contrat',
+                'db_table': 'modeles_contrat',
+                'ordering': ['ordre', 'nom'],
+            },
+        ),
+        migrations.CreateModel(
+            name='Contrat',
+            fields=[
+                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
+                ('created_at', models.DateTimeField(auto_now_add=True, db_index=True, verbose_name='Date de création')),
+                ('updated_at', models.DateTimeField(auto_now=True, verbose_name='Date de modification')),
+                ('is_active', models.BooleanField(db_index=True, default=True, verbose_name='Actif')),
+                ('langue_saisie', models.CharField(blank=True, db_index=True, default='', max_length=5, verbose_name='Langue de saisie')),
+                ('numero', models.CharField(blank=True, max_length=50, verbose_name='Numéro')),
+                ('titre', models.CharField(max_length=255, verbose_name='Titre')),
+                ('description', models.TextField(blank=True, verbose_name='Description')),
+                ('categorie', models.CharField(blank=True, max_length=50, verbose_name='Catégorie')),
+                ('sens', models.CharField(choices=[('EMIS', 'Émis'), ('RECU', 'Reçu')], default='EMIS', max_length=10, verbose_name='Sens')),
+                ('date_emission', models.DateField(blank=True, null=True, verbose_name="Date d'émission")),
+                ('date_signature', models.DateField(blank=True, null=True, verbose_name='Date de signature')),
+                ('date_debut', models.DateField(blank=True, null=True, verbose_name='Date de début')),
+                ('date_fin', models.DateField(blank=True, null=True, verbose_name='Date de fin')),
+                ('tacite_reconduction', models.BooleanField(default=False, verbose_name='Tacite reconduction')),
+                ('delai_resiliation_jours', models.IntegerField(blank=True, null=True, verbose_name='Délai de résiliation (jours)')),
+                ('date_prochaine_echeance', models.DateField(blank=True, null=True, verbose_name='Prochaine échéance')),
+                ('montant', models.DecimalField(blank=True, decimal_places=2, max_digits=15, null=True, verbose_name='Montant')),
+                ('signataire_interne', models.CharField(blank=True, max_length=255, verbose_name='Signataire interne')),
+                ('signataire_externe', models.CharField(blank=True, max_length=255, verbose_name='Signataire externe')),
+                ('statut', models.CharField(choices=[('BROUILLON', 'Brouillon'), ('ENVOYE', 'Envoyé'), ('SIGNE', 'Signé'), ('ACTIF', 'Actif'), ('EXPIRE', 'Expiré'), ('RESILIE', 'Résilié'), ('ANNULE', 'Annulé')], db_index=True, default='BROUILLON', max_length=20, verbose_name='Statut')),
+                ('notes', models.TextField(blank=True, verbose_name='Notes')),
+                ('client', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='contrats', to='core.client', verbose_name='Client')),
+                ('created_by', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to=settings.AUTH_USER_MODEL, verbose_name='Créé par')),
+                ('devise', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to='core.devise', verbose_name='Devise')),
+                ('document', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='contrats', to='documents.document', verbose_name='Document')),
+                ('mandat', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='contrats', to='core.mandat', verbose_name='Mandat')),
+                ('modele_source', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='contrats_generes', to='core.modelecontrat', verbose_name='Modèle source')),
+            ],
+            options={
+                'verbose_name': 'Contrat',
+                'verbose_name_plural': 'Contrats',
+                'db_table': 'contrats',
+                'ordering': ['-date_emission', '-created_at'],
+                'indexes': [models.Index(fields=['client', 'statut'], name='contrats_client__1a7876_idx'), models.Index(fields=['mandat', 'statut'], name='contrats_mandat__3b4ca1_idx')],
+            },
+        ),
+    ]

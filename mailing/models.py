@@ -273,6 +273,15 @@ class TemplateEmail(models.Model):
         verbose_name=_('Créé par')
     )
 
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            f"{self.nom} ({self.code})",
+            self.sujet,
+            self.corps_texte,
+        ]
+        return ' '.join(filter(None, parts))
+
     class Meta:
         db_table = 'templates_email'
         verbose_name = _('Template email')
@@ -410,6 +419,14 @@ class EmailEnvoye(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            self.sujet,
+            self.corps_texte,
+        ]
+        return ' '.join(filter(None, parts))
+
     class Meta:
         db_table = 'emails_envoyes'
         verbose_name = _('Email envoyé')
@@ -542,6 +559,15 @@ class EmailRecu(models.Model):
     # Audit
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            self.sujet,
+            f"De: {self.expediteur_nom}" if self.expediteur_nom else '',
+            self.corps_texte,
+        ]
+        return ' '.join(filter(None, parts))
 
     class Meta:
         db_table = 'emails_recus'

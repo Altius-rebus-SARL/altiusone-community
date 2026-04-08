@@ -1,19 +1,67 @@
 # documents/serializers.py
 from rest_framework import serializers
-from .models import Dossier, TypeDocument, Document, Conversation, Message
+from .models import Dossier, TypeDocument, Document, Conversation, Message, SourceDocument
 from core.serializers import MandatListSerializer
 
 
 class DossierSerializer(serializers.ModelSerializer):
     class Meta:
         model = Dossier
-        fields = "__all__"
+        fields = [
+            "id",
+            "parent",
+            "client",
+            "mandat",
+            "nom",
+            "type_dossier",
+            "chemin_complet",
+            "niveau",
+            "description",
+            "tags",
+            "proprietaire",
+            "acces_restreint",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "proprietaire",
+            "chemin_complet",
+            "niveau",
+            "created_at",
+            "updated_at",
+        ]
 
 
 class TypeDocumentSerializer(serializers.ModelSerializer):
     class Meta:
         model = TypeDocument
         fields = "__all__"
+
+
+class SourceDocumentSerializer(serializers.ModelSerializer):
+    """Serializer pour les sources de documents"""
+
+    origine_display = serializers.CharField(
+        source="get_origine_display", read_only=True
+    )
+
+    class Meta:
+        model = SourceDocument
+        fields = [
+            "id",
+            "code",
+            "libelle",
+            "description",
+            "origine",
+            "origine_display",
+            "module_applicatif",
+            "icone",
+            "ordre",
+            "is_active",
+            "created_at",
+        ]
 
 
 class DocumentListSerializer(serializers.ModelSerializer):
@@ -211,6 +259,15 @@ class MessageCreateSerializer(serializers.Serializer):
         max_length=10000,
         help_text='Message de l\'utilisateur'
     )
+    mandat = serializers.UUIDField(
+        required=False, allow_null=True, default=None,
+        help_text='Mandat unique (backward compat, préférer mandats[])'
+    )
+    mandats = serializers.ListField(
+        child=serializers.UUIDField(),
+        required=False, default=None, allow_null=True,
+        help_text='Liste de mandats pour le contexte multi-mandat'
+    )
     use_semantic_search = serializers.BooleanField(
         default=True,
         help_text='Utiliser la recherche semantique pour le contexte'
@@ -241,11 +298,7 @@ class MessageFeedbackSerializer(serializers.Serializer):
 class ConversationListSerializer(serializers.ModelSerializer):
     """Serializer pour la liste des conversations."""
 
-    mandat_numero = serializers.CharField(
-        source='mandat.numero',
-        read_only=True,
-        allow_null=True
-    )
+    mandats_display = serializers.SerializerMethodField()
     document_nom = serializers.CharField(
         source='document.nom_fichier',
         read_only=True,
@@ -258,8 +311,8 @@ class ConversationListSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'titre',
-            'mandat',
-            'mandat_numero',
+            'mandats',
+            'mandats_display',
             'document',
             'document_nom',
             'statut',
@@ -267,6 +320,12 @@ class ConversationListSerializer(serializers.ModelSerializer):
             'dernier_message',
             'created_at',
             'updated_at',
+        ]
+
+    def get_mandats_display(self, obj):
+        return [
+            {'id': str(m.id), 'numero': m.numero}
+            for m in obj.mandats.all()
         ]
 
     def get_dernier_message(self, obj):
@@ -284,11 +343,7 @@ class ConversationListSerializer(serializers.ModelSerializer):
 class ConversationDetailSerializer(serializers.ModelSerializer):
     """Serializer detaille pour une conversation avec ses messages."""
 
-    mandat_numero = serializers.CharField(
-        source='mandat.numero',
-        read_only=True,
-        allow_null=True
-    )
+    mandats_display = serializers.SerializerMethodField()
     document_nom = serializers.CharField(
         source='document.nom_fichier',
         read_only=True,
@@ -308,8 +363,8 @@ class ConversationDetailSerializer(serializers.ModelSerializer):
             'description',
             'utilisateur',
             'utilisateur_nom',
-            'mandat',
-            'mandat_numero',
+            'mandats',
+            'mandats_display',
             'document',
             'document_nom',
             'modele_ia',
@@ -331,45 +386,65 @@ class ConversationDetailSerializer(serializers.ModelSerializer):
             'updated_at',
         ]
 
+    def get_mandats_display(self, obj):
+        return [
+            {'id': str(m.id), 'numero': m.numero}
+            for m in obj.mandats.all()
+        ]
 
-class ConversationCreateSerializer(serializers.ModelSerializer):
+
+class ConversationCreateSerializer(serializers.Serializer):
     """Serializer pour la creation d'une conversation."""
 
-    class Meta:
-        model = Conversation
-        fields = [
-            'id',
-            'mandat',
-            'document',
-            'titre',
-            'description',
-            'temperature',
-            'contexte_systeme',
-        ]
-        read_only_fields = ['id']
+    mandat = serializers.UUIDField(
+        required=False, allow_null=True, default=None,
+        help_text='Mandat unique (backward compat, préférer mandats[])'
+    )
+    mandats = serializers.ListField(
+        child=serializers.UUIDField(),
+        required=False, default=None, allow_null=True,
+        help_text='Liste de mandats pour le contexte multi-mandat'
+    )
+    document = serializers.PrimaryKeyRelatedField(
+        queryset=Document.objects.all(),
+        required=False, allow_null=True, default=None,
+    )
+    titre = serializers.CharField(max_length=255, required=False, default='')
+    description = serializers.CharField(required=False, default='')
+    temperature = serializers.DecimalField(
+        max_digits=3, decimal_places=2, required=False, default=0.7
+    )
+    contexte_systeme = serializers.CharField(required=False, default='')
 
     def validate(self, data):
-        """Valide les donnees de creation."""
-        # Si document specifie, verifier qu'il appartient au mandat
-        document = data.get('document')
+        """Normalise mandat/mandats."""
+        mandats = data.get('mandats')
         mandat = data.get('mandat')
 
-        if document and mandat:
-            if document.mandat_id != mandat.id:
-                raise serializers.ValidationError({
-                    'document': 'Le document doit appartenir au mandat specifie.'
-                })
+        # Backward compat : single mandat → list
+        if not mandats and mandat:
+            data['mandats'] = [mandat]
+        elif not mandats:
+            data['mandats'] = []
 
-        # Si document sans mandat, recuperer le mandat du document
-        if document and not mandat:
-            data['mandat'] = document.mandat
+        # Si document sans mandats, récupérer le mandat du document
+        document = data.get('document')
+        if document and not data['mandats'] and document.mandat_id:
+            data['mandats'] = [document.mandat_id]
 
         return data
 
     def create(self, validated_data):
         """Cree la conversation avec l'utilisateur courant."""
+        from core.models import Mandat
+        mandat_ids = validated_data.pop('mandats', [])
+        validated_data.pop('mandat', None)
         validated_data['utilisateur'] = self.context['request'].user
-        return super().create(validated_data)
+        conversation = Conversation.objects.create(**validated_data)
+        if mandat_ids:
+            mandats = Mandat.objects.filter(pk__in=mandat_ids)
+            conversation.mandats.set(mandats)
+        return conversation
 
 
 class ChatSearchSerializer(serializers.Serializer):

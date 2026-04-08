@@ -82,20 +82,30 @@ def generer_qr_code_image(facture):
     Returns:
         ContentFile: Image PNG du QR code
     """
-    # Récupérer les informations nécessaires
-    client = facture.mandat.client
+    # Résoudre le compte bancaire et l'entreprise créancière
+    from core.models import CompteBancaire, Entreprise
 
-    # IBAN QR (doit commencer par CH ou LI)
     iban = facture.qr_iban or ""
+    entreprise_creancier = None
     if not iban:
-        # Essayer de récupérer l'IBAN depuis le compte bancaire du mandat
-        compte_bancaire = getattr(facture.mandat, 'compte_bancaire_principal', None)
-        if compte_bancaire:
-            iban = compte_bancaire.iban
+        compte = CompteBancaire.objects.filter(mandat=facture.mandat, actif=True).first()
+        if not compte:
+            entreprise_creancier = Entreprise.objects.filter(est_defaut=True).first()
+            if entreprise_creancier:
+                compte = CompteBancaire.objects.filter(
+                    entreprise=entreprise_creancier, est_compte_principal=True, actif=True
+                ).first()
+        if not compte:
+            compte = CompteBancaire.objects.filter(est_compte_principal=True, actif=True).first()
+        if compte:
+            iban = compte.iban
+            if not entreprise_creancier and compte.entreprise:
+                entreprise_creancier = compte.entreprise
+    if not entreprise_creancier:
+        entreprise_creancier = Entreprise.objects.filter(est_defaut=True).first()
 
-    # Adresse du créditeur (celui qui émet la facture)
-    adresse_crediteur = client.adresse_siege
-    nom_crediteur = client.raison_sociale[:70] if client.raison_sociale else ""
+    # Adresse du créditeur = Entreprise (fiduciaire, celle qui reçoit le paiement)
+    nom_crediteur = entreprise_creancier.raison_sociale[:70] if entreprise_creancier else ""
 
     rue_crediteur = ""
     numero_crediteur = ""
@@ -103,16 +113,19 @@ def generer_qr_code_image(facture):
     localite_crediteur = ""
     pays_crediteur = "CH"
 
+    adresse_crediteur = entreprise_creancier.adresse if entreprise_creancier and hasattr(entreprise_creancier, 'adresse') else None
     if adresse_crediteur:
         rue_crediteur = (adresse_crediteur.rue or "")[:70]
         numero_crediteur = (adresse_crediteur.numero or "")[:16]
         npa_crediteur = (adresse_crediteur.code_postal or "")[:16]
         localite_crediteur = (adresse_crediteur.localite or "")[:35]
         pays_crediteur = str(adresse_crediteur.pays.code) if adresse_crediteur.pays else "CH"
+    elif entreprise_creancier and entreprise_creancier.siege:
+        localite_crediteur = entreprise_creancier.siege[:35]
 
-    # Adresse du débiteur (client de la facture)
+    # Adresse du débiteur (client facturé, celui qui paie)
     client_facture = facture.client
-    adresse_debiteur = client_facture.adresse_siege
+    adresse_debiteur = client_facture.adresse_correspondance or client_facture.adresse_siege
 
     nom_debiteur = client_facture.raison_sociale[:70] if client_facture.raison_sociale else ""
 
@@ -257,12 +270,15 @@ def generer_qr_bill_complet(facture):
         c.drawString(x, y, facture.qr_iban)
         y -= 3 * mm
 
-    client = facture.mandat.client
-    c.drawString(x, y, client.raison_sociale[:30])
+    # Créancier = Entreprise (fiduciaire)
+    from core.models import Entreprise as _Ent
+    _entreprise = _Ent.objects.filter(est_defaut=True).first()
+    _nom_creancier = _entreprise.raison_sociale if _entreprise else ""
+    c.drawString(x, y, _nom_creancier[:30])
 
-    if client.adresse_siege:
+    if _entreprise and _entreprise.siege:
         y -= 3 * mm
-        c.drawString(x, y, f"{client.adresse_siege.code_postal} {client.adresse_siege.localite}"[:30])
+        c.drawString(x, y, _entreprise.siege[:30])
 
     y -= 6 * mm
     c.setFont("Helvetica-Bold", 6)
@@ -338,13 +354,12 @@ def generer_qr_bill_complet(facture):
     if facture.qr_iban:
         c.drawString(info_x, y, facture.qr_iban)
         y -= 3 * mm
-    c.drawString(info_x, y, client.raison_sociale)
+    # Créancier = Entreprise (fiduciaire)
+    c.drawString(info_x, y, _nom_creancier)
 
-    if client.adresse_siege:
+    if _entreprise and _entreprise.siege:
         y -= 3 * mm
-        c.drawString(info_x, y, f"{client.adresse_siege.rue} {client.adresse_siege.numero}")
-        y -= 3 * mm
-        c.drawString(info_x, y, f"{client.adresse_siege.code_postal} {client.adresse_siege.localite}")
+        c.drawString(info_x, y, _entreprise.siege)
 
     y -= 6 * mm
     c.setFont("Helvetica-Bold", 6)

@@ -38,6 +38,7 @@ class DeclarationCotisationsPDF:
 
     def __init__(self, declaration, style_config=None):
         self.declaration = declaration
+        self.devise_code = declaration.mandat.devise_id or 'CHF'
         self.style_config = style_config
         if style_config:
             from salaires.services.pdf_styles import get_salaires_styles_custom
@@ -46,9 +47,9 @@ class DeclarationCotisationsPDF:
             self.styles = get_salaires_styles()
 
     def _fmt(self, montant):
-        """Formate un montant avec CHF."""
+        """Formate un montant avec code devise."""
         formatted = format_montant_suisse(montant)
-        return f"{formatted} CHF" if formatted else "-"
+        return f"{formatted} {self.devise_code}" if formatted else "-"
 
     def _build_titre(self):
         """Construit le titre de la declaration."""

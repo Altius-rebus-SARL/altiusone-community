@@ -1,0 +1,318 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+{% load devise_tags %}
+
+{% block title %}{% trans "Analytics" %}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'analytics/css/d3-charts.css' %}">
+<style>
+    /* KPI Cards */
+    .kpi-card {
+        border-radius: 12px;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+    .kpi-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+    .kpi-label {
+        font-size: 0.85rem;
+        color: var(--bs-secondary);
+        margin-bottom: 0.25rem;
+    }
+    .kpi-trend {
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+    .kpi-trend.up { color: var(--bs-success); }
+    .kpi-trend.down { color: var(--bs-danger); }
+    .kpi-trend.stable { color: var(--bs-secondary); }
+    .kpi-sparkline { height: 40px; margin-top: 0.5rem; }
+
+    /* Chart containers */
+    .chart-card { border-radius: 12px; }
+    .chart-container { min-height: 300px; }
+
+    /* Alertes */
+    .alert-item {
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    .alert-item.danger {
+        background: rgba(239, 68, 68, 0.1);
+        border-left: 4px solid var(--bs-danger);
+    }
+    .alert-item.warning {
+        background: rgba(245, 158, 11, 0.1);
+        border-left: 4px solid var(--bs-warning);
+    }
+    .alert-item.info {
+        background: rgba(59, 130, 246, 0.1);
+        border-left: 4px solid var(--bs-info);
+    }
+    .alert-icon { font-size: 1.5rem; }
+    .alert-item.danger .alert-icon { color: var(--bs-danger); }
+    .alert-item.warning .alert-icon { color: var(--bs-warning); }
+    .alert-item.info .alert-icon { color: var(--bs-info); }
+
+    /* Hub tabs */
+    .hub-tabs .nav-link {
+        font-weight: 500;
+        color: var(--bs-body-color);
+        border: none;
+        border-bottom: 3px solid transparent;
+        padding: 0.75rem 1.25rem;
+        transition: all 0.2s;
+    }
+    .hub-tabs .nav-link:hover {
+        color: var(--bs-primary);
+        border-bottom-color: rgba(var(--bs-primary-rgb), 0.3);
+    }
+    .hub-tabs .nav-link.active {
+        color: var(--bs-primary);
+        background: transparent;
+        border-bottom-color: var(--bs-primary);
+    }
+    .hub-tabs .nav-link .badge {
+        font-size: 0.65rem;
+        vertical-align: top;
+    }
+
+    /* Tab content loading */
+    .htmx-indicator {
+        display: none;
+    }
+    .htmx-request .htmx-indicator {
+        display: inline-block;
+    }
+    .htmx-request.htmx-indicator {
+        display: inline-block;
+    }
+    .tab-loading {
+        min-height: 300px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Select2 compact */
+    .select2-sm-container { display: inline-block; }
+    .select2-sm-container .select2-container { width: 100% !important; }
+    .select2-sm-container .select2-container--default .select2-selection--single {
+        height: 31px; padding: 2px 8px; font-size: 0.875rem; border-radius: 0.25rem;
+    }
+    .select2-sm-container .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 25px; padding-left: 0;
+    }
+    .select2-sm-container .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 29px;
+    }
+
+    @media (max-width: 768px) {
+        .kpi-value { font-size: 1.5rem; }
+        .hub-tabs .nav-link { padding: 0.5rem 0.75rem; font-size: 0.85rem; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="row m-1">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+            <div>
+                <h4 class="main-title">{% trans "Analytics" %}</h4>
+                <ul class="app-line-breadcrumbs mb-3">
+                    <li>
+                        <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                            <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Accueil" %}</span>
+                        </a>
+                    </li>
+                    <li class="active">
+                        <a class="f-s-14 f-w-500" href="#">{% trans "Analytics" %}</a>
+                    </li>
+                </ul>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{% url 'analytics:tableau-bord-list' %}" class="btn btn-sm btn-light-secondary">
+                    <i class="ti ti-layout-dashboard me-1"></i>{% trans "Mes tableaux" %}
+                </a>
+                <a href="{% url 'analytics:rapport-generer' %}" class="btn btn-sm btn-primary">
+                    <i class="ti ti-file-analytics me-1"></i>{% trans "Rapport" %}
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtres globaux -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card mb-0">
+            <div class="card-body py-2">
+                <form id="hub-filters" method="get" class="d-flex flex-wrap gap-3 align-items-center">
+                    <!-- Préserver l'onglet actif -->
+                    <input type="hidden" name="tab" id="active-tab-input" value="{{ active_tab }}">
+
+                    <span class="text-muted"><i class="ph ph-funnel me-1"></i>{% trans "Filtres:" %}</span>
+
+                    <select name="annee" class="form-select form-select-sm" style="width: auto;">
+                        {% for annee in annees %}
+                        <option value="{{ annee }}" {% if annee == annee_selectionnee %}selected{% endif %}>
+                            {{ annee }}
+                        </option>
+                        {% endfor %}
+                    </select>
+
+                    <div class="select2-sm-container" style="width: 250px;">
+                        <select name="mandat" class="form-select form-select-sm select2" data-minimum-results-for-search="0">
+                            <option value="">{% trans "Tous les mandats" %}</option>
+                            {% for m in mandats %}
+                            <option value="{{ m.pk }}" {% if m == mandat_selectionne %}selected{% endif %}>
+                                {{ m.client.raison_sociale|truncatechars:30 }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-sm btn-primary">
+                        <i class="ph ph-funnel-simple me-1"></i>{% trans "Appliquer" %}
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Navigation par onglets -->
+<div class="row mb-3">
+    <div class="col-12">
+        <ul class="nav hub-tabs border-bottom" id="analyticsHubTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link {% if active_tab == 'overview' %}active{% endif %}"
+                        id="tab-overview" type="button" role="tab"
+                        data-tab="overview"
+                        hx-get="{% url 'analytics:hub-tab-overview' %}?annee={{ annee_selectionnee }}{% if mandat_selectionne %}&mandat={{ mandat_selectionne.pk }}{% endif %}"
+                        hx-target="#hub-tab-content"
+                        hx-swap="innerHTML"
+                        hx-indicator="#tab-spinner">
+                    <i class="ti ti-dashboard me-1"></i>{% trans "Vue d'ensemble" %}
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link {% if active_tab == 'financier' %}active{% endif %}"
+                        id="tab-financier" type="button" role="tab"
+                        data-tab="financier"
+                        hx-get="{% url 'analytics:hub-tab-financier' %}?annee={{ annee_selectionnee }}{% if mandat_selectionne %}&mandat={{ mandat_selectionne.pk }}{% endif %}"
+                        hx-target="#hub-tab-content"
+                        hx-swap="innerHTML"
+                        hx-indicator="#tab-spinner">
+                    <i class="ti ti-currency-dollar me-1"></i>{% trans "Financier" %}
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link {% if active_tab == 'clients' %}active{% endif %}"
+                        id="tab-clients" type="button" role="tab"
+                        data-tab="clients"
+                        hx-get="{% url 'analytics:hub-tab-clients' %}?annee={{ annee_selectionnee }}{% if mandat_selectionne %}&mandat={{ mandat_selectionne.pk }}{% endif %}"
+                        hx-target="#hub-tab-content"
+                        hx-swap="innerHTML"
+                        hx-indicator="#tab-spinner">
+                    <i class="ti ti-users me-1"></i>{% trans "Clients" %}
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link {% if active_tab == 'rapports' %}active{% endif %}"
+                        id="tab-rapports" type="button" role="tab"
+                        data-tab="rapports"
+                        hx-get="{% url 'analytics:hub-tab-rapports' %}?annee={{ annee_selectionnee }}{% if mandat_selectionne %}&mandat={{ mandat_selectionne.pk }}{% endif %}"
+                        hx-target="#hub-tab-content"
+                        hx-swap="innerHTML"
+                        hx-indicator="#tab-spinner">
+                    <i class="ti ti-file-analytics me-1"></i>{% trans "Rapports" %}
+                    {% if nb_rapports %}<span class="badge bg-secondary">{{ nb_rapports }}</span>{% endif %}
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link {% if active_tab == 'alertes' %}active{% endif %}"
+                        id="tab-alertes" type="button" role="tab"
+                        data-tab="alertes"
+                        hx-get="{% url 'analytics:hub-tab-alertes' %}?annee={{ annee_selectionnee }}{% if mandat_selectionne %}&mandat={{ mandat_selectionne.pk }}{% endif %}"
+                        hx-target="#hub-tab-content"
+                        hx-swap="innerHTML"
+                        hx-indicator="#tab-spinner">
+                    <i class="ti ti-bell me-1"></i>{% trans "Alertes & Exports" %}
+                    {% if nb_alertes_actives %}<span class="badge bg-danger">{{ nb_alertes_actives }}</span>{% endif %}
+                </button>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Spinner de chargement -->
+<div id="tab-spinner" class="htmx-indicator text-center py-5">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">{% trans "Chargement..." %}</span>
+    </div>
+    <p class="text-muted mt-2">{% trans "Chargement des données..." %}</p>
+</div>
+
+<!-- Contenu des onglets -->
+<div id="hub-tab-content">
+    {% if active_tab == 'overview' %}
+        {% include "analytics/partials/tab_overview.html" %}
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% include 'analytics/components/charts.html' %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tabs = document.querySelectorAll('#analyticsHubTabs .nav-link');
+    const tabInput = document.getElementById('active-tab-input');
+
+    // Gestion du clic sur les tabs
+    tabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+            // Retirer active de tous
+            tabs.forEach(t => t.classList.remove('active'));
+            // Activer le tab cliqué
+            this.classList.add('active');
+            // Mettre à jour le champ caché pour le formulaire de filtres
+            if (tabInput) {
+                tabInput.value = this.dataset.tab;
+            }
+            // Mettre à jour l'URL sans recharger
+            const url = new URL(window.location);
+            url.searchParams.set('tab', this.dataset.tab);
+            history.replaceState(null, '', url.toString());
+        });
+    });
+
+    // Si on arrive sur un onglet autre que overview, déclencher le chargement HTMX
+    const activeTab = '{{ active_tab }}';
+    if (activeTab !== 'overview') {
+        const btn = document.getElementById('tab-' + activeTab);
+        if (btn) {
+            btn.click();
+            // HTMX est déjà configuré via hx-get, le click déclenche le chargement
+            htmx.trigger(btn, 'click');
+        }
+    }
+});
+</script>
+{% endblock %}

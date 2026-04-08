@@ -38,7 +38,12 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Installer les dépendances Python
 COPY requirements_community.txt .
 RUN pip install --upgrade pip && \
-    pip install -r requirements_community.txt
+    pip install torch --index-url https://download.pytorch.org/whl/cpu && \
+    pip install -r requirements.txt
+
+# Pré-télécharger les modèles IA dans l'image (évite téléchargement au runtime)
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/paraphrase-multilingual-mpnet-base-v2', cache_folder='/opt/models')"
+RUN python -c "from transformers import AutoModelForCausalLM, AutoTokenizer; AutoTokenizer.from_pretrained('Qwen/Qwen2.5-0.5B-Instruct', cache_dir='/opt/models'); AutoModelForCausalLM.from_pretrained('Qwen/Qwen2.5-0.5B-Instruct', cache_dir='/opt/models')"
 
 # =============================================================================
 # Stage 2: Runtime - Image finale légère
@@ -49,7 +54,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/opt/venv/bin:$PATH" \
     # Tesseract
-    TESSDATA_PREFIX=/usr/share/tesseract-ocr/5/tessdata
+    TESSDATA_PREFIX=/usr/share/tesseract-ocr/5/tessdata \
+    # Modèles IA pré-téléchargés au build
+    SENTENCE_TRANSFORMERS_HOME=/opt/models \
+    HF_HOME=/opt/models \
+    # Désactiver CUDA (CPU only)
+    CUDA_VISIBLE_DEVICES=""
 
 # Dépendances runtime uniquement (pas de compilateurs)
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -84,8 +94,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Copier le virtualenv depuis le builder
+# Copier le virtualenv et le modèle d'embedding depuis le builder
 COPY --from=builder /opt/venv /opt/venv
+COPY --from=builder /opt/models /opt/models
 
 # Créer les répertoires de l'application
 RUN mkdir -p /app/models /app/logs /app/staticfiles /app/media

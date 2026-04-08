@@ -16,10 +16,12 @@ from .models import (
     TypePrestation,
     ZoneGeographique,
     TarifMandat,
+    CategorieTemps,
 )
 from .serializers import (
     PrestationSerializer,
     TimeTrackingSerializer,
+    TimeTrackingListSerializer,
     FactureListSerializer,
     FactureDetailSerializer,
     LigneFactureSerializer,
@@ -28,34 +30,91 @@ from .serializers import (
     TypePrestationSerializer,
     ZoneGeographiqueSerializer,
     TarifMandatSerializer,
+    CategorieTempsSerializer,
 )
 
 
 class PrestationViewSet(viewsets.ModelViewSet):
-    queryset = Prestation.objects.all()
+    queryset = Prestation.objects.prefetch_related('types_mandats').all()
     serializer_class = PrestationSerializer
     permission_classes = [IsAuthenticated]
-    filterset_fields = ["type_prestation__code", "actif"]
+    filterset_fields = ["type_prestation__code", "actif", "types_mandats__code"]
+
+
+class CategorieTempsViewSet(viewsets.ModelViewSet):
+    """ViewSet pour les catégories de temps (interne et absences)"""
+
+    queryset = CategorieTemps.objects.all()
+    serializer_class = CategorieTempsSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ["type_categorie", "is_active", "decompte_vacances", "decompte_maladie"]
+    search_fields = ["code", "libelle"]
+
+    @action(detail=False, methods=["get"])
+    def internes(self, request):
+        """Catégories de type INTERNE uniquement"""
+        qs = self.queryset.filter(type_categorie="INTERNE", is_active=True)
+        serializer = self.get_serializer(qs, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"])
+    def absences(self, request):
+        """Catégories de type ABSENCE uniquement"""
+        qs = self.queryset.filter(type_categorie="ABSENCE", is_active=True)
+        serializer = self.get_serializer(qs, many=True)
+        return Response(serializer.data)
 
 
 class TimeTrackingViewSet(viewsets.ModelViewSet):
-    queryset = TimeTracking.objects.all()
-    serializer_class = TimeTrackingSerializer
+    """ViewSet pour le suivi du temps : client, interne et absences"""
+
     permission_classes = [IsAuthenticated]
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["mandat", "utilisateur", "facturable"]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ["mandat", "utilisateur", "facturable", "type_entree", "categorie", "valide", "position", "operation"]
+    ordering_fields = ["date_travail", "duree_minutes", "created_at"]
+    ordering = ["-date_travail"]
+
+    def get_queryset(self):
+        qs = TimeTracking.objects.select_related(
+            "mandat", "utilisateur", "prestation", "categorie", "position", "operation"
+        )
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        # Staff non-manager: temps liés aux mandats accessibles + ses propres temps
+        from django.db.models import Q
+        if user.is_staff_user():
+            return qs.filter(
+                Q(mandat__in=accessible) | Q(utilisateur=user)
+            ).distinct()
+        # CLIENT: uniquement temps liés à ses mandats accessibles
+        return qs.filter(mandat__in=accessible)
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return TimeTrackingListSerializer
+        return TimeTrackingSerializer
 
     @action(detail=True, methods=["post"])
     def calculer_montant(self, request, pk=None):
         temps = self.get_object()
+        if temps.type_entree != "CLIENT":
+            return Response(
+                {"error": "Le calcul de montant n'est applicable qu'aux entrées client"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         montant = temps.calculer_montant()
         return Response({"montant_ht": montant})
 
     @action(detail=False, methods=["get"])
     def non_factures(self, request):
         """Temps facturables non encore facturés"""
-        qs = self.queryset.filter(facturable=True, facture__isnull=True)
-        serializer = self.get_serializer(qs, many=True)
+        qs = self.get_queryset().filter(
+            type_entree="CLIENT", facturable=True, facture__isnull=True
+        )
+        serializer = TimeTrackingListSerializer(qs, many=True)
         return Response(serializer.data)
 
     @action(detail=True, methods=["post"])
@@ -73,18 +132,117 @@ class TimeTrackingViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(temps)
         return Response(serializer.data)
 
+    @action(detail=False, methods=["get"])
+    def mes_temps(self, request):
+        """Temps de l'utilisateur connecté"""
+        qs = self.get_queryset().filter(utilisateur=request.user)
+        type_entree = request.query_params.get("type_entree")
+        if type_entree:
+            qs = qs.filter(type_entree=type_entree)
+        serializer = TimeTrackingListSerializer(qs, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"])
+    def solde_vacances(self, request):
+        """Solde de vacances de l'utilisateur connecté (ou d'un utilisateur spécifié)"""
+        from django.db.models import Sum
+
+        utilisateur_id = request.query_params.get("utilisateur_id")
+        if utilisateur_id and request.user.is_superuser:
+            user_id = utilisateur_id
+        else:
+            user_id = request.user.pk
+
+        # Récupérer le droit annuel depuis le profil Employe
+        try:
+            from salaires.models import Employe
+            employe = Employe.objects.get(utilisateur_id=user_id)
+            droit_annuel = employe.jours_vacances_annuel or 0
+        except Employe.DoesNotExist:
+            droit_annuel = 0
+
+        # Calculer les jours pris (entrées ABSENCE avec catégorie decompte_vacances)
+        annee = request.query_params.get("annee", timezone.now().year)
+        jours_pris_minutes = TimeTracking.objects.filter(
+            utilisateur_id=user_id,
+            type_entree="ABSENCE",
+            categorie__decompte_vacances=True,
+            date_travail__year=annee,
+        ).aggregate(total=Sum("duree_minutes"))["total"] or 0
+
+        # Convertir en jours (8h = 480min)
+        jours_pris = round(jours_pris_minutes / 480, 1)
+
+        return Response({
+            "annee": int(annee),
+            "droit_annuel": droit_annuel,
+            "jours_pris": jours_pris,
+            "solde": round(droit_annuel - jours_pris, 1),
+        })
+
+    @action(detail=False, methods=["get"])
+    def statistiques(self, request):
+        """Statistiques de temps par type d'entrée pour un utilisateur/période"""
+        from django.db.models import Sum, Count
+
+        utilisateur_id = request.query_params.get("utilisateur_id", request.user.pk)
+        annee = request.query_params.get("annee", timezone.now().year)
+        mois = request.query_params.get("mois")
+
+        qs = TimeTracking.objects.filter(
+            utilisateur_id=utilisateur_id,
+            date_travail__year=annee,
+        )
+        if mois:
+            qs = qs.filter(date_travail__month=mois)
+
+        stats = qs.values("type_entree").annotate(
+            total_minutes=Sum("duree_minutes"),
+            nombre_entrees=Count("id"),
+        ).order_by("type_entree")
+
+        # Détail par catégorie pour INTERNE et ABSENCE
+        detail_categories = qs.exclude(
+            type_entree="CLIENT"
+        ).values(
+            "categorie__code", "categorie__libelle", "type_entree"
+        ).annotate(
+            total_minutes=Sum("duree_minutes"),
+            nombre_entrees=Count("id"),
+        ).order_by("type_entree", "categorie__libelle")
+
+        return Response({
+            "annee": int(annee),
+            "mois": int(mois) if mois else None,
+            "par_type": list(stats),
+            "par_categorie": list(detail_categories),
+        })
+
 
 class FactureViewSet(PDFViewSetMixin, viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
-    filterset_fields = ["client", "mandat", "statut"]
+    filterset_fields = ["client", "mandat", "statut", "position"]
 
     def get_queryset(self):
-        return Facture.objects.select_related("client", "mandat")
+        qs = Facture.objects.select_related("client", "mandat", "position")
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(mandat__in=accessible)
 
     def get_serializer_class(self):
         if self.action == "list":
             return FactureListSerializer
         return FactureDetailSerializer
+
+    def perform_destroy(self, instance):
+        """Applique les règles métier de peut_supprimer() avant suppression API."""
+        peut, raison = instance.peut_supprimer()
+        if not peut:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied(raison)
+        instance.delete()
 
     @action(detail=True, methods=["post"])
     def generer_qr(self, request, pk=None):
@@ -127,6 +285,33 @@ class FactureViewSet(PDFViewSetMixin, viewsets.ModelViewSet):
             "nom_fichier": facture.fichier_pdf.name.split("/")[-1],
             "numero_facture": facture.numero_facture,
         })
+
+    @action(detail=True, methods=["get"])
+    def stream_pdf(self, request, pk=None):
+        """Stream le PDF de la facture (proxy pour mobile)."""
+        from django.http import FileResponse
+        facture = self.get_object()
+
+        if not facture.fichier_pdf:
+            return Response(
+                {"error": "Aucun PDF disponible"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            file_obj = facture.fichier_pdf.open('rb')
+            response = FileResponse(
+                file_obj,
+                content_type='application/pdf',
+                as_attachment=False,
+            )
+            response['Content-Disposition'] = f'inline; filename="{facture.numero_facture}.pdf"'
+            return response
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @action(detail=True, methods=["post"])
     def calculer(self, request, pk=None):
@@ -190,19 +375,33 @@ class FactureViewSet(PDFViewSetMixin, viewsets.ModelViewSet):
 
 
 class LigneFactureViewSet(viewsets.ModelViewSet):
-    queryset = LigneFacture.objects.all()
     serializer_class = LigneFactureSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["facture"]
 
+    def get_queryset(self):
+        qs = LigneFacture.objects.select_related("facture")
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(facture__mandat__in=accessible)
+
 
 class PaiementViewSet(viewsets.ModelViewSet):
-    queryset = Paiement.objects.all()
     serializer_class = PaiementSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["facture", "mode_paiement"]
+    filterset_fields = ["facture", "facture__mandat", "mode_paiement"]
+
+    def get_queryset(self):
+        qs = Paiement.objects.select_related("facture")
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(facture__mandat__in=accessible)
 
     @action(detail=True, methods=["post"])
     def valider(self, request, pk=None):
@@ -222,11 +421,18 @@ class PaiementViewSet(viewsets.ModelViewSet):
 
 
 class RelanceViewSet(viewsets.ModelViewSet):
-    queryset = Relance.objects.all()
     serializer_class = RelanceSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["facture", "niveau", "envoyee"]
+    filterset_fields = ["facture", "facture__mandat", "niveau", "envoyee"]
+
+    def get_queryset(self):
+        qs = Relance.objects.select_related("facture")
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(facture__mandat__in=accessible)
 
     @action(detail=True, methods=["post"])
     def envoyer(self, request, pk=None):
@@ -286,8 +492,15 @@ class ZoneGeographiqueViewSet(viewsets.ModelViewSet):
 class TarifMandatViewSet(viewsets.ModelViewSet):
     """ViewSet pour les tarifs par mandat"""
 
-    queryset = TarifMandat.objects.select_related("mandat", "prestation").all()
     serializer_class = TarifMandatSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["mandat", "prestation"]
+
+    def get_queryset(self):
+        qs = TarifMandat.objects.select_related("mandat", "prestation")
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(mandat__in=accessible)

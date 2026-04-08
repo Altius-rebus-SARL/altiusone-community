@@ -192,6 +192,7 @@ class EcritureComptableCreateSerializer(serializers.ModelSerializer):
             "mandat",
             "exercice",
             "journal",
+            "piece",
             "numero_piece",
             "numero_ligne",
             "date_ecriture",
@@ -206,6 +207,7 @@ class EcritureComptableCreateSerializer(serializers.ModelSerializer):
             "devise",
             "taux_change",
             "code_tva",
+            "tiers",
             "montant_tva",
             "piece_justificative",
         ]
@@ -238,6 +240,7 @@ class TypePieceComptableSerializer(serializers.ModelSerializer):
             "description",
             "categorie",
             "prefixe_numero",
+            "dossier_classement",
             "ordre",
             "is_active",
         ]
@@ -342,11 +345,9 @@ class PieceComptableDetailSerializer(serializers.ModelSerializer):
         ]
 
     def get_documents(self, obj):
-        """Retourne les documents associés à cette pièce"""
+        """Retourne les documents justificatifs associés à cette pièce"""
         from documents.serializers import DocumentListSerializer
-        if hasattr(obj, 'documents'):
-            return DocumentListSerializer(obj.documents.all(), many=True).data
-        return []
+        return DocumentListSerializer(obj.documents_justificatifs.all(), many=True).data
 
 
 class PieceComptableCreateSerializer(serializers.ModelSerializer):
@@ -402,6 +403,154 @@ class PieceComptableCreateSerializer(serializers.ModelSerializer):
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
+        return instance
+
+
+class EcritureInlinePieceSerializer(serializers.Serializer):
+    """Serializer pour une écriture inline lors de la création d'une pièce."""
+
+    compte = serializers.PrimaryKeyRelatedField(queryset=Compte.objects.all())
+    libelle = serializers.CharField(max_length=255)
+    montant_debit = serializers.DecimalField(
+        max_digits=15, decimal_places=2, default=Decimal("0")
+    )
+    montant_credit = serializers.DecimalField(
+        max_digits=15, decimal_places=2, default=Decimal("0")
+    )
+    code_tva = serializers.CharField(max_length=10, required=False, allow_blank=True, default="")
+    tiers = serializers.UUIDField(required=False, allow_null=True, default=None)
+
+    def validate_tiers(self, value):
+        if value is None:
+            return None
+        from core.models import Tiers
+        try:
+            return Tiers.objects.get(pk=value)
+        except Tiers.DoesNotExist:
+            raise serializers.ValidationError("Tiers non trouvé")
+
+    def validate(self, attrs):
+        debit = attrs.get("montant_debit", Decimal("0"))
+        credit = attrs.get("montant_credit", Decimal("0"))
+
+        if debit > 0 and credit > 0:
+            raise serializers.ValidationError(
+                "Une écriture ne peut pas avoir un montant au débit ET au crédit"
+            )
+        if debit == 0 and credit == 0:
+            raise serializers.ValidationError(
+                "Une écriture doit avoir un montant (débit ou crédit)"
+            )
+        return attrs
+
+
+class PieceComptableCreateWithEcrituresSerializer(serializers.ModelSerializer):
+    """Serializer pour créer une pièce comptable avec ses écritures inline."""
+
+    generer_numero = serializers.BooleanField(
+        write_only=True, required=False, default=True
+    )
+    ecritures = EcritureInlinePieceSerializer(many=True, write_only=True, required=False)
+    numero_piece = serializers.CharField(required=False, allow_blank=True, default="")
+
+    class Meta:
+        model = PieceComptable
+        fields = [
+            "mandat",
+            "journal",
+            "type_piece",
+            "numero_piece",
+            "date_piece",
+            "libelle",
+            "reference_externe",
+            "tiers_nom",
+            "tiers_numero_tva",
+            "montant_ht",
+            "montant_tva",
+            "montant_ttc",
+            "dossier",
+            "generer_numero",
+            "ecritures",
+        ]
+
+    def validate(self, attrs):
+        generer = attrs.pop('generer_numero', True)
+        numero = attrs.get('numero_piece')
+
+        if not generer and not numero:
+            raise serializers.ValidationError({
+                'numero_piece': "Le numéro de pièce est obligatoire si la génération automatique est désactivée"
+            })
+
+        self._generer_numero = generer
+
+        # Valider l'équilibre des écritures
+        ecritures_data = attrs.get('ecritures', [])
+        if ecritures_data:
+            total_debit = sum(e.get('montant_debit', Decimal('0')) for e in ecritures_data)
+            total_credit = sum(e.get('montant_credit', Decimal('0')) for e in ecritures_data)
+            if total_debit != total_credit:
+                raise serializers.ValidationError({
+                    'ecritures': f"La pièce n'est pas équilibrée : débit ({total_debit}) ≠ crédit ({total_credit})"
+                })
+
+        return attrs
+
+    def create(self, validated_data):
+        ecritures_data = validated_data.pop('ecritures', [])
+
+        instance = PieceComptable(**validated_data)
+        if self._generer_numero and not instance.numero_piece:
+            if instance.date_piece:
+                instance.generer_numero()
+        instance.save()
+
+        # Créer les écritures inline
+        if ecritures_data:
+            mandat = instance.mandat
+            exercice = mandat.exercices.filter(statut='OUVERT').first()
+            user = self.context.get('request', None)
+            user = user.user if user else None
+
+            # Le journal est auto-résolu par PieceComptable.save()
+            journal = instance.journal
+
+            for i, ecriture_data in enumerate(ecritures_data):
+                EcritureComptable.objects.create(
+                    mandat=mandat,
+                    exercice=exercice,
+                    journal=journal,
+                    piece=instance,
+                    numero_piece=instance.numero_piece,
+                    numero_ligne=i + 1,
+                    date_ecriture=instance.date_piece,
+                    compte=ecriture_data['compte'],
+                    libelle=ecriture_data['libelle'],
+                    montant_debit=ecriture_data.get('montant_debit', Decimal('0')),
+                    montant_credit=ecriture_data.get('montant_credit', Decimal('0')),
+                    code_tva=ecriture_data.get('code_tva', ''),
+                    tiers=ecriture_data.get('tiers'),
+                    statut='BROUILLON',
+                    created_by=user,
+                )
+
+            instance.calculer_equilibre()
+
+        # Auto-classement
+        if not instance.dossier and instance.type_piece:
+            dossier_cible = instance.type_piece.dossier_classement
+            if dossier_cible:
+                from documents.models import Dossier
+                from django.db.models import Q
+                _mandat = instance.mandat
+                dossier = Dossier.objects.filter(
+                    Q(client=_mandat.client) | Q(mandat=_mandat),
+                    nom=dossier_cible, is_active=True,
+                ).first()
+                if dossier:
+                    instance.dossier = dossier
+                    instance.save(update_fields=['dossier'])
+
         return instance
 
 
@@ -515,3 +664,167 @@ class CompteResultatsSerializer(serializers.Serializer):
     resultat_net = serializers.DecimalField(max_digits=15, decimal_places=2)
 
     details = serializers.JSONField()
+
+
+# ══════════════════════════════════════════════════════════════
+# COMPTABILITE ANALYTIQUE
+# ══════════════════════════════════════════════════════════════
+
+from .models import AxeAnalytique, SectionAnalytique, VentilationAnalytique
+
+
+class AxeAnalytiqueSerializer(serializers.ModelSerializer):
+    nb_sections = serializers.IntegerField(source='sections.count', read_only=True)
+
+    class Meta:
+        model = AxeAnalytique
+        fields = [
+            'id', 'mandat', 'code', 'libelle', 'description',
+            'obligatoire', 'ordre', 'nb_sections', 'is_active',
+        ]
+
+
+class SectionAnalytiqueSerializer(serializers.ModelSerializer):
+    axe_code = serializers.CharField(source='axe.code', read_only=True)
+    axe_libelle = serializers.CharField(source='axe.libelle', read_only=True)
+    parent_libelle = serializers.CharField(source='parent.libelle', read_only=True, allow_null=True)
+
+    class Meta:
+        model = SectionAnalytique
+        fields = [
+            'id', 'axe', 'axe_code', 'axe_libelle', 'parent', 'parent_libelle',
+            'code', 'libelle', 'description', 'budget_annuel',
+            'responsable', 'ordre', 'is_active',
+        ]
+
+
+class VentilationAnalytiqueSerializer(serializers.ModelSerializer):
+    section_code = serializers.CharField(source='section.code', read_only=True)
+    section_libelle = serializers.CharField(source='section.libelle', read_only=True)
+    axe_code = serializers.CharField(source='section.axe.code', read_only=True)
+
+    class Meta:
+        model = VentilationAnalytique
+        fields = [
+            'id', 'ecriture', 'section', 'section_code', 'section_libelle',
+            'axe_code', 'pourcentage', 'montant',
+        ]
+
+
+# ══════════════════════════════════════════════════════════════
+# IMMOBILISATIONS
+# ══════════════════════════════════════════════════════════════
+
+from .models import Immobilisation
+
+
+class ImmobilisationListSerializer(serializers.ModelSerializer):
+    methode_display = serializers.CharField(source='get_methode_amortissement_display', read_only=True)
+    statut_display = serializers.CharField(source='get_statut_display', read_only=True)
+
+    class Meta:
+        model = Immobilisation
+        fields = [
+            'id', 'numero', 'designation', 'categorie',
+            'date_acquisition', 'valeur_acquisition',
+            'methode_amortissement', 'methode_display',
+            'amortissement_cumule', 'valeur_nette_comptable',
+            'statut', 'statut_display',
+        ]
+
+
+class ImmobilisationDetailSerializer(serializers.ModelSerializer):
+    methode_display = serializers.CharField(source='get_methode_amortissement_display', read_only=True)
+    statut_display = serializers.CharField(source='get_statut_display', read_only=True)
+    compte_immobilisation_numero = serializers.CharField(
+        source='compte_immobilisation.numero', read_only=True
+    )
+    compte_amortissement_numero = serializers.CharField(
+        source='compte_amortissement.numero', read_only=True
+    )
+
+    class Meta:
+        model = Immobilisation
+        fields = [
+            'id', 'mandat', 'numero', 'designation', 'description', 'categorie',
+            'date_acquisition', 'date_mise_en_service', 'valeur_acquisition',
+            'fournisseur', 'numero_facture',
+            'compte_immobilisation', 'compte_immobilisation_numero',
+            'compte_amortissement', 'compte_amortissement_numero',
+            'compte_amort_cumule',
+            'methode_amortissement', 'methode_display',
+            'duree_amortissement_mois', 'taux_amortissement', 'valeur_residuelle',
+            'amortissement_cumule', 'valeur_nette_comptable',
+            'date_cession', 'prix_cession',
+            'statut', 'statut_display', 'devise', 'notes',
+            'created_at', 'updated_at',
+        ]
+
+
+class ImmobilisationCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Immobilisation
+        fields = [
+            'mandat', 'numero', 'designation', 'description', 'categorie',
+            'date_acquisition', 'date_mise_en_service', 'valeur_acquisition',
+            'fournisseur', 'numero_facture',
+            'compte_immobilisation', 'compte_amortissement', 'compte_amort_cumule',
+            'methode_amortissement', 'duree_amortissement_mois',
+            'taux_amortissement', 'valeur_residuelle',
+            'devise', 'notes',
+        ]
+
+    def create(self, validated_data):
+        validated_data['created_by'] = self.context['request'].user
+        validated_data['valeur_nette_comptable'] = validated_data['valeur_acquisition']
+        return super().create(validated_data)
+
+
+# ══════════════════════════════════════════════════════════════
+# RAPPROCHEMENT BANCAIRE
+# ══════════════════════════════════════════════════════════════
+
+from .models import ReleveBancaire, LigneReleve
+
+
+class LigneReleveSerializer(serializers.ModelSerializer):
+    statut_display = serializers.CharField(source='get_statut_display', read_only=True)
+
+    class Meta:
+        model = LigneReleve
+        fields = [
+            'id', 'date_valeur', 'date_operation', 'libelle', 'reference',
+            'montant', 'ecriture', 'statut', 'statut_display', 'date_rapprochement',
+        ]
+
+
+class ReleveBancaireListSerializer(serializers.ModelSerializer):
+    statut_display = serializers.CharField(source='get_statut_display', read_only=True)
+    compte_bancaire_libelle = serializers.CharField(source='compte_bancaire.libelle', read_only=True)
+
+    class Meta:
+        model = ReleveBancaire
+        fields = [
+            'id', 'compte_bancaire', 'compte_bancaire_libelle',
+            'date_debut', 'date_fin', 'solde_debut', 'solde_fin',
+            'nb_lignes', 'nb_rapprochees', 'ecart',
+            'statut', 'statut_display', 'created_at',
+        ]
+
+
+class ReleveBancaireDetailSerializer(serializers.ModelSerializer):
+    statut_display = serializers.CharField(source='get_statut_display', read_only=True)
+    compte_bancaire_libelle = serializers.CharField(source='compte_bancaire.libelle', read_only=True)
+    lignes = LigneReleveSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ReleveBancaire
+        fields = [
+            'id', 'mandat', 'compte_bancaire', 'compte_bancaire_libelle',
+            'journal', 'date_debut', 'date_fin', 'reference',
+            'solde_debut', 'solde_fin', 'devise',
+            'format_import', 'fichier_source',
+            'nb_lignes', 'nb_rapprochees', 'ecart',
+            'statut', 'statut_display', 'lignes',
+            'created_at', 'updated_at',
+        ]

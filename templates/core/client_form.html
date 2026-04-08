@@ -141,14 +141,29 @@
                             </div>
                         </div>
 
+                        <!-- Nom commercial -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.nom_commercial.id_for_label }}" class="form-label">
+                                    {{ form.nom_commercial.label }}
+                                </label>
+                                {{ form.nom_commercial }}
+                                {% if form.nom_commercial.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.nom_commercial.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
                         <!-- IDE Number -->
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="{{ form.ide_number.id_for_label }}" class="form-label">
-                                    {{ form.ide_number.label }} <span class="text-danger">*</span>
+                                    {{ form.ide_number.label }}
                                 </label>
                                 {{ form.ide_number }}
-                                <small class="text-muted">Format: CHE-123.456.789</small>
+                                <small class="text-muted">{% trans "Format: CHE-123.456.789 (optionnel)" %}</small>
                                 {% if form.ide_number.errors %}
                                 <div class="text-danger f-s-12 mt-1">
                                     {{ form.ide_number.errors }}
@@ -188,6 +203,36 @@
                             </div>
                         </div>
 
+                        <!-- TVA Number -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.tva_number.id_for_label }}" class="form-label">
+                                    {{ form.tva_number.label }}
+                                </label>
+                                {{ form.tva_number }}
+                                {% if form.tva_number.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.tva_number.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Site web -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.site_web.id_for_label }}" class="form-label">
+                                    {{ form.site_web.label }}
+                                </label>
+                                {{ form.site_web }}
+                                {% if form.site_web.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.site_web.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
                     </div>
 
                     <!-- Adresse du siège -->
@@ -202,6 +247,7 @@
                                     {{ form.email.label }} <span class="text-danger">*</span>
                                 </label>
                                 {{ form.email }}
+                                <small class="text-muted">{% trans "Email principal de l'entreprise" %}</small>
                                 {% if form.email.errors %}
                                 <div class="text-danger f-s-12 mt-1">
                                     {{ form.email.errors }}
@@ -245,16 +291,61 @@
                             </div>
                         </div>
 
-                        <!-- Date création -->
+                        <!-- Date création entreprise -->
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="{{ form.date_creation.id_for_label }}" class="form-label">
-                                    {{ form.date_creation.label }} <span class="text-danger">*</span>
+                                    {{ form.date_creation.label }}
                                 </label>
                                 {{ form.date_creation }}
                                 {% if form.date_creation.errors %}
                                 <div class="text-danger f-s-12 mt-1">
                                     {{ form.date_creation.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Date inscription RC -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.date_inscription_rc.id_for_label }}" class="form-label">
+                                    {{ form.date_inscription_rc.label }}
+                                </label>
+                                {{ form.date_inscription_rc }}
+                                {% if form.date_inscription_rc.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.date_inscription_rc.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Début exercice comptable -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.date_debut_exercice.id_for_label }}" class="form-label">
+                                    {{ form.date_debut_exercice.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.date_debut_exercice }}
+                                {% if form.date_debut_exercice.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.date_debut_exercice.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Fin exercice comptable -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.date_fin_exercice.id_for_label }}" class="form-label">
+                                    {{ form.date_fin_exercice.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.date_fin_exercice }}
+                                {% if form.date_fin_exercice.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.date_fin_exercice.errors }}
                                 </div>
                                 {% endif %}
                             </div>
@@ -267,6 +358,7 @@
                                     {{ form.statut.label }}
                                 </label>
                                 {{ form.statut }}
+                                <small class="text-muted">{% trans "Prospect = pas encore client actif" %}</small>
                                 {% if form.statut.errors %}
                                 <div class="text-danger f-s-12 mt-1">
                                     {{ form.statut.errors }}
@@ -275,21 +367,108 @@
                             </div>
                         </div>
 
-                        <!-- Description -->
+                        <!-- Responsable interne -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.responsable.id_for_label }}" class="form-label">
+                                    {{ form.responsable.label }}
+                                </label>
+                                {{ form.responsable }}
+                                <small class="text-muted">{% trans "Collaborateur interne en charge de ce dossier client" %}</small>
+                                {% if form.responsable.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ form.responsable.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Notes -->
                         <div class="col-12">
                             <div class="mb-3">
-                                <label for="{{ form.description.id_for_label }}" class="form-label">
-                                    {{ form.description.label }}
+                                <label for="{{ form.notes.id_for_label }}" class="form-label">
+                                    {{ form.notes.label }}
                                 </label>
-                                {{ form.description }}
-                                {% if form.description.errors %}
+                                {{ form.notes }}
+                                {% if form.notes.errors %}
                                 <div class="text-danger f-s-12 mt-1">
-                                    {{ form.description.errors }}
+                                    {{ form.notes.errors }}
                                 </div>
                                 {% endif %}
                             </div>
                         </div>
                     </div>
+
+                    <!-- Contact principal (création uniquement) -->
+                    {% if not object %}
+                    <h5 class="text-primary mt-4 mb-3">
+                        {% trans "Contact principal" %}
+                    </h5>
+                    <div class="alert alert-light border mb-3">
+                        <i class="ti ti-info-circle me-2"></i>
+                        {% trans "Personne de contact chez le client. Un accès externe pourra lui être envoyé ultérieurement depuis la fiche client." %}
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label for="{{ contact_form.civilite.id_for_label }}" class="form-label">
+                                    {{ contact_form.civilite.label }}
+                                </label>
+                                {{ contact_form.civilite }}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ contact_form.nom.id_for_label }}" class="form-label">
+                                    {{ contact_form.nom.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ contact_form.nom }}
+                                {% if contact_form.nom.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ contact_form.nom.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-5">
+                            <div class="mb-3">
+                                <label for="{{ contact_form.prenom.id_for_label }}" class="form-label">
+                                    {{ contact_form.prenom.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ contact_form.prenom }}
+                                {% if contact_form.prenom.errors %}
+                                <div class="text-danger f-s-12 mt-1">
+                                    {{ contact_form.prenom.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ contact_form.fonction.id_for_label }}" class="form-label">
+                                    {{ contact_form.fonction.label }}
+                                </label>
+                                {{ contact_form.fonction }}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ contact_form.email.id_for_label }}" class="form-label">
+                                    {% trans "Email du contact" %}
+                                </label>
+                                {{ contact_form.email }}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ contact_form.telephone.id_for_label }}" class="form-label">
+                                    {% trans "Téléphone du contact" %}
+                                </label>
+                                {{ contact_form.telephone }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
 
                     <!-- Actions -->
                     <div class="d-flex justify-content-end gap-2 mt-4">

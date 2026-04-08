@@ -2,6 +2,7 @@
 from django import forms
 from django.utils.translation import gettext_lazy as _
 from django.db.models import Q
+from django.forms import inlineformset_factory
 from decimal import Decimal
 from .models import (
     PlanComptable,
@@ -11,8 +12,11 @@ from .models import (
     PieceComptable,
     Lettrage,
     TypePieceComptable,
+    AxeAnalytique,
+    SectionAnalytique,
+    Immobilisation,
 )
-from core.models import Mandat, ExerciceComptable
+from core.models import Mandat, ExerciceComptable, ParametreMetier
 
 
 class PlanComptableForm(forms.ModelForm):
@@ -34,6 +38,7 @@ class PlanComptableForm(forms.ModelForm):
             "mandat",
             "devise",
             "base_sur",
+            "is_active",
         ]
         widgets = {
             "nom_fr": forms.TextInput(attrs={"class": "form-control"}),
@@ -57,6 +62,7 @@ class PlanComptableForm(forms.ModelForm):
             "mandat": forms.Select(attrs={"class": "form-control select2"}),
             "devise": forms.Select(attrs={"class": "form-control select2"}),
             "base_sur": forms.Select(attrs={"class": "form-control select2"}),
+            "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -188,9 +194,13 @@ class JournalForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Charger les types de journal depuis ParametreMetier
+        self.fields['type_journal'].choices = ParametreMetier.get_choices_with_default(
+            'comptabilite', 'type_journal', Journal.TYPE_CHOICES
+        )
         # Limiter les comptes au plan du mandat
         if self.instance and self.instance.mandat:
-            plan = self.instance.mandat.plans_comptables.first()
+            plan = self.instance.mandat.plan_comptable
             if plan:
                 self.fields[
                     "compte_contrepartie_defaut"
@@ -262,13 +272,27 @@ class EcritureComptableForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        self.mandat_obj = kwargs.pop('mandat', None)
         super().__init__(*args, **kwargs)
 
-        # Limiter les choix selon le mandat - SEULEMENT si l'instance a un PK (modification)
-        if self.instance.pk:
-            try:
-                mandat = self.instance.mandat
+        # Champs numériques avec default sur le modèle : accepter vide
+        for field_name in ('montant_debit', 'montant_credit', 'taux_change', 'montant_tva'):
+            if field_name in self.fields:
+                self.fields[field_name].required = False
 
+        # Devise: auto-remplie depuis le mandat, pas besoin de la montrer
+        self.fields['devise'].required = False
+        self.fields['devise'].widget = forms.HiddenInput()
+
+        # Déterminer le mandat (édition ou création)
+        mandat = None
+        if not self.instance._state.adding and self.instance.mandat_id:
+            mandat = self.instance.mandat
+        elif self.mandat_obj:
+            mandat = self.mandat_obj
+
+        if mandat:
+            try:
                 # Exercices du mandat
                 self.fields["exercice"].queryset = ExerciceComptable.objects.filter(
                     mandat=mandat
@@ -278,7 +302,7 @@ class EcritureComptableForm(forms.ModelForm):
                 self.fields["journal"].queryset = Journal.objects.filter(mandat=mandat)
 
                 # Comptes du plan
-                plan = mandat.plans_comptables.first()
+                plan = mandat.plan_comptable
                 if plan:
                     self.fields["compte"].queryset = Compte.objects.filter(
                         plan_comptable=plan, imputable=True
@@ -286,16 +310,47 @@ class EcritureComptableForm(forms.ModelForm):
 
                 # Documents du mandat
                 from documents.models import Document
-
                 self.fields["piece_justificative"].queryset = Document.objects.filter(
                     mandat=mandat
                 )
-            except:
-                # Si pas de mandat, laisser les querysets par défaut
+
+                # Pré-remplir devise et exercice en création
+                if self.instance._state.adding:
+                    if hasattr(mandat, 'devise_id') and mandat.devise_id:
+                        self.initial["devise"] = mandat.devise_id
+                    exercice_ouvert = mandat.exercices.filter(statut="OUVERT").first()
+                    if exercice_ouvert:
+                        self.initial["exercice"] = exercice_ouvert.pk
+            except Exception:
                 pass
+
+    def clean_montant_debit(self):
+        val = self.cleaned_data.get('montant_debit')
+        return val if val is not None else Decimal('0')
+
+    def clean_montant_credit(self):
+        val = self.cleaned_data.get('montant_credit')
+        return val if val is not None else Decimal('0')
+
+    def clean_taux_change(self):
+        val = self.cleaned_data.get('taux_change')
+        return val if val is not None else Decimal('1')
+
+    def clean_montant_tva(self):
+        val = self.cleaned_data.get('montant_tva')
+        return val if val is not None else Decimal('0')
 
     def clean(self):
         cleaned_data = super().clean()
+
+        # Auto-remplir devise depuis le mandat si non fournie
+        if not cleaned_data.get('devise'):
+            mandat = cleaned_data.get('mandat')
+            if mandat and hasattr(mandat, 'devise') and mandat.devise:
+                cleaned_data['devise'] = mandat.devise
+            else:
+                from core.models import Devise
+                cleaned_data['devise'] = Devise.get_devise_base()
 
         # Validation: soit débit, soit crédit (pas les deux)
         debit = cleaned_data.get("montant_debit", Decimal("0"))
@@ -700,3 +755,267 @@ class ImportEcrituresForm(forms.Form):
         label=_("La première ligne contient les en-têtes"),
         widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
     )
+
+
+# =============================================================================
+# ÉCRITURES INLINE DANS PIÈCE COMPTABLE
+# =============================================================================
+
+class EcritureInlinePieceForm(forms.ModelForm):
+    """Formulaire inline pour une écriture dans une pièce comptable."""
+
+    class Meta:
+        model = EcritureComptable
+        fields = [
+            'compte', 'libelle', 'montant_debit', 'montant_credit',
+            'code_tva', 'tiers',
+        ]
+        widgets = {
+            'compte': forms.Select(attrs={
+                'class': 'form-control select2 ecriture-compte',
+            }),
+            'libelle': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': _('Libellé'),
+            }),
+            'montant_debit': forms.NumberInput(attrs={
+                'class': 'form-control text-end ecriture-debit',
+                'step': '0.01',
+                'placeholder': '0.00',
+            }),
+            'montant_credit': forms.NumberInput(attrs={
+                'class': 'form-control text-end ecriture-credit',
+                'step': '0.01',
+                'placeholder': '0.00',
+            }),
+            'code_tva': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': _('Code TVA'),
+            }),
+            'tiers': forms.Select(attrs={
+                'class': 'form-control select2',
+            }),
+        }
+
+    def __init__(self, *args, mandat=None, **kwargs):
+        self.mandat_obj = mandat
+        super().__init__(*args, **kwargs)
+
+        # Champs numériques optionnels avec default
+        for field_name in ('montant_debit', 'montant_credit'):
+            self.fields[field_name].required = False
+        self.fields['code_tva'].required = False
+        self.fields['tiers'].required = False
+
+        # Filtrer comptes par plan du mandat
+        if mandat:
+            plan = mandat.plan_comptable
+            if plan:
+                self.fields['compte'].queryset = Compte.objects.filter(
+                    plan_comptable=plan, imputable=True
+                ).order_by('numero')
+
+    def clean_montant_debit(self):
+        val = self.cleaned_data.get('montant_debit')
+        return val if val is not None else Decimal('0')
+
+    def clean_montant_credit(self):
+        val = self.cleaned_data.get('montant_credit')
+        return val if val is not None else Decimal('0')
+
+    def clean(self):
+        cleaned_data = super().clean()
+        # Ignorer les lignes vides (pas de compte sélectionné)
+        if not cleaned_data.get('compte'):
+            return cleaned_data
+
+        debit = cleaned_data.get('montant_debit', Decimal('0'))
+        credit = cleaned_data.get('montant_credit', Decimal('0'))
+
+        if debit > 0 and credit > 0:
+            raise forms.ValidationError(
+                _("Une écriture ne peut pas avoir un montant au débit ET au crédit")
+            )
+        if debit == 0 and credit == 0:
+            raise forms.ValidationError(
+                _("Une écriture doit avoir un montant (débit ou crédit)")
+            )
+        return cleaned_data
+
+
+class BaseEcritureInlineFormSet(forms.BaseInlineFormSet):
+    """Formset de base avec validation d'équilibre."""
+
+    def __init__(self, *args, mandat=None, **kwargs):
+        self.mandat_obj = mandat
+        super().__init__(*args, **kwargs)
+
+    def get_form_kwargs(self, index):
+        kwargs = super().get_form_kwargs(index)
+        kwargs['mandat'] = self.mandat_obj
+        return kwargs
+
+    def clean(self):
+        super().clean()
+        if any(self.errors):
+            return
+
+        total_debit = Decimal('0')
+        total_credit = Decimal('0')
+        has_data = False
+
+        for form in self.forms:
+            if self.can_delete and self._should_delete_form(form):
+                continue
+            if not form.cleaned_data or not form.cleaned_data.get('compte'):
+                continue
+            has_data = True
+            total_debit += form.cleaned_data.get('montant_debit', Decimal('0'))
+            total_credit += form.cleaned_data.get('montant_credit', Decimal('0'))
+
+        if has_data and total_debit != total_credit:
+            raise forms.ValidationError(
+                _("La pièce n'est pas équilibrée : débit (%(debit)s) ≠ crédit (%(credit)s)") % {
+                    'debit': total_debit,
+                    'credit': total_credit,
+                }
+            )
+
+
+EcritureInlineFormSet = inlineformset_factory(
+    PieceComptable,
+    EcritureComptable,
+    form=EcritureInlinePieceForm,
+    formset=BaseEcritureInlineFormSet,
+    fk_name='piece',
+    extra=2,
+    min_num=2,
+    validate_min=True,
+    can_delete=True,
+)
+
+
+# =============================================================================
+# COMPTABILITÉ ANALYTIQUE
+# =============================================================================
+
+class AxeAnalytiqueForm(forms.ModelForm):
+    """Formulaire pour un axe analytique"""
+
+    class Meta:
+        model = AxeAnalytique
+        fields = ['code', 'libelle', 'description', 'obligatoire']
+        widgets = {
+            'code': forms.TextInput(attrs={'class': 'form-control'}),
+            'libelle': forms.TextInput(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'obligatoire': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
+class SectionAnalytiqueForm(forms.ModelForm):
+    """Formulaire pour une section analytique"""
+
+    class Meta:
+        model = SectionAnalytique
+        fields = ['code', 'libelle', 'description', 'budget_annuel', 'parent']
+        widgets = {
+            'code': forms.TextInput(attrs={'class': 'form-control'}),
+            'libelle': forms.TextInput(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'budget_annuel': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'parent': forms.Select(attrs={'class': 'form-control select2'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        axe = kwargs.pop('axe', None)
+        super().__init__(*args, **kwargs)
+        if axe:
+            self.fields['parent'].queryset = SectionAnalytique.objects.filter(
+                axe=axe
+            ).exclude(pk=self.instance.pk if self.instance.pk else None)
+        elif self.instance and self.instance.axe_id:
+            self.fields['parent'].queryset = SectionAnalytique.objects.filter(
+                axe=self.instance.axe
+            ).exclude(pk=self.instance.pk)
+        else:
+            self.fields['parent'].queryset = SectionAnalytique.objects.none()
+
+
+# =============================================================================
+# IMMOBILISATIONS
+# =============================================================================
+
+class ImmobilisationForm(forms.ModelForm):
+    """Formulaire pour une immobilisation"""
+
+    class Meta:
+        model = Immobilisation
+        fields = [
+            'mandat', 'numero', 'designation', 'description', 'categorie',
+            'date_acquisition', 'date_mise_en_service', 'valeur_acquisition',
+            'fournisseur', 'numero_facture',
+            'compte_immobilisation', 'compte_amortissement', 'compte_amort_cumule',
+            'methode_amortissement', 'duree_amortissement_mois',
+            'taux_amortissement', 'valeur_residuelle',
+            'statut', 'devise', 'notes',
+        ]
+        widgets = {
+            'mandat': forms.Select(attrs={'class': 'form-control select2'}),
+            'numero': forms.TextInput(attrs={'class': 'form-control'}),
+            'designation': forms.TextInput(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'categorie': forms.TextInput(attrs={'class': 'form-control'}),
+            'date_acquisition': forms.DateInput(
+                attrs={'class': 'form-control', 'type': 'date'},
+                format='%Y-%m-%d'
+            ),
+            'date_mise_en_service': forms.DateInput(
+                attrs={'class': 'form-control', 'type': 'date'},
+                format='%Y-%m-%d'
+            ),
+            'valeur_acquisition': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'fournisseur': forms.TextInput(attrs={'class': 'form-control'}),
+            'numero_facture': forms.TextInput(attrs={'class': 'form-control'}),
+            'compte_immobilisation': forms.Select(attrs={'class': 'form-control select2'}),
+            'compte_amortissement': forms.Select(attrs={'class': 'form-control select2'}),
+            'compte_amort_cumule': forms.Select(attrs={'class': 'form-control select2'}),
+            'methode_amortissement': forms.Select(attrs={'class': 'form-control select-basic'}),
+            'duree_amortissement_mois': forms.NumberInput(attrs={'class': 'form-control'}),
+            'taux_amortissement': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'valeur_residuelle': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'statut': forms.Select(attrs={'class': 'form-control select-basic'}),
+            'devise': forms.Select(attrs={'class': 'form-control select2'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Filtrer les comptes par le plan du mandat
+        mandat = None
+        if self.instance and self.instance.mandat_id:
+            mandat = self.instance.mandat
+        elif self.data.get('mandat'):
+            try:
+                from core.models import Mandat as MandatModel
+                mandat = MandatModel.objects.get(pk=self.data.get('mandat'))
+            except Exception:
+                pass
+
+        if mandat and hasattr(mandat, 'plan_comptable') and mandat.plan_comptable:
+            comptes_qs = Compte.objects.filter(
+                plan_comptable=mandat.plan_comptable
+            ).order_by('numero')
+            self.fields['compte_immobilisation'].queryset = comptes_qs
+            self.fields['compte_amortissement'].queryset = comptes_qs
+            self.fields['compte_amort_cumule'].queryset = comptes_qs
+
+        # Catégories depuis ParametreMetier
+        categories = ParametreMetier.get_choices_with_default(
+            'comptabilite', 'type_immobilisation', []
+        )
+        if categories:
+            self.fields['categorie'].widget = forms.Select(
+                attrs={'class': 'form-control select-basic'},
+                choices=[('', '---------')] + list(categories),
+            )

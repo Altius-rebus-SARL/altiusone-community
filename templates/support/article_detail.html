@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{{ article.titre }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{{ article.titre }}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'support:hub' %}">
+                    <span><i class="ph-duotone ph-lifebuoy f-s-16"></i> {% trans "Support" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'support:article-list' %}?categorie={{ article.categorie.code }}">
+                    {{ article.categorie.nom }}
+                </a>
+            </li>
+            <li class="active">{{ article.titre|truncatewords:5 }}</li>
+        </ul>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Main content -->
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="badge bg-light-{{ article.categorie.couleur|default:'primary' }} text-{{ article.categorie.couleur|default:'primary' }} me-2">
+                            <i class="{{ article.categorie.icone|default:'ph ph-article' }} me-1"></i>{{ article.categorie.nom }}
+                        </span>
+                        {% if article.module %}
+                        <span class="badge bg-light text-dark">{{ article.module }}</span>
+                        {% endif %}
+                    </div>
+                    <small class="text-muted">{{ article.created_at|date:"d.m.Y" }}</small>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if article.resume %}
+                <div class="alert alert-light border mb-4">
+                    <i class="ph ph-info me-2"></i>{{ article.resume }}
+                </div>
+                {% endif %}
+
+                <div class="article-content">
+                    {{ article.contenu|linebreaks }}
+                </div>
+            </div>
+            <div class="card-footer">
+                <a href="{% url 'support:article-list' %}?categorie={{ article.categorie.code }}" class="btn btn-light-primary">
+                    <i class="ph ph-arrow-left me-1"></i>{% trans "Retour aux articles" %}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar: related articles -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="ph ph-books me-2"></i>{% trans "Articles de la meme categorie" %}
+                </h6>
+            </div>
+            <div class="card-body p-0">
+                {% for related in related_articles %}
+                <a href="{% url 'support:article-detail' related.slug %}"
+                   class="d-block p-3 text-decoration-none {% if not forloop.last %}border-bottom{% endif %}">
+                    <h6 class="mb-1 text-dark">{{ related.titre }}</h6>
+                    {% if related.resume %}
+                    <p class="text-muted f-s-12 mb-0">{{ related.resume|truncatewords:12 }}</p>
+                    {% endif %}
+                </a>
+                {% empty %}
+                <div class="p-3 text-center">
+                    <p class="text-muted mb-0 f-s-13">{% trans "Aucun autre article dans cette categorie." %}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Back to hub -->
+        <div class="card mt-3">
+            <div class="card-body text-center">
+                <i class="ph-duotone ph-lifebuoy f-s-36 text-primary d-block mb-2"></i>
+                <p class="text-muted f-s-13 mb-2">{% trans "Vous ne trouvez pas ce que vous cherchez ?" %}</p>
+                <a href="{% url 'support:hub' %}" class="btn btn-sm btn-outline-primary">
+                    {% trans "Centre d'aide" %}
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

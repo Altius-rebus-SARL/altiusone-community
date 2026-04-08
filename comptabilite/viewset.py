@@ -28,6 +28,7 @@ from .serializers import (
     PieceComptableListSerializer,
     PieceComptableDetailSerializer,
     PieceComptableCreateSerializer,
+    PieceComptableCreateWithEcrituresSerializer,
     TypePieceComptableSerializer,
     LettrageSerializer,
     BalanceSerializer,
@@ -35,12 +36,12 @@ from .serializers import (
     CompteResultatsSerializer,
 )
 from .models import TypePieceComptable
+from core.models import Mandat
 
 
 class PlanComptableViewSet(viewsets.ModelViewSet):
     """ViewSet pour les plans comptables"""
 
-    queryset = PlanComptable.objects.all()
     serializer_class = PlanComptableSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [
@@ -52,10 +53,19 @@ class PlanComptableViewSet(viewsets.ModelViewSet):
     search_fields = ["nom", "description"]
     ordering = ["nom"]
 
+    def get_queryset(self):
+        qs = PlanComptable.objects.all()
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        # Templates are global, include them + plans linked to accessible mandats
+        return qs.filter(Q(is_template=True) | Q(mandat__in=accessible))
+
     @action(detail=False, methods=["get"])
     def templates(self, request):
         """Récupérer les plans comptables templates"""
-        templates = self.queryset.filter(is_template=True)
+        templates = self.get_queryset().filter(is_template=True)
         serializer = self.get_serializer(templates, many=True)
         return Response(serializer.data)
 
@@ -132,9 +142,16 @@ class CompteViewSet(viewsets.ModelViewSet):
     ordering = ["numero"]
 
     def get_queryset(self):
-        return Compte.objects.select_related(
+        qs = Compte.objects.select_related(
             "plan_comptable", "compte_parent"
         ).prefetch_related("sous_comptes")
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(
+            Q(plan_comptable__is_template=True) | Q(plan_comptable__mandat__in=accessible)
+        )
 
     def get_serializer_class(self):
         if self.action == "list":
@@ -199,7 +216,6 @@ class CompteViewSet(viewsets.ModelViewSet):
 class JournalViewSet(viewsets.ModelViewSet):
     """ViewSet pour les journaux"""
 
-    queryset = Journal.objects.all()
     serializer_class = JournalSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [
@@ -210,6 +226,16 @@ class JournalViewSet(viewsets.ModelViewSet):
     filterset_fields = ["mandat", "type_journal"]
     search_fields = ["code", "libelle"]
     ordering = ["code"]
+
+    def get_queryset(self):
+        qs = Journal.objects.filter(is_active=True).select_related(
+            'mandat', 'compte_contrepartie_defaut'
+        )
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(mandat__in=accessible)
 
     @action(detail=True, methods=["post"])
     def generer_numero(self, request, pk=None):
@@ -233,9 +259,14 @@ class EcritureComptableViewSet(viewsets.ModelViewSet):
     ordering = ["-date_ecriture", "numero_piece", "numero_ligne"]
 
     def get_queryset(self):
-        return EcritureComptable.objects.select_related(
-            "mandat", "journal", "compte", "exercice", "valide_par"
+        qs = EcritureComptable.objects.select_related(
+            "mandat", "journal", "compte", "exercice", "piece", "tiers", "valide_par"
         )
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(mandat__in=accessible)
 
     def get_serializer_class(self):
         if self.action == "create":
@@ -340,13 +371,18 @@ class PieceComptableViewSet(viewsets.ModelViewSet):
     ordering = ["-date_piece", "-created_at"]
 
     def get_queryset(self):
-        return PieceComptable.objects.select_related(
-            "mandat", "mandat__client", "journal", "type_piece", "dossier", "valide_par"
+        qs = PieceComptable.objects.select_related(
+            "mandat", "mandat__client", "journal", "type_piece", "tiers", "dossier", "valide_par"
         ).prefetch_related("documents", "ecritures")
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(mandat__in=accessible)
 
     def get_serializer_class(self):
         if self.action == "create":
-            return PieceComptableCreateSerializer
+            return PieceComptableCreateWithEcrituresSerializer
         elif self.action == "list":
             return PieceComptableListSerializer
         elif self.action in ["retrieve", "update", "partial_update"]:
@@ -494,15 +530,43 @@ class PieceComptableViewSet(viewsets.ModelViewSet):
         })
 
 
+    @action(detail=False, methods=["get"], url_path="comptes/(?P<mandat_pk>[^/.]+)")
+    def comptes(self, request, mandat_pk=None):
+        """Retourne les comptes imputables du plan actif d'un mandat.
+
+        GET /pieces/comptes/{mandat_pk}/
+        """
+        from django.shortcuts import get_object_or_404
+
+        mandat = get_object_or_404(Mandat, pk=mandat_pk)
+        plan = mandat.plan_comptable
+        if not plan:
+            return Response({"comptes": []})
+
+        comptes = Compte.objects.filter(
+            plan_comptable=plan, imputable=True, is_active=True,
+        ).order_by("numero")
+
+        serializer = CompteListSerializer(comptes, many=True)
+        return Response({"comptes": serializer.data})
+
+
 class LettrageViewSet(viewsets.ModelViewSet):
     """ViewSet pour les lettrages"""
 
-    queryset = Lettrage.objects.all()
     serializer_class = LettrageSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ["mandat", "compte", "complet"]
     ordering = ["-date_lettrage"]
+
+    def get_queryset(self):
+        qs = Lettrage.objects.all()
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(mandat__in=accessible)
 
     @action(detail=True, methods=["get"])
     def ecritures(self, request, pk=None):
@@ -673,11 +737,15 @@ class PaymentViewSet(viewsets.ViewSet):
             )
 
         order = Pain001GeneratorService.from_pieces_comptables(piece_ids, compte_bancaire)
+        skipped = getattr(order, '_skipped', [])
 
         if not order.payments:
             return Response(
-                {'error': 'Aucune piece valide trouvee pour les IDs fournis'},
-                status=status.HTTP_404_NOT_FOUND,
+                {
+                    'error': 'Aucune pièce valide pour générer le pain.001',
+                    'pieces_ignorees': skipped,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         xml_bytes = Pain001GeneratorService.generate(order)
@@ -685,6 +753,9 @@ class PaymentViewSet(viewsets.ViewSet):
         from django.http import HttpResponse
         response = HttpResponse(xml_bytes, content_type='application/xml')
         response['Content-Disposition'] = f'attachment; filename="pain001_{order.message_id}.xml"'
+        if skipped:
+            # Header informatif pour le frontend
+            response['X-Pieces-Ignorees'] = str(len(skipped))
         return response
 
 
@@ -706,9 +777,16 @@ class RapportsViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Récupérer tous les comptes du mandat
+        # Récupérer tous les comptes du mandat via le plan actif
+        mandat = Mandat.objects.filter(pk=mandat_id).first()
+        plan = mandat.plan_comptable if mandat else None
+        if not plan:
+            return Response(
+                {"error": "Aucun plan comptable trouvé pour ce mandat"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         comptes = Compte.objects.filter(
-            plan_comptable__mandat_id=mandat_id, imputable=True
+            plan_comptable=plan, imputable=True
         )
 
         balance_data = []
@@ -755,7 +833,8 @@ class RapportsViewSet(viewsets.ViewSet):
                 {"error": "mandat et date requis"}, status=status.HTTP_400_BAD_REQUEST
             )
 
-        plan = PlanComptable.objects.filter(mandat_id=mandat_id).first()
+        mandat = Mandat.objects.filter(pk=mandat_id).first()
+        plan = mandat.plan_comptable if mandat else None
         if not plan:
             return Response(
                 {"error": "Aucun plan comptable trouvé pour ce mandat"},
@@ -823,7 +902,8 @@ class RapportsViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        plan = PlanComptable.objects.filter(mandat_id=mandat_id).first()
+        mandat = Mandat.objects.filter(pk=mandat_id).first()
+        plan = mandat.plan_comptable if mandat else None
         if not plan:
             return Response(
                 {"error": "Aucun plan comptable trouvé pour ce mandat"},
@@ -878,3 +958,157 @@ class RapportsViewSet(viewsets.ViewSet):
 
         serializer = CompteResultatsSerializer(cr_data)
         return Response(serializer.data)
+
+
+# ══════════════════════════════════════════════════════════════
+# COMPTABILITE ANALYTIQUE
+# ══════════════════════════════════════════════════════════════
+
+from .models import AxeAnalytique, SectionAnalytique, VentilationAnalytique
+from .serializers import (
+    AxeAnalytiqueSerializer,
+    SectionAnalytiqueSerializer,
+    VentilationAnalytiqueSerializer,
+)
+
+
+class AxeAnalytiqueViewSet(viewsets.ModelViewSet):
+    serializer_class = AxeAnalytiqueSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['mandat']
+
+    def get_queryset(self):
+        qs = AxeAnalytique.objects.filter(
+            is_active=True
+        ).prefetch_related('sections')
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(mandat__in=accessible)
+
+
+class SectionAnalytiqueViewSet(viewsets.ModelViewSet):
+    serializer_class = SectionAnalytiqueSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['axe', 'axe__mandat', 'parent']
+    search_fields = ['code', 'libelle']
+
+    def get_queryset(self):
+        qs = SectionAnalytique.objects.filter(
+            is_active=True
+        ).select_related('axe', 'parent')
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(axe__mandat__in=accessible)
+
+
+class VentilationAnalytiqueViewSet(viewsets.ModelViewSet):
+    serializer_class = VentilationAnalytiqueSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['ecriture', 'section', 'section__axe']
+
+    def get_queryset(self):
+        qs = VentilationAnalytique.objects.select_related(
+            'section', 'section__axe'
+        )
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(section__axe__mandat__in=accessible)
+
+
+# ══════════════════════════════════════════════════════════════
+# IMMOBILISATIONS
+# ══════════════════════════════════════════════════════════════
+
+from .models import Immobilisation
+from .serializers import (
+    ImmobilisationListSerializer,
+    ImmobilisationDetailSerializer,
+    ImmobilisationCreateSerializer,
+)
+
+
+class ImmobilisationViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['mandat', 'statut', 'categorie', 'methode_amortissement']
+    search_fields = ['numero', 'designation', 'fournisseur']
+    ordering_fields = ['numero', 'date_acquisition', 'valeur_nette_comptable']
+    ordering = ['numero']
+
+    def get_queryset(self):
+        qs = Immobilisation.objects.filter(
+            is_active=True
+        ).select_related('compte_immobilisation', 'compte_amortissement', 'devise')
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(mandat__in=accessible)
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return ImmobilisationListSerializer
+        if self.action == 'create':
+            return ImmobilisationCreateSerializer
+        return ImmobilisationDetailSerializer
+
+
+# ══════════════════════════════════════════════════════════════
+# RAPPROCHEMENT BANCAIRE
+# ══════════════════════════════════════════════════════════════
+
+from .models import ReleveBancaire, LigneReleve
+from .serializers import (
+    ReleveBancaireListSerializer,
+    ReleveBancaireDetailSerializer,
+    LigneReleveSerializer,
+)
+
+
+class ReleveBancaireViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ['mandat', 'compte_bancaire', 'statut']
+    ordering = ['-date_fin']
+
+    def get_queryset(self):
+        qs = ReleveBancaire.objects.filter(
+            is_active=True
+        ).select_related('compte_bancaire', 'devise')
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(mandat__in=accessible)
+
+    def get_serializer_class(self):
+        if self.action in ('retrieve',):
+            return ReleveBancaireDetailSerializer
+        return ReleveBancaireListSerializer
+
+
+class LigneReleveViewSet(viewsets.ModelViewSet):
+    serializer_class = LigneReleveSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['releve', 'statut']
+    search_fields = ['libelle', 'reference']
+
+    def get_queryset(self):
+        qs = LigneReleve.objects.filter(
+            is_active=True
+        ).select_related('ecriture')
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(releve__mandat__in=accessible)

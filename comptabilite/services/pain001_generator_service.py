@@ -206,22 +206,43 @@ class Pain001GeneratorService:
             statut='VALIDE',
         ).select_related('type_piece')
 
+        # Résoudre le pays depuis le compte bancaire ou le mandat
+        pays = 'CH'
+        if hasattr(compte_bancaire, 'titulaire_adresse') and compte_bancaire.titulaire_adresse:
+            pays = getattr(compte_bancaire.titulaire_adresse, 'pays', 'CH') or 'CH'
+
         order = PaymentOrder(
             debtor_name=compte_bancaire.titulaire_nom,
             debtor_iban=compte_bancaire.iban,
             debtor_bic=compte_bancaire.bic_swift,
-            debtor_country='CH',
+            debtor_country=str(pays),
         )
 
         if compte_bancaire.titulaire_adresse:
             addr = compte_bancaire.titulaire_adresse
             order.debtor_address_line = f"{addr}"
 
+        skipped = []
+
         for piece in pieces:
+            # Valider le montant
+            amount = piece.montant_ttc or Decimal('0')
+            if amount <= 0:
+                skipped.append({
+                    'piece': piece.numero_piece,
+                    'raison': f"Montant invalide ({amount})",
+                })
+                continue
+
+            # Devise depuis le mandat ou fallback devise base
+            devise_code = 'CHF'
+            if hasattr(piece, 'mandat') and piece.mandat_id:
+                devise_code = piece.mandat.devise_id or 'CHF'
+
             payment = Payment(
                 creditor_name=piece.tiers_nom or 'Fournisseur inconnu',
-                amount=piece.montant_ttc or Decimal('0'),
-                currency='CHF',
+                amount=amount,
+                currency=str(devise_code),
                 remittance_info=f"{piece.numero_piece} - {piece.libelle}"[:140],
                 execution_date=date.today(),
                 piece_id=str(piece.id),
@@ -229,12 +250,40 @@ class Pain001GeneratorService:
 
             # Chercher l'IBAN dans les metadata OCR si disponible
             if piece.metadata_ocr and isinstance(piece.metadata_ocr, dict):
-                payment.creditor_iban = piece.metadata_ocr.get('iban', '')
+                raw_iban = piece.metadata_ocr.get('iban', '')
+                if raw_iban:
+                    from core.validators import clean_iban, validate_iban
+                    cleaned = clean_iban(raw_iban)
+                    if validate_iban(cleaned):
+                        payment.creditor_iban = cleaned
+                    else:
+                        skipped.append({
+                            'piece': piece.numero_piece,
+                            'raison': f"IBAN OCR invalide: {raw_iban}",
+                        })
+                        continue
+
                 payment.reference = piece.metadata_ocr.get('reference', '')
                 ref_type = piece.metadata_ocr.get('reference_type', 'NON')
                 if ref_type in ('QRR', 'SCOR', 'NON'):
                     payment.reference_type = ref_type
 
+            # Un paiement sans IBAN créancier n'a pas de sens
+            if not payment.creditor_iban:
+                skipped.append({
+                    'piece': piece.numero_piece,
+                    'raison': "Aucun IBAN créancier",
+                })
+                continue
+
             order.payments.append(payment)
 
+        if skipped:
+            logger.warning(
+                "pain.001: %d pièce(s) ignorée(s): %s",
+                len(skipped),
+                "; ".join(f"{s['piece']}: {s['raison']}" for s in skipped),
+            )
+
+        order._skipped = skipped
         return order

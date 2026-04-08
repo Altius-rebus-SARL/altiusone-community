@@ -1,17 +1,15 @@
 # documents/chat_service.py
 """
-Service de chat IA avec recherche universelle.
+Service de chat IA — flux sémantique direct.
 
-Fournit une interface pour interagir avec l'assistant AI
-en utilisant le contexte de TOUTES les donnees de la base:
-- Documents (avec recherche semantique)
-- Clients, Mandats, Employes
-- Factures, Ecritures comptables
-- Declarations TVA/fiscales
-- Et plus encore...
-
-Chaque resultat est cliquable et renvoie vers la fiche correspondante.
+Le flux (1 seul appel LLM, ~30s au lieu de ~2min):
+1. Embedding de la question (~50ms)
+2. Recherche pgvector sur TOUS les modules (~100ms)
+3. Contexte pré-mâché injecté dans le prompt
+4. UN SEUL appel LLM pour formuler la réponse (~30s)
+5. Sources cliquables affichées automatiquement
 """
+import json as _json
 import logging
 import time
 from typing import Optional, List, Dict, Any
@@ -81,47 +79,19 @@ class ChatService:
     - Resultats cliquables avec liens vers les fiches
     """
 
-    # Prompt systeme par defaut - enrichi pour gerer tous les types de donnees
-    DEFAULT_SYSTEM_PROMPT = """Tu es un assistant IA specialise en gestion d'entreprise.
-Tu as acces a toutes les donnees de l'entreprise:
-- Documents (factures, contrats, releves, etc.)
-- Clients et contacts
-- Mandats et dossiers
-- Employes et fiches de salaire
-- Types de plans comptables (PME Suisse, OHADA, Swiss GAAP RPC, etc.)
-- Classes comptables (structure des comptes par type de plan)
-- Plans comptables (instances pour chaque mandat)
-- Comptes et journaux comptables
-- Pieces comptables (factures d'achat/vente, notes de frais, etc.)
-- Ecritures comptables
-- Declarations TVA et fiscales
-- Taches et projets
+    # Prompt systeme — flux sémantique (embedding → pgvector → contexte → LLM)
+    # Le LLM reçoit les données pré-trouvées, pas d'outil à appeler.
+    SYSTEM_PROMPT = """Tu es l'assistant IA d'AltiusOne, logiciel de gestion pour fiduciaires suisses.
 
-REGLES IMPORTANTES:
-1. Reponds toujours en francais
-2. Base tes reponses UNIQUEMENT sur les donnees fournies en contexte
-3. Si tu trouves des informations, cite TOUJOURS la source avec son type et son lien
-4. Pour les montants, utilise le format suisse (ex: 1'000.00 CHF)
-5. Si tu ne trouves pas l'information demandee, dis-le clairement
-6. Quand tu mentionnes une entite (client, employe, document, plan comptable, etc.),
-   indique qu'elle est cliquable pour voir la fiche complete
+REGLES:
+1. Reponds dans la langue de l'utilisateur (francais, allemand, italien ou anglais).
+2. Utilise UNIQUEMENT les donnees fournies ci-dessous. N'invente JAMAIS de donnees.
+3. Presente les resultats clairement. Les sources sont affichees automatiquement — ne mets pas de liens.
+4. Montants au format suisse: 1'234.56 CHF.
+5. Si aucune donnee n'est trouvee, dis simplement que tu n'as pas trouve l'information.
+6. Ne corrige JAMAIS les noms propres ou raisons sociales.
 
-FORMAT DES SOURCES:
-Quand tu cites une source, utilise ce format:
-- Pour un document: [Document: nom_fichier]
-- Pour un client: [Client: raison_sociale]
-- Pour un employe: [Employe: prenom nom]
-- Pour un utilisateur: [Utilisateur: prenom nom]
-- Pour une facture: [Facture: numero]
-- Pour une piece comptable: [Piece: numero - libelle]
-- Pour un type de plan: [Type de plan: code - nom]
-- Pour une classe comptable: [Classe: numero - libelle]
-- Pour un plan comptable: [Plan comptable: nom]
-- Pour un journal: [Journal: code - libelle]
-- Pour un compte: [Compte: numero - libelle]
-- etc.
-
-CONTEXTE DISPONIBLE:
+DONNEES TROUVEES:
 {contexte}
 """
 
@@ -173,23 +143,19 @@ CONTEXTE DISPONIBLE:
         conversation,
         message: str,
         use_semantic_search: bool = True,
-        max_context_results: int = 10,
+        max_context_results: int = 5,
         similarity_threshold: float = 0.3,
         entity_types: Optional[List[EntityType]] = None
     ) -> ChatResponse:
         """
-        Envoie un message dans une conversation et retourne la reponse.
+        Flux sémantique direct — 1 seul appel LLM.
 
-        Args:
-            conversation: Instance Conversation
-            message: Message de l'utilisateur
-            use_semantic_search: Utiliser la recherche semantique
-            max_context_results: Nombre max de resultats pour le contexte
-            similarity_threshold: Seuil de similarite
-            entity_types: Types d'entites a rechercher (None = tous)
+        1. Embedding de la question (~50ms)
+        2. Recherche pgvector sur TOUS les modules (~100ms)
+        3. Contexte pré-mâché injecté dans le prompt
+        4. UN SEUL appel LLM pour formuler la réponse (~30s)
 
-        Returns:
-            ChatResponse avec la reponse, sources et entites
+        Total: ~30s au lieu de ~2min avec le tool calling.
         """
         from documents.models import Message, Document
 
@@ -203,84 +169,86 @@ CONTEXTE DISPONIBLE:
                 contenu=message
             )
 
-            # 2. Recherche universelle
-            search_results = []
-            sources = []
-            entities = []
-
-            if use_semantic_search:
-                search_results = self._search_all_entities(
-                    query=message,
-                    conversation=conversation,
-                    limit=max_context_results,
-                    entity_types=entity_types or self.DEFAULT_ENTITY_TYPES
-                )
-
-                # Separer documents et autres entites
-                for result in search_results:
-                    source_info = SourceInfo(
-                        entity_type=result.entity_type.value,
-                        entity_id=result.entity_id,
-                        title=result.title,
-                        subtitle=result.subtitle,
-                        url=result.url,
-                        icon=result.icon,
-                        color=result.color,
-                        score=result.score,
-                        snippet=result.description[:200] if result.description else '',
-                        metadata=result.metadata
-                    )
-
-                    if result.entity_type == EntityType.DOCUMENT:
-                        sources.append(source_info.to_dict())
-                    else:
-                        entities.append(source_info.to_dict())
-
-            # 3. Construire le prompt systeme avec contexte
-            system_prompt = self._build_system_prompt(
+            # 2. Recherche sémantique dans TOUS les modules (pgvector)
+            search_results = self._search_all_entities(
+                query=message,
                 conversation=conversation,
-                search_results=search_results
+                limit=max_context_results,
+                entity_types=entity_types or self.DEFAULT_ENTITY_TYPES,
             )
 
-            # 4. Construire l'historique de conversation
+            # 3. Construire le contexte à partir des résultats
+            all_sources = []
+            for r in search_results:
+                all_sources.append({
+                    'entity_type': r.entity_type.value,
+                    'entity_id': r.entity_id,
+                    'title': r.title,
+                    'subtitle': r.subtitle,
+                    'url': r.url,
+                    'icon': r.icon,
+                    'color': r.color,
+                    'score': round(r.score, 3),
+                })
+
+            # 4. Construire le system prompt avec le contexte
+            system_prompt = self._build_system_prompt(conversation, search_results)
+
+            # Ajouter le contexte mandat(s)
+            mandats_qs = conversation.mandats.select_related('client').all()
+            if mandats_qs.exists():
+                parts = [
+                    f"Mandat {m.numero} - {m.client.raison_sociale if m.client else 'N/A'}"
+                    for m in mandats_qs
+                ]
+                system_prompt += f"\nContexte: {' | '.join(parts)}"
+
             history = self._build_conversation_history(conversation)
 
-            # 5. Appeler l'API AI
+            # 5. Construire les messages — PAS de tools, juste system + history + user
+            messages = [{'role': 'system', 'content': system_prompt}]
+            if history:
+                for msg in history[:-1]:
+                    role = msg.get('role', '').lower()
+                    content = msg.get('content', '')
+                    if role in ['user', 'assistant'] and content:
+                        messages.append({'role': role, 'content': content})
+            messages.append({'role': 'user', 'content': message})
+
+            # 6. UN SEUL appel LLM (pas de tools)
             ai_response = self.ai_service.chat(
-                message=message,
-                history=history,
-                system_prompt=system_prompt,
-                temperature=float(conversation.temperature)
+                messages_override=messages,
+                temperature=float(conversation.temperature),
             )
 
             duree_ms = int((time.time() - start_time) * 1000)
+            response_text = ai_response.get('response', '')
 
-            # 6. Sauvegarder la reponse de l'assistant
-            # Combiner sources et entities pour le stockage
-            all_sources = sources + entities
+            # 7. Séparer sources et entités
+            sources = [s for s in all_sources if s.get('entity_type') == 'document']
+            entities = [s for s in all_sources if s.get('entity_type') != 'document']
 
+            # 8. Sauvegarder la réponse
             assistant_message = Message.objects.create(
                 conversation=conversation,
                 role='ASSISTANT',
-                contenu=ai_response.get('response', ''),
+                contenu=response_text,
                 tokens_prompt=ai_response.get('tokens_prompt', 0),
                 tokens_completion=ai_response.get('tokens_completion', 0),
                 duree_ms=duree_ms,
                 sources=all_sources
             )
 
-            # Associer les documents de contexte
             doc_ids = [s['entity_id'] for s in sources]
             if doc_ids:
                 docs = Document.objects.filter(id__in=doc_ids)
                 assistant_message.documents_contexte.set(docs)
 
-            # Generer le titre si c'est le premier message
             if conversation.nombre_messages <= 2:
                 conversation.generer_titre()
 
             return ChatResponse(
-                contenu=ai_response.get('response', ''),
+                contenu=response_text,
                 sources=sources,
                 entities=entities,
                 tokens_prompt=ai_response.get('tokens_prompt', 0),
@@ -292,12 +260,10 @@ CONTEXTE DISPONIBLE:
             logger.error(f"Erreur chat conversation {conversation.id}: {e}")
             duree_ms = int((time.time() - start_time) * 1000)
 
-            # Sanitize error message (never save raw HTML)
             error_str = str(e)
             if '<html' in error_str.lower() or '<!doctype' in error_str.lower():
                 error_str = "Le service IA est temporairement indisponible"
 
-            # Sauvegarder le message d'erreur
             Message.objects.create(
                 conversation=conversation,
                 role='SYSTEM',
@@ -306,7 +272,7 @@ CONTEXTE DISPONIBLE:
             )
 
             return ChatResponse(
-                contenu="Desolee, une erreur s'est produite lors du traitement de votre message.",
+                contenu="Désolé, une erreur s'est produite lors du traitement de votre message.",
                 sources=[],
                 entities=[],
                 tokens_prompt=0,
@@ -320,21 +286,18 @@ CONTEXTE DISPONIBLE:
         conversation,
         message: str,
         use_semantic_search: bool = True,
-        max_context_results: int = 10,
+        max_context_results: int = 5,
         entity_types=None
     ):
         """
-        Stream a chat response as SSE events.
+        Flux sémantique direct en streaming.
 
-        Yields JSON-serializable dicts with a 'type' field:
-        - sources: search results found
-        - token: individual AI token
-        - done: AI generation finished
-        - message_saved: assistant message persisted
-        - error: something went wrong
+        1. Recherche pgvector (~100ms) — pas d'appel LLM
+        2. Yield les sources immédiatement
+        3. Stream la réponse LLM token par token (~30s)
+
+        Yields JSON dicts: sources, token, done, message_saved, error
         """
-        import json as _json
-        import time
         from documents.models import Message, Document
 
         start_time = time.time()
@@ -347,63 +310,64 @@ CONTEXTE DISPONIBLE:
                 contenu=message
             )
 
-            # 2. Universal search
-            search_results = []
-            sources = []
-            entities = []
+            # 2. Recherche sémantique pgvector (~100ms)
+            search_results = self._search_all_entities(
+                query=message,
+                conversation=conversation,
+                limit=max_context_results,
+                entity_types=entity_types or self.DEFAULT_ENTITY_TYPES,
+            )
 
-            if use_semantic_search:
-                search_results = self._search_all_entities(
-                    query=message,
-                    conversation=conversation,
-                    limit=max_context_results,
-                    entity_types=entity_types or self.DEFAULT_ENTITY_TYPES
-                )
+            all_sources = []
+            for r in search_results:
+                all_sources.append({
+                    'entity_type': r.entity_type.value,
+                    'entity_id': r.entity_id,
+                    'title': r.title,
+                    'subtitle': r.subtitle,
+                    'url': r.url,
+                    'icon': r.icon,
+                    'color': r.color,
+                    'score': round(r.score, 3),
+                })
 
-                for result in search_results:
-                    source_info = SourceInfo(
-                        entity_type=result.entity_type.value,
-                        entity_id=result.entity_id,
-                        title=result.title,
-                        subtitle=result.subtitle,
-                        url=result.url,
-                        icon=result.icon,
-                        color=result.color,
-                        score=result.score,
-                        snippet=result.description[:200] if result.description else '',
-                        metadata=result.metadata
-                    )
+            # 3. Yield sources immédiatement (avant le LLM)
+            sources = [s for s in all_sources if s.get('entity_type') == 'document']
+            entities = [s for s in all_sources if s.get('entity_type') != 'document']
 
-                    if result.entity_type == EntityType.DOCUMENT:
-                        sources.append(source_info.to_dict())
-                    else:
-                        entities.append(source_info.to_dict())
-
-            # 3. Yield sources event
             yield _json.dumps({
                 'type': 'sources',
                 'sources': sources,
                 'entities': entities,
             }) + '\n'
 
-            # 4. Build system prompt and history
-            system_prompt = self._build_system_prompt(
-                conversation=conversation,
-                search_results=search_results
-            )
-            history = self._build_conversation_history(conversation)
+            # 4. Construire le prompt avec contexte
+            system_prompt = self._build_system_prompt(conversation, search_results)
+            mandats_qs = conversation.mandats.select_related('client').all()
+            if mandats_qs.exists():
+                parts = [
+                    f"Mandat {m.numero} - {m.client.raison_sociale if m.client else 'N/A'}"
+                    for m in mandats_qs
+                ]
+                system_prompt += f"\nContexte: {' | '.join(parts)}"
 
-            # 5. Stream AI response
+            history = self._build_conversation_history(conversation)
+            messages = [{'role': 'system', 'content': system_prompt}]
+            if history:
+                for msg in history[:-1]:
+                    role = msg.get('role', '').lower()
+                    content = msg.get('content', '')
+                    if role in ['user', 'assistant'] and content:
+                        messages.append({'role': role, 'content': content})
+            messages.append({'role': 'user', 'content': message})
+
+            # 5. Stream la réponse LLM (UN SEUL appel, pas de tools)
             full_response = ''
-            model_name = ''
-            tokens_used = 0
-            processing_time_ms = 0
+            total_tokens = 0
 
             for event in self.ai_service.chat_stream(
-                message=message,
-                history=history,
-                system_prompt=system_prompt,
-                temperature=float(conversation.temperature)
+                messages_override=messages,
+                temperature=float(conversation.temperature),
             ):
                 if event.get('error'):
                     yield _json.dumps({
@@ -413,16 +377,14 @@ CONTEXTE DISPONIBLE:
                     return
 
                 if event.get('done'):
-                    model_name = event.get('model', '')
-                    tokens_used = event.get('tokens_used', 0)
-                    processing_time_ms = event.get('processing_time_ms', 0)
+                    total_tokens = event.get('tokens_used', 0)
                     yield _json.dumps({
                         'type': 'done',
-                        'model': model_name,
-                        'tokens_used': tokens_used,
-                        'processing_time_ms': processing_time_ms,
+                        'model': event.get('model', ''),
+                        'tokens_used': total_tokens,
+                        'processing_time_ms': event.get('processing_time_ms', 0),
                     }) + '\n'
-                else:
+                elif event.get('type') == 'token':
                     token = event.get('token', '')
                     if token:
                         full_response += token
@@ -433,14 +395,13 @@ CONTEXTE DISPONIBLE:
 
             # 6. Save assistant message
             duree_ms = int((time.time() - start_time) * 1000)
-            all_sources = sources + entities
 
             assistant_message = Message.objects.create(
                 conversation=conversation,
                 role='ASSISTANT',
                 contenu=full_response,
                 tokens_prompt=0,
-                tokens_completion=tokens_used,
+                tokens_completion=total_tokens,
                 duree_ms=duree_ms,
                 sources=all_sources
             )
@@ -450,13 +411,11 @@ CONTEXTE DISPONIBLE:
                 docs = Document.objects.filter(id__in=doc_ids)
                 assistant_message.documents_contexte.set(docs)
 
-            # 7. Yield message_saved event
             yield _json.dumps({
                 'type': 'message_saved',
                 'message_id': str(assistant_message.id),
             }) + '\n'
 
-            # 8. Generate title if first message
             if conversation.nombre_messages <= 2:
                 conversation.generer_titre()
 
@@ -492,8 +451,9 @@ CONTEXTE DISPONIBLE:
         """
         # Construire le contexte de recherche
         mandat_ids = None
-        if conversation.mandat:
-            mandat_ids = [str(conversation.mandat.id)]
+        mandats_qs = conversation.mandats.all()
+        if mandats_qs.exists():
+            mandat_ids = [str(m.id) for m in mandats_qs]
 
         context = SearchContext(
             user=conversation.utilisateur,
@@ -519,59 +479,37 @@ CONTEXTE DISPONIBLE:
         search_results: List[SearchResult]
     ) -> str:
         """
-        Construit le prompt systeme avec le contexte universel.
+        Construit le prompt système — compact pour modèle 3B.
 
-        Args:
-            conversation: Conversation
-            search_results: Resultats de recherche
-
-        Returns:
-            Prompt systeme complet
+        Max ~2000 tokens de contexte pour éviter les timeouts.
         """
-        # Utiliser le contexte personnalise si defini
-        if conversation.contexte_systeme:
-            base_prompt = conversation.contexte_systeme
-        else:
-            base_prompt = self.DEFAULT_SYSTEM_PROMPT
-
-        # Construire le contexte a partir des resultats
-        contexte_parts = []
+        base_prompt = conversation.contexte_systeme or self.SYSTEM_PROMPT
 
         if not search_results:
-            contexte_parts.append("""
-ATTENTION: Aucune donnee n'a ete trouvee correspondant a cette requete.
-Cela peut signifier:
-- Les donnees n'ont pas encore ete indexees
-- La requete ne correspond a aucune entite dans la base
-- L'utilisateur n'a pas acces aux donnees demandees
-
-Reponds en indiquant que tu n'as pas trouve de donnees pertinentes.
-""")
+            contexte = "Aucune donnee trouvee pour cette requete."
         else:
-            # Grouper par type d'entite
-            by_type = {}
-            for result in search_results:
-                type_name = result.entity_type.value
-                if type_name not in by_type:
-                    by_type[type_name] = []
-                by_type[type_name].append(result)
+            # Format compact — 1 ligne par résultat, max 5
+            lines = []
+            for r in search_results[:5]:
+                line = f"- [{r.entity_type.value}] {r.title}"
+                if r.subtitle:
+                    line += f" | {r.subtitle}"
+                # Métadonnées importantes seulement
+                for key in ('montant_ttc', 'statut', 'date_emission', 'date_document', 'email'):
+                    val = r.metadata.get(key)
+                    if val:
+                        line += f" | {key}: {val}"
+                lines.append(line)
+            contexte = "\n".join(lines)
 
-            for type_name, results in by_type.items():
-                contexte_parts.append(f"\n=== {type_name.upper()}S TROUVES ({len(results)}) ===")
-
-                for result in results:
-                    contexte_parts.append(self._format_result_for_context(result))
-
-        contexte = "\n".join(contexte_parts)
-
-        # Ajouter info sur le mandat si specifie
-        if conversation.mandat:
-            contexte = f"Contexte: Mandat {conversation.mandat.numero} - {conversation.mandat.client.raison_sociale if conversation.mandat.client else 'N/A'}\n\n" + contexte
-
-        # Ajouter le contexte intelligence (insights, relations, digest)
-        intelligence_context = self._build_intelligence_context(conversation)
-        if intelligence_context:
-            contexte += "\n\n" + intelligence_context
+        # Ajouter mandats si spécifiés
+        mandats_qs = conversation.mandats.select_related('client').all()
+        if mandats_qs.exists():
+            parts = [
+                f"Mandat {m.numero} - {m.client.raison_sociale if m.client else 'N/A'}"
+                for m in mandats_qs
+            ]
+            contexte = " | ".join(parts) + "\n\n" + contexte
 
         return base_prompt.format(contexte=contexte)
 
@@ -580,8 +518,8 @@ Reponds en indiquant que tu n'as pas trouve de donnees pertinentes.
         Construit le contexte intelligence (insights, relations, digest).
         """
         sections = []
-        mandat = conversation.mandat
-        if not mandat:
+        mandats_qs = conversation.mandats.all()
+        if not mandats_qs.exists():
             return ""
 
         try:
@@ -591,7 +529,7 @@ Reponds en indiquant que tu n'as pas trouve de donnees pertinentes.
 
             # Insights non traites
             insights = MandatInsight.objects.filter(
-                mandat=mandat, traite=False
+                mandat__in=mandats_qs, traite=False
             ).filter(
                 Q(date_expiration__isnull=True) | Q(date_expiration__gt=timezone.now())
             ).order_by('-severite', '-created_at')[:10]
@@ -634,7 +572,7 @@ Reponds en indiquant que tu n'as pas trouve de donnees pertinentes.
 
             # Dernier digest
             digest = MandatDigest.objects.filter(
-                mandat=mandat
+                mandat__in=mandats_qs
             ).order_by('-periode_fin').first()
 
             if digest:
@@ -650,17 +588,19 @@ Reponds en indiquant que tu n'as pas trouve de donnees pertinentes.
         return "\n".join(sections)
 
     def _format_result_for_context(self, result: SearchResult) -> str:
-        """Formate un resultat pour inclusion dans le contexte."""
+        """Formate un resultat pour inclusion dans le contexte IA.
+
+        N'inclut PAS de lien/URL — les sources cliquables sont affichees
+        separement dans l'interface.
+        """
         lines = [
             f"\n--- {result.entity_type.value.upper()}: {result.title} ---",
-            f"Lien: {result.url}",
         ]
 
         if result.subtitle:
             lines.append(f"Info: {result.subtitle}")
 
         if result.description:
-            # Limiter la description
             desc = result.description[:1500]
             if len(result.description) > 1500:
                 desc += "..."

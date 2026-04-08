@@ -28,7 +28,9 @@ from core.forms import (
     UserForm,
     UserCreateForm,
     RoleForm,
+    AdresseForm,
     EntrepriseForm,
+    CompteBancaireFormSet,
     InvitationStaffForm,
     InvitationClientForm,
     AcceptInvitationForm,
@@ -356,9 +358,33 @@ class EntrepriseCreateView(LoginRequiredMixin, AdminRequiredMixin, CreateView):
     template_name = "core/entreprise_form.html"
     success_url = reverse_lazy('core:entreprise-list')
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.POST:
+            context['comptes_formset'] = CompteBancaireFormSet(self.request.POST, prefix='comptes')
+            context['adresse_form'] = AdresseForm(self.request.POST, prefix='adresse')
+        else:
+            context['comptes_formset'] = CompteBancaireFormSet(prefix='comptes')
+            context['adresse_form'] = AdresseForm(prefix='adresse')
+        return context
+
     def form_valid(self, form):
-        messages.success(self.request, _("Entreprise créée avec succès"))
-        return super().form_valid(form)
+        context = self.get_context_data()
+        comptes_formset = context['comptes_formset']
+        adresse_form = AdresseForm(self.request.POST, prefix='adresse')
+        if comptes_formset.is_valid() and adresse_form.is_valid():
+            adresse = adresse_form.save()
+            form.instance.adresse = adresse
+            # Synchroniser siege depuis l'adresse
+            if adresse.localite:
+                form.instance.siege = form.instance.siege or adresse.localite
+            self.object = form.save()
+            comptes_formset.instance = self.object
+            comptes_formset.save()
+            messages.success(self.request, _("Entreprise créée avec succès"))
+            return redirect(self.success_url)
+        else:
+            return self.form_invalid(form)
 
 
 class EntrepriseUpdateView(LoginRequiredMixin, AdminRequiredMixin, UpdateView):
@@ -368,12 +394,48 @@ class EntrepriseUpdateView(LoginRequiredMixin, AdminRequiredMixin, UpdateView):
     form_class = EntrepriseForm
     template_name = "core/entreprise_form.html"
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.POST:
+            context['comptes_formset'] = CompteBancaireFormSet(
+                self.request.POST, instance=self.object, prefix='comptes'
+            )
+            context['adresse_form'] = AdresseForm(
+                self.request.POST, prefix='adresse',
+                instance=self.object.adresse,
+            )
+        else:
+            context['comptes_formset'] = CompteBancaireFormSet(
+                instance=self.object, prefix='comptes'
+            )
+            context['adresse_form'] = AdresseForm(
+                prefix='adresse',
+                instance=self.object.adresse,
+            )
+        return context
+
     def get_success_url(self):
         return reverse('core:entreprise-detail', kwargs={'pk': self.object.pk})
 
     def form_valid(self, form):
-        messages.success(self.request, _("Entreprise modifiée avec succès"))
-        return super().form_valid(form)
+        context = self.get_context_data()
+        comptes_formset = context['comptes_formset']
+        adresse_form = AdresseForm(
+            self.request.POST, prefix='adresse',
+            instance=self.object.adresse,
+        )
+        if comptes_formset.is_valid() and adresse_form.is_valid():
+            adresse = adresse_form.save()
+            form.instance.adresse = adresse
+            # Synchroniser siege depuis l'adresse
+            if adresse.localite:
+                form.instance.siege = form.instance.siege or adresse.localite
+            self.object = form.save()
+            comptes_formset.save()
+            messages.success(self.request, _("Entreprise modifiée avec succès"))
+            return redirect(self.get_success_url())
+        else:
+            return self.form_invalid(form)
 
 
 # =============================================================================

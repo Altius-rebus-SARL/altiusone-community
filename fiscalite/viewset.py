@@ -1,5 +1,5 @@
 # fiscalite/viewset.py
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -14,6 +14,8 @@ from .models import (
     OptimisationFiscale,
     ReclamationFiscale,
     UtilisationPerte,
+    AcompteFiscal,
+    ImpotAnticipe,
 )
 from .serializers import (
     DeclarationFiscaleListSerializer,
@@ -25,6 +27,10 @@ from .serializers import (
     OptimisationFiscaleSerializer,
     ReclamationFiscaleSerializer,
     UtilisationPerteSerializer,
+    AcompteFiscalListSerializer,
+    AcompteFiscalDetailSerializer,
+    ImpotAnticipeListSerializer,
+    ImpotAnticipeDetailSerializer,
 )
 
 
@@ -34,7 +40,12 @@ class DeclarationFiscaleViewSet(viewsets.ModelViewSet):
     filterset_fields = ["mandat", "annee_fiscale", "type_impot", "statut"]
 
     def get_queryset(self):
-        return DeclarationFiscale.objects.select_related("mandat")
+        qs = DeclarationFiscale.objects.select_related("mandat__client")
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(mandat__in=accessible)
 
     def get_serializer_class(self):
         if self.action == "list":
@@ -73,14 +84,15 @@ class DeclarationFiscaleViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def populate_comptabilite(self, request, pk=None):
         """Peupler la déclaration depuis les données comptables"""
+        from .services.auto_populate import populate_from_comptabilite
         declaration = self.get_object()
-        if hasattr(declaration, "populate_from_comptabilite"):
-            declaration.populate_from_comptabilite()
+        success = populate_from_comptabilite(declaration)
+        if success:
             serializer = self.get_serializer(declaration)
             return Response(serializer.data)
         return Response(
-            {"error": "Méthode populate_from_comptabilite non disponible"},
-            status=status.HTTP_501_NOT_IMPLEMENTED,
+            {"error": "Impossible de pré-remplir : vérifiez l'exercice comptable lié"},
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
     @action(detail=True, methods=["get"])
@@ -93,32 +105,53 @@ class DeclarationFiscaleViewSet(viewsets.ModelViewSet):
 
 
 class AnnexeFiscaleViewSet(viewsets.ModelViewSet):
-    queryset = AnnexeFiscale.objects.all()
     serializer_class = AnnexeFiscaleSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["declaration", "type_annexe"]
 
+    def get_queryset(self):
+        qs = AnnexeFiscale.objects.select_related("declaration")
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(declaration__mandat__in=accessible)
+
 
 class CorrectionFiscaleViewSet(viewsets.ModelViewSet):
-    queryset = CorrectionFiscale.objects.all()
     serializer_class = CorrectionFiscaleSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["declaration", "type_correction"]
 
+    def get_queryset(self):
+        qs = CorrectionFiscale.objects.select_related("declaration", "compte")
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(declaration__mandat__in=accessible)
+
 
 class ReportPerteViewSet(viewsets.ModelViewSet):
-    queryset = ReportPerte.objects.all()
     serializer_class = ReportPerteSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["mandat", "expire"]
 
+    def get_queryset(self):
+        qs = ReportPerte.objects.select_related("mandat__client")
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(mandat__in=accessible)
+
     @action(detail=False, methods=["get"])
     def disponibles(self, request):
         """Reports de pertes non expirés avec montant restant > 0"""
-        qs = self.queryset.filter(expire=False, montant_restant__gt=0)
+        qs = self.get_queryset().filter(expire=False, montant_restant__gt=0)
         serializer = self.get_serializer(qs, many=True)
         return Response(serializer.data)
 
@@ -243,30 +276,95 @@ class TauxImpositionViewSet(viewsets.ModelViewSet):
 
 
 class OptimisationFiscaleViewSet(viewsets.ModelViewSet):
-    queryset = OptimisationFiscale.objects.all()
     serializer_class = OptimisationFiscaleSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["mandat", "categorie", "statut"]
 
+    def get_queryset(self):
+        qs = OptimisationFiscale.objects.select_related("mandat__client")
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(mandat__in=accessible)
+
 
 class ReclamationFiscaleViewSet(viewsets.ModelViewSet):
     """ViewSet pour les réclamations fiscales"""
 
-    queryset = ReclamationFiscale.objects.select_related("declaration").all()
     serializer_class = ReclamationFiscaleSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["declaration", "statut"]
 
+    def get_queryset(self):
+        qs = ReclamationFiscale.objects.select_related("declaration")
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(declaration__mandat__in=accessible)
+
 
 class UtilisationPerteViewSet(viewsets.ModelViewSet):
     """ViewSet pour les utilisations de pertes"""
 
-    queryset = UtilisationPerte.objects.select_related(
-        "report_perte", "declaration_fiscale"
-    ).all()
     serializer_class = UtilisationPerteSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["report_perte", "declaration_fiscale"]
+
+    def get_queryset(self):
+        qs = UtilisationPerte.objects.select_related(
+            "report_perte", "declaration_fiscale"
+        )
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(report_perte__mandat__in=accessible)
+
+
+class AcompteFiscalViewSet(viewsets.ModelViewSet):
+    """ViewSet pour les acomptes fiscaux"""
+
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ['mandat', 'annee_fiscale', 'type_acompte', 'statut']
+    ordering = ['date_echeance']
+
+    def get_queryset(self):
+        qs = AcompteFiscal.objects.filter(is_active=True)
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(mandat__in=accessible)
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return AcompteFiscalListSerializer
+        return AcompteFiscalDetailSerializer
+
+
+class ImpotAnticipeViewSet(viewsets.ModelViewSet):
+    """ViewSet pour les impôts anticipés"""
+
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ['mandat', 'annee', 'type_revenu', 'statut']
+    ordering = ['-date_revenu']
+
+    def get_queryset(self):
+        qs = ImpotAnticipe.objects.filter(is_active=True)
+        user = self.request.user
+        if user.is_superuser or user.is_manager():
+            return qs
+        accessible = user.get_accessible_mandats()
+        return qs.filter(mandat__in=accessible)
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return ImpotAnticipeListSerializer
+        return ImpotAnticipeDetailSerializer

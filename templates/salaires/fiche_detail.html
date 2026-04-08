@@ -302,6 +302,41 @@
                     <p class="mb-0"><strong>{% trans "Coût total employeur" %}: {{ fiche.cout_total_employeur|devise:DEVISE_TAUX|floatformat:2|intcomma }} {{ DEVISE_CODE }}</strong></p>
                 </div>
 
+                <!-- Détail des cotisations (lignes génériques) -->
+                {% if fiche.lignes_cotisations.exists %}
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="ph ph-list-dashes me-2"></i>{% trans "Détail des cotisations" %}</h6>
+                    </div>
+                    <div class="card-body p-0">
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "Cotisation" %}</th>
+                                    <th class="text-end">{% trans "Base" %}</th>
+                                    <th class="text-end">{% trans "Taux emp." %}</th>
+                                    <th class="text-end">{% trans "Employé" %}</th>
+                                    <th class="text-end">{% trans "Taux empr." %}</th>
+                                    <th class="text-end">{% trans "Employeur" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for ligne in fiche.lignes_cotisations.all %}
+                                <tr>
+                                    <td>{{ ligne.libelle }}</td>
+                                    <td class="text-end">{{ ligne.base_calcul|floatformat:2 }}</td>
+                                    <td class="text-end">{{ ligne.taux_employe|floatformat:3 }}%</td>
+                                    <td class="text-end">{{ ligne.montant_employe|floatformat:2 }}</td>
+                                    <td class="text-end">{{ ligne.taux_employeur|floatformat:3 }}%</td>
+                                    <td class="text-end">{{ ligne.montant_employeur|floatformat:2 }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+
                 <!-- Remarques -->
                 {% if fiche.remarques %}
                 <div class="mt-4">

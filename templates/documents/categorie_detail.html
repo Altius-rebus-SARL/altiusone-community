@@ -242,12 +242,9 @@
             </div>
             <div class="card-body">
                 <div class="d-grid gap-2">
-                    <button class="btn btn-light-primary" disabled>
+                    <a href="{% url 'documents:categorie-update' categorie.pk %}" class="btn btn-light-primary">
                         <i class="ph ph-pencil me-2"></i>{% trans "Modifier" %}
-                    </button>
-                    <button class="btn btn-light-danger" disabled>
-                        <i class="ph ph-trash me-2"></i>{% trans "Supprimer" %}
-                    </button>
+                    </a>
                 </div>
             </div>
         </div>

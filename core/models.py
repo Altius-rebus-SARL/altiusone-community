@@ -1,10 +1,15 @@
 # apps/core/models.py
 from django.db import models
 from django.contrib.auth.models import AbstractUser, Permission
+from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
 from django.contrib.contenttypes.models import ContentType
 from django.core.validators import RegexValidator, MinValueValidator, MaxValueValidator
 from django.utils.translation import gettext_lazy as _
 from django_countries.fields import CountryField
+import hashlib
+import json
+import os
+import secrets
 import uuid
 
 
@@ -16,10 +21,23 @@ class BaseModel(models.Model):
     created_by = models.ForeignKey('core.User', on_delete=models.SET_NULL,
                                    null=True, related_name='+', verbose_name=_('Créé par'))
     is_active = models.BooleanField(default=True, db_index=True, verbose_name=_('Actif'))
+    langue_saisie = models.CharField(
+        max_length=5, blank=True, default='',
+        db_index=True,
+        verbose_name=_('Langue de saisie'),
+        help_text=_('Langue dans laquelle les données ont été saisies (auto-détecté)')
+    )
 
     class Meta:
         abstract = True
         ordering = ['-created_at']
+
+    def save(self, *args, **kwargs):
+        # Auto-remplir la langue de saisie si non définie
+        if not self.langue_saisie:
+            from django.utils.translation import get_language
+            self.langue_saisie = get_language() or 'fr'
+        super().save(*args, **kwargs)
 
 
 class SwissCantons(models.TextChoices):
@@ -182,6 +200,53 @@ class Devise(models.Model):
     def get_devise_base(cls):
         """Retourne la devise de base (CHF par défaut)"""
         return cls.objects.filter(est_devise_base=True).first() or cls.objects.get(code='CHF')
+
+
+class CoursChange(models.Model):
+    """
+    Historique des taux de change journaliers.
+
+    Permet les conversions et réévaluations à une date passée.
+    Source : taux indicatifs BNS (Banque nationale suisse).
+    Devise de référence : CHF.
+    """
+
+    devise = models.ForeignKey(
+        Devise, on_delete=models.CASCADE,
+        related_name='historique_cours',
+        verbose_name=_('Devise')
+    )
+    date = models.DateField(verbose_name=_('Date'))
+    taux = models.DecimalField(
+        max_digits=12, decimal_places=6,
+        verbose_name=_('Taux'),
+        help_text=_('1 CHF = X unités de cette devise')
+    )
+    source = models.CharField(
+        max_length=50, blank=True, default='BNS',
+        verbose_name=_('Source'),
+        help_text=_('BNS, BCE, manuel, etc.')
+    )
+
+    class Meta:
+        db_table = 'cours_change'
+        verbose_name = _('Cours de change')
+        verbose_name_plural = _('Cours de change')
+        ordering = ['-date']
+        unique_together = [['devise', 'date']]
+        indexes = [
+            models.Index(fields=['devise', 'date']),
+        ]
+
+    def __str__(self):
+        return f"{self.devise_id} {self.date} = {self.taux}"
+
+    @classmethod
+    def get_taux(cls, devise_code, date):
+        """Retourne le taux le plus récent <= date donnée."""
+        return cls.objects.filter(
+            devise_id=devise_code, date__lte=date
+        ).order_by('-date').values_list('taux', flat=True).first()
 
 
 # =============================================================================
@@ -383,6 +448,16 @@ class User(AbstractUser):
     mobile = models.CharField(max_length=20, blank=True, verbose_name=_('Mobile'))
     signature = models.ImageField(upload_to='signatures/', null=True, blank=True, verbose_name=_('Signature'))
     two_factor_enabled = models.BooleanField(default=False, verbose_name=_('Authentification à deux facteurs'))
+    totp_secret = models.CharField(
+        max_length=255, blank=True, default='',
+        verbose_name=_('Secret TOTP (chiffré)'),
+        help_text=_('Secret TOTP chiffré pour l\'authentification à deux facteurs')
+    )
+    backup_codes = models.JSONField(
+        default=list, blank=True,
+        verbose_name=_('Codes de secours (hashés)'),
+        help_text=_('Liste de codes de secours hashés pour la 2FA')
+    )
     preferences = models.JSONField(default=dict, blank=True, verbose_name=_('Préférences'))
 
     # IMPORTANT: Résoudre les conflits avec auth.User
@@ -587,6 +662,82 @@ class User(AbstractUser):
             return acces and acces.invitations_restantes > 0
         return False
 
+    # =========================================================================
+    # Méthodes pour l'authentification à deux facteurs (TOTP)
+    # =========================================================================
+
+    def _get_fernet(self):
+        """Retourne une instance Fernet pour chiffrer/déchiffrer le secret TOTP."""
+        from cryptography.fernet import Fernet
+        from django.conf import settings
+        import base64
+        key = hashlib.sha256(settings.SECRET_KEY.encode()).digest()
+        return Fernet(base64.urlsafe_b64encode(key))
+
+    def generate_totp_secret(self):
+        """Génère un nouveau secret TOTP et le stocke chiffré."""
+        import pyotp
+        raw_secret = pyotp.random_base32()
+        fernet = self._get_fernet()
+        self.totp_secret = fernet.encrypt(raw_secret.encode()).decode()
+        return raw_secret
+
+    def get_totp_secret(self):
+        """Déchiffre et retourne le secret TOTP brut."""
+        if not self.totp_secret:
+            return None
+        fernet = self._get_fernet()
+        return fernet.decrypt(self.totp_secret.encode()).decode()
+
+    def get_totp_uri(self):
+        """Retourne l'URI otpauth:// pour le QR code."""
+        import pyotp
+        raw_secret = self.get_totp_secret()
+        if not raw_secret:
+            return None
+        return pyotp.totp.TOTP(raw_secret).provisioning_uri(
+            name=self.email or self.username,
+            issuer_name='AltiusOne'
+        )
+
+    def verify_totp(self, code):
+        """Vérifie un code TOTP (accepte ±1 intervalle pour le décalage horloge)."""
+        import pyotp
+        raw_secret = self.get_totp_secret()
+        if not raw_secret:
+            return False
+        totp = pyotp.TOTP(raw_secret)
+        return totp.verify(code, valid_window=1)
+
+    def generate_backup_codes(self):
+        """Génère 8 codes de secours, stocke les hash, retourne les codes en clair."""
+        codes = [secrets.token_hex(4).upper() for _ in range(8)]
+        self.backup_codes = [
+            hashlib.sha256(code.encode()).hexdigest() for code in codes
+        ]
+        return codes
+
+    def verify_backup_code(self, code):
+        """Vérifie et consume un code de secours. Retourne True si valide."""
+        code_hash = hashlib.sha256(code.strip().upper().encode()).hexdigest()
+        if code_hash in self.backup_codes:
+            self.backup_codes.remove(code_hash)
+            self.save(update_fields=['backup_codes'])
+            return True
+        return False
+
+    def enable_2fa(self):
+        """Active la 2FA (après vérification du premier code)."""
+        self.two_factor_enabled = True
+        self.save(update_fields=['two_factor_enabled'])
+
+    def disable_2fa(self):
+        """Désactive la 2FA et efface les données associées."""
+        self.two_factor_enabled = False
+        self.totp_secret = ''
+        self.backup_codes = []
+        self.save(update_fields=['two_factor_enabled', 'totp_secret', 'backup_codes'])
+
 
 class Adresse(models.Model):
     """Adresse réutilisable avec support international"""
@@ -715,13 +866,7 @@ class CompteBancaire(models.Model):
     iban = models.CharField(
         max_length=34,
         verbose_name=_('IBAN'),
-        validators=[
-            RegexValidator(
-                r'^[A-Z]{2}\d{2}[A-Z0-9]{4,30}$',
-                _('Format IBAN invalide. Ex: CH93 0076 2011 6238 5295 7')
-            )
-        ],
-        help_text=_('International Bank Account Number (sans espaces)')
+        help_text=_('International Bank Account Number')
     )
     bic_swift = models.CharField(
         max_length=11,
@@ -874,10 +1019,15 @@ class CompteBancaire(models.Model):
     def clean(self):
         """Validation du modèle"""
         from django.core.exceptions import ValidationError
+        from core.validators import clean_iban, validate_iban_format, validate_iban_checksum
 
-        # Nettoyer l'IBAN (supprimer espaces)
+        # Nettoyer l'IBAN (supprimer espaces, corriger O→0)
         if self.iban:
-            self.iban = self.iban.replace(' ', '').upper()
+            self.iban = clean_iban(self.iban)
+            if not validate_iban_format(self.iban):
+                raise ValidationError({'iban': _('Format IBAN invalide. Ex: CH9300762011623852957')})
+            if not validate_iban_checksum(self.iban):
+                raise ValidationError({'iban': _('IBAN invalide (erreur de checksum). Vérifiez les chiffres.')})
 
         # Nettoyer le BIC
         if self.bic_swift:
@@ -1016,6 +1166,17 @@ class Tiers(BaseModel):
         blank=True,
         verbose_name=_('Notes')
     )
+
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            self.nom,
+            self.code,
+            f"TVA: {self.numero_tva}" if self.numero_tva else '',
+            self.email or '',
+            self.notes,
+        ]
+        return ' '.join(filter(None, parts))
 
     class Meta:
         db_table = 'tiers'
@@ -1293,6 +1454,7 @@ class Client(BaseModel):
     """Client de la fiduciaire"""
 
     FORME_JURIDIQUE_CHOICES = [
+        # Formes suisses
         ('EI', _('Entreprise individuelle')),
         ('RC', _('Raison collective')),
         ('SC', _('Société en commandite')),
@@ -1304,6 +1466,9 @@ class Client(BaseModel):
         ('COOP', _('Société coopérative')),
         ('ASSOC', _('Association')),
         ('FOND', _('Fondation')),
+        # Formes internationales / sans registre
+        ('PP', _('Personne physique')),
+        ('AUTRE', _('Autre')),
     ]
 
     STATUT_CHOICES = [
@@ -1330,13 +1495,14 @@ class Client(BaseModel):
         verbose_name=_('Entreprise')
     )
 
-    # Numéros officiels
+    # Numéros officiels (tous optionnels — clients sans registre du commerce,
+    # personnes physiques, clients européens/africains)
     ide_number = models.CharField(
         max_length=20,
-        unique=True,
+        blank=True,
         validators=[RegexValidator(r'^CHE-\d{3}\.\d{3}\.\d{3}$',
                                    'Format IDE invalide (CHE-XXX.XXX.XXX)')],
-        help_text='Format: CHE-123.456.789',
+        help_text='Format: CHE-123.456.789 (optionnel)',
         verbose_name=_('Numéro IDE')
     )
     ch_id = models.CharField(
@@ -1377,7 +1543,7 @@ class Client(BaseModel):
     )
 
     # Dates importantes
-    date_creation = models.DateField(verbose_name=_('Date de création entreprise'))
+    date_creation = models.DateField(null=True, blank=True, verbose_name=_('Date de création entreprise'))
     date_inscription_rc = models.DateField(null=True, blank=True, verbose_name=_('Date inscription RC'))
     date_debut_exercice = models.DateField(verbose_name=_('Début exercice comptable'))
     date_fin_exercice = models.DateField(verbose_name=_('Fin exercice comptable'))
@@ -1392,9 +1558,11 @@ class Client(BaseModel):
                                           verbose_name=_('Contact principal'))
 
     # Gestion interne
-    responsable = models.ForeignKey(User, on_delete=models.PROTECT,
+    responsable = models.ForeignKey(User, on_delete=models.SET_NULL,
                                     related_name='clients_responsable',
-                                    verbose_name=_('Responsable'))
+                                    null=True, blank=True,
+                                    verbose_name=_('Responsable interne'),
+                                    help_text=_('Collaborateur interne en charge de ce dossier client'))
     notes = models.TextField(blank=True, verbose_name=_('Notes'))
 
     # Régime fiscal par défaut (pour les mandats de ce client)
@@ -1411,6 +1579,19 @@ class Client(BaseModel):
         related_name='sous_clients_set', verbose_name=_('Client parent')
     )
 
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            self.raison_sociale,
+            self.nom_commercial,
+            self.description,
+            f"IDE: {self.ide_number}" if self.ide_number else '',
+            f"TVA: {self.tva_number}" if self.tva_number else '',
+            self.email or '',
+            self.notes,
+        ]
+        return ' '.join(filter(None, parts))
+
     class Meta:
         db_table = 'clients'
         verbose_name = _('Client')
@@ -1420,9 +1601,18 @@ class Client(BaseModel):
             models.Index(fields=['raison_sociale', 'statut']),
             models.Index(fields=['ide_number']),
         ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['ide_number'],
+                condition=~models.Q(ide_number=''),
+                name='unique_ide_number_non_vide',
+            ),
+        ]
 
     def __str__(self):
-        return f"{self.raison_sociale} ({self.ide_number})"
+        if self.ide_number:
+            return f"{self.raison_sociale} ({self.ide_number})"
+        return self.raison_sociale
 
     @property
     def mandats_actifs(self):
@@ -1443,6 +1633,141 @@ class Client(BaseModel):
         if self.entreprise_id and self.entreprise.logo:
             return self.entreprise.logo
         return None
+
+
+class TypeIdentifiantLegal(BaseModel):
+    """
+    Type d'identifiant légal par pays/régime.
+
+    Exemples : IDE (Suisse), SIRET/SIREN (France), RCCM (OHADA/Mali/Cameroun),
+    NIF (générique), N° contribuable, TVA intracommunautaire (UE), etc.
+    """
+    code = models.CharField(
+        max_length=30, unique=True,
+        verbose_name=_("Code"),
+        help_text=_("Code technique unique (ex: IDE, SIRET, RCCM, NIF)")
+    )
+    libelle = models.CharField(
+        max_length=150,
+        verbose_name=_("Libellé"),
+        help_text=_("Nom complet (ex: Identifiant des entreprises)")
+    )
+    regime_fiscal = models.ForeignKey(
+        'tva.RegimeFiscal',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='types_identifiants',
+        verbose_name=_("Régime fiscal"),
+        help_text=_("Si renseigné, cet identifiant ne s'affiche que pour ce régime")
+    )
+    pays = CountryField(
+        blank=True,
+        verbose_name=_("Pays"),
+        help_text=_("Pays d'origine de cet identifiant")
+    )
+    format_validation = models.CharField(
+        max_length=255, blank=True,
+        verbose_name=_("Format de validation (regex)"),
+        help_text=_("Expression régulière pour valider le format. Ex: ^CHE-\\d{3}\\.\\d{3}\\.\\d{3}$")
+    )
+    exemple = models.CharField(
+        max_length=100, blank=True,
+        verbose_name=_("Exemple"),
+        help_text=_("Exemple de valeur correcte (ex: CHE-123.456.789)")
+    )
+    obligatoire_entreprise = models.BooleanField(
+        default=False,
+        verbose_name=_("Obligatoire pour l'entreprise émettrice"),
+    )
+    obligatoire_client = models.BooleanField(
+        default=False,
+        verbose_name=_("Obligatoire pour le client"),
+    )
+    afficher_sur_facture = models.BooleanField(
+        default=True,
+        verbose_name=_("Afficher sur les factures"),
+    )
+    ordre = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = 'types_identifiants_legaux'
+        verbose_name = _("Type d'identifiant légal")
+        verbose_name_plural = _("Types d'identifiants légaux")
+        ordering = ['ordre', 'code']
+
+    def __str__(self):
+        return f"{self.code} — {self.libelle}"
+
+
+class IdentifiantLegal(BaseModel):
+    """
+    Identifiant légal d'un client ou d'une entreprise.
+
+    Modèle flexible : au lieu de colonnes en dur (ide_number, siret, rccm…),
+    chaque identifiant est une ligne liée à un TypeIdentifiantLegal.
+    """
+    type_identifiant = models.ForeignKey(
+        TypeIdentifiantLegal,
+        on_delete=models.PROTECT,
+        related_name='identifiants',
+        verbose_name=_("Type"),
+    )
+    valeur = models.CharField(
+        max_length=100,
+        verbose_name=_("Valeur"),
+    )
+    client = models.ForeignKey(
+        'core.Client',
+        on_delete=models.CASCADE,
+        null=True, blank=True,
+        related_name='identifiants_legaux',
+        verbose_name=_("Client"),
+    )
+    entreprise = models.ForeignKey(
+        'core.Entreprise',
+        on_delete=models.CASCADE,
+        null=True, blank=True,
+        related_name='identifiants_legaux',
+        verbose_name=_("Entreprise"),
+    )
+    verifie = models.BooleanField(
+        default=False,
+        verbose_name=_("Vérifié"),
+        help_text=_("Indique si cet identifiant a été vérifié auprès du registre officiel")
+    )
+    date_verification = models.DateField(
+        null=True, blank=True,
+        verbose_name=_("Date de vérification"),
+    )
+
+    class Meta:
+        db_table = 'identifiants_legaux'
+        verbose_name = _("Identifiant légal")
+        verbose_name_plural = _("Identifiants légaux")
+        ordering = ['type_identifiant__ordre']
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(client__isnull=False, entreprise__isnull=True)
+                    | models.Q(client__isnull=True, entreprise__isnull=False)
+                ),
+                name='identifiant_legal_une_seule_entite',
+            ),
+            models.UniqueConstraint(
+                fields=['type_identifiant', 'client'],
+                condition=models.Q(client__isnull=False),
+                name='unique_type_identifiant_par_client',
+            ),
+            models.UniqueConstraint(
+                fields=['type_identifiant', 'entreprise'],
+                condition=models.Q(entreprise__isnull=False),
+                name='unique_type_identifiant_par_entreprise',
+            ),
+        ]
+
+    def __str__(self):
+        entite = self.client or self.entreprise
+        return f"{self.type_identifiant.code}: {self.valeur} ({entite})"
 
 
 class Contact(BaseModel):
@@ -1474,6 +1799,15 @@ class Contact(BaseModel):
     mobile = models.CharField(max_length=20, blank=True, verbose_name=_('Mobile'))
 
     principal = models.BooleanField(default=False, verbose_name=_('Contact principal'))
+
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            f"{self.prenom} {self.nom}",
+            self.fonction or '',
+            self.email or '',
+        ]
+        return ' '.join(filter(None, parts))
 
     class Meta:
         db_table = 'contacts'
@@ -1856,6 +2190,50 @@ class Mandat(BaseModel):
         verbose_name=_('Devise'),
         db_column='devise_mandat'
     )
+
+    # Plan comptable actif (lien direct pour cohérence régime fiscal)
+    plan_comptable_actif = models.ForeignKey(
+        'comptabilite.PlanComptable',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='mandats_actifs',
+        verbose_name=_('Plan comptable actif'),
+        help_text=_('Plan comptable utilisé par ce mandat')
+    )
+
+    @property
+    def plan_comptable(self):
+        """Retourne le plan comptable actif ou le premier plan disponible."""
+        if self.plan_comptable_actif_id:
+            return self.plan_comptable_actif
+        return self.plans_comptables.first()
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        super().clean()
+        # Vérifier cohérence entre régime fiscal et plan comptable actif
+        if self.plan_comptable_actif and self.regime_fiscal_id:
+            type_plan_attendu = self.regime_fiscal.type_plan_comptable
+            if type_plan_attendu and self.plan_comptable_actif.type_plan != type_plan_attendu:
+                raise ValidationError({
+                    'plan_comptable_actif': _(
+                        "Le plan comptable doit être de type « %(attendu)s » "
+                        "pour le régime fiscal « %(regime)s »."
+                    ) % {
+                        'attendu': type_plan_attendu,
+                        'regime': self.regime_fiscal,
+                    }
+                })
+
+    def texte_pour_embedding(self):
+        """Texte pour vectorisation sémantique."""
+        parts = [
+            f"Mandat {self.numero}",
+            self.client.raison_sociale if self.client else '',
+            self.description,
+            self.conditions_particulieres,
+        ]
+        return ' '.join(filter(None, parts))
 
     class Meta:
         db_table = 'mandats'
@@ -2747,3 +3125,574 @@ class ModeleDocumentPDF(BaseModel):
             'utiliser_logo_defaut': self.utiliser_logo_defaut,
             'logo': self.logo if self.logo and not self.utiliser_logo_defaut else None,
         }
+
+
+# =============================================================================
+# PARAMETRES METIER (Choix configurables par l'utilisateur)
+# =============================================================================
+
+class ParametreMetier(BaseModel):
+    """
+    Stocke les types/choix métier configurables par l'utilisateur.
+    Remplace les CHOICES hardcodées en permettant aux clients de les modifier.
+
+    Chaque entrée représente une valeur possible dans une liste de choix.
+    Groupée par module + categorie. Le champ 'code' est la valeur technique
+    stockée dans les modèles existants (compatible avec les CharField choices).
+    """
+
+    MODULE_CHOICES = [
+        ('core', _('Général')),
+        ('salaires', _('Salaires')),
+        ('facturation', _('Facturation')),
+        ('comptabilite', _('Comptabilité')),
+        ('fiscalite', _('Fiscalité')),
+        ('tva', _('TVA')),
+        ('projets', _('Projets')),
+        ('documents', _('Documents')),
+        ('analytics', _('Analytics')),
+    ]
+
+    module = models.CharField(
+        max_length=30,
+        choices=MODULE_CHOICES,
+        db_index=True,
+        verbose_name=_('Module'),
+        help_text=_('Module auquel appartient ce paramètre')
+    )
+    categorie = models.CharField(
+        max_length=60,
+        db_index=True,
+        verbose_name=_('Catégorie'),
+        help_text=_('Ex: type_contrat, type_facture, mode_paiement, type_journal...')
+    )
+    code = models.CharField(
+        max_length=50,
+        verbose_name=_('Code technique'),
+        help_text=_('Valeur technique (ex: CDI, VIREMENT, SA). Ne pas modifier après création.')
+    )
+    libelle = models.CharField(
+        max_length=200,
+        verbose_name=_('Libellé'),
+        help_text=_('Texte affiché à l\'utilisateur')
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name=_('Description'),
+        help_text=_('Description ou aide contextuelle')
+    )
+    ordre = models.PositiveIntegerField(
+        default=0,
+        verbose_name=_('Ordre d\'affichage')
+    )
+    regime_fiscal = models.ForeignKey(
+        'tva.RegimeFiscal',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='parametres_metier',
+        verbose_name=_('Régime fiscal'),
+        help_text=_('Si renseigné, ce choix n\'apparaît que pour ce régime fiscal')
+    )
+    systeme = models.BooleanField(
+        default=False,
+        verbose_name=_('Paramètre système'),
+        help_text=_('Si vrai, ne peut pas être supprimé par l\'utilisateur')
+    )
+    metadata = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name=_('Métadonnées'),
+        help_text=_('Données supplémentaires (couleur, icône, config spécifique...)')
+    )
+
+    class Meta:
+        db_table = 'parametres_metier'
+        verbose_name = _('Paramètre métier')
+        verbose_name_plural = _('Paramètres métier')
+        unique_together = ['module', 'categorie', 'code']
+        ordering = ['module', 'categorie', 'ordre', 'libelle']
+        indexes = [
+            models.Index(fields=['module', 'categorie']),
+            models.Index(fields=['module', 'categorie', 'is_active']),
+        ]
+
+    def __str__(self):
+        return f"{self.libelle} ({self.code})"
+
+    @classmethod
+    def get_choices(cls, module, categorie, regime_fiscal=None, include_inactive=False):
+        """
+        Retourne les choix pour un module/catégorie, compatibles avec Django choices.
+        Filtre optionnellement par régime fiscal.
+        Falls back sur une liste vide si rien en DB.
+        """
+        qs = cls.objects.filter(module=module, categorie=categorie)
+        if not include_inactive:
+            qs = qs.filter(is_active=True)
+        if regime_fiscal:
+            qs = qs.filter(
+                models.Q(regime_fiscal=regime_fiscal) |
+                models.Q(regime_fiscal__isnull=True)
+            )
+        return [(p.code, p.libelle) for p in qs]
+
+    @classmethod
+    def get_choices_with_default(cls, module, categorie, default_choices,
+                                  regime_fiscal=None):
+        """
+        Retourne les choix DB si disponibles, sinon les choix par défaut hardcodés.
+        Permet une migration progressive sans casser l'existant.
+        """
+        db_choices = cls.get_choices(module, categorie, regime_fiscal)
+        return db_choices if db_choices else default_choices
+
+
+# =============================================================================
+# FICHIER JOINT (Pièce jointe générique réutilisable partout)
+# =============================================================================
+
+def fichier_joint_upload_path(instance, filename):
+    """
+    Chemin d'upload pour les fichiers joints génériques.
+    Format: fichiers_joints/{content_type}/{object_id}/{uuid}/{filename}
+    """
+    ct = instance.content_type
+    app_model = f"{ct.app_label}_{ct.model}" if ct else "unknown"
+    return f"fichiers_joints/{app_model}/{instance.object_id}/{uuid.uuid4()}/{filename}"
+
+
+class FichierJoint(BaseModel):
+    """
+    Pièce jointe générique réutilisable dans tout le projet.
+
+    Utilise GenericForeignKey pour pouvoir être rattachée à n'importe quel
+    modèle (TimeTracking, Tache, etc.) sans créer de table intermédiaire
+    spécifique à chaque modèle.
+
+    Usage dans un modèle cible :
+        from django.contrib.contenttypes.fields import GenericRelation
+        from core.models import FichierJoint
+
+        class MonModele(BaseModel):
+            fichiers_joints = GenericRelation(FichierJoint)
+
+    Usage dans une vue :
+        for f in request.FILES.getlist('fichiers'):
+            FichierJoint.objects.create(
+                content_object=mon_instance,
+                fichier=f,
+                nom_original=f.name,
+                created_by=request.user,
+            )
+    """
+
+    # Lien générique vers n'importe quel modèle
+    content_type = models.ForeignKey(
+        ContentType, on_delete=models.CASCADE,
+        verbose_name=_('Type de contenu'),
+        help_text=_('Modèle auquel ce fichier est rattaché')
+    )
+    object_id = models.UUIDField(
+        verbose_name=_('ID objet'),
+        help_text=_('Identifiant de l\'objet parent')
+    )
+    content_object = GenericForeignKey('content_type', 'object_id')
+
+    # Fichier
+    fichier = models.FileField(
+        upload_to=fichier_joint_upload_path,
+        verbose_name=_('Fichier'),
+        help_text=_('Fichier joint')
+    )
+    nom_original = models.CharField(
+        max_length=255,
+        verbose_name=_('Nom original'),
+        help_text=_('Nom du fichier lors de l\'upload')
+    )
+    extension = models.CharField(
+        max_length=20, blank=True,
+        verbose_name=_('Extension'),
+        help_text=_('Extension du fichier (pdf, jpg, etc.)')
+    )
+    mime_type = models.CharField(
+        max_length=100, blank=True,
+        verbose_name=_('Type MIME'),
+        help_text=_('Type MIME du fichier')
+    )
+    taille = models.BigIntegerField(
+        default=0,
+        verbose_name=_('Taille'),
+        help_text=_('Taille du fichier en octets')
+    )
+    hash_fichier = models.CharField(
+        max_length=64, blank=True, db_index=True,
+        verbose_name=_('Hash SHA-256'),
+        help_text=_('Empreinte SHA-256 du fichier')
+    )
+
+    # Description optionnelle
+    description = models.CharField(
+        max_length=500, blank=True,
+        verbose_name=_('Description'),
+        help_text=_('Description ou commentaire sur ce fichier')
+    )
+
+    # Ordre d'affichage
+    ordre = models.IntegerField(
+        default=0,
+        verbose_name=_('Ordre'),
+        help_text=_('Position d\'affichage dans la liste')
+    )
+
+    class Meta:
+        db_table = 'fichiers_joints'
+        verbose_name = _('Fichier joint')
+        verbose_name_plural = _('Fichiers joints')
+        ordering = ['ordre', 'created_at']
+        indexes = [
+            models.Index(fields=['content_type', 'object_id'], name='fj_ct_oid_idx'),
+        ]
+
+    def __str__(self):
+        return self.nom_original
+
+    def save(self, *args, **kwargs):
+        if self.fichier and not self.nom_original:
+            self.nom_original = os.path.basename(self.fichier.name)
+
+        if self.nom_original and not self.extension:
+            self.extension = os.path.splitext(self.nom_original)[1].lower().lstrip('.')
+
+        if self.fichier and not self.taille:
+            try:
+                self.taille = self.fichier.size
+            except (OSError, AttributeError):
+                pass
+
+        if self.fichier and not self.hash_fichier:
+            try:
+                hasher = hashlib.sha256()
+                for chunk in self.fichier.chunks():
+                    hasher.update(chunk)
+                self.hash_fichier = hasher.hexdigest()
+                self.fichier.seek(0)
+            except (OSError, AttributeError):
+                pass
+
+        super().save(*args, **kwargs)
+
+
+# =============================================================================
+# MODEL EMBEDDING (vectorisation générique via pgvector)
+# =============================================================================
+
+class ModelEmbedding(models.Model):
+    """
+    Embedding vectoriel générique pour n'importe quel modèle.
+
+    Utilise GenericForeignKey (même pattern que AuditLog, FichierJoint).
+    Stocke un vecteur 768D dans pgvector pour la recherche sémantique.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    # Lien générique vers le modèle source
+    content_type = models.ForeignKey(
+        ContentType, on_delete=models.CASCADE,
+        verbose_name=_('Type de contenu'),
+    )
+    object_id = models.UUIDField(verbose_name=_('ID objet'))
+    content_object = GenericForeignKey('content_type', 'object_id')
+
+    # Vecteur 768D (pgvector)
+    from pgvector.django import VectorField
+    embedding = VectorField(dimensions=768, verbose_name=_('Embedding'))
+
+    # Métadonnées
+    text_hash = models.CharField(
+        max_length=64,
+        verbose_name=_('Hash du texte'),
+        help_text=_('SHA-256 du texte source, pour détecter les changements'),
+    )
+    text_preview = models.CharField(
+        max_length=200, blank=True,
+        verbose_name=_('Aperçu du texte'),
+    )
+    model_used = models.CharField(
+        max_length=100, default='paraphrase-multilingual-mpnet-base-v2',
+        verbose_name=_('Modèle utilisé'),
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_('Créé le'))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_('Modifié le'))
+
+    class Meta:
+        db_table = 'model_embeddings'
+        verbose_name = _('Embedding de modèle')
+        verbose_name_plural = _('Embeddings de modèles')
+        constraints = [
+            models.UniqueConstraint(
+                fields=['content_type', 'object_id'],
+                name='unique_model_embedding',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['content_type', 'object_id'], name='me_ct_oid_idx'),
+            models.Index(fields=['content_type'], name='me_ct_idx'),
+        ]
+
+    def __str__(self):
+        return f"Embedding {self.content_type} #{self.object_id}"
+
+    @classmethod
+    def search_similar(cls, embedding, content_type=None, limit=20, threshold=0.5, metric='cosine'):
+        """
+        Recherche les objets les plus similaires.
+
+        La métrique de distance est configurable (cosine par défaut).
+        Voir core.ai.distances pour les métriques disponibles :
+        'cosine', 'l2', 'l1', 'jaccard', 'hamming'.
+
+        Args:
+            embedding: Vecteur de requête (list[float] 768D)
+            content_type: Filtrer par ContentType (optionnel)
+            limit: Nombre max de résultats
+            threshold: Seuil de similarité (0-1, 1=identique)
+            metric: Mesure de distance ('cosine', 'l2', 'l1', 'jaccard', 'hamming')
+
+        Returns:
+            QuerySet annoté avec 'distance' (plus petit = plus similaire)
+        """
+        from core.ai.distances import get_distance_function, threshold_for_metric
+
+        distance_fn = get_distance_function(metric)
+        max_distance = threshold_for_metric(metric, threshold)
+
+        qs = cls.objects.annotate(
+            distance=distance_fn('embedding', embedding)
+        ).filter(
+            distance__lt=max_distance
+        )
+
+        if content_type:
+            qs = qs.filter(content_type=content_type)
+
+        return qs.order_by('distance')[:limit]
+
+
+# ══════════════════════════════════════════════════════════════
+# CONTRATS
+# ══════════════════════════════════════════════════════════════
+
+class ModeleContrat(BaseModel):
+    """
+    Modèle/template de contrat (standard suisse ou personnalisé).
+
+    Le fichier source est un Document existant dans la GED (S3/MinIO),
+    éditable via OnlyOffice/NextCloud.
+    """
+
+    SOURCE_CHOICES = [
+        ('CONFEDERATION', _('Standard Confédération')),
+        ('FIDUCIAIRE', _('Standard fiduciaire')),
+        ('PERSONNALISE', _('Personnalisé')),
+    ]
+
+    nom = models.CharField(max_length=255, verbose_name=_('Nom'))
+    description = models.TextField(blank=True, verbose_name=_('Description'))
+    categorie = models.CharField(
+        max_length=50, blank=True,
+        verbose_name=_('Catégorie'),
+        help_text=_('Code ParametreMetier (module=contrats, categorie=type_contrat)')
+    )
+    source = models.CharField(
+        max_length=20, choices=SOURCE_CHOICES, default='FIDUCIAIRE',
+        verbose_name=_('Source')
+    )
+    langue = models.CharField(
+        max_length=5, default='fr',
+        verbose_name=_('Langue')
+    )
+    document = models.ForeignKey(
+        'documents.Document', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='modeles_contrat',
+        verbose_name=_('Document template'),
+        help_text=_('Fichier template dans la GED (DOCX, éditable via OnlyOffice)')
+    )
+    ordre = models.IntegerField(default=0, verbose_name=_('Ordre'))
+
+    class Meta:
+        db_table = 'modeles_contrat'
+        verbose_name = _('Modèle de contrat')
+        verbose_name_plural = _('Modèles de contrat')
+        ordering = ['ordre', 'nom']
+
+    def __str__(self):
+        return f"{self.nom} ({self.get_source_display()})"
+
+    def texte_pour_embedding(self):
+        parts = [
+            f"Modèle contrat: {self.nom}",
+            self.description,
+            f"Source: {self.get_source_display()}",
+            f"Catégorie: {self.categorie}" if self.categorie else '',
+        ]
+        return ' '.join(filter(None, parts))
+
+
+class Contrat(BaseModel):
+    """
+    Contrat lié à un client/mandat.
+
+    Le fichier du contrat est un Document dans la GED — stocké en S3,
+    éditable via OnlyOffice, versionné, OCR-isé et vectorisé.
+    """
+
+    SENS_CHOICES = [
+        ('EMIS', _('Émis')),
+        ('RECU', _('Reçu')),
+    ]
+
+    STATUT_CHOICES = [
+        ('BROUILLON', _('Brouillon')),
+        ('ENVOYE', _('Envoyé')),
+        ('SIGNE', _('Signé')),
+        ('ACTIF', _('Actif')),
+        ('EXPIRE', _('Expiré')),
+        ('RESILIE', _('Résilié')),
+        ('ANNULE', _('Annulé')),
+    ]
+
+    # Rattachement
+    client = models.ForeignKey(
+        'core.Client', on_delete=models.CASCADE,
+        related_name='contrats', verbose_name=_('Client')
+    )
+    mandat = models.ForeignKey(
+        'core.Mandat', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='contrats',
+        verbose_name=_('Mandat')
+    )
+    position = models.ForeignKey(
+        'projets.Position', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='contrats',
+        verbose_name=_('Position'),
+        help_text=_('Position/lot du projet (pour contrats de sous-traitance)')
+    )
+
+    # Document GED (le fichier contrat lui-même)
+    document = models.ForeignKey(
+        'documents.Document', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='contrats',
+        verbose_name=_('Document'),
+        help_text=_('Fichier du contrat dans la GED')
+    )
+    modele_source = models.ForeignKey(
+        ModeleContrat, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='contrats_generes',
+        verbose_name=_('Modèle source')
+    )
+
+    # Identification
+    numero = models.CharField(
+        max_length=50, blank=True,
+        verbose_name=_('Numéro'),
+        help_text=_('Référence unique du contrat')
+    )
+    titre = models.CharField(max_length=255, verbose_name=_('Titre'))
+    description = models.TextField(blank=True, verbose_name=_('Description'))
+    categorie = models.CharField(
+        max_length=50, blank=True,
+        verbose_name=_('Catégorie'),
+        help_text=_('Code ParametreMetier (module=contrats, categorie=type_contrat)')
+    )
+    sens = models.CharField(
+        max_length=10, choices=SENS_CHOICES, default='EMIS',
+        verbose_name=_('Sens'),
+        help_text=_('Émis = envoyé au client, Reçu = reçu du client')
+    )
+
+    # Dates
+    date_emission = models.DateField(
+        null=True, blank=True, verbose_name=_("Date d'émission")
+    )
+    date_signature = models.DateField(
+        null=True, blank=True, verbose_name=_('Date de signature')
+    )
+    date_debut = models.DateField(
+        null=True, blank=True, verbose_name=_('Date de début')
+    )
+    date_fin = models.DateField(
+        null=True, blank=True, verbose_name=_('Date de fin'),
+        help_text=_('Vide = durée indéterminée')
+    )
+
+    # Renouvellement
+    tacite_reconduction = models.BooleanField(
+        default=False, verbose_name=_('Tacite reconduction')
+    )
+    delai_resiliation_jours = models.IntegerField(
+        null=True, blank=True,
+        verbose_name=_('Délai de résiliation (jours)')
+    )
+    date_prochaine_echeance = models.DateField(
+        null=True, blank=True,
+        verbose_name=_('Prochaine échéance')
+    )
+
+    # Financier
+    montant = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        verbose_name=_('Montant')
+    )
+    devise = models.ForeignKey(
+        'core.Devise', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='+',
+        verbose_name=_('Devise')
+    )
+
+    # Signataires
+    signataire_interne = models.CharField(
+        max_length=255, blank=True,
+        verbose_name=_('Signataire interne')
+    )
+    signataire_externe = models.CharField(
+        max_length=255, blank=True,
+        verbose_name=_('Signataire externe')
+    )
+
+    # Statut
+    statut = models.CharField(
+        max_length=20, choices=STATUT_CHOICES, default='BROUILLON',
+        db_index=True, verbose_name=_('Statut')
+    )
+    notes = models.TextField(blank=True, verbose_name=_('Notes'))
+
+    class Meta:
+        db_table = 'contrats'
+        verbose_name = _('Contrat')
+        verbose_name_plural = _('Contrats')
+        ordering = ['-date_emission', '-created_at']
+        indexes = [
+            models.Index(fields=['client', 'statut']),
+            models.Index(fields=['mandat', 'statut']),
+        ]
+
+    def __str__(self):
+        return f"{self.numero or self.titre} - {self.client}"
+
+    def texte_pour_embedding(self):
+        parts = [
+            f"Contrat: {self.titre}",
+            f"N° {self.numero}" if self.numero else '',
+            f"Client: {self.client.raison_sociale}" if self.client_id else '',
+            f"Catégorie: {self.categorie}" if self.categorie else '',
+            f"Sens: {self.get_sens_display()}",
+            f"Statut: {self.get_statut_display()}",
+            f"Du {self.date_debut}" if self.date_debut else '',
+            f"Au {self.date_fin}" if self.date_fin else 'Durée indéterminée',
+            f"Montant: {self.montant} {self.devise}" if self.montant else '',
+            self.description,
+            self.notes,
+        ]
+        return ' '.join(filter(None, parts))

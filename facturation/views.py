@@ -3,6 +3,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from core.permissions import BusinessPermissionMixin, permission_required_business
+from core.mixins import SearchMixin
 from django.views.generic import ListView, DetailView, CreateView, UpdateView
 from django.db.models import Q, Count, Sum, Avg, F, Max, Min, Prefetch
 from django.urls import reverse_lazy
@@ -14,6 +15,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 import json
 from django.forms import inlineformset_factory
+from core.models import FichierJoint
 from .models import (
     Prestation, TypePrestation, TimeTracking, Facture, LigneFacture, Paiement, Relance,
     ZoneGeographique, TarifMandat,
@@ -69,15 +71,28 @@ def _get_tva_context(mandat=None):
             ).first()
             if special:
                 ctx['taux_tva_special'] = special.taux
+            # Construire la liste de choix TVA pour les templates de ligne
+            taux_actifs = TauxTVA.objects.filter(
+                regime=regime, date_debut__lte=today,
+            ).filter(
+                Q(date_fin__isnull=True) | Q(date_fin__gte=today)
+            ).exclude(type_taux='SSS').order_by('-taux')
+            choices = [('', '— TVA —')]
+            for t in taux_actifs:
+                choices.append((str(t.taux), f"{t.taux}% — {t.get_type_taux_display()}"))
+            choices.append(('0', '0% — Exonéré'))
+            ctx['taux_tva_choices'] = choices
     except Exception:
         pass
+    if 'taux_tva_choices' not in ctx:
+        ctx['taux_tva_choices'] = [('', '— TVA —'), ('0', '0% — Exonéré')]
     return ctx
 
 
 # ============ PRESTATIONS ============
 
 
-class PrestationListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class PrestationListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des prestations"""
 
     model = Prestation
@@ -85,6 +100,7 @@ class PrestationListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     template_name = "facturation/prestation_list.html"
     context_object_name = "prestations"
     paginate_by = 50
+    search_fields = ['code', 'libelle', 'description']
 
     def get_queryset(self):
         queryset = Prestation.objects.select_related("type_prestation").annotate(
@@ -101,7 +117,7 @@ class PrestationListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
         if actif:
             queryset = queryset.filter(actif=actif == "true")
 
-        return queryset.order_by("code")
+        return self.apply_search(queryset.order_by("code"))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -167,7 +183,7 @@ class PrestationUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateVi
 # ============ TIME TRACKING ============
 
 
-class TimeTrackingListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class TimeTrackingListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste du suivi du temps"""
 
     model = TimeTracking
@@ -175,10 +191,12 @@ class TimeTrackingListView(LoginRequiredMixin, BusinessPermissionMixin, ListView
     template_name = "facturation/timetracking_list.html"
     context_object_name = "temps"
     paginate_by = 50
+    search_fields = ['description', 'mandat__numero', 'mandat__client__raison_sociale', 'prestation__libelle', 'utilisateur__first_name', 'utilisateur__last_name']
 
     def get_queryset(self):
         queryset = TimeTracking.objects.select_related(
-            "mandat__client", "utilisateur", "prestation", "facture"
+            "mandat__client", "utilisateur", "prestation", "facture",
+            "position", "operation"
         )
 
         # Filtrer selon le rôle
@@ -192,7 +210,7 @@ class TimeTrackingListView(LoginRequiredMixin, BusinessPermissionMixin, ListView
 
         # Appliquer les filtres
         self.filterset = TimeTrackingFilter(self.request.GET, queryset=queryset)
-        return self.filterset.qs.order_by("-date_travail")
+        return self.apply_search(self.filterset.qs.order_by("-date_travail"))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -287,14 +305,36 @@ class TimeTrackingCreateView(LoginRequiredMixin, BusinessPermissionMixin, Create
                 Decimal("0.01")
             )
 
-        messages.success(self.request, _("Temps enregistré avec succès"))
-        return super().form_valid(form)
+        response = super().form_valid(form)
+
+        # Traitement des pièces jointes
+        fichiers = self.request.FILES.getlist('fichiers')
+        for fichier in fichiers:
+            FichierJoint.objects.create(
+                content_object=self.object,
+                fichier=fichier,
+                nom_original=fichier.name,
+                mime_type=getattr(fichier, 'content_type', ''),
+                taille=fichier.size,
+                created_by=self.request.user,
+            )
+
+        nb_fichiers = len(fichiers)
+        if nb_fichiers:
+            messages.success(
+                self.request,
+                _("Temps enregistré avec %(nb)d pièce(s) jointe(s)") % {'nb': nb_fichiers}
+            )
+        else:
+            messages.success(self.request, _("Temps enregistré avec succès"))
+
+        return response
 
 
 # ============ FACTURES ============
 
 
-class FactureListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class FactureListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des factures"""
 
     model = Facture
@@ -302,6 +342,7 @@ class FactureListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     template_name = "facturation/facture_list.html"
     context_object_name = "factures"
     paginate_by = 50
+    search_fields = ['numero_facture', 'client__raison_sociale', 'mandat__numero', 'notes']
 
     def get_queryset(self):
         queryset = Facture.objects.select_related(
@@ -317,7 +358,7 @@ class FactureListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
 
         # Appliquer les filtres
         self.filterset = FactureFilter(self.request.GET, queryset=queryset)
-        return self.filterset.qs.order_by("-date_emission")
+        return self.apply_search(self.filterset.qs.order_by("-date_emission"))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -379,6 +420,7 @@ class FactureDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView)
                 "creee_par",
                 "validee_par",
                 "facture_origine",
+                "position",
             )
             .prefetch_related(
                 "lignes__prestation", "lignes__temps_factures", "paiements", "relances"
@@ -394,6 +436,11 @@ class FactureDetailView(LoginRequiredMixin, BusinessPermissionMixin, DetailView)
 
         # Relances
         context["relances"] = facture.relances.all().order_by("-date_relance")
+
+        # Business rules
+        context["peut_emettre"], _ = facture.peut_emettre()
+        context["peut_supprimer"], context["raison_no_delete"] = facture.peut_supprimer()
+        context["peut_relancer"], _ = facture.peut_relancer()
 
         # Temps facturés
         temps_factures = TimeTracking.objects.none()
@@ -417,13 +464,22 @@ class FactureCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView)
     template_name = "facturation/facture_form.html"
     business_permission = 'facturation.add_facture'
 
+    def _get_mandat(self):
+        mandat_id = self.request.GET.get("mandat")
+        if mandat_id:
+            return get_object_or_404(Mandat, pk=mandat_id)
+        return None
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['mandat'] = self._get_mandat()
+        return kwargs
+
     def get_initial(self):
         initial = super().get_initial()
 
-        # Préremplir avec le mandat si fourni
-        mandat_id = self.request.GET.get("mandat")
-        if mandat_id:
-            mandat = get_object_or_404(Mandat, pk=mandat_id)
+        mandat = self._get_mandat()
+        if mandat:
             initial["mandat"] = mandat
             initial["client"] = mandat.client
 
@@ -435,12 +491,22 @@ class FactureCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView)
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
+        # Determiner le mandat pour filtrer les comptes produit
+        facture_mandat = None
+        mandat_id = self.request.GET.get("mandat")
+        if mandat_id:
+            facture_mandat = Mandat.objects.filter(pk=mandat_id).first()
+
         if self.request.POST:
             context["formset"] = LigneFactureFormSet(
-                self.request.POST, instance=self.object
+                self.request.POST, instance=self.object,
+                mandat=facture_mandat,
             )
         else:
-            context["formset"] = LigneFactureFormSet(instance=self.object)
+            context["formset"] = LigneFactureFormSet(
+                instance=self.object,
+                mandat=facture_mandat,
+            )
 
         # Prestations pour l'autocomplete
         context["prestations"] = Prestation.objects.filter(actif=True).values(
@@ -448,11 +514,7 @@ class FactureCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView)
         )
 
         # TVA context
-        mandat = None
-        mandat_id = self.request.GET.get("mandat")
-        if mandat_id:
-            mandat = Mandat.objects.filter(pk=mandat_id).first()
-        context.update(_get_tva_context(mandat))
+        context.update(_get_tva_context(facture_mandat))
 
         return context
 
@@ -491,15 +553,26 @@ class FactureUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateView)
         # Ne peut modifier que les factures en brouillon
         return super().get_queryset().filter(statut="BROUILLON")
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['mandat'] = self.object.mandat if self.object else None
+        return kwargs
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
+        facture_mandat = self.object.mandat if self.object else None
+
         if self.request.POST:
             context["formset"] = LigneFactureFormSet(
-                self.request.POST, instance=self.object
+                self.request.POST, instance=self.object,
+                mandat=facture_mandat,
             )
         else:
-            context["formset"] = LigneFactureFormSet(instance=self.object)
+            context["formset"] = LigneFactureFormSet(
+                instance=self.object,
+                mandat=facture_mandat,
+            )
 
         # Prestations pour l'autocomplete
         context["prestations"] = Prestation.objects.filter(actif=True).values(
@@ -579,9 +652,47 @@ def ligne_facture_delete_row(request, index):
 
 @login_required
 @require_http_methods(["POST"])
+def devis_convertir(request, pk):
+    """Convertit un devis en facture"""
+    devis = get_object_or_404(Facture, pk=pk, type_facture='DEVIS')
+
+    try:
+        facture = devis.convertir_en_facture()
+        messages.success(
+            request,
+            _("Devis converti en facture %(numero)s") % {"numero": facture.numero_facture}
+        )
+        return redirect("facturation:facture-detail", pk=facture.pk)
+    except ValueError as e:
+        messages.error(request, str(e))
+        return redirect("facturation:facture-detail", pk=pk)
+
+
+@login_required
+@require_http_methods(["POST"])
 def facture_valider(request, pk):
-    """Valide une facture"""
-    facture = get_object_or_404(Facture, pk=pk, statut="BROUILLON")
+    """Valide une facture (avec vérification des règles métier et conformité régime)"""
+    facture = get_object_or_404(Facture, pk=pk)
+
+    peut, raison = facture.peut_emettre()
+    if not peut:
+        messages.error(request, raison)
+        return redirect("facturation:facture-detail", pk=pk)
+
+    # Générer les mentions légales selon le régime
+    if facture.regime_fiscal_id:
+        from facturation.models import MentionLegale
+        mentions = MentionLegale.objects.filter(
+            regime_fiscal=facture.regime_fiscal,
+            obligatoire=True,
+            is_active=True,
+        ).filter(
+            Q(type_document='TOUS') | Q(type_document=facture.type_facture)
+        ).order_by('ordre')
+        if mentions.exists():
+            textes = [m.texte for m in mentions]
+            facture.mentions_legales_generees = "\n".join(textes)
+            facture.save(update_fields=['mentions_legales_generees'])
 
     try:
         facture.valider(request.user)
@@ -590,6 +701,21 @@ def facture_valider(request, pk):
         messages.error(request, str(e))
 
     return redirect("facturation:facture-detail", pk=pk)
+
+
+@login_required
+@require_http_methods(["POST"])
+def facture_delete(request, pk):
+    """Supprime une facture (uniquement si les règles métier l'autorisent)."""
+    facture = get_object_or_404(Facture, pk=pk)
+    peut, raison = facture.peut_supprimer()
+    if not peut:
+        messages.error(request, raison)
+        return redirect("facturation:facture-detail", pk=pk)
+    mandat_pk = facture.mandat_id
+    facture.delete()
+    messages.success(request, _("Facture supprimée"))
+    return redirect("facturation:facture-list")
 
 
 @login_required
@@ -684,12 +810,13 @@ def facture_envoyer_email(request, pk):
         corps_html = render_to_string('facturation/email/facture_email.html', context)
     except Exception:
         # Template par défaut si le template n'existe pas
+        devise_code = facture.devise.code if facture.devise_id else 'CHF'
         corps_html = f"""
         <html>
         <body>
         <p>Bonjour,</p>
         <p>Veuillez trouver ci-joint la facture N° {facture.numero_facture}
-        d'un montant de CHF {facture.montant_ttc:,.2f}.</p>
+        d'un montant de {devise_code} {facture.montant_ttc:,.2f}.</p>
         <p>Date d'échéance : {facture.date_echeance.strftime('%d.%m.%Y')}</p>
         <p>Nous vous remercions de votre confiance.</p>
         <p>Cordialement,<br>
@@ -699,11 +826,12 @@ def facture_envoyer_email(request, pk):
         """
 
     # Corps texte simple
+    devise_code = facture.devise.code if facture.devise_id else 'CHF'
     corps_texte = f"""
 Bonjour,
 
 Veuillez trouver ci-joint la facture N° {facture.numero_facture}
-d'un montant de CHF {facture.montant_ttc:,.2f}.
+d'un montant de {devise_code} {facture.montant_ttc:,.2f}.
 
 Date d'échéance : {facture.date_echeance.strftime('%d.%m.%Y')}
 
@@ -804,7 +932,7 @@ def ligne_facture_delete(request, pk):
 # facturation/views.py
 
 
-class PaiementListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class PaiementListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des paiements"""
 
     model = Paiement
@@ -812,6 +940,7 @@ class PaiementListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
     template_name = "facturation/paiement_list.html"
     context_object_name = "paiements"
     paginate_by = 50
+    search_fields = ['facture__numero_facture', 'reference', 'notes', 'facture__client__raison_sociale']
 
     def get_queryset(self):
         # Queryset de base
@@ -822,11 +951,11 @@ class PaiementListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
         # Appliquer les filtres SEULEMENT s'il y a des paramètres
         if self.request.GET:
             self.filterset = PaiementFilter(self.request.GET, queryset=queryset)
-            return self.filterset.qs.order_by("-date_paiement")
+            return self.apply_search(self.filterset.qs.order_by("-date_paiement"))
         else:
             # Pas de filtres = tout afficher
             self.filterset = PaiementFilter(queryset=queryset)  # Filterset vide
-            return queryset.order_by("-date_paiement")
+            return self.apply_search(queryset.order_by("-date_paiement"))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -905,12 +1034,23 @@ def paiement_valider(request, pk):
 
 @login_required
 def relance_create(request, facture_pk):
-    """Crée une relance pour une facture"""
+    """Crée une relance pour une facture (système suisse 3 niveaux + mise en demeure)"""
     facture = get_object_or_404(Facture, pk=facture_pk)
+
+    peut, raison = facture.peut_relancer()
+    if not peut:
+        messages.error(request, raison)
+        return redirect("facturation:facture-detail", pk=facture.pk)
 
     try:
         relance = facture.creer_relance(user=request.user)
-        messages.success(request, _("Relance créée avec succès"))
+        info = facture.niveau_relance_suivant()
+        devise_code = facture.devise.code if facture.devise_id else 'CHF'
+        messages.success(
+            request,
+            _("%(label)s créée. Nouvelle échéance: %(jours)s jours, frais: %(frais)s %(devise)s")
+            % {'label': relance.get_niveau_display(), 'jours': 10, 'frais': relance.montant_frais, 'devise': devise_code}
+        )
         return redirect("facturation:facture-detail", pk=facture.pk)
     except Exception as e:
         messages.error(request, str(e))
@@ -1045,7 +1185,7 @@ def get_operations(request):
 # ============ TARIFS MANDAT ============
 
 
-class TarifMandatListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class TarifMandatListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des tarifs mandat"""
 
     model = TarifMandat
@@ -1053,11 +1193,12 @@ class TarifMandatListView(LoginRequiredMixin, BusinessPermissionMixin, ListView)
     template_name = "facturation/tarif_list.html"
     context_object_name = "tarifs"
     paginate_by = 50
+    search_fields = ['mandat__numero', 'prestation__libelle']
 
     def get_queryset(self):
-        return TarifMandat.objects.select_related(
+        return self.apply_search(TarifMandat.objects.select_related(
             "mandat__client", "prestation"
-        ).filter(is_active=True).order_by("mandat", "prestation")
+        ).filter(is_active=True).order_by("mandat", "prestation"))
 
 
 class TarifMandatCreateView(LoginRequiredMixin, BusinessPermissionMixin, CreateView):
@@ -1092,7 +1233,7 @@ class TarifMandatUpdateView(LoginRequiredMixin, BusinessPermissionMixin, UpdateV
 # ============ ZONES GEOGRAPHIQUES ============
 
 
-class ZoneGeographiqueListView(LoginRequiredMixin, BusinessPermissionMixin, ListView):
+class ZoneGeographiqueListView(SearchMixin, LoginRequiredMixin, BusinessPermissionMixin, ListView):
     """Liste des zones géographiques"""
 
     model = ZoneGeographique
@@ -1100,9 +1241,10 @@ class ZoneGeographiqueListView(LoginRequiredMixin, BusinessPermissionMixin, List
     template_name = "facturation/zone_list.html"
     context_object_name = "zones"
     paginate_by = 50
+    search_fields = ['nom', 'description']
 
     def get_queryset(self):
-        return ZoneGeographique.objects.filter(is_active=True).order_by("nom")
+        return self.apply_search(ZoneGeographique.objects.filter(is_active=True).order_by("nom"))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1200,15 +1342,22 @@ def facture_studio(request, pk):
         'blocs_visibles': modele.blocs_visibles if modele else {},
     }
 
+    # Blocs configurables — adaptés au régime fiscal
+    regime = facture.regime_fiscal or getattr(facture.mandat, 'regime_fiscal', None)
+    nom_taxe = regime.nom_taxe if regime else 'TVA'
+    is_swiss = regime and regime.code == 'CH'
+
     blocs_config = [
         ('logo', _('Logo')),
         ('introduction', _('Introduction')),
         ('conclusion', _('Conclusion')),
         ('conditions', _('Conditions de paiement')),
-        ('qr_bill', _('QR-Bill suisse')),
         ('remise', _('Remise')),
-        ('tva', _('TVA')),
+        ('tva', nom_taxe),
     ]
+    # QR-Bill uniquement pour le régime suisse
+    if is_swiss:
+        blocs_config.insert(4, ('qr_bill', _('QR-Bill suisse')))
 
     return render(request, "facturation/facture_studio.html", {
         'facture': facture,
@@ -1219,6 +1368,9 @@ def facture_studio(request, pk):
         'save_url': reverse_lazy('core:modele-pdf-save'),
         'type_document': 'FACTURE',
         'config_extra_template': 'facturation/_studio_config_extra.html',
+        'regime': regime,
+        'is_swiss': is_swiss,
+        'nom_taxe': nom_taxe,
     })
 
 

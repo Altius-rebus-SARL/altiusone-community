@@ -3,10 +3,12 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm, SetPasswordForm
 from django.contrib.auth.models import Permission
 from django.utils.translation import gettext_lazy as _
+from django.forms import inlineformset_factory
 from .models import (
     Client, Entreprise, Mandat, Contact, Tache, Adresse, ExerciceComptable, User,
     TypeMandat, TypeFacturation, Periodicite, Role, AccesMandat, Invitation,
-    CollaborateurFiduciaire, TypeCollaborateur
+    CollaborateurFiduciaire, TypeCollaborateur, CompteBancaire,
+    Contrat, ModeleContrat, Devise, ParametreMetier,
 )
 
 
@@ -65,7 +67,7 @@ class EntrepriseForm(forms.ModelForm):
             ),
             "ofrc_id": forms.TextInput(attrs={"class": "form-control"}),
             "tva_number": forms.TextInput(attrs={"class": "form-control"}),
-            "siege": forms.TextInput(attrs={"class": "form-control"}),
+            "siege": forms.HiddenInput(),
             "canton_rc": forms.Select(attrs={"class": "form-control"}),
             "email": forms.EmailInput(attrs={"class": "form-control"}),
             "telephone": forms.TextInput(attrs={"class": "form-control"}),
@@ -81,6 +83,103 @@ class EntrepriseForm(forms.ModelForm):
             "logo": forms.ClearableFileInput(attrs={"class": "form-control", "accept": "image/*"}),
             "est_defaut": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['siege'].required = False
+
+
+class CompteBancaireForm(forms.ModelForm):
+    """Formulaire pour un compte bancaire d'entreprise"""
+
+    # Override le champ IBAN pour accepter les espaces en saisie (max 42 chars avec espaces)
+    iban = forms.CharField(
+        max_length=42,
+        label=_('IBAN'),
+        help_text=_('International Bank Account Number'),
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "CH93 0076 2011 6238 5295 7"}),
+    )
+
+    class Meta:
+        model = CompteBancaire
+        fields = [
+            "libelle",
+            "type_compte",
+            "iban",
+            "bic_swift",
+            "nom_banque",
+            "adresse_banque",
+            "clearing",
+            "titulaire_nom",
+            "devise",
+            "est_compte_principal",
+            "est_qr_iban",
+            "qr_reference_type",
+            "actif",
+            "notes",
+        ]
+        widgets = {
+            "libelle": forms.TextInput(attrs={"class": "form-control", "placeholder": _("Ex: Compte principal, Compte salaires")}),
+            "type_compte": forms.Select(attrs={"class": "form-control"}),
+            "bic_swift": forms.TextInput(attrs={"class": "form-control", "placeholder": "POFICHBEXXX"}),
+            "nom_banque": forms.TextInput(attrs={"class": "form-control"}),
+            "adresse_banque": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+            "clearing": forms.TextInput(attrs={"class": "form-control"}),
+            "titulaire_nom": forms.TextInput(attrs={"class": "form-control"}),
+            "devise": forms.Select(attrs={"class": "form-control"}),
+            "est_compte_principal": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "est_qr_iban": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "qr_reference_type": forms.Select(attrs={"class": "form-control"}),
+            "actif": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+        }
+
+    def clean_iban(self):
+        """Nettoie l'IBAN : supprime les espaces, met en majuscules, valide le format."""
+        import re
+        iban = self.cleaned_data.get('iban', '')
+        iban = iban.replace(' ', '').upper()
+        if iban and not re.match(r'^[A-Z]{2}\d{2}[A-Z0-9]{4,30}$', iban):
+            raise forms.ValidationError(_('Format IBAN invalide. Ex: CH93 0076 2011 6238 5295 7'))
+        return iban
+
+
+CompteBancaireFormSet = inlineformset_factory(
+    Entreprise,
+    CompteBancaire,
+    form=CompteBancaireForm,
+    extra=1,
+    can_delete=True,
+    min_num=0,
+    validate_min=False,
+)
+
+
+class ContactPrincipalForm(forms.ModelForm):
+    """Formulaire simplifié pour le contact principal lors de la création d'un client"""
+
+    class Meta:
+        model = Contact
+        fields = ["civilite", "nom", "prenom", "fonction", "email", "telephone"]
+        widgets = {
+            "civilite": forms.Select(attrs={"class": "form-control"}),
+            "nom": forms.TextInput(attrs={"class": "form-control"}),
+            "prenom": forms.TextInput(attrs={"class": "form-control"}),
+            "fonction": forms.Select(attrs={"class": "form-control"}),
+            "email": forms.EmailInput(attrs={"class": "form-control"}),
+            "telephone": forms.TextInput(attrs={"class": "form-control"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Seuls nom et prénom sont obligatoires dans ce contexte
+        self.fields['civilite'].required = False
+        self.fields['fonction'].required = False
+        self.fields['email'].required = False
+        self.fields['telephone'].required = False
+        # Choix vide par défaut
+        self.fields['civilite'].choices = [('', '---------')] + list(self.fields['civilite'].choices)
+        self.fields['fonction'].choices = [('', '---------')] + list(self.fields['fonction'].choices)
 
 
 class ClientForm(forms.ModelForm):
@@ -144,11 +243,23 @@ class ClientForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        self.current_user = kwargs.pop('current_user', None)
         super().__init__(*args, **kwargs)
         self.fields['entreprise'].queryset = Entreprise.objects.filter(statut='ACTIVE')
         default = Entreprise.get_default()
-        if default and not self.instance.pk:
+        if default and self.instance._state.adding:
             self.fields['entreprise'].initial = default.pk
+        # IDE optionnel (clients sans registre du commerce, personnes physiques, etc.)
+        self.fields['ide_number'].required = False
+        # Date de création optionnelle (pas toujours connue)
+        self.fields['date_creation'].required = False
+        # Responsable : collaborateurs internes uniquement, optionnel, pré-rempli
+        self.fields['responsable'].queryset = User.objects.filter(
+            is_active=True, type_utilisateur='STAFF'
+        ).order_by('first_name', 'last_name')
+        self.fields['responsable'].required = False
+        if self.current_user and self.instance._state.adding:
+            self.fields['responsable'].initial = self.current_user.pk
 
 
 class MandatForm(forms.ModelForm):
@@ -268,6 +379,7 @@ class MandatForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        self.current_user = kwargs.pop('current_user', None)
         super().__init__(*args, **kwargs)
         # Limiter les choix aux éléments actifs
         self.fields['type_mandat_ref'].queryset = TypeMandat.objects.filter(is_active=True)
@@ -276,9 +388,15 @@ class MandatForm(forms.ModelForm):
         self.fields['periodicite_ref'].label = _('Périodicité')
         self.fields['type_facturation_ref'].queryset = TypeFacturation.objects.filter(is_active=True)
         self.fields['type_facturation_ref'].label = _('Type de facturation')
-        self.fields['equipe'].queryset = User.objects.filter(
+        # Responsable et équipe : collaborateurs internes uniquement
+        staff_qs = User.objects.filter(
             is_active=True, type_utilisateur=User.TypeUtilisateur.STAFF
         ).order_by('first_name', 'last_name')
+        self.fields['responsable'].queryset = staff_qs
+        self.fields['equipe'].queryset = staff_qs
+        # Pré-remplir le responsable avec l'utilisateur connecté (création)
+        if self.current_user and self.instance._state.adding:
+            self.fields['responsable'].initial = self.current_user.pk
 
         # Pré-remplir les champs de configuration depuis le JSONField
         if self.instance and self.instance.pk:
@@ -1092,3 +1210,79 @@ class CollaborateurFiduciaireForm(forms.ModelForm):
 
         # Mandats actifs uniquement
         self.fields['mandat'].queryset = Mandat.objects.filter(statut='ACTIF')
+
+
+# ============================================================================
+# CONTRATS
+# ============================================================================
+
+class ContratForm(forms.ModelForm):
+    """Formulaire pour un contrat"""
+
+    class Meta:
+        model = Contrat
+        fields = [
+            "client",
+            "mandat",
+            "titre",
+            "numero",
+            "description",
+            "categorie",
+            "sens",
+            "modele_source",
+            "date_emission",
+            "date_signature",
+            "date_debut",
+            "date_fin",
+            "tacite_reconduction",
+            "delai_resiliation_jours",
+            "date_prochaine_echeance",
+            "montant",
+            "devise",
+            "signataire_interne",
+            "signataire_externe",
+            "statut",
+            "notes",
+        ]
+        widgets = {
+            "client": forms.Select(attrs={"class": "form-control select2"}),
+            "mandat": forms.Select(attrs={"class": "form-control select2"}),
+            "titre": forms.TextInput(attrs={"class": "form-control"}),
+            "numero": forms.TextInput(attrs={"class": "form-control", "placeholder": "CTR-XXXX"}),
+            "description": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+            "categorie": forms.Select(attrs={"class": "form-control"}),
+            "sens": forms.Select(attrs={"class": "form-control"}),
+            "modele_source": forms.Select(attrs={"class": "form-control select2"}),
+            "date_emission": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "date_signature": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "date_debut": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "date_fin": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "tacite_reconduction": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "delai_resiliation_jours": forms.NumberInput(attrs={"class": "form-control"}),
+            "date_prochaine_echeance": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "montant": forms.NumberInput(attrs={"class": "form-control", "step": "0.01"}),
+            "devise": forms.Select(attrs={"class": "form-control"}),
+            "signataire_interne": forms.TextInput(attrs={"class": "form-control"}),
+            "signataire_externe": forms.TextInput(attrs={"class": "form-control"}),
+            "statut": forms.Select(attrs={"class": "form-control"}),
+            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Clients actifs uniquement
+        self.fields['client'].queryset = Client.objects.filter(is_active=True).order_by('raison_sociale')
+        # Mandats actifs uniquement
+        self.fields['mandat'].queryset = Mandat.objects.filter(statut='ACTIF').select_related('client')
+        self.fields['mandat'].required = False
+        # Devises actives
+        self.fields['devise'].queryset = Devise.objects.filter(actif=True)
+        self.fields['devise'].required = False
+        # Modèles de contrat actifs
+        self.fields['modele_source'].queryset = ModeleContrat.objects.filter(is_active=True)
+        self.fields['modele_source'].required = False
+        # Catégorie depuis ParametreMetier
+        self.fields['categorie'].widget = forms.Select(attrs={"class": "form-control"})
+        self.fields['categorie'].choices = [('', '---------')] + ParametreMetier.get_choices(
+            'contrats', 'type_contrat'
+        )

@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Tutoriels vidéo" %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row m-1">
+    <div class="col-12">
+        <h4 class="main-title">{% trans "Tutoriels vidéo" %}</h4>
+        <ul class="app-line-breadcrumbs mb-3">
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'core:dashboard' %}">
+                    <span><i class="ph-duotone ph-house f-s-16"></i> {% trans "Tableau de bord" %}</span>
+                </a>
+            </li>
+            <li>
+                <a class="f-s-14 f-w-500" href="{% url 'support:hub' %}">
+                    <span><i class="ph-duotone ph-lifebuoy f-s-16"></i> {% trans "Support" %}</span>
+                </a>
+            </li>
+            <li class="active">
+                <a class="f-s-14 f-w-500" href="#">{% trans "Vidéos" %}</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body py-2">
+                <form method="get" class="d-flex gap-2 align-items-center">
+                    <div class="position-relative flex-grow-1 app-form app-icon-form">
+                        <input type="search" name="q" class="form-control search"
+                               placeholder="{% trans 'Rechercher un tutoriel...' %}"
+                               value="{{ request.GET.q }}">
+                        <i class="ti ti-search text-dark"></i>
+                    </div>
+                    <select name="categorie" class="form-select select-basic" style="max-width: 200px;" onchange="this.form.submit()">
+                        <option value="">{% trans "Toutes les catégories" %}</option>
+                        {% for cat in categories %}
+                        <option value="{{ cat.code }}" {% if current_categorie == cat.code %}selected{% endif %}>
+                            {{ cat.nom }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="ph ph-magnifying-glass"></i>
+                    </button>
+                    {% if request.GET.q or current_categorie %}
+                    <a href="{% url 'support:video-list' %}" class="btn btn-light btn-sm">
+                        <i class="ph ph-x"></i>
+                    </a>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Video grid -->
+<div class="row">
+    {% for video in videos %}
+    <div class="col-md-6 col-lg-4 mb-3">
+        <div class="card h-100 border-0 shadow-sm overflow-hidden">
+            <a href="{{ video.youtube_url }}" target="_blank" rel="noopener" class="position-relative d-block">
+                <img src="{{ video.thumbnail_url }}" alt="{{ video.titre }}"
+                     class="card-img-top" style="height: 200px; object-fit: cover;">
+                <div class="position-absolute top-50 start-50 translate-middle">
+                    <div class="h-60 w-60 d-flex-center rounded-circle bg-dark bg-opacity-75">
+                        <i class="ph-fill ph-play text-white f-s-28"></i>
+                    </div>
+                </div>
+                {% if video.duree_display %}
+                <span class="position-absolute bottom-0 end-0 m-2 badge bg-dark bg-opacity-75 f-s-12">
+                    <i class="ph ph-clock me-1"></i>{{ video.duree_display }}
+                </span>
+                {% endif %}
+            </a>
+            <div class="card-body">
+                <h6 class="mb-2">
+                    <a href="{{ video.youtube_url }}" target="_blank" rel="noopener" class="text-dark text-decoration-none">
+                        {{ video.titre }}
+                    </a>
+                </h6>
+                {% if video.description %}
+                <p class="text-muted f-s-13 mb-2">{{ video.description|truncatewords:15 }}</p>
+                {% endif %}
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="badge bg-light-{{ video.categorie.couleur|default:'primary' }} text-{{ video.categorie.couleur|default:'primary' }} f-s-10">
+                        {{ video.categorie.nom }}
+                    </span>
+                    <a href="{{ video.youtube_url }}" target="_blank" rel="noopener" class="btn btn-sm btn-light-danger">
+                        <i class="ph-fill ph-youtube-logo me-1"></i>{% trans "Regarder" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="ph ph-video f-s-48 text-muted d-block mb-3"></i>
+                <p class="text-muted">{% trans "Aucun tutoriel vidéo trouvé." %}</p>
+                {% if request.GET.q or current_categorie %}
+                <a href="{% url 'support:video-list' %}" class="btn btn-sm btn-light-primary">
+                    {% trans "Réinitialiser les filtres" %}
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Pagination -->
+{% if is_paginated %}
+<nav class="mt-3">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if current_categorie %}&categorie={{ current_categorie }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                &laquo;
+            </a>
+        </li>
+        {% endif %}
+        <li class="page-item active">
+            <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+        </li>
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if current_categorie %}&categorie={{ current_categorie }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                &raquo;
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}

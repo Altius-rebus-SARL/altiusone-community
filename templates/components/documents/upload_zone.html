@@ -1,0 +1,89 @@
+{% comment %}
+Composant réutilisable : Zone de drag-and-drop pour upload de fichiers.
+
+Usage:
+  {% include "components/documents/upload_zone.html" with input_id="id_fichier" max_size_mb=50 %}
+
+Paramètres:
+  - input_id : ID du champ input file (défaut: "id_fichier")
+  - max_size_mb : taille max en Mo (défaut: 50)
+{% endcomment %}
+{% load i18n %}
+
+{% with field_id=input_id|default:"id_fichier" max_mb=max_size_mb|default:"50" %}
+<div class="upload-zone border-2 border-dashed rounded-3 p-4 text-center"
+     id="upload-zone-{{ field_id }}"
+     style="border-color: #dee2e6; cursor: pointer; transition: all 0.3s;"
+     ondragover="event.preventDefault(); this.classList.add('border-primary', 'bg-light-primary');"
+     ondragleave="this.classList.remove('border-primary', 'bg-light-primary');"
+     ondrop="event.preventDefault(); this.classList.remove('border-primary', 'bg-light-primary'); document.getElementById('{{ field_id }}').files = event.dataTransfer.files; handleFileSelect(document.getElementById('{{ field_id }}'));"
+     onclick="document.getElementById('{{ field_id }}').click();">
+
+    <div id="upload-placeholder-{{ field_id }}">
+        <i class="ph-duotone ph-cloud-arrow-up text-muted" style="font-size: 48px;"></i>
+        <p class="text-muted mt-2 mb-1">{% trans "Glissez-déposez votre fichier ici" %}</p>
+        <p class="text-muted small mb-0">
+            {% trans "ou cliquez pour sélectionner" %} &mdash; {% blocktrans with max=max_mb %}Max {{ max }} Mo{% endblocktrans %}
+        </p>
+        <p class="text-muted small mt-1">
+            <i class="ph ph-info me-1"></i>
+            {% trans "Formats acceptés : PDF, Word, Excel, Images (JPG, PNG), CSV, TXT" %}
+        </p>
+    </div>
+
+    <div id="upload-selected-{{ field_id }}" class="d-none">
+        <i class="ph-duotone ph-check-circle text-success" style="font-size: 36px;"></i>
+        <p class="fw-medium mt-2 mb-0" id="upload-filename-{{ field_id }}"></p>
+        <p class="text-muted small mb-0" id="upload-filesize-{{ field_id }}"></p>
+        <button type="button" class="btn btn-sm btn-outline-danger mt-2"
+                onclick="event.stopPropagation(); resetFileInput('{{ field_id }}');">
+            <i class="ph ph-x me-1"></i>{% trans "Retirer" %}
+        </button>
+    </div>
+</div>
+
+<script>
+function handleFileSelect(input) {
+    const fieldId = input.id;
+    const placeholder = document.getElementById('upload-placeholder-' + fieldId);
+    const selected = document.getElementById('upload-selected-' + fieldId);
+    const nameEl = document.getElementById('upload-filename-' + fieldId);
+    const sizeEl = document.getElementById('upload-filesize-' + fieldId);
+    const maxMb = {{ max_mb }};
+
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+
+        // Vérifier la taille
+        if (file.size > maxMb * 1024 * 1024) {
+            alert('{% trans "Le fichier est trop volumineux. Taille maximale :" %} ' + maxMb + ' Mo');
+            input.value = '';
+            return;
+        }
+
+        nameEl.textContent = file.name;
+        sizeEl.textContent = formatFileSize(file.size);
+        placeholder.classList.add('d-none');
+        selected.classList.remove('d-none');
+    }
+}
+
+function resetFileInput(fieldId) {
+    const input = document.getElementById(fieldId);
+    const placeholder = document.getElementById('upload-placeholder-' + fieldId);
+    const selected = document.getElementById('upload-selected-' + fieldId);
+
+    input.value = '';
+    placeholder.classList.remove('d-none');
+    selected.classList.add('d-none');
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 o';
+    const k = 1024;
+    const sizes = ['o', 'Ko', 'Mo', 'Go'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+</script>
+{% endwith %}

@@ -52,28 +52,29 @@
                data-row-index="{{ index }}">
     </td>
     <td>
-        <input type="number" 
-               name="{{ ligne_form.prefix }}-taux_tva" 
-               value="{{ taux_tva_defaut|default:'0' }}"
-               step="0.01" 
-               class="form-control tva-input" 
-               id="id_{{ ligne_form.prefix }}-taux_tva"
-               data-row-index="{{ index }}">
+        <select name="{{ ligne_form.prefix }}-taux_tva"
+                class="form-control tva-input"
+                id="id_{{ ligne_form.prefix }}-taux_tva"
+                data-row-index="{{ index }}">
+            {% for val, label in taux_tva_choices %}
+            <option value="{{ val }}" {% if val == taux_tva_defaut|default:'0' %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+            {% if not taux_tva_choices %}
+            <option value="0" selected>0% — Exonéré</option>
+            {% endif %}
+        </select>
     </td>
     <td class="text-end">
         <span class="ligne-total" data-row-index="{{ index }}">0.00</span> {{ DEVISE_CODE }}
     </td>
     <td>
-        <input type="checkbox" 
-               name="{{ ligne_form.prefix }}-DELETE" 
-               class="d-none" 
+        <input type="checkbox"
+               name="{{ ligne_form.prefix }}-DELETE"
+               class="d-none delete-checkbox"
                id="id_{{ ligne_form.prefix }}-DELETE">
-        <button type="button" 
+        <button type="button"
                 class="btn btn-sm btn-danger delete-ligne"
-                hx-delete="{% url 'facturation:ligne-delete-row' index %}"
-                hx-target="#ligne-row-{{ index }}"
-                hx-swap="outerHTML swap:1s"
-                hx-confirm="Supprimer cette ligne ?"
+                onclick="supprimerLigne(this)"
                 title="Supprimer">
             <i class="ph ph-trash"></i>
         </button>

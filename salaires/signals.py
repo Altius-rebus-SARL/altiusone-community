@@ -30,7 +30,7 @@ def notifier_nouvel_employe(sender, instance, created, **kwargs):
 @receiver(pre_save, sender=FicheSalaire)
 def calculer_fiche_salaire(sender, instance, **kwargs):
     """Calcule automatiquement tous les montants de la fiche de salaire"""
-    if not instance.statut == 'VALIDE':  # Ne recalcule pas si déjà validée
+    if instance.statut != 'VALIDE':
         instance.calculer()
 
 

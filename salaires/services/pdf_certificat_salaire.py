@@ -104,6 +104,7 @@ class CertificatSalairePDF:
         self.employe = certificat.employe
         self.client = certificat.employe.mandat.client
         self.adresse_client = self.client.adresse_siege
+        self.devise_code = certificat.employe.mandat.devise_id or 'CHF'
         self.style_config = style_config
         if style_config:
             from salaires.services.pdf_styles import get_salaires_styles_custom
@@ -194,7 +195,10 @@ class CertificatSalairePDF:
         # A. Employeur
         a_text = client.raison_sociale
         if adr:
-            a_text += f"<br/>{adr.rue} {adr.numero or ''}<br/>{adr.code_postal} {adr.localite}"
+            rue = adr.rue.strip()
+            if adr.numero and adr.numero not in rue:
+                rue = f"{rue} {adr.numero}"
+            a_text += f"<br/>{rue}<br/>{adr.code_postal} {adr.localite}"
         data.append([
             Paragraph("A.", sect_label),
             Paragraph("Employeur / Caisse AVS:", sect_label),
@@ -249,7 +253,10 @@ class CertificatSalairePDF:
         adresse_emp = emp.adresse
         e_text = ""
         if adresse_emp:
-            e_text = f"{adresse_emp.rue} {adresse_emp.numero or ''}, {adresse_emp.code_postal} {adresse_emp.localite}"
+            rue_emp = adresse_emp.rue.strip()
+            if adresse_emp.numero and adresse_emp.numero not in rue_emp:
+                rue_emp = f"{rue_emp} {adresse_emp.numero}"
+            e_text = f"{rue_emp}, {adresse_emp.code_postal} {adresse_emp.localite}"
 
         data = [
             [Paragraph("C.", sect_label), Paragraph("AVS / Periode:", sect_label), Paragraph(c_text, sect_value)],
@@ -372,7 +379,7 @@ class CertificatSalairePDF:
             return [
                 Paragraph("", section_style),
                 Paragraph(text, section_style),
-                Paragraph("CHF", section_style),
+                Paragraph(self.devise_code, section_style),
             ]
 
         # Build all rows

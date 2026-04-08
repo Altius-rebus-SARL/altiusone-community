@@ -139,7 +139,7 @@
 
 <script>
 (function() {
-    const _d = window.ALTIUSONE_DEVISE || { code: '{{ DEVISE_CODE }}', taux: 1 };
+    const devise = window.ALTIUSONE_DEVISE || { code: '{{ DEVISE_CODE }}', taux: 1 };
     const labels = {{ chart_labels_json|safe }};
     const prevu = {{ chart_prevu_json|safe }};
     const reel = {{ chart_reel_json|safe }};
@@ -160,7 +160,7 @@
             legend: { position: 'top' },
             dataLabels: { enabled: false },
             tooltip: {
-                y: { formatter: val => (val * _d.taux).toLocaleString('fr-CH') + ' ' + _d.code }
+                y: { formatter: val => (val * devise.taux).toLocaleString('fr-CH') + ' ' + devise.code }
             }
         }).render();
     }
@@ -177,7 +177,7 @@
                 formatter: function(val) { return val.toFixed(0) + '%'; }
             },
             tooltip: {
-                y: { formatter: val => (val * _d.taux).toLocaleString('fr-CH') + ' ' + _d.code }
+                y: { formatter: val => (val * devise.taux).toLocaleString('fr-CH') + ' ' + devise.code }
             }
         }).render();
     }
